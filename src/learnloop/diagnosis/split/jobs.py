@@ -388,8 +388,33 @@ def _receipt_for_storage(outcome: DiagnosisOutcome) -> dict[str, Any]:
     }
 
 
+#: One diagnosis's embedding retrieval (the hybrid attempt index, the
+#: registry shortlist, any embed-on-demand they need): metered and priced.
+RETRIEVAL_CAPS = SpendCaps(
+    max_candidates=400,
+    max_pairs=0,
+    max_retries=1,
+    max_calls=8,
+    max_total_tokens=400_000,
+    max_estimated_usd=0.05,
+)
+
+
+class _NoRegistryIndex:
+    """Embeddings are on but no client is ready: the exact registry set, recorded (S6)."""
+
+    model_id = None
+
+    def registry_knn(self, current: Any, records: Any, *, limit: int) -> Any:
+        from learnloop.diagnosis.split.context import RegistryShortlist
+
+        return RegistryShortlist(method="exact_fallback", error="no_embedding_client")
+
+
 def _hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_factory: ClientFactory | None) -> Any | None:
-    """S1.4b: the live kNN retriever, or None (then hybrid degrades to exact, S6)."""
+    """The live kNN retriever (S1.4b hybrid index, S1.4a registry shortlist),
+    or None (then hybrid degrades to exact and the registry block is the
+    exact set, S6)."""
 
     if embedding_factory is None:
         return None
@@ -400,10 +425,10 @@ def _hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_fact
     if client is None:
         return None
     from learnloop.ai.spend import SpendBudget
-    from learnloop.diagnosis.split.embeddings import LIVE_CAPS, PRICES_PER_MILLION
+    from learnloop.diagnosis.split.embeddings import PRICES_PER_MILLION
     from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 
-    budget = SpendBudget(LIVE_CAPS)
+    budget = SpendBudget(RETRIEVAL_CAPS)
     price = PRICES_PER_MILLION.get(getattr(client, "model_id", ""))
 
     def guard(_purpose: str, tokens: int):
@@ -576,9 +601,18 @@ def _diagnose(
         return repository.attempt_diagnosis(row_id)
     rubric = resolved_rubric(vault, item)
     store = live_history_store(vault, repository)
-    retriever = (
+    # One embedding retriever per diagnosis: the hybrid attempt index (S1.4b,
+    # hybrid mode only) and the whole-vault registry shortlist (S1.4a, every
+    # mode once embeddings are on).
+    embedder = (
         _hybrid_retriever(vault, repository, embedding_factory)
-        if settings.history_mode == "hybrid"
+        if settings.history_mode == "hybrid" or vault.config.embedding.enabled
+        else None
+    )
+    retriever = embedder if settings.history_mode == "hybrid" else None
+    registry_retriever = (
+        (embedder if embedder is not None else _NoRegistryIndex())
+        if vault.config.embedding.enabled
         else None
     )
     if retriever is not None:
@@ -629,6 +663,7 @@ def _diagnose(
                 settings=settings,
                 retriever=retriever,
                 guard=guard,
+                registry_retriever=registry_retriever,
             )
     except AIInterrupted as exc:  # includes SpendCancelled
         reason = "cancelled" if not admitted["requests"] else "interrupted"

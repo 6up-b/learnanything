@@ -111,3 +111,105 @@ def test_hybrid_mode_uses_knn_and_degrades_to_exact_without_embeddings(tmp_path)
     fallback = repository.latest_attempt_diagnosis(second.attempt_id)
     assert fallback["status"] == "completed"
     assert repository.diagnosis_context_receipt(fallback["id"])["retrieval"]["method"] == "exact_fallback"
+
+
+def test_the_registry_shortlist_reaches_the_diagnosis_context_as_of_the_attempt(tmp_path):
+    """Review F8 (§5.2, §9.4): with S1.4a on, the diagnosis context adds a kNN
+    shortlist over the WHOLE vault registry (here a belief on an LO outside
+    the neighborhood), as of the diagnosed attempt, with provenance; without
+    embeddings it falls back to the exact registry set."""
+
+    import json as _json
+
+    from tests.diagnosis_fakes import prompt_payload
+
+    paths, vault, repository = _embedding_vault(tmp_path)
+    unrelated_event = repository.raw_error_events_for_attempt("att_02_svd_fail")[0]["id"]
+    far_id = repository.insert_misconception(
+        learning_object_id="lo_unrelated",
+        statement="The learner applies the rule in the wrong order.",
+        concept_id="unrelated_topic",
+        severity=0.5,
+        source_error_event_ids=[unrelated_event],
+        clock=FrozenClock(at(9)),
+    )
+    later_id = repository.insert_misconception(
+        learning_object_id="lo_unrelated",
+        statement="A belief recorded only after the diagnosed answer.",
+        concept_id="unrelated_topic",
+        severity=0.5,
+        source_error_event_ids=[unrelated_event],
+        clock=FrozenClock(at(40)),
+    )
+    client = ReviewFakeClient()
+    embedder = FakeEmbeddingClient()
+    result = submit(vault, repository, client, when=at(20))
+    drain_jobs(vault, repository, client, embedding=embedder, clock=FrozenClock(at(21)))
+
+    prompt = prompt_payload(client.prompts[client.calls.index("diagnosis")])
+    offered = {row["id"] for row in prompt["context"]["registry_candidates"]}
+    assert far_id in offered and later_id not in offered
+    diagnosis = repository.latest_attempt_diagnosis(result.attempt_id)
+    receipt = repository.diagnosis_context_receipt(diagnosis["id"])
+    shortlist = receipt["retrieval"]["registry_retrieval"]
+    assert shortlist["method"] == "knn" and shortlist["model_id"] == embedder.model_id
+    assert f"durable:{far_id}" in shortlist["knn_only_registry_ids"]
+    assert far_id in receipt["registry_candidate_ids"]
+    assert all(row["source"] in {"knn", "both"} for row in shortlist["matches"])
+    assert _vector_count(repository, "misconception") >= 1
+
+    # No embedding client: the exact registry set, recorded as the fallback.
+    second = submit(vault, repository, client, item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(22))
+    drain_jobs(vault, repository, client, embedding=None, clock=FrozenClock(at(23)))
+    fallback = repository.latest_attempt_diagnosis(second.attempt_id)
+    fallback_receipt = repository.diagnosis_context_receipt(fallback["id"])
+    assert fallback_receipt["retrieval"]["registry_retrieval"]["method"] == "exact_fallback"
+    assert far_id not in fallback_receipt["registry_candidate_ids"]
+    assert _json.dumps(fallback_receipt["retrieval"]["registry_retrieval"]["knn_only_registry_ids"]) == "[]"
+
+
+def test_the_diagnoser_may_match_a_shortlisted_belief_from_outside_the_neighborhood(tmp_path):
+    """Review F8: the shortlist is part of the closed world, so the
+    diagnoser's registry_match on it validates (identity stays its call)."""
+
+    from learnloop.diagnosis.split.contract import RegistryMatch
+
+    paths, vault, repository = _embedding_vault(tmp_path)
+    source = repository.raw_error_events_for_attempt("att_02_svd_fail")[0]["id"]
+    far_id = repository.insert_misconception(
+        learning_object_id="lo_unrelated",
+        statement="The learner applies the rule in the wrong order.",
+        concept_id="unrelated_topic",
+        severity=0.5,
+        source_error_event_ids=[source],
+        clock=FrozenClock(at(9)),
+    )
+
+    class MatchFar(ReviewFakeClient):
+        def _diagnosis(self, request, context):
+            result = super()._diagnosis(request, context)
+            offered = {row["id"] for row in context.get("registry_candidates") or []}
+            assert far_id in offered
+            events = [
+                event.model_copy(update={
+                    "misconception_statement": "The learner applies the rule in the wrong order.",
+                    "registry_match": RegistryMatch(kind="durable", id=far_id),
+                })
+                for event in result.event_diagnoses
+            ]
+            return result.model_copy(update={"event_diagnoses": events})
+
+    client = MatchFar()
+    result = submit(vault, repository, client, when=at(20))
+    drain_jobs(vault, repository, client, embedding=FakeEmbeddingClient(), clock=FrozenClock(at(21)))
+
+    diagnosis = repository.latest_attempt_diagnosis(result.attempt_id)
+    assert diagnosis["status"] == "completed"
+    assert diagnosis["validation_report"].get("unknown_id_count", 0) == 0
+    matches = {
+        (event["registry_match"]["kind"], event["registry_match"].get("id"))
+        for event in diagnosis["proposal"]["event_diagnoses"]
+    }
+    assert matches == {("durable", far_id)}
+    # Merging an event into a belief owned by another LO stays outside
+    # normalization's LO/confusable scope (promotion rules unchanged).

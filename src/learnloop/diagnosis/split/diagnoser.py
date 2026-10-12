@@ -20,6 +20,7 @@ from learnloop.diagnosis.split.context import (
     AssembledContext,
     CurrentAttempt,
     HistoryRetriever,
+    RegistryRetriever,
     assemble_diagnosis_context,
 )
 from learnloop.diagnosis.split.contract import diagnosis_prompt, request_diagnosis_proposal
@@ -93,6 +94,7 @@ def run_diagnosis(
     guard: CallGuard | None = None,
     snapshot_parent: Path | None = None,
     token_budget: int | None = None,
+    registry_retriever: RegistryRetriever | None = None,
 ) -> DiagnosisOutcome:
     """Diagnose one blind-graded attempt in one history mode.
 
@@ -125,6 +127,7 @@ def run_diagnosis(
                     mode=mode,
                     snapshot_manifest=manifest.as_context_note(),
                     token_budget=token_budget,
+                    registry_retriever=registry_retriever,
                 )
                 outcome.receipt = dict(assembled.receipt)
                 outcome.context_hash = assembled.context_hash
@@ -155,6 +158,7 @@ def run_diagnosis(
                 mode=mode,
                 retriever=retriever,
                 token_budget=token_budget,
+                registry_retriever=registry_retriever,
             )
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash

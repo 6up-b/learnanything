@@ -113,21 +113,35 @@ def hypothesis_records(
     return records
 
 
+def misconception_record(record_id: str, statement: str) -> EmbeddingRecord | None:
+    """The ``misconception/statement`` record of one registry entry.
+
+    ``record_id`` is ``durable:<id>`` or ``candidate:<id>``. Embed-on-write,
+    the backfill and the diagnosis registry shortlist all key vectors this
+    way, so a vector one of them paid for is reused by the others.
+    """
+
+    text = str(statement or "").strip()
+    if not text:
+        return None
+    return _record(MISCONCEPTION_KIND, MISCONCEPTION_FIELD, MISCONCEPTION_VERSION, record_id, text)
+
+
 def misconception_records(repository: Repository) -> list[EmbeddingRecord]:
     """Durable beliefs plus legacy holding-pen rows (§9.3)."""
 
     records: list[EmbeddingRecord] = []
     with repository.connection() as connection:
         for row in connection.execute("SELECT id, statement FROM misconceptions ORDER BY created_at, id"):
-            text = str(row[1] or "").strip()
-            if text:
-                records.append(_record(MISCONCEPTION_KIND, MISCONCEPTION_FIELD, MISCONCEPTION_VERSION, f"durable:{row[0]}", text))
+            record = misconception_record(f"durable:{row[0]}", row[1])
+            if record is not None:
+                records.append(record)
         for row in connection.execute(
             "SELECT id, statement FROM misconception_candidates WHERE status = 'candidate' ORDER BY created_at, id"
         ):
-            text = str(row[1] or "").strip()
-            if text:
-                records.append(_record(MISCONCEPTION_KIND, MISCONCEPTION_FIELD, MISCONCEPTION_VERSION, f"candidate:{row[0]}", text))
+            record = misconception_record(f"candidate:{row[0]}", row[1])
+            if record is not None:
+                records.append(record)
     return records
 
 

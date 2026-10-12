@@ -29,10 +29,13 @@ from learnloop.db.connection import connect
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector, retrieve
 from learnloop.diagnosis.split.context import (
     CurrentAttempt,
+    RegistryNeighbor,
+    RegistryShortlist,
     RetrievalMatch,
     RetrievalResult,
+    registry_key,
 )
-from learnloop.diagnosis.split.history import HistoryAttempt
+from learnloop.diagnosis.split.history import HistoryAttempt, RegistryRecord
 
 RECORD_KIND = "attempt"
 FIELD = "divergence"
@@ -205,6 +208,89 @@ class EmbeddingHistoryRetriever:
             model_id=self.client.model_id,
             matches=tuple(
                 RetrievalMatch(attempt_id=match.record_id, score=match.score, rank=rank)
+                for rank, match in enumerate(matches, start=1)
+            ),
+        )
+
+    def registry_knn(
+        self,
+        current: CurrentAttempt,
+        records: Sequence[RegistryRecord],
+        *,
+        limit: int,
+    ) -> RegistryShortlist:
+        """Rank the as-of registry by the current failure (S1.4a shortlist).
+
+        Model completeness: every record in ``records`` must have a current
+        ``misconception/statement`` vector under this model before anything
+        is ranked (the index is centred over exactly these records). Missing
+        or stale ones are embedded first, admitted by ``guard``; any failure,
+        refusal or incomplete index is ``exact_fallback`` (S6), never a
+        partial ranking.
+        """
+
+        from learnloop.diagnosis.split.embeddings import (
+            MISCONCEPTION_FIELD,
+            MISCONCEPTION_KIND,
+            TASK_PREFIX,
+            misconception_record,
+        )
+
+        try:
+            expected: dict[str, str] = {}
+            pending = []
+            with closing(connect(self.sqlite_path, read_only=True)) as connection:
+                for record in records:
+                    embedded = misconception_record(registry_key(record), record.statement)
+                    if embedded is None:
+                        continue
+                    expected[embedded.record_id] = embedded.content_hash
+                    if get_vector(
+                        connection,
+                        record_kind=MISCONCEPTION_KIND,
+                        record_id=embedded.record_id,
+                        field=MISCONCEPTION_FIELD,
+                        content_hash=embedded.content_hash,
+                        model_id=self.client.model_id,
+                        task_prefix=TASK_PREFIX,
+                    ) is None:
+                        pending.append(embedded)
+            for offset in range(0, len(pending), self.batch_size):
+                batch = pending[offset:offset + self.batch_size]
+                vectors = self._embed([record.text for record in batch], TASK_PREFIX, "embedding:misconception_statement")
+                with closing(connect(self.sqlite_path)) as connection, connection:
+                    for record, vector in zip(batch, vectors, strict=True):
+                        put_vector(
+                            connection,
+                            record_kind=MISCONCEPTION_KIND,
+                            record_id=record.record_id,
+                            field=MISCONCEPTION_FIELD,
+                            content_hash=record.content_hash,
+                            model_id=self.client.model_id,
+                            task_prefix=TASK_PREFIX,
+                            vector=vector,
+                        )
+            if not expected:
+                return RegistryShortlist(method="knn", model_id=self.client.model_id)
+            query = self._embed([current_divergence_text(current)], QUERY_PREFIX, "embedding:misconception_query")[0]
+            with closing(connect(self.sqlite_path, read_only=True)) as connection:
+                matches = retrieve(
+                    connection,
+                    record_kind=MISCONCEPTION_KIND,
+                    field=MISCONCEPTION_FIELD,
+                    model_id=self.client.model_id,
+                    task_prefix=TASK_PREFIX,
+                    query=query,
+                    expected_records=expected,
+                    limit=limit,
+                )
+        except Exception as exc:  # noqa: BLE001 - S6: retrieval never fails a diagnosis
+            return RegistryShortlist(method="exact_fallback", model_id=self.client.model_id, error=type(exc).__name__)
+        return RegistryShortlist(
+            method="knn",
+            model_id=self.client.model_id,
+            matches=tuple(
+                RegistryNeighbor(key=match.record_id, score=match.score, rank=rank)
                 for rank, match in enumerate(matches, start=1)
             ),
         )
