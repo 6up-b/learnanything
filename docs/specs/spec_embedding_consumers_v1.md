@@ -307,11 +307,12 @@ Items without a family keep today's behaviour. Vaults with no families load and 
   - *Revised 2026-10-11:* within each LO, an LLM judge decides "same retrieval target?" for **every pair** of items. At n=1 that's at most a few hundred pairs per vault.
     - It needs no embedding cutoff, no skeletons, and nothing from B2. Skeletons and B2 arrive with PF-b.
     - LOs with more than `families.max_exhaustive_items` items (default 40) first block candidates with stem embeddings at a recall-oriented top-k. The judge still decides (R1).
-  - Every judge verdict appends to `judgment_ledger` (task `same_target`, judge `llm`, §5.8). Proposals wait in `family_proposals` (WORKFLOW, queue state only) for owner accept/reject, in batches of 25 that can be deferred. Each accept/reject also appends to the ledger (judge `owner`), so the judge's agreement with you is measurable.
-  - A rebuild reads accepted vault content and never re-judges.
+  - Every judge verdict appends to `judgment_ledger` (task `same_target`, judge `llm`, §5.8). It is revised 2026-10-11 for frictionless defaults (owner):
+    - **Auto-accept.** A family is applied automatically when the judge is confident: two passes with different prompts agree on every pair inside it.
+    - **Ambiguous items** simply stay unfamilied. There is no review queue.
+    - **Undo.** `family_proposals` (WORKFLOW) keeps the applied decisions so any family can be undone in one step, from the item or LO view or by `learnloop families undo`. An undo appends an owner verdict to the ledger, so the judge's error rate stays measurable without asking for reviews.
+  - A rebuild reads applied vault content and never re-judges.
   - The judge runs under Slice A's spend controls: caps, dry-run estimate, resumable.
-
-  Nothing becomes a family without that acceptance.
 - **Replay report (the promotion gate).** On the owner's graded log, it reports time-ordered next-event log loss and Brier score, with memory state keyed:
   1. per item (today);
   2. per family;
@@ -445,13 +446,13 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
   - PF builds the shared `learnloop embeddings compare` harness (§4).
 - **Pilot (PF-b's first run; its report tunes the filters and does not gate publishing, revised 2026-10-11).** One textbook chapter with generator families, and one paper or repo with source-anchored families.
   - Sixty candidates each go through §5.4's filters, and survival is recorded per filter.
-  - The owner blind-rates 15 survivors against 15 single-shot items for depth and accuracy.
+  - **Comparison against single-shot items** (revised 2026-10-11: no owner rating chore). An LLM judge compares 15 survivors against 15 single-shot items for depth and accuracy, blind and pairwise, with two passes and their agreement reported. Then, once published, usage signals: skips, "too easy", contests, retires and "unfair/ambiguous" taps per item source. An optional ≤ 10-minute owner rating can be added.
   - For a paper, its OpenReview rebuttal is the provenance anchor. For a repo, `git log` and issues are.
 - **Scaling check: does quality rise with the model?** (added 2026-10-11). The pilot runs the generator and the LLM judges (family, isomorph, closed-book) at **two configured model tiers**, a cheap route and a frontier route, on identical inputs. For each tier it reports:
   - filter survival rates;
-  - judge agreement with your accept/reject and with the verifiers;
+  - judge agreement with the verifiers and with your undo / contest signals;
   - verified-reference pass rate;
-  - your blind rating of 10 survivors per tier, interleaved and unlabeled;
+  - an LLM judge's blind pairwise rating of 10 survivors per tier, interleaved and unlabeled (an optional owner spot-check);
   - cost.
 
   This is the bitter-lesson property tested directly. A component whose quality doesn't rise with model tier is where hand-built structure may beat more compute, and the report says so per component. Both tiers run under Slice A's spend caps, and every verdict and rating appends to `judgment_ledger`.
@@ -517,7 +518,7 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
   - **capture routing:** filing a newly captured problem under facets;
   - **repair targeting:** diagnosis hypothesis text → facets → practice items (Slice 1 consumer).
 - **Evaluation: retrieval, not prediction.**
-  - **Labels.** A small set of query→item relevance labels, from the owner and from the LLM in two passes with agreement reported, stored in `judgment_ledger`.
+  - **Labels** (revised 2026-10-11: no owner labelling chore). LLM relevance labels on held-out queries, in two passes with agreement reported, plus **usage signals**: which proposed items the learner actually practised, skipped, or marked "too easy" or "not what I asked for". All are stored in `judgment_ledger`. Owner labels are optional.
   - **Metrics.** Recall@10 and nDCG@10.
   - **The bar.** Two-level search through dossiers must beat **direct item search** (BM25 + item-outline or item-text embeddings) on held-out queries to stay in the path. Otherwise `find_practice` uses direct item search, and dossiers remain only as readable facet explanations for the tutor, diagnoser and map.
 - **Not a router.** A learned action router using dossier embeddings as features is deferred (learner-field spec §11). The near-term version is an LLM agent that reads dossiers as **text** when choosing practice.
@@ -666,7 +667,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
   - Replay never executes a generator program.
   - Vaults with no families rebuild byte-identically.
   - `family_memory_state` rebuilds deterministically and is updated only by graded cold attempts on `same_target` / `isomorph` variants.
-  - No family exists without an accepted proposal or an authored record.
+  - Every family traces to an auto-accept decision (two agreeing judge passes) or an authored record, and every decision can be undone in one step.
   - No learner answer or prior grade reaches `BlindGradingContext` through PF's grading support (S1; asserted on fixtures).
   - An item with an `unverified` reference is never published (so it can never certify).
   - The generator sandbox runs under bubblewrap and fails closed without it. Tests show network, vault reads, and writes outside scratch are all denied.
@@ -709,7 +710,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
 | P4 | Page-image retrieval (T6) default on for PDFs? | Only if B4 shows a gain over text chunks |
 | P5 | ~~Local model evaluation timing~~ | **Revised 2026-10-11 (owner):** Slice 1 uses `qwen/qwen3-embedding-8b` via OpenRouter, and learner text leaving the machine is acceptable. The comparison happens in T1's B1/B3, and local models are optional |
 | P7 | ~~Generator sandbox~~ | **Resolved 2026-10-11:** reuse the bubblewrap boundary from animation rendering; fail closed without it (§5.3) |
-| P8 | Family backfill: propose families for existing items (owner reviews), or only for newly generated items? | Propose for existing items with the exhaustive within-LO judge. The idea-identity replay needs historical families. The owner reviews proposals in deferrable batches of 25 |
+| P8 | Family backfill: propose families for existing items, or only for newly generated items? | Existing items, with the exhaustive within-LO judge. *Revised 2026-10-11:* auto-accept confident families with one-step undo; ambiguous items stay unfamilied; no review queue |
 | P9 | ~~May an `unverified` reference ever certify cold evidence?~~ | **Resolved 2026-10-11:** unverified candidates are never published |
 | P10 | Solver panel composition and cost | 2–3 models at different tiers, ~3 solves each per candidate, at mint time only. Drop to one tier if the pilot shows the panel rarely changes selection |
 | P12 | How does `PracticeFamily` relate to the existing activity-lineage substrate? That substrate (`migrations/065_activity_lineage_substrate.sql`) already has `activity_families` → `activity_cards` → `activity_surfaces` as authoring and presentation identity, with exposure and reservation tracking | Decide before PF-a. The two "families" mean different things: 065's is authoring identity, keyed on purpose + kind + title; PF's is a shared retrieval target. Map PF variants onto 065 cards/surfaces if they fit, rather than adding parallel identity, and rename PF's concept (e.g. `idea`) if the name collides in code |

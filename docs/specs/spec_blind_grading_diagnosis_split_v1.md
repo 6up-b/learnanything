@@ -686,7 +686,7 @@ embedding = "openrouter_qwen3_8b" # = embedding.profile
 
 | Milestone | Build | Learner does | Decides |
 |---|---|---|---|
-| **M1 — Offline review** (no live change, no vault migration) | S1.0 harness, plus: `DiagnosisProposal` + context assembler (all four history modes) + validators; the blind grading prompt; `learnloop diagnose --dry-run` into a scratch DB; the OpenRouter embedding client with `qwen/qwen3-embedding-8b`; the `snapshot` export and the Codex `READ_ONLY_WORKSPACE` capability (§5.6); `learnloop diagnose review` (§12.1) | ~40 past wrong answers, blinded and shuffled (~1.5–2.5 h with five arms, split across sessions) | Whether to build M2 at all; **which history mode M2 uses**; whether the blind grader is ready, including the valid-alternative and real-vs-synthetic probes; whether pattern links are trustworthy enough to pursue M3 |
+| **M1 — Offline review** (no live change, no vault migration) | S1.0 harness, plus: `DiagnosisProposal` + context assembler (all four history modes) + validators; the blind grading prompt; `learnloop diagnose --dry-run` into a scratch DB; the OpenRouter embedding client with `qwen/qwen3-embedding-8b`; the `snapshot` export and the Codex `READ_ONLY_WORKSPACE` capability (§5.6); `learnloop diagnose review` (§12.1) | Nothing required: planted cases and an LLM judge score the arms. An optional spot-check of ~10 items takes under 15 minutes | Whether to build M2 at all; **which history mode M2 uses**; whether the blind grader is ready, including the valid-alternative and real-vs-synthetic probes; whether pattern links are trustworthy enough to pursue M3 |
 | **M2 — Live split + diagnosis card** | S1.1 (contracts, ledger, migration 166, queue/worker, `recurrence_key` seam) → S1.3 (split cutover, with the M1-chosen history mode; default `full`) → S1.4a (hypothesis and registry embeddings + would-merge log) → S1.4b (kNN diagnosis context, **only if M1 chose `hybrid`**) → diagnosis card (§12.2) | Normal study for ~2 weeks; one optional tap per diagnosis | Whether in-flow diagnoses hold up; whether async feels fine; whether to proceed to Slice 2 T1 (M3) |
 | **M3 — Recurrence with authority** | Slice 2 T1 (`spec_embedding_consumers_v1.md`) | Sees escalated repairs with their evidence; rates usefulness | Whether recurrence-driven repair is worth the rest of Slice 2 |
 
@@ -718,12 +718,17 @@ The S-steps below remain the engineering breakdown. The in-app shadow step S1.2 
 
 (b)–(e) use the same diagnoser model, prompt, and effort, so only the history mode varies. All four use the blind grade produced by the dry-run blind grader for that attempt.
 
-**What the reviewer sees and records:**
+**Who judges** (revised 2026-10-11 for frictionless defaults, `docs/specs/daily_loop_frictionless_defaults.md` R1): the owner's review is no longer the default instrument.
+- **Primary: automatic.** Planted cases supply known truth. A strong LLM judge compares the arms' diagnoses pairwise and blind, in two passes with their agreement reported; its verdicts go to `judgment_ledger`.
+- **Optional spot-check by the owner:** about 10 stratified items, under 15 minutes, using the screens below. It is used to check that the LLM judge agrees with the learner's own recognition. Without it, the report says so.
+- **The learner's real signal comes later**, from the optional one-tap diagnosis card in M2 (§12.2).
+
+**What the spot-check screens show:**
 1. **Diagnoses.** The item, the answer, and up to five explanations, with labels hidden and order shuffled. Each gets one tap: **right / partly / wrong / not sure**. Then an optional "best" pick, including "none".
 2. **Pattern links.** Each "this looks like the same mistake as [earlier answer]" claim from any arm, shown with both answers side by side: **same mistake / different / not sure**. A link proposed by several arms is shown once, and its verdict is credited to each of them.
 3. **Grade disagreements.** Where the dry-run blind grade differs from the stored joint grade: **the blind grade is right / the stored grade is right / not sure**.
 
-Every screen has a skip. With five arms the expected burden is about 1.5–2.5 hours, and the review can be split across sessions (O15).
+Every screen has a skip. The spot-check is capped at about 10 items, under 15 minutes (O15).
 
 **Automatic per-arm measures** (no reviewer time):
 - **Planted truth:**
@@ -828,7 +833,7 @@ Shown in the feedback view when the async diagnosis arrives:
 | **E7** Operational | What does the split cost and how late is diagnosis? | Grade/submit p50/p95; diagnosis completion delay; `served_without_diagnosis` rate; calls, tokens, and embedding spend per attempt; job failure rate | Rising `served_without_diagnosis` → raise the wait or diagnose faster |
 
 **When each report is produced:**
-- **M1 report** (offline, §12.1): E1 (including the two probes), E2 and E3 per history mode, E4, and E6. The owner's review verdicts are the primary evidence; planted cases supply known truth.
+- **M1 report** (offline, §12.1): E1 (including the two probes), E2 and E3 per history mode, E4, and E6. Planted cases supply known truth, and the LLM pairwise judge is the primary comparison on real items. The owner's optional spot-check, when present, validates the judge (revised 2026-10-11).
 - **End of M2:** E5 and E7, plus the §12.3 learner signals.
 
 The report generator is `learnloop diagnose report --vault <path> [--json]`. It reads the receipts and ledgers and writes a markdown report under `docs/reviews/`.
@@ -960,7 +965,7 @@ Embedding items below are specified in **`spec_embedding_consumers_v1.md`** (Sli
 | O12 | `diagnosis.next_item_wait_seconds` default (10 s) | Start at 10; tune from the E7 `served_without_diagnosis` rate |
 | O13 | M1 review surface: terminal command vs a Tauri screen | Terminal (`learnloop diagnose review`). It's cheaper, and M1 is a one-off. Build UI only for the M2 card |
 | O14 | Forward M2 card taps to the existing unresolved-cause self-report (which can open a provisional belief) when a factor is open? | Yes, to keep that channel's semantics. Watch for acquiescence: if "That's it" rates look implausibly high vs M1 owner adjudication, stop forwarding |
-| O15 | M1 sample size and burden | ~40 attempts plus planted cases. Enough to separate "clearly better / clearly worse / can't tell", but only for large differences. "Can't tell" is itself a reason to rethink before M2. With five arms the review takes ~1.5–2.5 h; if that is too much, drop (b) to a random half of the items rather than dropping (c), (d), or (e) |
+| O15 | M1 sample size and burden | ~40 attempts plus planted cases, judged by planted truth and an LLM pairwise judge. The owner's spot-check is optional (~10 items, under 15 minutes). It only detects large differences, and "can't tell" is itself a reason to rethink before M2 |
 | O16 | M2 default history mode | `full`, unless the M1 report shows another mode clearly better (§12.1). `full` is the mode that improves with a better diagnoser model, with no code change |
 | O17 | `snapshot` transport: Codex read-only workspace only, or also a minimal tool loop (`list` / `grep` / `read`) for OpenAI-compatible providers? | Codex only in M1, since it already runs as an agent. Add the tool loop only if (e) wins and the diagnoser needs to move off Codex |
 | O11 | Should the diagnoser see *confirmed* durable misconceptions' prior repair outcomes? | Yes, as typed records (repair class, cold outcome), never prose |

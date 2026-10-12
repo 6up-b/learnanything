@@ -7,7 +7,8 @@
 - **The "read lane" is gone.** It is replaced by read-only status endpoints and a secondary attach mode (§3.1, §3.3).
 - **Long mutations become durable jobs.** Submits, clarification answers and tutor asks are accepted as jobs with a typed terminal state, so the phone never sees "pending forever" (§6.3).
 - **Session handoff is atomic.** It uses a compare-and-swap on the open session plus an ownership check on session-scoped writes (§6.5).
-- **Confirm-before-grade binds a specific confirmed revision** to the submission, and the server derives the graded text from it (§6.6).
+- **Transcribed answers bind a specific revision** to each grading, and the server derives the graded text from it (§6.6). *Revised 2026-10-11 (owner, frictionless defaults):* there is **no confirm step before grading**. The answer is graded immediately on the transcript, the transcript is shown beside the grade, and one tap corrects a misread and regrades.
+- **HTTP stack decided (D3):** Starlette + uvicorn + `python-multipart` in a `mobile` extra (§3.1).
 - **An explicit HTTP↔JSON-RPC adapter** (§6.2), an endpoint authentication matrix (§6.1), hardened pairing (§4.2), token scopes (§4.3) and browser/HTTP limits (§4.6).
 - **Prerequisite changes to shared code** are now listed and gated (§3.3, §9). They cover vault-state sync, the abandoned-synthesis sweep, request origin, device eligibility, and desktop freshness.
 - **Citation corrections.** MathLive is not a dependency. The originals store lives in `ingest/originals.py`. Attempts do not bump `queue_revision`. Tutor promotion can route to review.
@@ -33,7 +34,7 @@
 | Document | Relationship |
 |---|---|
 | `spec_image_dropin_ingest.md` (proposed, not built) | Its photo → transcript → *mandatory review* → item pipeline is the processing path for photo captures. Its §1 put "mobile and share sheet" out of scope; this spec is that missing transfer leg. Its `image_transcription` route is a prerequisite for photo **answers** (M2b), not for typed practice (M2a) |
-| `spec_blind_grading_diagnosis_split_v1.md` (proposed, not built) | Independent of this spec. Phone answers reach whichever grader is live as confirmed text (§6.6). If Slice 1 has landed, that is `BlindGradingContext`; if not, it is the current grader's `learner_answer_md`. Slice 1's `diagnosis_status` joins the allowlist when it exists |
+| `spec_blind_grading_diagnosis_split_v1.md` (proposed, not built) | Independent of this spec. Phone answers reach whichever grader is live as the bound transcript text (§6.6). If Slice 1 has landed, that is `BlindGradingContext`; if not, it is the current grader's `learner_answer_md`. Slice 1's `diagnosis_status` joins the allowlist when it exists |
 | `spec_project_understanding_v1.md`, `spec_embedding_consumers_v1.md` | No dependency. The phone can later serve their items like any other |
 
 ---
@@ -51,7 +52,7 @@
 - its credential;
 - an outbox, including captured media awaiting upload;
 - a cached session snapshot;
-- the media it is currently confirming.
+- the media of answers awaiting their grade.
 
 Every decision and every durable write happens on the desktop, in the same Python domain code and the same `state.sqlite`.
 
@@ -69,7 +70,7 @@ Every decision and every durable write happens on the desktop, in the same Pytho
   - by photo of a handwritten answer (M2b);
   - by voice (M3).
 
-  For photo and voice, the learner confirms the transcript before anything is graded (§6.6).
+  For photo and voice, the answer is graded immediately on its transcript. The transcript is shown with the grade, and one tap fixes a misread and regrades (§6.6).
 - **P6.** Offline capture: the phone queues captures, including their media, and syncs them later (§7).
 
 **Out of scope:**
@@ -101,9 +102,12 @@ Inherited unchanged: plan invariants, the authority model of `spec_causal_attrib
 
   **Trust boundary:** the bearer token is the credential on the loopback port. Any process running on the desktop can forge identity headers to `127.0.0.1`. Code running as the owner's desktop user can read the vault directly, and nothing in this spec defends against that. The layers protect against tailnet-side and network-side callers, not against local compromise (§4.1).
 - **T3. Default-deny RPC.** The phone can call only methods on an explicit allowlist that lives in code, with per-method parameter constraints. A newly registered sidecar method is unreachable from the phone until it is added there (§4.5).
-- **T4. The grader grades what the learner confirmed.** A photo or voice answer is transcribed, the learner confirms or edits the transcript, and the server grades the text of the confirmed revision bound to the submission (§6.6).
+- **T4. The grader grades exactly the bound transcript revision.** A photo or voice answer is transcribed and graded immediately on that transcript (revision 0). If the learner corrects a misread afterwards, the correction becomes a new revision with a new grading epoch through the existing regrade path. Every grade names the revision it graded (§6.6).
 - **T5. No new evidence semantics.** A phone attempt is an ordinary attempt. Its surface goes in the existing `entry_surface` field, and its modality is recorded through the transcription binding (§6.8). Neither weights evidence in this spec.
-- **T6. Capture semantics are not presumed.** Until Q1/Q2/Q3/Q6 are answered, a capture lands in the inbox and nothing else happens automatically (§6.7).
+- **T6. Capture semantics follow the daily-loop defaults** (`docs/specs/daily_loop_frictionless_defaults.md`, decided 2026-10-11).
+  - **Saving makes a reference; no practice begins.** Filing under topics, and solving and verifying a captured problem, happen in the background with no question to the learner.
+  - **One tap adopts it into practice.** The phone shows "Practice this" on the capture's receipt and in the inbox.
+  - **Staging.** M1 still only receives and stores captures, with manual routing on the desktop (§6.7). The background processor arrives in M3.
 - **T7. The host is a secondary process.** It never migrates the schema, runs startup maintenance, refreshes the canonical projection, schedules cold probes, or sweeps abandoned synthesis runs. The desktop app and the `learnloop` CLI remain the primary hosts (§3.3).
 - **T8. Request origin comes from the server.** The device and surface of a request come from the authenticated token, carried on the handler context. They are never accepted from request parameters (§6.8).
 
@@ -175,9 +179,17 @@ desktop app (Tauri) ── its own sidecar process (stdio JSON-RPC), the primary
 - `TimeoutStopSec=300`. On SIGTERM the host stops accepting work, lets the running job finish, and leaves queued jobs durable for the next start.
 - Provider keys come from `EnvironmentFile=%h/.config/learnloop/mobile.env` (mode 0600). The unit does not inherit shell environment variables, and `ai/runtime.py:106` reads provider keys from the environment.
 
-**HTTP stack (D3, resolve before M1).** The recommendation is now Starlette and uvicorn, plus `python-multipart`, as a `mobile` extra. The standard library has no multipart parser (`cgi` is deprecated), no request-size or read-deadline enforcement, and only basic security checks.
-- If the owner keeps the standard library, media uploads use raw bodies instead of multipart (§6.1).
-- Either way, §4.6's limits are implemented explicitly.
+**HTTP stack (D3, decided 2026-10-11): Starlette + uvicorn + `python-multipart`.**
+- **Packaging.** They ship in a new `mobile` optional extra in `pyproject.toml`, with exact versions pinned when M1 lands. The host is installed with `uv sync --extra dev --extra mobile`. `learnloop_mobile` imports them, and nothing in `learnloop` or `learnloop_sidecar` does.
+- **Why not the standard library.** It has no multipart parser (`cgi` is deprecated), no enforcement of request size or read deadlines, and only basic security checks.
+- **One server process.** uvicorn runs with `workers=1`, `host="127.0.0.1"` and `proxy_headers=False`. Serve is the only proxy, and the identity check reads Serve's headers directly. The `Host` check is the first middleware.
+- **The event loop never runs handler code.** Endpoints are `async def`. They put work on the RPC or job worker queue (§3.1) and await the result through `asyncio.wrap_future`, with the 15 s wait in §6.3 as `asyncio.wait_for`. A client disconnect cancels only that await, never the worker.
+- **Limits are still ours to write.** Starlette and uvicorn do not impose §4.6's limits by default, so the host adds them:
+  - an ASGI middleware enforces the header, body and media caps by counting received bytes before any parsing;
+  - multipart is parsed with `request.form(max_files=1, max_fields=10)` plus a per-part size cap;
+  - uvicorn's `limit_concurrency`, `timeout_keep_alive` and `h11_max_incomplete_event_size` cover connection-level limits;
+  - the 60 s body read deadline is enforced in the middleware.
+- **Static assets** are served with Starlette's `StaticFiles` from the packaged app directory, with `follow_symlink=False` and no directory listing.
 
 ### 3.2 Network path: Tailscale facts this design relies on
 
@@ -330,7 +342,7 @@ The allowlist is a frozen mapping in `learnloop_mobile/allowlist.py`. Each entry
 **Parameter constraints (enforced in the adapter, before dispatch):**
 - `start_session`: `notes_md_path` is rejected. The phone sends `available_minutes`, plus `energy` and `sleep_quality` once Q14 decides the readiness form.
 - `get_today_queue`, `skip_practice_item`, `open_queue_item`, `get_practice_item`: device eligibility comes from the request origin, never from a parameter (§6.4, §6.8).
-- `submit_attempt`: `submission_id` must be present and non-blank. `self_grade` is rejected in M2, because the phone has no self-grading UI. `answer_md` must be absent when `answer_transcription_id` is present, or else equal the bound confirmed text (§6.6).
+- `submit_attempt`: `submission_id` must be present and non-blank. `self_grade` is rejected in M2, because the phone has no self-grading UI. `answer_md` must be absent when `answer_transcription_id` is present, or else equal the bound revision's text (§6.6).
 - `ask_tutor_question` (M3): only the contexts the phone's screens originate (practice, feedback, standalone ask); `subject_id` must name an existing subject.
 - `promote_tutor_question` (M3): `subject_id` and `learning_object_id` must exist; the intent comes from the handler's existing set.
 - Any parameter naming a vault path, file or directory is rejected for every method.
@@ -412,7 +424,7 @@ All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host 
 | `GET /api/v1/status` | Token(capture) | M1 | — | `{vault_loaded, schema_ok, grading_ready, host_version}` | — |
 | `GET /pair` | Identity | M1 | — | static pairing page | Consumes nothing |
 | `POST /pair` | Identity | M1 | `{secret}` or `{code}`, plus `device_label` | `{device_id, scope, token}` (token shown once) | One-time record; atomic consume (§4.2) |
-| `POST /api/v1/capture` | Token(capture) | M1 | JSON `{client_capture_id, kind: text\|url\|image, text?, url?, note?, source_app?, captured_at}`, or multipart with those fields plus one `file` (image). Raw-body variant if D3 keeps the standard library: `POST /api/v1/capture/media?client_capture_id=…&captured_at=…` with `Content-Type: image/*` and the note ≤ 2 KB in the `X-LearnLoop-Note` header (base64url) | First receipt `201 {capture_id, status:"received"}`; repeat `200` with the same body | `UNIQUE(client_capture_id)` (a ULID, globally unique). Same key with a different request fingerprint → `409 capture_conflict` |
+| `POST /api/v1/capture` | Token(capture) | M1 | JSON `{client_capture_id, kind: text\|url\|image, text?, url?, note?, source_app?, captured_at}`, or multipart with those fields plus one `file` (image) | First receipt `201 {capture_id, status:"received"}`; repeat `200` with the same body | `UNIQUE(client_capture_id)` (a ULID, globally unique). Same key with a different request fingerprint → `409 capture_conflict` |
 | `GET /api/v1/capture/{capture_id}` | Token(capture) | M1 | — | `{status, routed_to?}` | — |
 | `GET /app/*` | Identity | M2 | — | app shell, manifest, service worker (non-sensitive static assets) | — |
 | `POST /app/share` | Identity | M2 | Android share-target form post | Intercepted by the service worker, which writes to the outbox; reaching the server returns 303 → `/app/` | — |
@@ -423,7 +435,7 @@ All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host 
 | `POST /api/v1/answer-media` | Token(app) | M2b | multipart `{session_id, practice_item_id, submission_id, modality: photo\|voice, file}` | `202 {transcription_id}` | `UNIQUE(submission_id, modality)` |
 | `GET /api/v1/answer-media/{id}` | Token(app) | M2b | — | `{state, transcript_md?, revision?, error?}` | — |
 | `GET /api/v1/answer-media/{id}/media` | Token(app) | M2b | — | the sanitized bytes | — |
-| `POST /api/v1/answer-media/{id}/confirm` | Token(app) | M2b | `{confirmed_md, base_revision}` | `{revision}`; `409` if `base_revision` is stale or the transcription is consumed | Compare-and-swap on revision |
+| `POST /api/v1/answer-media/{id}/correct` | Token(app) | M2b | `{corrected_md, base_revision}` | `{revision, regrade_job_id}`; `409` if `base_revision` is stale | Compare-and-swap on revision. Allowed after grading; it triggers a regrade (§6.6 R1) |
 
 The service worker and pairing page are identity-gated but have no bearer token, because a first navigation cannot attach one. They contain no vault data. Every endpoint that reads or writes vault data needs a token.
 
@@ -551,34 +563,35 @@ Text cues such as "see the figure below" are logged as `suspected_figure` in the
 | Modality | Milestone | Path | Notes |
 |---|---|---|---|
 | Typed | M2a | LaTeX/Markdown editor → `answer_md` | Unchanged contract |
-| Photo of a handwritten answer | M2b | `answer-media` → transcription job → transcript shown **rendered and editable** beside the image → confirm (compare-and-swap) → `submit_attempt(answer_transcription_id, confirmed_revision)` | Transcribed on the `image_transcription` route from `spec_image_dropin_ingest.md` §3. M2b waits for that route, or this spec adds it, with the same contract |
-| Voice | M3 | `answer-media` → `ingest/transcription.py:67` `transcribe_audio`, which is synchronous and returns cues; the job worker runs it, and the cue text joined in order becomes `transcript_md` → confirm → submit | Best for explanations and "why" answers; poor for symbol-heavy math |
+| Photo of a handwritten answer | M2b | `answer-media` → transcription job → `submit_attempt(answer_transcription_id, revision = latest)`, normally the raw transcript → the grade is shown **beside the rendered transcript and the image** → optional **"Fix what was read"** (compare-and-swap) → new revision → regrade, which supersedes and keeps the earlier grade | Transcribed on the `image_transcription` route from `spec_image_dropin_ingest.md` §3. M2b waits for that route, or this spec adds it, with the same contract |
+| Voice | M3 | `answer-media` → `ingest/transcription.py:67` `transcribe_audio`, which is synchronous and returns cues; the job worker runs it, and the cue text joined in order becomes `transcript_md` → submit → grade shown with the transcript → optional fix and regrade | Best for explanations and "why" answers; poor for symbol-heavy math |
 
 **Rules:**
 - **R1. Bind and freeze.**
-  - A submit carrying `answer_transcription_id` must also carry `confirmed_revision`. The host checks that:
-    - the transcription is in state `confirmed`;
-    - `confirmed_revision` is its latest revision;
+  - A submit carrying `answer_transcription_id` is bound to that transcription's **latest revision** at submit time (normally revision 0, the raw transcript). The host checks that:
+    - the transcription is in state `transcribed` or `corrected`;
+    - the bound revision is its latest revision;
     - its `session_id`, `practice_item_id`, `submission_id` and device match the submit.
-  - The host then **sets `answer_md` from that revision's confirmed text itself**. A client `answer_md` must be absent or byte-identical; otherwise the submit gets `409 submission_conflict`.
-  - Job acceptance and `state = consumed` (with `consumed_by_submission_id`) commit in **one transaction**. Any later confirm returns 409.
-  - The grader never sees an unconfirmed or superseded transcript.
-- **R2. Grading input is unchanged.** Whichever grader is live receives the confirmed text exactly as it would receive typed text. With Slice 1, that is `BlindGradingContext`. The transcript is the current answer, not learner history. Whether the grader also receives the image is **D7**; the recommendation is text only.
+  - The host then **sets `answer_md` from that revision's text itself**. A client `answer_md` must be absent or byte-identical; otherwise the submit gets `409 submission_conflict`.
+  - Job acceptance and `state = consumed` (with `consumed_by_submission_id`) commit in **one transaction**.
+  - **A correction after grading** (`POST …/correct`) creates a new revision, and the host requests a regrade of the attempt with `answer_md` set from it. The regrade is a new grading epoch that supersedes the old one and keeps it, using the existing regrade path. A revision once graded is never edited.
+  - Corrections made after the feedback was shown are recorded as `corrected_after_feedback` (§10), so their effect on grades stays visible.
+- **R2. Grading input is unchanged.** Whichever grader is live receives the bound revision's text exactly as it would receive typed text. With Slice 1, that is `BlindGradingContext`. The transcript is the current answer, not learner history. Whether the grader also receives the image is **D7**; the recommendation is text only.
 - **R3. Recording** (§8):
   - `answer_transcriptions` (RAW_LEDGER, immutable) holds the media hash, the model, the raw transcript and the transcription time.
-  - `answer_confirmations` (RAW_LEDGER, append-only) holds one row per confirm revision, with its text and time.
-  - `answer_transcription_jobs` (WORKFLOW) holds the lifecycle: `pending | transcribed | failed | confirmed | consumed`, the error code, the latest revision and `consumed_by_submission_id`.
+  - `answer_transcript_revisions` (RAW_LEDGER, append-only) holds one row per correction revision, with its text, its time, and whether it followed the feedback.
+  - `answer_transcription_jobs` (WORKFLOW) holds the lifecycle: `pending | transcribed | failed | consumed | corrected`, the error code, the latest revision and `consumed_by_submission_id`.
   - The edit distance is computed at consumption.
   - The modality of an attempt is derived by joining `attempts.submission_id` to `consumed_by_submission_id`, and is typed when there is no match (§6.8).
-  - `latency_seconds` is client-reported, as today, measured from item display to the photo or recording, not to confirmation.
+  - `latency_seconds` is client-reported, as today, measured from item display to the photo or recording.
 - **R4. Contesting.** The media stays attached to the attempt through that join. The desktop's feedback and contest view gains an attachment panel, served from the originals store by hash. A misread the learner missed can therefore still be fixed through the existing regrade path.
-- **R5. No penalty for confirmation edits.** The transcript is the learner's own answer. Edit rates are reported (§10) to check whether confirmation is being used to improve answers after the fact.
+- **R5. No penalty for corrections.** Fixing a misread is the point. Correction rates, and the share made after feedback, are reported (§10) so that corrections used to improve answers after seeing the feedback stay visible.
 
-`SubmitAttemptInput` (`practice.py:94-114`) gains no new fields. `answer_transcription_id` and `confirmed_revision` are adapter-level parameters that the host resolves before dispatch. Desktop calls are unchanged.
+`SubmitAttemptInput` (`practice.py:94-114`) gains no new fields. `answer_transcription_id` is an adapter-level parameter that the host resolves to the latest revision before dispatch. Desktop calls are unchanged.
 
-### 6.7 The capture inbox: what M1 decides and what waits on Q1/Q2/Q3/Q6
+### 6.7 The capture inbox: M1 storage now, background processing in M3
 
-**M1 (decides nothing about semantics; T6).**
+**M1 (stores and lists; processing comes in M3 under the daily-loop defaults, T6).**
 - **Receipt order.**
   1. Authenticate the request.
   2. Stream the body under its limits.
@@ -678,7 +691,7 @@ M1's tables land in one migration; M2's in a second; M2b's and M3's in their own
 | `session_handoffs` | RECEIPT | M2 | `id`, `session_id`, `kind` (`adopt`\|`replace`), `from_device_id`, `to_device_id`, `generation`, `checkpoint_json`, `at` |
 | `sessions` | (existing) | M2 | `ADD COLUMN owner_device_id TEXT` (null = desktop), `ADD COLUMN owner_generation INTEGER NOT NULL DEFAULT 0` |
 | `answer_transcriptions` | RAW_LEDGER | M2b | `id`, `modality`, `media_sha256`, `media_mime`, `model`, `raw_md`, `captured_at`, `transcribed_at` |
-| `answer_confirmations` | RAW_LEDGER | M2b | `transcription_id`, `revision`, `confirmed_md`, `confirmed_at` |
+| `answer_transcript_revisions` | RAW_LEDGER | M2b | `transcription_id`, `revision`, `text_md`, `created_at`, `corrected_after_feedback`, `regrade_epoch_id` |
 | `answer_transcription_jobs` | WORKFLOW | M2b | `transcription_id`, `device_id`, `session_id`, `practice_item_id`, `submission_id` (UNIQUE with `modality`), `state`, `error_code`, `latest_revision`, `consumed_by_submission_id`, `edit_distance`, `consumed_at` |
 
 **No change to attempts.** The surface goes in the existing `entry_surface`; modality comes from the join (§6.8).
@@ -703,11 +716,11 @@ Provider keys for the unit go in `mobile.env` (§3.1).
 
 | Milestone | Build | Owner does | Gate to proceed |
 |---|---|---|---|
-| **M1 — Capture** | `learnloop_mobile` package and script; import-linter entry; capture host (no `SidecarContext`; §3.1); pairing (§4.2) with scopes; `/healthz`, `/api/v1/status`, `/pair`, capture endpoints; `learnloop.capture` (sanitization, inbox, routes); M1 migration; desktop Inbox strip with the routing additions in §6.7; `learnloop inbox list`; iOS Shortcut file (JPEG conversion, setup prompt for the token, outbox and flush) and Android instructions; `doctor`; systemd unit and `mobile.env` | Pairs the phone; applies the printed policy and removes broad rules; captures from the share sheet for ~2 weeks; routes from the desktop | G1–G5, G6a, and acceptance checks A1–A3 pass. Report: captures per week, share routed vs dismissed, time to route, outbox flushes, failures. If captures are rare, stop and ask why before M2 |
+| **M1 — Capture** | `learnloop_mobile` package and script; `mobile` extra (Starlette, uvicorn, `python-multipart`); import-linter entry; capture host (no `SidecarContext`; §3.1); pairing (§4.2) with scopes; `/healthz`, `/api/v1/status`, `/pair`, capture endpoints; `learnloop.capture` (sanitization, inbox, routes); M1 migration; desktop Inbox strip with the routing additions in §6.7; `learnloop inbox list`; iOS Shortcut file (JPEG conversion, setup prompt for the token, outbox and flush) and Android instructions; `doctor`; systemd unit and `mobile.env` | Pairs the phone; applies the printed policy and removes broad rules; captures from the share sheet for ~2 weeks; routes from the desktop | G1–G5, G6a, and acceptance checks A1–A3 pass. Report: captures per week, share routed vs dismissed, time to route, outbox flushes, failures. If captures are rare, stop and ask why before M2 |
 | **M2 prerequisites** | PR-1 through PR-7 (§3.3), each landed and tested on its own; the probe-presentation check in §6.4 | — | Their tests pass; the full suite and the durability lane are green |
 | **M2a — Typed practice on the phone** | `apps/learnloop-mobile` PWA (Capture, Today, Question, Feedback); service-worker share target; `/rpc` adapter with the M2 allowlist; RPC and job workers in secondary attach; accepted jobs and status endpoints; session handoff; device eligibility; origin provenance | Short phone sessions alongside desktop use | G1–G12 and A4 pass. Report: phone sessions and items per week, completion, submit-to-feedback p50/p95, share of submits returning 202, contest rate on phone vs desktop attempts |
-| **M2b — Photo answers** | `answer-media` endpoints, transcription jobs, confirm screen, binding (§6.6), desktop attachment panel; requires the `image_transcription` route | Photo answers for handwritten work | G8 passes. Report: transcription edit rate, confirm-to-grade time, contest rate on photo attempts |
-| **M3 — Tutor and voice** | M3 allowlist; tutor asks as jobs; promotion runner in the host (§3.1); voice answers; the background capture processor **once Q1/Q2/Q3/Q6 are answered** | Asks the tutor from the phone; promotes questions | Report: tutor questions per week, share promoted, promoted items later answered |
+| **M2b — Photo answers** | `answer-media` endpoints, transcription jobs, immediate grading on the transcript, the post-grade "Fix what was read" screen with regrade, binding (§6.6), desktop attachment panel; requires the `image_transcription` route | Photo answers for handwritten work | G8 passes. Report: transcription correction rate (and share after feedback), submit-to-grade time, contest rate on photo attempts |
+| **M3 — Tutor and voice** | M3 allowlist; tutor asks as jobs; promotion runner in the host (§3.1); voice answers; the background capture processor under the daily-loop defaults (save means reference; silent filing and verified solving; one-tap "Practice this") | Asks the tutor from the phone; promotes questions | Report: tutor questions per week, share promoted, promoted items later answered |
 | Later | Offline self-check pack (self-graded, flagged); voice teach-back; a real math keyboard; Tauri mobile if PWA limits bite; the reader (separate spec) | — | Each on its own report |
 
 ---
@@ -726,7 +739,7 @@ Provider keys for the unit go in `mobile.env` (§3.1).
 | G6a | Host coexistence (M1, durability lane): starting and stopping the host performs no migration, maintenance, projection refresh, cold-probe scheduling, lease recovery or synthesis sweep. That includes a desktop synchronous synthesis run older than the lease cutoff, which survives a host start. Capture writes interleaved with desktop writes lose nothing; contention surfaces as the retryable `database_busy` |
 | G6b | Two-process practice (M2, durability lane): the desktop sidecar and the host submit, read and sync concurrently with no lost writes. A content sync interleaved with an attempt keeps the attempt's scheduling fields (PR-2). Leased jobs never run twice. The two in-host workers behave as two processes |
 | G7 | Jobs: a dropped connection mid-submit yields exactly one attempt and a `completed` job with the receipt. A host restart while running yields `completed` or a typed `failed`, never indefinite `accepted` or `running`. The same `request_id` with different params → 409. Identical retries make one provider call from the host |
-| G8 | Confirm binding: a submit naming an unconfirmed, superseded or mismatched transcription is rejected. The graded text equals the bound revision's confirmed text. Confirms after consumption → 409 |
+| G8 | Transcript binding: every grading epoch names the revision it graded, and its text equals that revision's. A correction creates a new revision and a superseding regrade epoch; the earlier grade is kept. A submit naming a mismatched or superseded transcription is rejected |
 | G9 | Device eligibility applies in `get_today_queue` (before `finalize_scheduler_offer`), the skip rebuild, `open_queue_item`, `get_practice_item` and adoption. An active probe contract is not rendered on the phone. Desktop responses are byte-identical to today |
 | G10 | Sessions: interleaved starts from two processes leave exactly one open session. A stale `replace` or a stale `expected_generation` is rejected. Writes from the non-owner → `session_moved`. Adopting carries the checkpoint, submission id and caps. Starting fresh preserves the replaced draft in `session_handoffs`. Concurrent admission at the probe-observation cap boundary never exceeds the cap |
 | G11 | Provenance: phone attempts carry `entry_surface = phone_practice` and phone offers `phone_queue`. Desktop values are unchanged. No parameter can set either |
@@ -751,13 +764,13 @@ That last question is the one that matters for the daily loop.
 - `test_mobile_host_auth.py`: bind refusal; schema-mismatch exit; the endpoint matrix; token issue, hash, scope and revoke; Host and Origin checks. (G1, G2)
 - `test_mobile_pairing.py`: single use, attempt limits, atomic consume, log redaction, auto-revoke of unclaimed devices. (G5)
 - `test_mobile_allowlist.py`: registry enumeration; envelope rejection; per-method parameter constraints; allowed methods pass through `_handle`, with errors translated as in §6.2. (G3)
-- `test_mobile_capture.py`: JSON, multipart and raw-body capture; repeat and conflict; atomic commit; the sanitization corpus (JPEG with GPS EXIF, rotated, PNG with text chunks, WebP, HEIC rejected); size and rate limits; URL validation; routing through each backend `capture_id` path; dismiss and purge. (G4)
+- `test_mobile_capture.py`: JSON and multipart capture; the body-limit middleware (oversized bodies rejected before parsing, with and without `Content-Length`); repeat and conflict; atomic commit; the sanitization corpus (JPEG with GPS EXIF, rotated, PNG with text chunks, WebP, HEIC rejected); size and rate limits; URL validation; routing through each backend `capture_id` path; dismiss and purge. (G4)
 - `test_mobile_host_coexistence.py` (durability lane): host start and stop beside a seeded live synchronous synthesis run and live leases; capture writes interleaved with desktop writes. (G6a)
 - `test_secondary_attach.py`: `load_secondary` performs no writes (checked by comparing the database before and after); content-fingerprint reload. (PR-1, G12)
 - `test_state_sync_scheduling_race.py`: an attempt committed between snapshot and update keeps its scheduling fields. (PR-2, G6b)
 - `test_mobile_two_process.py` (durability lane): two real processes on one fresh vault interleaving submits, reads, syncs and a leased job. (G6b)
 - `test_mobile_jobs.py`: a client disconnect during a fake slow grade; a host restart in `accepted`, in `running` with no attempt, and in `running` with an attempt but no receipt; coalescing; conflicts; `grading_fallback_required`. (G7)
-- `test_answer_transcription.py`: the confirm compare-and-swap; binding validation; graded text equals the bound revision; consumed is frozen; the modality join. (G8)
+- `test_answer_transcription.py`: immediate grading on revision 0; the correction compare-and-swap; a correction triggers a superseding regrade that keeps the old grade; graded text equals the bound revision; the `corrected_after_feedback` flag; the modality join. (G8)
 - `test_device_eligibility.py`: each ineligibility reason; every application site; probe contract handling; the desktop byte-identical. (G9)
 - `test_session_ownership.py`: interleaved exclusive starts; replace and adopt compare-and-swap; `session_moved` on every session-scoped write; draft preservation; the cap boundary under concurrency. (G10)
 - `test_request_origin.py`: `entry_surface` and offer surfaces from the origin; parameters cannot set them. (G11)
@@ -772,11 +785,11 @@ That last question is the one that matters for the daily loop.
 |---|---|---|
 | D1 | Phone platform: iOS, Android, or both? | iOS |
 | D2 | Host: a separate `learnloop-mobile serve` user service, or embedded in the desktop sidecar? | Separate. The phone must work with the desktop app closed, and the sidecar is a single-threaded stdio loop |
-| D3 | HTTP stack: standard library, or Starlette, uvicorn and `python-multipart`? **Resolve before M1** | **Starlette + uvicorn + `python-multipart`** as a `mobile` extra. The limits, multipart parsing and admission control in §4.6 are otherwise hand-written security code. If the standard library is kept, use the raw-body media variant |
+| D3 | HTTP stack: standard library, or Starlette, uvicorn and `python-multipart`? | **Decided (owner, 2026-10-11): Starlette + uvicorn + `python-multipart`** as a `mobile` extra (§3.1). The §4.6 limits are still implemented explicitly as middleware |
 | D4 | Client: a separate small mobile app reusing DTOs and render components, responsive desktop screens, or Tauri mobile? | A separate PWA (`apps/learnloop-mobile`). Tauri mobile only if PWA limits bite |
 | D5 | Sessions: one shared session with handoff, or concurrent per-device sessions? | One shared session with atomic handoff and ownership (§6.5). Per-device sessions break session-scoped caps |
 | D6 | Phone-ineligible items: filter them from the phone queue, or show them with "best on desktop"? | Filter before offer logging, and show a count ("3 items waiting for the desktop") |
-| D7 | Photo answers: does the grader see confirmed text only, or text plus image? | Text only. One canonical answer; the image is kept for contests |
+| D7 | Photo answers: does the grader see transcript text only, or text plus image? | Text only. One canonical answer; the image is shown beside the grade for one-tap correction and kept for contests. *Revised 2026-10-11: no confirm step before grading (§6.6)* |
 | D8 | Capture processing semantics | **Blocked on daily-loop Q1/Q2/Q3/Q6.** M1 routes manually |
 | D9 | Offline practice? | No. Practice needs the desktop online; capture works offline |
 | D10 | Identity: require both the Tailscale login header and a device token, or the token only? | Both, always. The token is the credential on loopback; the header filters other tailnet users if a grant is broad |

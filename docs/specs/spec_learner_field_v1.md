@@ -1,4 +1,4 @@
-# Learner field: honest placement and a low-dimensional predictor (v1, reshaped)
+# Learner field: generous defaults, honest labels, and a low-dimensional predictor (v1, reshaped)
 
 **Status:** reshaped 2026-10-11 after two independent reviews (a Codex agent and an Opus 5.5 agent), which reached the same verdict. The previous full design is preserved at commit `936813f` and listed in §11, each item with the trigger that would bring it back. That design was a facet-level graph Gaussian process with facet dossiers as kernel text, LLM-adjudicated edges, kernel ensembles, population-fit kernel scalars, and a public-data benchmark.
 
@@ -14,6 +14,11 @@
   - Graph priors steer live decisions only after held-out support. The one live consumer was deliberately disabled (`diagnosis/calibration_sessions.py:221-228`).
 - **The reports could not decide anything at n=1, and the old switching rule kept the most complex model by default.**
 - **The research points the same way.** One learner's data identifies a general level plus a few coarse factors (sweep §11), and text similarity predicts co-performance only weakly.
+
+**Revised again 2026-10-11 for frictionless defaults** (owner; `docs/specs/daily_loop_frictionless_defaults.md`). The rule is **honest labels, generous defaults.**
+- There is no placement ceremony, and no opening probe for every new topic.
+- Topics the learner says they know, or that early answers show they likely know, are **assumed known** and checked in their first ordinary review.
+- What is *claimed* stays honest: untested, assumed, and demonstrated are always distinguished.
 
 **Principle.** Nuance lives in text that LLM components read: dossiers, item outlines, attempt analyses. The numeric learner state stays low-dimensional. **The simplest predictor is the incumbent; anything more complex must earn activation, and "can't tell" keeps the simpler one.**
 
@@ -35,7 +40,10 @@
   - the challenger `lo_general` with four extension arms (§4.3);
   - the `idea_hier` arm once practice families exist (§4.3);
   - an explicit **untested** state on the map (§5.1).
-- **F2, live behind an algorithm successor and a kill switch:** placement after import, built on calibration sessions (§5.2).
+- **F2, live behind an algorithm successor and a kill switch:** starting new material without ceremony (§5.2):
+  - no per-topic opening probes;
+  - "assumed known" from self-report, fast-track on early answers, or an activated predictor, checked in the first review;
+  - an optional "Check what I already know".
 - **Nothing else.** Everything previously specified is in §11 with its trigger.
 
 ## 1. Standing constraints
@@ -50,9 +58,10 @@
   - is an algorithm successor under `docs/algorithm-change-playbook.md`;
   - has a kill switch that restores the previous behaviour exactly;
   - writes receipts, including what the old rule would have done where that is cheap to compute.
-- **F4. Untested is not known.**
-  - No LO or facet without direct evidence is ever reported or treated as known.
-  - Inference across LOs may change the *order* of checks. It never skips material (§5.2).
+- **F4. Honest labels, generous defaults** (revised 2026-10-11).
+  - **Skipping is allowed.** Self-reports, early answers and an activated predictor may skip material by marking an LO **assumed known** (§5.2).
+  - **Labels stay honest.** They always distinguish **untested**, **assumed (not tested)**, and **demonstrated**.
+  - **Assumptions get checked.** Nothing assumed is certified or written as evidence, and every assumption is checked in ordinary review.
 - **F5. No per-learner-fitted hyperparameters.** Priors and constants are set a priori and versioned. Latent state (abilities, offsets) is estimated with uncertainty.
 - **F6. Knowledge-model alignment** (`spec_knowledge_model.md` §8.1, §8.3):
   - no propagation along `part_of`, `related`, `analogous_to` or `confusable_with`;
@@ -218,49 +227,40 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 - **The change.** `get_knowledge_map` instead marks such points `untested: true` and omits `ready`. `KnowledgeWellView` draws them as flat and outlined, with a small "untested" label.
 - **What stays the same.** Demonstrated beads, ghost rings and decay markers (F8).
 - **Version impact.** This is display honesty, not served behaviour, so it needs no successor.
-- **Deferred.** Showing a predictor's inferred estimates on the map ("fog") is deferred (§11).
+- **Assumed LOs** (§5.2) are drawn as an outlined bead labelled "assumed (not tested)", distinct from demonstrated beads. Well depth is unchanged (F8).
+- **Deferred.** Showing a predictor's continuous inferred estimates on the map ("fog") is deferred (§11).
 
-### 5.2 Placement after import (F2; live; successor; kill switch `placement.enabled`)
+### 5.2 Starting new material: assumed known, checked in review (F2; live; successor; kill switch `placement.enabled`)
 
-**Built on what exists.**
-- `start_calibration_session(learning_object_ids=…, time_budget_minutes=…)` (`diagnosis/calibration_sessions.py:156`) with `CalibrationScreen`.
-- Its plain predictive-rate ordering (§8.3 of the knowledge-model spec) is kept. The active predictor's `conditional_gain` replaces it only when §7.4 has activated a challenger.
+*Revised 2026-10-11 (owner, frictionless defaults; `docs/specs/daily_loop_frictionless_defaults.md` S1–S4).* There is no placement ceremony by default.
 
-**When.**
-- **Trigger:** an import or study-map apply that adds ≥ `placement.min_new_los` (default 3) active LOs with eligible items.
-- **Eligible items:** imported exercises, or practice-family items published under the PF-b rules. They must be active, unattempted, not exam-reserved and not reveal-burned.
-- **No eligible items:** today's per-LO initial probes run unchanged.
-
-**Learner experience.**
-1. **Triage, one tap per LO** (or per chapter group): **know / new / unsure**.
-   - The answers are recorded as weak learner claims through the existing claim machinery, never as evidence.
-   - **"new"** LOs aren't checked; they start normally.
-2. **Offer:** "Quick check: up to 4 questions (~6–8 min) so LearnLoop can skip what you already know." Choices: **Start / Later / Skip**. Skipping is never negative evidence.
-3. **Adaptive checks.**
-   - Each next item maximizes `conditional_gain` over the "know" and "unsure" LOs, weighted toward checks that could actually skip work.
-   - The block **stops early** when no remaining candidate could change what happens next, or when the budget runs out.
-   - Each question has **"I don't know"** (`dont_know`) and **Skip** (no row), and hints are off.
-4. **Answers are revealed at the end of the block.** Every reveal is recorded in `reveal_events`.
-5. **Results, in plain language and never as "mastered":**
-   - **"Checked: solid, we'll confirm around [date]":** the LO was **directly checked** and `P(θ_L > θ_known) ≥ q` (D6).
-   - **"Checked: needs practice":** the LO was directly checked and did not meet that bar.
-   - **"Not checked":** everything else, including LOs a predictor *infers* to be strong. Inference never skips material (F4).
-6. **Override.** "Actually, I don't know this" moves an LO to **Not checked**. It is a routing preference, appended to `judgment_ledger` (task `placement_override`, judge `owner`).
-
-**Effect.**
-- **"Solid" LOs.**
-  - No initial probe episode now.
-  - One **confirm probe** after `placement.confirm_after_days` (default 10), as a normal cold check.
-  - Until then their items are served only through the goal-frontier path, unchanged. Once daily-loop Q7 exists, "solid" maps onto maintain-level intent instead.
-- **"Needs practice" LOs** get their initial episode now, first.
-- **"Not checked" LOs** keep today's behaviour.
-- **Nothing is certified.** A failed confirm probe restores the normal path.
-- **Grader risk.** A grader that accepts a wrong answer could produce a false "solid". Confirm probes catch that afterwards, and Slice 1's E1 grader probes measure the grader's error rate (D7).
+**After an import or study-map apply:**
+- **No opening probe per topic.**
+  - `_enter_initial_probes` (`substrate/state_sync.py:175-211`) no longer opens an initial diagnostic episode for every new LO (`placement.initial_probes = false`).
+  - Diagnostic episodes still open when a wrong answer leaves a real choice of repair (existing probe machinery; intentions §11).
+- **New material starts as learning.** It is ordered by prerequisites and by the active predictor's predicted difficulty, easiest first within a prerequisite layer. The first practice answers on each LO update the predictor: **practice is the placement.**
+- **Assumed known (not tested).** An LO is marked assumed when any of these holds:
+  - **the learner says so:** "I know this" on the LO, its chapter or an item, or "too easy";
+  - **fast-track:** its first ≥ 2 cold answers are correct and the active predictor gives `P(θ_L > θ_known) ≥ q` (D6);
+  - **prediction:** an activated challenger with cross-LO sharing gives `P(θ_L > θ_known) ≥ q` before any attempt. With the incumbent `mastery_ekf` this can't happen; it requires §7.4.
+- **What "assumed known" does:**
+  - The LO's remaining learning items are not served as new material.
+  - The LO enters maintenance with a long first interval (`placement.assumed_first_interval_days`, default 14). **That first review is the check:** a normal cold item. A pass keeps the LO in maintenance, now demonstrated. A failure quietly returns it to learning.
+  - The map shows "assumed (not tested)" (§5.1).
+  - Nothing assumed is certified or written as evidence (F2).
+- **"I don't know this"** on an assumed LO returns it to learning immediately.
+- **Optional quick check: "Check what I already know."** It is a button on the import result and on any LO, and is never prompted by default.
+  - It opens a calibration session: `start_calibration_session(learning_object_ids=…, time_budget_minutes=…)` (`diagnosis/calibration_sessions.py:156`) with `CalibrationScreen`.
+  - It serves up to k = 4 adaptive items with an early stop. Items are chosen by `conditional_gain`, or by plain predictive rate until a challenger is active. Answers are revealed at the end (`reveal_events`).
+  - Its results feed the same split between learning and assumed.
+- **Receipts.** `assumption_decisions` records every assumed-known decision: LO, source (`self_report` | `fast_track` | `predictor` | `quick_check`), `p` and interval, predictor and version, first-review due date, and the later outcome. Report 3 scores them.
+- **Grader risk.** A grader that accepts a wrong answer could fast-track an LO wrongly. The first review catches that, and Slice 1's E1 measures grader error (D7).
+- **When daily-loop Q7 exists,** "assumed known" maps onto maintain-level intent.
 
 ### 5.3 Not built here
 
 - **Probe targeting by a predictor** (§11).
-- **Re-entry after a lapse.** The daily-loop track can reuse the placement block for a few high-information checks after a break.
+- **Re-entry after a lapse.** The daily-loop track owns re-entry (defaults P6). It can reuse the quick check for a few high-information checks after a break.
 
 ---
 
@@ -270,14 +270,14 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 |---|---|---|
 | `facet_outcome_observations` | DERIVED (rebuild owner) | §3 |
 | `learner_predictor_snapshot` | DERIVED (rebuild owner; only while a non-incumbent predictor is active) | Per region: `mean`, `variance`, `n_eff`, `untested`, `predictor`, `version`, `as_of_observation_id` |
-| `placement_decisions` | RECEIPT | `id`, `trigger_ref`, `scope_lo_ids_json`, `triage_json`, `candidate_items_json`, `chosen_json` (item, gain, minutes, stop reason), `conclusions_json` (per LO: label, `p`, interval), `episodes_skipped_json`, `confirm_due_json`, `q_used`, `predictor`, `predictor_version`, `created_at`. Joined to confirm-probe outcomes by report 3 |
+| `assumption_decisions` | RECEIPT | `id`, `lo_id`, `source` (`self_report` \| `fast_track` \| `predictor` \| `quick_check`), `trigger_ref`, `p`, interval, `q_used`, `predictor`, `predictor_version`, `first_review_due`, `quick_check_session_id?`, `created_at`. Its outcome is joined from the first review's attempt by report 3, never written back |
 
 - **Config:**
   - `[field]`: `enabled`, `active_predictor` (default `mastery_ekf`), arm constants (D3), `legacy_fallback` (`exclude` \| `current_content`, default `exclude`).
-  - `[placement]`: `enabled`, `k` (4), `budget_minutes` (8), `min_new_los`, `confirm_after_days`, thresholds.
+  - `[placement]`: `enabled`, `initial_probes` (default false), `assumed_first_interval_days` (14), `fast_track_min_correct` (2), quick-check `k` (4) and `budget_minutes` (8), thresholds.
 - **Algorithm versions:**
   - F1 needs none: derived tables plus a display change.
-  - F2 (placement live) is one successor.
+  - F2 (no opening probes plus assumed known) is one successor.
   - Activating a challenger predictor is a further successor.
 
 ---
@@ -291,12 +291,12 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | G1 | **Deterministic rebuild:** the same inputs give byte-identical derived tables (hash compared on fixture copies) |
 | G2 | **Zero LLM and embedding calls** during rebuild or replay (fakes assert) |
 | G3 | **No evidence writes:** an import-linter contract forbids predictor packages from importing evidence writers. Evidence, mastery, facet-recall and certification tables are byte-identical with the field on vs off |
-| G4 | **Untested is not known:** no region without direct evidence is reported as known, "solid", or `untested = false`. Neighbour inference never changes episode entry |
+| G4 | **Honest labels:** no region is labelled demonstrated or certified without direct evidence. Every assumed LO is labelled "assumed (not tested)" and has a scheduled first review |
 | G5 | **Knowledge-model alignment:** no prior or update propagates along `part_of`, `related`, `analogous_to` or `confusable_with`, and no LLM relation edges are read |
 | G6 | **Never blend:** with the untested state on vs off, well depth and demonstrated beads are identical except at untested points (vitest) |
-| G7 | **Placement skips only what it checked:** only directly checked "solid" LOs lose their initial episode. Nothing is certified |
-| G8 | **Placement reproducibility:** selection given a snapshot is deterministic (ties broken by item id), and `placement_decisions` records everything needed to recompute it |
-| G9 | **Kill switches:** with `placement.enabled = false`, or the active predictor reverted, episode entry and ordering match the previous version on fixture copies |
+| G7 | **Assumptions are reversible and evidence-free:** a failed first review, or "I don't know this", returns the LO to learning. Nothing assumed writes evidence or certification |
+| G8 | **Reproducibility:** quick-check selection given a snapshot is deterministic (ties broken by item id). `assumption_decisions` records everything needed to recompute each decision |
+| G9 | **Kill switches:** with `placement.enabled = false` (initial probes back on, no assumptions), or the active predictor reverted, episode entry, serving and ordering match the previous version on fixture copies |
 | G10 | **Consumers use the interface:** placement and map modules can't import any predictor's internals (import-linter) |
 | G11 | **Only calibrated-uncertainty predictors can be active:** config validation rejects the others |
 | G12 | **Weight and provenance invariances:**<br>• zero-mass rows leave every posterior byte-identical;<br>• primed handling matches `mastery.py` (at one LO, `lo_general` with `σ_g² → 0` reduces to it);<br>• every outcome row has a `revision_status`, and with `exclude` no current content substitutes for a missing revision |
@@ -332,12 +332,15 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 1. **Prequential replay (F1).** Every arm on the owner's graded log, with the splits above.
    - **Key question:** does `lo_general` (or an extension) beat `mastery_ekf` on first attempts at never-seen LOs?
    - **Validity:** at n=1 this detects only large differences.
-2. **Placement simulation (F1).** For each LO group the owner started historically, simulate up to k checks chosen by §5.2's rule from what was actually answered, then score predictions of the first attempts on the rest.
-   - **Reported:** the share that would be "solid", and their **miss rate**.
-   - **Named bias:** checks can only be chosen from what was historically answered.
-3. **Confirm-probe report (after F2).**
-   - **Reported:** the miss rate of "solid" against its confirm probes; the "needs practice" hit rate; placement minutes against the estimated minutes of probing every LO.
-   - **Named confounds:** ten days of learning and forgetting, and goal-frontier serving in that window.
+2. **Fast-track simulation (F1).** On historical LOs, apply §5.2's fast-track rule to the first answers, then score the later attempts.
+   - **Reported:** the share that would have been assumed known, and their **miss rate** (later failures).
+   - **Named bias:** history shows only what was actually served.
+3. **Assumption report (after F2).**
+   - **Reported:**
+     - first-review miss rate **by source** (self-report, fast-track, predictor, quick check);
+     - returns to learning;
+     - learning minutes saved against the estimated minutes of learning every new LO.
+   - **Named confounds:** learning and forgetting before the first review, and goal-frontier serving in that window.
 
 ### 7.4 Switching rule (simplest is the incumbent)
 
@@ -347,7 +350,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 - **"Can't tell" keeps the incumbent.**
 - **The switch:** activation is a successor with a kill switch.
 
-**What activation enables.** It is also the held-out support that knowledge-model §8.3 requires before cross-LO sharing (the general level) can steer a live decision. Until a challenger is activated, placement ordering uses the plain predictive rate and "solid" uses `mastery_ekf`.
+**What activation enables.** It is also the held-out support that knowledge-model §8.3 requires before cross-LO sharing (the general level) can steer a live decision. Until a challenger is activated, quick-check ordering uses the plain predictive rate, fast-track uses `mastery_ekf`, and nothing is assumed known before an attempt except by self-report.
 
 ---
 
@@ -355,9 +358,9 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 
 | Step | Contents | Needs | Gate |
 |---|---|---|---|
-| **F0** Prerequisites | The dormant/resolved-LO serving fix; daily-loop Q7 when available (daily-loop track) | — | Blocks F2 only |
+| **F0** Prerequisites | The dormant/resolved-LO serving fix (daily-loop track); Q7 when available | — | Blocks F2 only |
 | **F1** Predictors, harness, untested state | §3, §4, §5.1, §7.2, reports 1–2, `data-check` | — | G1–G6, G10–G12; owner reviews reports 1–2 once |
-| **F2** Placement live | §5.2; successor + kill switch | F0 fix; F1 reports reviewed; eligible items (imported exercises; PF-b published items) | G7–G9; report 3 after several imports |
+| **F2** Starting new material | §5.2: no opening probes; assumed known by self-report, fast-track or activated predictor, checked in the first review; optional quick check. Successor + kill switch | F0 fix; F1 reports reviewed | G4, G7–G9; report 3 after several imports |
 | **Activation** (optional) | A challenger becomes `active_predictor` | §7.4 rule met | Successor + kill switch |
 
 ---
@@ -389,15 +392,17 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   - manifests and clustered bootstrap;
   - the first-attempt split;
   - `llm_probability` is off by default and spend-capped (fake client) when on.
-- **`test_placement_session.py`:**
-  - triage is recorded as claims, not evidence;
-  - adaptive selection and the early stop;
-  - only directly checked LOs become "solid" (G4, G7);
-  - the confirm episode is entered after `confirm_after_days`, and a failed confirm restores the normal path;
-  - with no eligible items, today's probes run;
-  - G8, plus the kill switch (G9);
-  - overrides go to `judgment_ledger`.
-- **`test_map_untested.py`** (sidecar RPC + vitest): the untested points; G6.
+- **`test_assumed_known.py`:**
+  - no initial episodes for new LOs by default, while error-driven episodes still open;
+  - each source (self-report, fast-track, predictor, quick check) marks an LO assumed and schedules its first review;
+  - fast-track needs ≥ `fast_track_min_correct` cold correct answers and the threshold;
+  - predictor-based assumption is impossible under the incumbent;
+  - a failed first review or "I don't know this" returns the LO to learning (G7);
+  - no evidence or certification writes;
+  - `assumption_decisions` is complete (G8);
+  - the kill switch restores initial probes exactly (G9).
+- **`test_quick_check.py`:** an optional calibration session with adaptive selection and early stop, reveal at the end, and results feeding the assumed/learning split.
+- **`test_map_untested.py`** (sidecar RPC + vitest): untested and assumed points are drawn distinctly from demonstrated ones; G6.
 - **Durability lane:** a rebuild of the derived tables under production pragmas on a fresh vault.
 
 ---
@@ -409,13 +414,14 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | D1 | Active predictor at launch | `mastery_ekf`, the existing per-LO filter. Challengers earn activation (§7.4) |
 | D2 | Cross-LO structure in `lo_general` | A shared general level only; no graph coupling (knowledge-model §8.1, §8.3). Prerequisite-directed coupling is deferred (§11) |
 | D3 | Extension-arm constants | `γ = 0.2`; capability `N(0, 0.5²)`; relation means 0 / −0.25 / −0.5 (sd 0.5); retrievability `β = 0.5` (sweep 0, 0.5, 1). Versioned, never fitted to the owner |
-| D4 | Placement block | k ≤ 4, ≤ 8 minutes, adaptive with an early stop |
-| D5 | Triage | know / new / unsure, recorded as weak claims; "new" skips checks |
-| D6 | "Solid" threshold and confirm delay | `q = 0.8` at `θ_known = logit(0.75)`, or `q = 0.9` if report 2 lacked data; confirm after 10 days. Tune from report 3 |
+| D4 | Quick check | Optional, never prompted; k ≤ 4, ≤ 8 minutes, adaptive with an early stop |
+| D5 | Self-report | "I know this" or "too easy" marks an LO assumed known immediately; "I don't know this" returns it to learning immediately. No triage screen |
+| D6 | Fast-track and first review | ≥ 2 cold correct first answers and `P(θ_L > θ_known) ≥ q`, with `q = 0.8` at `θ_known = logit(0.75)` (0.9 if report 2 lacked data); first review after 14 days. Tune from report 3 |
 | D7 | Wait for Slice 1's grader probes before F2? | No, per the owner's live-with-kill-switch preference. Confirm probes are the safety net; review E1 when Slice 1 produces it |
 | D8 | `llm_probability` | Off by default; at most a one-off offline test |
 | D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
 | D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
+| D11 | Opening probes for new LOs | Off by default (`placement.initial_probes = false`). Diagnosis happens when a wrong answer leaves a real choice of repair |
 
 ---
 

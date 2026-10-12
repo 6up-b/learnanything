@@ -1,6 +1,10 @@
 # Project understanding — keeping AI-assisted projects explainable (v1)
 
-**Status:** draft for owner review (2026-10-11). This is a new track. It sits alongside Slice 1 (`spec_blind_grading_diagnosis_split_v1.md`) and Slice 2 (`spec_embedding_consumers_v1.md`) and depends on neither for its first milestone.
+**Status:** draft for owner review (2026-10-11). *Revised the same day for frictionless defaults* (owner; `docs/specs/daily_loop_frictionless_defaults.md` R3):
+- **The default mechanism is delayed comprehension questions** on agent-written code inside the daily plan. They are captured automatically, with nothing to run at accept time.
+- **The explain-before-accept gate is opt-in per repo**, and its randomized experiment is optional (M1b).
+
+This is a new track. It sits alongside Slice 1 (`spec_blind_grading_diagnosis_split_v1.md`) and Slice 2 (`spec_embedding_consumers_v1.md`) and depends on neither for its first milestone.
 
 **Source material:**
 - **Intentions.** `docs/brainstorming/User intentions.md` (the GRU gesture-control project, interview preparation, "loss of understanding of your own projects can be easy with AI generated code", Quest) and `docs/brainstorming/LearnLoop_User_Intentions_v2.md` ("Explain and defend the temporal-model choice in my gesture project…", and the project questions it lists).
@@ -46,8 +50,8 @@ The owner builds projects with coding agents. The evidence (sweep §7) says that
 So "I accepted the diff" is not evidence of understanding. Understanding is measured later, unassisted, on questions the code itself answers.
 
 **The track has four parts:**
-1. **The explain-before-accept gate.** A short written explanation of an agent diff, judged by an LLM that writes its own explanation first.
-2. **Delayed probes.** Unassisted questions about accepted diffs, about seven days later, with answers anchored to `file:line`.
+1. **Delayed probes (the default).** Unassisted questions about agent-written diffs, about seven days later, served in the daily plan, with answers anchored to `file:line`. Capture is automatic (§3.2), so the owner does nothing until a question is due.
+2. **The explain-before-accept gate (opt-in).** A short written explanation of an agent diff, judged by an LLM that writes its own explanation first. The evidence for it is strong (2602.20206), but it adds a step at accept time, so it is per-repo opt-in. Its randomized experiment (M1b) is optional.
 3. **Assistance provenance.** How the code was produced (augmentation vs automation; accepting hunk by hunk vs all at once) decides **where probes are spent**, never how much a grade counts.
 4. **Project-defense mode (optional).** Interview-style questioning on the owner's own design decisions.
 
@@ -58,7 +62,7 @@ So "I accepted the diff" is not evidence of understanding. Understanding is meas
   - grading that never sees the arm or the explanation;
   - one question per turn enforced in code, because prompts did not achieve it (2603.18221: 31.2% → 10.9% only with a code-level validator).
 
-**Milestone 1 is a cheap randomized experiment.** Nothing larger is built until its report is in (§9).
+**Milestone 1 is delayed probes with zero capture effort** (§9). The gate experiment is an optional M1b for repos the owner opts in.
 
 ---
 
@@ -66,11 +70,11 @@ So "I accepted the diff" is not evidence of understanding. Understanding is meas
 
 **In scope:**
 - **A1.** Repo enrollment and diff capture (§3), with disclosure controls (§4).
-- **A2.** The gate: randomization, explanation capture, solve-first judge, overhead timing (§5.1).
+- **A2.** The gate, opt-in: explanation capture, solve-first judge, overhead timing, and the optional randomized experiment (§5.1, M1b).
 - **A3.** Delayed probes: generation, closed-book filtering, sealing, unassisted answering, blind grading (§5.2). From M2 they become PF items.
 - **A4.** Assistance provenance: self-report in M1; transcript-linked LLM classification in M3 (§5.3).
 - **A5.** Project-defense mode (§5.4; M4, optional).
-- **A6.** The M1 experiment report and its pre-registered decision rule (§8).
+- **A6.** The M1 probe report. If the owner runs M1b, also the experiment report and its pre-registered decision rule (§8).
 
 **Out of scope:**
 - Whole-repo ingestion as a source (a Reader for code).
@@ -86,7 +90,7 @@ Inherited: Slice 1 S1–S7 where grading is involved; plan invariants 1–15. In
 
 - **P1. Never block the owner's work.**
   - No hook may fail a commit, a push, or an agent turn. Hooks only append to a pending list and always exit 0.
-  - The gate is opt-in per repo (`gate_policy`, §6.1).
+  - The gate is opt-in per repo (`gate_policy`, §6.1). **The default is `off`**, and capture never asks anything.
   - Every prompt has a skip. A skip is recorded and is never negative evidence.
 - **P2. The gate explanation is an assisted record, never cold evidence.**
   - The owner writes it with the diff on screen. In M1 it writes nothing to `state.sqlite`.
@@ -98,7 +102,7 @@ Inherited: Slice 1 S1–S7 where grading is involved; plan invariants 1–15. In
   - Anything uncited is labelled `inferred`, shown as "plausible interpretation", and never used as the key. Generated design rationale is mostly plausible but unstated (2504.20781); filtering by verifiability against issues raises coverage (2506.14649). This is PF §5.3, applied to repos.
 - **P5. Minimum disclosure** (§4). Diff hunks plus bounded context go to models; whole repos do not by default. Secrets are filtered. Every model call records what was sent.
 - **P6. Replay never calls git, a model, or repo code.** Diffs, probes, and grades are stored snapshots. Replay reads them.
-- **P7. Pre-registration.** The M1 randomization scheme, outcome definition, and decision rule (§8.1) are written into the experiment store and the report header before the first probe is graded. They are not changed afterward.
+- **P7. Pre-registration (M1b only).** The M1b randomization scheme, outcome definition, and decision rule (§8.1) are written into the experiment store and the report header before the first probe is graded. They are not changed afterward.
 
 ---
 
@@ -117,7 +121,11 @@ Inherited: Slice 1 S1–S7 where grading is involved; plan invariants 1–15. In
 
 ### 3.2 Recommendation
 
-- **M1:** manual `accept`, plus `sweep` as the completeness backstop, plus an optional `post-commit` hook that only appends to the pending list. `learnloop project status` shows pending, captured, and missed counts. The report states **capture coverage**: captured / (captured + swept-but-uncaptured).
+- **M1 (revised 2026-10-11: zero capture effort).**
+  - **Sweep.** `sweep` runs automatically: at app start, at the daily plan's build, and from the optional append-only `post-commit` hook's pending list. It captures every agent-trailer commit in enrolled repos.
+  - **Manual capture.** Manual `accept` remains only for agent work without a trailer (one command, or a one-tap "this was AI-written" on a commit list).
+  - **Status.** `learnloop project status` shows captured and pending counts.
+  - **Selection bias** from manual capture is gone, because capture no longer depends on discipline.
 - **M2:** an agent `Stop` hook (enqueue + reminder) is added for repos that opt in.
 - **M3:** transcript linking, for provenance only.
 
@@ -166,7 +174,7 @@ The owner accepts learner text leaving the machine (2026-10-11; OpenRouter is fi
 
 ### 5.1 The gate
 
-**Randomization (M1).**
+**Randomization (M1b only, for repos opted into the experiment).**
 - Permuted blocks of 2: within each consecutive pair of captured diffs, one gets `gate` and one gets `plain`, in random order.
 - The seed is stored, and the propensity (0.5) is recorded per diff.
 - Diffs under `project.min_diff_lines` (default 5 changed lines) are captured but excluded from randomization, so trivial edits don't fill the sample.
@@ -179,9 +187,9 @@ The owner accepts learner text leaving the machine (2026-10-11; OpenRouter is fi
 
 **Plain arm.** Only the overhead clock and the provenance self-report run.
 
-**Both arms.** The owner gets one optional tap each:
+**Provenance taps are optional and never prompted** (revised 2026-10-11). Accept style and how the agent was used come from the trailer, and later from transcripts (M3). The owner can add them from the diff's detail view:
 - accept style: `per_hunk` | `all_at_once` | `unknown`;
-- how the agent was used: `I designed, it typed` | `we iterated` | `it designed` | `skip`.
+- how the agent was used: `I designed, it typed` | `we iterated` | `it designed`.
 
 **The gate never blocks.** Skipping the gate in the gate arm is recorded as `gate_skipped` and analysed as assigned (intention-to-treat).
 
@@ -206,8 +214,9 @@ The owner accepts learner text leaving the machine (2026-10-11; OpenRouter is fi
 
 **Sealing and due date.** Probes are sealed (never rendered) until `captured_at + project.probe_delay_days` (default 7).
 
-**Answering.** `learnloop project probes` serves due probes one at a time.
-- The owner declares the standard of the existing `unassisted` dimension: no AI, and **no looking at the repo**. They then answer, or tap `don't know`, `question is unfair/ambiguous`, or `skip`.
+**Answering.** In M1, `learnloop project probes` serves due probes; from M2 they appear in the daily plan like any other item.
+- **Unassisted by default** (revised 2026-10-11). An answer is taken as from memory, with no AI and no looking at the repo, unless the owner taps "I looked" or "I used AI". There is no declaration step.
+- Each probe also has `don't know`, `question is unfair/ambiguous`, and `skip`.
 - Late answers are allowed; `answered_at - due_at` is recorded.
 
 **Grading.**
@@ -244,7 +253,7 @@ The owner accepts learner text leaving the machine (2026-10-11; OpenRouter is fi
 
 ### 6.1 M1: standalone experiment store (no vault migration)
 
-M1 writes only to `<vault>/projects/gate_experiment.sqlite`. Its schema is owned by `learnloop/projects/experiment_store.py`. M1 touches no `state.sqlite` table, algorithm version, or rebuild path. It uses the same connection helper (`learnloop.db.connection.connect`) and is backed up with the vault directory.
+M1 writes only to `<vault>/projects/project_store.sqlite`. Its schema is owned by `learnloop/projects/experiment_store.py`. M1 touches no `state.sqlite` table, algorithm version, or rebuild path. It uses the same connection helper (`learnloop.db.connection.connect`) and is backed up with the vault directory.
 
 | Table | Contents |
 |---|---|
@@ -305,17 +314,19 @@ As a result, repo probes qualify as practice evidence but not as held-out certif
 
 ## 8. Evaluation
 
-### 8.1 M1 pre-registered decision rule (the one numeric threshold in this spec)
+### 8.1 M1b pre-registered decision rule (optional gate experiment; the one numeric threshold in this spec)
 
-**Unit.** A randomized diff, up to the first 20 eligible diffs after enrollment: 10 `gate`, 10 `plain` by the block design.
+**Unit.** Only for repos opted into M1b. A randomized diff, up to the first 20 eligible diffs after opting in: 10 `gate`, 10 `plain` by the block design.
 
 **Outcome.** A diff's probe accuracy is the mean normalized rubric score (0–1) of its selected probes, using contested-and-adjudicated grades where they exist. An arm's accuracy is the mean over its diffs. The analysis is intention-to-treat.
 
 **Rule.**
-- **Gate becomes the default** for enrolled repos if:
+- **The gate is recommended for that repo** if:
   - gate-arm accuracy minus plain-arm accuracy is **≥ 0.15**; and
   - the **median gate overhead is < 120 s per diff**.
-- **Otherwise** the gate is offered as **opt-in**.
+
+  Either way it stays opt-in; the owner decides whether to keep it on.
+- **Otherwise** it is switched back off.
 
 **Reported alongside, without changing the rule:**
 - a permutation-test interval on the difference;
@@ -336,17 +347,17 @@ Twenty diffs detect only a large effect. The original study's gap was 38 points 
 | G1 | Hooks and sweeps always exit 0, including on git errors, a missing vault, or a locked DB (tested with injected failures) |
 | G2 | Secret filtering: fixture repos with planted keys and `.env` files never appear in any model-call payload or stored diff (asserted through a fake transport) |
 | G3 | Arm-blindness: the rendered generator, closed-book, and grader prompts contain no arm, explanation, judge output, or provenance label; their context dataclasses have no field for them |
-| G4 | Randomization: blocks of 2 balance exactly; the seed reproduces assignments; trivial diffs are excluded before assignment |
+| G4 | Randomization (M1b only): blocks of 2 balance exactly; the seed reproduces assignments; trivial diffs are excluded before assignment |
 | G5 | Sealing: no probe text is rendered before `sealed_until` by any command, including `status` |
 | G6 | M1 writes nothing to `state.sqlite` (row counts and schema hash unchanged) |
 | G7 | Replay (M2+) makes no git, model, or subprocess calls |
-| G8 | Pre-registration is written and hashed before the first grade; the report refuses to run if it is missing or modified |
+| G8 | Pre-registration (M1b only) is written and hashed before the first grade; the experiment report refuses to run if it is missing or modified |
 
 ### 8.3 Quality reports (no thresholds)
 
 | Milestone | Report |
 |---|---|
-| M1 | §8.1 report. Plus probe validity: "unfair/ambiguous" taps, contest rate, closed-book rejection rate, citation-resolution failures, and generation cost per diff |
+| M1 | Probe validity and value: "unfair/ambiguous" taps, contest rate, closed-book rejection rate, citation-resolution failures, generation cost per diff, capture coverage, and probe accuracy by provenance. M1b: the §8.1 report |
 | M2 | Probe uptake in the normal queue; per-provenance probe outcomes; repo-family maintenance outcomes over time |
 | M3 | Classifier agreement with the owner's blind labels (§5.3); executed-perturbation success rate |
 | M4 | Defense sessions: examiner turns rejected by the one-question validator; owner usefulness taps |
@@ -357,7 +368,8 @@ Twenty diffs detect only a large effect. The original study's gap was 38 points 
 
 | Milestone | Build | Owner does | Gate to proceed |
 |---|---|---|---|
-| **M1 — Gate experiment** | `projects/` capture, redaction, gate, probes, experiment store, report. CLI: `project enroll`, `accept`, `sweep`, `status`, `probes`, `report`. Optional `post-commit` hook installer (append-only) | Runs `accept` on the next ≥20 eligible agent diffs (`sweep` as backstop); answers 2 probes per diff ~7 days later; ~1–2 min per gated diff, ~3 min per probe pair | G1–G8 pass; §8.1 report reviewed. The decision rule sets `gate_policy`. **M2 proceeds only if** the probes were judged valid enough to be worth scheduling (validity rows of the M1 report) |
+| **M1 — Delayed probes** | `projects/` automatic capture (sweep + optional append-only `post-commit` hook), redaction, probes, store, report. CLI: `project enroll`, `sweep`, `status`, `probes`, `report` (plus `accept` for trailer-less agent work) | Enrolls repos once; answers 2 probes per diff when due (~3 min per pair). Nothing at capture time | G1–G3, G5–G7 pass; the M1 report is reviewed. **M2 proceeds if** the probes look valid (few unfair/ambiguous taps and contests) |
+| **M1b — Gate experiment (optional, opt-in)** | Gate UI, randomization, pre-registration, §8.1 report | For opted-in repos: writes 2–3 sentences on gated diffs (~1–2 min each) | G4, G8; §8.1 report reviewed; the result recommends keeping the gate on or off for that repo |
 | **M2 — Projects in the loop** | Migrations (§6.2); import M1 rows; probes become PF `source_anchored` items (needs PF-a/PF-b); `repo_working_tree` coldness channel; agent `Stop` hook for opted-in repos; sidecar handler `learnloop_sidecar/handlers/projects.py` (status, disclosure, gate policy) | Studies normally; repo probes appear in the daily queue | M2 report reviewed |
 | **M3 — Provenance + what-if** | Transcript linking and `project_session_classify`; provenance-driven probe priority; `what_if` probes via repo-declared `probe_check_command`s (e.g. a shape check or a 2-minute training run), run in PF's sandbox (Slice 2 §5.3) | Labels 20 sessions blind; declares check commands for repos where it wants what-if items | Classifier agreement reviewed |
 | **M4 — Project defense** (optional) | §5.4 | Uses it before interviews | Owner usefulness |
@@ -407,9 +419,9 @@ Twenty diffs detect only a large effect. The original study's gap was 38 points 
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | M1 capture: manual `accept` + `sweep` + optional append-only `post-commit` hook, or agent hooks from the start? | Manual + sweep + optional hook. Agent hooks in M2, once the experiment says the gate is worth the friction |
-| D2 | M1 storage: standalone `projects/gate_experiment.sqlite`, or migrate `state.sqlite` now? | Standalone. M1 stays off the migration and algorithm-version path, and M2 imports it |
-| D3 | After M1, does the gate explanation count as evidence? | No by default (P2). If wanted, as an assisted record with `assistance_discount`, never toward coldness or certification |
+| D1 | M1 capture | *Revised 2026-10-11:* automatic sweep (app start, plan build, optional append-only `post-commit` pending list); manual `accept` only for trailer-less agent work. Agent `Stop` hooks in M2 |
+| D2 | M1 storage: standalone `projects/project_store.sqlite`, or migrate `state.sqlite` now? | Standalone. M1 stays off the migration and algorithm-version path, and M2 imports it |
+| D3 | Does an opt-in gate explanation count as evidence? | No by default (P2). If wanted, as an assisted record with `assistance_discount`, never toward coldness or certification |
 | D4 | Probe delay and count | 2 probes at 7 days, pre-registered. A 30-day re-probe can be added in M2 as ordinary PF scheduling |
 | D5 | Agent attribution for Codex and owner-committed agent work | `--agent` flag + one-tap self-report; transcript linking in M3 |
 | D6 | Repo probes and coldness: practice evidence only, or eligible for cold certification? | Practice only while `repo_working_tree` is unobserved (§6.3). Revisit only if an editor or agent telemetry channel exists |

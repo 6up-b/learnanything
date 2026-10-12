@@ -728,6 +728,7 @@ Three research agents asked whether deep metric learning should separate facet d
 
 As a result:
 - **Learner field:** reshaped to an LO-level predictor competition (incumbent: the existing per-LO mastery filter), an honest "untested" map state, and placement through calibration sessions.
+- **Frictionless defaults (later still):** no opening probes per topic; "assumed known" from self-report or early answers, checked in the first review; families auto-accepted with undo; LLM judges in place of owner rating chores (`docs/specs/daily_loop_frictionless_defaults.md`).
 - **Deferred with triggers:** the facet-level kernel design above (`spec_learner_field_v1.md` §11; full design at commit `936813f`).
 - **Facet dossiers:** moved to the practice-family track as a natural-language retrieval index (`spec_embedding_consumers_v1.md` §5.9).
 
