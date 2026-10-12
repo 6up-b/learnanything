@@ -17,7 +17,10 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+    STUCK_PROMPT_ALGORITHM_VERSION,
+)
 from learnloop.learner.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
@@ -307,6 +310,71 @@ def upgrade_to_mvp010(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         upgraded=True,
         from_version=current,
         to_version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+    )
+
+
+def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """Replace "I don't know" with "I'm stuck" (write what you can).
+
+    ``mvp-0.11`` changes what NEW answers persist: a stuck answer is an
+    ordinary attempt at the standard mass (``practice_attempts.declared_stuck``,
+    migration 172) and the blind grader's reading of it sits on its blind
+    record. Existing ``dont_know`` attempts keep their meaning and mass, and
+    the projection namespace and the split are unchanged, so the upgrade is an
+    immediate-successor tag change plus an idempotent rebuild of the same
+    projection, prepared before the atomic config rename. The kill switch
+    ``stuck_prompt.enabled = false`` restores "I don't know" for new answers
+    without a downgrade; rollback of the version itself is restore-only.
+    """
+
+    from learnloop.params import parameter_registry as registry_service
+    from learnloop.substrate.p0_projection import activate_p0_projection
+
+    vault = load_vault(root)
+    current = vault.config.algorithms.algorithm_version
+    if current == STUCK_PROMPT_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=STUCK_PROMPT_ALGORITHM_VERSION,
+            problems=["vault is already mvp-0.11"],
+        )
+    if current != DIAGNOSIS_SPLIT_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=STUCK_PROMPT_ALGORITHM_VERSION,
+            problems=[
+                f"cannot upgrade from {current!r}; only {DIAGNOSIS_SPLIT_ALGORITHM_VERSION!r} may activate mvp-0.11"
+            ],
+        )
+
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    # Construction applies the additive migration the stuck answer needs (172).
+    repository = Repository(sqlite_path)
+    registry_service.freeze_manifest(
+        vault,
+        repository,
+        algorithm_version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+        clock=clock,
+    )
+    vault.config.algorithms.algorithm_version = STUCK_PROMPT_ALGORITHM_VERSION
+    activate_p0_projection(
+        vault,
+        repository,
+        from_version=current,
+        clock=clock,
+    )
+    registry_service.refresh(vault, repository, clock=clock)
+    _rewrite_algorithm_version(
+        root / "learnloop.toml",
+        current,
+        STUCK_PROMPT_ALGORITHM_VERSION,
+    )
+    return UpgradeResult(
+        upgraded=True,
+        from_version=current,
+        to_version=STUCK_PROMPT_ALGORITHM_VERSION,
     )
 
 

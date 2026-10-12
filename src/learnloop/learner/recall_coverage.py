@@ -55,6 +55,7 @@ def resolve_coverage(
     hints_used: int,
     learner_answer_md: str,
     evidence: EvidenceConfig | None = None,
+    declared_stuck: bool = False,
 ) -> CoverageResult:
     raw_facet_weights, item_coverage, source = _raw_coverage(item, rubric, evidence)
     normalized = _normalize(raw_facet_weights)
@@ -63,7 +64,9 @@ def resolve_coverage(
         hints_used,
         default=1.0,
     )
-    response_engagement_factor = _response_engagement_factor(attempt_type, learner_answer_md)
+    response_engagement_factor = _response_engagement_factor(
+        attempt_type, learner_answer_md, declared_stuck=declared_stuck
+    )
     attempt_type_coverage_factor = attempt_surface_exposure(attempt_type, evidence)
     effective_item_coverage = clamp(
         item_coverage * hint_surface_factor * response_engagement_factor * attempt_type_coverage_factor
@@ -905,12 +908,19 @@ def _normalize(weights: Mapping[str, float]) -> dict[str, float]:
     return {key: value / total for key, value in positive.items() if value > 0}
 
 
-def _response_engagement_factor(attempt_type: str, learner_answer_md: str) -> float:
+def _response_engagement_factor(
+    attempt_type: str, learner_answer_md: str, *, declared_stuck: bool = False
+) -> float:
     if attempt_type == "skip":
         return 0.0
     if attempt_type == "dont_know":
         return 1.0
     if learner_answer_md.strip():
+        return 1.0
+    # mvp-0.11: an empty answer sent with "I'm stuck" is a deliberate,
+    # engaged non-answer (as a confident don't-know was), not an accidental
+    # blank, which keeps the half factor.
+    if declared_stuck:
         return 1.0
     return 0.50
 

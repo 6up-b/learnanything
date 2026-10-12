@@ -29,19 +29,37 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
 DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 
+# mvp-0.11 ("Write what you can" replaces "I don't know"): the learner's
+# "I'm stuck" control. A stuck answer is an ordinary attempt at the standard
+# attempt mass (graded and diagnosed when it has text; a deterministic zero
+# when it is empty) instead of a `dont_know` at its own fixed mass. Persisted
+# meaning changes for NEW attempts only (`practice_attempts.declared_stuck`,
+# the grader's stuck reading on the blind record); the projection does not,
+# and the split stays live. Kill switch: ``stuck_prompt.enabled``.
+STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.11"
+
+# Versions whose learner surfaces offer "I'm stuck" instead of "I don't know"
+# (the kill switch restores the old control and scoring for NEW answers;
+# replay reads the persisted flag, never the switch).
+STUCK_PROMPT_VERSIONS: frozenset[str] = frozenset({STUCK_PROMPT_ALGORITHM_VERSION})
+
 # Versions at which practice grading is split (kill switch
 # ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
 # attempt's grader mode is recorded per attempt and replay never reads the
-# switch).
+# switch). Every later successor keeps the split.
 DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = frozenset(
-    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION}
 )
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against
 # P0_ALGORITHM_VERSION, or each version bump silently demotes fresh vaults.
 P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
-    {REVEAL_LEDGER_ALGORITHM_VERSION, DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+    {
+        REVEAL_LEDGER_ALGORITHM_VERSION,
+        DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+        STUCK_PROMPT_ALGORITHM_VERSION,
+    }
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
     frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS

@@ -24,6 +24,7 @@ from learnloop.attempts.effective_observation import (
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.reveal_ledger import production_admissibility
+from learnloop.attempts.stuck import stuck_answer_summary
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.families import family_judge_models
@@ -370,6 +371,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             coverage = resolve_coverage(
                 item, rubric, attempt_type=attempt["attempt_type"], hints_used=hints,
                 learner_answer_md=attempt.get("learner_answer_md") or "", evidence=vault.config.evidence,
+                declared_stuck=bool(attempt.get("declared_stuck")),
             )
             coverage = scale_coverage_for_graded_criteria(coverage, item, rubric, criterion_points=points)
             covered = coverage.covered_facets
@@ -624,6 +626,8 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
     return {
         "outcome_view_version": OUTCOME_VIEW_VERSION,
         "interaction_signals": interaction_diagnostics,
+        # mvp-0.11: the share of stuck answers with text and their grading wait.
+        "stuck_answers": stuck_answer_summary(connection),
         "legacy_fallback": resolve_legacy_fallback(vault, legacy_fallback),
         "graded_attempts": len(attempts),
         "eligible_attempts": sum(r.effective_mass > 0 for r in attempts),

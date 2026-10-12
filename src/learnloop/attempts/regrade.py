@@ -199,7 +199,12 @@ def regrade_attempt(
     ):
         from learnloop.attempts.attempts import _blind_grading_plan
 
-        blind_plan = _blind_grading_plan(vault, item, context)
+        # mvp-0.11: a stuck answer is regraded under the same stuck rules, so
+        # its new blind record carries a fresh reading (the confusion signal
+        # follows the current record).
+        blind_plan = _blind_grading_plan(
+            vault, item, context, stuck=bool(attempt.get("declared_stuck"))
+        )
     if blind_plan is not None:
         identity = {
             "prompt_version": blind_plan.prompt_version,
@@ -250,6 +255,12 @@ def regrade_attempt(
                 "grading_support": dict(run.grading_support),
                 "regrade": True,
             }
+            if run.stuck_reading is not None:
+                from learnloop.attempts.stuck import STUCK_READING_KEY, verified_stuck_reading
+
+                blind_record[STUCK_READING_KEY] = verified_stuck_reading(
+                    run.stuck_reading, attempt.get("learner_answer_md") or ""
+                )
             # PF-c: a criterion the gate recorded unverified keeps its points
             # but writes no negative evidence, exactly as on the live grade.
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
@@ -546,7 +557,11 @@ def _agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, s
 def _manual_review_reason(existing: str | None, attempt: dict) -> str | None:
     if existing is not None:
         return existing
-    if attempt.get("attempt_type") != "dont_know" and not str(attempt.get("learner_answer_md") or "").strip():
+    if (
+        attempt.get("attempt_type") != "dont_know"
+        and not attempt.get("declared_stuck")
+        and not str(attempt.get("learner_answer_md") or "").strip()
+    ):
         return "blank_answer"
     return None
 

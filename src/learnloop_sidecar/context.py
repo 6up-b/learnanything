@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.routing import is_embedding_profile, ready_client_for_task, runtime_for_provider
+from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -357,6 +358,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "schema_version": config.schema_version,
             "algorithm_version": config.algorithms.algorithm_version,
             "storage": {"sqlite_path": config.storage.sqlite_path},
+            # mvp-0.11: the answer surfaces offer "I'm stuck" (write what you
+            # can) instead of "I don't know" when this is true.
+            "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

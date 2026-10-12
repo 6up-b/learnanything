@@ -120,6 +120,22 @@ class CurrentAttempt:
 
     def render(self) -> dict[str, Any]:
         grade = self.blind_grade
+        rendered = self._render(grade)
+        reading = grade.get("stuck_reading")
+        if isinstance(reading, Mapping):
+            # mvp-0.11: the answer came from "I'm stuck" ("Write what you can,
+            # or what's confusing you"); the blind grader's reading of it is
+            # part of THIS attempt's evidence. Absent for every other attempt,
+            # so their contexts render and hash exactly as before.
+            rendered["blind_grade"]["stuck_reading"] = {
+                "answer_prompt": "I'm stuck: Write what you can, or what's confusing you",
+                "attempts_answer": bool(reading.get("attempts_answer")),
+                "describes_confusion": bool(reading.get("describes_confusion")),
+                "confusion_quote": str(reading.get("confusion_quote") or ""),
+            }
+        return rendered
+
+    def _render(self, grade: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "attempt_id": self.attempt_id,
             "date": self.completed_at,

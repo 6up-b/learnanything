@@ -1039,6 +1039,10 @@ export interface SubmitAttemptInput {
   /** Stable identity reused when a network submission is retried. */
   submissionId?: string | null;
   schedulerCandidateId?: string | null;
+  /** mvp-0.11: written after "I'm stuck" ("Write what you can, or what's
+   *  confusing you"). May be empty. Still an ordinary attempt of
+   *  `attemptType`: graded when it has text, scored 0 at once when empty. */
+  declaredStuck?: boolean;
 }
 
 /** §5.7 block-end hook payload: withheld feedback released at the boundary,

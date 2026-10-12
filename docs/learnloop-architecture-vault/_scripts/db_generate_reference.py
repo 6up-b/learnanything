@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_170/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_172/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_170" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_172" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 170
+SCHEMA_HEAD = 172
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -851,6 +851,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
+    "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.11)",
 }
 
 
@@ -1078,6 +1079,13 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Kill switch for tool isolation: when true, an agentic transport (Codex) runs project calls in "
         "a bubblewrap sandbox with no home, vault or repo visible, and a transport that can be neither "
         "sandboxed nor is tool-free is refused; false runs unconfined and receipts record none."
+    ),
+    "stuck_prompt.enabled": (
+        "Kill switch for mvp-0.11's \"I'm stuck\" control (write what you can, or what's confusing "
+        "you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed "
+        "when it has text, scored 0 with no model call when empty. Off, an mvp-0.11 vault shows "
+        "\"I don't know\" and records dont_know exactly as mvp-0.10. Dormant below mvp-0.11; replay "
+        "reads practice_attempts.declared_stuck, never this switch."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "
@@ -1691,7 +1699,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_170/state.sqlite",
+                "fixtures/migration_head_172/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

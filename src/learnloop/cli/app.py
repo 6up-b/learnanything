@@ -75,7 +75,7 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11).",
         ),
     ] = "mvp-0.9",
 ) -> None:
@@ -86,13 +86,16 @@ def upgrade(
     projection over an mvp-0.7 vault; ``--to mvp-0.9`` (default) activates
     cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
     activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
-    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``)."""
+    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
+    ``--to mvp-0.11`` replaces "I don't know" with "I'm stuck" (write what you
+    can) over an mvp-0.10 vault (kill switch: ``stuck_prompt.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
         upgrade_to_mvp08,
         upgrade_to_mvp09,
         upgrade_to_mvp010,
+        upgrade_to_mvp011,
     )
 
     if to == "mvp-0.7":
@@ -103,9 +106,11 @@ def upgrade(
         result = upgrade_to_mvp09(_root(vault))
     elif to == "mvp-0.10":
         result = upgrade_to_mvp010(_root(vault))
+    elif to == "mvp-0.11":
+        result = upgrade_to_mvp011(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2905,9 +2910,21 @@ def attempt(
             help="Blind-graded vaults (mvp-0.10): only queue the diagnosis (run it later with `learnloop diagnose drain`).",
         ),
     ] = False,
+    stuck: Annotated[
+        bool,
+        typer.Option(
+            "--stuck",
+            help=(
+                "mvp-0.11: the answer was written after \"I'm stuck\" (write what you can, or what's "
+                "confusing you). An empty answer is scored 0 with no grader."
+            ),
+        ),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
+    from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
+
     vault_root = _root(vault)
     loaded = load_vault(vault_root)
     repository = _repository(loaded.root)
@@ -2916,9 +2933,24 @@ def attempt(
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
+    stuck_active = stuck_prompt_active(loaded)
+    if stuck and not stuck_active:
+        typer.echo(
+            "This vault does not offer \"I'm stuck\" (mvp-0.11 with stuck_prompt.enabled).", err=True
+        )
+        raise typer.Exit(code=1)
+    stuck_note = None
+    if attempt_type == "dont_know" and stuck_active:
+        # mvp-0.11: "I don't know" is an empty stuck answer now, with no
+        # separate weight; the same switch that restores it restores this.
+        stuck, attempt_type, answer = True, None, ""
+        stuck_note = "\"I don't know\" is \"I'm stuck\" in this vault: recorded as an empty stuck answer."
     rubric = loaded.rubric_for_item(item)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
     points = _parse_points(criterion_points)
+    if stuck and not answer_text.strip():
+        # Nothing to grade: no self-grade is asked for either.
+        points = points or {criterion.id: 0.0 for criterion in (rubric.criteria if rubric else [])}
     if not points and rubric is not None:
         for criterion in rubric.criteria:
             raw = typer.prompt(f"{criterion.id} points", default="0")
@@ -2928,7 +2960,11 @@ def attempt(
                 typer.echo(f"{criterion.id} points must be numeric.", err=True)
                 raise typer.Exit(code=1)
     try:
-        resolved_attempt_type = attempt_type or default_attempt_type(item.attempt_types_allowed)
+        resolved_attempt_type = attempt_type or (
+            stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
+            if stuck
+            else default_attempt_type(item.attempt_types_allowed)
+        )
         draft = AttemptDraft(
             entry_surface="cli_practice",
             evidence_origin="human",
@@ -2937,6 +2973,7 @@ def attempt(
             attempt_type=resolved_attempt_type,
             hints_used=hints_used,
             session_id=session_id,
+            declared_stuck=stuck,
         )
         fallback_grade = SelfGradeInput(
             criterion_points=points,
@@ -2982,6 +3019,8 @@ def attempt(
     # final now); the diagnosis then runs inline unless --no-diagnose.
     from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, NOT_NEEDED, diagnosis_status, drain
 
+    if stuck_note is not None and not json_output:
+        typer.echo(stuck_note)
     if not json_output:
         typer.echo(
             f"Recorded {result.attempt_id}: score={result.rubric_score} "
@@ -2993,6 +3032,10 @@ def attempt(
         status = diagnosis_status(repository, result.attempt_id)
     if json_output:
         payload = {"version": 1, "attempt": result.as_dict()}
+        if stuck:
+            payload["declared_stuck"] = True
+        if stuck_note is not None:
+            payload["note"] = stuck_note
         if status["status"] != NOT_NEEDED:
             payload["diagnosis_status"] = status["status"]
         typer.echo(_dump(payload))

@@ -55,6 +55,11 @@ from learnloop.attempts.grading import (
     resolved_rubric,
     validate_codex_grading_proposal,
 )
+from learnloop.attempts.stuck import (
+    STUCK_PROMPT_RULES,
+    STUCK_PROMPT_VERSION_SUFFIX,
+    StuckReading,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 #: §4.3. A new prompt identity: the task text carries no causal instruction.
@@ -140,14 +145,21 @@ class BlindGradingContext:
     #: final-answer check found. Item-side plus this answer only. ``None`` is
     #: the mvp-2.0 blind prompt, rendered and hashed exactly as M1 did.
     reference_policy: dict[str, Any] | None = None
+    #: ``mvp-0.11``: how the answer was asked for, when it was not the plain
+    #: answer box (``attempts.stuck.stuck_answer_prompt()`` for "I'm stuck").
+    #: Item-side presentation of THIS answer, never history. ``None`` renders
+    #: and hashes exactly as before.
+    answer_prompt: dict[str, Any] | None = None
 
 
 def blind_context_payload(context: "BlindGradingContext") -> dict[str, Any]:
-    """The context as rendered and hashed; an absent policy is omitted."""
+    """The context as rendered and hashed; an absent policy or prompt is omitted."""
 
     payload = asdict(context)
     if payload.get("reference_policy") is None:
         payload.pop("reference_policy", None)
+    if payload.get("answer_prompt") is None:
+        payload.pop("answer_prompt", None)
     return payload
 
 
@@ -217,6 +229,18 @@ class BlindGradingProposal(WireModel):
     exercised_facets: list[ExercisedFacetObservation] = Field(default_factory=list)
 
 
+class StuckBlindGradingProposal(BlindGradingProposal):
+    """The blind wire model for a stuck answer: the shared fields, then the
+    grader's :class:`StuckReading` LAST (it never moves a criterion)."""
+
+    stuck_reading: StuckReading
+
+    def as_blind_proposal(self) -> BlindGradingProposal:
+        return BlindGradingProposal.model_validate(
+            self.model_dump(mode="json", exclude={"stuck_reading"})
+        )
+
+
 def blind_grading_context(
     vault: LoadedVault,
     item: PracticeItem,
@@ -256,6 +280,7 @@ def blind_context_from_grading_context(
     verifier_observations: list[dict[str, Any]] | None = None,
     clarification_exchange: dict[str, str] | None = None,
     reference_policy: dict[str, Any] | None = None,
+    answer_prompt: dict[str, Any] | None = None,
 ) -> BlindGradingContext:
     """Copy every item-side field; ``diagnostic_history`` has nowhere to go."""
 
@@ -287,6 +312,7 @@ def blind_context_from_grading_context(
             else context.verifier_observations
         ),
         reference_policy=dict(reference_policy) if reference_policy is not None else None,
+        answer_prompt=dict(answer_prompt) if answer_prompt is not None else None,
     )
 
 
@@ -397,23 +423,31 @@ _BLIND_TASK = (
 
 
 def blind_prompt_version(context: BlindGradingContext) -> str:
-    """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one."""
+    """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one; either
+    with the ``+stuck-v1`` suffix when the answer came from "I'm stuck"."""
 
     if context.reference_policy is None:
-        return BLIND_GRADING_PROMPT_VERSION
-    from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
+        version = BLIND_GRADING_PROMPT_VERSION
+    else:
+        from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
 
-    return REFERENCE_POLICY_PROMPT_VERSION
+        version = REFERENCE_POLICY_PROMPT_VERSION
+    if context.answer_prompt is not None:
+        version = f"{version}{STUCK_PROMPT_VERSION_SUFFIX}"
+    return version
 
 
 def blind_grading_prompt(context: BlindGradingContext) -> str:
-    """Render the blind grading request (§4.3; PF-c rules when a policy is set)."""
+    """Render the blind grading request (§4.3; PF-c rules when a policy is
+    set; the stuck-prompt rules when the answer came from "I'm stuck")."""
 
     task = _BLIND_TASK
     if context.reference_policy is not None:
         from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES
 
-        task = f"{_BLIND_TASK} {REFERENCE_POLICY_RULES}"
+        task = f"{task} {REFERENCE_POLICY_RULES}"
+    if context.answer_prompt is not None:
+        task = f"{task} {STUCK_PROMPT_RULES}"
     return render_structured_prompt(
         "learnloop blind grading proposal",
         blind_prompt_version(context),
@@ -437,17 +471,25 @@ def request_blind_grading_proposal(
 
     if context.reference_policy is not None:
         from learnloop.attempts.grading_support import (
-            ReferencePolicyBlindGradingProposal,
+            blind_result_model,
         )
 
         result = execute_structured_operation(
             client,
             purpose="blind_grading",
             prompt=blind_grading_prompt(context),
-            result_model=ReferencePolicyBlindGradingProposal,
+            result_model=blind_result_model(context),
             isolated=True,
         )
         return result.as_blind_proposal()
+    if context.answer_prompt is not None:
+        return execute_structured_operation(
+            client,
+            purpose="blind_grading",
+            prompt=blind_grading_prompt(context),
+            result_model=StuckBlindGradingProposal,
+            isolated=True,
+        ).as_blind_proposal()
     return execute_structured_operation(
         client,
         purpose="blind_grading",
@@ -712,6 +754,7 @@ __all__ = [
     "BlindGradingContext",
     "BlindGradingProposal",
     "BlindRepairedTrace",
+    "StuckBlindGradingProposal",
     "ValidatedBlindGrade",
     "blind_context_from_grading_context",
     "blind_grading_context",

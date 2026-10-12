@@ -20,8 +20,8 @@
     "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
   },
   "attempt": {
-    "bytes": 3803,
-    "sha256": "6b2349c5f333fbad545db4a3e534ee07c548a245682df871aee1a24adaa914b1"
+    "bytes": 4313,
+    "sha256": "e8bf11daa56b9905377b45eededa9a94883fde460711266a2b5ce27cc191b9b4"
   },
   "backfill-originals": {
     "bytes": 1364,
@@ -848,8 +848,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 1863,
-    "sha256": "2ac868d811180cd5f437b3197cd038e34beaeb6d4c7ac9b7bcd9219eeb33fc38"
+    "bytes": 2025,
+    "sha256": "0df41fd791d6cc57f2de921c27935896769a00ee89a0982f5ddb2af31f92e1f6"
   },
   "usage": {
     "bytes": 1546,

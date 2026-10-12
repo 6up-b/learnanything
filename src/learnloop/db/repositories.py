@@ -1582,16 +1582,17 @@ class Repository(
     def clarification_rate_counts(self) -> dict[str, int]:
         """Counts for §3.A8's revert criterion.
 
-        The denominator is *model-graded* attempts (``grader_tier >= 2``): a
-        self-graded or deterministically graded attempt has no grader that could
-        have asked, and including it would dilute the rate toward zero — hiding
-        exactly the over-asking the criterion watches for.
+        The denominator is *model-graded* attempts (``grader_tier >= 3``): a
+        self-graded or deterministically graded attempt (tier 1, or the tier-2
+        empty "I'm stuck" zero) has no grader that could have asked, and
+        including it would dilute the rate toward zero — hiding exactly the
+        over-asking the criterion watches for.
         """
 
         # Numerator and denominator range over the SAME set, by construction:
         # every attempt that could have been asked. Two arms, unioned —
         #
-        #   * ever model-graded (`grader_tier >= 2`, INCLUDING superseded rows,
+        #   * ever model-graded (`grader_tier >= 3`, INCLUDING superseded rows,
         #     because an attempt whose model evidence a later regrade replaced
         #     still went through a grader that could have asked); and
         #   * carries a clarification at all, which is direct proof it did,
@@ -1603,7 +1604,7 @@ class Repository(
         # it hides real questions instead of counting the attempts that produced
         # them.
         gradeable_sql = """
-            SELECT attempt_id FROM grading_evidence WHERE grader_tier >= 2
+            SELECT attempt_id FROM grading_evidence WHERE grader_tier >= 3
             UNION
             SELECT attempt_id FROM grading_clarifications
         """
@@ -17101,53 +17102,59 @@ class Repository(
         )
 
     def _insert_practice_attempt(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None:
+        columns = [
+            "id", "practice_item_id", "learning_object_id", "subject", "concept", "practice_mode",
+            "attempt_type", "learner_answer_md", "evidence_facets_json", "evidence_weights_json",
+            "rubric_score", "correctness", "confidence", "latency_seconds", "hints_used",
+            "error_type", "grader_confidence", "manual_review", "manual_review_reason",
+            "created_at", "updated_at", "session_id", "scheduler_slate_id", "scheduler_candidate_id",
+            "primed", "probe_presentation_id", "answer_confidence", "submission_id",
+            "declared_dont_know", "collection_version", "entry_surface", "evidence_origin",
+        ]
+        values: list[Any] = [
+            attempt["id"],
+            attempt["practice_item_id"],
+            attempt["learning_object_id"],
+            attempt.get("subject"),
+            attempt.get("concept"),
+            attempt["practice_mode"],
+            attempt["attempt_type"],
+            attempt.get("learner_answer_md"),
+            _json(attempt.get("evidence_facets", [])),
+            _json(attempt.get("evidence_weights", {})),
+            attempt.get("rubric_score"),
+            attempt.get("correctness"),
+            attempt.get("confidence"),
+            attempt.get("latency_seconds"),
+            attempt.get("hints_used", 0),
+            attempt.get("error_type"),
+            attempt.get("grader_confidence"),
+            1 if attempt.get("manual_review") else 0,
+            attempt.get("manual_review_reason"),
+            attempt["created_at"],
+            attempt.get("updated_at"),
+            attempt.get("session_id"),
+            attempt.get("scheduler_slate_id"),
+            attempt.get("scheduler_candidate_id"),
+            1 if attempt.get("primed") else 0,
+            attempt.get("probe_presentation_id"),
+            attempt.get("answer_confidence"),
+            attempt.get("submission_id"),
+            1 if attempt.get("declared_dont_know") else 0,
+            attempt.get("collection_version", COLLECTION_VERSION),
+            attempt.get("entry_surface", "unspecified"),
+            attempt.get("evidence_origin", "unknown"),
+        ]
+        if attempt.get("declared_stuck"):
+            # mvp-0.11 (migration 172). Written only when set, so a database
+            # attached below 172 still records every ordinary attempt (the
+            # column defaults to 0); a stuck answer there fails loudly.
+            columns.append("declared_stuck")
+            values.append(1)
         connection.execute(
-            """
-            INSERT INTO practice_attempts(
-              id, practice_item_id, learning_object_id, subject, concept, practice_mode,
-              attempt_type, learner_answer_md, evidence_facets_json, evidence_weights_json,
-              rubric_score, correctness, confidence, latency_seconds, hints_used,
-              error_type, grader_confidence, manual_review, manual_review_reason,
-              created_at, updated_at, session_id, scheduler_slate_id, scheduler_candidate_id,
-              primed, probe_presentation_id, answer_confidence, submission_id,
-              declared_dont_know, collection_version, entry_surface, evidence_origin
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                attempt["id"],
-                attempt["practice_item_id"],
-                attempt["learning_object_id"],
-                attempt.get("subject"),
-                attempt.get("concept"),
-                attempt["practice_mode"],
-                attempt["attempt_type"],
-                attempt.get("learner_answer_md"),
-                _json(attempt.get("evidence_facets", [])),
-                _json(attempt.get("evidence_weights", {})),
-                attempt.get("rubric_score"),
-                attempt.get("correctness"),
-                attempt.get("confidence"),
-                attempt.get("latency_seconds"),
-                attempt.get("hints_used", 0),
-                attempt.get("error_type"),
-                attempt.get("grader_confidence"),
-                1 if attempt.get("manual_review") else 0,
-                attempt.get("manual_review_reason"),
-                attempt["created_at"],
-                attempt.get("updated_at"),
-                attempt.get("session_id"),
-                attempt.get("scheduler_slate_id"),
-                attempt.get("scheduler_candidate_id"),
-                1 if attempt.get("primed") else 0,
-                attempt.get("probe_presentation_id"),
-                attempt.get("answer_confidence"),
-                attempt.get("submission_id"),
-                1 if attempt.get("declared_dont_know") else 0,
-                attempt.get("collection_version", COLLECTION_VERSION),
-                attempt.get("entry_surface", "unspecified"),
-                attempt.get("evidence_origin", "unknown"),
-            ),
+            f"INSERT INTO practice_attempts({', '.join(columns)}) "
+            f"VALUES ({', '.join('?' for _ in columns)})",
+            values,
         )
 
     def _insert_grading_evidence(
@@ -25283,6 +25290,7 @@ def _decode_attempt(row: sqlite3.Row) -> dict[str, Any]:
     payload["manual_review"] = bool(payload["manual_review"])
     payload["primed"] = bool(payload.get("primed", 0))
     payload["declared_dont_know"] = bool(payload.get("declared_dont_know", 0))
+    payload["declared_stuck"] = bool(payload.get("declared_stuck", 0))
     return payload
 
 

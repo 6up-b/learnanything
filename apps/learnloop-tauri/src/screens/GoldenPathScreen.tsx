@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { algoConfig } from "../app/algoConfig";
 import type {
   AssessOpenDto,
   AssessResultDto,
@@ -750,6 +751,18 @@ const TRIAGE_COARSE_OPTIONS = [
   { value: "dont_know", label: "I didn't know / left it blank" },
   { value: "correct", label: "correct, but it felt shaky" },
 ];
+// mvp-0.11: "I'm stuck" replaces "I don't know" on the answer surfaces, so the
+// report names it the same way. The value stays failure triage's coarse class
+// (`dont_know`: nothing usable was produced); only the wording changes.
+const TRIAGE_COARSE_OPTIONS_STUCK = TRIAGE_COARSE_OPTIONS.map((option) =>
+  option.value === "dont_know" ? { ...option, label: "I was stuck / left it blank" } : option
+);
+
+/** The triage report's outcome choices, worded as the vault's answer
+ *  surfaces word them ("I'm stuck" in mvp-0.11, "I don't know" otherwise). */
+export function triageCoarseOptions(stuckPrompt: boolean = algoConfig().stuckPrompt) {
+  return stuckPrompt ? TRIAGE_COARSE_OPTIONS_STUCK : TRIAGE_COARSE_OPTIONS;
+}
 const TRIAGE_SIGNATURE_OPTIONS = [
   { value: "", label: "no clear signature" },
   { value: "wrong_method", label: "picked the wrong method" },
@@ -874,7 +887,12 @@ function TriageWorkspace({
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
             <div>
               <Faint style={{ fontSize: 11 }}>what happened</Faint>
-              <TermSelect value={coarse} options={TRIAGE_COARSE_OPTIONS} onChange={setCoarse} width={230} />
+              <TermSelect
+                value={coarse}
+                options={triageCoarseOptions()}
+                onChange={setCoarse}
+                width={230}
+              />
             </div>
             <div>
               <Faint style={{ fontSize: 11 }}>how it went wrong</Faint>

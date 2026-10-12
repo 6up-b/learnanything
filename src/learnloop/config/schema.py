@@ -1353,6 +1353,20 @@ class DiagnosisConfig(BaseModel):
     rrf_k: int = Field(default=60, ge=1)
 
 
+class StuckPromptConfig(BaseModel):
+    """"Write what you can" replaces "I don't know" (``mvp-0.11``).
+
+    Dormant below ``mvp-0.11``: the algorithm version, not this section,
+    decides whether the learner's surfaces offer "I'm stuck". ``enabled`` is
+    the kill switch: off, an ``mvp-0.11`` vault shows "I don't know" and
+    records ``dont_know`` at its configured mass exactly as ``mvp-0.10`` does.
+    Already-recorded stuck answers keep their meaning (``declared_stuck`` is
+    persisted per attempt and replay never reads this switch).
+    """
+
+    enabled: bool = True
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1510,6 +1524,7 @@ class LearnLoopConfig(BaseModel):
         default_factory=DiagnosticAugmentationConfig
     )
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
+    stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
 
     @model_validator(mode="before")
     @classmethod

@@ -810,14 +810,23 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 1 M2 adds the [diagnosis] section (modelled defaults only, left
     # out of the decision-only template). It is dormant below mvp-0.10 (the
     # algorithm version gates the split), so mvp-0.9 serving is unchanged.
-    "mvp-0.9": "bf4c9f5ce520f43a500d98583bfbbcffb858aa90eecc32551752a91b6729ed81",
+    # The stuck-prompt stage adds [stuck_prompt] enabled = true (modelled
+    # default, left out of the template), the kill switch of mvp-0.11's
+    # "I'm stuck" control; dormant below mvp-0.11, so serving is unchanged.
+    "mvp-0.9": "66f646070ad8b0be2b807e72fc8f4ab082420db0cf13d1be47a5a4ad926fdb04",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.10": "72058bd3349d2fc330e10388fe64ff193a86675ddd79a7cd17bd26e6955fafa4",
+    "mvp-0.10": "7df0c34ec5cb237362074483e3546a7dd6698c46339e66cbefceb9d95d4dbfb1",
+    # mvp-0.11 ("Write what you can" replaces "I don't know"): the same
+    # effective defaults with "I'm stuck" live (stuck_prompt.enabled = true):
+    # a stuck answer is an ordinary attempt at the standard mass. Reached by
+    # `learnloop upgrade --to mvp-0.11` from mvp-0.10. Computed from
+    # DEFAULT_CONFIG_TEXT with only algorithm_version changed.
+    "mvp-0.11": "b16bffa8fb5b010af00e1c072bfe588a8723ebb1f988c24f631165c22614bf77",
 }
 
 
