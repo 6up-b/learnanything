@@ -72,6 +72,12 @@ def record_learner_pick(
     probability of the picked item for later analysis. Returns the new id.
     """
 
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decisions'"
+    ).fetchone() is None:
+        # A database attached without migrations (a historical copy) has no
+        # decision ledger, so nothing it offered was logged.
+        return None
     parent = connection.execute(
         """SELECT d.* FROM router_decisions d
            JOIN scheduler_slate_candidates c ON c.slate_id = d.scheduler_slate_id
