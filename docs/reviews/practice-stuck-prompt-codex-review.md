@@ -257,3 +257,153 @@ uv run learnloop field data-check --json --vault <vault>                        
    nothing changes for the owner's vaults.
 4. The stage review's open questions 1 and 3–7 still stand. Question 2
    (joint grading) is resolved by F3.
+
+## Re-review
+
+Codex re-reviewed the fixes at `2085a650` (job
+`~/.cache/codex-agent/jobs/20261012-143008-sNBhb4`, verdict REOPENED). It
+confirmed F1 fixed: 18 in-memory checks of prose starting with A–H, and of
+mixed option and confusion text, through both the required and the fallback
+doors, made zero option-letter parser calls. It raised two new Medium
+findings, F7 and F8. Both reproduced with a failing test first, and both are
+fixed.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Multiple-choice grading can award full credit to confusion text | fixed (confirmed by the re-review; no change in this step) | `c85fba2b` | as in the first table |
+| F7 | Medium | Spend-limit refusal silently becomes a self-grade | fixed | `e8187f25` | `tests/test_stuck_prompt.py`: `test_cli_a_retry_refused_by_the_caps_is_over_budget_not_a_self_grade`, `test_cli_a_later_sample_refused_by_the_caps_is_over_budget_not_a_self_grade` |
+| F8 | Medium | New TUI answer reveal leaves subsequent evidence unprimed | fixed | `57c8c899` (reference `b9ad148a`) | `tests/test_stuck_prompt.py`: `test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry`, `test_a_worked_answer_shown_in_the_attempts_own_second_still_primes_the_retry`, `test_only_post_attempt_displays_cross_the_same_second_boundary`, `test_migration_173_widens_the_reveal_kinds_and_keeps_the_ledger` |
+
+Rejected: none.
+
+### F7: a spend refusal mid-grade is over budget
+
+**Reproduced.** Two cases, both on a metered fake grader with
+`--price-per-million 2.0`:
+
+- a sample whose second physical request (a transport retry) is refused by
+  `--max-retries 0`;
+- a second blind sample (`[diagnostic_augmentation] sample_count = 2`)
+  refused by the token cap, after the first sample reported 400,000 input
+  tokens against its estimate.
+
+Both exited 0 with `grading_source = "self"` and
+`fallback_reason = "ai_failed:SpendLimitExceeded"`. The command had recorded
+the supplied self-grade as the attempt.
+
+**Fix.** The fallback door
+(`_complete_attempt_with_agent_fallback`) catches `SpendLimitExceeded`
+before its generic `ValueError` handler. It closes the grading run as
+`failed` with the refusal message (its tokens are recorded) and re-raises.
+`learnloop attempt` then:
+
+- exits 1 with `status = "over_budget"` and the refusal message;
+- records no attempt and no self-grade;
+- adds `spend` (the calls already sent, their metered tokens and USD) to the
+  JSON. The text output says "Already sent: ... Nothing was recorded."
+
+The required door already re-raised every grading error, so it needed no
+change. The guard is installed only by the command, so the desktop, TUI and
+sidecar doors cannot raise this.
+
+### F8: the TUI's worked answer is a reveal
+
+**Reproduced.** After an empty stuck submit in the TUI, the feedback screen
+showed the worked answer and `reveal_events` had no row. A retry right after
+it was recorded unprimed.
+
+Writing the row alone was not enough. Timestamps have one-second
+resolution, and the submit window starts strictly after the last attempt
+(`created_at > since`). A display stamped in the attempt's own second, which
+is the usual case here (1.7 s from submit to feedback), fell outside the
+next attempt's window. The TUI test (real clock) and a frozen-clock test
+both still failed with the row written and the old window.
+
+**Fix.**
+
+- **Migration 173** (`173_answer_display_reveal.sql`) rebuilds
+  `reveal_events` with the source kind `answer_display`: the expected answer
+  itself, shown on a feedback screen. Every row, both indexes and both
+  append-only triggers are kept. The `source_kind` CHECK allows none of the
+  existing four kinds for this exposure, and borrowing `repair_display`
+  would mislabel it.
+- **The writer.** `reveal_ledger.record_answer_display_reveal` charges 1.0
+  (the full answer) once per attempt. The row is linked to the item, its LO,
+  any live repair episode, and the committed attempt; its basis is
+  `worked_answer:stuck_empty:tui`. Like every ledger writer, it is best
+  effort.
+- **The TUI** records it when the worked answer becomes visible (feedback
+  mount on a committed empty stuck answer). Inside a diagnostic check the
+  answer is not shown, so nothing is recorded there.
+- **The window.** `reveal_total_for_submission` also counts rows of
+  `POST_ATTEMPT_REVEAL_KINDS` (only `answer_display`) linked to the last
+  attempt, even when they are stamped in that attempt's own second. Such a
+  row is written after its attempt by construction. Every other kind keeps
+  its window exactly, so vaults that never write `answer_display` behave as
+  before; `test_only_post_attempt_displays_cross_the_same_second_boundary`
+  pins that. Open question 5 asks whether to widen it.
+- **The head fixture** `migration_head_172` is now `migration_head_173`,
+  upgraded and kept in rollback mode. Its README, the six test paths and the
+  two reference scripts (`SCHEMA_HEAD = 173`) are updated, and the DB
+  reference is regenerated (`b9ad148a`). Main is at 170 and mobile M1 takes
+  171, so 172 and 173 are this stage's; expect renumbering at merge.
+
+### Manual run (backup-API copy, no paid call)
+
+`fixtures-local/stuck-linear_algebra-f8b` is a `copy_tree_with_databases`
+copy of `fixtures-local/stuck-linear_algebra` (mvp-0.11, migration 172).
+The TUI was driven headless with Textual's `run_test`:
+
+- opening the copy applied migration 173;
+- an empty stuck submit on `pi_axiom_closure_recall_01` recorded a
+  deterministic 0 and showed the worked answer, 1.71 s from submit to
+  feedback (the post-attempt pipeline included, no model call);
+- one reveal row: `answer_display`, 1.0, linked to that attempt;
+- a self-graded retry of the same item was recorded `primed` with
+  `auto_primed_reveal_total = 1.0`.
+
+A first copy, `stuck-linear_algebra-f8`, stopped after the TUI half: the
+script picked an attempt type that item does not allow. Neither copy is
+tracked. No model call, paid or subscription, was made in this step, so the
+cost is $0. The tracked fixture vaults were not touched.
+
+**The wait (P7) is unchanged.** A non-empty stuck answer waits for the
+synchronous grade: 24–37 s measured across this review and the stage runs,
+under `ai.timeout_seconds = 60`. An empty one makes no call: 0.4 s through
+the command, and 1.7 s to the TUI feedback screen.
+
+### Re-review gate
+
+Run on `b9ad148a`, the code of this section's commit. Only this section
+of the review file changed after it.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev`, `uv pip install pypdfium2` | done (no mobile change, so no `--extra mobile`) |
+| `uv run lint-imports --no-cache` | **10 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7332 passed**, 0 failed (226 s). That is 7326 plus the 6 new tests; `tests/test_stuck_prompt.py` goes from 43 to 49. |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **80 passed**, 7252 deselected (60 s) |
+| Frontend | not run: nothing under `apps/learnloop-tauri` changed in this step. The first gate's 88 vitest passes stand. |
+| DB reference: `db_generate_reference.py`, then `db_validate_reference.py` | `errors: []` with the schema at migration 173 (`SCHEMA_HEAD = 173`); regenerated in `b9ad148a` |
+
+As before, every command ran with `TMPDIR` on disk
+(`~/.cache/learnloop-stuck-tmp`). The full suite waited for the shared lock
+behind another stage's run.
+
+### Open questions added by the re-review
+
+5. **Same-second reveals of the other kinds.** A `repair_display` or
+   `tutor_answer` row linked to the last attempt and stamped in its second
+   is still outside the next attempt's window. Only `answer_display` gets
+   the attempt-link rule here, because widening it changes auto-prime for
+   existing vaults (an admissibility change, so the playbook applies).
+   Widen it to every attempt-linked post-attempt kind?
+6. **The TUI's ordinary self-grade form** shows "Expected: ..." for every
+   ordinary answer, and that display writes no reveal either. This predates
+   this stage and is left alone. Charge it too?
+7. **"We could also do this for errors/misconceptions too"** (the owner's
+   note relayed with this run). This fix step closes F7 and F8 only. Applying
+   the stuck reading to errors and misconceptions, for example marking
+   stated misconceptions in stuck text, fits the planned learner-text-gaps
+   stage, which reads the confusion text and its marker through
+   `stuck_answers()`. Which did you mean?
