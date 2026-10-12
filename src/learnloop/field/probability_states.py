@@ -3,17 +3,21 @@
 Both judges get the same state for a prediction; only the question wrapper
 differs. Every variant is past-only by construction:
 
-* **The cutoff** is the moment the attempt began, taken from timing recorded
-  before grading: the submission's intent (written at the first draft save
-  or at submission, always before the grader ran) minus the logged
-  presentation-to-submission latency, minus a safety margin for the
-  latency's whole-second rounding. ``practice_attempts.created_at`` is
-  stamped after grading, so it never sets a cutoff. When an attempt has no
-  such record (older attempts, other surfaces), its start cannot be
-  established and **no history is shown at all**: not a window, not a card,
-  not the incumbent's fitted numbers (review F1). Every record shown must be
-  strictly before the cutoff, so nothing revealed after the attempt began
-  (a hint, a tutor answer, a later diagnosis or grade) can appear.
+* **The cutoff** is the latest instant the attempt provably had not begun:
+  the time of a record the sidecar wrote while serving the request whose
+  response the client needed before it could show the item. Two exist: the
+  scheduler offer the submission is bound to (its ``submission_intents``
+  candidate, inserted when the queue was built) and the diagnostic
+  presentation the attempt consumed (committed before the probe or dialogue
+  turn was served). Nothing stamped later counts: ``created_at`` includes
+  grading, and an intent (minus the client's latency) can be stamped after
+  the click when the serial sidecar queues the request, so no margin bounds
+  it (review F1, re-review F1). When neither record exists (older attempts,
+  items opened directly, teach-back), the start cannot be established and
+  **no history is shown at all**: not a window, not a card, not the
+  incumbent's fitted numbers. Every record shown must be strictly before the
+  cutoff, so nothing revealed after the attempt began (a hint, a tutor
+  answer, a later diagnosis or grade) can appear.
 * **The current attempt** contributes only its item: never its answer,
   outcome, hints, timing or the item's reference solution.
 * **Historical content follows the harness's revision policy.** An ``exact``
@@ -38,18 +42,22 @@ The variants:
   the incumbent predictor's numbers and region statuses (fitted only on
   observations before the cutoff, review F2), recent attempts (answer
   excerpts, blind-grade fields, hint totals and tutor-question timing),
-  typed prior hypotheses with their evidence for and against and the
-  repairs tried, and tutor questions, under the router card's token budget
-  (router spec §4, D8): older successes drop first, then older text
-  excerpts, then older attempts; typed fields never drop. What LearnLoop
-  does not record (ordinary hint timing) is named, not implied (review F5).
+  typed prior hypotheses with their evidence for and against (only attempts
+  that measured the hypothesis's target facets; other work on its LO is
+  labelled context, re-review F7) and the repairs tried, and tutor
+  questions, under the router card's token budget (router spec §4, D8):
+  older successes drop first, then older text excerpts, then older attempts;
+  typed fields never drop. Evidence entries carry their own summary, and a
+  reference whose work entry the budget dropped says so (re-review F8).
+  What LearnLoop does not record (ordinary hint timing) is named, not
+  implied (review F5).
 """
 from __future__ import annotations
 
 from bisect import bisect_left
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 import hashlib
 import json
 import math
@@ -65,7 +73,7 @@ from learnloop.field.types import AttemptRow
 from learnloop.learner.assessment_contracts import rubric_from_contract
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
-STATE_VERSION = "llm-probability-state-v2"
+STATE_VERSION = "llm-probability-state-v3"
 VARIANTS = ("v1", "v2", "v3")
 V2_WINDOW = 25
 #: router.card_token_budget's default (router spec §4, D8): V3 uses the same.
@@ -81,14 +89,11 @@ V3_MAX_ATTEMPTS = 60
 #: Evidence references kept per hypothesis and direction (most recent first
 #: to go is the oldest); the totals are always shown.
 MAX_EVIDENCE_REFS = 4
-#: Subtracted from (intent - latency): the client rounds latency to whole
-#: seconds and the intent's clock is the sidecar's. An earlier cutoff only
-#: hides more.
-START_MARGIN_SECONDS = 2
 #: Stated in V2 and V3 when the attempt's start cannot be established.
 HISTORY_WITHHELD = (
-    "This attempt's start time was not recorded before grading, so no earlier work, "
-    "diagnoses or questions are shown: they could include material from after it began."
+    "No record written before this item was shown (a scheduler offer or a diagnostic "
+    "presentation) establishes when this attempt began, so no earlier work, diagnoses or "
+    "questions are shown: they could include material from after it began."
 )
 #: What LearnLoop does not record, so the judge never reads absence as zero.
 NOT_RECORDED = (
@@ -170,11 +175,18 @@ class StateRenderer:
         self.connection = connection
         self._rows: dict[str, AttemptRow] = {row.attempt_id: row for row in rows}
         self._attempts: dict[str, dict[str, Any]] = {}
+        # The two records written before the item could be shown: the offer
+        # the submission is bound to (first offer wins, so a later queue never
+        # replaces it) and the diagnostic presentation the attempt consumed.
         cursor = connection.execute(
-            "SELECT a.id, a.practice_item_id, a.learning_object_id, a.created_at, a.latency_seconds, "
-            "a.hints_used, i.created_at AS intent_at FROM practice_attempts a "
+            "SELECT a.id, a.practice_item_id, a.learning_object_id, a.created_at, a.hints_used, "
+            "c.created_at AS offered_at, p.created_at AS presented_at FROM practice_attempts a "
             "LEFT JOIN submission_intents i ON i.submission_id = a.submission_id "
-            "AND i.practice_item_id = a.practice_item_id ORDER BY a.created_at, a.id"
+            "AND i.practice_item_id = a.practice_item_id "
+            "LEFT JOIN scheduler_slate_candidates c ON c.id = i.scheduler_candidate_id "
+            "AND c.practice_item_id = a.practice_item_id "
+            "LEFT JOIN probe_presentations p ON p.id = a.probe_presentation_id "
+            "AND p.practice_item_id = a.practice_item_id ORDER BY a.created_at, a.id"
         )
         names = [column[0] for column in cursor.description]
         for values in cursor:
@@ -198,24 +210,26 @@ class StateRenderer:
     def cutoff(self, attempt_id: str) -> datetime | None:
         """The latest instant the attempt provably had not begun, or ``None``.
 
-        Only timing written before grading counts: the submission intent
-        (first draft save or the submit itself, both before the grader ran)
-        minus the logged presentation-to-submission latency and a rounding
-        margin. Completion times include grading and never set a cutoff.
+        A bound offer's candidate row and a consumed diagnostic presentation
+        are both inserted while the sidecar serves the request whose response
+        the client needs before it can show the item, so each is no later than
+        the presentation. Nothing stamped while handling the learner's own
+        requests counts: the serial sidecar can reach a draft save or a submit
+        long after the click, so an intent minus the client's latency can land
+        after the item was shown, and no fixed margin bounds a queue.
         """
 
         record = self._attempts.get(attempt_id)
         if record is None:
             return None
-        latency = record.get("latency_seconds")
-        intent = _instant(record.get("intent_at"))
-        if intent is None or isinstance(latency, bool) or not isinstance(latency, (int, float)):
+        bounds = [
+            instant for instant in (_instant(record.get("offered_at")), _instant(record.get("presented_at")))
+            if instant is not None
+        ]
+        if not bounds or max(bounds) > record["instant"]:
             return None
-        if not math.isfinite(latency) or latency < 0 or intent > record["instant"]:
-            return None
-        start = intent - timedelta(seconds=float(latency) + START_MARGIN_SECONDS)
         # Floored to whole seconds: an earlier cutoff only hides more.
-        return start.replace(microsecond=0)
+        return max(bounds).replace(microsecond=0)
 
     # -- item content --------------------------------------------------------
 
@@ -508,8 +522,9 @@ class StateRenderer:
             meta = self._attempts.get(attempt.attempt_id, {})
             hints = int(meta.get("hints_used") or 0)
             facets_by_attempt[attempt.attempt_id] = frozenset(
-                self.vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
-            ) | frozenset(attempt.target_facets)
+                self.vault.canonical_facet_id(str(facet))
+                for facet in (*(item.evidence_facets if item else []), *attempt.target_facets)
+            )
             entry: dict[str, Any] = {
                 "ref": refs[attempt.attempt_id],
                 "days_before": _days(attempt.completed_at, cutoff),
@@ -563,6 +578,10 @@ class StateRenderer:
             card["tutor_questions"].append(entry)
         return _fit(card)
 
+    def _facet_title(self, facet_id: str) -> str:
+        entry = self.vault.evidence_facets.get(facet_id)
+        return (entry.title if entry is not None and entry.title else facet_id).strip()
+
     def _hypotheses(
         self, store: VaultHistoryStore, scope: Mapping[str, str], titles: Mapping[str, str], cutoff: datetime,
         verified: Sequence[tuple[HistoryAttempt, AttemptRow]], refs: Mapping[str, str],
@@ -572,10 +591,16 @@ class StateRenderer:
 
         A record shows only when it was written, and its source attempt
         completed, strictly before the cutoff (the store's as-of rule).
-        Evidence is read from the same verified attempts the card shows:
-        **for** is the attempt it was diagnosed from plus later non-passes on
-        the hypothesis's LO or target facets; **against** is later passes
-        there. Repairs tried carry their cold verifications as of the cutoff.
+        Evidence is read from the same verified attempts the card shows, and
+        only from attempts that bear on the hypothesis (re-review F7): when it
+        names target facets, later attempts that measured one of them; when it
+        names none, later attempts on its LO. **For** is the attempt it was
+        diagnosed from plus later non-passes there; **against** is later
+        passes there. Other later work on its LO carries no direction and is
+        listed as ``same_lo_context``. Each entry summarises itself (LO,
+        result, quotes), so it stays readable if the budget drops the work
+        entry it cites. Repairs tried carry their cold verifications as of the
+        cutoff.
         """
 
         reference = AttemptRef("", _iso(cutoff))
@@ -590,24 +615,29 @@ class StateRenderer:
         rendered = []
         for record in store.hypotheses_before(reference, list(scope)):
             source = store.attempt(record.source_attempt_id) if record.source_attempt_id else None
-            targets = frozenset(record.target_facets)
+            targets = frozenset(self.vault.canonical_facet_id(str(facet)) for facet in record.target_facets)
             evidence_for: list[dict[str, Any]] = []
             evidence_against: list[dict[str, Any]] = []
+            context: list[dict[str, Any]] = []
             for attempt, history_row in verified:
                 if source is None or attempt.attempt_id == source.attempt_id or attempt.key() <= source.key():
                     continue
-                if attempt.learning_object_id != record.learning_object_id and not (
-                    targets & facets_by_attempt.get(attempt.attempt_id, frozenset())
-                ):
-                    continue
-                reference_entry: dict[str, Any] = {
+                same_lo = attempt.learning_object_id == record.learning_object_id
+                bears = bool(targets & facets_by_attempt.get(attempt.attempt_id, frozenset())) if targets else same_lo
+                summary: dict[str, Any] = {
                     "ref": refs[attempt.attempt_id], "days_before": _days(attempt.completed_at, cutoff),
+                    "result": _result(history_row.outcome),
                 }
+                if not bears:
+                    if same_lo:
+                        context.append(summary)
+                    continue
+                summary["learning_objective"] = titles.get(attempt.learning_object_id, "unmapped")
                 if history_row.outcome >= 1.0 - 1e-9:
-                    evidence_against.append({**reference_entry, "kind": "passed_later"})
+                    evidence_against.append({**summary, "kind": "passed_later"})
                 else:
                     evidence_for.append({
-                        **reference_entry, "kind": "non_pass_later",
+                        **summary, "kind": "non_pass_later",
                         "first_divergence": [excerpt(q, QUOTE_LIMIT) for q in attempt.first_divergence_quotes][:2],
                     })
             source_view: dict[str, Any] | None = None
@@ -631,10 +661,14 @@ class StateRenderer:
                 "status": self._status_as_of(record, cutoff),
                 "written_days_before": _days(record.last_updated, cutoff),
                 "source_attempt": source_view,
+                "target_facets": sorted({self._facet_title(facet) for facet in targets}),
+                "evidence_basis": "target_facets" if targets else "learning_objective",
                 "evidence_for_total": len(evidence_for),
                 "evidence_against_total": len(evidence_against),
                 "evidence_for": _bounded(evidence_for, keep_first=source is not None),
                 "evidence_against": _bounded(evidence_against),
+                "same_lo_context_total": len(context),
+                "same_lo_context": _bounded(context),
                 "repairs_tried": repairs.get(record.id, []),
             }
             rendered.append(entry)
@@ -664,9 +698,44 @@ def _bounded(entries: list[dict[str, Any]], *, keep_first: bool = False) -> list
     return entries[-MAX_EVIDENCE_REFS:]
 
 
+def _cited(entry: Mapping[str, Any], kept: set[Any], dropped: set[Any], *, key: str = "ref",
+           flag: str = "in_recent_work") -> Mapping[str, Any]:
+    """The entry, marked when the work entry its reference names was dropped."""
+
+    ref = entry.get(key)
+    if ref is None or ref in kept:
+        return entry
+    dropped.add(ref)
+    return {**entry, flag: False}
+
+
 def _strip_private(card: Mapping[str, Any]) -> dict[str, Any]:
+    """The card as sent: private keys gone, every reference reconciled (re-review F8).
+
+    A reference whose work entry the budget dropped keeps its stable card
+    label and its own summary, and says ``in_recent_work: false``; the card
+    counts those attempts in ``omitted.cited_work_entries``.
+    """
+
     clean = dict(card)
     clean["recent_work"] = [{k: v for k, v in entry.items() if not k.startswith("_")} for entry in card["recent_work"]]
+    kept = {entry.get("ref") for entry in clean["recent_work"]}
+    dropped: set[Any] = set()
+    hypotheses = []
+    for hypothesis in card.get("open_hypotheses", []):
+        hypothesis = dict(hypothesis)
+        for field in ("evidence_for", "evidence_against", "same_lo_context"):
+            if field in hypothesis:
+                hypothesis[field] = [_cited(entry, kept, dropped) for entry in hypothesis[field]]
+        if hypothesis.get("source_attempt"):
+            hypothesis["source_attempt"] = _cited(hypothesis["source_attempt"], kept, dropped)
+        hypotheses.append(hypothesis)
+    clean["open_hypotheses"] = hypotheses
+    clean["tutor_questions"] = [
+        _cited(question, kept, dropped, key="attempt_ref", flag="attempt_in_recent_work")
+        for question in card.get("tutor_questions", [])
+    ]
+    clean["omitted"] = {**card["omitted"], "cited_work_entries": len(dropped)}
     return clean
 
 
@@ -723,7 +792,6 @@ __all__ = [
     "CARD_TOKEN_BUDGET",
     "HISTORY_WITHHELD",
     "PredictionPoint",
-    "START_MARGIN_SECONDS",
     "STATE_VERSION",
     "StateRenderer",
     "V2_WINDOW",

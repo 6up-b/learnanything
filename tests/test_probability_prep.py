@@ -4,10 +4,13 @@ A small real vault (the Slice 1 diagnosis vault: seven graded attempts over
 four LOs, one later than the rest) drives the renderers, so the leakage rules
 are checked on stored history, hypotheses and tutor questions.
 
-Every attempt except the first gets the pre-grading timing the desktop app
-records: a submission intent one minute before the graded attempt row (the
-grader ran for that minute) and a five-minute presentation-to-submission
-latency. The first attempt has none, so its start is unknown.
+Every attempt except the first gets what the desktop app records when an
+item is opened from the queue: the scheduler offer (written when the queue was
+built, five seconds before the item opened), a submission intent bound to it
+one minute before the graded attempt row (the grader ran for that minute) and
+a five-minute presentation-to-submission latency. The offer is the only one of
+these written before the item was shown, so it sets the cutoff. The first
+attempt has none, so its start is unknown.
 """
 from __future__ import annotations
 
@@ -31,7 +34,9 @@ from learnloop.field.probability_prep import (
     JudgeRoute, LLM_PROMPT_VERSION, QUESTION_SET_VERSION, TASK, load_arms, prediction_points,
     prepare_judge, render_plan,
 )
-from learnloop.field.probability_states import CARD_TOKEN_BUDGET, StateRenderer, _fit, estimate_tokens
+from learnloop.field.probability_states import (
+    CARD_TOKEN_BUDGET, HISTORY_WITHHELD, StateRenderer, _fit, estimate_tokens,
+)
 from learnloop.vault.loader import load_vault
 from tests.decider_fakes import ScriptedDecider, fake_decisions
 from tests.diagnosis_split_helpers import at, build_diagnosis_vault, seed_history
@@ -40,6 +45,8 @@ from tests.openai_fakes import install_fake_openai
 
 GRADING = timedelta(seconds=60)
 LATENCY = 300
+#: The queue was built this long before the item opened.
+OFFER_LEAD = timedelta(seconds=5)
 COMPLETED = {
     "att_02_svd_fail": at(1), "att_03_svd_pass": at(2), "att_04_unrelated_fail": at(3),
     "att_05_eigen_fail": at(4), "att_06_svd_fail": at(5), "att_07_svd_future": at(10),
@@ -50,23 +57,43 @@ def iso(instant):
     return instant.isoformat().replace("+00:00", "Z")
 
 
-def record_start(connection, attempt_id, *, intent_at, latency):
-    """What the desktop app writes before grading: the intent, then the latency."""
+def record_start(connection, attempt_id, *, offered_at, intent_at, latency):
+    """What the desktop app writes for an item opened from the queue: the offer
+    (before the item is shown), the intent bound to it (first draft save or the
+    submit), then the latency."""
 
     connection.execute("INSERT OR IGNORE INTO sessions(id, started_at) VALUES ('session-1', ?)", (iso(at(-1)),))
-    item = connection.execute(
-        "SELECT practice_item_id FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()[0]
+    item, lo = connection.execute(
+        "SELECT practice_item_id, learning_object_id FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
     connection.execute(
-        "INSERT INTO submission_intents(submission_id, session_id, practice_item_id, entry_surface, created_at) "
-        "VALUES (?, 'session-1', ?, 'desktop_practice', ?)", (f"sub-{attempt_id}", item, iso(intent_at)))
+        "INSERT INTO scheduler_slates(id, session_id, generated_at, selection_policy, session_context_json, "
+        "config_snapshot_json, algorithm_version, created_at, updated_at) "
+        "VALUES (?, 'session-1', ?, 'test', '{}', '{}', 'test', ?, ?)",
+        (f"slate-{attempt_id}", iso(offered_at), iso(offered_at), iso(offered_at)))
+    connection.execute(
+        "INSERT INTO scheduler_slate_candidates(id, slate_id, practice_item_id, learning_object_id, rank, "
+        "returned_rank, was_returned, selected_mode, priority, components_json, algorithm_version, created_at) "
+        "VALUES (?, ?, ?, ?, 1, 1, 1, 'test', 1.0, '{}', 'test', ?)",
+        (f"cand-{attempt_id}", f"slate-{attempt_id}", item, lo, iso(offered_at)))
+    connection.execute(
+        "INSERT INTO submission_intents(submission_id, session_id, practice_item_id, scheduler_candidate_id, "
+        "entry_surface, created_at) VALUES (?, 'session-1', ?, ?, 'desktop_practice', ?)",
+        (f"sub-{attempt_id}", item, f"cand-{attempt_id}", iso(intent_at)))
     connection.execute("UPDATE practice_attempts SET submission_id=?, latency_seconds=? WHERE id=?",
                        (f"sub-{attempt_id}", latency, attempt_id))
 
 
 def started(attempt_id, latency=LATENCY):
-    """The cutoff the renderer must compute for an attempt seeded by the fixture."""
+    """The cutoff the renderer must compute for an attempt seeded by the fixture: the offer."""
 
-    return (COMPLETED[attempt_id] - GRADING - timedelta(seconds=latency + 2)).replace(microsecond=0)
+    return (COMPLETED[attempt_id] - GRADING - timedelta(seconds=latency) - OFFER_LEAD).replace(microsecond=0)
+
+
+def offer_at(connection, attempt_id, when):
+    """Move an attempt's offer (its candidate row) to ``when``."""
+
+    connection.execute("UPDATE scheduler_slate_candidates SET created_at=? WHERE id=?",
+                       (iso(when), f"cand-{attempt_id}"))
 
 
 @pytest.fixture
@@ -77,7 +104,8 @@ def seeded(tmp_path, monkeypatch):
     seed_history(paths)
     with closing(connect(paths.sqlite_path)) as connection:
         for attempt_id, completed in COMPLETED.items():
-            record_start(connection, attempt_id, intent_at=completed - GRADING, latency=LATENCY)
+            record_start(connection, attempt_id, offered_at=completed - GRADING - timedelta(seconds=LATENCY) - OFFER_LEAD,
+                         intent_at=completed - GRADING, latency=LATENCY)
         connection.commit()
     loaded = load_vault(paths.root, load_environment=False)
     loaded.config.field.enabled = True
@@ -146,8 +174,8 @@ def test_states_are_past_only_and_never_show_the_answer_or_solution(seeded):
     with snapshot(paths) as connection:
         points, renderer = points_and_renderer(loaded, inputs, connection)
         sixth = by_attempt(points)["att_06_svd_fail"]
-        # The intent (written before grading) minus the latency and the
-        # rounding margin; the graded row's own time never sets it.
+        # The offer, written before the item was shown; neither the intent
+        # nor the graded row's own time sets it.
         assert renderer.cutoff("att_06_svd_fail") == started("att_06_svd_fail")
         assert renderer.cutoff("att_01_transpose_fail") is None
         states = {variant: renderer.render(variant, sixth) for variant in ("v1", "v2", "v3")}
@@ -188,11 +216,11 @@ def test_states_are_past_only_and_never_show_the_answer_or_solution(seeded):
             assert own.attempt_id not in json.dumps(renderer.render("v3", point))
 
 
-def test_latency_sets_the_cutoff_and_questions_during_the_attempt_never_show(seeded):
+def test_the_offer_sets_the_cutoff_and_questions_during_the_attempt_never_show(seeded):
     loaded, paths = seeded
     start = started("att_06_svd_fail", latency=600)
     with closing(connect(paths.sqlite_path)) as connection:
-        connection.execute("UPDATE practice_attempts SET latency_seconds=600 WHERE id='att_06_svd_fail'")
+        offer_at(connection, "att_06_svd_fail", start)
         rows = [
             ("q_before", "practice", "pi_svd_compute_001", None, "What is Sigma?", "clarification", start - timedelta(minutes=5)),
             ("q_during", "practice", "pi_svd_compute_001", None, "Is V transposed here?", "verification", start + timedelta(minutes=2)),
@@ -216,13 +244,14 @@ def test_latency_sets_the_cutoff_and_questions_during_the_attempt_never_show(see
     assert card["tutor_questions"][0]["type"] == "clarification"
 
 
-def test_a_long_latency_moves_the_window_and_the_incumbent_back(seeded):
+def test_an_early_offer_moves_the_window_and_the_incumbent_back(seeded):
     loaded, paths = seeded
     with closing(connect(paths.sqlite_path)) as connection:
-        # Started three and a half hours before submission: att_03 (an SVD
-        # pass, hour 2), att_04 and att_05 completed after it began, so none
-        # may appear or count.
-        connection.execute("UPDATE practice_attempts SET latency_seconds=12600 WHERE id='att_06_svd_fail'")
+        # Offered three and a half hours before submission: att_03 (an SVD
+        # pass, hour 2), att_04 and att_05 completed after that, so none may
+        # appear or count.
+        offer_at(connection, "att_06_svd_fail",
+                 COMPLETED["att_06_svd_fail"] - GRADING - timedelta(seconds=12600))
         connection.commit()
     inputs = replay(loaded)
 
@@ -280,7 +309,7 @@ def test_grading_time_never_moves_the_cutoff_and_an_unknown_start_withholds_hist
     with snapshot(paths) as connection:
         points, renderer = points_and_renderer(loaded, inputs, connection)
         # created_at - latency would be 13:55, after the question asked at 13:54:30.
-        assert renderer.cutoff("att_06_svd_fail") < start
+        assert renderer.cutoff("att_06_svd_fail") == start - OFFER_LEAD
         card = renderer.render("v3", by_attempt(points)["att_06_svd_fail"])["learner_state"]
     assert [q["question"] for q in card["tutor_questions"]] == ["asked q_before"]
     # No intent, so a logged latency alone cannot place the start.
@@ -293,8 +322,8 @@ def test_grading_time_never_moves_the_cutoff_and_an_unknown_start_withholds_hist
         assert renderer.cutoff("att_06_svd_fail") is None
         sixth = by_attempt(points)["att_06_svd_fail"]
         v2, v3 = renderer.render("v2", sixth), renderer.render("v3", sixth)["learner_state"]
-    assert v2["recent_interactions"] == [] and "start time was not recorded" in v2["history_withheld"]
-    assert "start time was not recorded" in v3["history_withheld"]
+    assert v2["recent_interactions"] == [] and v2["history_withheld"] == HISTORY_WITHHELD
+    assert v3["history_withheld"] == HISTORY_WITHHELD and "No record written before" in HISTORY_WITHHELD
     assert v3["recent_work"] == v3["open_hypotheses"] == v3["tutor_questions"] == []
     # The incumbent folds nothing: its numbers are the frozen priors alone.
     assert v3["incumbent_predictor"]["observations_before_start"] == 0
@@ -833,3 +862,153 @@ def test_resume_recovers_a_committed_verdict_instead_of_paying_again(seeded, tmp
     assert receipts == len(decider.states)
     # 3. A finished checkpoint: zero calls.
     assert run()["pending"] == 0 and len(decider.states) == before + 4
+
+
+# -- Codex re-review reproductions -----------------------------------------------
+
+
+def presented_probe(connection, attempt_id, *, presented_at, intent_at, latency):
+    """The DialogueProbe path: the turn's presentation is committed and served
+    before the client shows it; the submit carries no earlier draft save, so the
+    serial sidecar mints the intent only when it reaches the request."""
+
+    item = connection.execute(
+        "SELECT practice_item_id, learning_object_id FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
+    connection.execute(
+        "INSERT INTO probe_episodes(id, learning_object_id, status, trigger, algorithm_version, created_at, "
+        "updated_at) VALUES ('ep-1', ?, 'in_progress', 'goal_diagnostic', 'test', ?, ?)", (item[1], iso(at(-1)), iso(at(-1))))
+    presentation = f"pres-{attempt_id}"
+    connection.execute(
+        "INSERT INTO probe_presentations(id, probe_episode_id, practice_item_id, state_segment_id, status, served_at, "
+        "created_at, updated_at) VALUES (?, 'ep-1', ?, 'segment', 'submitted', ?, ?, ?)",
+        (presentation, item[0], iso(presented_at), iso(presented_at), iso(presented_at)))
+    connection.execute(
+        "INSERT INTO submission_intents(submission_id, session_id, practice_item_id, entry_surface, created_at) "
+        "VALUES (?, 'session-1', ?, 'desktop_practice', ?)", (f"probe:{presentation}", item[0], iso(intent_at)))
+    connection.execute(
+        "UPDATE practice_attempts SET submission_id=?, probe_presentation_id=?, latency_seconds=? WHERE id=?",
+        (f"probe:{presentation}", presentation, latency, attempt_id))
+
+
+def ask(connection, qid, when, *, item="pi_svd_compute_001", attempt_id=None):
+    connection.execute(
+        "INSERT INTO question_events (id, context, practice_item_id, attempt_id, question_md, answer_md, "
+        "question_type, created_at) VALUES (?, 'practice', ?, ?, ?, 'answer', 'clarification', ?)",
+        (qid, item, attempt_id, f"asked {qid}", iso(when)))
+
+
+def test_a_queued_intent_never_moves_the_cutoff_past_the_presentation(seeded):
+    """Re-review F1: shown 13:55, submitted 13:57 (latency 120), intent 13:57:40."""
+
+    loaded, paths = seeded
+    presented = COMPLETED["att_06_svd_fail"] - timedelta(minutes=5)
+    submitted = presented + timedelta(seconds=120)
+    with closing(connect(paths.sqlite_path)) as connection:
+        presented_probe(connection, "att_06_svd_fail", presented_at=presented,
+                        intent_at=submitted + timedelta(seconds=40), latency=120)
+        # Unlinked: only time keeps the second one out. intent - latency - 2 s
+        # would put the cutoff at 13:55:38, after it.
+        ask(connection, "q_before", presented - timedelta(seconds=30))
+        ask(connection, "q_during", presented + timedelta(seconds=30))
+        connection.commit()
+    inputs = replay(loaded)
+    with snapshot(paths) as connection:
+        points, renderer = points_and_renderer(loaded, inputs, connection)
+        assert renderer.cutoff("att_06_svd_fail") == presented
+        card = renderer.render("v3", by_attempt(points)["att_06_svd_fail"])["learner_state"]
+    assert [q["question"] for q in card["tutor_questions"]] == ["asked q_before"]
+    # The same intent and latency with no record written before the item was
+    # shown prove nothing: history is withheld.
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE practice_attempts SET probe_presentation_id=NULL WHERE id='att_06_svd_fail'")
+        connection.commit()
+    inputs = replay(loaded)
+    with snapshot(paths) as connection:
+        points, renderer = points_and_renderer(loaded, inputs, connection)
+        assert renderer.cutoff("att_06_svd_fail") is None
+        card = renderer.render("v3", by_attempt(points)["att_06_svd_fail"])["learner_state"]
+    assert card["tutor_questions"] == [] and "history_withheld" in card
+
+
+def test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context(seeded):
+    """Re-review F7: an attempt testing only another facet of the LO."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.yaml_io import write_yaml
+    from tests.diagnosis_split_helpers import _item, seed_attempt
+
+    loaded, paths = seeded
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_svd_setup_003"), _item(
+        "pi_svd_setup_003", "lo_svd_compute", "Set up the SVD of C.", "C^T C", ["compute"], [("setup", 4)],
+        "svd_setup"))
+    vault = load_vault(paths.root, load_environment=False)
+    repository = Repository(paths.sqlite_path)
+    seed_attempt(vault, repository, attempt_id="att_03b_setup_pass", item_id="pi_svd_setup_003",
+                 answer="C^T C", when=at(2.5), points={"setup": 4})
+    seed_attempt(vault, repository, attempt_id="att_03c_setup_fail", item_id="pi_svd_setup_003",
+                 answer="C C", when=at(3.5), points={"setup": 0},
+                 error={"error_type": "procedural_slip", "severity": 0.5, "evidence": "Wrong product.",
+                        "resolution_status": "unresolved", "cause_scope": "learner_state",
+                        "target_evidence_families": ["compute"],
+                        "first_divergence": {"anchor_kind": "span", "criterion_id": "setup", "quote": "C C"}})
+    loaded = load_vault(paths.root, load_environment=False)
+    loaded.config.field.enabled = True
+    loaded.config.field.llm_probability_enabled = True
+    inputs = replay(loaded)
+    with snapshot(paths) as connection:
+        points, renderer = points_and_renderer(loaded, inputs, connection)
+        card = renderer.render("v3", by_attempt(points)["att_06_svd_fail"])["learner_state"]
+    work = {entry["ref"]: entry["answer"] for entry in card["recent_work"]}
+    assert work == {"w1": "M stays M", "w2": "A = U Sigma V", "w3": "B = U Sigma V^T", "w4": "C^T C", "w5": "C C"}
+    svd = next(h for h in card["open_hypotheses"]
+               if h["statement"] == "The learner treats V and V transpose as identical.")
+    # The hypothesis targets recall: only w3 (an item measuring recall) bears
+    # on it. w4 and w5 measured compute alone; sharing the LO is context.
+    assert [(e["ref"], e["kind"]) for e in svd["evidence_for"]] == [("w2", "diagnosed_from")]
+    assert [(e["ref"], e["kind"]) for e in svd["evidence_against"]] == [("w3", "passed_later")]
+    assert svd["evidence_basis"] == "target_facets"
+    assert [(e["ref"], e["result"]) for e in svd["same_lo_context"]] == [("w4", "correct"), ("w5", "incorrect")]
+    assert svd["same_lo_context_total"] == 2
+
+
+def test_budget_truncation_never_leaves_an_evidence_reference_dangling():
+    """Re-review F8: a 60-attempt card under the default budget."""
+
+    work = [
+        {"ref": f"w{i}", "answer": "a" * 600, "item": "i" * 200,
+         "blind_grade": {"score": 1.0, "first_divergence": ["d" * 400] * 3}, "_success": i == 2}
+        for i in range(1, 61)
+    ]
+    evidence = {"ref": "w2", "days_before": 9.0, "kind": "passed_later", "learning_objective": "LO",
+                "result": "correct"}
+    card = {
+        "scope": [], "incumbent_predictor": {"name": "mastery_ekf"}, "status_by_learning_objective": [],
+        "explicit_unknowns": [], "recent_work": work,
+        "open_hypotheses": [{
+            "statement": "h", "source_attempt": {"ref": "w1", "days_before": 10.0},
+            "evidence_for": [{"ref": "w1", "kind": "diagnosed_from"}, {"ref": "w60", "kind": "non_pass_later"}],
+            "evidence_against": [evidence], "same_lo_context": [{"ref": "w3", "result": "incorrect"}],
+        }],
+        "tutor_questions": [{"question": "q", "attempt_ref": "w2"}, {"question": "r", "attempt_ref": "w60"}],
+        "omitted": {"older_successes": 0, "text_excerpts": 0, "older_attempts": 0, "tutor_questions": 0},
+    }
+    fitted = _fit(card)
+    assert estimate_tokens(fitted) <= CARD_TOKEN_BUDGET
+    kept = {entry["ref"] for entry in fitted["recent_work"]}
+    # The success went first, then whole older attempts (their typed fields
+    # alone exceed the budget).
+    assert not {"w1", "w2", "w3"} & kept and "w60" in kept
+    hypothesis = fitted["open_hypotheses"][0]
+    cited = [hypothesis["source_attempt"], *hypothesis["evidence_for"], *hypothesis["evidence_against"],
+             *hypothesis["same_lo_context"]]
+    for entry in cited:
+        # Every reference resolves to a work entry or says it was omitted.
+        assert (entry["ref"] in kept) == ("in_recent_work" not in entry), entry
+        if entry["ref"] not in kept:
+            assert entry["in_recent_work"] is False
+    # The omitted evidence keeps its own summary.
+    against = hypothesis["evidence_against"][0]
+    assert (against["kind"], against["result"], against["days_before"]) == ("passed_later", "correct", 9.0)
+    questions = {q["attempt_ref"]: q for q in fitted["tutor_questions"]}
+    assert questions["w2"]["attempt_in_recent_work"] is False and "attempt_in_recent_work" not in questions["w60"]
+    assert fitted["omitted"]["cited_work_entries"] == 3  # w1, w2, w3
