@@ -365,20 +365,20 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 **Rules:**
 - **Finite (P1).** The plan's estimated minutes never exceed its budget. Nothing new is added mid-plan, except that follow-ups produced by this session's errors may **displace** later planned items. Displaced items go back to the pool; they are not debt.
 - **Done when done.** The plan completes when its planned items are done or skipped, however long that took. Finishing early or late is fine, and actual time is shown honestly.
-- **Requests first (L3).** Up to `tutor_promotion.requested_items_per_session` learner requests (default 1, `learnloop/config/schema.py:599`) go in the first block, outside the lane budgets but within the plan's minutes, as the queue's requested floor does today. Further requests wait in their lane, exempt from the new-item cap.
-- **Learner picks (L3).** Opening any item from the full list is a one-item learner-pick block. Its time counts against the budget, and the last planned items are displaced to keep the plan finite.
+- **Requests first (L3).** Up to `tutor_promotion.requested_items_per_session` learner requests (default 1, `learnloop/config/schema.py:599`) go in the first block, as the queue's requested floor does today. Their estimates are deducted from the budget **before** the split (§6.2), so they sit outside the lane budgets but inside the plan's minutes. Further requests wait in their lane, exempt from the new-item cap.
+- **Learner picks (L3).** Opening any item from the full list is a one-item learner-pick block. Its estimate is deducted from the minutes left, and from the lanes' remaining minutes in the order push, new, repair, maintain. Planned items that no longer fit are displaced, so the plan stays finite.
 - **Captures don't grow today's plan.** An item adopted mid-day joins tomorrow's plan, or "keep going" today (acceptance criterion 6).
 - **Mid-plan minute changes** re-plan the remaining blocks.
 
 ### 6.2 The split (P3)
 
-The system sets the split, shows it, and asks nothing. Rule `split_v1`, with M the budget in minutes:
+The system sets the split, shows it, and asks nothing. Rule `split_v1`, with M the budget in minutes minus the estimates of the requested items already placed in the first block (§6.1):
 1. **Repair** = min(repair load, `plan.repair_max_share` × M); the share defaults to 0.30.
 2. **Maintain** = min(due maintenance load, `plan.maintain_max_share` × M); the share defaults to 0.60. Overdue maintenance never takes the whole budget (Q10; the MaiMemo finding).
 3. **The rest** (at least 10% of M, since 0.30 + 0.60 < 1) goes to new and push:
    - new = min(the admitted new-material minutes from §6.3, half the rest if push candidates exist, else all of it);
    - push takes the remainder up to its load.
-4. **Unused minutes flow on:** to maintenance overflow, then repair overflow, then push.
+4. **Unused minutes flow on:** to maintenance overflow, then repair overflow, then push. New never receives flowed minutes beyond §6.3's admitted new-material minutes. The container repeats this step at every block boundary (§6.8, rule 1).
 
 **Shown as one line:** "25 min · maintain 13 · repair 4 · new 4 · push 4", with a "why" listing each lane's load and cap.
 
@@ -478,8 +478,8 @@ class PlanState:                      # everything a chooser may read
     plan_id: str
     kind: Literal["normal", "reentry", "keep_going"]
     minutes_budget: float
-    minutes_left: float               # budget − estimates of finished and current blocks
-    lane_minutes_left: Mapping[Lane, float]
+    minutes_left: float               # budget − estimates of all chosen blocks (finished and current)
+    lane_minutes_left: Mapping[Lane, float]  # each lane's allotment − its chosen blocks, after redistribution (rule 1)
     days_since_last_activity: int     # re-entry is kind == "reentry"
     streak_days: int
     current_block_id: str | None
@@ -519,7 +519,10 @@ class BlockChooser(Protocol):
 ```
 
 **What the container enforces** (the chooser cannot override it):
-1. **Feasibility before choice.** A candidate is infeasible when its estimate exceeds `minutes_left` + 2, or when its lane has no minutes left while a candidate in another lane remains. The chooser sees only feasible candidates. The lane budgets therefore hold whatever the chooser prefers: P3's split stays the plan's.
+1. **Redistribution, then feasibility, before every choice.**
+   - **Redistribution.** A lane releases its remaining minutes when it has no candidates left, or when even its smallest remaining candidate is larger than its remaining minutes. Released minutes flow in §6.2 step 4's order (maintain, repair, push) to the first lane that still has a candidate. The new lane never receives more than its admitted new-material minutes. The block event records each release.
+   - **Feasibility.** A candidate is feasible only when its estimate is ≤ `minutes_left` **and** ≤ `lane_minutes_left[lane]` after redistribution. There is no tolerance.
+   - The chooser sees only feasible candidates. Whatever the chooser prefers, no block can overspend its lane or the plan, so P3's split stays the plan's.
 2. **Closed choice.** A choice naming an unknown or infeasible id falls back to `lane_quota_v1`, flagged `fallback` on the block event (router G1, G7).
 3. **Learner picks win** and are logged as `learner_pick` with no propensity (router G9).
 4. **`STOP_FOR_TODAY`** is offered only when fewer than 5 minutes are left or nothing feasible remains. It ends the plan with that reason ("today's minutes are used" or "nothing more worth doing today") and offers "keep going".
@@ -527,7 +530,7 @@ class BlockChooser(Protocol):
 6. **Every decision is logged** as an `attention_block_events` row of kind `block_chosen`: the candidate set (ids, lanes, estimates, planner values), the chooser, the propensity and the fallback flag. R1 extends this logging; R2 adds `router_decisions`.
 
 **DL1's implementations:**
-- **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1), groups each lane's items by LO in the scheduler's order, and packs them into blocks of 5–15 estimated minutes.
+- **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1), groups each lane's items by LO in the scheduler's order, and packs them into blocks of 5–15 estimated minutes. A block is never larger than its lane's remaining minutes or the plan's.
 - **`lane_quota_v1` (the chooser).** It picks the feasible candidate from the lane with the largest unspent share of its split; ties go in the order repair, maintain, new, push, then to the higher planner value. Its "why" is `computed`: "maintain: 3 reviews past their 85% target".
 
 **What R2 maps onto this:** `LearnerStateCardV1`'s session fields come from `PlanState`, and its intent field from §5. `choose_block`'s candidates are the feasible set. `continue_current` and `stop_for_today` are the constants above.
@@ -659,7 +662,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | # | Gate |
 |---|---|
 | G1 | **Plan kill switch.** With `plan.enabled = false`, `get_today_queue`, Start and Today behave exactly as DL0 on fixture copies, including the re-entry cap |
-| G2 | **Finite.** A plan's planned estimate never exceeds its budget; follow-ups displace and never append; captures adopted mid-plan don't join it; keep going is the only extension |
+| G2 | **Finite.** A plan's planned estimate never exceeds its budget, and no lane's blocks exceed its allotment after redistribution. Requested items are deducted before the split. Follow-ups and learner picks displace and never append. Captures adopted mid-plan don't join it. Keep going is the only extension |
 | G3 | **Honest numbers.** Every count and minute figure on Start, Today, the done screen and the re-entry panel is derived from the plan DTO, and a test asserts each displayed number equals what is served |
 | G4 | **Intent kill switch and identity.** With `intent.enabled = false`, serving matches DL1. With it on, uncommitted items' effective due equals `due_at` exactly (ratio 1 at 0.90). Exclusion by paused, stopped, reference-only and satisfied commitments follows the union rule (§5.3). "Check once" serves exactly one item, after the delay, then nothing. Persisted `due_at` never changes |
 | G5 | **Saving is a reference.** `capture.create` creates no practice item and no commitment. "Practice this" creates exactly one adoption per capture, idempotent under retries and concurrent runners; undo retires the item and the commitment |
@@ -670,14 +673,14 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | G10 | **Re-entry.** It shows without any goal after the gap (measured per F1); it respects the minute and item caps; Light touch is excluded; no overdue count and no streak text appear; no due date is rewritten |
 | G11 | **Streak.** The count is unchanged on fixture copies; the label matches what is counted; phone sessions count |
 | G12 | **Learner picks win** and are logged with no propensity; picks displace the plan's tail rather than growing it |
-| G13 | **Chooser interface.** A fake chooser that names an unknown or infeasible id, or that tries to overspend a lane, cannot do so: the container falls back and flags it. Every block decision is logged with its candidate set |
+| G13 | **Chooser interface.** A candidate larger than `minutes_left` (e.g., 7 minutes with 5 left) or than its lane's remaining minutes (e.g., 10 minutes with 1 left) is never offered. A fake chooser that names an unknown or infeasible id, or that tries to overspend a lane, cannot do so: the container falls back and flags it. Released lane minutes follow §6.2's flow-on order. Every block decision is logged with its candidate set |
 | G14 | **Formative pre-questions.** They write no attempt, observation, mastery or FSRS row |
 
 **Tests** (fakes only: `tests/structured_ai.py`, `tests/openai_fakes.py`; vault builders from `tests/helpers.py`):
 - **DL0:** `StartScreen.test.tsx` (no sliders; remembered minutes; chips); `FeedbackScreen` (Next opens the next item; Esc and `b` still open the list); `tests/test_daily_loop_start_minutes.py` (`start_session` without energy; TUI has no sliders; streak label).
 - **DL1:**
   - `tests/test_daily_plan_split.py` (shares, flow-on, re-entry lanes);
-  - `test_daily_plan_build.py` (lane classification, block packing, finiteness, displacement, learner picks);
+  - `test_daily_plan_build.py` (lane classification, block packing, finiteness, request deduction before the split, displacement, learner picks);
   - `test_daily_plan_admission.py` (ceiling, cap, floor, exemptions, "more new");
   - `test_duration_estimates.py` (shrinkage, winsorizing, fallbacks, reading estimate);
   - `test_daily_plan_reentry.py`;
