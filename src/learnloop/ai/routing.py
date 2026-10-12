@@ -26,6 +26,8 @@ AITask = Literal[
     "pf_closed_book",
     "pf_reference_verifier",
     "pf_solver_panel",
+    # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
+    "contamination_judge",
     "grading",
     # Slice 1: the history-aware diagnoser (unset -> the resolved grading
     # route, so a vault that never configures it diagnoses with its grader),
@@ -93,6 +95,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "project_probe_authoring": "project",
     "project_closed_book_check": "project",
     "project_probe_grading": "grading",
+    # Slice 2 T4 shadow contamination flags (owner-run report only).
+    "contamination_leak_judgment": "contamination_judge",
+    "contamination_reveal_judgment": "contamination_judge",
 }
 
 

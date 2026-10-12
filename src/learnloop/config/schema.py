@@ -986,6 +986,9 @@ class AIRoutingConfig(BaseModel):
     pf_closed_book: str | None = None
     pf_reference_verifier: str | None = None
     pf_solver_panel: str | None = None
+    # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
+    # (shadow flags only). Empty = ai.active_provider.
+    contamination_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None

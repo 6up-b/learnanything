@@ -1,7 +1,7 @@
 """Explicit, bounded embedding work. Never called by sync or rebuild."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import closing, contextmanager
 from dataclasses import asdict
 import json
@@ -18,7 +18,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.ids import new_ulid
-from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
+from learnloop.vault.embedding_recipes import EmbeddingRecipe, EmbeddingRecord, select_recipes
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -113,10 +113,13 @@ def backfill_embeddings(
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     client_factory: Callable[[], EmbeddingClient] | None = None,
+    registry: Mapping[str, EmbeddingRecipe] | None = None,
 ) -> dict[str, Any]:
     """Plan without data changes, or checkpoint successful batches before continuing.
 
     Caps apply to this invocation. A rerun plans only missing content hashes.
+    ``registry`` embeds a consumer's own declared recipe set (Slice 2 T4)
+    under the same switches, caps, receipts and lock.
     Unknown prices require a finite owner-supplied estimate; an unlimited cost
     cap is deliberately not an escape hatch. A read-only WAL reader can create
     SQLite coordination sidecars; it must not use immutable mode and miss WAL
@@ -133,7 +136,7 @@ def backfill_embeddings(
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
-    selected = select_recipes(recipes)
+    selected = select_recipes(recipes, registry=registry)
     records = [record for recipe in selected for record in recipe.records(loaded)]
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)

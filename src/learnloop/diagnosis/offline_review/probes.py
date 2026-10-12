@@ -722,6 +722,25 @@ def _answers_differ(left: str, right: str) -> tuple[bool | None, str]:
     return (None if equal is None else not equal), "symbolic_equality"
 
 
+def answers_equal(left: str, right: str) -> tuple[bool | None, str]:
+    """Public face of the answer comparison: (True/False/None, method).
+
+    Exact normalized text, then exact arithmetic, then SymPy on safe text
+    only. ``None`` means undecidable; model text never reaches SymPy unless
+    :func:`safe_math_text` admits it."""
+
+    return _answers_equal(left, right)
+
+
+def answers_differ(left: str, right: str) -> tuple[bool | None, str]:
+    """(True when decidably different, False when equal, None undecidable).
+
+    Unlike :func:`answers_equal`, a rounded decimal within its stated
+    precision is not different (``0.667`` vs ``2/3``)."""
+
+    return _answers_differ(left, right)
+
+
 def _asserted_answer(text: str, declared: str) -> str | None:
     """The concluding line's assertion when it IS the declared answer."""
 

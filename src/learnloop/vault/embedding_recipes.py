@@ -106,18 +106,26 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
 )
 
 
-def select_recipes(selectors: Iterable[str] | None = None) -> tuple[EmbeddingRecipe, ...]:
+def select_recipes(
+    selectors: Iterable[str] | None = None,
+    *,
+    registry: Mapping[str, EmbeddingRecipe] | None = None,
+) -> tuple[EmbeddingRecipe, ...]:
     """Recipes named ``kind/field``, or every field of a bare ``kind``.
 
     ``None`` selects every registered recipe; unknown selectors are refused.
+    ``registry`` selects from a consumer's own declared recipe set (for
+    example Slice 2 T4's contamination record kinds) instead of the default
+    vault-content registry; it is never merged into the default backfill.
     """
+    recipes = EMBEDDING_RECIPES if registry is None else registry
     if selectors is None:
-        return tuple(EMBEDDING_RECIPES[name] for name in sorted(EMBEDDING_RECIPES))
+        return tuple(recipes[name] for name in sorted(recipes))
     chosen: dict[str, EmbeddingRecipe] = {}
     unknown: set[str] = set()
     for selector in selectors:
         matches = [
-            recipe for name, recipe in EMBEDDING_RECIPES.items()
+            recipe for name, recipe in recipes.items()
             if selector in (name, recipe.record_kind)
         ]
         if not matches:
@@ -132,5 +140,9 @@ def select_recipes(selectors: Iterable[str] | None = None) -> tuple[EmbeddingRec
 
 def embedding_records(
     loaded: LoadedVault, recipes: Iterable[str] | None = None,
+    *, registry: Mapping[str, EmbeddingRecipe] | None = None,
 ) -> list[EmbeddingRecord]:
-    return [record for recipe in select_recipes(recipes) for record in recipe.records(loaded)]
+    return [
+        record for recipe in select_recipes(recipes, registry=registry)
+        for record in recipe.records(loaded)
+    ]

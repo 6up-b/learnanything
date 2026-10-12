@@ -111,17 +111,32 @@ def _numeric_literals(text: str) -> set[str]:
 # --- held-out inventory -----------------------------------------------------
 
 
-def _held_out_span_texts(
-    vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None
-) -> list[str]:
-    """Resolve the text of every held-out exam span vault-wide (§4.2 use modes).
+@dataclass(frozen=True)
+class HeldOutSpan:
+    """One held-out exam span: its identity and block text (§4.2 use modes)."""
+
+    extraction_id: str
+    span_id: str
+    text: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.extraction_id}/{self.span_id}"
+
+
+def held_out_spans(
+    vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None = None
+) -> list[HeldOutSpan]:
+    """Resolve every held-out exam span vault-wide, with its identity (§4.2).
 
     Mirrors ``source_set_synthesis._collect_inputs`` held-out logic: an exam-role
     unit contributes its held-out assessment-signal spans, and a whole
-    ``held_out_evaluation`` unit contributes all its spans.
+    ``held_out_evaluation`` unit contributes all its spans. Order is the
+    deterministic source-set walk; a span reachable twice is listed once.
     """
 
-    texts: list[str] = []
+    spans: list[HeldOutSpan] = []
+    seen: set[tuple[str, str]] = set()
     for source_set in vault.source_sets:
         if subject_ids is not None and source_set.subject_id not in subject_ids:
             continue
@@ -158,11 +173,21 @@ def _held_out_span_texts(
                     for signal in inventory.get("assessment_signals", []) or []:
                         if whole_unit or signal.get("held_out"):
                             span_ids |= {str(s) for s in signal.get("span_ids", []) or []}
-                for span_id in span_ids:
+                for span_id in sorted(span_ids):
                     block = ir.block_by_span(span_id)
-                    if block is not None and block.text:
-                        texts.append(block.text)
-    return texts
+                    if block is None or not block.text or (extraction_id, span_id) in seen:
+                        continue
+                    seen.add((extraction_id, span_id))
+                    spans.append(HeldOutSpan(str(extraction_id), str(span_id), block.text))
+    return spans
+
+
+def _held_out_span_texts(
+    vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None
+) -> list[str]:
+    """The text of every held-out exam span vault-wide (§4.2 use modes)."""
+
+    return [span.text for span in held_out_spans(vault, repository, subject_ids=subject_ids)]
 
 
 def build_held_out_inventory(
@@ -176,6 +201,15 @@ def build_held_out_inventory(
 
     subjects = set(subject_ids) if subject_ids else None
     texts = _held_out_span_texts(vault, repository, subject_ids=subjects)
+    return inventory_for_texts(texts, shingle_n=shingle_n)
+
+
+def inventory_for_texts(texts: list[str], *, shingle_n: int = DEFAULT_SHINGLE_N) -> HeldOutInventory:
+    """The deterministic fingerprint of the given held-out texts (§8.5).
+
+    ``build_held_out_inventory`` fingerprints every held-out span vault-wide;
+    a per-span inventory lets a caller attribute a finding to its span."""
+
     shingles: set[str] = set()
     numerics: set[str] = set()
     for text in texts:

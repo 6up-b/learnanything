@@ -800,7 +800,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
     # the kill switch over the daily-loop reference-question adoption sweep;
     # its default keeps the merged behaviour.
-    "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
+    # Slice 2 T4 adds the unset ai.routing.contamination_judge route, consumed
+    # only by the owner-run `learnloop contamination report` (shadow flags).
+    "mvp-0.9": "93600f6630163b44be0ee8499616d98f36ea7feeac52014a850af4b11163f58b",
 }
 
 
