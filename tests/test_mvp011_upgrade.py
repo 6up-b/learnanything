@@ -25,7 +25,7 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, effective_defaults_fingerprint
+from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -146,28 +146,41 @@ def test_upgrade_command_still_reaches_mvp010_explicitly(tmp_path):
     assert "mvp-0.10 -> mvp-0.11" in result.output
 
 
-def test_new_vaults_stay_at_mvp09(tmp_path):
-    """The template does not move to the placement successor (Slice 1 M2 open
-    question 1 is the owner's): a new vault is mvp-0.9, with neither the split
-    nor placement."""
+def test_new_vaults_start_at_the_latest_version(tmp_path):
+    """Owner decision 2026-10-12 (Slice 1 M2 open question 1): a new vault
+    starts at LATEST_ALGORITHM_VERSION, mvp-0.11 today: the split and
+    placement are both live."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.9"
-    assert not placement_active(fresh) and not split_grading_active(fresh)
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.11"
+    assert placement_active(fresh) and split_grading_active(fresh)
+
+
+def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
+    """Re-initializing, loading or syncing an existing vault never moves its
+    version; only `learnloop upgrade` does."""
+
+    from learnloop.vault.loader import init_vault
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.9")
+    before = (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    init_vault(paths.root, clock=FrozenClock(NOW))
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, Repository(paths.sqlite_path), clock=FrozenClock(NOW))
+    assert (paths.root / "learnloop.toml").read_text(encoding="utf-8") == before
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.9"
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_placement_successor():
-    import tomllib
+    from learnloop.config.template import defaults_fingerprint_for_version
 
-    from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import DEFAULT_CONFIG_TEXT
-
-    text = DEFAULT_CONFIG_TEXT.replace('algorithm_version = "mvp-0.9"', 'algorithm_version = "mvp-0.11"')
-    config = LearnLoopConfig.model_validate(tomllib.loads(text))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.11"]
+    assert defaults_fingerprint_for_version("mvp-0.11") == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.11"]
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

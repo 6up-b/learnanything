@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.client import make_ai_provider_client
 from learnloop.ai.providers.codex import codex_config_from_ai_profile
 from learnloop.config import (
@@ -18,10 +19,11 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    # P0.5 cutover: new vaults default to the current tag (spec §7.2). mvp-0.9
-    # adds cross-channel reveal accounting (migration 154) on the unchanged
-    # mvp-0.8 projection namespace.
-    assert config.algorithms.algorithm_version == "mvp-0.9"
+    # P0.5 cutover: new vaults default to the current tag (spec §7.2). Since
+    # the owner's 2026-10-12 decision that is LATEST_ALGORITHM_VERSION (mvp-0.11:
+    # reveal accounting, the blind-grading split and placement, all on the
+    # unchanged mvp-0.8 projection namespace).
+    assert config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
     assert config.ai.active_provider == "codex"
     assert config.ai.providers["codex"].type == "codex_sdk"
     assert config.ai.providers["codex"].model == "gpt-5.6-sol"
@@ -169,11 +171,11 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
     loaded = load_config(tmp_path / "learnloop.toml")
     in_memory = LearnLoopConfig()
 
-    # P0.5 cutover: new vaults are written as the current tag (mvp-0.9); the
-    # in-memory default stays mvp-0.6 because it is the fallback for configs that
-    # predate the field and must never silently activate the new knowledge model
-    # over legacy content.
-    assert loaded.algorithms.algorithm_version == "mvp-0.9"
+    # P0.5 cutover: new vaults are written as the current tag
+    # (LATEST_ALGORITHM_VERSION); the in-memory default stays mvp-0.6 because it
+    # is the fallback for configs that predate the field and must never silently
+    # activate the new knowledge model over legacy content.
+    assert loaded.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
     assert in_memory.algorithms.algorithm_version == "mvp-0.6"
 
     for config in (loaded, in_memory):

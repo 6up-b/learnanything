@@ -1802,7 +1802,7 @@ These are current defaults, not universal truths. They are versioned/configurabl
 
 | Area | Default |
 |---|---|
-| Algorithm for a new vault | `mvp-0.9` |
+| Algorithm for a new vault | `LATEST_ALGORITHM_VERSION` (`mvp-0.11`) |
 | Scheduler baseline weights | forgetting 1.00, goal 0.25, recent error 0.50, probe information 0.25 |
 | Goal queue floor | 0.30 to 0.70 over a 28-day ramp |
 | Short-session threshold | 20 minutes |

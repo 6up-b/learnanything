@@ -8,6 +8,8 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+
 if TYPE_CHECKING:
     from learnloop.config.schema import LearnLoopConfig
 
@@ -704,13 +706,16 @@ expected_severity_band = [0.45, 0.75]
 """
 
 
-DEFAULT_CONFIG_TEXT = """schema_version = 2
+#: Where the decision-only template names its ``algorithm_version``.
+_ALGORITHM_VERSION_PLACEHOLDER = "@ALGORITHM_VERSION@"
+
+_DEFAULT_CONFIG_TEMPLATE = """schema_version = 2
 
 [storage]
 sqlite_path = "state.sqlite"
 
 [algorithms]
-algorithm_version = "mvp-0.9"
+algorithm_version = "@ALGORITHM_VERSION@"
 
 # AI is optional; an unavailable provider keeps today's manual workflow.
 # Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
@@ -787,6 +792,27 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 """
 
 
+def default_config_text(algorithm_version: str = LATEST_ALGORITHM_VERSION) -> str:
+    """The decision-only template as a vault at ``algorithm_version`` holds it.
+
+    New vaults are written at ``LATEST_ALGORITHM_VERSION`` (owner decision
+    2026-10-12, Slice 1 M2 open question 1); existing vaults keep their version
+    until the owner runs ``learnloop upgrade``. Every recorded defaults snapshot
+    is computed from this text at its own version, so a successor merge moves
+    only ``LATEST_ALGORITHM_VERSION`` (and records its own snapshot).
+    """
+
+    return _DEFAULT_CONFIG_TEMPLATE.replace(_ALGORITHM_VERSION_PLACEHOLDER, algorithm_version, 1)
+
+
+DEFAULT_CONFIG_TEXT = default_config_text()
+
+
+#: The effective-defaults fingerprint of a new vault, per algorithm version.
+#: Each entry is ``defaults_fingerprint_for_version(version)``: the template at
+#: that version (``default_config_text``), so every version keeps its recorded
+#: snapshot whichever version the template currently writes. A successor adds
+#: its own entry; a deliberate default change recomputes the entries it moves.
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
     # routes only; no scoring, scheduling, projection or serving change.
@@ -824,21 +850,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
-    # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
-    # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
-    # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
-    # too (modelled defaults, nominations only; no serving change).
+    # `learnloop upgrade --to mvp-0.10`. Slice 2 T5's [graph_nomination] moves
+    # it too (modelled defaults, nominations only; no serving change).
     "mvp-0.10": "ab768a5d5345cd5524f492845ecad427fbc95c0eecdc7ce0d68d90f0f2f17af9",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
     # the first review, the optional quick check. Kill switch
     # placement.enabled. Reached by `learnloop upgrade` (default target) from
-    # mvp-0.10, or from mvp-0.9 through mvp-0.10; the template stays at
-    # mvp-0.9 (Slice 1 M2 open question 1). Computed from DEFAULT_CONFIG_TEXT
-    # with only algorithm_version changed. [placement] is dormant below
+    # mvp-0.10, or from mvp-0.9 through mvp-0.10. [placement] is dormant below
     # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
     # merge (they move only because the effective config gains the section).
+    # The owner's 2026-10-12 decisions amend mvp-0.11 in place (no vault had
+    # reached it) without a default change, so this snapshot is unchanged: new
+    # vaults start here (the template's LATEST_ALGORITHM_VERSION), a first
+    # review or a lapse in maintenance is decided by the diagnosis, and
+    # unanswered opening episodes are ignored under placement.
     "mvp-0.11": "36b5b6c3cb3d6d5c5b332ca14679cdcb30dc5a20b00c6aabc7542e87cc22c4c9",
 }
 
@@ -873,10 +900,25 @@ def effective_defaults_fingerprint(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def defaults_fingerprint_for_version(algorithm_version: str) -> str:
+    """The effective-defaults fingerprint of a new vault at ``algorithm_version``.
+
+    The template rendered at that version (:func:`default_config_text`), so a
+    recorded snapshot is recomputed the same way after the template moves on.
+    """
+
+    from learnloop.config.schema import LearnLoopConfig
+
+    config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(algorithm_version)))
+    return effective_defaults_fingerprint(config)
+
+
 __all__ = [
     "DEFAULT_CONFIG_TEXT",
     "DEFAULTS_SNAPSHOT_BY_ALGORITHM",
     "LEGACY_DEFAULT_CONFIG_TEXT",
+    "default_config_text",
+    "defaults_fingerprint_for_version",
     "effective_defaults_fingerprint",
     "write_default_config",
 ]

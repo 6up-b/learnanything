@@ -35,13 +35,13 @@ Algorithm versions identify persisted meaning, not package releases.
 | `mvp-0.10` | successor retaining that projection and splitting grading: a learner-blind grader plus an asynchronous history-aware diagnoser (Slice 1 M2; kill switch `diagnosis.split_enabled`) |
 | `mvp-0.11` | successor to `mvp-0.10` keeping its split and changing serving only: no opening probe per new LO, new material as learning, "assumed known (not tested)" checked in the first review (learner field F2; kill switch `placement.enabled`) |
 
-The chain is linear: each successor means its predecessor's semantics plus its own change, so a gate asks "is this version at or after X" through an explicit set (`DIAGNOSIS_SPLIT_VERSIONS` = `mvp-0.10`, `mvp-0.11`; `PLACEMENT_VERSIONS` = `mvp-0.11`), never by equality. New vaults start at `mvp-0.9`; `learnloop upgrade` targets `mvp-0.11` by default (from `mvp-0.10`, or from `mvp-0.9` through `mvp-0.10`).
+The chain is linear: each successor means its predecessor's semantics plus its own change, so a gate asks "is this version at or after X" through an explicit set (`DIAGNOSIS_SPLIT_VERSIONS` = `mvp-0.10`, `mvp-0.11`; `PLACEMENT_VERSIONS` = `mvp-0.11`), never by equality. New vaults start at `LATEST_ALGORITHM_VERSION` (`mvp-0.11` today; owner decision 2026-10-12), so a successor merge moves that one constant and the template follows it; existing vaults keep their version until the owner runs `learnloop upgrade`, which targets `mvp-0.11` by default (from `mvp-0.10`, or from `mvp-0.9` through `mvp-0.10`).
 
 Successor sets are explicit so a new version does not accidentally fall back to a legacy projection through an equality check.
 
 ## Defaults fingerprint
 
-Omitted configuration defaults are frozen per algorithm version by a CI fingerprint. A minimal vault therefore remains reproducible without writing every default into `learnloop.toml`. Changing a behavior-bearing default requires an explicit version/fingerprint decision.
+Omitted configuration defaults are frozen per algorithm version by a CI fingerprint. A minimal vault therefore remains reproducible without writing every default into `learnloop.toml`. Changing a behavior-bearing default requires an explicit version/fingerprint decision. Each recorded fingerprint is the decision-only template rendered at its own version (`config.template.defaults_fingerprint_for_version`), so every version keeps its snapshot whichever version new vaults start at.
 
 ## Change protocol
 
