@@ -8,6 +8,21 @@ built without waiting for it. **Pattern-link trust stays unverified until the
 owner runs Slice 1 M1 and the S1.5 exit review**; whether to switch a vault to
 the successor stays the owner's decision.
 
+> **Codex review fixes.** `docs/reviews/slice-2-t1-codex-review.md` records
+> ten fixes that change parts of this file: the live step and the escalated
+> repair run on a command's own budget; the upgrade prepares groups and puts
+> them in force only after its config switch; the guard's required suite
+> includes registered M1 cases and is checked against the configured judge;
+> judgment reuse is per judge model (`recurrence guard --rerun` supersedes);
+> judge calls are claimed with a lease; B1/B3 follow Phase 5a's real
+> request/context/role contract (the integration point is now
+> `register_suites(SUITES, role_tasks=ROLE_TASKS)`); `recurrence.blocking_cutoffs`
+> entries carry the width, recipe and prefix B3 measured; a replacement
+> embedding model ranks only once its backfill is complete; and a K-th
+> recurrence whose repairs all repeat asks once for a different repair
+> (the "No different-repair generation call" deviation and open question 4
+> below no longer hold).
+
 ## Plan (written before coding)
 
 Read: `CLAUDE.md`; architecture `Home.md`; the algorithm-change playbook;

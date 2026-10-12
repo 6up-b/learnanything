@@ -3,15 +3,15 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
-source_commit_timestamp: "2026-10-12T13:10:39-04:00"
+source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
+source_commit_timestamp: "2026-10-12T14:54:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
 schema_head: 172
-table_count: 281
+table_count: 283
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -27,7 +27,7 @@ tags:
 
 # Database Catalog
 
-This is the exhaustive map of the 281 user tables at migration head 172. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 283 user tables at migration head 172. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 281 user tables at migration head 172. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 134 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 135 |
 | [[Table Roles#Derived|`derived`]] | 15 |
 | [[Table Roles#Receipt|`receipt`]] | 60 |
-| [[Table Roles#Workflow|`workflow`]] | 62 |
+| [[Table Roles#Workflow|`workflow`]] | 63 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 268 |
+| `active` | 270 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -210,6 +210,7 @@ Diagnostic probes, causal attribution, misconceptions, and repair evidence. This
 - [[Reference/Database/Tables/probe_regrade_checks|probe_regrade_checks]] — `receipt` · `active` · Gives probe regrade check a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `probe_family_template_id`, `probe_family_template_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/probe_state_segments|probe_state_segments]] — `workflow` · `active` · Gives probe state segment a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `learning_object_id`, `probe_episode_id`, `opened_by_attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/recurrence_escalations|recurrence_escalations]] — `receipt` · `active` · Gives recurrence escalation a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `diagnosis_id`, `repair_suggestion_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/recurrence_guard_cases|recurrence_guard_cases]] — `raw_ledger` · `active` · Gives recurrence guard case a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It supplies replay-stable input rather than a disposable cache. Rows bind `case_id`, `suite_version`, `expected`, making the operational relationship explicit.
 - [[Reference/Database/Tables/unresolved_cause_factors|unresolved_cause_factors]] — `workflow` · `active` · Gives unresolved cause factor a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `observation_id`, `resolution_kind`, making the operational relationship explicit.
 
 ## Scheduling
@@ -404,6 +405,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/interaction_events|interaction_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of interaction so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `subject_id`, `administration_id`, `surface_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/item_misconception_discrimination|item_misconception_discrimination]] — `raw_ledger` · `active` · Gives item misconception discrimination a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `practice_item_id`, `misconception_id`, `sensitivity_alpha`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_ledger|judgment_ledger]] — `raw_ledger` · `active` · Gives judgment ledger a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `supersedes_id`, `left_id`, `right_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/judgment_work_claims|judgment_work_claims]] — `workflow` · `active` · Gives judgment work claim a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `judgment_id`, `prompt_version`, `input_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/maintenance_notices|maintenance_notices]] — `workflow` · `active` · Stores actionable maintenance items surfaced by operational checks. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `entity_id`, `notice_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/model_call_receipts|model_call_receipts]] — `receipt` · `active` · Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `parent_call_id`, `owner_id`, `provider_response_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/model_work_checkpoints|model_work_checkpoints]] — `workflow` · `active` · Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `cache_key`, `purpose`, making the operational relationship explicit.

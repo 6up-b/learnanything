@@ -3,8 +3,8 @@ title: "hypothesis_recurrence_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
-source_commit_timestamp: "2026-10-12T13:10:39-04:00"
+source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
+source_commit_timestamp: "2026-10-12T14:54:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_recurrence_state"
@@ -39,7 +39,7 @@ tags:
 Maintains the decision-facing current projection for hypothesis recurrence so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `builder_version`, `scope`, `input_fingerprint`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> One row (scope 'vault') while the successor is active: the inputs the current groups were built from (a cheap fingerprint lets normalization skip an unchanged rebuild) and counts. No row while it is inactive.
+> One row (scope 'vault'): the inputs the current groups were built from (a cheap fingerprint lets normalization skip an unchanged rebuild) and counts. active = 1: the groups are in force (the successor is active and recurrence.enabled is on). active = 0: PREPARED by `upgrade --to mvp-0.11` before its config switch; consumers read no group until activation flips it. No row while the successor is off.
 
 It belongs to the **diagnosis** navigation family. The family context lives in [[Database Catalog#Diagnosis]]. Its persistence behavior follows [[Table Roles#Derived]].
 

@@ -3,8 +3,8 @@ title: "recurrence_escalations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
-source_commit_timestamp: "2026-10-12T13:10:39-04:00"
+source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
+source_commit_timestamp: "2026-10-12T14:54:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite recurrence_escalations"
@@ -66,6 +66,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `repair_operator` | `TEXT` | no | — | — | Stored value |
 | `prior_operators_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `different_approach` | `INTEGER` | yes | — | — | Stored value |
+| `repair_source` | `TEXT` | yes | `'diagnosis'` | — | Stored value |
+| `repair_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `generation_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `algorithm_version` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 
@@ -135,9 +138,18 @@ CREATE TABLE recurrence_escalations (
   repair_operator TEXT,
   prior_operators_json TEXT NOT NULL DEFAULT '[]',
   different_approach INTEGER NOT NULL CHECK (different_approach IN (0, 1)),
+  -- Where the shown repair came from: one of the diagnosis's own repairs, a
+  -- repair written at escalation time with a different operator and
+  -- representation (its payload in repair_json), or none.
+  repair_source TEXT NOT NULL DEFAULT 'diagnosis'
+    CHECK (repair_source IN ('diagnosis', 'generated', 'none')),
+  repair_json TEXT,
+  -- The escalated-repair request: whether it ran, and why it was not used.
+  generation_json TEXT NOT NULL DEFAULT '{}',
   algorithm_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  UNIQUE (attempt_id, diagnosis_id)
+  UNIQUE (attempt_id, diagnosis_id),
+  CHECK ((repair_source = 'generated') = (repair_json IS NOT NULL))
 );
 ```
 
