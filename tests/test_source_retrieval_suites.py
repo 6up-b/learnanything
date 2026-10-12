@@ -228,3 +228,20 @@ def test_cli_compare_registers_the_t6_suites(tmp_path):
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     assert report["status"] == "dry_run" and report["plan"]["questions"] == 5
+
+
+def test_the_bar_needs_an_interval_above_zero_recall_not_worse_and_ten_questions():
+    from learnloop.source_retrieval.bench import beats, score_question, summarize
+
+    def question(left_gain: float, right_gain: float) -> dict:
+        labels = {"a": ["answers", "answers"], "b": ["unrelated", "related"]}
+        rankings = {"left": ["a", "b"] if left_gain else ["b", "a"], "right": ["a", "b"] if right_gain else ["b", "a"]}
+        return score_question(rankings, labels)
+
+    better = [question(1, 0) for _ in range(10)]
+    summary = summarize(better, ["left", "right"], [("left", "right")])
+    assert beats(summary["differences"]["left - right"])
+    assert not beats(summarize(better[:9], ["left", "right"], [("left", "right")])["differences"]["left - right"])
+    tied = [question(1, 1) for _ in range(12)]
+    assert not beats(summarize(tied, ["left", "right"], [("left", "right")])["differences"]["left - right"])
+    assert score_question({"left": ["a"]}, {"a": ["answers", None]}) is None

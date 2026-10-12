@@ -230,3 +230,16 @@ def test_suggestions_respect_provenance_and_the_switches(tmp_path):
     append_config_toml(paths.root, "[source_retrieval]\nsuggest_learning_objects = false\n")
     off = suggest_learning_objects(loaded(paths), repository, extraction_id="ext_book", span_id="s12")
     assert off["status"] == "disabled" and off["suggestions"] == []
+
+
+def test_the_same_question_over_the_same_pool_is_verified_from_the_ledger(tmp_path):
+    paths, repository = setup(tmp_path)
+    span_provider, llm = provider()
+    first = ask(paths, repository, CitingTutor(), span_provider=span_provider, session="s1")
+    rerank_calls = sum(1 for purpose, _ in llm.calls if purpose == "source_rerank")
+    second = ask(paths, repository, CitingTutor(), span_provider=span_provider, session="s2")
+    assert sum(1 for purpose, _ in llm.calls if purpose == "source_rerank") == rerank_calls == 1
+    manifests = [repository.question_event(r["event_id"])["source_context"]["source_retrieval"]
+                 for r in (first, second)]
+    assert [m["verification"]["status"] for m in manifests] == ["verified", "cached"]
+    assert manifests[0]["verification"]["verdicts"] == manifests[1]["verification"]["verdicts"]
