@@ -14,8 +14,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from learnloop.ai.runtime import AIRuntimeReport
 
 MANUAL_PROVIDER = "manual"
+EMBEDDING_PROFILE_TYPE = "openai_embedding"
 
 AITask = Literal[
+    "embedding",
+    "pf_generator",
+    "pf_family_judge",
+    "pf_isomorph_judge",
+    "pf_closed_book",
+    "pf_reference_verifier",
+    "pf_solver_panel",
     "grading",
     "canonical_ingest",
     "canonical_ingest_retry",
@@ -109,6 +117,9 @@ def provider_for_task(
 
     if explicit_provider:
         return AIProviderSelection(provider_name=explicit_provider, explicit=True)
+    if task == "embedding":
+        # A global chat override must never redirect learner text or select Codex.
+        return AIProviderSelection(provider_name=config.ai.routing.embedding or "", explicit=True)
     env_provider = os.environ.get("LEARNLOOP_AI_PROVIDER") if allow_env else None
     if env_provider:
         return AIProviderSelection(provider_name=env_provider, from_env=True)
@@ -144,12 +155,50 @@ def fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelectio
     return fallback
 
 
+def route_profile_mismatch(
+    config: LearnLoopConfig,
+    provider_name: str,
+    task: AITask | None,
+) -> str | None:
+    """Why ``provider_name`` cannot serve ``task``, or ``None`` when it can.
+
+    Embedding profiles have no completion transport, so they never answer a
+    generation task; the embedding task sends learner-derived text only to an
+    explicit embedding profile. ``task=None`` is a generation use (grading,
+    tutoring, a session override, the active provider).
+    """
+
+    profile = config.ai.providers.get(provider_name)
+    if profile is None:
+        return None
+    embedding_profile = profile.type.strip().lower() == EMBEDDING_PROFILE_TYPE
+    if task == "embedding" and not embedding_profile:
+        return f"Embedding requires an {EMBEDDING_PROFILE_TYPE} profile; {provider_name!r} is {profile.type!r}."
+    if task != "embedding" and embedding_profile:
+        return (
+            f"{provider_name!r} is an embedding-only profile; it cannot serve "
+            f"{task or 'generation'} work."
+        )
+    return None
+
+
+def is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool:
+    profile = config.ai.providers.get(provider_name)
+    return profile is not None and profile.type.strip().lower() == EMBEDDING_PROFILE_TYPE
+
+
 def runtime_for_provider(
     vault_root: Path,
     config: LearnLoopConfig,
     provider_name: str,
+    *,
+    task: AITask | None = None,
 ) -> AIRuntimeReport:
-    """Return one provider-neutral readiness report for any configured name."""
+    """Return one provider-neutral readiness report for any configured name.
+
+    ``task`` defaults to a generation use; an embedding-only profile is then
+    never ready, and the embedding task accepts nothing else.
+    """
 
     from learnloop.ai.runtime import AIRuntimeReport, check_ai_runtime
 
@@ -158,6 +207,14 @@ def runtime_for_provider(
             status="provider_unavailable",
             active_provider=MANUAL_PROVIDER,
             message="Manual mode selected; AI is disabled for this workflow.",
+        )
+    mismatch = route_profile_mismatch(config, provider_name, task)
+    if mismatch is not None:
+        return AIRuntimeReport(
+            status="provider_unavailable",
+            active_provider=provider_name,
+            provider_type=config.ai.providers[provider_name].type,
+            message=mismatch,
         )
     return check_ai_runtime(vault_root, config, provider_name=provider_name)
 
@@ -168,11 +225,15 @@ def client_for_provider(
     provider_name: str,
     *,
     timeout_seconds: int | None = None,
+    task: AITask | None = None,
 ) -> Any | None:
     """Build a configured provider client, returning no client for manual mode."""
 
     if provider_name in {"", MANUAL_PROVIDER}:
         return None
+    mismatch = route_profile_mismatch(config, provider_name, task)
+    if mismatch is not None:
+        raise AIProviderUnavailable(mismatch)
     from learnloop.ai.client import make_ai_provider_client
 
     profile = config.ai.providers.get(provider_name)
@@ -206,6 +267,13 @@ def ready_client_for_task(
         explicit_provider=explicit,
         allow_env=allow_env,
     )
+    if task == "embedding" and not config.embedding.enabled:
+        # The master switch is enforced where the paid client is obtained, so
+        # no consumer can send text while embeddings are off.
+        return _manual_resolution(
+            selection,
+            message="Embeddings are disabled; set embedding.enabled = true to use them.",
+        )
     if selection.provider_name in {"", MANUAL_PROVIDER}:
         return _manual_resolution(selection)
 
@@ -214,9 +282,10 @@ def ready_client_for_task(
         config,
         selection,
         selection.provider_name,
+        task=task,
         timeout_seconds=timeout_seconds,
     )
-    if primary.runtime.ready:
+    if primary.runtime.ready or task == "embedding":
         return primary
 
     fallback = fallback_provider_for(config, selection)
@@ -230,6 +299,7 @@ def ready_client_for_task(
         config,
         selection,
         fallback,
+        task=task,
         timeout_seconds=timeout_seconds,
         fallback_from=selection.provider_name,
     )
@@ -242,12 +312,13 @@ def _resolve_selected_provider(
     selection: AIProviderSelection,
     provider_name: str,
     *,
+    task: AITask,
     timeout_seconds: int | None,
     fallback_from: str | None = None,
 ) -> ResolvedClient:
     from learnloop.ai.runtime import AIRuntimeReport
 
-    runtime = runtime_for_provider(vault_root, config, provider_name)
+    runtime = runtime_for_provider(vault_root, config, provider_name, task=task)
     client: Any | None = None
     if runtime.ready:
         try:
@@ -256,6 +327,7 @@ def _resolve_selected_provider(
                 config,
                 provider_name,
                 timeout_seconds=timeout_seconds,
+                task=task,
             )
         except AIProviderUnavailable as exc:
             runtime = AIRuntimeReport(
@@ -279,13 +351,14 @@ def _manual_resolution(
     selection: AIProviderSelection,
     *,
     fallback_from: str | None = None,
+    message: str = "Manual mode selected; AI is disabled for this workflow.",
 ) -> ResolvedClient:
     from learnloop.ai.runtime import AIRuntimeReport
 
     runtime = AIRuntimeReport(
         status="provider_unavailable",
         active_provider=MANUAL_PROVIDER,
-        message="Manual mode selected; AI is disabled for this workflow.",
+        message=message,
     )
     return ResolvedClient(
         selection=selection,
@@ -298,6 +371,7 @@ def _manual_resolution(
 
 
 __all__ = [
+    "EMBEDDING_PROFILE_TYPE",
     "MANUAL_PROVIDER",
     "ROUTE_FOR_OPERATION",
     "AIProviderSelection",
@@ -305,8 +379,10 @@ __all__ = [
     "ResolvedClient",
     "client_for_provider",
     "fallback_provider_for",
+    "is_embedding_profile",
     "provider_for_operation",
     "provider_for_task",
     "ready_client_for_task",
+    "route_profile_mismatch",
     "runtime_for_provider",
 ]

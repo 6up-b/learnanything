@@ -19,7 +19,7 @@ class FakeAPIConnectionError(Exception):
     """Stands in for the SDK's wrapper around transport failures."""
 
 
-def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=(), usages=()):
+def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=(), usages=(), embeddings=()):
     """``usages`` optionally supplies one usage object per queued response, in
     order, attached to the returned completion as ``.usage`` (A7 token
     accounting). Entries may be dicts or objects; when the list runs out the
@@ -33,12 +33,22 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
             self.kwargs = kwargs
             self.requests = []
             self.transcription_requests = []
+            self.embedding_requests = []
+            self._embeddings = list(embeddings)
             self._responses = list(responses)
             self._transcriptions = list(transcriptions)
             self._usages = list(usages)
             self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=self._create))
             self.audio = types.SimpleNamespace(transcriptions=types.SimpleNamespace(create=self._transcribe))
+            self.embeddings = types.SimpleNamespace(create=self._embed)
             module.instances.append(self)
+
+        def _embed(self, **kwargs):
+            self.embedding_requests.append(kwargs)
+            result = self._embeddings.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
 
         def _create(self, **kwargs):
             self.requests.append(kwargs)

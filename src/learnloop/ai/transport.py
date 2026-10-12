@@ -19,6 +19,7 @@ STRUCTURED_COMPLETION = "structured_completion"
 MEDIA_TRANSCRIPTION = "media_transcription"
 MEDIA_MARKDOWN = "media_markdown"
 INTERRUPT = "interrupt"
+EMBEDDING = "embedding"
 # Text-to-video generation (an async job API, not a chat completion).
 VIDEO_GENERATION = "video_generation"
 
@@ -218,6 +219,7 @@ def render_structured_prompt(
     )
 
 __all__ = [
+    "EMBEDDING",
     "INTERRUPT",
     "CapabilityTransport",
     "InterruptibleTransport",

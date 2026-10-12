@@ -3,13 +3,13 @@ title: "trace_exercised_facets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
+source_commit_timestamp: "2026-10-11T22:12:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite trace_exercised_facets"
   - "table trace_exercised_facets"
-schema_head: 165
+schema_head: 166
 table_name: "trace_exercised_facets"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_165/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_166/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_165" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_166" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 165
+SCHEMA_HEAD = 166
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -839,6 +839,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "animation": "consented concept-animation generation and sandboxed rendering",
     "ingest": "source acquisition, extraction, media handling, token budgets, and durable workers",
     "ai": "typed provider profiles and task-to-provider routing",
+    "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
     "capabilities": "optional capability-residual activation and shrinkage",
     "locks": "evidence gates that lock facets and curriculum progress",
     "error_impacts": "error-family severity shaping",
@@ -973,6 +974,32 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "When a native modality is selected but the routed provider cannot take it for a "
         "configuration reason, runs the non-native path (PDF: marker/pypdf; audio: the transcription "
         "route or endpoint) with a health flag instead of failing closed."
+    ),
+    "ai.routing.embedding": (
+        "Names the openai_embedding profile that embeds text. Unlike every other route it has no "
+        "fallback: LEARNLOOP_AI_PROVIDER, the active provider and the fallback provider never apply, "
+        "an empty route means no embeddings, and a chat profile here is refused (as is this profile "
+        "on any generation route)."
+    ),
+    "embedding.enabled": (
+        "Master switch for remote embeddings. While false, the embedding route resolves to no client, "
+        "so no consumer can send text, and the disabled route does not affect settings health."
+    ),
+    "embedding.backfill_enabled": (
+        "Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work "
+        "without it. Both switches must be true before any request is sent."
+    ),
+    "embedding.model": (
+        "The embedding model id to request and to key stored vectors by; authoritative over the "
+        "embedding profile's own model field. Changing it backfills a new model beside the old vectors."
+    ),
+    "embedding.dimensions": (
+        "Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per "
+        "model once vectors exist; consumers may request a narrower renormalized view at query time."
+    ),
+    "embedding.privacy_disclosure": (
+        "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
+        "setting it in learnloop.toml has no effect."
     ),
 }
 
@@ -1533,7 +1560,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_165/state.sqlite",
+                "fixtures/migration_head_166/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

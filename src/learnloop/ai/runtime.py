@@ -102,8 +102,10 @@ def check_ai_runtime(
             provider_revision=report.actual_revision,
             message=report.message,
         )
-    if provider_type in {"openai_chat", "openrouter"}:
-        default_env = "OPENROUTER_API_KEY" if provider_type == "openrouter" else "OPENAI_API_KEY"
+    if provider_type in {"openai_chat", "openrouter", "openai_embedding"}:
+        if provider_type == "openai_embedding":
+            profile = profile.model_copy(update={"model": config.embedding.model})
+        default_env = "OPENROUTER_API_KEY" if provider_type in {"openrouter", "openai_embedding"} else "OPENAI_API_KEY"
         api_key_env = profile.api_key_env or default_env
         if not os.environ.get(api_key_env):
             return AIRuntimeReport(
@@ -113,7 +115,7 @@ def check_ai_runtime(
                 model=profile.model,
                 message=f"Environment variable {api_key_env} is required.",
             )
-        if openai_chat_healthcheck is not None:
+        if openai_chat_healthcheck is not None and provider_type != "openai_embedding":
             try:
                 openai_chat_healthcheck(profile)
             except Exception as exc:

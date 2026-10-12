@@ -710,6 +710,7 @@ algorithm_version = "mvp-0.9"
 
 # AI is optional; an unavailable provider keeps today's manual workflow.
 # Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
+# Exception: embeddings use only their explicit route, never env/active/fallback.
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -728,6 +729,14 @@ response_format = "json_object"
 timeout_seconds = 180
 # input_modalities = ["audio", "pdf"]
 
+[ai.providers.openrouter_embedding]
+type = "openai_embedding"
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+# embedding.model and embedding.dimensions are authoritative for this route.
+max_input_tokens = 32768
+timeout_seconds = 180
+
 [ai.routing]
 grading = "codex_low"
 canonical_ingest = "codex_medium"
@@ -739,6 +748,17 @@ rung_variant = "codex_low"
 animation = "codex_medium"
 transcription = ""
 video_generation = ""
+embedding = "openrouter_embedding"
+
+# Embeddings are opt-in: both switches stay off until you enable them.
+# Remote embeddings send learner-derived text to OpenRouter and its upstream
+# provider, with data_collection=deny. Vectors approximate plaintext: protect
+# them like practice attempts in backups/exports/sync; never share across vaults.
+[embedding]
+enabled = false
+backfill_enabled = false
+model = "qwen/qwen3-embedding-8b"
+dimensions = 4096
 
 [ingest]
 [ingest.pdf]
@@ -755,7 +775,9 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    "mvp-0.9": "599957ca9d35ccee7ab2ace857906d5bbc8d38aac09ee8b5b6b2b8a724f2a506",
+    # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
+    # routes only; no scoring, scheduling, projection or serving change.
+    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
 }
 
 

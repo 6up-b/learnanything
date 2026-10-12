@@ -160,6 +160,13 @@ export interface SettingsDto {
   version: number;
   ai: SettingsAiDto;
   openrouter: OpenrouterKeyStateDto;
+  embedding: {
+    enabled: boolean;
+    backfillEnabled: boolean;
+    model: string;
+    dimensions: number;
+    privacyDisclosure: string;
+  };
   ingest: SettingsIngestDto;
   animation: SettingsAnimationDto;
   health?: RuntimeHealth;
