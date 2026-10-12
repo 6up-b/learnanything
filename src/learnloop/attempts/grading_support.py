@@ -61,6 +61,7 @@ from learnloop.attempts.blind_grading import (
     blind_grading_prompt,
     blind_prompt_version,
 )
+from learnloop.attempts.grading_admission import admit_grading_call
 from learnloop.attempts.stuck import StuckReading
 from learnloop.attempts.answer_check import final_answer_check
 from learnloop.substrate.canonical_projection import (
@@ -419,13 +420,16 @@ def request_blind_grading_run(
     extras: list[dict[str, Any]] = []
     readings: list[StuckReading | None] = []
     for _ in range(sample_count):
-        result = execute_structured_operation(
-            client,
-            purpose="blind_grading",
-            prompt=prompt,
-            result_model=result_model,
-            isolated=True,
-        )
+        # Each sample is one logical call: admitted against a command's caps
+        # when one installed a guard (review F5); a no-op otherwise.
+        with admit_grading_call("blind_grading", prompt):
+            result = execute_structured_operation(
+                client,
+                purpose="blind_grading",
+                prompt=prompt,
+                result_model=result_model,
+                isolated=True,
+            )
         readings.append(getattr(result, "stuck_reading", None))
         if policy is not None:
             raw.append(result.as_blind_proposal())

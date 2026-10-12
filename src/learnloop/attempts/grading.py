@@ -64,6 +64,7 @@ def request_grading_proposal(
 
     from learnloop.ai.transport import STRUCTURED_COMPLETION
     from learnloop.attempts.ai_contracts import StuckGradingProposal
+    from learnloop.attempts.grading_admission import admit_grading_call
 
     # mvp-0.11 (review F3): a stuck answer's joint grade carries the reading.
     # A legacy endpoint adapter never sees the prompt, so it cannot read it.
@@ -72,14 +73,18 @@ def request_grading_proposal(
         if context.answer_prompt is not None and client.supports(STRUCTURED_COMPLETION)
         else GradingProposal
     )
-    return execute_structured_operation(
-        client,
-        purpose="grading",
-        prompt=grading_prompt(context),
-        result_model=result_model,
-        legacy_capability="grading",
-        legacy_context=context,
-    )
+    prompt = grading_prompt(context)
+    # Admitted against a command's caps when one installed a guard (review
+    # F5, ``learnloop attempt``); a no-op on every other door.
+    with admit_grading_call("grading", prompt):
+        return execute_structured_operation(
+            client,
+            purpose="grading",
+            prompt=prompt,
+            result_model=result_model,
+            legacy_capability="grading",
+            legacy_context=context,
+        )
 
 
 def request_vault_grading_proposal(

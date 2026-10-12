@@ -780,6 +780,91 @@ def _try_deterministic_grade(
     return result
 
 
+@dataclass(frozen=True)
+class GradingCallPlan:
+    """The model grading one answer would send, computed with no call and no write.
+
+    Review F5: the paid command door (``learnloop attempt``) estimates and
+    admits these calls before sending them. ``kind`` is ``empty_stuck`` or
+    ``deterministic`` (no call), ``blind`` or ``joint`` (``calls`` samples,
+    each about ``estimated_input_tokens_per_call`` input tokens).
+    """
+
+    kind: str
+    calls: int
+    prompt_version: str | None = None
+    estimated_input_tokens_per_call: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "calls": self.calls,
+            "prompt_version": self.prompt_version,
+            "estimated_input_tokens_per_call": self.estimated_input_tokens_per_call,
+        }
+
+
+def plan_grading_calls(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+) -> GradingCallPlan:
+    """What the practice door would send to a grader for ``draft`` (read-only).
+
+    The same decisions as the completion doors, in the same order: an empty
+    stuck answer and an unambiguous option letter make no call; otherwise the
+    blind (split) or joint prompt is assembled exactly as it would be sent and
+    its input tokens estimated, once per sample. Raises like the doors on an
+    invalid draft.
+    """
+
+    from learnloop.attempts.grading import deterministic_recognition_grade
+    from learnloop.attempts.grading_admission import estimated_prompt_tokens
+
+    item, _learning_object, rubric, draft = _resolve_attempt_target(
+        vault, repository, draft, clock=clock
+    )
+    if is_empty_stuck(draft):
+        return GradingCallPlan(kind="empty_stuck", calls=0)
+    if not draft.declared_stuck and deterministic_recognition_grade(
+        item, rubric, draft.learner_answer_md, attempt_id="planned"
+    ) is not None:
+        return GradingCallPlan(kind="deterministic", calls=0)
+    context = build_grading_context(
+        vault,
+        item,
+        attempt_id="planned",
+        learner_answer_md=draft.learner_answer_md,
+        rubric=rubric,
+        assessment_contract=_assessment_contract(repository, draft),
+    )
+    if split_grading_active(vault):
+        from learnloop.attempts.blind_grading import blind_grading_prompt
+
+        blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        return GradingCallPlan(
+            kind="blind",
+            calls=_blind_sample_count(vault),
+            prompt_version=blind.prompt_version,
+            estimated_input_tokens_per_call=estimated_prompt_tokens(
+                blind_grading_prompt(blind.context)
+            ),
+        )
+    from learnloop.attempts.ai_contracts import grading_prompt, grading_prompt_version
+
+    if draft.declared_stuck:
+        context = replace(context, answer_prompt=stuck_answer_prompt())
+    context = _augmented_grading_context(vault, repository, item, context)
+    return GradingCallPlan(
+        kind="joint",
+        calls=_joint_sample_count(vault),
+        prompt_version=grading_prompt_version(context),
+        estimated_input_tokens_per_call=estimated_prompt_tokens(grading_prompt(context)),
+    )
+
+
 def _complete_attempt_with_agent_required(
     vault: LoadedVault,
     repository: Repository,
@@ -1497,9 +1582,7 @@ def _complete_blind_graded_attempt(
     )
 
     item = vault.practice_items[draft.practice_item_id]
-    sample_count = 1
-    if bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
-        sample_count = max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
+    sample_count = _blind_sample_count(vault)
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
@@ -1652,20 +1735,23 @@ def _record_blind_grading_receipt(
         )
 
 
-def _run_augmented_diagnosis(
-    vault: LoadedVault,
-    client: AIProviderClient,
-    context: Any,
-) -> Any:
-    from learnloop.diagnosis.diagnostic_augmentation import (
-        DEFAULT_DIAGNOSIS_SAMPLES,
-        run_diagnosis_samples,
-    )
+def _blind_sample_count(vault: LoadedVault) -> int:
+    """Blind grading samples per answer (one unless sampling is configured)."""
+
+    if not bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
+        return 1
+    return max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
+
+
+def _joint_sample_count(vault: LoadedVault) -> int:
+    """Joint grading (C3) samples per answer."""
+
+    from learnloop.diagnosis.diagnostic_augmentation import DEFAULT_DIAGNOSIS_SAMPLES
 
     enabled = bool(
         _diagnostic_augmentation_setting(vault, "sampling_enabled", True)
     )
-    sample_count = (
+    return (
         max(
             1,
             int(
@@ -1677,7 +1763,16 @@ def _run_augmented_diagnosis(
         if enabled
         else 1
     )
-    return run_diagnosis_samples(client, context, sample_count=sample_count)
+
+
+def _run_augmented_diagnosis(
+    vault: LoadedVault,
+    client: AIProviderClient,
+    context: Any,
+) -> Any:
+    from learnloop.diagnosis.diagnostic_augmentation import run_diagnosis_samples
+
+    return run_diagnosis_samples(client, context, sample_count=_joint_sample_count(vault))
 
 
 def _record_diagnostic_augmentation(

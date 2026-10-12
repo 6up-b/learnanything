@@ -921,3 +921,120 @@ def test_the_draft_checkpoint_keeps_the_stuck_marker_across_a_restart(tmp_path, 
     legacy = {key: value for key, value in draft.items() if key != "declaredStuck"}
     _call(restarted, "save_practice_draft", {**legacy, "practiceItemId": "pi_svd_compute_002", "submissionId": "k3"})
     assert _call(restarted, "get_session", {"sessionId": session_id})["checkpoint"]["declaredStuck"] is False
+
+
+# -- review F5: the paid CLI door has a dry run and spend admission -------------------
+
+
+def _cli_attempt(monkeypatch, root, client, *args, item=ITEM):
+    import learnloop.cli as cli_module
+    from learnloop.cli.app import app
+
+    built: list[str] = []
+
+    def ready(*_args, **_kwargs):
+        built.append("client")
+        return ("fake", ReadyRuntime(), client)
+
+    monkeypatch.setattr(cli_module, "_ready_provider_for_task", ready)
+    result = CliRunner().invoke(
+        app,
+        [
+            "attempt", item, *args, "--criterion-points", "setup=0,result=0",
+            "--json", "--no-diagnose", "--vault", str(root),
+        ],
+    )
+    return result, built
+
+
+def _attempt_ids(repository):
+    return {row["id"] for row in repository.list_attempt_history()}
+
+
+def test_cli_stuck_dry_run_estimates_the_grading_calls_with_no_call_and_no_write(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    before = _attempt_ids(repository)
+    client = StuckFake()
+    result, built = _cli_attempt(monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?", "--dry-run")
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "dry_run"
+    grading = payload["grading"]
+    assert grading["kind"] == "blind" and grading["calls"] == 1
+    assert grading["prompt_version"].endswith("+stuck-v1")
+    assert grading["estimated_input_tokens_per_call"] > 500
+    assert grading["route"]["billing"] == "subscription" and grading["admissible"] is True
+    assert payload["diagnosis"]["conditional"] is True
+    assert (built, client.calls) == ([], [])
+    assert _attempt_ids(repository) == before
+
+    empty, _built = _cli_attempt(monkeypatch, paths.root, client, "--stuck", "--answer", "", "--dry-run")
+    assert empty.exit_code == 0, empty.output
+    assert json.loads(empty.output)["grading"]["calls"] == 0
+    # A metered route with no price is not admissible, and says so.
+    metered, _built = _cli_attempt(
+        monkeypatch, paths.root, client, "--stuck", "--answer", "Why?", "--dry-run", "--ai-provider", "openrouter"
+    )
+    assert metered.exit_code == 1, metered.output
+    plan = json.loads(metered.output)["grading"]
+    assert plan["route"]["billing"] == "metered" and plan["admissible"] is False
+    assert "price" in plan["reason"].lower()
+    assert _attempt_ids(repository) == before
+
+
+def test_cli_metered_stuck_grading_is_refused_before_any_call_without_a_price(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    before = _attempt_ids(repository)
+    client = StuckFake(provider_type="openai_compatible", model="fake-metered")
+    result, _built = _cli_attempt(monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?")
+    assert result.exit_code == 1, result.output
+    assert json.loads(result.output)["status"] == "over_budget"
+    assert client.calls == []
+    assert _attempt_ids(repository) == before
+
+
+def test_cli_metered_stuck_grading_is_admitted_and_charged_with_a_price(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    client = StuckFake(provider_type="openai_compatible", model="fake-metered")
+    result, _built = _cli_attempt(
+        monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?", "--price-per-million", "2.0"
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert client.calls == ["blind_grading"]
+    spend = payload["spend"]
+    assert spend["charged"]["calls"] == 1
+    assert spend["charged"]["metered_total_tokens"] > 0
+    assert spend["charged"]["metered_estimated_usd"] > 0
+    assert spend["routes"]["grading"]["billing"] == "metered"
+    assert repository.fetch_practice_attempt(payload["attempt"]["attempt_id"])["declared_stuck"] is True
+
+
+def test_cli_subscription_grading_counts_calls_without_a_token_bound(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    client = StuckFake()  # codex_sdk: the owner's subscription
+    result, _built = _cli_attempt(
+        monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?", "--max-tokens", "0"
+    )
+    assert result.exit_code == 0, result.output
+    spend = json.loads(result.output)["spend"]
+    assert spend["charged"]["calls"] == 1 and spend["charged"]["metered_total_tokens"] == 0
+    assert spend["routes"]["grading"]["billing"] == "subscription"
+    assert spend["routes"]["grading"]["cost_basis"] == "estimated_only"
+    assert spend["routes"]["grading"]["input_tokens"] > 0  # estimated from reported usage
+    # The command still owns the grading call's receipt, and it records the caps.
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        receipts = connection.execute(
+            "SELECT owner_kind, budget_json FROM model_call_receipts WHERE purpose = 'blind_grading'"
+        ).fetchall()
+    assert receipts and {row[0] for row in receipts} == {"cli"}
+    budget = json.loads(receipts[0][1])
+    assert budget["max_calls"] == 10 and budget["max_retries"] == 4
+    # The call cap still holds on the subscription.
+    before = _attempt_ids(repository)
+    capped, _built = _cli_attempt(
+        monkeypatch, paths.root, StuckFake(), "--stuck", "--answer", "Still lost", "--max-calls", "0",
+        item="pi_svd_compute_002",
+    )
+    assert capped.exit_code == 1 and json.loads(capped.output)["status"] == "over_budget"
+    assert _attempt_ids(repository) == before
