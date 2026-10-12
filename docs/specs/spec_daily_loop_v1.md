@@ -578,6 +578,17 @@ class BlockChooser(Protocol):
 
 **What R2 maps onto this:** `LearnerStateCardV1`'s session fields come from `PlanState`, and its intent field from §5. `choose_block`'s candidates are the feasible set. `continue_current` and `stop_for_today` are the constants above.
 
+**How `plan.enabled` and `router.enabled` combine.** The router only fills the plan, so its kill switch returns Today to the *pre-router* version, which is the plan with the deterministic pair when `plan.enabled` is on. The router spec's §7.3 kill-switch line is revised to say so; its G8 already says "the pre-router version".
+
+| `plan.enabled` | `router.enabled` | Today serves | Source and chooser |
+|---|---|---|---|
+| false | false | DL0's open queue, with `fix/daily-loop-bugs`' re-entry cap | none |
+| false | true | The same open queue. R2 needs the plan, so the router has nothing to fill; R1's logging is unaffected | none |
+| true | false | The finite plan | `legacy_lanes_v1` and `lane_quota_v1` |
+| true | true | The finite plan | the staged-frame source and the router chooser (R2) |
+
+The container's rules (minutes, lanes, finiteness, requests first, learner picks, re-entry, the streak) are the same in the last two rows. Only block choice differs.
+
 ### 6.9 Other item sources in the plan
 
 - **Project understanding's delayed probes** (project M2 onward) are ordinary PF items. Due ones are scheduled checks in the maintain lane (§6.1), although they have never been attempted, at most `plan.project_probes_max_per_day` = 4 a day. Diffs labelled `automation` or `all_at_once` come first (project §5.3).
@@ -714,7 +725,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 
 | # | Gate |
 |---|---|
-| G1 | **Plan kill switch.** With `plan.enabled = false`, `get_today_queue`, Start and Today behave exactly as DL0 on fixture copies, including the re-entry cap |
+| G1 | **Plan kill switch.** With `plan.enabled = false`, `get_today_queue`, Start and Today behave exactly as DL0 on fixture copies, including the re-entry cap, whatever `router.enabled` says. Each row of §6.8's switch table has a parity test: both `plan.enabled = false` rows equal DL0; `plan.enabled = true, router.enabled = false` equals DL1; with both on, the container's invariants (G2, G12, G13) hold as in DL1 |
 | G2 | **Finite.** A plan's planned estimate never exceeds its budget, and no lane's blocks exceed its allotment after redistribution. Requested items are deducted before the split. Follow-ups and learner picks displace and never append. Captures adopted mid-plan don't join it. Keep going is the only extension |
 | G3 | **Honest numbers.** Every count and minute figure on Start, Today, the done screen and the re-entry panel is derived from the plan DTO, and a test asserts each displayed number equals what is served |
 | G4 | **Intent kill switch and identity.** With `intent.enabled = false`, serving matches DL1. With it on, uncommitted items' effective due equals `due_at` exactly (ratio 1 at 0.90). Exclusion and depth follow §5.3's most-recent-choice resolution: an item Pause under an LO Master excludes the item; a subject Pause after adoption excludes the adopted items, requests included; an LO choice after an item Pause re-includes the item; a request commitment never lowers a control-chosen depth; the control's consequence line equals the resolved result. "Check once" serves exactly one item, after the delay, then nothing. Persisted `due_at` never changes |
@@ -737,7 +748,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_daily_plan_admission.py` (ceiling, cap, floor, exemptions, "more new");
   - `test_duration_estimates.py` (shrinkage, winsorizing, fallbacks, reading estimate);
   - `test_daily_plan_reentry.py`;
-  - `test_daily_plan_kill_switch.py` (G1);
+  - `test_daily_plan_kill_switch.py` (G1, including every row of §6.8's `plan.enabled` × `router.enabled` table; the router-on rows use a fake router chooser);
   - `test_block_chooser_interface.py` (G13);
   - `test_daily_plan_rpc.py` (including remembered minutes: 40, then a 10-minute keep going, defaults to 40 the next day; a 15-minute re-entry plan and the post-re-entry remainder leave 40 in place; a chip tap on a re-entry plan changes the remembered value but not the re-entry cap);
   - `test_daily_plan_reading.py` (the words-left estimate; a partial block when the section exceeds the remaining minutes; each `block_ended` outcome advancing the plan and consuming the estimate; `reading_progress` events from `reader.mark_section_progress`; resuming an interrupted block; the next day continuing the same section; `next_plan_item` returning a typed reading step);
@@ -803,7 +814,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 
 ## 16. Cross-spec notes (record when each phase merges)
 
-- **Router.** R2's input is §6.8. `LearnerStateCardV1`'s session and intent fields come from `PlanState` and §5. The lane budgets are feasibility constraints the staged frame must honour.
+- **Router.** R2's input is §6.8. `LearnerStateCardV1`'s session and intent fields come from `PlanState` and §5. The lane budgets are feasibility constraints the staged frame must honour. The router's §7.3 kill switch returns Today to the pre-router version, which is the plan with `lane_quota_v1` when `plan.enabled` is on (§6.8's switch table; revised in the router spec with this spec).
 - **Learner field.**
   - DL1 is the "finite, system-ordered plan" that field F7 waits on. Plan events carry `serving_origin` (`daily_plan` or `learner_pick`).
   - §5.2's "when daily-loop Q7 exists" mapping is §5.6 here.
