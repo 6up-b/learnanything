@@ -97,12 +97,14 @@ def _receipts_cost(repository: Repository, run_ids: set[str]) -> dict[str, Any]:
         return {"calls": 0, "tokens": 0, "metered_usd": 0.0, "estimated_only_usd": None}
     marks = ",".join("?" for _ in run_ids)
     with repository.connection() as connection:
+        # Usage lands on the innermost receipt (a transport's child call when it has
+        # one), so sum every receipt; only roots count as calls.
         rows = connection.execute(
-            f"SELECT input_tokens, output_tokens, cost, usage_json FROM model_call_receipts "
-            f"WHERE owner_kind='pf_generation' AND owner_id IN ({marks}) AND parent_call_id IS NULL",
+            f"SELECT input_tokens, output_tokens, cost, usage_json, parent_call_id FROM model_call_receipts "
+            f"WHERE owner_kind='pf_generation' AND owner_id IN ({marks})",
             tuple(sorted(run_ids)),
         ).fetchall()
-    calls = len(rows)
+    calls = sum(1 for row in rows if row["parent_call_id"] is None)
     tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in rows)
     metered = sum(row["cost"] or 0.0 for row in rows if "estimated_only" not in (row["usage_json"] or ""))
     estimated = [json.loads(row["usage_json"]).get("estimated_usd") for row in rows

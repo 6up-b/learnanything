@@ -481,3 +481,21 @@ def test_seeding_writes_nothing_until_the_plan_is_admitted(tmp_path):
     assert all_calls(fakes) == 0
     with pytest.raises(ValueError, match="Unknown seed items"):
         run(paths, seed_items=("missing",))
+
+
+@needs_bwrap
+def test_an_unparseable_parent_reference_gives_a_neutral_difficulty_basis(tmp_path):
+    from learnloop.vault.writer import upsert_practice_item
+
+    _, repository, paths = seed_pf_vault(tmp_path / "vault")
+    parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
+    parent["expected_answer"] = "Subtract four and halve: x equals three."
+    upsert_practice_item(paths.root, parent)
+    run(paths)
+    published = rows(repository, "status='published'")
+    assert published
+    for row in published:
+        panel = json.loads(row["panel_json"])
+        assert panel["difficulty_basis"] == "batch_mean" and panel["parent_rate"][0] == 0
+        # Every sibling solved equally often: no offset from the parent's difficulty.
+        assert row["difficulty"] == 0.4

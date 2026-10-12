@@ -289,7 +289,22 @@ elif mode == "equivalence":
                                        pair["reference"], pair["answer"])))
         except BaseException:
             checks.append(None)
+    # Negative controls: a check that accepts a wrong answer for any of its
+    # references is degenerate (e.g. always True) and confirms nothing.
+    degenerate = {}
+    for name, module in loaded.items():
+        references = {pair["reference"] for pair in payload["pairs"] if pair["program"] == name}
+        accepted = False
+        for reference in references:
+            for wrong in payload.get("negative_controls", []):
+                try:
+                    accepted = accepted or bool(bounded(payload.get("per_call_seconds", 5),
+                                                        module.check, reference, wrong))
+                except BaseException:
+                    pass
+        degenerate[name] = accepted
     result["checks"] = checks
+    result["degenerate"] = degenerate
     result["import_errors"] = errors
     result["normal_forms"] = {key: normal_form(value)
                               for key, value in payload.get("normal_forms", {}).items()}
@@ -330,14 +345,21 @@ def run_equivalence_checks(
 ) -> SandboxResult:
     """Run LLM-written ``check(reference, answer)`` programs on their pairs."""
     names = {name: f"equivalence_{index}" for index, name in enumerate(sorted(programs))}
-    return run_sandboxed_python(
+    result = run_sandboxed_python(
         _HARNESS, {
             "mode": "equivalence", "programs": sorted(names.values()),
             "pairs": [{**pair, "program": names[pair["program"]]} for pair in pairs],
             "normal_forms": dict(normal_forms or {}),
+            "negative_controls": list(NEGATIVE_CONTROLS),
         },
         modules={names[name]: code for name, code in programs.items()}, limits=limits, run=run,
     )
+    if result.ok and isinstance(result.output, dict):
+        # Report degenerate checks under the caller's program names.
+        inverse = {module: name for name, module in names.items()}
+        result.output["degenerate"] = {inverse.get(module, module): flag for module, flag
+                                       in (result.output.get("degenerate") or {}).items()}
+    return result
 
 
 __all__ = [

@@ -41,7 +41,7 @@ def _loaded(vault: Path):
 def pf_generate(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; rehearse on a fixtures-local copy.")],
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate calls, tokens and cost; no client, migration or data change.")] = False,
-    path: Annotated[str, typer.Option("--path", help="generator | ensemble | single_shot (pilot baseline, never published) | auto (family source_kind, else pf.default_path).")] = "auto",
+    path: Annotated[str, typer.Option("--path", help="generator | ensemble | source_anchored | single_shot (pilot baseline, never published) | auto (family source_kind, else pf.default_path).")] = "auto",
     relation: Annotated[str, typer.Option("--relation", help="Declared variant relation for ensemble proposals; programs draw isomorphs.")] = "isomorph",
     family: Annotated[list[str] | None, typer.Option("--family", help="Activity family id; repeatable. Default: every family with an active member.")] = None,
     learning_object_id: Annotated[str | None, typer.Option("--lo")] = None,

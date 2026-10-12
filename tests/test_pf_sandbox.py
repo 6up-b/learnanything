@@ -160,3 +160,31 @@ def test_equivalence_harness_runs_model_written_checks():
     assert result.ok
     assert result.output["checks"] == [True, False, False]
     assert result.output["normal_forms"]["ref"] == "Rational(1, 2)"
+
+
+@needs_bwrap
+def test_degenerate_equivalence_checks_are_detected_by_negative_controls():
+    always = "def check(reference, answer):\n    return True\n"
+    result = run_equivalence_checks({"lazy": always, "good": SYMPY_CHECK},
+                                    [{"program": "lazy", "reference": "2", "answer": "2"},
+                                     {"program": "good", "reference": "2", "answer": "2"}])
+    assert result.ok
+    assert result.output["degenerate"] == {"lazy": True, "good": False}
+
+
+@needs_bwrap
+def test_the_prompt_templates_accept_their_own_tuple_answers():
+    from learnloop.content.authoring.pf_contracts import _EQUIVALENCE_TEMPLATE, _PROGRAM_TEMPLATE
+
+    result = run_equivalence_checks({"t": _EQUIVALENCE_TEMPLATE}, [
+        {"program": "t", "reference": "(1/4, 55/8)", "answer": "(0.25, 6.875)"},
+        {"program": "t", "reference": "(1/4, 55/8)", "answer": "(1/4, 7)"},
+        {"program": "t", "reference": "3", "answer": "6/2"}])
+    assert result.output["checks"] == [True, False, True]
+    assert result.output["degenerate"] == {"t": False}
+    code = _PROGRAM_TEMPLATE.replace(
+        "    ...  # exact arithmetic: sympy.Integer / sympy.Rational, never floats\n",
+        "    answer = sympy.Tuple(sympy.Rational(1, a), a)\n").replace(
+        '"stem": ..., "solution": ...,', '"stem": f"Find (1/{parameters[\'a\']}, {parameters[\'a\']}).", "solution": "s",')
+    draws = run_generator_tests(code, seeds=[1, 2]).output["draws"]
+    assert all(draw["self_check"] and draw["negative_controls_rejected"] for draw in draws)

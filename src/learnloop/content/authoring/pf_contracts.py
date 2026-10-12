@@ -18,11 +18,11 @@ from learnloop.ai.transport import render_structured_prompt
 from learnloop.content.authoring.pf_sandbox import EQUIVALENCE_PROTOCOL, GENERATOR_PROTOCOL
 
 SKELETON_PROMPT = "pf-skeleton-v1"
-GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v1"
+GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v6"
 PROPOSER_PROMPT = "pf-ensemble-propose-v1"
 SINGLE_SHOT_PROMPT = "pf-single-shot-v1"
 PANEL_SOLVE_PROMPT = "pf-panel-solve-v1"
-EQUIVALENCE_PROMPT = "pf-answer-equivalence-v1"
+EQUIVALENCE_PROMPT = "pf-answer-equivalence-v2"
 STRUCTURE_PROMPT = "pf-structure-check-v1"
 FRESHNESS_PROMPT = "pf-freshness-isomorph-v1"
 SELECTION_PROMPT = "pf-selection-v1"
@@ -154,25 +154,61 @@ def skeleton_prompt(*, prompt: str, expected_answer: Any) -> str:
     )
 
 
+_PROGRAM_TEMPLATE = (
+    "import random\n"
+    "import sympy\n\n"
+    "# Fixed step names (no numbers): identical for every draw and equal to the\n"
+    "# declared `checkpoints` field.\n"
+    "CHECKPOINTS = [\"identify the coefficients\", \"...\"]\n\n"
+    "def _expected(parameters):\n"
+    "    a = sympy.Integer(parameters[\"a\"])\n"
+    "    ...  # exact arithmetic: sympy.Integer / sympy.Rational, never floats\n"
+    "    return answer  # a sympy number, expression or sympy.Tuple\n\n"
+    "def generate(seed):\n"
+    "    rng = random.Random(seed)\n"
+    "    parameters = {\"a\": rng.randint(2, 9)}  # every seed must vary the surface\n"
+    "    answer = _expected(parameters)\n"
+    "    return {\"parameters\": parameters, \"stem\": ..., \"solution\": ...,\n"
+    "            \"final_answer\": str(answer), \"checkpoints\": list(CHECKPOINTS)}\n\n"
+    "def check(draw, answer):\n"
+    "    try:\n"
+    "        expected = _expected(draw[\"parameters\"])\n"
+    "        given = sympy.sympify(answer)\n"
+    "        if isinstance(given, (tuple, list)):\n"
+    "            given = sympy.Tuple(*given)\n"
+    "        if isinstance(expected, sympy.Tuple):\n"
+    "            return (isinstance(given, sympy.Tuple) and len(given) == len(expected)\n"
+    "                    and all(sympy.simplify(g - e) == 0 for g, e in zip(given, expected)))\n"
+    "        return sympy.simplify(given - expected) == 0\n"
+    "    except Exception:\n"
+    "        return False\n"
+)
+
+
 def generator_program_prompt(*, parent: Mapping[str, Any], family: Mapping[str, Any],
                              skeleton: Mapping[str, Any], relation: str,
                              previous_failure: str | None, attempt: int = 0) -> str:
     return _prompt(
         "Practice-family generator program", GENERATOR_PROGRAM_PROMPT,
-        f"Write one Python generator program ({GENERATOR_PROTOCOL}) for this family. It "
-        "must define generate(seed: int) -> dict returning JSON-serializable keys "
-        "parameters (dict), stem (str), solution (str, the worked reference solution), "
-        "final_answer (str, sympy-parseable where the answer is numeric or symbolic) and "
-        "checkpoints (list of str); and check(draw: dict, answer: str) -> bool that "
-        "independently verifies an answer for that draw by sympy or exact evaluation and "
-        "returns False for anything unparseable. Draws are "
-        f"{relation} variants of the parent: the checkpoint sequence must be identical for "
-        "every seed, only parameters and surface change, and the parent's rubric must "
-        "apply verbatim. Use only the standard library and sympy; no file, network or "
-        "process access (it runs in a sandbox without them). Return the declared "
-        "checkpoint sequence separately.",
+        "Write a Python generator program for this family. The `program` field must hold "
+        "the complete Python source code of one module (not a name or a description); "
+        f"it follows the {GENERATOR_PROTOCOL} protocol shown in `program_template`. It "
+        "defines generate(seed: int) -> dict returning JSON-serializable keys parameters "
+        "(dict), stem (str), solution (str, the worked reference solution), final_answer "
+        "(str, sympy-parseable where the answer is numeric or symbolic) and checkpoints "
+        "(list of str); and check(draw: dict, answer: str) -> bool, which independently "
+        "verifies an answer for that draw by sympy or exact evaluation from "
+        "draw['parameters'] and returns False for anything unparseable or wrong. "
+        f"Draws are {relation} variants of the parent: draw every parameter from "
+        "random.Random(seed) (never hard-code the parent's numbers; different seeds must give "
+        "different stems), keep checkpoints the identical list for every seed (equal to the "
+        "declared `checkpoints` field), change only parameters and surface, and keep the "
+        "parent's rubric applicable verbatim. Use only the "
+        "standard library and sympy; no file, network or process access (it runs in a "
+        "sandbox without them). If previous_failure is set, fix exactly that.",
         {"parent": parent, "family": family, "parent_skeleton": skeleton,
-         "previous_failure": previous_failure, "attempt": attempt},
+         "program_template": _PROGRAM_TEMPLATE, "previous_failure": previous_failure,
+         "attempt": attempt},
     )
 
 
@@ -206,18 +242,40 @@ def panel_solve_prompt(*, stem: str, solve_index: int) -> str:
     )
 
 
+_EQUIVALENCE_TEMPLATE = (
+    "import sympy\n\n"
+    "def _parse(text):\n"
+    "    value = sympy.sympify(text)\n"
+    "    if isinstance(value, (tuple, list)):\n"
+    "        value = sympy.Tuple(*value)\n"
+    "    return value\n\n"
+    "def check(reference, answer):\n"
+    "    try:\n"
+    "        expected, given = _parse(reference), _parse(answer)\n"
+    "        if isinstance(expected, sympy.Tuple) or isinstance(given, sympy.Tuple):\n"
+    "            return (isinstance(expected, sympy.Tuple) and isinstance(given, sympy.Tuple)\n"
+    "                    and len(expected) == len(given)\n"
+    "                    and all(sympy.simplify(e - g) == 0 for e, g in zip(expected, given)))\n"
+    "        return sympy.simplify(expected - given) == 0\n"
+    "    except Exception:\n"
+    "        return False\n"
+)
+
+
 def equivalence_prompt(*, stem: str, reference: str, answers: list[str]) -> str:
     return _prompt(
         "Final-answer equivalence check", EQUIVALENCE_PROMPT,
         "Decide for each candidate answer, in order, whether it is mathematically or "
         "semantically equivalent to the reference final answer for this problem "
         "(agreements, one boolean per answer). Classify the answer_kind. When the kind is "
-        f"numeric or symbolic you must also write sympy_check ({EQUIVALENCE_PROTOCOL}): Python "
-        "source defining check(reference: str, answer: str) -> bool that parses both with "
-        "sympy and decides equivalence (tolerating formatting and equivalent forms), "
-        "returning False on anything unparseable. Use only sympy and the standard library. "
-        "For text answers set sympy_check to null.",
-        {"problem": stem, "reference_final_answer": reference,
+        f"numeric or symbolic you must also write sympy_check ({EQUIVALENCE_PROTOCOL}): the "
+        "complete Python source of a module defining check(reference: str, answer: str) -> "
+        "bool that parses BOTH arguments with sympy (never hard-code values; it is called on "
+        "every answer and on wrong answers) and decides equivalence, tolerating formatting, "
+        "equivalent forms and tuples, returning False on anything unparseable. Adapt "
+        "`check_template` (for example to normalize units or answer formats). Use only sympy "
+        "and the standard library. For text answers set sympy_check to null.",
+        {"problem": stem, "reference_final_answer": reference, "check_template": _EQUIVALENCE_TEMPLATE,
          "answers": [{"index": index, "answer": answer} for index, answer in enumerate(answers)]},
     )
 

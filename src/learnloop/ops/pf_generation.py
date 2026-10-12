@@ -34,8 +34,9 @@ Paths:
 Filters, cheapest first: authoring gates (the shared instrument chain),
 held-out leakage, exact-key duplicates, verification, solver-panel outliers,
 the structure check and the freshness judge. Difficulty is the solver panel's
-per-variant offset from the parent (``difficulty_source = "solver_panel"``);
-LLM self-labels are never requested.
+per-variant offset (``difficulty_source = "solver_panel"``) from the parent's
+panel rate, or, when no panel solve matched the parent's reference, from the
+mean rate of the verified siblings; LLM self-labels are never requested.
 """
 from __future__ import annotations
 
@@ -456,6 +457,7 @@ class _FamilyRun:
                 self._verify_source_anchored()
             else:
                 self._verify_ensemble()
+            self._finalize_difficulty()
             self._structure()
             self._freshness()
             for candidate in self.candidates:
@@ -514,20 +516,24 @@ class _FamilyRun:
             return False, f"sandbox: {result.error}; {result.stderr_tail[-300:]}", []
         output = result.output or {}
         if output.get("import_error"):
-            return False, f"import: {output['import_error']}", []
+            return False, ("the program field is not importable Python source defining generate and "
+                           f"check: {output['import_error']}"), []
         draws = output.get("draws") or []
         problems = []
         for entry in draws:
             if entry.get("error"):
                 problems.append(f"seed {entry.get('seed')}: {entry['error']}")
             elif not entry.get("self_check"):
-                problems.append(f"seed {entry['seed']}: check rejects its own final answer")
+                problems.append(f"seed {entry['seed']}: check(draw, draw['final_answer']) returned False "
+                                f"for final_answer {entry['draw'].get('final_answer')!r:.80}")
             elif not entry.get("negative_controls_rejected"):
                 problems.append(f"seed {entry['seed']}: check accepts a wrong answer")
             elif entry["draw"]["checkpoints"] != declared:
-                problems.append(f"seed {entry['seed']}: checkpoint sequence differs from declared")
+                problems.append(f"seed {entry['seed']}: checkpoints {entry['draw']['checkpoints']!r:.160} "
+                                f"differ from the declared {declared!r:.160}")
         if not problems and len({entry["draw"]["stem"] for entry in draws}) < min(2, len(draws)):
-            problems.append("draws do not vary the surface")
+            problems.append("every seed produced the same stem: draw the parameters from "
+                            "random.Random(seed) instead of hard-coding them")
         return not problems, "; ".join(problems)[:1500], draws
 
     def _program(self) -> dict[str, Any] | None:
@@ -924,6 +930,7 @@ class _FamilyRun:
         symbolic = result.answer_kind in {"numeric", "symbolic"}
         confirmations: list[bool | None] = [None] * len(solves)
         normal_form = None
+        degenerate = False
         if usable and symbolic and result.sympy_check:
             sandbox = run_equivalence_checks(
                 {"check": result.sympy_check},
@@ -931,8 +938,13 @@ class _FamilyRun:
                 normal_forms={"reference": reference}, limits=self.ctx.limits,
             )
             if sandbox.ok:
-                confirmations = list((sandbox.output or {}).get("checks") or confirmations)
                 normal_form = ((sandbox.output or {}).get("normal_forms") or {}).get("reference")
+                if (sandbox.output or {}).get("degenerate", {}).get("check"):
+                    # It accepts a wrong answer, so it confirms nothing.
+                    confirmations = [False] * len(solves)
+                    degenerate = True
+                else:
+                    confirmations = list((sandbox.output or {}).get("checks") or confirmations)
         agrees = []
         for index, solve in enumerate(solves):
             llm = bool(usable and result.agreements[index])
@@ -951,12 +963,14 @@ class _FamilyRun:
                     task="answer_equivalence", left_kind=subject_kind, left_id=subject_id,
                     judge="verifier", prompt_version="pf-equivalence-v1",
                     input_hash=content_key([input_hash, solve["input_hash"], call.input_hash, "sympy"]),
-                    verdict={True: "agree", False: "disagree", None: "error"}[confirmations[index]],
+                    verdict=("degenerate_check" if degenerate else
+                             {True: "agree", False: "disagree", None: "error"}[confirmations[index]]),
                     rationale={"solve_model": solve["model"], "solve_index": solve["index"],
                                "program_hash": _sha(result.sympy_check or "")},
                 )
         return {"agree": sum(agrees), "total": len(solves), "answer_kind": result.answer_kind,
                 "usable": usable, "sympy_checked": symbolic, "normal_form": normal_form,
+                "degenerate_check": degenerate,
                 "verifier_model": call.model, "per_solve": [
                     {"model": solve["model"], "agree": agree} for solve, agree in zip(solves, agrees)]}
 
@@ -973,10 +987,40 @@ class _FamilyRun:
         return self.parent_rate
 
     def _set_difficulty(self, candidate: Candidate, agree: int, total: int) -> None:
-        candidate.difficulty = panel_difficulty(
-            self.parent.difficulty, self._parent_rate(), (agree, total),
-            self.ctx.vault.config.mastery.irt.difficulty_prior_scale,
-        )
+        """Record the variant's panel rate; ``_finalize_difficulty`` sets the offset."""
+        candidate.panel["variant_rate"] = [agree, total]
+        self._parent_rate()
+
+    def _finalize_difficulty(self) -> None:
+        """Per-variant offsets from the parent's panel rate, or from the batch.
+
+        When no panel solve matched the parent's reference (usually a prose
+        reference, not a hard parent), the parent rate is uninformative; the
+        reference is then the mean logit solve rate of the verified siblings.
+        """
+        rated = [c for c in self.candidates if c.alive and "variant_rate" in c.panel]
+        if not rated:
+            return
+        scale = self.ctx.vault.config.mastery.irt.difficulty_prior_scale
+        parent_rate = self._parent_rate()
+
+        def logit(rate: list[int] | tuple[int, int]) -> float:
+            return _logit((rate[0] + 0.5) / (rate[1] + 1.0))
+
+        batch_reference = sum(logit(c.panel["variant_rate"]) for c in rated) / len(rated)
+        for candidate in rated:
+            rate = tuple(candidate.panel["variant_rate"])
+            if parent_rate[0] > 0:
+                basis = "parent_panel"
+                candidate.difficulty = panel_difficulty(self.parent.difficulty, parent_rate, rate, scale)
+            else:
+                basis = "batch_mean"
+                base = 0.5 if self.parent.difficulty is None else self.parent.difficulty
+                low, high = DIFFICULTY_BOUNDS
+                candidate.difficulty = round(min(high, max(low, base + (batch_reference - logit(rate)) / (2.0 * scale))), 4)
+            candidate.panel["difficulty_basis"] = basis
+            candidate.panel["parent_rate"] = list(parent_rate)
+            self._persist(candidate)
 
     def _verify_ensemble(self) -> None:
         pf = self.ctx.vault.config.pf
