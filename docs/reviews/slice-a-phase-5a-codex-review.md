@@ -377,3 +377,131 @@ used the default environment.
    embedding diversity in freshness (they wait for B2); the shadow familiarity writer,
    measured variant distance and exemplar retrieval; enforcing the 2–3-model panel
    default; and the full pilot and B2 results.
+
+## Re-review (Codex job `20261012-144751-OB9Skl`)
+
+The re-review covered `7de892b2..slice-a/phase-5a` and the record above.
+
+- **Confirmed fixed:** F1 to F5.
+- **New findings:** three Medium findings, F15 to F17. All three reproduced and are fixed.
+  Each scenario test below fails on `60405345`; the F15 per-path unit test exercises the
+  new `verdict_verified` signature. None rejected; no High finding was open.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F15 | Medium | Interrupted span verification is reported as verified | Fixed | `c11592bd` | `test_pf_generation.py`: `test_a_quote_check_without_its_span_support_verdict_is_never_verified[interrupted,provider_failed]`, `test_each_path_is_verified_only_by_its_complete_reference_contract` |
+| F16 | Medium | Missing judge responses earn accuracy credit | Fixed | `d460f644` | `test_pf_reports.py::test_a_judge_that_answers_nothing_earns_no_accuracy_credit`; `test_embedding_compare.py::test_metric_helpers` (abstention case) |
+| F17 | Medium | Scaling matches unrelated benchmark pairs | Fixed | `d460f644` | `test_pf_reports.py::test_tiers_are_compared_only_on_identical_labelled_pairs` |
+
+F16 and F17 share one commit because both rewrite the same function,
+`_labelled_judge_accuracy`.
+
+### F15: a reference is verified only by its path's complete contract
+
+- **Reproduced.** A source-anchored run where the span-support call raised
+  (`AIInterrupted`, then `AIProviderUnavailable`). The candidate stayed `unverified` and
+  the ledger held a single `exact_key` pass with no `llm` support row. The pilot report
+  still counted it: `verified.successes == 1`.
+- **Fix** (`db/stores/pf.py`).
+  - `verdict_verified(verdicts, generation_path)` requires every check in
+    `REQUIRED_REFERENCE_CHECKS[path]`, matched by the ledger rationale's `check` (a `+sympy`
+    suffix extends a check), and no current check may have failed:
+    - `ensemble` and `single_shot`: `panel_agreement`;
+    - `generator`: `execution_cas`;
+    - `source_anchored`: `quote_verified_span` and `span_supports_answer`.
+  - An unknown path never verifies.
+  - Callers that pass the path: the pilot and scaling reports (`verified`, scaling `by_path`,
+    survivors) and publication (`_check_ledger`).
+  - The resumed round completes the contract, and the test then sees it as verified. The
+    publish tests for each path confirm that every real path satisfies its contract.
+
+### F16: silence is an abstention, never a correct negative
+
+- **Reproduced** with the reviewer's case. On 12 negatives, a frontier judge that returned
+  `comparisons=[]` scored accuracy 12/12 in the scaling check. Against an always-isomorph
+  cheap judge (0/12), that gave `freshness_judge: rises_with_tier`. The B2 judge view
+  reported `tn=12, accuracy=1.0` for the same judge.
+- **Fix.**
+  - `pf_contracts.FRESHNESS_VERDICTS` is derived from the `FreshnessComparison` literal. A
+    ledgered verdict outside it (`missing`) is an abstention:
+    `embedding_compare.judge_prediction(verdict) -> bool | None`.
+  - `binary_metrics` takes `bool | None` predictions:
+    - an abstention is never a true or false negative;
+    - it counts against `accuracy` (over every case) and `recall` (over every positive);
+    - the output adds `abstained` and `coverage`. Boolean inputs give the same numbers as
+      before.
+  - The B2 markdown shows coverage.
+  - The scaling check's `judge_accuracy_on_labelled_pairs.freshness.<tier>` reports:
+    - `accuracy` over every shared pair, with an abstention counted as wrong;
+    - `coverage` and `abstained`;
+    - `recall_on_positives` over every positive;
+    - `false_positive_rate` over answered negatives only.
+  - In the reproduction both tiers now score 0/12 (`no_clear_difference`), with frontier
+    coverage 0/12.
+
+### F17: tiers are compared only on identical labelled pairs
+
+- **Reproduced.** Cheap was judged on one unnamed benchmark and frontier on another
+  (different stems, opposite labels, case ids defaulting to line numbers). The old key,
+  `None|<line>:left`, matched all 12, so the report claimed 12 pairs judged at both tiers.
+- **Fix.**
+  - `B2Data.revision` hashes the manifest and every byte of `pairs.jsonl`.
+  - `b2_case_identity(revision, case)` covers `b2-case-v1`, the revision, the case id, both
+    pair inputs (the full `left`/`right` objects) and the label. It is tier- and
+    model-independent.
+  - The B2 judge view ledgers `benchmark_revision` and `case_identity` in each verdict's
+    rationale. The B2 results carry `benchmark_revision`.
+  - `_labelled_judge_accuracy` keys verdicts by `case_identity`. It compares only identities
+    that both tiers judged with the same label. It reports `matched_by`, and counts in
+    `excluded_without_identity` the verdicts that lack an identity (pre-fix rows).
+  - In the reproduction, 0 pairs match (`freshness_judge: insufficient_data`). Judging the
+    first benchmark at both tiers matches all 12.
+- **Versions:** harness `embeddings-compare-v2`, reports `pf-reports-v3`. There is no
+  schema, config or CLI change.
+
+### Harness interface changes (for Slice 2 T6)
+
+The interface above stands. These additions are backward compatible for callers that pass
+booleans:
+
+```text
+binary_metrics(predictions: list[bool | None], labels) -> {tp, fp, fn, tn, abstained, coverage,
+                                                            precision, recall, accuracy}
+judge_prediction(verdict: str) -> bool | None        # None: no verdict (abstention)
+b2_case_identity(revision: str, case: B2Case) -> str # tier/model-independent pair identity
+B2Data.revision                                       # manifest + pairs.jsonl content hash
+```
+
+- **Abstentions.** A suite that scores an LLM judge passes `None` for a case with no
+  verdict, never `False`. It reports `coverage` beside `accuracy`.
+- **Cross-run comparisons.** A suite whose verdicts are compared across runs (tiers or
+  models) ledgers a content identity of the case and its label, never a positional id.
+  Comparisons match only on that identity.
+
+### Re-review gate
+
+Final code tree `d460f644` (this section is docs only), with `LEARNLOOP_CONFIG_DIR`
+isolated by `conftest.py`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev`, then `uv pip install pypdfium2` | OK (`--extra mobile` not needed: `learnloop_mobile` untouched) |
+| `uv run lint-imports --no-cache` | **10 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,165 passed**, 0 failed, 14 existing warnings (fork and SQLite datetime-adapter deprecations); 198.7 s (7 min 3 s with the lock wait) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **66 passed**, 7,099 deselected; 36.1 s |
+| `test_pf_reports.py`, `test_embedding_compare.py` and the two new F15 tests with `--durable-sqlite` | **26 passed**; 230.8 s |
+| DB reference generator and validator | Not rerun: no schema change (no migration, table or column touched) |
+| `git diff --check` | Clean |
+| Frontend | Unchanged (no `apps/` edits), so the `npm` checks were not required |
+
+- **New tests:** 5 test cases (7,160 → 7,165):
+  - F15: 2 parametrized cases and 1 unit test;
+  - F16: 1 test;
+  - F17: 1 test.
+- **Extended:** `test_metric_helpers` gains the abstention case. The existing
+  labelled-accuracy test now uses the shared module-level fake judge and is otherwise
+  unchanged.
+- **Paid calls:** none. The three fixes are report and ledger-reading logic, fully covered
+  by fakes, so no external interface needed checking.
+- **Migration:** unchanged. 169 remains this branch's own and still expects renumbering
+  (to 170) at merge.
