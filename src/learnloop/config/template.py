@@ -783,7 +783,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 1 M1 adds the unset diagnosis / diagnosis_judge /
     # diagnosis_generator routes, consumed only by the offline review. No
     # scoring, scheduling, projection or serving change.
-    "mvp-0.9": "7a067a20fb3a66d1ce9d0a651f417db127dadacce041f67191f6595ce22b5824",
+    # Slice 1 M2 adds the [diagnosis] section. It is dormant below mvp-0.10
+    # (the algorithm version gates the split), so mvp-0.9 serving is unchanged.
+    "mvp-0.9": "f90aed02d3e5e5cd1ec1ca0fa4d02ea15beac8e5e8c1038b91d3b41f2d1d7cd4",
+    # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
+    # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
+    # the diagnosis card and PF-c grading support. Reached by
+    # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
+    # the S1.5 exit review.
+    "mvp-0.10": "36721392646da742ec879f0267e089ca2d67fdd7052a51f35fa299d00c34fd9a",
 }
 
 

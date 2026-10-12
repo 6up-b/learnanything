@@ -13,6 +13,13 @@ they declare and the arguments they can supply — never in which steps exist:
    re-probe trigger and the P2 causal hooks), committed together with the
    attempt's completion.
 
+Slice 1 M2 (spec §7.2, §11): for a BLIND-graded attempt this is the sync part
+only. Normalization and every diagnosis-dependent hook move to the diagnosis
+worker; the grade-keyed hooks still run here, and the last sync step,
+committed with the completion mark, enqueues the attempt's ``diagnose`` job
+(so a resumed completion re-enqueues it idempotently). The submit request
+never calls the diagnoser.
+
 Purpose gating decides *timing*, not *existence*: exam-purpose attempts run
 every evidence-side step exactly like practice, but the sitting caps how many
 queue/need insertions one batch may produce (``run_exam_sitting_pipeline``),
@@ -29,6 +36,7 @@ from typing import Any
 from learnloop.attempts.completion_lock import attempt_completion_lock
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.split.jobs import enqueue_diagnosis
 from learnloop.diagnosis.followups import (
     FollowupDecision,
     evaluate_attempt_intervention_followup,
@@ -118,7 +126,9 @@ def run_post_attempt_pipeline(
         applied_episode = (
             repository.probe_episode(applied_episode_id) if applied_episode_id else None
         )
-        if not _defers_to_block_end(repository, result, applied_episode):
+        blind = repository.latest_blind_grade_record(result.attempt_id) is not None
+        deferred = _defers_to_block_end(repository, result, applied_episode)
+        if not deferred and not blind:
             normalize_and_resolve_attempt(
                 vault, repository, attempt_id=result.attempt_id,
                 learning_object_id=result.learning_object_id, ai_client=ai_client,
@@ -134,8 +144,13 @@ def run_post_attempt_pipeline(
                 normalization_prepared=True,
                 applied_probe_episode_id=applied_episode_id,
                 suppress_insertion_reason=suppress_insertion_reason,
+                defer_diagnosis_hooks=blind,
                 clock=clock,
             )
+            if not deferred and (blind or _shadow_diagnosis_enabled(vault)):
+                # A diagnostic block still measuring is diagnosed at block end
+                # (``probe_blocks``), exactly as it is normalized there today.
+                enqueue_diagnosis(vault, repository, attempt_id=result.attempt_id, clock=clock)
             repository.complete_attempt_work(
                 result.attempt_id,
                 result=result.as_dict(),
@@ -144,6 +159,10 @@ def run_post_attempt_pipeline(
             )
     notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
     return PostAttemptOutcome(attempt_id=result.attempt_id, followup=decision, notes=notes)
+
+
+def _shadow_diagnosis_enabled(vault: LoadedVault) -> bool:
+    return bool(getattr(getattr(vault.config, "diagnosis", None), "shadow", False))
 
 
 def _applied_probe_episode_id(

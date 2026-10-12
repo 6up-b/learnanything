@@ -31,6 +31,9 @@ import type {
   CapabilityGridResult,
   FacetEvidenceTimelineDto,
   FeedbackBundle,
+  DiagnosisCardDto,
+  DiagnosisCardResponse,
+  DiagnosisFeedbackResultDto,
   AttemptTraceEvidenceDto,
   GradingClarificationResultDto,
   AnswerGradingClarificationResultDto,
@@ -466,6 +469,22 @@ export const api = {
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),
   getFeedback: (attemptId: string) => call<FeedbackBundle>("get_feedback", { attemptId }),
+  /** Re-read the bundle without recording another open (the async diagnosis
+   *  landed; Slice 1 §11). */
+  refreshFeedback: (attemptId: string) =>
+    call<FeedbackBundle>("get_feedback", { attemptId, recordOpen: false }),
+  /** Slice 1 §11: poll while "pending"; when "done" it carries the card. */
+  diagnosisStatus: (attemptId: string) =>
+    call<DiagnosisCardDto>("diagnosis_status", { input: { attemptId } }),
+  /** Slice 1 §12.2: the card's one optional tap (or a per-citation
+   *  "not the same mistake"). Eval-only; never evidence. */
+  recordDiagnosisFeedback: (input: {
+    attemptId: string;
+    diagnosisId: string;
+    response: DiagnosisCardResponse | "not_same_mistake";
+    citedAttemptId?: string | null;
+    shownAt?: string | null;
+  }) => mutating(ATTEMPT_TAGS, call<DiagnosisFeedbackResultDto>("record_diagnosis_feedback", { input })),
   getAttempt: (attemptId: string) => call<unknown>("get_attempt", { attemptId }),
   // Meas §3.A6/§3.A8 — the two post-grade reads the feedback surface owes the
   // learner: what a volunteered explanation bought, and the one question that

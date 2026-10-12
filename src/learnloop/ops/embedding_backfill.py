@@ -17,6 +17,7 @@ from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimit
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
+from learnloop.diagnosis.split.embeddings import db_records, is_db_selector
 from learnloop.ids import new_ulid
 from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
 from learnloop.vault.models import LoadedVault
@@ -133,15 +134,28 @@ def backfill_embeddings(
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
-    selected = select_recipes(recipes)
+    # Slice 1 S1.4a: hypothesis/misconception (and, for hybrid, attempt
+    # divergence) records live in the database, not the vault files. They are
+    # embedded only when named, so the default backfill is unchanged.
+    db_selectors = [value for value in (recipes or ()) if is_db_selector(value)]
+    vault_selectors = [value for value in (recipes or ()) if not is_db_selector(value)]
+    if recipes is None:
+        selected = select_recipes(None)
+    else:
+        selected = select_recipes(vault_selectors) if vault_selectors else ()
     records = [record for recipe in selected for record in recipe.records(loaded)]
+    if db_selectors:
+        if not sqlite_path.exists():
+            raise ValueError("The vault has no state database to read hypotheses from")
+        records.extend(db_records(loaded, Repository.attach(sqlite_path, read_only=True), db_selectors))
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "model_id": model_id, "dimensions": config.dimensions,
-        "task_prefix": TASK_PREFIX, "recipes": [recipe.name for recipe in selected],
+        "task_prefix": TASK_PREFIX,
+        "recipes": [*(recipe.name for recipe in selected), *db_selectors],
         "records": len(records), "cached": len(records) - len(pending),
         "pending": len(pending), "embedded": 0, "caps": caps.as_dict(),
         "estimate": asdict(estimate), "charged": asdict(budget.used),
@@ -155,7 +169,10 @@ def backfill_embeddings(
         "manifest": {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
             "config_hash": content_key(loaded.config.model_dump(mode="json")),
-            "recipe_versions": {recipe.name: recipe.version for recipe in selected},
+            "recipe_versions": {
+                **{recipe.name: recipe.version for recipe in selected},
+                **{selector: "db-v1" for selector in db_selectors},
+            },
         },
     }
     try:

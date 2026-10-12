@@ -882,8 +882,22 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             # Persisted regrade ledger fact (None unless the attempt's grading
             # history carries a regrade). Renders the RegradeLedgerCard on load.
             "regrade": regrade,
+            **_diagnosis_status_field(repository, attempt_id),
         }
     )
+
+
+def _diagnosis_status_field(repository: Repository, attempt_id: str) -> dict[str, Any]:
+    """Slice 1 §11: ``diagnosis_status`` when the attempt queued a diagnosis.
+
+    Absent otherwise (joint vaults), so their bundle is unchanged and the
+    feedback view never polls for a diagnosis that does not exist.
+    """
+
+    from learnloop.diagnosis.split.jobs import NOT_NEEDED, diagnosis_status
+
+    status = diagnosis_status(repository, attempt_id)["status"]
+    return {} if status == NOT_NEEDED else {"diagnosis_status": status}
 
 
 def intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None:

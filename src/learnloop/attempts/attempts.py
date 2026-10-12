@@ -72,6 +72,11 @@ from learnloop.learner.mastery import (
     update_mastery_traced,
 )
 from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
+from learnloop.attempts.blind_grading import (
+    BLIND_CALIBRATION_PROMPT_VERSION,
+    BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+    split_grading_active,
+)
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
@@ -378,6 +383,13 @@ class ApplyAttemptInput:
     # the learner is shown, not a provisional one.
     fallback_reason: str | None = None
     fallback_agent_run_id: str | None = None
+    # Slice 1 M2: ``"blind"`` when the learner-blind grader produced this grade
+    # (its validated record is in ``blind_grade_records``); None is the joint
+    # grader or no model. Replay reads it from that ledger, never from config.
+    grader_mode: str | None = None
+    # The calibration identity (prompt version, output schema version) the
+    # grade channel stamps; None keeps the joint grader's (§4.3).
+    grader_identity: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -536,7 +548,9 @@ def _complete_attempt_with_agent_fallback(
         rubric=rubric,
         assessment_contract=contract,
     )
-    context = _augmented_grading_context(vault, repository, item, context)
+    blind = _blind_grading_plan(vault, item, context) if split_grading_active(vault) else None
+    if blind is None:
+        context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -544,35 +558,47 @@ def _complete_attempt_with_agent_fallback(
             "purpose": "grading",
             **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
-            "prompt_version": GRADING_PROMPT_VERSION,
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
+            **_grading_run_identity(context, blind),
             "started_at": now,
             "status": "running",
         }
     )
     try:
-        consensus = _run_augmented_diagnosis(vault, ai_client, context)
-        proposal = consensus.proposal
-        result = complete_codex_graded_attempt(
-            vault,
-            repository,
-            draft,
-            proposal,
-            attempt_id=attempt_id,
-            agent_run_id=agent_run_id,
-            grading_source=grading_source,
-            diagnostic_sample_support=consensus.agreement_support,
-            clock=clock,
-        )
-        _record_diagnostic_augmentation(
-            repository,
-            attempt_id=attempt_id,
-            context=context,
-            consensus=consensus,
-            client=ai_client,
-            clock=clock,
-        )
+        if blind is not None:
+            result = _complete_blind_graded_attempt(
+                vault,
+                repository,
+                draft,
+                blind,
+                rubric=rubric,
+                ai_client=ai_client,
+                attempt_id=attempt_id,
+                agent_run_id=agent_run_id,
+                grading_source=grading_source,
+                clock=clock,
+            )
+        else:
+            consensus = _run_augmented_diagnosis(vault, ai_client, context)
+            proposal = consensus.proposal
+            result = complete_codex_graded_attempt(
+                vault,
+                repository,
+                draft,
+                proposal,
+                attempt_id=attempt_id,
+                agent_run_id=agent_run_id,
+                grading_source=grading_source,
+                diagnostic_sample_support=consensus.agreement_support,
+                clock=clock,
+            )
+            _record_diagnostic_augmentation(
+                repository,
+                attempt_id=attempt_id,
+                context=context,
+                consensus=consensus,
+                client=ai_client,
+                clock=clock,
+            )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
         raise
@@ -759,7 +785,9 @@ def _complete_attempt_with_agent_required(
         rubric=rubric,
         assessment_contract=contract,
     )
-    context = _augmented_grading_context(vault, repository, item, context)
+    blind = _blind_grading_plan(vault, item, context) if split_grading_active(vault) else None
+    if blind is None:
+        context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -767,35 +795,47 @@ def _complete_attempt_with_agent_required(
             "purpose": "grading",
             **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
-            "prompt_version": GRADING_PROMPT_VERSION,
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
+            **_grading_run_identity(context, blind),
             "started_at": now,
             "status": "running",
         }
     )
     try:
-        consensus = _run_augmented_diagnosis(vault, ai_client, context)
-        proposal = consensus.proposal
-        result = complete_codex_graded_attempt(
-            vault,
-            repository,
-            draft,
-            proposal,
-            attempt_id=attempt_id,
-            agent_run_id=agent_run_id,
-            grading_source=grading_source,
-            diagnostic_sample_support=consensus.agreement_support,
-            clock=clock,
-        )
-        _record_diagnostic_augmentation(
-            repository,
-            attempt_id=attempt_id,
-            context=context,
-            consensus=consensus,
-            client=ai_client,
-            clock=clock,
-        )
+        if blind is not None:
+            result = _complete_blind_graded_attempt(
+                vault,
+                repository,
+                draft,
+                blind,
+                rubric=rubric,
+                ai_client=ai_client,
+                attempt_id=attempt_id,
+                agent_run_id=agent_run_id,
+                grading_source=grading_source,
+                clock=clock,
+            )
+        else:
+            consensus = _run_augmented_diagnosis(vault, ai_client, context)
+            proposal = consensus.proposal
+            result = complete_codex_graded_attempt(
+                vault,
+                repository,
+                draft,
+                proposal,
+                attempt_id=attempt_id,
+                agent_run_id=agent_run_id,
+                grading_source=grading_source,
+                diagnostic_sample_support=consensus.agreement_support,
+                clock=clock,
+            )
+            _record_diagnostic_augmentation(
+                repository,
+                attempt_id=attempt_id,
+                context=context,
+                consensus=consensus,
+                client=ai_client,
+                clock=clock,
+            )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
         raise
@@ -908,6 +948,9 @@ def complete_codex_graded_attempt(
     agent_run_id: str | None = None,
     grading_source: str = "codex",
     diagnostic_sample_support: float | None = None,
+    grader_mode: str | None = None,
+    grader_identity: tuple[str, str] | None = None,
+    manual_review_override: str | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -935,6 +978,13 @@ def complete_codex_graded_attempt(
                 for attribution in validated.error_attributions
             ],
         )
+    if grader_mode == "blind":
+        # The blind grade's repaired traces live in its blind record; the
+        # instructional repairs (and guided redo) arrive with the diagnosis
+        # (§8). Persisting the traces here as repair suggestions would offer
+        # a repair the diagnoser never chose.
+        validated = replace(validated, repair_suggestions=[])
+    manual_review_reason = manual_review_override or validated.manual_review_reason
     result = apply_attempt(
         vault,
         repository,
@@ -945,10 +995,12 @@ def complete_codex_graded_attempt(
                 validated,
                 agent_run_id=agent_run_id,
                 clock=clock,
-                manual_review_reason=_attempt_manual_review_reason(validated.manual_review_reason, draft),
+                manual_review_reason=_attempt_manual_review_reason(manual_review_reason, draft),
             ),
             grading_source=grading_source,
             grading_agent_run_id=agent_run_id,
+            grader_mode=grader_mode,
+            grader_identity=grader_identity,
         ),
         clock=clock,
     )
@@ -1015,6 +1067,7 @@ def replay_existing_attempt(
         ),
     )
     error_type = attempt.get("error_type")
+    blind_record = repository.latest_blind_grade_record(attempt["id"])
     return apply_attempt(
         vault,
         repository,
@@ -1039,12 +1092,27 @@ def replay_existing_attempt(
             # used: an ai/codex attempt replays through the soft-score channel,
             # a self/deterministic one through the raw fraction.
             grading_source=(
-                (repository.fetch_attempt_feedback_metadata(attempt["id"]) or {}).get(
+                (repository.raw_attempt_feedback_metadata(attempt["id"]) or {}).get(
                     "grading_source", "self"
                 )
             ),
+            # Slice 1 §6.3: a blind-graded attempt replays as blind (its
+            # grade-channel identity, no in-transaction materialization unless
+            # its stored diagnosis exists), whatever the config says today.
+            grader_mode="blind" if blind_record is not None else None,
+            grader_identity=_blind_record_identity(blind_record),
         ),
         clock=clock,
+    )
+
+
+def _blind_record_identity(blind_record: Mapping[str, Any] | None) -> tuple[str, str] | None:
+    if blind_record is None:
+        return None
+    record = blind_record.get("record") or {}
+    return (
+        str(record.get("calibration_prompt_version") or BLIND_CALIBRATION_PROMPT_VERSION),
+        str(record.get("calibration_output_schema_version") or BLIND_GRADER_OUTPUT_SCHEMA_VERSION),
     )
 
 
@@ -1118,6 +1186,232 @@ def _augmented_grading_context(
         context,
         history_limit=history_limit,
     )
+
+
+@dataclass(frozen=True)
+class _BlindGradingPlan:
+    """What a split vault's practice grading call is shown (§4.1, PF-c)."""
+
+    context: Any  # BlindGradingContext
+    prompt_version: str
+    context_hash: str
+    calibration_prompt_version: str
+
+
+def _blind_grading_plan(vault: LoadedVault, item: PracticeItem, context: Any) -> _BlindGradingPlan:
+    """The learner-blind context for one answer: item side + this answer only.
+
+    C2 verifier observations read only the answer and the reference, so they
+    stay; C4 history has no field to go into (S1). PF-c's reference policy is
+    attached unless ``diagnosis.grading_support`` is off (its kill switch,
+    which restores the mvp-2.0 blind prompt exactly).
+    """
+
+    from learnloop.attempts.blind_grading import (
+        blind_context_from_grading_context,
+        blind_grading_context_hash,
+        blind_prompt_version,
+    )
+    from learnloop.attempts.grading_support import (
+        REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
+        reference_policy,
+    )
+    from learnloop.diagnosis.diagnostic_augmentation import (
+        diagnostic_verifier_observations,
+    )
+
+    support = bool(getattr(getattr(vault.config, "diagnosis", None), "grading_support", True))
+    blind_context = blind_context_from_grading_context(
+        context,
+        verifier_observations=diagnostic_verifier_observations(
+            context.learner_answer_md, context.expected_answer
+        ),
+        reference_policy=reference_policy(item, context.learner_answer_md) if support else None,
+    )
+    return _BlindGradingPlan(
+        context=blind_context,
+        prompt_version=blind_prompt_version(blind_context),
+        context_hash=blind_grading_context_hash(blind_context),
+        calibration_prompt_version=(
+            REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION if support else BLIND_CALIBRATION_PROMPT_VERSION
+        ),
+    )
+
+
+def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict[str, str]:
+    if blind is None:
+        return {
+            "prompt_version": GRADING_PROMPT_VERSION,
+            "input_context_hash": grading_context_hash(context),
+            "output_schema": "GradingProposal",
+        }
+    return {
+        "prompt_version": blind.prompt_version,
+        "input_context_hash": blind.context_hash,
+        "output_schema": "BlindGradingProposal",
+    }
+
+
+def _complete_blind_graded_attempt(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    blind: _BlindGradingPlan,
+    *,
+    rubric: Rubric,
+    ai_client: AIProviderClient,
+    attempt_id: str,
+    agent_run_id: str,
+    grading_source: str,
+    clock: Clock | None = None,
+) -> AttemptResult:
+    """Grade blind, apply the grade and its blind record in one transaction.
+
+    Raises like the joint path (provider unavailable, invalid output), so both
+    doors keep their fallback/required semantics. The diagnosis is NOT run
+    here: the post-attempt pipeline enqueues it (§11).
+    """
+
+    from learnloop.attempts.blind_grading import (
+        to_grading_proposal,
+        validate_blind_grading_proposal,
+    )
+    from learnloop.attempts.grading_support import (
+        UNVERIFIED_REVIEW_REASON,
+        family_key,
+        grade_uncertainty_signal,
+        request_blind_grading_run,
+    )
+
+    item = vault.practice_items[draft.practice_item_id]
+    sample_count = 1
+    if bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
+        sample_count = max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
+    run = request_blind_grading_run(
+        ai_client, blind.context, rubric=rubric, sample_count=sample_count
+    )
+    try:
+        validated = validate_blind_grading_proposal(
+            run.proposal,
+            attempt_id=attempt_id,
+            item=item,
+            vault=vault,
+            learner_answer_md=draft.learner_answer_md,
+            rubric=rubric,
+        )
+    except GradingValidationError as exc:
+        raise AttemptValidationError(str(exc)) from exc
+    record = validated.as_record()
+    support = dict(run.grading_support)
+    family = family_key(vault, item)
+    prior_fractions: list[float] = []
+    for row in repository.latest_blind_grade_records().values():
+        prior_record = row.get("record") or {}
+        prior_item = vault.practice_items.get(str(prior_record.get("practice_item_id") or ""))
+        if prior_item is None or family_key(vault, prior_item) != family:
+            continue
+        maximum = float(prior_record.get("max_points") or 0.0)
+        if maximum > 0:
+            prior_fractions.append(float(prior_record.get("rubric_score") or 0.0) / maximum)
+    support["uncertainty_signal"] = grade_uncertainty_signal(
+        score_fraction=float(validated.grade.rubric_score) / max(float(rubric.max_points), 1.0),
+        grader_confidence=float(validated.grade.grader_confidence),
+        prior_fractions=prior_fractions,
+        family=family,
+    )
+    record.update(
+        prompt_version=run.prompt_version,
+        practice_item_id=item.id,
+        calibration_prompt_version=blind.calibration_prompt_version,
+        calibration_output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+        samples=run.samples,
+        grading_support=support,
+    )
+    identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
+    with repository.atomic():
+        result = complete_codex_graded_attempt(
+            vault,
+            repository,
+            draft,
+            to_grading_proposal(run.proposal, vault=vault),
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_source=grading_source,
+            grader_mode="blind",
+            grader_identity=identity,
+            manual_review_override=(
+                UNVERIFIED_REVIEW_REASON if support.get("valid_alternative_gate_applied") else None
+            ),
+            clock=clock,
+        )
+        repository.insert_blind_grade_record(
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_prompt_version=run.prompt_version,
+            output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+            context_hash=blind.context_hash,
+            record=record,
+            clock=clock,
+        )
+    _record_blind_grading_receipt(
+        repository,
+        attempt_id=attempt_id,
+        blind=blind,
+        run=run,
+        client=ai_client,
+        clock=clock,
+    )
+    return result
+
+
+def _record_blind_grading_receipt(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    blind: _BlindGradingPlan,
+    run: Any,
+    client: AIProviderClient,
+    clock: Clock | None,
+) -> None:
+    """The grading-context receipt, with ``grader_mode='blind'`` (§10).
+
+    C4 history is structurally empty, which is what cold-verification blinding
+    reads. Telemetry: a failure here never turns a committed grade into one.
+    """
+
+    from learnloop.diagnosis.diagnostic_augmentation import (
+        PHASE_C_HYPOTHESES,
+        PHASE_C_REVERT_CRITERIA,
+    )
+
+    try:
+        sampling = (run.grading_support or {}).get("sampling") or {}
+        samples = int(sampling.get("sample_count") or run.samples or 1)
+        votes = int(sampling.get("winner_votes") or samples)
+        repository.insert_diagnostic_augmentation_receipt(
+            {
+                "attempt_id": attempt_id,
+                "grading_prompt_version": run.prompt_version,
+                "grader_provider": getattr(client, "provider_name", None),
+                "grader_model": getattr(client, "model", None),
+                "c1_repair_before_structure": True,
+                "c2_verifier_observations": list(blind.context.verifier_observations),
+                "c3_sample_count": samples,
+                "c3_agreement_support": votes / max(samples, 1),
+                "c3_disagreement_causes": [],
+                "c4_history_attempt_ids": [],
+                "hypotheses": PHASE_C_HYPOTHESES,
+                "revert_criteria": PHASE_C_REVERT_CRITERIA,
+                "grader_mode": "blind",
+            },
+            clock=clock,
+        )
+    except Exception:  # pragma: no cover - defensive side-channel boundary
+        logging.getLogger(__name__).warning(
+            "failed to record blind grading receipt for attempt %s",
+            attempt_id,
+            exc_info=True,
+        )
 
 
 def _run_augmented_diagnosis(
@@ -1378,14 +1672,17 @@ def _dual_write_grade_channel(
             max_points=max_points,
             grader_confidence=grade.grader_confidence,
             has_fatal=bool(grade.fatal_errors),
-            signature_matched=any(
-                getattr(a, "is_misconception", False)
-                for a in (grade.error_attributions or [])
-            ),
+            signature_matched=_signature_matched(attempt),
             criterion_points=grade.criterion_points,
             criterion_max=criterion_max,
             agent_run_id=attempt.grading_agent_run_id,
             domain=application.result.learning_object_id,
+            grading_prompt_version=(
+                attempt.grader_identity[0] if attempt.grader_identity else None
+            ),
+            grader_output_schema_version=(
+                attempt.grader_identity[1] if attempt.grader_identity else None
+            ),
             clock=clock,
         )
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
@@ -1397,6 +1694,26 @@ def _dual_write_grade_channel(
             getattr(getattr(attempt, "draft", None), "practice_item_id", None),
             exc_info=True,
         )
+
+
+def _signature_matched(attempt: ApplyAttemptInput) -> bool:
+    """``raw_grade_events.signature_matched`` for this grade.
+
+    Joint grades keep the grader's misconception flag. A blind grade has no
+    causal judgement (O2), so the pre-registered discrimination-profile match
+    is the only signature it can report.
+    """
+
+    grade = attempt.grade
+    if attempt.grader_mode == "blind":
+        match = grade.discrimination_profile_match
+        outcome = (
+            match.get("outcome") if isinstance(match, Mapping) else getattr(match, "outcome", None)
+        )
+        return outcome == "matched"
+    return any(
+        getattr(a, "is_misconception", False) for a in (grade.error_attributions or [])
+    )
 
 
 def _persist_repair_mapping_source(
@@ -1631,7 +1948,7 @@ def _apply_attempt_in_transaction(
         or stored_feedback.get("repair_suggestions")
         or []
     )
-    generation_agent_run_id = next(
+    generation_agent_run_id = stored_feedback.get("diagnosis_agent_run_id") or next(
         (
             str(row["agent_run_id"])
             for row in application.evidence_rows
@@ -1647,6 +1964,16 @@ def _apply_attempt_in_transaction(
             status="open",
         )
     )
+    if attempt.grader_mode == "blind" and (
+        repository.live_causal_view(application.result.attempt_id) is None
+    ):
+        # Slice 1 §7.1: a blind grade carries no candidate causes or
+        # instructional repairs, so nothing causal is materialized here. The
+        # diagnosis worker materializes from the diagnosis once it completes;
+        # replay of a diagnosed attempt materializes here from the same stored
+        # diagnosis (the repository's causal overlay), and an undiagnosed or
+        # failed one materializes nothing, exactly as live.
+        has_causal_episode = False
     if has_causal_episode:
         materialize_causal_episode(
             vault,
@@ -1822,6 +2149,7 @@ def compute_attempt_application(
         grading_source=attempt.grading_source,
         agent_run_id=attempt.grading_agent_run_id or attempt.fallback_agent_run_id,
         fallback_reason=attempt.fallback_reason,
+        grader_identity=attempt.grader_identity,
     )
 
 
@@ -2394,6 +2722,7 @@ def _compute_resolved_grade_application(
     grading_source: str = "self",
     agent_run_id: str | None = None,
     fallback_reason: str | None = None,
+    grader_identity: tuple[str, str] | None = None,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -2511,6 +2840,8 @@ def _compute_resolved_grade_application(
                 has_fatal=bool(grade.error_attributions),
                 response_text=draft.learner_answer_md,
                 domain=learning_object.id,
+                grading_prompt_version=grader_identity[0] if grader_identity else None,
+                grader_output_schema_version=grader_identity[1] if grader_identity else None,
                 clock=clock,
             )
         except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)

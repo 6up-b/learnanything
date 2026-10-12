@@ -22,11 +22,26 @@ P0_ALGORITHM_VERSION = "mvp-0.8"
 # is unchanged and uses the mvp-0.8 authority-propagation substrate.
 REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 
+# mvp-0.10 (Slice 1 M2, spec_blind_grading_diagnosis_split_v1 §6.2): the live
+# split between the learner-blind grader and the asynchronous history-aware
+# diagnoser. Persisted meaning changes (a blind attempt's error events carry no
+# causal fields; its hypotheses are sourced from the diagnosis ledger), the
+# projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
+DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
+
+# Versions at which practice grading is split (kill switch
+# ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
+# attempt's grader mode is recorded per attempt and replay never reads the
+# switch).
+DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = frozenset(
+    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+)
+
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against
 # P0_ALGORITHM_VERSION, or each version bump silently demotes fresh vaults.
 P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
-    {REVEAL_LEDGER_ALGORITHM_VERSION}
+    {REVEAL_LEDGER_ALGORITHM_VERSION, DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
     frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS

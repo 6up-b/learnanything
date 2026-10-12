@@ -502,9 +502,15 @@ def evaluate_attempt_intervention_followup(
     suppress_insertion_reason: str | None = None,
     normalization_prepared: bool = False,
     applied_probe_episode_id: str | None | object = CURRENT_EPISODE,
+    defer_diagnosis_hooks: bool = False,
     clock: Clock | None = None,
 ) -> FollowupDecision:
     """Run the full post-attempt intervention policy for one attempt result.
+
+    ``defer_diagnosis_hooks`` (Slice 1 §7.2, split vaults): the grade-keyed
+    hooks run here as always, but the diagnosis-dependent common-repair
+    consultation is left to the diagnosis worker (``run_post_diagnosis_hooks``),
+    because the factors and hypotheses it reads exist only after the diagnosis.
 
     ``applied_probe_episode_id`` names the probe episode the attempt was
     applied under (None: none). A resumed completion passes it, because the
@@ -569,7 +575,12 @@ def evaluate_attempt_intervention_followup(
         vault, repository, result.learning_object_id, clock=clock
     )
     _run_causal_orchestrator_hooks(
-        vault, repository, result, session_id=session_id, clock=clock
+        vault,
+        repository,
+        result,
+        session_id=session_id,
+        clock=clock,
+        include_common_repair=not defer_diagnosis_hooks,
     )
 
     if suppress_insertion_reason is not None:
@@ -691,6 +702,7 @@ def _run_causal_orchestrator_hooks(
     session_id: str | None = None,
     clock: Clock | None = None,
     include_cold_verification: bool = True,
+    include_common_repair: bool = True,
 ) -> None:
     """Live-path P2 hooks: the machine-check producer and cold verification.
 
@@ -774,6 +786,8 @@ def _run_causal_orchestrator_hooks(
             result.attempt_id,
             exc_info=True,
         )
+    if not include_common_repair:
+        return
     try:
         _consult_common_repair(
             vault, repository, result, session_id=session_id, clock=clock
@@ -784,6 +798,40 @@ def _run_causal_orchestrator_hooks(
             result.attempt_id,
             exc_info=True,
         )
+
+
+def run_post_diagnosis_hooks(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    learning_object_id: str,
+    session_id: str | None = None,
+    clock: Clock | None = None,
+) -> None:
+    """Slice 1 §7.2 worker half: the diagnosis-dependent hooks.
+
+    Runs after a diagnosis is persisted and materialized: the machine-check
+    sweep again (new factors may lack repair mappings) and the common-repair
+    consultation. Never raises, like the grade-keyed half.
+    """
+
+    from types import SimpleNamespace
+
+    from learnloop.diagnosis.causal_orchestrator import sweep_machine_checks
+
+    logger = logging.getLogger(__name__)
+    result = SimpleNamespace(attempt_id=attempt_id, learning_object_id=learning_object_id)
+    try:
+        sweep_machine_checks(
+            vault, repository, learning_object_id, source="post_diagnosis", clock=clock
+        )
+    except Exception:  # pragma: no cover - bookkeeping must not fail a diagnosis
+        logger.warning("post-diagnosis machine-check sweep failed for %s", learning_object_id, exc_info=True)
+    try:
+        _consult_common_repair(vault, repository, result, session_id=session_id, clock=clock)
+    except Exception:  # pragma: no cover - bookkeeping must not fail a diagnosis
+        logger.warning("post-diagnosis common-repair consultation failed for %s", attempt_id, exc_info=True)
 
 
 def _consult_common_repair(

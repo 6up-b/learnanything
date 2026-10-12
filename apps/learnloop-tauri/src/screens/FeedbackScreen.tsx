@@ -42,6 +42,7 @@ import {
   useCausalRepairActions,
 } from "../components/CausalAttribution";
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
+import { DiagnosisCard } from "../components/DiagnosisCard";
 import { errorMessage } from "../errors";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -1496,6 +1497,15 @@ export function FeedbackScreen({
     setAdvancing(false);
     onBack();
   }, [onBack]);
+  // Slice 1 §11: when the asynchronous diagnosis lands, re-read the bundle in
+  // place (repairs, guided redo, causal feedback) without a reload flash and
+  // without recording another open.
+  const refreshAfterDiagnosis = useCallback(() => {
+    api
+      .refreshFeedback(attemptId)
+      .then((bundle) => setFeedback(bundle))
+      .catch(() => { /* the card itself already shows the diagnosis */ });
+  }, [attemptId]);
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
   // P2 §6: the typed causal repair hold for this attempt's diagnosis, rendered
@@ -2332,6 +2342,19 @@ export function FeedbackScreen({
             />
           ) : null;
         })()}
+
+        {/* ── diagnosis (Slice 1 M2) ──
+            Blind-graded attempts are diagnosed asynchronously: the grade and
+            local feedback above are final now; the card fills in place when
+            the diagnosis lands, and the repairs / guided redo it brings are
+            re-read without counting another open of this screen. */}
+        <DiagnosisCard
+          attemptId={f.attemptId}
+          initialStatus={f.diagnosisStatus}
+          onDiagnosisReady={refreshAfterDiagnosis}
+          onOpenAttempt={onInspect}
+          onError={onError}
+        />
 
         {/* ── eliciting repair ──
             The suggestion asks instead of showing. Rendered as its own section

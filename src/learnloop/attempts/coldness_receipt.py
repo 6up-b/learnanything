@@ -1241,6 +1241,48 @@ def _run_separation(
     }
 
 
+def _diagnosis_run_ids(repository: Repository, attempt_id: str | None) -> list[str]:
+    if not attempt_id:
+        return []
+    try:
+        return sorted(
+            {
+                str(row["agent_run_id"])
+                for row in repository.attempt_diagnoses_for_attempt(attempt_id)
+                if row.get("agent_run_id")
+            }
+        )
+    except Exception:  # pragma: no cover - evidence-only lookup
+        return []
+
+
+def _diagnoser_saw_source(
+    repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None
+) -> bool | None:
+    """Informational (§10): did the cold attempt's diagnosis context include the
+    repair chain's source attempt? Expected true; it never enters the verdict,
+    because cold verification certifies from the BLIND grade."""
+
+    if not source_attempt_id or not cold_attempt_id:
+        return None
+    try:
+        diagnoses = repository.attempt_diagnoses_for_attempt(cold_attempt_id)
+    except Exception:  # pragma: no cover - evidence-only lookup
+        return None
+    if not diagnoses:
+        return None
+    for row in diagnoses:
+        receipt = repository.diagnosis_context_receipt(str(row["id"])) or {}
+        shown = {
+            *[str(value) for value in receipt.get("failure_attempt_ids") or []],
+            *[str(value) for value in receipt.get("success_attempt_ids") or []],
+            *[str(value) for value in (receipt.get("retrieval") or {}).get("history_attempt_ids") or []],
+        }
+        if source_attempt_id in shown:
+            return True
+    return False
+
+
 def _context_blinding(
     repository: Repository,
     *,
@@ -1289,9 +1331,12 @@ def _context_blinding(
         return evidence
     history_ids = [str(value) for value in receipt.get("c4_history_attempt_ids") or []]
     saw_source = bool(source_attempt_id) and source_attempt_id in history_ids
+    # §10: null reads as joint, so an attempt graded before the column existed
+    # can never pass vacuously on a blind assumption.
+    blind = str(receipt.get("grader_mode") or "joint") == "blind" and not history_ids
     evidence.update(
         {
-            "status": "fail" if saw_source else "pass",
+            "status": "fail" if saw_source and not blind else "pass",
             "grading_prompt_version": receipt.get("grading_prompt_version"),
             "grader_provider": receipt.get("grader_provider"),
             "grader_model": receipt.get("grader_model"),
@@ -1300,7 +1345,21 @@ def _context_blinding(
             "prior_diagnoses_in_context": False,
         }
     )
-    if saw_source:
+    if blind:
+        # Slice 1 §10: a blind grader's context is structurally free of
+        # history (C4 has no field to go into). Joint receipts are unchanged.
+        evidence.update(
+            {
+                "grader_mode": "blind",
+                "reason": "blind_grader",
+                "diagnoser_saw_source": _diagnoser_saw_source(
+                    repository,
+                    source_attempt_id=source_attempt_id,
+                    cold_attempt_id=cold_attempt_id,
+                ),
+            }
+        )
+    elif saw_source:
         evidence["reason"] = "source_attempt_trace_in_cold_grading_history"
     return evidence
 
@@ -1333,7 +1392,18 @@ def _verification_blinding(
             diagnosis_receipt_present = False
     source_identity = _grading_identity(repository, source_attempt_id)
     cold_identity = _grading_identity(repository, cold_attempt_id)
-    separation = _run_separation(source_identity, cold_identity)
+    # Slice 1 §10: in a split vault the source attempt's repairs come from its
+    # DIAGNOSIS run, so separation also requires the cold grading run to differ
+    # from every diagnosis run of the source attempt. Joint attempts have none.
+    diagnosis_runs = _diagnosis_run_ids(repository, source_attempt_id)
+    separation = _run_separation(
+        (
+            {**source_identity, "agent_run_ids": sorted({*(source_identity.get("agent_run_ids") or []), *diagnosis_runs})}
+            if diagnosis_runs and isinstance(source_identity, Mapping)
+            else source_identity
+        ),
+        cold_identity,
+    )
     context = _context_blinding(
         repository,
         source_attempt_id=source_attempt_id,

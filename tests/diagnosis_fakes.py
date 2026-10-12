@@ -127,7 +127,10 @@ class ReviewFakeClient:
                     "validity_scope": "valid_measurement",
                 }
             )
-        return BlindGradingProposal.model_validate(
+        # The result model the request asked for: the mvp-2.0 blind shape, or
+        # PF-c's mvp-2.1 shape (same fields plus optional PF-c ones).
+        model = request.result_model if request.result_model is not None else BlindGradingProposal
+        return model.model_validate(
             {
                 "local_analysis_md": "Correct." if parts["correct"] else f"The answer goes wrong at '{_quote(parts['answer'])}'.",
                 "attempt_id": context["attempt_id"],

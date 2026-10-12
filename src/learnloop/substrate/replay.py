@@ -120,7 +120,7 @@ def replay_learning_object(
 
     attempts = repository.list_attempts_by_learning_object(learning_object_id)
     existing_error_events = {
-        attempt["id"]: repository.error_events_for_attempt(attempt["id"])
+        attempt["id"]: repository.raw_error_events_for_attempt(attempt["id"])
         for attempt in attempts
     }
     existing_debug_payloads = {

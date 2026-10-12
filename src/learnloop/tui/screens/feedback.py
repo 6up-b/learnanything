@@ -311,6 +311,31 @@ class FeedbackScreen(Screen):
         provider_name, _runtime, _client = self._grading_provider()
         return "Codex" if provider_name in CODEX_PROVIDER_NAMES else f"AI provider {provider_name}"
 
+    def _run_inline_diagnosis(self, result: AttemptResult) -> None:
+        """Slice 1 §11: the TUI has no daemon; a queued diagnosis runs inline
+        after the grade is shown, and its summary is shown when it finishes."""
+
+        from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, DONE, NOT_NEEDED, diagnosis_status, drain
+
+        repository = self.state.repository
+        if diagnosis_status(repository, result.attempt_id)["status"] == NOT_NEEDED:
+            return
+        try:
+            drain(self.state.vault, repository, owner="tui", kinds=(DIAGNOSE_KIND,), attempt_id=result.attempt_id)
+        except Exception:  # noqa: BLE001 - a diagnosis never costs the learner the grade
+            pass
+        status = diagnosis_status(repository, result.attempt_id)
+        line = f"Diagnosis: {status['status']}."
+        if status["status"] == DONE and status.get("diagnosis_id"):
+            diagnosis = repository.attempt_diagnosis(str(status["diagnosis_id"])) or {}
+            summary = str((diagnosis.get("proposal") or {}).get("analysis_md") or "").strip()
+            if summary:
+                line = f"Diagnosis: {summary}"
+        try:
+            self.query_one("#grading-status", TextStatic).update(Content(line))
+        except Exception:  # noqa: BLE001 - the widget may be gone
+            pass
+
     def _complete_result(self, result: AttemptResult) -> None:
         # Recorded before completion runs: if completion fails, the next
         # submit resumes this attempt instead of grading the answer again.
@@ -335,6 +360,7 @@ class FeedbackScreen(Screen):
             )
         )
         self._render_results(result)
+        self._run_inline_diagnosis(result)
         self.has_errors = bool(result.error_event_ids)
         self.graded = True
         # §5.6 opt-out accounting: the TUI reveals feedback per attempt, and

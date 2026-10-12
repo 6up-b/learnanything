@@ -834,6 +834,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "measurement authority."),
     _ConfigRule(_exact("embedding.dimensions"), "structural", "operational",
                 "Vector representation width; embeddings have no measurement authority."),
+    # Slice 1 M2: queue/wait/budget knobs of the asynchronous diagnoser. The
+    # diagnoser writes level-4 hypotheses only (S2), never evidence; these
+    # bound latency and spend.
+    _ConfigRule(_exact(
+        "diagnosis.next_item_wait_seconds",
+        "diagnosis.max_attempts",
+        "diagnosis.max_calls_per_day",
+        "diagnosis.full_history_token_budget",
+        "diagnosis.exact_history_token_budget",
+    ), "structural", "operational",
+        "diagnosis queue wait / retry / daily call cap / context token budget; no "
+        "measurement authority (the diagnoser never writes evidence, S2)."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "
@@ -946,6 +958,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "constraint",
         "C3 independent diagnosis-call switch/count and C4 same-surface history "
         "bound; each rung has a persisted hypothesis and revert criterion.",
+    ),
+    # Slice 1 M2: what the history-aware diagnoser is shown and how often it
+    # runs. Its output is a level-4 hypothesis that enters routing through the
+    # existing causal machinery, so these are decisions with a revert path
+    # (history_mode = "exact" with history_error_limit = 0 restores a
+    # history-free diagnoser, spec §5.5), never evidence weights.
+    _ConfigRule(
+        _exact(
+            "diagnosis.history_error_limit",
+            "diagnosis.history_success_limit",
+            "diagnosis.sample_count",
+            "diagnosis.correct_answer_sample_rate",
+            "diagnosis.knn_limit",
+            "diagnosis.hybrid_keep",
+            "diagnosis.rrf_k",
+        ),
+        "decision",
+        "constraint",
+        "Slice 1 diagnoser context bounds, sampling and hybrid fusion; hypothesis-only "
+        "(S2), reverted by history_mode/limits (spec §5.5, §12 rollback).",
     ),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(

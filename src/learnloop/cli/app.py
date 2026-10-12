@@ -75,7 +75,7 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, or mvp-0.9).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10).",
         ),
     ] = "mvp-0.9",
 ) -> None:
@@ -84,12 +84,15 @@ def upgrade(
     ``--to mvp-0.7`` activates the KM2 canonical model over legacy mvp-0.6 content
     (KM §15); ``--to mvp-0.8`` activates the P0 authority-propagation
     projection over an mvp-0.7 vault; ``--to mvp-0.9`` (default) activates
-    cross-channel reveal accounting over an mvp-0.8 vault."""
+    cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
+    activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
+    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
         upgrade_to_mvp08,
         upgrade_to_mvp09,
+        upgrade_to_mvp010,
     )
 
     if to == "mvp-0.7":
@@ -98,9 +101,11 @@ def upgrade(
         result = upgrade_to_mvp08(_root(vault))
     elif to == "mvp-0.9":
         result = upgrade_to_mvp09(_root(vault))
+    elif to == "mvp-0.10":
+        result = upgrade_to_mvp010(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, or mvp-0.9."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2893,6 +2898,13 @@ def attempt(
     session_id: Annotated[str | None, typer.Option("--session-id", help="Related session id.")] = None,
     available_minutes: Annotated[int | None, typer.Option("--available-minutes", help="Remaining session minutes.")] = None,
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for grading.")] = None,
+    no_diagnose: Annotated[
+        bool,
+        typer.Option(
+            "--no-diagnose",
+            help="Blind-graded vaults (mvp-0.10): only queue the diagnosis (run it later with `learnloop diagnose drain`).",
+        ),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
@@ -2966,13 +2978,27 @@ def attempt(
         ai_client=client if runtime.ready else None,
         available_minutes=available_minutes,
     )
+    # Slice 1 §11: there is no daemon in the CLI. The grade is printed (it is
+    # final now); the diagnosis then runs inline unless --no-diagnose.
+    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, NOT_NEEDED, diagnosis_status, drain
+
+    if not json_output:
+        typer.echo(
+            f"Recorded {result.attempt_id}: score={result.rubric_score} "
+            f"rating={result.fsrs_rating} due={result.due_at} mastery={result.mastery_mean:.2f}"
+        )
+    status = diagnosis_status(repository, result.attempt_id)
+    if status["status"] != NOT_NEEDED and not no_diagnose:
+        drain(loaded, repository, owner="cli", kinds=(DIAGNOSE_KIND,), attempt_id=result.attempt_id)
+        status = diagnosis_status(repository, result.attempt_id)
     if json_output:
-        typer.echo(_dump({"version": 1, "attempt": result.as_dict()}))
+        payload = {"version": 1, "attempt": result.as_dict()}
+        if status["status"] != NOT_NEEDED:
+            payload["diagnosis_status"] = status["status"]
+        typer.echo(_dump(payload))
         return
-    typer.echo(
-        f"Recorded {result.attempt_id}: score={result.rubric_score} "
-        f"rating={result.fsrs_rating} due={result.due_at} mastery={result.mastery_mean:.2f}"
-    )
+    if status["status"] != NOT_NEEDED:
+        typer.echo(f"Diagnosis: {status['status']}")
 
 @app.command()
 def today(

@@ -17,6 +17,7 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_ALGORITHM_VERSION
 from learnloop.learner.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
@@ -241,6 +242,71 @@ def upgrade_to_mvp09(root: Path, *, clock: Clock | None = None) -> UpgradeResult
         upgraded=True,
         from_version=current,
         to_version=REVEAL_LEDGER_ALGORITHM_VERSION,
+    )
+
+
+def upgrade_to_mvp010(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """Activate the Slice 1 split (blind grader + asynchronous diagnoser).
+
+    ``mvp-0.10`` changes what NEW attempts persist (spec §6.2): a blind grade's
+    error events carry no causal fields and its hypotheses come from the
+    diagnosis ledger. Existing attempts are joint-graded and stay so (their
+    legacy view is exact), and the projection namespace is unchanged, so the
+    upgrade is an immediate-successor tag change plus an idempotent rebuild of
+    the same projection, prepared before the atomic config rename. The kill
+    switch ``diagnosis.split_enabled = false`` restores joint grading for new
+    attempts without a downgrade; rollback of the version itself is
+    restore-only (O9).
+    """
+
+    from learnloop.params import parameter_registry as registry_service
+    from learnloop.substrate.p0_projection import activate_p0_projection
+
+    vault = load_vault(root)
+    current = vault.config.algorithms.algorithm_version
+    if current == DIAGNOSIS_SPLIT_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+            problems=["vault is already mvp-0.10"],
+        )
+    if current != REVEAL_LEDGER_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+            problems=[
+                f"cannot upgrade from {current!r}; only {REVEAL_LEDGER_ALGORITHM_VERSION!r} may activate mvp-0.10"
+            ],
+        )
+
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    # Construction applies the additive migrations the split needs (167).
+    repository = Repository(sqlite_path)
+    registry_service.freeze_manifest(
+        vault,
+        repository,
+        algorithm_version=REVEAL_LEDGER_ALGORITHM_VERSION,
+        clock=clock,
+    )
+    vault.config.algorithms.algorithm_version = DIAGNOSIS_SPLIT_ALGORITHM_VERSION
+    activate_p0_projection(
+        vault,
+        repository,
+        from_version=current,
+        clock=clock,
+    )
+    registry_service.refresh(vault, repository, clock=clock)
+    _rewrite_algorithm_version(
+        root / "learnloop.toml",
+        current,
+        DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+    )
+    return UpgradeResult(
+        upgraded=True,
+        from_version=current,
+        to_version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     )
 
 

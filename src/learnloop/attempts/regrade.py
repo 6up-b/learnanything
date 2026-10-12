@@ -4,6 +4,7 @@ import logging
 
 from dataclasses import dataclass, replace
 
+from learnloop.diagnosis.split.jobs import enqueue_diagnosis
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import Clock, utc_now_iso
@@ -180,6 +181,15 @@ def regrade_attempt(
         if not graded_criteria:
             graded_criteria = core_criteria(rubric)
         context = restrict_grading_context_to_criteria(context, item, rubric, graded_criteria)
+    # Slice 1 §4.1/§6.3: an attempt keeps its grader mode. A blind-graded
+    # attempt is regraded blind (its new grade appends a superseding blind
+    # record and re-queues its diagnosis); a joint one exactly as before.
+    prior_blind = repository.latest_blind_grade_record(attempt["id"])
+    blind_plan = None
+    if prior_blind is not None:
+        from learnloop.attempts.attempts import _blind_grading_plan
+
+        blind_plan = _blind_grading_plan(vault, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -187,22 +197,51 @@ def regrade_attempt(
             "purpose": purpose,
             **_agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
-            "prompt_version": GRADING_PROMPT_VERSION,
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
+            "prompt_version": blind_plan.prompt_version if blind_plan else GRADING_PROMPT_VERSION,
+            "input_context_hash": blind_plan.context_hash if blind_plan else grading_context_hash(context),
+            "output_schema": "BlindGradingProposal" if blind_plan else "GradingProposal",
             "started_at": now,
             "status": "running",
         }
     )
+    blind_record: dict | None = None
     try:
-        proposal = request_grading_proposal(client, context)
-        validated = validate_codex_grading_proposal(
-            proposal,
-            attempt_id=attempt["id"],
-            item=item,
-            vault=vault,
-            learner_answer_md=attempt.get("learner_answer_md") or "",
-        )
+        if blind_plan is not None:
+            from learnloop.attempts.blind_grading import (
+                BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+                validate_blind_grading_proposal,
+            )
+            from learnloop.attempts.grading_support import request_blind_grading_run
+
+            run = request_blind_grading_run(client, blind_plan.context, rubric=rubric)
+            validated_blind = validate_blind_grading_proposal(
+                run.proposal,
+                attempt_id=attempt["id"],
+                item=item,
+                vault=vault,
+                learner_answer_md=attempt.get("learner_answer_md") or "",
+                rubric=rubric,
+            )
+            validated = validated_blind.grade
+            blind_record = {
+                **validated_blind.as_record(),
+                "prompt_version": run.prompt_version,
+                "practice_item_id": item.id,
+                "calibration_prompt_version": blind_plan.calibration_prompt_version,
+                "calibration_output_schema_version": BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+                "samples": run.samples,
+                "grading_support": dict(run.grading_support),
+                "regrade": True,
+            }
+        else:
+            proposal = request_grading_proposal(client, context)
+            validated = validate_codex_grading_proposal(
+                proposal,
+                attempt_id=attempt["id"],
+                item=item,
+                vault=vault,
+                learner_answer_md=attempt.get("learner_answer_md") or "",
+            )
     except Exception as exc:
         finish_agent_run(
             repository, agent_run_id, client,
@@ -367,6 +406,22 @@ def regrade_attempt(
                 attempt["id"],
                 exc_info=True,
             )
+    if blind_record is not None and prior_blind is not None and blind_plan is not None:
+        from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION
+
+        repository.insert_blind_grade_record(
+            attempt_id=attempt["id"],
+            agent_run_id=agent_run_id,
+            grading_prompt_version=str(blind_record["prompt_version"]),
+            output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+            context_hash=blind_plan.context_hash,
+            record=blind_record,
+            supersedes_id=str(prior_blind["id"]),
+            clock=clock,
+        )
+        # The old diagnosis explained the old grade; it stays a valid ledger
+        # row, and a re-diagnosis of the new grade supersedes it.
+        enqueue_diagnosis(vault, repository, attempt_id=attempt["id"], rediagnose=True, clock=clock)
     finish_agent_run(repository, agent_run_id, client, clock=clock)
     return validated
 

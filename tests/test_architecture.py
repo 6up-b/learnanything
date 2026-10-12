@@ -51,6 +51,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/projects/experiment_store.py",
         # Slice 1 M1: review_* tables that exist only inside a scratch copy.
         "src/learnloop/db/stores/diagnosis_review.py",
+        # Slice 1 M2: blind grades, diagnoses, card taps and the job queue.
+        "src/learnloop/db/stores/diagnoses.py",
         "src/learnloop/substrate/replay.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",

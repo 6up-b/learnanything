@@ -97,6 +97,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     # Owner decision P6: after a break the session is the welcome-back panel's
     # "N refreshers" -- the scheduler's top N picks, never more (a smaller
     # requested limit still wins). The panel reads the cap back from this reply.
+    _wait_for_session_diagnoses(ctx, vault, repository, params.session_id)
     reentry_cap = reentry_session_cap(vault, repository, _nearest_active_goal(vault))
     limit = params.limit
     if reentry_cap is not None:
@@ -169,6 +170,34 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             "deferred_cold_checks": deferrals,
             "reentry_refresher_cap": reentry_cap,
         }
+    )
+
+
+def _wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None:
+    """Slice 1 §11: a bounded wait so a fast click still gets the diagnosis.
+
+    When this session has a live diagnosis queued or running, the next pick
+    waits up to ``diagnosis.next_item_wait_seconds`` for the worker to settle
+    it, then proceeds regardless. A pick served while one is still pending
+    records ``served_without_diagnosis`` (E7); a pick that waited and got it
+    records the wait. Nothing is recorded when nothing was pending.
+    """
+
+    if not session_id:
+        return
+    pending = repository.pending_live_diagnoses_for_session(session_id)
+    if not pending:
+        return
+    timeout = float(getattr(getattr(vault.config, "diagnosis", None), "next_item_wait_seconds", 10.0))
+    ctx.resume_post_attempt_jobs()
+    remaining, waited = ctx.post_attempt_worker.wait_for(
+        lambda: repository.pending_live_diagnoses_for_session(session_id), timeout
+    )
+    repository.insert_diagnosis_wait_receipt(
+        session_id=session_id,
+        pending_attempt_ids=remaining or pending,
+        waited_seconds=waited,
+        served_without_diagnosis=bool(remaining),
     )
 
 

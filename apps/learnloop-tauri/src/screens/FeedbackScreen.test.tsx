@@ -15,7 +15,9 @@ const { api } = vi.hoisted(() => {
     getPracticeItem: vi.fn(),
     getAttemptTrace: vi.fn(),
     getAttemptTraceEvidence: vi.fn(),
-    getGradingClarification: vi.fn()
+    getGradingClarification: vi.fn(),
+    diagnosisStatus: vi.fn(),
+    refreshFeedback: vi.fn()
   };
   const fallback = new Map<string, ReturnType<typeof vi.fn>>();
   const api = new Proxy(known, {
@@ -256,4 +258,28 @@ it("keeps the old Next where no live queue applies (no session, or a calibration
   await press("n");
   expect(callbacks.onNext).toHaveBeenCalledOnce();
   expect(api.getTodayQueue).not.toHaveBeenCalled();
+});
+
+// Slice 1 §11: a blind-graded attempt's diagnosis arrives after the feedback is
+// on screen. The view shows a placeholder, polls, fills the card in place and
+// re-reads the bundle (repairs, guided redo) without counting another open.
+it("polls a pending diagnosis and fills the card in place", async () => {
+  api.getFeedback.mockResolvedValue({ ...FEEDBACK, diagnosisStatus: "pending" });
+  api.getTodayQueue.mockResolvedValue(queue([]));
+  api.refreshFeedback.mockResolvedValue({ ...FEEDBACK, diagnosisStatus: "done" });
+  const base = { version: 1, attemptId: "att_1", cardEnabled: true, responses: [
+    { response: "believed_candidate", label: "That's it" },
+    { response: "partly", label: "Partly" },
+    { response: "slipped", label: "I just slipped" },
+    { response: "diagnosis_wrong", label: "That's wrong" },
+    { response: "unsure", label: "Not sure" }
+  ] };
+  api.diagnosisStatus
+    .mockResolvedValueOnce({ ...base, status: "pending" })
+    .mockResolvedValue({ ...base, status: "done", diagnosisId: "diag_1", summaryMd: "Across answers: the transpose is dropped.", repairSuggestions: [], madeBefore: [], prerequisiteGap: null });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("analyzing your pattern…")).toBeTruthy();
+  expect(await screen.findByText("Across answers: the transpose is dropped.", undefined, { timeout: 5000 })).toBeTruthy();
+  await waitFor(() => expect(api.refreshFeedback).toHaveBeenCalledWith("att_1"));
+  expect(api.getFeedback).toHaveBeenCalledTimes(1);
 });

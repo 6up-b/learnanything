@@ -318,6 +318,55 @@ def _check_database_state(
         _check_difficulty_calibration(vault, repository, issues)
     if "practice_item_quality_state" in database_tables:
         _check_bad_item_suspicion(vault, repository, issues)
+    if "post_attempt_jobs" in database_tables:
+        _check_post_attempt_jobs(repository, issues)
+
+
+#: A queued diagnosis older than this is reported stale (the worker, a drain or
+#: the next app start should have run it).
+STALE_POST_ATTEMPT_JOB_HOURS = 24
+
+
+def _check_post_attempt_jobs(repository: Repository, issues: list[HealthIssue]) -> None:
+    """Slice 1 §11: failed and stale diagnosis/embedding jobs.
+
+    A failed diagnosis leaves the grade intact; it is reported so the owner can
+    retry it (``learnloop diagnose retry --attempt <id>``). A stale job is one
+    still queued or leased long after its attempt.
+    """
+
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.clock import parse_utc
+
+    now = datetime.now(UTC)
+    stale_before = now - timedelta(hours=STALE_POST_ATTEMPT_JOB_HOURS)
+    for job in repository.post_attempt_jobs(states=("failed",)):
+        issues.append(
+            _issue(
+                "warning",
+                f"diagnosis:{job['kind']}_job_failed",
+                f"Post-attempt {job['kind']} job failed for attempt {job['attempt_id']}: "
+                f"{job.get('last_error') or 'unknown error'}. Retry with "
+                f"`learnloop diagnose retry --attempt {job['attempt_id']}`.",
+                entity_id=str(job["attempt_id"]),
+                details={"job_id": job["id"], "attempt_count": job["attempt_count"]},
+            )
+        )
+    for job in repository.post_attempt_jobs(states=("queued", "leased")):
+        created = parse_utc(str(job.get("created_at") or ""))
+        if created is None or created > stale_before:
+            continue
+        issues.append(
+            _issue(
+                "warning",
+                f"diagnosis:{job['kind']}_job_stale",
+                f"Post-attempt {job['kind']} job for attempt {job['attempt_id']} has been "
+                f"{job['state']} since {job['created_at']}. Run `learnloop diagnose drain`.",
+                entity_id=str(job["attempt_id"]),
+                details={"job_id": job["id"], "last_error": job.get("last_error")},
+            )
+        )
 
 
 def _check_database_contracts(

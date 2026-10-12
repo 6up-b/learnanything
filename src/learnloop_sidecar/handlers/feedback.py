@@ -17,6 +17,13 @@ class AttemptInput(ParamsModel):
     attempt_id: str
 
 
+class FeedbackInput(ParamsModel):
+    attempt_id: str
+    # Slice 1 M2: the feedback view re-reads the bundle when an asynchronous
+    # diagnosis lands; that refresh is not another open of the screen.
+    record_open: bool = True
+
+
 class AnswerClarificationInput(ParamsModel):
     attempt_id: str
     answer_md: str
@@ -125,8 +132,8 @@ def _debit_repair_display_reveals(
         )
 
 
-@method("get_feedback", AttemptInput)
-def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
+@method("get_feedback", FeedbackInput)
+def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     session_id = attempt.get("session_id") if attempt is not None else None
@@ -135,8 +142,9 @@ def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     # from a reopen.
     stored_feedback = repository.fetch_attempt_feedback_metadata(params.attempt_id) or {}
     first_show = not stored_feedback.get("first_shown_at")
-    repository.record_feedback_shown(params.attempt_id, session_id=session_id)
-    if first_show and attempt is not None:
+    if params.record_open:
+        repository.record_feedback_shown(params.attempt_id, session_id=session_id)
+    if params.record_open and first_show and attempt is not None:
         _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)

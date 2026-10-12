@@ -37,7 +37,11 @@ def embeddings_backfill(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate calls, tokens and cost; no client, migration or data changes.")] = False,
     record_kind: Annotated[list[str] | None, typer.Option(
         "--record-kind",
-        help="A record kind (facet, item) or one recipe (facet/definition, item/stem); repeatable. Default: all.",
+        help=(
+            "A record kind (facet, item) or one recipe (facet/definition, item/stem); repeatable. "
+            "Default: all vault recipes. Slice 1 adds hypothesis, misconception and attempt "
+            "(attempt/divergence, for history_mode=hybrid), embedded only when named."
+        ),
     )] = None,
     batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,

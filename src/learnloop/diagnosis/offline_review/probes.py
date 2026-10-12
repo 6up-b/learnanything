@@ -816,6 +816,41 @@ def verify_synthetic_error(vault: LoadedVault, item: PracticeItem, draft: Synthe
     }
 
 
+def final_answer_check(learner_answer_md: str, expected_answer: Any) -> dict[str, Any]:
+    """Deterministic: does the answer's concluding line equal the reference?
+
+    PF-c (spec_embedding_consumers_v1 §5.5) uses this as the "final answer
+    verifies" signal of the valid-alternative path. It never reads the model's
+    word: the concluding line's assertion is parsed and compared by exact text,
+    exact arithmetic, then SymPy. ``matches_reference`` / ``differs`` /
+    ``undecidable`` / ``no_conclusion`` / ``no_reference``.
+    """
+
+    reference = expected_answer if isinstance(expected_answer, str) else json.dumps(expected_answer, sort_keys=True)
+    if not (reference or "").strip():
+        return {"status": "no_reference", "method": None}
+    asserted = asserted_conclusion(learner_answer_md or "")
+    if asserted is None:
+        return {"status": "no_conclusion", "method": None}
+    candidates = [asserted]
+    assignment = _ASSIGNMENT.match(asserted)
+    if assignment:
+        candidates.append(assignment.group(1).strip())
+    undecided_method = None
+    for candidate in candidates:
+        try:
+            equal, method = _answers_equal(candidate, reference)
+        except Exception:  # noqa: BLE001 - a checker failure is undecidable, never a verdict
+            equal, method = None, "error"
+        if equal is True:
+            return {"status": "matches_reference", "method": method}
+        if equal is None:
+            undecided_method = method
+    if undecided_method is not None:
+        return {"status": "undecidable", "method": undecided_method}
+    return {"status": "differs_from_reference", "method": "exact_or_symbolic"}
+
+
 def is_reference_bearing(item: PracticeItem) -> bool:
     expected = item.expected_answer
     text = expected if isinstance(expected, str) else json.dumps(expected, sort_keys=True)
@@ -831,6 +866,7 @@ __all__ = [
     "ValidAlternativeDraft",
     "asserted_conclusion",
     "check_relations",
+    "final_answer_check",
     "is_reference_bearing",
     "paraphrase_prompt",
     "request_paraphrase",
