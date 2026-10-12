@@ -248,3 +248,40 @@ def test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers(tmp_path)
     assert labelled["pairs_judged_at_both_tiers"] == 12
     assert labelled["cheap"]["accuracy"]["rate"] == 1.0 and labelled["frontier"]["accuracy"]["rate"] == 0.5
     assert report["components"]["freshness_judge"] == "falls_with_tier"
+
+
+@needs_bwrap
+def test_report_dry_runs_price_and_admit_the_blind_judge(tmp_path):
+    """Codex review F9: a supplied price yields dollars, and the dry run applies the caps."""
+    from learnloop.ai.spend import SpendCaps as Caps
+
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    for path in ("single_shot", "generator"):
+        generate(paths, path, "pilot-1")
+    for tier in ("cheap", "frontier"):
+        generate(paths, "generator", "scale-1", tier=tier)
+    vault = load_vault(paths.root)
+    tight = Caps(max_candidates=100, max_pairs=100, max_calls=100, max_total_tokens=10**9,
+                 max_estimated_usd=0.000001)
+    judge = PFFake("judge")
+    priced = pilot_report(vault, round_id="pilot-1", output_dir=tmp_path / "r", judge=True, dry_run=True,
+                          caps=CAPS, price_per_million=2.0, clients={"pairwise": judge})
+    assert priced["status"] == "dry_run" and priced["judge_estimate"]["calls"] > 0
+    assert priced["judge_estimate"]["estimated_usd"] > 0 and priced["judge_estimate"]["billing"] == "metered"
+    over = pilot_report(vault, round_id="pilot-1", output_dir=tmp_path / "r", judge=True, dry_run=True,
+                        caps=tight, price_per_million=2.0, clients={"pairwise": judge})
+    assert over["status"] == "over_budget" and "estimated_usd" in over["reason"]
+    unknown = scaling_report(vault, round_id="scale-1", output_dir=tmp_path / "r", judge=True, dry_run=True,
+                             caps=CAPS, clients={"pairwise": judge})
+    assert unknown["judge_estimate"]["calls"] > 0
+    assert unknown["status"] == "over_budget" and "Unknown price" in unknown["reason"]
+    codex = scaling_report(vault, round_id="scale-1", output_dir=tmp_path / "r", judge=True, dry_run=True,
+                           caps=tight, clients={"pairwise": PFFake("judge", provider_type="codex_sdk")})
+    assert codex["status"] == "dry_run" and codex["judge_estimate"]["billing"] == "subscription"
+    assert codex["judge_estimate"]["cost_basis"] == "estimated_only"
+    # A refused real run sends nothing and writes no report.
+    refused = pilot_report(vault, round_id="pilot-1", output_dir=tmp_path / "r", judge=True,
+                           caps=tight, price_per_million=2.0, clients={"pairwise": judge})
+    assert refused["status"] == "over_budget" and "blind_comparison" not in refused
+    assert not judge.calls and not (tmp_path / "r").exists()

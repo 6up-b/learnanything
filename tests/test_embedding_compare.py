@@ -133,7 +133,7 @@ def test_b2_dry_run_sends_nothing_and_writes_nothing(tmp_path):
     before = paths.sqlite_path.read_bytes()
     report = run_compare(vault, request=CompareRequest(
         suite="b2", output_dir=tmp_path / "out", benchmark_dir=benchmark(tmp_path), dry_run=True,
-        models=("fake/embed",)), caps=CAPS, embedding_price_per_million=0.02, clients=judge,
+        models=("fake/embed",)), caps=CAPS, price_per_million=1.0, embedding_price_per_million=0.02, clients=judge,
         embedding_clients={"fake/embed": embedder})
     assert report["status"] == "dry_run"
     assert report["estimate"]["llm_calls"] > 0 and report["estimate"]["embedding_calls"] > 0
@@ -271,3 +271,37 @@ def test_a_larger_dimension_sweep_never_reuses_narrower_cached_vectors(tmp_path)
 
     with pytest.raises(ValueError, match="narrower"):
         centered_cosines([(np.ones(16, dtype=np.float32), np.ones(16, dtype=np.float32))], 64)
+
+
+# -- Codex review F9: compare dry runs estimate tokens and dollars and admit the whole plan --
+
+
+def test_compare_dry_runs_estimate_cost_and_admit_the_whole_plan(tmp_path):
+    vault, _, paths = seed_pf_vault(tmp_path / "vault")
+    bench = benchmark(tmp_path)
+    metered = {"skeleton": PFFake("m"), "freshness": PFFake("m"), "valid_alternative": PFFake("m"),
+               "equivalence": PFFake("m"), "grading": Grader()}
+    va = run_compare(vault, request=CompareRequest(suite="valid_alternative", output_dir=tmp_path / "va",
+                                                   dry_run=True),
+                     caps=CAPS, price_per_million=2.0, clients=metered)
+    assert va["status"] == "dry_run", va
+    assert va["estimate"]["llm_tokens"] > 0 and va["estimate"]["metered"]["estimated_usd"] > 0
+    assert all(role["tokens"] > 0 for role in va["plan"]["roles"].values())
+    unknown = run_compare(vault, request=CompareRequest(suite="b2", output_dir=tmp_path / "out-b2", benchmark_dir=bench,
+                                                        views=("judge",), dry_run=True), caps=CAPS, clients=metered)
+    assert unknown["status"] == "over_budget" and "Unknown price" in unknown["reason"]
+    tight = SpendCaps(max_candidates=100, max_pairs=2000, max_calls=2000, max_total_tokens=10**9,
+                      max_estimated_usd=0.000001)
+    over = run_compare(vault, request=CompareRequest(suite="b2", output_dir=tmp_path / "out-b2", benchmark_dir=bench,
+                                                     views=("judge",), dry_run=True),
+                       caps=tight, price_per_million=2.0, clients=metered)
+    assert over["status"] == "over_budget" and "estimated_usd" in over["reason"]
+    # Codex on the subscription: no price needed; dollars and tokens are estimates, not caps.
+    codex = {role: PFFake("codex", provider_type="codex_sdk") for role in metered}
+    subscription = run_compare(vault, request=CompareRequest(suite="b2", output_dir=tmp_path / "out-b2",
+                                                             benchmark_dir=bench, views=("judge",), dry_run=True),
+                               caps=tight, clients=codex)
+    assert subscription["status"] == "dry_run", subscription
+    assert subscription["estimate"]["subscription"]["calls"] > 0
+    assert subscription["estimate"]["cost_basis"]["subscription"] == "estimated_only"
+    assert not (tmp_path / "out-b2").exists() and not (tmp_path / "va").exists()

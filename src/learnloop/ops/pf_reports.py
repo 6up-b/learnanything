@@ -38,7 +38,9 @@ from learnloop.content.authoring import pf_contracts as C
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
-from learnloop.ops.pf_calls import PFCaller, PFUnavailable, estimate_tokens, resolve_role_clients
+from learnloop.ops.pf_calls import (
+    PFCaller, PFUnavailable, estimate_tokens, planned_role_clients, resolve_role_clients,
+)
 from learnloop.ops.pf_generation import FILTER_ORDER
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -162,11 +164,8 @@ class _Judge:
 
     def admit(self, estimate: SpendEstimate) -> None:
         """Admit the whole comparison before any request (unknown metered prices fail closed)."""
-        self.caller.check_shared(estimate)
-        planned = self.caller.estimate(estimate.total_tokens, subscription=self.entry.subscription,
-                                       calls=estimate.calls)
-        budget = self.caller.subscription if self.entry.subscription else self.caller.metered
-        budget.check(SpendEstimate(total_tokens=planned.total_tokens, estimated_usd=planned.estimated_usd))
+        _admit(self.caller, self.entry, estimate)
+
 
     def compare(self, left: dict[str, Any], right: dict[str, Any], *, task_label: str) -> dict[str, Any]:
         def side(row: dict[str, Any]) -> dict[str, Any]:
@@ -194,6 +193,29 @@ class _Judge:
             verdicts.append((call.model, result))
         return {"model": verdicts[0][0], "passes": [verdict for _, verdict in verdicts],
                 "family_id": left["family_id"]}
+
+
+def _admit(caller: PFCaller, entry: Any, estimate: SpendEstimate) -> None:
+    """Whole-plan admission for one route's billing class (Codex: estimated only, not capped)."""
+    caller.check_shared(estimate)
+    budget = caller.subscription if entry.subscription else caller.metered
+    budget.check(SpendEstimate(total_tokens=estimate.total_tokens, estimated_usd=estimate.estimated_usd))
+
+
+def _judge_estimate(vault: LoadedVault, repository: Repository, pairs: int, *, caps: SpendCaps,
+                    price_per_million: float | None, clients: Mapping[str, Any] | None,
+                    cancelled: Callable[[], bool] | None) -> tuple[SpendEstimate, dict[str, Any], Any]:
+    """The blind judge's planned calls, tokens and dollars, admitted without building a client."""
+    injected = (clients or {}).get("pairwise")
+    entry = (resolve_role_clients(vault, "pairwise", injected=injected) if injected is not None
+             else planned_role_clients(vault, "pairwise"))[0]
+    caller = PFCaller(vault, repository, caps=caps, price_per_million=price_per_million,
+                      run_id=new_ulid(), owner_kind="pf_reports", cancelled=cancelled)
+    estimate = _judge_plan(pairs, price_per_million, subscription=entry.subscription)
+    rendered = {**asdict(estimate), "billing": "subscription" if entry.subscription else "metered",
+                "cost_basis": "estimated_only" if entry.subscription else "metered_caps",
+                "provider": entry.provider, "model": entry.model}
+    return estimate, rendered, (caller, entry)
 
 
 def frozen_inputs_key(row: Mapping[str, Any]) -> tuple[str, str | None, str | None]:
@@ -248,10 +270,15 @@ def _summarize_pairs(results: list[dict[str, Any]]) -> dict[str, Any]:
     return summary
 
 
-def _judge_plan(pairs: int, caller_caps: SpendCaps) -> SpendEstimate:
-    tokens = 2 * pairs * estimate_tokens(C.pairwise_prompt(a={"problem": "x" * 600}, b={"problem": "x" * 600}),
-                                         C.PairwiseVerdict, 800)
-    return SpendEstimate(calls=2 * pairs, total_tokens=tokens)
+def _judge_plan(pairs: int, price_per_million: float | None, *, subscription: bool = False) -> SpendEstimate:
+    """Two passes per pair; dollars from the owner price (None when metered and unknown)."""
+    side = {"problem": "x" * 1200, "reference": "x" * 300, "worked_solution": "x" * 2400}
+    tokens = 2 * pairs * estimate_tokens(C.pairwise_prompt(a=side, b=side), C.PairwiseVerdict, 800)
+    if price_per_million is not None:
+        usd: float | None = round(tokens * price_per_million / 1_000_000, 8)
+    else:
+        usd = None if (pairs and not subscription) else 0.0 if not pairs else None
+    return SpendEstimate(calls=2 * pairs, total_tokens=tokens, estimated_usd=usd)
 
 
 def _write(output_dir: Path, name: str, report: dict[str, Any], markdown: str) -> list[str]:
@@ -311,8 +338,17 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
                    for arm in ("generator", "ensemble") if by_arm[arm] and single}
     report["blind_comparison_plan"] = {arm: len(pairs) for arm, pairs in comparisons.items()}
     if judge:
-        estimate = _judge_plan(sum(len(pairs) for pairs in comparisons.values()), caps)
-        report["judge_estimate"] = asdict(estimate)
+        try:
+            estimate, report["judge_estimate"], (planner, entry) = _judge_estimate(
+                vault, repository, sum(len(pairs) for pairs in comparisons.values()), caps=caps,
+                price_per_million=price_per_million, clients=clients, cancelled=cancelled)
+            _admit(planner, entry, estimate)
+        except SpendLimitExceeded as exc:
+            report.update(status="over_budget", reason=str(exc))
+            dry_run = dry_run or "skip_judge"
+        except PFUnavailable as exc:
+            report.update(status="unavailable", reason=str(exc))
+            dry_run = dry_run or "skip_judge"
         if not dry_run:
             try:
                 runner = _Judge(vault, repository, caps=caps, price_per_million=price_per_million,
@@ -331,7 +367,7 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
             except (AIProviderUnavailable, PFUnavailable) as exc:
                 report.update(status="provider_failed", error_type=type(exc).__name__)
     report["recommendation"] = _recommend(report)
-    if not dry_run:
+    if dry_run is False:
         report["report_files"] = _write(output_dir, "pf-pilot", report, _pilot_markdown(report))
     return report
 
@@ -421,12 +457,22 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
                        key=lambda row: (*frozen_inputs_key(row), row["generation_path"]))
     report["blind_comparison_plan"] = {"pairs": len(pairs)}
     if judge:
-        report["judge_estimate"] = asdict(_judge_plan(len(pairs), caps))
+        try:
+            estimate, report["judge_estimate"], (planner, entry) = _judge_estimate(
+                vault, repository, len(pairs), caps=caps, price_per_million=price_per_million,
+                clients=clients, cancelled=cancelled)
+            _admit(planner, entry, estimate)
+        except SpendLimitExceeded as exc:
+            report.update(status="over_budget", reason=str(exc))
+            dry_run = dry_run or "skip_judge"
+        except PFUnavailable as exc:
+            report.update(status="unavailable", reason=str(exc))
+            dry_run = dry_run or "skip_judge"
         if not dry_run:
             try:
                 runner = _Judge(vault, repository, caps=caps, price_per_million=price_per_million,
                                 cancelled=cancelled, clients=clients)
-                runner.admit(_judge_plan(len(pairs), caps))
+                runner.admit(estimate)
                 report["blind_comparison"] = {"left": "frontier", "right": "cheap", **_summarize_pairs(
                     [runner.compare(a, b, task_label="frontier_vs_cheap") for a, b in pairs])}
                 report["judge_usage"] = runner.caller.report()
@@ -438,7 +484,7 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
                 report.update(status="provider_failed", error_type=type(exc).__name__)
     report["judge_accuracy_on_labelled_pairs"] = {"freshness": _labelled_judge_accuracy(repository)}
     report["components"] = _components(report)
-    if not dry_run:
+    if dry_run is False:
         report["report_files"] = _write(output_dir, "pf-scaling", report, _scaling_markdown(report))
     return report
 

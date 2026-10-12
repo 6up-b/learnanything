@@ -70,6 +70,9 @@ from learnloop.vault.paths import VaultPaths
 HARNESS_VERSION = "embeddings-compare-v1"
 DEFAULT_TARGET_RECALL = 0.95
 EMBED_BATCH = 32
+VA_OUTPUT_TOKENS = {"valid_alternative": 6000, "equivalence": 2500, "grading": 4000}
+# A trace in the grading prompt is bounded by the writer's output (bytes upper-bound tokens).
+VA_TRACE_BYTES = 4 * VA_OUTPUT_TOKENS["valid_alternative"] // 3
 # The published estimate for the default model (Slice 1 §9.1), not a quote.
 EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 
@@ -536,12 +539,28 @@ class ValidAlternativeSuite:
         return VAData(items[:request.max_items], request.models or (vault.config.embedding.model,))
 
     def plan(self, vault: LoadedVault, data: VAData, request: CompareRequest) -> dict[str, Any]:
+        """Calls and input-plus-output tokens per role, from the actual prompts (no request)."""
         n = len(data.items)
         traces = n * (1 + request.alternatives)
+        tokens = {"valid_alternative": 0, "equivalence": 0, "grading": 0}
+        for va in data.items:
+            item = vault.practice_items[va.item_id]
+            tokens["valid_alternative"] += estimate_tokens(C.valid_alternative_prompt(
+                prompt=item.prompt, reference=str(item.expected_answer), count=request.alternatives),
+                C.ValidAlternativeTraces, VA_OUTPUT_TOKENS["valid_alternative"])
+            # Each trace is bounded by the writer's output; the verifier sees every final answer.
+            tokens["equivalence"] += estimate_tokens(C.equivalence_prompt(
+                stem=item.prompt, reference=va.reference, answers=["x" * 200] * (1 + request.alternatives)),
+                C.EquivalenceResult, VA_OUTPUT_TOKENS["equivalence"])
+            context = blind_grading_context(vault, item, attempt_id="va_plan",
+                                            learner_answer_md="x" * VA_TRACE_BYTES)
+            tokens["grading"] += (1 + request.alternatives) * estimate_tokens(
+                blind_grading_prompt(context), BlindGradingProposal, VA_OUTPUT_TOKENS["grading"])
         return {"items": n, "families": len({item.family_id for item in data.items}),
-                "roles": {"valid_alternative": {"calls": n}, "equivalence": {"calls": n},
-                          "grading": {"calls": traces}},
-                "embedding": {"optional": "with --view embedding"}}
+                "roles": {"valid_alternative": {"calls": n, "tokens": tokens["valid_alternative"]},
+                          "equivalence": {"calls": n, "tokens": tokens["equivalence"]},
+                          "grading": {"calls": traces, "tokens": tokens["grading"]}},
+                "embedding": {}}
 
     def run(self, data: VAData, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]:
         writer = ctx.role("valid_alternative")[0]
@@ -554,11 +573,12 @@ class ValidAlternativeSuite:
             call = ctx.caller.call(writer, prompt=C.valid_alternative_prompt(
                 prompt=item.prompt, reference=str(item.expected_answer), count=request.alternatives),
                 prompt_version=C.VALID_ALTERNATIVE_PROMPT, result_model=C.ValidAlternativeTraces,
-                output_tokens=6000)
+                output_tokens=VA_OUTPUT_TOKENS["valid_alternative"])
             traces = [("canonical", call.result.canonical), *[("alternative", t) for t in call.result.alternatives]]
             eq = ctx.caller.call(verifier, prompt=C.equivalence_prompt(
                 stem=item.prompt, reference=va.reference, answers=[t.final_answer for _, t in traces]),
-                prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult, output_tokens=2500)
+                prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
+                output_tokens=VA_OUTPUT_TOKENS["equivalence"])
             agreements = list(eq.result.agreements) if len(eq.result.agreements) == len(traces) else [False] * len(traces)
             degenerate = False
             if eq.result.answer_kind in {"numeric", "symbolic"}:
@@ -595,7 +615,7 @@ class ValidAlternativeSuite:
                                             learner_answer_md=case["trace"])
             call = ctx.caller.call(grader, prompt=blind_grading_prompt(context),
                                    prompt_version=BLIND_GRADING_PROMPT_VERSION, result_model=BlindGradingProposal,
-                                   output_tokens=4000)
+                                   output_tokens=VA_OUTPUT_TOKENS["grading"])
             rubric = ctx.vault.rubric_for_item(item)
             maximum = getattr(rubric, "max_points", None) or 1
             score = min(1.0, call.result.rubric_score / maximum)
@@ -649,21 +669,53 @@ def run_compare(
                      "embedding_model": vault.config.embedding.model,
                      "benchmark": getattr(data, "manifest", None)},
     }
-    llm_calls = sum(int(role.get("calls", 0)) for role in plan.get("roles", {}).values())
-    llm_tokens = sum(int(role.get("tokens", 0)) for role in plan.get("roles", {}).values())
+    roles_plan = plan.get("roles", {})
+    llm_calls = sum(int(role.get("calls", 0)) for role in roles_plan.values())
+    llm_tokens = sum(int(role.get("tokens", 0)) for role in roles_plan.values())
     embed_calls = sum(int(entry.get("calls", 0)) for entry in plan.get("embedding", {}).values() if isinstance(entry, dict))
     embed_tokens = sum(int(entry.get("tokens", 0)) for entry in plan.get("embedding", {}).values() if isinstance(entry, dict))
     report["estimate"] = {"llm_calls": llm_calls, "llm_tokens": llm_tokens,
                           "embedding_calls": embed_calls, "embedding_tokens": embed_tokens}
     try:
-        caller.check_shared(SpendEstimate(calls=llm_calls + embed_calls,
-                                          pairs=int(plan.get("roles", {}).get("freshness", {}).get("pairs", 0))))
-        if embed_calls:
-            for model, entry in plan.get("embedding", {}).items():
-                price = embedding_price_per_million if embedding_price_per_million is not None \
-                    else EMBEDDING_PRICES_PER_MILLION.get(model)
-                if price is None and entry.get("calls"):
-                    raise SpendLimitExceeded(f"Unknown embedding price for {model}: pass --embedding-price-per-million")
+        # Whole-plan admission before any client is built or request sent:
+        # billing classes come from the planned profiles (Codex: subscription,
+        # estimated only; everything else metered, unknown prices fail closed).
+        routes = tier_routes(vault, request.tier)
+        billing = {role: (resolve_role_clients(vault, role, injected=clients[role])
+                          if clients and role in clients else planned_role_clients(vault, role, tier_routes=routes))
+                   for role in roles_plan}
+        totals = {False: [0, 0], True: [0, 0]}  # subscription -> [calls, tokens]
+        for role, info in roles_plan.items():
+            subscription = billing[role][0].subscription
+            totals[subscription][0] += int(info.get("calls", 0))
+            totals[subscription][1] += int(info.get("tokens", 0))
+        embed_usd: float | None = 0.0
+        for model, entry in plan.get("embedding", {}).items():
+            if not isinstance(entry, dict) or not entry.get("calls"):
+                continue
+            price = embedding_price_per_million if embedding_price_per_million is not None \
+                else EMBEDDING_PRICES_PER_MILLION.get(model)
+            if price is None:
+                raise SpendLimitExceeded(f"Unknown embedding price for {model}: pass --embedding-price-per-million")
+            embed_usd += int(entry.get("tokens", 0)) * price / 1_000_000
+        llm_usd = (totals[False][1] * price_per_million / 1_000_000 if price_per_million is not None
+                   else (None if totals[False][0] else 0.0))
+        metered = SpendEstimate(
+            calls=totals[False][0] + embed_calls, total_tokens=totals[False][1] + embed_tokens,
+            pairs=int(roles_plan.get("freshness", {}).get("pairs", 0)),
+            estimated_usd=None if llm_usd is None else round(llm_usd + embed_usd, 8),
+        )
+        subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0])
+        report["estimate"].update(
+            metered=asdict(metered), subscription=asdict(subscription),
+            billing={role: "subscription" if entries[0].subscription else "metered"
+                     for role, entries in billing.items()},
+            cost_basis={"metered": "metered_caps", "subscription": "estimated_only"},
+        )
+        caller.check_plan(metered, subscription)
+    except PFUnavailable as exc:
+        report.update(status="unavailable", reason=str(exc))
+        return report
     except SpendLimitExceeded as exc:
         report.update(status="over_budget", reason=str(exc))
         return report
