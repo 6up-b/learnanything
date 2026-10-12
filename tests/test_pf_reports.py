@@ -102,3 +102,32 @@ def test_eval_cli_reports_without_judge_are_read_only(tmp_path):
         assert result.exit_code == 0, result.output
         assert json.loads(result.stdout)["status"] == "complete"
     assert paths.sqlite_path.read_bytes() == before
+
+
+@needs_bwrap
+def test_each_scaling_tier_runs_its_own_program_writer_on_identical_inputs(tmp_path):
+    """Codex review F11: the frontier arm never measures the cheap writer's stored program."""
+    from learnloop.content.authoring import pf_contracts as C
+    from tests.pf_fakes import prompt_context
+
+    _, repository, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    writers = {"cheap": PFFake("cheap-writer"), "frontier": PFFake("frontier-writer")}
+    for tier, writer in writers.items():
+        report = generate_practice(load_vault(paths.root), caps=CAPS, price_per_million=1.0,
+                                   clients=clients(program=writer),
+                                   options=GenerationOptions(path="generator", round="scale-1", tier=tier,
+                                                             publish=False))
+        assert report["status"] == "complete", report
+    requests = {tier: [r for r in writer.calls if r.result_model is C.GeneratorProgramResult]
+                for tier, writer in writers.items()}
+    assert requests["cheap"] and requests["frontier"]
+    contexts = {tier: prompt_context(calls[0].prompt) for tier, calls in requests.items()}
+    for key in ("parent", "family", "parent_skeleton"):
+        assert contexts["cheap"][key] == contexts["frontier"][key]  # identical frozen inputs
+    with repository.connection() as connection:
+        models = dict(connection.execute(
+            "SELECT tier, GROUP_CONCAT(DISTINCT proposer_model) FROM pf_candidates GROUP BY tier").fetchall())
+    assert models == {"cheap": "cheap-writer-resolved", "frontier": "frontier-writer-resolved"}
+    family = load_vault(paths.root).activity_families["af_linear"]
+    assert family.generator is None and family.source_kind == "authored"  # tier trials never author the family

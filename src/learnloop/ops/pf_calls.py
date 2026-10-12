@@ -73,9 +73,11 @@ ROLE_TASKS: dict[str, str] = {
     "grading": "grading",
 }
 LIST_ROLES = frozenset({"proposer", "panel"})
-# Roles the scaling check moves between tiers (Slice 2 §5.6). The solver panel
-# and the reference verifier are the verifiers and stay fixed for comparability.
-TIERED_ROLES = frozenset({"skeleton", "program", "single_shot", "source", "proposer", "structure",
+# Roles the scaling check moves between tiers (Slice 2 §5.6): the generators
+# and the judges. The verifiers (solver panel, reference verifier, span
+# support) stay fixed for comparability, and so does the parent skeleton:
+# it is an input both tiers' generators must share.
+TIERED_ROLES = frozenset({"program", "single_shot", "source", "proposer", "structure",
                           "freshness", "closed_book", "selection"})
 
 

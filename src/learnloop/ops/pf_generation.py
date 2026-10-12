@@ -574,8 +574,21 @@ class _FamilyRun:
         return not problems, "; ".join(problems)[:1500], draws
 
     def _program(self) -> dict[str, Any] | None:
+        """The family's tested generator program.
+
+        An ordinary run reuses (or writes and stores) the family's authored
+        program. A scaling-check run (``--tier``) is a measurement: each tier's
+        writer writes its own program from the same frozen inputs (parent,
+        family, parent skeleton), it is never read from or stored into the
+        family, and it is persisted per tier, model/settings, prompt version
+        and input revision through the writer call's checkpoint.
+        """
         test_seeds = list(range(self.ctx.vault.config.pf.generator_test_draws))
-        existing = self.family.generator or {}
+        tiered = self.ctx.options.tier is not None
+        inputs = {"parent": _item_context(self.parent, self.ctx.vault), "family": _family_context(self.family),
+                  "skeleton": self.parent_skeleton or {}}
+        inputs_revision = content_key(inputs)
+        existing = {} if tiered else (self.family.generator or {})
         if (existing.get("protocol") == GENERATOR_PROTOCOL and existing.get("program")
                 and existing.get("hash") == _sha(existing["program"])):
             ok, failure, _ = self._program_ok(existing["program"], list(existing.get("checkpoints") or []), test_seeds)
@@ -593,8 +606,8 @@ class _FamilyRun:
         while True:
             call = self.ctx.caller.call(
                 entry, prompt=C.generator_program_prompt(
-                    parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family),
-                    skeleton=self.parent_skeleton or {}, relation="isomorph", previous_failure=failure,
+                    parent=inputs["parent"], family=inputs["family"],
+                    skeleton=inputs["skeleton"], relation="isomorph", previous_failure=failure,
                     attempt=attempts),
                 prompt_version=C.GENERATOR_PROGRAM_PROMPT, result_model=C.GeneratorProgramResult,
                 output_tokens=OUTPUT_TOKENS["program"],
@@ -605,7 +618,8 @@ class _FamilyRun:
                 task="generator_tests", left_kind="activity_family", left_id=self.family.id,
                 judge="verifier", prompt_version=GENERATOR_PROTOCOL, input_hash=_sha(code),
                 verdict="pass" if ok else "fail",
-                rationale={"failure": failure_text, "seeds": test_seeds, "model": call.model},
+                rationale={"failure": failure_text, "seeds": test_seeds, "model": call.model,
+                           "tier": self.ctx.options.tier, "inputs_revision": inputs_revision},
             )
             if ok:
                 program = {
@@ -613,7 +627,14 @@ class _FamilyRun:
                     "checkpoints": list(call.result.checkpoints), "model": call.model,
                     "prompt_version": C.GENERATOR_PROGRAM_PROMPT, "tested_seeds": test_seeds,
                 }
-                self._store_program(program)
+                if tiered:
+                    self.report["tier_program"] = {
+                        "tier": self.ctx.options.tier, "model": call.model, "hash": program["hash"],
+                        "prompt_version": C.GENERATOR_PROGRAM_PROMPT, "inputs_revision": inputs_revision,
+                        "writer_input_hash": call.input_hash, "cached": call.cached,
+                    }
+                else:
+                    self._store_program(program)
                 return program
             failure = failure_text
             attempts += 1
