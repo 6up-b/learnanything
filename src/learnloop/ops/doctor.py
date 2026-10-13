@@ -642,9 +642,10 @@ def _check_retired_keep_local(repository: Repository, database_tables: set[str],
     """The per-book "Keep this book on this computer" (spec ux_learnloop_v1
     §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner,
     2026-10-13: sending books to an AI is fine; the opt-out was not asked
-    for). The column stays and nothing reads it, so a book that still has it
-    set is named: its passages may now be sent to the AI the learner
-    connected, under the connection's one OK."""
+    for). The column stays and nothing consults it (generic ``SELECT *``
+    reads still fetch it; only this check looks at its value), so a book
+    that still has it set is named: its passages may now be sent to the AI
+    the learner connected, under the connection's one OK."""
 
     if "source_artifacts" not in database_tables:
         return

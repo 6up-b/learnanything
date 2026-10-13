@@ -33,7 +33,8 @@ found even when the planner died before saving its result. Per book, migration
 198 keeps the automatic-build state: the generation an Undo advances and the
 book's reading request. (Its ``source_artifacts.keep_local``, the per-book
 "Keep this book on this computer", is retired (owner, 2026-10-13): nothing
-reads it; ``learnloop doctor`` notes a book that still has it set.)
+consults it (generic ``SELECT *`` reads still fetch it); ``learnloop doctor``
+notes a book that still has it set.)
 
 Kill switches ``[ingest] auto_build`` (off: Add only makes the source readable,
 and queued automatic work is cancelled before its next paid stage) and

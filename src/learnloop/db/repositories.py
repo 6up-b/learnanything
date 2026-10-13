@@ -18421,8 +18421,9 @@ class Repository(
     def sources_with_retired_keep_local(self) -> list[str]:
         """Books that still carry the retired "Keep this book on this
         computer" (``source_artifacts.keep_local``, migration 198; retired by
-        the owner 2026-10-13): nothing reads the column now, ``learnloop
-        doctor`` names them. Empty on a database without the column."""
+        the owner 2026-10-13): nothing consults the column now (generic
+        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them.
+        Empty on a database without the column."""
 
         with self.connection() as connection:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_artifacts)").fetchall()}
