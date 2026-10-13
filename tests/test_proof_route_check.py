@@ -143,10 +143,10 @@ def _judgments(repository, task):
 
 def test_the_route_check_is_a_successor_and_keeps_every_predecessor():
     # Canonical sources' mvp-0.18 and mvp-0.19 (the latest) followed it and keep it.
-    assert SUCCESSOR_CHAIN[-3] == VERSION == "mvp-0.17"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.19"
-    assert SUCCESSOR_CHAIN[-4] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({VERSION, "mvp-0.18", "mvp-0.19"})
+    assert SUCCESSOR_CHAIN[-4] == VERSION == "mvp-0.17"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert SUCCESSOR_CHAIN[-5] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({VERSION, "mvp-0.18", "mvp-0.19", "mvp-0.20"})
 
 
 def test_active_only_at_the_successor_with_the_switch_on(tmp_path):

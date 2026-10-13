@@ -1167,6 +1167,9 @@ class AIRoutingConfig(BaseModel):
     # code-default openrouter_decider profile; never a chat fallback and never
     # LEARNLOOP_AI_PROVIDER. The LLM routes are ordinary chat routes: empty =
     # ai.active_provider (Codex on the subscription is allowed).
+    # Tier 1 (owner 2026-10-13): the small judgments [decider_routes] moves
+    # to the Decider; empty = the code-default openrouter_decider profile.
+    tier1_decider: str | None = None
     router_decider: str | None = None
     router_llm: str | None = None
     llm_probability_decider: str | None = None
@@ -2269,6 +2272,36 @@ class RouterConfig(BaseModel):
     probe_tie_admission: bool = True
 
 
+class DeciderRoutesConfig(BaseModel):
+    """Tier 1 (owner decision 2026-10-13): small judgments the Decider decides, the LLM its fallback.
+
+    One kill switch per judgment, each on by default; false restores that
+    judgment's predecessor LLM path exactly. The serving judgments act only at
+    ``mvp-0.20`` or later (``algorithm_versions.DECIDER_TIER1_VERSIONS``);
+    ``facet_span_support``, a content check on model-proposed facet rewords,
+    acts at every version. The Decider is ``ai.routing.tier1_decider`` (empty:
+    the code-default ``openrouter_decider`` profile); learner-text gaps keep
+    ``ai.routing.learner_gap_decider``. See ``learnloop.decider_judgments``.
+    """
+
+    #: Learner-text gaps: the same-prerequisite / same-belief pairs and "needed?".
+    learner_gap_judge: bool = True
+    #: Learner-text gaps: the kind of a learner's text (the gap chooser).
+    learner_gap_kind: bool = True
+    #: Matching a diagnosed belief to the misconception registry (a joint grade's).
+    misconception_match: bool = True
+    #: The offline review's pattern-link judgments (`learnloop diagnose review`).
+    diagnosis_link_judgment: bool = True
+    #: `learnloop field classify-questions`: a learner question's missing metadata.
+    field_question_classification: bool = True
+    #: The contamination report's exam / tutor-answer leak verdicts.
+    contamination_leak_judgment: bool = True
+    #: The contamination report's reader-reserve reveal verdicts.
+    contamination_reveal_judgment: bool = True
+    #: The span-support check before a cited model reword of a facet applies.
+    facet_span_support: bool = True
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -2321,6 +2354,7 @@ class LearnLoopConfig(BaseModel):
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
+    decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
 
     @model_validator(mode="before")
     @classmethod

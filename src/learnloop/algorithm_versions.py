@@ -188,6 +188,18 @@ SOURCE_REFERENCE_GATE_ALGORITHM_VERSION = "mvp-0.18"
 # relabelled mvp-0.19 at the same merge.
 SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.19"
 
+# mvp-0.20 (Tier 1, the Decider migration, owner decision 2026-10-13): the
+# Decider, a fast typed decision model, decides the small judgments
+# ``[decider_routes]`` names (learner-text gap pairs, "needed?" and kind;
+# misconception matching; the review's pattern links; question
+# classification; contamination leak and reveal verdicts), on top of mvp-0.19.
+# Each judgment's LLM is its fallback when the Decider is unavailable, refused
+# for spend or failing, and each has its own kill switch (false: that
+# judgment's mvp-0.19 path). It changes what is served from now on (gaps
+# created, misconceptions matched, links); recorded history keeps its meaning
+# and a shadow rebuild shows zero deltas. ``learnloop.decider_judgments``.
+DECIDER_TIER1_ALGORITHM_VERSION = "mvp-0.20"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -207,6 +219,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
     SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
+    DECIDER_TIER1_ALGORITHM_VERSION,
 )
 
 
@@ -282,6 +295,10 @@ SOURCE_REFERENCE_GATE_VERSIONS: frozenset[str] = successors_from(SOURCE_REFERENC
 # Versions whose intervention needs try the learner's sources before
 # generating (canonical sources S2b, behind source_service.source_first_needs).
 SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
+
+# Versions whose small judgments the Decider decides (Tier 1, behind one
+# ``decider_routes`` switch per judgment).
+DECIDER_TIER1_VERSIONS: frozenset[str] = successors_from(DECIDER_TIER1_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

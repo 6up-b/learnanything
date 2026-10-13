@@ -80,6 +80,7 @@ AITask = Literal[
     # Action router and the learner field's llm_probability arms (router spec
     # §6.2): the decider routes reach a decision model, the LLM routes a chat
     # transport with structured output.
+    "tier1_decider",
     "router_decider",
     "router_llm",
     "llm_probability_decider",
@@ -92,7 +93,7 @@ AITask = Literal[
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
-DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider"})
+DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider"})
 #: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
 #: structured question of a chat model, or typed questions of a decision model
 #: (facet identity: one choice question per facet pair, owner 2026-10-12).

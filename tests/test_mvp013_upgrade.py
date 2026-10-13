@@ -63,10 +63,10 @@ def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     # and canonical sources' answer-key gate (mvp-0.18) and source-first needs
     # (mvp-0.19, the latest successor, tests/test_mvp018_upgrade.py) followed
     # it and keep the stuck prompt.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.19"
-    assert SUCCESSOR_CHAIN[-7] == STUCK_PROMPT_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert SUCCESSOR_CHAIN[-8] == STUCK_PROMPT_ALGORITHM_VERSION
     assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-                                     "mvp-0.18", "mvp-0.19"}
+                                     "mvp-0.18", "mvp-0.19", "mvp-0.20"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     # The chain is linear: mvp-0.13 means the split PLUS placement PLUS

@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19); "
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or mvp-0.20); "
                 "default: the latest."
             ),
         ),
@@ -123,11 +123,15 @@ def upgrade(
     follow the answer key (an attempt on an imported textbook exercise with an
     unverified key schedules and teaches but never certifies) over an
     mvp-0.17 vault (or an mvp-0.9 to mvp-0.16 vault through the chain; no
-    kill switch re-enables certification). ``--to mvp-0.19`` (default, the
-    latest successor) fulfils intervention needs from the learner's sources
-    before generating over an mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault
-    through the chain; kill switch: ``source_service.source_first_needs =
-    false``)."""
+    kill switch re-enables certification). ``--to mvp-0.19`` fulfils
+    intervention needs from the learner's sources before generating over an
+    mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault through the chain; kill
+    switch: ``source_service.source_first_needs = false``). ``--to mvp-0.20``
+    (default, the latest successor) lets the Decider decide the small
+    judgments (learner-text gaps, misconception matching, pattern links,
+    question classification, contamination verdicts), the LLM as fallback,
+    over an mvp-0.19 vault (or an mvp-0.9 to mvp-0.18 vault through the
+    chain; one kill switch per judgment under ``[decider_routes]``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -179,11 +183,15 @@ def upgrade(
         from learnloop.sources_upgrade import upgrade_to_mvp019
 
         result = upgrade_to_mvp019(_root(vault))
+    elif to == "mvp-0.20":
+        from learnloop.sources_upgrade import upgrade_to_mvp020
+
+        result = upgrade_to_mvp020(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or mvp-0.20."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

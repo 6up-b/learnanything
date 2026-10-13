@@ -70,8 +70,8 @@ def test_probe_tie_successor_keeps_every_predecessor():
     # Learner-text gaps' sooner check (mvp-0.16), the proofs route check
     # (mvp-0.17) and canonical sources' answer-key gate (mvp-0.18) and
     # source-first needs (mvp-0.19) followed it and keep it.
-    assert SUCCESSOR_CHAIN[-5] == PROBE_TIE_ALGORITHM_VERSION
-    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19"})
+    assert SUCCESSOR_CHAIN[-6] == PROBE_TIE_ALGORITHM_VERSION
+    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"})
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.
     for versions in (

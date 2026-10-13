@@ -99,6 +99,7 @@ def test_successor_vocabulary():
 
     from learnloop.algorithm_versions import (
         DAILY_PLAN_ALGORITHM_VERSION,
+        DECIDER_TIER1_ALGORITHM_VERSION,
         LATEST_ALGORITHM_VERSION,
         LEARNER_TEXT_GAP_ALGORITHM_VERSION,
         PLACEMENT_VERSIONS,
@@ -116,14 +117,15 @@ def test_successor_vocabulary():
     # The stuck prompt (mvp-0.13), daily-loop DL1's plan (mvp-0.14), router
     # R1's probe ties (mvp-0.15), learner-text gaps' sooner check (mvp-0.16)
     # the proofs-and-explanations route check (mvp-0.17) and canonical
-    # sources' answer-key gate (mvp-0.18) and source-first needs (mvp-0.19)
-    # follow it and keep recurrence groups.
+    # sources' answer-key gate (mvp-0.18), source-first needs (mvp-0.19) and
+    # Tier 1's Decider judgments (mvp-0.20) follow it and keep recurrence groups.
     assert RECURRENCE_GROUP_VERSIONS == {
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
         PROBE_TIE_ALGORITHM_VERSION, LEARNER_TEXT_GAP_ALGORITHM_VERSION, PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
+        DECIDER_TIER1_ALGORITHM_VERSION,
     }
-    assert LATEST_ALGORITHM_VERSION == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION == DECIDER_TIER1_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

@@ -1,4 +1,4 @@
-"""``learnloop upgrade --to mvp-0.18 | mvp-0.19``: the canonical-sources successors.
+"""``learnloop upgrade --to mvp-0.18 | mvp-0.19 | mvp-0.20``: the canonical-sources successors, then Tier 1.
 
 The branch sources/canonical-practice built these as ``mvp-0.15`` and
 ``mvp-0.16`` (placeholder tags) over ``mvp-0.14``; they merged after router
@@ -15,8 +15,13 @@ merge.
   projection equals its predecessor's (a shadow rebuild shows zero deltas).
 * ``mvp-0.19`` (§8.5): intervention needs try the learner's sources before
   generating (kill switch ``source_service.source_first_needs``).
+* ``mvp-0.20`` (Tier 1, the Decider migration, owner decision 2026-10-13):
+  the Decider decides the small judgments ``[decider_routes]`` names, each
+  with its LLM as fallback and its own kill switch
+  (``learnloop.decider_judgments``). It chains here because it is the next
+  link of the chain, not a sources change.
 
-Both change what is served or certified from now on, never the projection's
+Each changes what is served or certified from now on, never the projection's
 meaning for recorded history, so each is a tag change plus an idempotent
 rebuild of the same projection namespace, prepared before the atomic config
 rename (as every successor since mvp-0.9). Each accepts its immediate
@@ -36,6 +41,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from learnloop.algorithm_versions import (
+    DECIDER_TIER1_ALGORITHM_VERSION,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
@@ -78,7 +84,7 @@ def _step(root: Path, *, target: str, predecessor: str, chain_up: Callable[..., 
         chained_notes = list(chained.notes or [])
         if not chained.upgraded:
             return UpgradeResult(
-                upgraded=False, from_version=original, to_version=target,
+                upgraded=False, from_version=original, to_version=target, notes=chained_notes,
                 problems=[
                     problem if _STEP_REFUSAL.match(problem) else f"{predecessor} step refused: {problem}"
                     for problem in chained.problems
@@ -109,4 +115,11 @@ def upgrade_to_mvp019(root: Path, *, clock: Clock | None = None) -> UpgradeResul
                  predecessor=SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, chain_up=upgrade_to_mvp018, clock=clock)
 
 
-__all__ = ["upgrade_to_mvp018", "upgrade_to_mvp019"]
+def upgrade_to_mvp020(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """mvp-0.19 (or earlier, through the chain) -> mvp-0.20: Tier 1, the Decider's judgments."""
+
+    return _step(root, target=DECIDER_TIER1_ALGORITHM_VERSION,
+                 predecessor=SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, chain_up=upgrade_to_mvp019, clock=clock)
+
+
+__all__ = ["upgrade_to_mvp018", "upgrade_to_mvp019", "upgrade_to_mvp020"]

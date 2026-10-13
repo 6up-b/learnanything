@@ -75,9 +75,9 @@ def test_the_route_check_successor_keeps_every_predecessor():
     # Canonical sources' answer-key gate (mvp-0.18) and source-first needs
     # (mvp-0.19, the latest successor, tests/test_mvp018_upgrade.py) followed
     # it and keep the route check.
-    assert SUCCESSOR_CHAIN[-3] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.19"
-    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({"mvp-0.17", "mvp-0.18", "mvp-0.19"})
+    assert SUCCESSOR_CHAIN[-4] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({"mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"})
     # The chain is linear: mvp-0.17 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the route check.
@@ -103,6 +103,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.17": (True, True, True, True, True, True),
         "mvp-0.18": (True, True, True, True, True, True),
         "mvp-0.19": (True, True, True, True, True, True),
+        "mvp-0.20": (True, True, True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -227,7 +228,7 @@ def test_new_vaults_start_at_the_latest_successor_with_the_route_check(tmp_path)
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.19"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.20"
     assert proof_check_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 
