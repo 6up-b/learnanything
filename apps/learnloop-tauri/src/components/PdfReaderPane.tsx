@@ -29,6 +29,7 @@ import type { AnnotationTrail } from "../screens/ReaderScreen";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { RectUnionOverlay } from "./RectUnionOverlay";
 import { acquirePdfDocument } from "./pdfDocumentCache";
+import { pagesToShow } from "./pdfPages";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -149,10 +150,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
 
   // Pages the extraction covers, ascending (block.page is the 0-based index
   // into the full original PDF; pdf.js pages are 1-based).
-  const coveredPages = useMemo(
-    () => [...new Set(blocks.map((b) => b.page))].sort((a, b) => a - b),
-    [blocks],
-  );
+  const coveredPages = useMemo(() => pagesToShow(blocks, doc ? doc.numPages : null), [blocks, doc]);
   const blocksByPage = useMemo(() => {
     const map = new Map<number, ReaderPdfBlockDto[]>();
     for (const block of blocks) {
@@ -981,7 +979,9 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
         }}
       >
         <Faint style={{ fontSize: 11 }}>
-          original pdf · {coveredPages.length} ingested page{coveredPages.length === 1 ? "" : "s"}
+          {blocks.length === 0
+            ? "original pdf"
+            : `original pdf · ${coveredPages.length} ingested page${coveredPages.length === 1 ? "" : "s"}`}
         </Faint>
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
           {findOpen ? (

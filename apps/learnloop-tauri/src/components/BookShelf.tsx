@@ -22,7 +22,8 @@ export function BookShelf({
   loadError = null,
   onRetryLoad,
   onOpenImports,
-  onRetryPending
+  onRetryPending,
+  onRemovePending
 }: {
   sources: SourceLibraryCard[] | null;
   pending: PendingAddDto[];
@@ -38,6 +39,7 @@ export function BookShelf({
   onRetryLoad?: () => void;
   onOpenImports?: () => void;
   onRetryPending?: (entry: PendingAddDto) => void;
+  onRemovePending?: (entry: PendingAddDto) => void;
 }) {
   if (loadError) {
     return (
@@ -99,7 +101,7 @@ export function BookShelf({
       >
         {pending.map((entry) => (
           <li key={entry.batchId}>
-            <PendingCard entry={entry} onRetry={(item) => onRetryPending?.(item)} />
+            <PendingCard entry={entry} onRetry={(item) => onRetryPending?.(item)} onRemove={onRemovePending} />
           </li>
         ))}
         {sources.map((card) => (

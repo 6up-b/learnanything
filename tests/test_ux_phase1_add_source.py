@@ -135,6 +135,9 @@ def test_a_link_is_queued_and_shows_on_the_shelf_while_it_is_fetched(tmp_path):
     pending = shelf["pending"]
     assert [entry["batchId"] for entry in pending] == [item["batchId"]]
     assert pending[0]["statusLine"]["text"] == "Getting this article ready"
+    # Removing it from the shelf cancels the add; it leaves the shelf.
+    call(ctx, "cancel_ingest_batch", {"batchId": item["batchId"]})
+    assert call(ctx, "get_source_library", {})["pending"] == []
 
 
 def test_add_source_with_more_options(tmp_path):

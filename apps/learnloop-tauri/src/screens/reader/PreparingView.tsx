@@ -94,7 +94,10 @@ export function PreparingView({
           Highlights, notes, Ask and questions on each section — available in a minute or two, when the text is ready.
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: manifest ? 0 : "40px 32px" }}>
+      <div
+        className="ll-scroll"
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: manifest ? "18px 32px" : "40px 32px" }}
+      >
         {manifest ? (
           <PdfReaderPane
             fileUrl={convertFileSrc(manifest.fileName ?? "", "llpdf")}
@@ -109,7 +112,9 @@ export function PreparingView({
           />
         ) : manifestLoaded ? (
           <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.textDim }}>It opens here as soon as it is ready.</div>
-        ) : null}
+        ) : (
+          <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.textDim }}>Opening…</div>
+        )}
       </div>
     </div>
   );

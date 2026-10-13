@@ -369,6 +369,17 @@ def test_undo_takes_the_books_questions_back_out(tmp_path):
     _assert_plain(line)
 
 
+def test_while_the_next_build_is_planned_the_card_says_chapters_found(tmp_path):
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    repo, jobs = _jobs(root, fake_services())
+    item = _add(root, jobs, write_book(tmp_path))
+    jobs._ensure_worker = lambda: None  # hold the queue: the planner stays queued
+    request_auto_build(jobs, item["source_id"])
+    line = source_status_line(repo, load_vault(root), item["source_id"])
+    assert line == {"text": "Chapters found", "tone": "working", "action": None, "details": None}
+
+
 # --------------------------------------------------------------------------
 # Plain failure lines (§6.7) and the reading-order scope itself
 # --------------------------------------------------------------------------

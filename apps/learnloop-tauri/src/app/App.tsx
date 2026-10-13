@@ -790,6 +790,7 @@ export function App() {
         setTab("library");
         return;
       }
+      if (item.status === "existing" && item.message) setToast(item.message);
       let card: SourceLibraryCard | undefined;
       try {
         card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);

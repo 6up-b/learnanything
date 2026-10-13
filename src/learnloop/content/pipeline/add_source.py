@@ -962,7 +962,8 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     if latest is None:
         return _health_line(repo, source_id)
     if _active(latest):
-        return _line(f"Getting this {noun} ready", "working")
+        # The text is ready; LearnLoop is choosing what to build (§6.3 states).
+        return _line("Chapters found", "working")
     if latest["status"] in {"failed", "blocked"}:
         error = latest.get("error") or {}
         return _line(f"Questions for this {noun} need another try", "problem", ("build_now", "Retry"),
@@ -1021,7 +1022,11 @@ def pending_adds(repo, *, limit: int = 30) -> list[dict[str, Any]]:
 
     entries: list[dict[str, Any]] = []
     for batch in repo.list_ingest_batches(limit=200):
-        if batch.get("workflow_type") != ADD_SOURCE_WORKFLOW or batch.get("status") == "completed":
+        if (
+            batch.get("workflow_type") != ADD_SOURCE_WORKFLOW
+            or batch.get("status") in {"completed", "cancelled"}
+            or batch.get("cancel_requested")
+        ):
             continue
         jobs = repo.ingest_jobs_for_batch(batch["id"])
         import_job = next((job for job in jobs if job["job_type"] == "import"), None)

@@ -150,6 +150,12 @@ export function LibraryPlace({
             onRetryLoad={() => void library.refetch().catch(() => undefined)}
             onOpenImports={onOpenImports}
             onRetryPending={(entry) => void run({ batchId: entry.batchId, action: "retry" })}
+            onRemovePending={(entry) => {
+              api
+                .cancelIngestBatch(entry.batchId)
+                .then(() => refetchRef.current())
+                .catch((error: unknown) => setNotice(plainError(error).line));
+            }}
           />
         </>
       )}

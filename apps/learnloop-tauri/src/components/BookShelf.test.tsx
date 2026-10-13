@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AiConnectionDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
-import { BookCard } from "./BookCard";
+import { BookCard, PendingCard } from "./BookCard";
 import { BookShelf } from "./BookShelf";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -98,6 +98,39 @@ describe("BookCard", () => {
     render(<BookCard card={card(null, { title: "file:///home/me/books/linear_algebra.pdf" })} onContinue={vi.fn()} onAction={vi.fn()} />);
     expect(screen.queryByText(/file:\/\//)).toBeNull();
     expect(screen.getByText("Linear Algebra")).toBeTruthy();
+  });
+});
+
+describe("PendingCard", () => {
+  it("lets a link that could not be fetched be tried again or removed", () => {
+    const onRetry = vi.fn();
+    const onRemove = vi.fn();
+    const entry = {
+      batchId: "b1",
+      source: "https://example.org/notes",
+      kind: "web",
+      kindNoun: "article",
+      title: "https://example.org/notes",
+      statusLine: { text: "Couldn't reach the page", tone: "problem" as const, action: { kind: "retry" as const, label: "Try again" }, details: "HTTP 503" }
+    };
+    render(<PendingCard entry={entry} onRetry={onRetry} onRemove={onRemove} />);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledWith(entry);
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(onRemove).toHaveBeenCalledWith(entry);
+  });
+
+  it("offers no removal while the link is still being fetched", () => {
+    const entry = {
+      batchId: "b1",
+      source: "https://example.org/notes",
+      kind: "web",
+      kindNoun: "article",
+      title: "https://example.org/notes",
+      statusLine: { text: "Getting this article ready", tone: "working" as const, action: null, details: null }
+    };
+    render(<PendingCard entry={entry} onRetry={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
   });
 });
 

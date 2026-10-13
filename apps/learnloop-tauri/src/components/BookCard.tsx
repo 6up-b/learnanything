@@ -151,11 +151,15 @@ export function BookCard({
 /** A link an Add is still fetching: no card yet, one line, maybe Try again. */
 export function PendingCard({
   entry,
-  onRetry
+  onRetry,
+  onRemove
 }: {
   entry: PendingAddDto;
   onRetry: (entry: PendingAddDto) => void;
+  /** Take a link that could not be fetched off the shelf (cancels its add). */
+  onRemove?: (entry: PendingAddDto) => void;
 }) {
+  const failed = entry.statusLine?.tone === "problem";
   return (
     <article style={{ border: `1px dashed ${COLOR.border}`, borderRadius: 4, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
       <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={entry.title}>
@@ -163,6 +167,11 @@ export function PendingCard({
       </div>
       <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textFaint }}>{entry.kindNoun}</div>
       {entry.statusLine ? <StatusLine line={entry.statusLine} onAction={() => onRetry(entry)} /> : null}
+      {failed && onRemove ? (
+        <button type="button" style={{ ...linkButton, alignSelf: "flex-start", color: COLOR.textDim }} onClick={() => onRemove(entry)}>
+          Remove
+        </button>
+      ) : null}
     </article>
   );
 }
