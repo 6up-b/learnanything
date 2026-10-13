@@ -21,6 +21,12 @@ os.environ.pop("LEARNLOOP_CODEX_CHECKOUT_PATH", None)
 # The ChatGPT-plan sign-in store lives under LEARNLOOP_CONFIG_DIR (isolated
 # above); forcing its file backend keeps every test away from an OS keyring.
 os.environ["LEARNLOOP_CHATGPT_SECRET_STORE"] = "file"
+# Tier 1 (mvp-0.22, the template's version) asks the Decider by default, on the
+# code-default openrouter_decider profile's key: never a real key in a test, so
+# an unfaked Decider is unavailable and its LLM fallback runs (a test that
+# exercises the Decider injects a fake client).
+for _decider_key in ("OPENROUTER_API_KEY", "PERPLEXITY_API_KEY"):
+    os.environ.pop(_decider_key, None)
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

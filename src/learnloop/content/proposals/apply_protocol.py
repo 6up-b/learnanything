@@ -473,6 +473,7 @@ def _perform_side_effect(
             sources=row.get("sources"),
             presentation=bool(row.get("presentation")),
             fields=row.get("fields"),
+            span_support=row.get("span_support") or None,
             clock=clock,
         )
     elif kind == "facet_reword_confirm":
@@ -492,6 +493,7 @@ def _perform_side_effect(
             unresolved=row.get("unresolved") or [],
             meaning_support=row.get("meaning_support") or [],
             message=str(row.get("message") or ""),
+            span_support=row.get("span_support") or {},
             run_id=_run_id_for_patch(repository, patch_id),
             proposal_id=patch_id,
             proposal_item_id=row.get("proposal_item_id"),

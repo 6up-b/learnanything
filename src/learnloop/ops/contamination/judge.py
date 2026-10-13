@@ -1,9 +1,13 @@
-"""The ``leak`` / ``reveal`` judge: one bounded LLM verdict per shortlisted pair.
+"""The ``leak`` / ``reveal`` judge: one bounded verdict per shortlisted pair.
 
 Every verdict appends to ``judgment_ledger``. Its ``input_hash`` addresses the
-judged content (prompt, schema, model settings, judge revision); its id
-(``ctj_`` + a hash of the input hash, the ordered pair identity and the pass)
-names one verdict on one pair. The id is also the paid-work checkpoint: a
+judged content (prompt, schema, model settings, judge revision): the request's
+checkpoint hash; its id (``ctj_`` + a hash of that checkpoint hash, the
+ordered pair and the pass) names one verdict on one pair. At mvp-0.22 a task
+the Decider judges first (Tier 1) also keys its checkpoint on the Decider's
+profile (that task's only: review F6), and its rows (the Decider's and an LLM
+fallback's) carry the prompt's hash as ``input_hash``, so the two form a pair
+for ``learnloop decider agreement``. The id is also the paid-work checkpoint: a
 rerun never pays for a verdict it already has, while changed text, model
 settings or an explicit judge revision get a new id. Two pairs with identical
 texts (two question events with the same tutor reply about one item) are
@@ -24,7 +28,7 @@ candidate, pair, call and retry caps still apply.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Mapping
 from contextlib import closing, nullcontext
 from dataclasses import dataclass, replace
 import json
@@ -37,7 +41,7 @@ from pydantic import Field
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
 from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling
-from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
+from learnloop.config.schema import DEFAULT_DECIDER_PROVIDER, DEFAULT_OUTPUT_TOKENS
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendEstimate, subscription_usage_estimate,
@@ -146,13 +150,27 @@ def judge_settings(vault: LoadedVault, provider: str, model: str | None, revisio
     }
 
 
+def decider_profiles(vault: LoadedVault) -> dict[str, str]:
+    """``{task: the Decider's profile}`` for each leak / reveal task the Decider judges first (Tier 1)."""
+
+    from learnloop.decider_judgments import enabled
+
+    profile = vault.config.ai.routing.tier1_decider or DEFAULT_DECIDER_PROVIDER
+    return {task: profile for task, operation in OPERATIONS.items() if enabled(vault.config, operation)}
+
+
 def build_requests(
     candidates: Iterable[Candidate], settings: dict[str, Any],
     *, repeats: Collection[tuple[str, str, str, str, str]] = (),
+    deciders: Mapping[str, str] | None = None,
 ) -> list[JudgeRequest]:
     """Every pass-1 request, then a pass-2 request for each pair in ``repeats``.
 
-    Repeats come last, so caps that cut a run short spend on decisions first."""
+    Repeats come last, so caps that cut a run short spend on decisions first.
+    ``deciders`` (:func:`decider_profiles`): a task the Decider judges first
+    keys its requests on the Decider's profile too, so a verdict of the other
+    judge is never reused for it; any other task's requests keep the keys
+    they had before Tier 1 (review F6)."""
 
     schema = ContaminationJudgment.model_json_schema()
     output_tokens = int(settings.get("output_tokens") or DEFAULT_OUTPUT_TOKENS)
@@ -163,10 +181,13 @@ def build_requests(
             _TITLES[candidate.detector], version,
             {"instructions": _INSTRUCTIONS[candidate.detector], "context": candidate.context},
         )
-        key = content_key({
+        identity: dict[str, Any] = {
             "prompt": prompt, "schema": schema, "settings": settings,
             "output_tokens": output_tokens,
-        })
+        }
+        if deciders and candidate.task in deciders:
+            identity["decider_profile"] = deciders[candidate.task]
+        key = content_key(identity)
         requests.append(JudgeRequest(candidate, prompt, version, key, output_tokens=output_tokens))
     wanted = set(repeats)
     requests += [replace(request, pass_index=REPEAT_PASS) for request in requests
@@ -243,11 +264,15 @@ def run_judgments(
     price_per_million: float | None,
     run_id: str,
     on_saved: Callable[[JudgeRequest], None],
+    vault: LoadedVault | None = None, client_factory: Callable[[], Any] | None = None,
 ) -> None:
     """Judge each pending pair once; raise on cancellation, caps or provider failure.
 
     A paid verdict is ledgered before the next request is admitted, so an
-    interrupted run resumes without paying for it again.
+    interrupted run resumes without paying for it again. With ``vault`` (the
+    Tier-1 switch for the pair's task is on at mvp-0.22) the Decider judges
+    first and the LLM judge (``client``, else ``client_factory()`` on first
+    use) only takes a pair it gave no answer.
     """
 
     usage: dict[str, Any] = {}
@@ -286,9 +311,32 @@ def run_judgments(
                 }, sort_keys=True)
         repository.record_model_event(action, event, owner_kind="contamination_report", owner_id=run_id)
 
+    from learnloop.decider_judgments import enabled as decider_enabled
+    from learnloop.ops.contamination import decider
+
     with observe_model_calls(observer):
         for current in pending:
             candidate = current.candidate
+            decider_first = vault is not None and decider_enabled(vault.config, OPERATIONS[candidate.task])
+            if decider_first:
+                # mvp-0.22 (Tier 1): the Decider judges first; the LLM judge
+                # below is its fallback.
+                subject = (candidate.left_kind, candidate.left_id)
+                calls_before = budget.used.calls
+                decided = decider.judge(
+                    vault, repository, current, budget, run_id=run_id,
+                    candidates=int(subject not in seen_subjects), pairs=int(candidate.question not in seen_pairs),
+                )
+                if budget.used.calls > calls_before:
+                    seen_subjects.add(subject)
+                    seen_pairs.add(candidate.question)
+                if decided:
+                    on_saved(current)
+                    continue
+            if client is None and client_factory is not None:
+                client = client_factory()
+            if client is None:
+                raise AIProviderUnavailable("Contamination LLM fallback unavailable")
             subject = (candidate.left_kind, candidate.left_id)
             attempts = 0
             truncation = TruncationRetry(current.output_tokens, role=JUDGE_ROUTE,
@@ -305,7 +353,9 @@ def run_judgments(
                 )
                 usage.clear()
                 try:
-                    with budget.request(request) as charge:
+                    if subscription and vault is not None:
+                        request = replace(request, total_tokens=0, estimated_usd=0.0)
+                    with budget.request(request, subscription_route=subscription) as charge:
                         seen_subjects.add(subject)
                         seen_pairs.add(candidate.question)
                         bound = nullcontext() if subscription else single_request()
@@ -322,7 +372,8 @@ def run_judgments(
                             else:
                                 cost = max(usage.get("cost") or 0.0,
                                            tokens * (price_per_million or 0.0) / 1_000_000)
-                            charge.reconcile(total_tokens=tokens, estimated_usd=cost)
+                            charge.reconcile(total_tokens=0 if subscription and vault is not None else tokens,
+                                             estimated_usd=0.0 if subscription and vault is not None else cost)
                     verdict = ContaminationJudgment.model_validate(verdict)
                 except AIInterrupted:
                     raise
@@ -344,7 +395,9 @@ def run_judgments(
                         left_kind=candidate.left_kind, left_id=candidate.left_id,
                         right_kind=candidate.right_kind, right_id=candidate.right_id,
                         judge="llm", judge_model=model, prompt_version=current.prompt_version,
-                        input_hash=current.input_hash,
+                        # A fallback pairs with the Decider's row on the prompt;
+                        # otherwise the checkpoint hash, as before Tier 1 (F6).
+                        input_hash=content_key({"prompt": current.prompt}) if decider_first else current.input_hash,
                         verdict=ledger_verdict(candidate.task, verdict.verdict),
                         rationale=json.dumps({
                             "result": verdict.model_dump(mode="json"),

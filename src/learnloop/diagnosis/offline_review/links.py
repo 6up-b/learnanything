@@ -52,8 +52,8 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
             review_rows(scratch, "review_targets", where={"run_id": run_id}),
         )["links"]
         for row in scratch.execute(
-            "SELECT left_id, right_id, judge_model, prompt_version, input_hash, verdict, rationale "
-            "FROM judgment_ledger WHERE task = 'same_cause' AND judge = 'llm' "
+            "SELECT left_id, right_id, judge_model, prompt_version, input_hash, verdict, rationale, judge "
+            "FROM judgment_ledger WHERE task = 'same_cause' AND judge IN ('llm', 'decider') "
             "AND left_kind = 'attempt' AND right_kind = 'attempt' ORDER BY created_at, id"
         ):
             if revision_of({"rationale": row[6]}) != revisions.get(str(row[0])):
@@ -61,7 +61,7 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
                 continue
             candidates.append(
                 {
-                    "left_id": row[0], "right_id": row[1], "judge": "llm", "judge_model": row[2],
+                    "left_id": row[0], "right_id": row[1], "judge": row[7], "judge_model": row[2],
                     "prompt_version": row[3], "input_hash": row[4], "verdict": row[5],
                     "rationale": row[6] or "",
                 }

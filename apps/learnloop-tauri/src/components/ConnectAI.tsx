@@ -234,6 +234,7 @@ export function ConnectAISheet({
             <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10 }}>
               What leaves this computer: passages of the books you add, and your answers, go to the AI you connect. Your
               library stays here. You can choose never to send a book to an AI when you add it.
+              {connection?.deciderNote ? ` ${connection.deciderNote}` : null}
             </div>
           </>
         ) : null}

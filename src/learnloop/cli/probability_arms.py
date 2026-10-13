@@ -282,10 +282,7 @@ def judge_readiness(loaded, *, probe: bool = False, http=None) -> dict[str, Any]
             "billing": ("subscription" if profile is not None and is_subscription_transport(profile=profile)
                         else "metered" if profile is not None else None),
             "falls_back": judge == "llm",
-            "consumer_status": (
-                ("on" if field_on else "off (field.enabled and field.llm_probability_enabled)")
-                if consumer == "llm_probability" else "no consumer until router R2"
-            ),
+            "consumer_status": _consumer_status(config, consumer, field_on=field_on),
             "disclosure": disclosures[task]["disclosure"],
         }
         if probe and profile is not None and profile.type == "decider":
@@ -297,6 +294,24 @@ def judge_readiness(loaded, *, probe: bool = False, http=None) -> dict[str, Any]
                 entry["probe"] = {"reachable": False, "checked": True, "message": str(exc)}
         routes.append(entry)
     return {"version": 1, "routes": routes}
+
+
+def _consumer_status(config, consumer: str, *, field_on: bool) -> str:
+    """Whether the route's consumer sends anything now (review F5: the Tier-1 routes are live)."""
+
+    if consumer == "llm_probability":
+        return "on" if field_on else "off (field.enabled and field.llm_probability_enabled)"
+    if consumer == "tier1":
+        from learnloop.decider_judgments import CONTENT_TASKS, SERVING_TASKS, enabled
+
+        live = [task for task in (*SERVING_TASKS, *CONTENT_TASKS)
+                if not task.startswith("learner_gap_") and enabled(config, task)]
+        return f"on ({', '.join(live)})" if live else "off (mvp-0.22 and its [decider_routes] switches)"
+    if consumer == "learner_text_gaps":
+        gaps = config.learner_text_gaps
+        return ("on" if gaps.enabled and gaps.decider_enabled
+                else "off (learner_text_gaps.enabled and learner_text_gaps.decider_enabled)")
+    return "no consumer until router R2"
 
 
 READINESS_STATE = "LearnLoop readiness check. This text contains no learner data."

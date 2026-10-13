@@ -76,6 +76,8 @@ from learnloop.diagnosis.offline_review.planted import (
     request_planted_scenario,
     scenario_request,
 )
+from learnloop.decider_judgments import enabled as decider_enabled
+from learnloop.diagnosis.offline_review import decider_links
 from learnloop.diagnosis.offline_review.spend import OUTPUT_ALLOWANCE, ReviewSpend, admitted_output_limit, is_subscription_client
 from learnloop.diagnosis.split.context import (
     assemble_diagnosis_context,
@@ -446,6 +448,13 @@ def plan_review(
     if options.judge:
         calls["diagnosis_judge"] = targets * 4 + planted_cases
         tokens["diagnosis_judge"] = calls["diagnosis_judge"] * (8_000 + OUTPUT_ALLOWANCE["diagnosis_judge"])
+        if decider_enabled(vault.config, decider_links.LINK_TASK):
+            # mvp-0.22 (Tier 1, review F7): the Decider asks once per labelled
+            # link in each of a target's two link passes. The labels are known
+            # only after diagnosis, so each pass is allowed the history's error
+            # limit (the earlier failures a diagnosis sees); no output allowance.
+            calls[DECIDER_ROUTE] = targets * 2 * max(1, int(options.settings.history_error_limit))
+            tokens[DECIDER_ROUTE] = calls[DECIDER_ROUTE] * 8_000
     calls["diagnosis_generator"] = (planted_cases if options.generate_planted and options.planted_manifest is None else 0) + probe_grades
     tokens["diagnosis_generator"] = calls["diagnosis_generator"] * (3_000 + OUTPUT_ALLOWANCE["diagnosis_generator"])
     if "c" in options.arms:
@@ -577,6 +586,46 @@ def vault_content_hash(vault: LoadedVault) -> str:
     )
 
 
+#: The Decider's route in a review run: its pattern-link judgments at mvp-0.22 (Tier 1).
+DECIDER_ROUTE = "tier1_decider"
+
+
+def decider_route_profile(vault: LoadedVault) -> dict[str, Any] | None:
+    """The Decider's settings a run prices and binds, from config only; None when links stay with the LLM.
+
+    Review F7: the dry run's estimate, the run's admission and its resume
+    binding name the Decider's route like every other route the run calls.
+    """
+
+    if not decider_enabled(vault.config, decider_links.LINK_TASK):
+        return None
+    from learnloop.ai.providers.decider import resolved_decider_settings
+
+    name = provider_for_task(vault.config, DECIDER_ROUTE).provider_name  # type: ignore[arg-type]
+    profile = vault.config.ai.providers.get(name)
+    if profile is None or profile.type != "decider":
+        return {"provider": name or None, "provider_type": getattr(profile, "type", None), "model": None}
+    try:
+        settings = resolved_decider_settings(profile).as_dict()
+    except AIProviderUnavailable:
+        settings = {}
+    return {"provider": name, "provider_type": profile.type, "model": profile.model, **settings}
+
+
+def register_decider_route(spend: ReviewSpend, profile: Mapping[str, Any] | None) -> None:
+    """Price the Decider's route at its listed input price (no output allowance), as each request is."""
+
+    if profile is None:
+        return
+    from learnloop.ai.review_spend import RouteInfo
+
+    price = profile.get("price_per_million_input")
+    spend.routes[DECIDER_ROUTE] = RouteInfo(
+        DECIDER_ROUTE, profile.get("provider"), profile.get("model"), "metered",
+        float(price) if price is not None else None, "listed_input_price" if price is not None else "unknown", 0,
+    )
+
+
 def route_bindings(clients: ReviewClients, config: Any | None = None) -> dict[str, dict[str, Any] | None]:
     """Per review route, the settings that change what its requests produce.
 
@@ -609,7 +658,7 @@ def run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]:
     return {
         "vault_root": str(Path(vault.root).resolve()),
         "vault_content_hash": vault_content_hash(vault),
-        "routes": route_bindings(clients, vault.config),
+        "routes": {**route_bindings(clients, vault.config), DECIDER_ROUTE: decider_route_profile(vault)},
         "prompt_versions": prompt_versions(),
     }
 
@@ -1331,17 +1380,24 @@ class ReviewRun:
                 rationale = json.loads(row[0])
             except (TypeError, ValueError):
                 continue
+            if task == "same_cause_pass" and bool(rationale.get("decider_enabled")) != self._links_tier1():
+                # A pass judged by the other judge (the Tier-1 switch moved): judged again.
+                continue
             if rationale.get("pass") == pass_index and rationale.get("revision") == revision:
                 return True
         return False
 
-    def _append(self, connection: sqlite3.Connection, **values: Any) -> None:
-        append_judgment(
-            connection,
-            judge="llm",
-            judge_model=str(getattr(self.clients.judge, "model", None) or getattr(self.clients.judge, "provider_name", None) or "unknown"),
-            **values,
-        )
+    def _judge_model(self) -> str:
+        return str(getattr(self.clients.judge, "model", None) or getattr(self.clients.judge, "provider_name", None) or "unknown")
+
+    def _links_tier1(self) -> bool:
+        """mvp-0.22 (Tier 1): the Decider judges pattern links, the LLM its fallback."""
+
+        return decider_enabled(self.vault.config, decider_links.LINK_TASK)
+
+    def _append(self, connection: sqlite3.Connection, *, judge: str = "llm", judge_model: str | None = None,
+                **values: Any) -> None:
+        append_judgment(connection, judge=judge, judge_model=judge_model or self._judge_model(), **values)
 
     def _item_view(self, item: PracticeItem) -> dict[str, Any]:
         expected = item.expected_answer
@@ -1354,8 +1410,11 @@ class ReviewRun:
         if not self.options.judge:
             return
         if self.clients.judge is None:
-            self.notes["judge"] = "skipped: no ready diagnosis_judge route"
-            return
+            if not self._links_tier1():
+                self.notes["judge"] = "skipped: no ready diagnosis_judge route"
+                return
+            # The Decider still judges pattern links; the LLM judgments wait.
+            self.notes["judge"] = "links only (the Decider): no ready diagnosis_judge route"
         planted = self.planted_cases()
         targets = self._rows("review_targets", order_by="position")
         for index, target in enumerate(targets):
@@ -1365,7 +1424,7 @@ class ReviewRun:
             answer = self.target_answer(target, planted)
             judged_arms = list(diagnoses)
             revision = judging.diagnosis_judgment_revision(diagnoses)
-            if len(judged_arms) >= 2:
+            if len(judged_arms) >= 2 and self.clients.judge is not None:
                 for pass_index in (0, 1):
                     if self._ledger_has("diagnosis_best", "review_target", target["id"], pass_index, revision):
                         continue
@@ -1422,7 +1481,7 @@ class ReviewRun:
                             rationale=judging.stable_json({"pass": pass_index, "revision": revision, "best_arm": best_arm}),
                         )
             self._judge_links(target, rows, answer, item, planted, index)
-            if target["kind"] == "planted":
+            if target["kind"] == "planted" and self.clients.judge is not None:
                 self._judge_planted(target, rows, planted[target["attempt_id"]], item, answer, index)
 
     def _judge_links(self, target, rows, answer, item, planted, index) -> None:
@@ -1456,9 +1515,26 @@ class ReviewRun:
                     for label, cited in labels.items()
                 },
             )
-            try:
+            def llm_links(prompt: str = prompt) -> judging.LinkJudgment:
+                if self.clients.judge is None:
+                    raise AIProviderUnavailable("no ready diagnosis_judge route")
                 with self.paid("diagnosis_judge", "diagnosis_link_judgment", stage="judge_links", input_tokens=estimate_tokens(prompt), subject_id=target["id"]):
-                    verdict = judging.request_link_judgment(self.clients.judge, prompt)
+                    return judging.request_link_judgment(self.clients.judge, prompt)
+
+            producers: decider_links.Producers = {}
+            tier1 = self._links_tier1()
+            try:
+                if tier1:
+                    # mvp-0.22 (Tier 1): the Decider decides each link; the
+                    # LLM's batch call only when it gave no answer for one.
+                    verdict, producers = decider_links.judge_links(
+                        self.vault, self.repository, self.spend, prompt, labels, target["attempt_id"], llm_links,
+                        llm_model=self._judge_model(),
+                        admit=lambda route, purpose, tokens: self.paid(
+                            route, purpose, stage="judge_links", input_tokens=tokens, subject_id=target["id"]),
+                    )
+                else:
+                    verdict = llm_links()
             except (AIInterrupted, SpendLimitExceeded):
                 raise
             except (AIProviderUnavailable, ValueError) as exc:
@@ -1470,16 +1546,24 @@ class ReviewRun:
                     cited = labels.get(row.label)
                     if cited is None:
                         continue
+                    metadata = {"pass": pass_index, "revision": revision, "reason": row.reason, "arms": sorted(set(links[cited]["arms"])), "relations": sorted({str(value) for value in links[cited]["relations"]})}
+                    producer: dict[str, Any] = {}
+                    judge, judge_model, probabilities = producers.get(row.label, ("llm", "", {}))
+                    if judge == "decider":
+                        # The marks T1's recurrence groups require before a
+                        # Decider link has authority (mvp-0.22 and later only).
+                        metadata.update(decider_route=decider_links.LINK_TASK, algorithm_version=self.vault.config.algorithms.algorithm_version, probabilities=probabilities)
+                        producer = {"judge": "decider", "judge_model": judge_model}
                     self._append(
                         connection, task="same_cause", left_kind="attempt", left_id=target["attempt_id"],
-                        right_kind="attempt", right_id=cited,
+                        right_kind="attempt", right_id=cited, **producer,
                         prompt_version=judging.LINK_JUDGE_PROMPT_VERSION, input_hash=digest, verdict=row.verdict,
-                        rationale=judging.stable_json({"pass": pass_index, "revision": revision, "reason": row.reason, "arms": sorted(set(links[cited]["arms"])), "relations": sorted({str(value) for value in links[cited]["relations"]})}),
+                        rationale=judging.stable_json(metadata),
                     )
                 self._append(
                     connection, task="same_cause_pass", left_kind="attempt", left_id=target["attempt_id"],
                     prompt_version=judging.LINK_JUDGE_PROMPT_VERSION, input_hash=digest, verdict="judged",
-                    rationale=judging.stable_json({"pass": pass_index, "revision": revision, "links": len(labels)}),
+                    rationale=judging.stable_json({"pass": pass_index, "revision": revision, "links": len(labels), **({"decider_enabled": True} if tier1 else {})}),
                 )
 
     def _judge_planted(self, target, rows, case: PlantedCase, item, answer, index) -> None:
@@ -1790,6 +1874,7 @@ def run_review(
     ):
         if client is not None:
             spend.register(route, client)
+    register_decider_route(spend, decider_route_profile(vault))
     resuming = (Path(run_dir) / RUN_FILE).exists()
     binding = run_binding(vault, clients)
     if resuming:

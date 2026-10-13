@@ -18,7 +18,10 @@ from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transpo
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.cli.embeddings import _cancellation
 from learnloop.db.repositories import Repository
+from learnloop.decider_judgments import VERSION as DECIDER_VERSION
+from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.field.classification import PROMPT_VERSION, TASK, classify_missing_questions
+from learnloop.field.decider import Classifier
 from learnloop.field.signals import classification_input
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import learning_object_facet_union
@@ -74,9 +77,14 @@ def classify_questions(
         # As T8's success-head paid steps load (cli.field._load_for_step): a dry
         # run reads only the vault TOML, a paid run loads keys like the app.
         loaded = load_vault(vault, load_environment=not dry_run)
+        # mvp-0.22 (Tier 1): the Decider classifies; the configured LLM
+        # classifier is its fallback, so it may be left unset.
+        migrated = decider_enabled(loaded.config, TASK)
         route = loaded.config.ai.routing.field_question_classifier
         profile = loaded.config.ai.providers.get(route) if route else None
-        if profile is None or not profile.model:
+        if profile is not None and not profile.model:
+            profile = None
+        if profile is None and not migrated:
             raise ValueError("Configure an explicit ai.routing.field_question_classifier with a model")
         if output_tokens is None:
             output_tokens = output_budget(loaded.config, "field_question_classifier", provider=route)
@@ -84,7 +92,7 @@ def classify_questions(
         # routes keep the physical-call bound. Codex turns cannot guarantee it;
         # they are billed to the subscription and only estimate cost.
         subscription = is_subscription_transport(profile=profile)
-        if profile.type not in METERED_ROUTE_TYPES and not subscription:
+        if profile is not None and profile.type not in METERED_ROUTE_TYPES and not subscription:
             raise ValueError(
                 "Classification requires an openai_chat/openrouter route (bounded physical "
                 "requests) or a Codex route (subscription, estimated cost)"
@@ -142,6 +150,8 @@ def classify_questions(
                     isolated=True,
                 )
             raw = result.model_dump(mode="json")
+            if migrated:
+                raw["_model"] = str(getattr(client, "model", None) or (profile.model if profile else "unknown"))
             # Preserve invalid ID verdicts in the ledger, but never cache them.
             if any(lo not in loaded.learning_objects for lo in raw["lo_ids"]) or any(
                 f not in loaded.evidence_facets for f in raw["facets"]
@@ -149,9 +159,11 @@ def classify_questions(
                 raw["_invalid_mapping"] = True
             return raw
 
+        decider = Classifier(loaded, repository, catalog, prompt) if migrated else None
         with _cancellation() as stop:
             report = classify_missing_questions(
-                repository, events, model=profile.model, classify=classify,
+                repository, events, model=DECIDER_VERSION if migrated else profile.model, classify=classify,
+                decider=decider,
                 estimate_per_question=SpendEstimate(
                     calls=1, total_tokens=tokens,
                     estimated_usd=None if price_per_million is None else tokens * price_per_million / 1_000_000,

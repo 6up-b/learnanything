@@ -87,6 +87,24 @@ describe("ConnectAISheet", () => {
     expect(onConnected).toHaveBeenCalledWith(CONNECTED);
   });
 
+  // Tier 1 (the Decider landing): an OpenRouter key also lets the Decider's
+  // small judgments reach Perplexity; the connect view's "What leaves this
+  // computer" says so, as the one OK's sentence and Settings do.
+  it("names the Decider's recipient under What leaves this computer", async () => {
+    const note =
+      "With an OpenRouter key, LearnLoop also asks Perplexity, through OpenRouter, short questions about your answers and questions (whether a mix-up or a gap is one it already knows) and about the book passages behind a reworded skill.";
+    api.getAiConnection.mockResolvedValue({ ...BASE, deciderNote: note });
+    open();
+    expect(await screen.findByText(/What leaves this computer/)).toBeTruthy();
+    expect(screen.getByText(/What leaves this computer/).textContent).toContain(note);
+  });
+
+  it("says nothing about the Decider when none of its routes is on", async () => {
+    api.getAiConnection.mockResolvedValue({ ...BASE, deciderNote: null });
+    open();
+    expect((await screen.findByText(/What leaves this computer/)).textContent).not.toContain("Perplexity");
+  });
+
   it("puts Continue with ChatGPT first and connects straight away when signed in", async () => {
     api.getAiConnection.mockResolvedValue({ ...BASE, chatgptSignedIn: true });
     api.connectAi.mockResolvedValue(CONNECTED);

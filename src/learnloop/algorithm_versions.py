@@ -240,6 +240,22 @@ ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.20"
 # rules (mvp-0.20).
 VOI_STOPPING_ALGORITHM_VERSION = "mvp-0.21"
 
+# mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13), on top
+# of mvp-0.21 (the chain stays linear: mvp-0.22 means everything mvp-0.21
+# means PLUS this): the Decider, a fast typed decision model, decides the
+# small judgments ``[decider_routes]`` names (learner-text gap pairs,
+# "needed?" and kind; misconception matching; the review's pattern links;
+# question classification; contamination leak and reveal verdicts). Each
+# judgment's LLM is its fallback when the Decider is unavailable, refused for
+# spend, failing or tied, and each has its own kill switch (false: that
+# judgment's mvp-0.21 path). It changes what is served from now on (gaps
+# created, misconceptions matched, links); recorded history keeps its meaning
+# and a shadow rebuild shows zero deltas. ``learnloop.decider_judgments``.
+# The branch built it as mvp-0.20 (a placeholder) and it was relabelled
+# mvp-0.22 when it merged after the route rules (mvp-0.20) and
+# value-of-information stopping (mvp-0.21).
+DECIDER_TIER1_ALGORITHM_VERSION = "mvp-0.22"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -261,6 +277,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     ROUTE_RULES_ALGORITHM_VERSION,
     VOI_STOPPING_ALGORITHM_VERSION,
+    DECIDER_TIER1_ALGORITHM_VERSION,
 )
 
 
@@ -345,6 +362,10 @@ ROUTE_RULES_VERSIONS: frozenset[str] = successors_from(ROUTE_RULES_ALGORITHM_VER
 # successor keeps both; gates must use this set, never equality against
 # VOI_STOPPING_ALGORITHM_VERSION.
 VOI_STOPPING_VERSIONS: frozenset[str] = successors_from(VOI_STOPPING_ALGORITHM_VERSION)
+
+# Versions whose small judgments the Decider decides (Tier 1, behind one
+# ``decider_routes`` switch per judgment).
+DECIDER_TIER1_VERSIONS: frozenset[str] = successors_from(DECIDER_TIER1_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
