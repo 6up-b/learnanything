@@ -823,20 +823,14 @@ class GradingCallPlan:
     calls: int
     prompt_version: str | None = None
     estimated_input_tokens_per_call: int = 0
-    #: ``mvp-0.17``: the proof-like reading and route check a blind grade adds
-    #: on its own spend route (review F3); None when it cannot run.
-    proof_check: Any = None
 
     def as_dict(self) -> dict[str, Any]:
-        payload = {
+        return {
             "kind": self.kind,
             "calls": self.calls,
             "prompt_version": self.prompt_version,
             "estimated_input_tokens_per_call": self.estimated_input_tokens_per_call,
         }
-        if self.proof_check is not None:
-            payload["proof_check"] = self.proof_check.as_dict()
-        return payload
 
 
 def plan_grading_calls(
@@ -845,16 +839,14 @@ def plan_grading_calls(
     draft: AttemptDraft,
     *,
     clock: Clock | None = None,
-    grader_model: str | None = None,
 ) -> GradingCallPlan:
     """What the practice door would send to a grader for ``draft`` (read-only).
 
     The same decisions as the completion doors, in the same order: an empty
     stuck answer and an unambiguous option letter make no call; otherwise the
     blind (split) or joint prompt is assembled exactly as it would be sent and
-    its input tokens estimated, once per sample. A blind grade at ``mvp-0.17``
-    also plans the route check's calls (``grader_model`` picks its route, as
-    the live door does). Raises like the doors on an invalid draft.
+    its input tokens estimated, once per sample. Raises like the doors on an
+    invalid draft.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
@@ -880,8 +872,6 @@ def plan_grading_calls(
     if split_grading_active(vault):
         from learnloop.attempts.blind_grading import blind_grading_prompt
 
-        from learnloop.attempts.proof_check import plan_proof_check, proof_check_active
-
         blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
         return GradingCallPlan(
             kind="blind",
@@ -889,14 +879,6 @@ def plan_grading_calls(
             prompt_version=blind.prompt_version,
             estimated_input_tokens_per_call=estimated_prompt_tokens(
                 blind_grading_prompt(blind.context)
-            ),
-            proof_check=(
-                plan_proof_check(
-                    vault, repository, item=item, rubric=rubric,
-                    learner_answer_md=draft.learner_answer_md, grader_model=grader_model,
-                )
-                if proof_check_active(vault)
-                else None
             ),
         )
     from learnloop.attempts.ai_contracts import grading_prompt_version
@@ -1185,7 +1167,6 @@ def complete_codex_graded_attempt(
     grader_identity: tuple[str, str] | None = None,
     manual_review_override: str | None = None,
     unverified_criterion_ids: Iterable[str] = (),
-    clarification_override: dict[str, Any] | None = None,
     grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> AttemptResult:
@@ -1223,8 +1204,8 @@ def complete_codex_graded_attempt(
     unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
     if unverified:
         # PF-c: the attempt's grade is over the assessed criteria only. With
-        # nothing assessed and nothing validated (mvp-0.17, re-review F9) it is
-        # the grader's own, held for review.
+        # nothing assessed and nothing validated (a hold: mvp-0.17's route
+        # check, mvp-0.18's own-route rule) it is the grader's own.
         validated = replace(
             validated,
             rubric_score=assessed_rubric_score(
@@ -1235,11 +1216,6 @@ def complete_codex_graded_attempt(
                 answer_validated=not grade_held_for_review,
             ),
         )
-    if clarification_override and validated.clarification is None:
-        # mvp-0.17: a question the route check licensed (a dispute that turns
-        # on what the learner meant). The grader's own question, if it asked
-        # one, wins: one question per attempt.
-        validated = replace(validated, clarification=dict(clarification_override))
     manual_review_reason = manual_review_override or validated.manual_review_reason
     result = apply_attempt(
         vault,
@@ -1347,7 +1323,8 @@ def replay_existing_attempt(
     )
     error_type = attempt.get("error_type")
     blind_record = repository.latest_blind_grade_record(attempt["id"])
-    from learnloop.attempts.proof_check import record_held_for_review
+    from learnloop.held_grades import record_held_for_review
+
     return apply_attempt(
         vault,
         repository,
@@ -1386,8 +1363,8 @@ def replay_existing_attempt(
                 else grader_identity
             ),
             unverified_criterion_ids=unverified,
-            # mvp-0.17 (re-review F9): a grade the route check held for review
-            # replays held, from the record it was written with.
+            # A grade held for review (mvp-0.17's route check, mvp-0.18's
+            # own-route rule) replays held, from the record it was written with.
             grade_held_for_review=record_held_for_review(blind_record),
         ),
         clock=clock,
@@ -1521,8 +1498,11 @@ def _blind_grading_plan(
     attached unless ``diagnosis.grading_support`` is off (its kill switch,
     which restores the mvp-2.0 blind prompt exactly). ``stuck`` (mvp-0.13)
     tells the grader the answer came from "I'm stuck" and asks for its
-    reading; an ordinary answer's context is unchanged. The calibration
-    identity is the base grader's: the scoring rules are the same.
+    reading; an ordinary answer's context is unchanged, and so is the
+    calibration identity (the scoring rules are the same). At mvp-0.18 the
+    policy carries the own-route rules (kill switch ``proof_check.enabled``),
+    which change the scoring rules, so they also name the calibration
+    identity (``+own-route-v1``).
     """
 
     from learnloop.attempts.blind_grading import (
@@ -1532,28 +1512,32 @@ def _blind_grading_plan(
     )
     from learnloop.attempts.grading_support import (
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
+        ROUTE_RULES_SUFFIX,
         reference_policy,
+        route_rules_active,
     )
     from learnloop.diagnosis.diagnostic_augmentation import (
         diagnostic_verifier_observations,
     )
 
     support = bool(getattr(getattr(vault.config, "diagnosis", None), "grading_support", True))
+    route_rules = support and route_rules_active(vault)
     blind_context = blind_context_from_grading_context(
         context,
         verifier_observations=diagnostic_verifier_observations(
             context.learner_answer_md, context.expected_answer
         ),
-        reference_policy=reference_policy(item, context.learner_answer_md) if support else None,
+        reference_policy=(
+            reference_policy(item, context.learner_answer_md, route_rules=route_rules) if support else None
+        ),
         answer_prompt=stuck_answer_prompt() if stuck else None,
     )
+    calibration = REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION if support else BLIND_CALIBRATION_PROMPT_VERSION
     return _BlindGradingPlan(
         context=blind_context,
         prompt_version=blind_prompt_version(blind_context),
         context_hash=blind_grading_context_hash(blind_context),
-        calibration_prompt_version=(
-            REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION if support else BLIND_CALIBRATION_PROMPT_VERSION
-        ),
+        calibration_prompt_version=f"{calibration}{ROUTE_RULES_SUFFIX}" if route_rules else calibration,
     )
 
 
@@ -1665,29 +1649,15 @@ def _complete_blind_graded_attempt(
         gated_review_reason,
         grade_uncertainty_signal,
         request_blind_grading_run,
+        revalidated_support,
     )
+    from learnloop.outcome_contract import grade_held_for_review
 
     item = vault.practice_items[draft.practice_item_id]
     sample_count = _blind_sample_count(vault)
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
-    from learnloop.attempts.proof_check import (
-        checked_calibration_prompt_version,
-        checked_run,
-        is_held_for_review,
-        record_route_check_judgment,
-    )
-
-    # mvp-0.17: on a proof-like item, the independent route check and its
-    # gate (a no-op below mvp-0.17 or with proof_check.enabled = false).
-    run = checked_run(
-        run, vault, repository, item=item, rubric=rubric,
-        learner_answer_md=draft.learner_answer_md, grader_model=_client_model(ai_client),
-        created_at=utc_now_iso(clock),
-        clarification_exchange=blind.context.clarification_exchange,
-    )
-    proof_result = run.proof_check
     try:
         validated = validate_blind_grading_proposal(
             run.proposal,
@@ -1710,8 +1680,6 @@ def _complete_blind_graded_attempt(
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
     record = validated.as_record()
-    from learnloop.attempts.proof_check import revalidated_support
-
     # held-grade-evidence F1: the shortfall over the grade validation kept.
     support = revalidated_support(run.grading_support, record, rubric)
     family = family_key(vault, item)
@@ -1730,15 +1698,10 @@ def _complete_blind_graded_attempt(
         prior_fractions=prior_fractions,
         family=family,
     )
-    # mvp-0.17 (review F4): a route-checked grade is calibrated under its own
-    # identity; a grade the grader produced alone keeps the base one.
-    calibration_prompt_version = checked_calibration_prompt_version(
-        blind.calibration_prompt_version, run.grading_support
-    )
     record.update(
         prompt_version=run.prompt_version,
         practice_item_id=item.id,
-        calibration_prompt_version=calibration_prompt_version,
+        calibration_prompt_version=blind.calibration_prompt_version,
         calibration_output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
         samples=run.samples,
         grading_support=support,
@@ -1749,7 +1712,7 @@ def _complete_blind_graded_attempt(
         record[STUCK_READING_KEY] = verified_stuck_reading(
             run.stuck_reading, draft.learner_answer_md
         )
-    identity = (calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
+    identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
     with repository.atomic():
         result = complete_codex_graded_attempt(
             vault,
@@ -1763,16 +1726,11 @@ def _complete_blind_graded_attempt(
             grader_identity=identity,
             manual_review_override=review_override,
             unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
-            clarification_override=proof_result.clarification if proof_result is not None else None,
-            grade_held_for_review=is_held_for_review(support),
+            # mvp-0.18: the own-route rule held it (the record half of THE
+            # held predicate; the attempt step evaluates the rest in flight).
+            grade_held_for_review=grade_held_for_review(support),
             clock=clock,
         )
-        if proof_result is not None and proof_result.judgment is not None:
-            # The route check's agreement or disagreement, with the grade.
-            record_route_check_judgment(
-                repository.connection(), attempt_id=attempt_id,
-                judgment=proof_result.judgment, created_at=utc_now_iso(clock),
-            )
         repository.insert_blind_grade_record(
             attempt_id=attempt_id,
             agent_run_id=agent_run_id,

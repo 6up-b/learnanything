@@ -130,15 +130,15 @@ def run_post_attempt_pipeline(
         blind_row = repository.latest_blind_grade_record(result.attempt_id)
         blind = blind_row is not None
         if suppress_insertion_reason is None and blind:
-            from learnloop.attempts.proof_check import HELD_FOR_REVIEW_SUPPRESSION
             from learnloop.held_grades import attempt_grade_held
+            from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
 
-            # mvp-0.17 (re-review F9): a grade held for review schedules
-            # nothing, follow-ups included, until it is settled. THE held
-            # predicate over the ledger (held-grade-evidence F5): an owner
+            # A grade held for review (re-review F9) schedules nothing,
+            # follow-ups included, until it is settled. THE held predicate
+            # over the ledger (held-grade-evidence F5): an owner
             # adjudication's evidence revision releases it, as on replay.
             if attempt_grade_held(repository, result.attempt_id):
-                suppress_insertion_reason = HELD_FOR_REVIEW_SUPPRESSION
+                suppress_insertion_reason = GRADE_HELD_FOR_REVIEW
         deferred = _defers_to_block_end(repository, result, applied_episode)
         if not deferred and not blind:
             normalize_and_resolve_attempt(

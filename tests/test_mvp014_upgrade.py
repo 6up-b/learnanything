@@ -64,12 +64,13 @@ CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 def test_the_plan_successor_keeps_every_predecessor():
     assert DAILY_PLAN_ALGORITHM_VERSION == "mvp-0.14"
     # Router R1's probe ties (mvp-0.15, tests/test_mvp015_upgrade.py),
-    # learner-text gaps' sooner check (mvp-0.16, tests/test_mvp016_upgrade.py)
-    # and the proofs-and-explanations route check (mvp-0.17, the latest
-    # successor, tests/test_mvp017_upgrade.py) followed it and keep the plan.
-    assert SUCCESSOR_CHAIN[-4] == DAILY_PLAN_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.17"
-    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17"})
+    # learner-text gaps' sooner check (mvp-0.16, tests/test_mvp016_upgrade.py),
+    # the proofs route check (mvp-0.17) and the route rules in the grader
+    # (mvp-0.18, the latest successor, tests/test_mvp018_upgrade.py) followed
+    # it and keep the plan.
+    assert SUCCESSOR_CHAIN[-5] == DAILY_PLAN_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.18"
+    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18"})
     # The chain is linear: mvp-0.14 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan.
     for versions in (

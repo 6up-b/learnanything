@@ -158,7 +158,35 @@ LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 # branch built it as mvp-0.15 (a placeholder) and it was relabelled mvp-0.17
 # when it merged after probe ties (mvp-0.15) and learner-text gaps (mvp-0.16).
 # Kill switch: ``proof_check.enabled``.
+# Owner decision 2026-10-13 (route-check-in-grader): the separate check was
+# removed from serving. Its own kill switch defined "mvp-0.17 without the
+# check" (``proof_check.enabled = false`` grades new answers as mvp-0.16), so
+# an mvp-0.17 vault now grades new answers in that state, whatever the
+# switch says. Records written by the check (blind records, ledger rows,
+# calibration identities, holds) keep their meaning and replay exactly: replay
+# reads the records, never the check. The protective core moved into the
+# grader's prompt as mvp-0.18.
 PROOF_ROUTE_CHECK_ALGORITHM_VERSION = "mvp-0.17"
+
+# mvp-0.18 (PLACEHOLDER tag: the sources track takes mvp-0.18/0.19 on main, so
+# this is relabelled at its merge; route rules in the grader, owner decision
+# 2026-10-13), on top of mvp-0.17 (the chain stays linear: the split PLUS
+# placement PLUS recurrence groups PLUS the stuck prompt PLUS the plan PLUS
+# probe ties PLUS learner-text gaps PLUS this). The blind grader's prompt
+# grades every criterion on the learner's own route (a criterion phrased in
+# one method is met by any valid method that establishes the same fact; mark
+# down only by quoting the failing step verbatim; say so rather than mark
+# down a route it cannot verify), and one deterministic server-side rule reads
+# only the grader's output: a mark-down on a route the grader reads as
+# divergent, with no verbatim quote that occurs in the answer, is unverified,
+# so unassessed (P1); with nothing then assessed and nothing validated the
+# grade is held for review (the held-grade predicate). One grading call;
+# no item reading, no second model. Persisted meaning changes for NEW grades
+# only (the blind record's ``grading_support.proof_route_check``, the
+# ``+own-route-v1`` prompt and calibration identity); the projection
+# namespace is unchanged. Kill switch: ``proof_check.enabled`` (off: new
+# answers grade as mvp-0.17 now does, i.e. as mvp-0.16).
+ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.18"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -177,6 +205,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PROBE_TIE_ALGORITHM_VERSION,
     LEARNER_TEXT_GAP_ALGORITHM_VERSION,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
+    ROUTE_RULES_ALGORITHM_VERSION,
 )
 
 
@@ -240,10 +269,12 @@ PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION
 # LEARNER_TEXT_GAP_ALGORITHM_VERSION.
 LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
 
-# Versions whose blind grades get the proofs-and-explanations route check
-# (behind ``proof_check.enabled``). Every later successor keeps it; gates must
-# use this set, never equality against PROOF_ROUTE_CHECK_ALGORITHM_VERSION.
-PROOF_ROUTE_CHECK_VERSIONS: frozenset[str] = successors_from(PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
+# Versions whose blind grader gets the route rules and the server-side
+# unlocated rule (behind ``proof_check.enabled``). Every later successor keeps
+# them; gates must use this set, never equality against
+# ROUTE_RULES_ALGORITHM_VERSION. (mvp-0.17's separate check has no gate any
+# more: no version runs it.)
+ROUTE_RULES_VERSIONS: frozenset[str] = successors_from(ROUTE_RULES_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

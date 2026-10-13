@@ -993,7 +993,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # them, and all nine were recomputed (defaults_fingerprint_for_version).
     # It landed on main after RW1a and the passage-check cap, where all nine
     # were recomputed again from the composed defaults.
-    "mvp-0.9": "f0aa3d1d42b3f903c2ac3dac3c1ba11a5a81378c1870797c72eb34a779c18e41",
+    # route-check-in-grader (owner decision 2026-10-13; placeholder successor
+    # mvp-0.18) removes the ai.routing.proof_check route (retired: ignored if
+    # set) and keeps [proof_check] enabled = true as mvp-0.18's kill switch.
+    # Every snapshot moves only because the effective config loses the route;
+    # all ten were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "43bdec32d0480f718f865c9a1a117ec7279d6af5cc1496ca9ded4d48d85a9155",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1015,7 +1020,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.10": "e123e5234cc90026accec67bdce40fc840aca535dc43d106d7c6c9bc3943b566",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.10": "f6050f4828eff46f787b2345c1fb8a0d62fa09b50fb1221ebf6db8d8c278c2f7",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1045,7 +1051,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.11": "b1a512b8c30613252065d71816909b3602b15ca230b55093ccd6867679634190",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.11": "6f487548b38350b7e22a7dc53af10d7df5b2fc5e8af50c535cf7785922bbe3b3",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1069,7 +1076,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.12": "d73ecc6c94ad596e19ed44ec399b8fa83a01e67ae12d36652e271d1998fd4e8c",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.12": "5e71864b2bf86af822fe218b934d13bd06fe2f3dc898c45ea8d664e95081bb11",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1088,7 +1096,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.13": "dbc132c4f6311d0bafaa955701775c9861cfa72a43dedac432b0499c9a56836b",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.13": "bad21c307cea0f05150518a572c00a5a1a36a4128ad838c66761f95187e1db06",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1106,7 +1115,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.14": "ff82321000c4334f09265ac6b64031fd9af851189e76fa2f703bb820047584cc",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.14": "12d9d7b7a774f7044964355650c5ecdb2602e47a9c762f404c040d9c7e66eda8",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1122,7 +1132,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.15": "b7daa95a79fbb56389e3bedeb55f7f4420dc26ce94c83c1497b48f5b88784fbc",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.15": "b7ff636b7c320410cd3be44795f52ea331137d92ee563c62354fb8506eac69d5",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1145,7 +1156,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
-    "mvp-0.16": "961e1a1671c0953729baa095c6e3dbb9cf2c39b805504cf29d62e3df7bef0c0f",
+    # route-check-in-grader's retired route moves it too (see mvp-0.9).
+    "mvp-0.16": "85e10efdf70b2f558c793f9e075c997c5695957f55065ae3d5c9d0c15178293d",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1156,11 +1168,26 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route restores a criterion marked down without a located error, records
     # one disputed on a located step unassessed, flags an accepted step it
     # refutes, and holds for review a grade with nothing assessed and nothing
-    # validated. Existing vaults reach it by `learnloop upgrade` (default
-    # target) from mvp-0.16, or from mvp-0.9 to mvp-0.15 through the chain
-    # (under mvp-0.12's advisory guard). New vaults start here (the template's
+    # validated. Existing vaults reach it by `learnloop upgrade --to mvp-0.17`
+    # from mvp-0.16, or from mvp-0.9 to mvp-0.15 through the chain (under
+    # mvp-0.12's advisory guard). New vaults started here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until mvp-0.18.
+    # route-check-in-grader (owner decision 2026-10-13) removed the separate
+    # check from serving: an mvp-0.17 vault grades new answers as its kill
+    # switch defined (as mvp-0.16), and the retired route moves it too (see
+    # mvp-0.9).
+    "mvp-0.17": "1a8cf4fc6c1f29d41d25c347303fdbf09254cf4cac0ac399ca5fe52b241d46ec",
+    # mvp-0.18 (route rules in the grader, route-check-in-grader; a
+    # PLACEHOLDER tag relabelled at its merge): mvp-0.17 plus the own-route
+    # rules in the blind grader's prompt and the server-side unlocated rule
+    # (a mark-down on a divergent route that quotes nothing is unassessed; a
+    # grade with nothing assessed and nothing validated is held for review),
+    # in one grading call. Kill switch proof_check.enabled (default on).
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # mvp-0.17, or from mvp-0.9 to mvp-0.16 through the chain (under
+    # mvp-0.12's advisory guard). New vaults start here (the template's
     # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.17": "10ace18b62c1d224d5466da927672044906568ff315096f4f4f6d2deb86a4a74",
+    "mvp-0.18": "6041414ed7f75152d7528d0c1fe3e35e74f53de5bf9d0330db4c5921fd3d69b5",
 }
 
 

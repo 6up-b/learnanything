@@ -1,4 +1,4 @@
-"""mvp-0.17 (the proofs-and-explanations route check) is the next explicit successor.
+"""mvp-0.17 (the proofs-and-explanations route check) stays a link of the chain.
 
 mvp-0.9 -> mvp-0.10 (the split) -> mvp-0.11 (placement) -> mvp-0.12
 (recurrence groups) -> mvp-0.13 (the stuck prompt) -> mvp-0.14 (the finite
@@ -11,6 +11,13 @@ upgrade (below mvp-0.12, through T1's, whose same-cause guard is advisory
 unless ``recurrence.require_guard = true``). It changes what NEW blind grades
 persist on proof-like items only: the projection namespace is the same and
 nothing is rewritten (playbook items 1, 3, 4 and 8).
+
+route-check-in-grader (owner decision 2026-10-13) removed the separate check
+from serving: an mvp-0.17 vault grades new answers as its kill switch defined
+(as mvp-0.16), its records replay as written
+(``tests/test_mvp017_route_check_replay.py``), and mvp-0.18
+(``tests/test_mvp018_upgrade.py``) is the latest successor, chained through
+this upgrade.
 """
 
 from __future__ import annotations
@@ -32,13 +39,13 @@ from learnloop.algorithm_versions import (
     PLACEMENT_VERSIONS,
     PROBE_TIE_VERSIONS,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
-    PROOF_ROUTE_CHECK_VERSIONS,
     RECURRENCE_GROUP_VERSIONS,
+    ROUTE_RULES_ALGORITHM_VERSION,
     STUCK_PROMPT_VERSIONS,
     SUCCESSOR_CHAIN,
 )
 from learnloop.attempts.blind_grading import split_grading_active
-from learnloop.attempts.proof_check import proof_check_active
+from learnloop.attempts.grading_support import route_rules_active
 from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
@@ -70,10 +77,11 @@ HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
-def test_the_route_check_successor_is_the_latest_and_keeps_every_predecessor():
+def test_the_route_check_successor_keeps_every_predecessor():
     assert PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
-    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({"mvp-0.17"})
+    # The route rules (mvp-0.18, the latest successor) followed it.
+    assert SUCCESSOR_CHAIN[-2] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == ROUTE_RULES_ALGORITHM_VERSION
     # The chain is linear: mvp-0.17 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the route check.
@@ -96,21 +104,24 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.14": (True, True, True, False, False, False),
         "mvp-0.15": (True, True, True, True, False, False),
         "mvp-0.16": (True, True, True, True, True, False),
-        "mvp-0.17": (True, True, True, True, True, True),
+        # The separate check is gone: mvp-0.17 grades as mvp-0.16, and the
+        # route rules start at mvp-0.18.
+        "mvp-0.17": (True, True, True, True, True, False),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
         vault = load_vault(paths.root)
         assert (
             split_grading_active(vault), placement_active(vault), plan_active(vault),
-            probe_ties_admitted(vault.config), gap_sooner_checks_active(vault), proof_check_active(vault),
+            probe_ties_admitted(vault.config), gap_sooner_checks_active(vault), route_rules_active(vault),
         ) == flags, version
     vault = load_vault(paths.root)
     assert recurrence_active(vault) and stuck_prompt_active(vault)
     append_config_toml(paths.root, "[proof_check]\nenabled = false\n")
     switched_off = load_vault(paths.root)
-    # The kill switch keeps the version and every predecessor's behaviour.
-    assert proof_check_active(switched_off) is False
+    # The switch changes nothing at mvp-0.17 any more; the version and every
+    # predecessor's behaviour stay.
+    assert route_rules_active(switched_off) is False
     assert switched_off.config.algorithms.algorithm_version == "mvp-0.17"
     assert split_grading_active(switched_off) and placement_active(switched_off) and plan_active(switched_off)
     assert probe_ties_admitted(switched_off.config) and gap_sooner_checks_active(switched_off)
@@ -131,7 +142,7 @@ def test_upgrade_from_mvp016_flips_rebuilds_and_rewrites_nothing(tmp_path):
     assert (result.upgraded, result.from_version, result.to_version) == (True, "mvp-0.16", "mvp-0.17")
     upgraded = load_vault(paths.root)
     assert upgraded.config.algorithms.algorithm_version == "mvp-0.17"
-    assert proof_check_active(upgraded) and gap_sooner_checks_active(upgraded) and plan_active(upgraded)
+    assert gap_sooner_checks_active(upgraded) and plan_active(upgraded)
     assert repository.latest_derived_state_rebuild()["algorithm_version"] == "mvp-0.17"
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall() == attempts_before
@@ -158,7 +169,7 @@ def test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required(tmp_pat
     assert (result.upgraded, result.from_version, result.to_version) == (True, "mvp-0.10", "mvp-0.17"), result.problems
     upgraded = load_vault(paths.root)
     assert upgraded.config.algorithms.algorithm_version == "mvp-0.17"
-    assert proof_check_active(upgraded) and gap_sooner_checks_active(upgraded) and recurrence_active(upgraded)
+    assert gap_sooner_checks_active(upgraded) and recurrence_active(upgraded)
     with sqlite3.connect(paths.sqlite_path) as connection:
         manifests = {row[0] for row in connection.execute("SELECT algorithm_version FROM parameter_registry_manifests")}
         rebuilds = [
@@ -201,26 +212,10 @@ def test_upgrade_refuses_older_versions_and_is_idempotent(tmp_path):
     assert already.upgraded is False and already.problems == ["vault is already mvp-0.17"]
 
 
-def test_upgrade_command_defaults_to_the_latest(tmp_path):
-    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.16")
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert result.exit_code == 0, result.output
-    assert f"mvp-0.16 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+def test_upgrade_command_reaches_mvp017_explicitly(tmp_path):
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.16")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.17"])
     assert result.exit_code == 0, result.output
-
-
-def test_new_vaults_start_at_the_route_check_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
-
-    from learnloop.vault.loader import init_vault
-
-    init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
-    fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.17"
-    assert proof_check_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 
 def test_defaults_fingerprint_is_recorded_for_the_route_check_successor():
@@ -228,11 +223,10 @@ def test_defaults_fingerprint_is_recorded_for_the_route_check_successor():
 
     from learnloop.config.schema import LearnLoopConfig
 
-    for version in SUCCESSOR_CHAIN:
-        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
     config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text("mvp-0.17")))
+    assert defaults_fingerprint_for_version("mvp-0.17") == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.17"]
     assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.17"]
-    assert config.proof_check.enabled is True and config.ai.routing.proof_check is None
+    assert config.proof_check.enabled is True
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

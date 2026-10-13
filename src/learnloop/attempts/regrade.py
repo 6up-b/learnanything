@@ -246,9 +246,7 @@ def regrade_attempt(
     # reading is a new judgment superseding the attempt's current one.
     stuck_judgment: dict | None = None
     unverified: set[str] = set()
-    # mvp-0.17: the route check's verdict, written with the regrade.
-    proof_result = None
-    # mvp-0.17 (re-review F9): nothing assessed and nothing validated.
+    # The own-route rule held the new grade (nothing assessed, nothing validated).
     held = False
     try:
         if blind_plan is not None:
@@ -256,31 +254,15 @@ def regrade_attempt(
                 BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
                 validate_blind_grading_proposal,
             )
-            from learnloop.attempts.grading_support import request_blind_grading_run
+            from learnloop.attempts.grading_support import (
+                request_blind_grading_run,
+                revalidated_support,
+            )
 
+            # mvp-0.18: the own-route rule runs inside the grading run, over
+            # the grader's own output (no second call that could fail apart
+            # from the grade: a failed regrade writes nothing, so a hold stays).
             run = request_blind_grading_run(client, blind_plan.context, rubric=rubric)
-            from learnloop.attempts.proof_check import (
-                checked_calibration_prompt_version,
-                checked_run,
-            )
-
-            # mvp-0.17: a regrade of a proof-like answer is checked again (with
-            # the clarification exchange, when that is what triggered it).
-            run = checked_run(
-                run, vault, repository, item=item, rubric=rubric,
-                learner_answer_md=attempt.get("learner_answer_md") or "",
-                grader_model=getattr(client, "model", None) or getattr(client, "model_id", None),
-                created_at=utc_now_iso(clock),
-                clarification_exchange=blind_plan.context.clarification_exchange,
-            )
-            proof_result = run.proof_check
-            if prior_held:
-                from learnloop.attempts.proof_check import kept_hold_run
-
-                # held-grade-evidence F2: a check that did not run (a provider
-                # failure, invalid output, no client) validates nothing, so
-                # the hold it replaces stays: never released unvalidated.
-                run = kept_hold_run(run, rubric=rubric, prior_record_id=str(prior_blind["id"]))
             validated_blind = validate_blind_grading_proposal(
                 run.proposal,
                 attempt_id=attempt["id"],
@@ -290,8 +272,6 @@ def regrade_attempt(
                 rubric=rubric,
             )
             validated = validated_blind.grade
-            from learnloop.attempts.proof_check import revalidated_support
-
             # held-grade-evidence F1: the shortfall over the grade validation kept.
             run = replace(
                 run,
@@ -301,10 +281,7 @@ def regrade_attempt(
                 **validated_blind.as_record(),
                 "prompt_version": run.prompt_version,
                 "practice_item_id": item.id,
-                # Review F4: the identity of the grade this regrade produced.
-                "calibration_prompt_version": checked_calibration_prompt_version(
-                    blind_plan.calibration_prompt_version, run.grading_support
-                ),
+                "calibration_prompt_version": blind_plan.calibration_prompt_version,
                 "calibration_output_schema_version": BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
                 "samples": run.samples,
                 "grading_support": dict(run.grading_support),
@@ -327,11 +304,11 @@ def regrade_attempt(
             # replay leaves it out of the facet evidence. The informational
             # reason is recorded only as the grade's sole concern (review F7).
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
-            from learnloop.attempts.proof_check import is_held_for_review
+            from learnloop.outcome_contract import grade_held_for_review
 
             # The new blind record carries it, so the replay below keeps (or
             # releases) the hold exactly as this grade decided.
-            held = is_held_for_review(run.grading_support)
+            held = grade_held_for_review(run.grading_support)
             if run.grading_support.get("valid_alternative_gate_applied"):
                 from learnloop.attempts.grading_support import gated_review_reason
 
@@ -346,11 +323,6 @@ def regrade_attempt(
                         rubric=rubric,
                     ),
                 )
-            if (
-                proof_result is not None and proof_result.clarification
-                and validated.clarification is None
-            ):
-                validated = replace(validated, clarification=dict(proof_result.clarification))
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
             from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
@@ -498,13 +470,6 @@ def regrade_attempt(
                 ),
                 clock=clock,
             )
-            if proof_result is not None and proof_result.judgment is not None:
-                from learnloop.attempts.proof_check import record_route_check_judgment
-
-                record_route_check_judgment(
-                    repository.connection(), attempt_id=attempt["id"],
-                    judgment=proof_result.judgment, created_at=now,
-                )
             if stuck_judgment is not None:
                 from learnloop.attempts.stuck import record_stuck_reading_judgment
 

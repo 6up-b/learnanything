@@ -106,3 +106,23 @@ def test_an_mvp017_vault_replays_its_grades_exactly(tmp_path):
     changed = sorted(table for table in before if before[table] != after[table])
     assert changed == []
     _assert_grades(repository)
+
+
+def test_upgrading_the_mvp017_copy_to_the_successor_rewrites_no_grade(tmp_path):
+    """The route rules apply to NEW answers only: the upgrade is a tag change
+    plus the idempotent rebuild, so every mvp-0.17 grade, hold and identity
+    stays as written, and the ledgers are untouched."""
+
+    from learnloop.route_rules_upgrade import upgrade_to_mvp018
+
+    root, _vault, repository = _copy(tmp_path)
+    ledgers_before = {table: rows for table, rows in _state(repository).items() if table in LEDGERS}
+    result = upgrade_to_mvp018(root, clock=CLOCK)
+    assert (result.upgraded, result.from_version, result.to_version) == (True, "mvp-0.17", "mvp-0.18")
+    vault = load_vault(root)
+    assert vault.config.algorithms.algorithm_version == "mvp-0.18"
+    _assert_grades(repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    _assert_grades(repository)
+    after = _state(repository)
+    assert {table: after[table] for table in LEDGERS} == ledgers_before

@@ -79,15 +79,16 @@ def unassessed_evidence_row(attribution: Any) -> bool:
     )
 
 
-# The proofs route check (mvp-0.17, re-review F9). A grade with nothing
-# assessed and nothing validated is HELD FOR REVIEW: the grader's own grade,
-# provisional, no evidence, no FSRS review, no prediction error, until a
-# regrade or an adjudication settles it. Unlike PF-c's nothing-assessed answer
-# (verified, so correct for scheduling) a held grade is no outcome at all:
-# outcome readers exclude it with this reason, and its score is never read as
-# the answer's. The hold is one recorded fact, the attempt's latest blind
-# record (``grading_support.proof_route_check``); ``attempts.proof_check``
-# writes it and re-exports the predicate below.
+# The hold (mvp-0.17's proofs route check, re-review F9; since mvp-0.18 the
+# grader's own-route rule). A grade with nothing assessed and nothing
+# validated is HELD FOR REVIEW: the grader's own grade, provisional, no
+# evidence, no FSRS review, no prediction error, until a regrade or an
+# adjudication settles it. Unlike PF-c's nothing-assessed answer (verified,
+# so correct for scheduling) a held grade is no outcome at all: outcome
+# readers exclude it with this reason, and its score is never read as the
+# answer's. The hold is one recorded fact, the attempt's latest blind record
+# (``grading_support.proof_route_check``, the key both writers use);
+# ``attempts.grading_support.apply_route_rule`` writes it for new grades.
 GRADE_HELD_FOR_REVIEW = "grade_held_for_review"
 #: Route-check gate versions whose records predate the hold: v2 scheduled a
 #: held grade as correct, so such a record replays as it was written.
@@ -95,7 +96,8 @@ PRE_HOLD_ROUTE_CHECK_VERSIONS = frozenset({"proof-route-check-v1", "proof-route-
 #: held-grade-evidence F2: a regrade whose route check failed (``status =
 #: unavailable``) on an attempt whose grade was held KEEPS the hold. Its record
 #: names the record the hold was carried from under this key; nothing else
-#: writes ``held_for_review`` on a check that did not run.
+#: writes ``held_for_review`` on a check that did not run. mvp-0.17 records
+#: only: the own-route rule has no separate call that can fail.
 HOLD_KEPT_FROM_KEY = "hold_kept_from"
 #: The key a reader's attempt row carries when THE predicate holds its grade
 #: (``held_grades.mark_held_attempts``): the row stays (an exposure is
@@ -105,13 +107,14 @@ HELD_ROW_KEY = GRADE_HELD_FOR_REVIEW
 
 
 def grade_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:
-    """Did the proofs route check leave this grade held for review?
+    """Did the route rule (or mvp-0.17's route check) hold this grade?
 
     The RECORD half of the hold: read from a blind run's ``grading_support``
     or the blind record that persists it, never from today's config. A hold
-    the check decided (``status = checked``), or one a failed regrade check
-    kept (``hold_kept_from``). Whether the attempt is held NOW is
-    :func:`grade_is_held` over this and the attempt's current evidence.
+    the rule or the check decided (``status = checked``), or one a failed
+    mvp-0.17 regrade check kept (``hold_kept_from``). Whether the attempt is
+    held NOW is :func:`grade_is_held` over this and the attempt's current
+    evidence.
     """
 
     proof = (grading_support or {}).get("proof_route_check") or {}

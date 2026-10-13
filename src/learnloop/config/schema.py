@@ -1067,6 +1067,14 @@ RETIRED_ROUTES: dict[str, str] = {
         "(`learnloop eval --section field --probability-arm ...`) use "
         "ai.routing.llm_probability_llm and ai.routing.llm_probability_decider."
     ),
+    # mvp-0.17's separate proofs route check, removed from serving by the
+    # owner on 2026-10-13 (route-check-in-grader): its rules are in the
+    # grader's own prompt, which uses the grading route.
+    "proof_check": (
+        "mvp-0.17's separate proofs route check is retired; the grader applies the "
+        "own-route rules in its one call on ai.routing.grading (mvp-0.18, kill switch "
+        "proof_check.enabled)."
+    ),
 }
 
 
@@ -1163,10 +1171,6 @@ class AIRoutingConfig(BaseModel):
     router_llm: str | None = None
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
-    # mvp-0.17: the independent re-derivation of a proof or explanation (and the
-    # once-per-item proof-like reading). Empty = the first configured route the
-    # vault already sends learner text to whose model differs from the grader's.
-    proof_check: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1257,7 +1261,8 @@ class AIConfig(BaseModel):
 
 
 def _require_known_routes(value: dict[str, Any], setting: str) -> None:
-    unknown = sorted(set(value) - set(AIRoutingConfig.model_fields))
+    # A retired route's budget or effort is ignored, never an error.
+    unknown = sorted(set(value) - set(AIRoutingConfig.model_fields) - set(RETIRED_ROUTES))
     if unknown:
         raise ValueError(f"{setting} names unknown routes: {', '.join(unknown)}")
 
@@ -1789,15 +1794,19 @@ class EvsiConfig(BaseModel):
 
 
 class ProofCheckConfig(BaseModel):
-    """The valid-alternative gate for proofs and explanations (successor ``mvp-0.17``).
+    """The valid-alternative gate for proofs and explanations, in the grader.
 
-    Dormant below ``mvp-0.17``: the algorithm version decides whether new blind
-    grades get the independent route check. ``enabled`` is the kill switch:
-    off, an ``mvp-0.17`` vault grades new answers exactly as ``mvp-0.16``.
-    Grades already recorded keep their meaning (the blind record and the
-    evidence rows carry the outcome; replay never reads this switch). The
-    check's model is ``ai.routing.proof_check`` (unset: the first configured
-    route the vault already uses whose model differs from the grader's).
+    ``enabled`` is the kill switch of ``mvp-0.18``'s own-route rules (the
+    grader grades every criterion on the learner's own route and marks down
+    only by quoting the failing step; a mark-down on a divergent route that
+    quotes nothing is unassessed, and a grade with nothing assessed and
+    nothing validated is held for review). Dormant below ``mvp-0.18``. Off, new
+    answers grade as ``mvp-0.17`` now does: mvp-0.17's separate route check
+    was removed from serving (owner decision 2026-10-13), which is the state
+    its own switch defined, so an ``mvp-0.17`` vault grades as ``mvp-0.16``
+    whatever this says. Grades already recorded keep their meaning (the blind
+    record and the evidence rows carry the outcome; replay never reads this
+    switch).
     """
 
     enabled: bool = True

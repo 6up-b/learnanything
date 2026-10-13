@@ -134,7 +134,7 @@ def grading_receipt(
 @grading_app.command("hardcases")
 def grading_hardcases(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts and checkpoints are written there).")],
-    route: Annotated[list[str], typer.Option("--route", help="A configured [ai.providers.*] profile to score as a judge; repeatable. Every ordered pair is also scored as the gate (grader route, checker route).")],
+    route: Annotated[list[str], typer.Option("--route", help="A configured [ai.providers.*] profile to score as the grader; repeatable. Each is also scored along the production path (PF-c's gate and the own-route rule).")],
     cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v2.json).")] = None,
     ablations: Annotated[bool, typer.Option("--ablations", help="Grade under all four R2 arms: the reference shown or solve-first, crossed with the final-answer check shown to the grader or withheld (the gate still applies it). Default: the production arm only.")] = False,
     repeats: Annotated[int, typer.Option("--repeats", min=1, help="Fresh, separately identified repetitions of every call; 2 or more report a repeat-run noise floor.")] = 1,
@@ -155,11 +155,11 @@ def grading_hardcases(
     answer, valid alternative proofs, correct answers with flawed reasoning
     and wrong proofs that look right (linear algebra, probability); reports
     label it synthetic smoke coverage until real traces fill cells 3-4. Each
-    --route is scored as the blind grader, the mvp-0.17 route checker and the
-    proof-like item reader, with the production prompts; every ordered pair
-    of routes is also scored as the live gate, along the production path.
-    Every verdict goes to judgment_ledger. Run it on a backup-API copy,
-    --dry-run first. Spend is admitted before every request.
+    --route is scored as the blind grader alone, with the production prompt
+    (the own-route rules in the grader's one call), on its raw output and
+    along the production path (PF-c's gate and the own-route rule). Every
+    verdict goes to judgment_ledger. Run it on a backup-API copy, --dry-run
+    first. Spend is admitted before every request.
     """
 
     from learnloop.ai.spend import SpendCaps

@@ -49,9 +49,6 @@ NO_OUTPUT_ROUTES = frozenset({"embedding"})
 #: double the budget by the transport, never accepted.
 OUTPUT_ALLOWANCE = {
     "grading": DEFAULT_OUTPUT_TOKENS,
-    # mvp-0.17: the proof-like reading and the independent route check (review
-    # F3), under the shared policy like every other generating route.
-    "proof_check": DEFAULT_OUTPUT_TOKENS,
     "diagnosis": DEFAULT_OUTPUT_TOKENS,
     "diagnosis_judge": DEFAULT_OUTPUT_TOKENS,
     "diagnosis_generator": DEFAULT_OUTPUT_TOKENS,
