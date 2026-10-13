@@ -142,3 +142,52 @@ def test_a_studied_worked_example_records_the_seconds_since_exposure(tmp_path):
     with repository.connection() as connection:
         [row] = interventions(connection)
     assert row["seconds_since_related_exposure"] is not None
+
+
+def test_exposure_age_is_measured_at_delivery_not_at_valuation(tmp_path):
+    """Codex third pass F13: an example studied at 10:00, valued at 10:05 and
+    delivered at 11:05 left two eligibility records (300 s and 3,900 s), and
+    their minimum (300 s) was persisted at delivery, an hour short. The age is
+    now measured from the persisted exposure time at the delivery instant."""
+
+    from datetime import datetime, timezone
+
+    from learnloop.clock import FrozenClock
+    from learnloop.db.stores.practice_index import insert_proposal
+    from learnloop.instructional.exposure import independent_check_eligibility
+    from learnloop.instructional.interventions import record_pick
+
+    def at(text):
+        return datetime.fromisoformat(text).replace(tzinfo=timezone.utc)
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    repository.insert_source_exposure_event({"context": "reader", "extraction_id": "ext_text",
+                                             "span_id": spans["worked"][1], "source_id": "src_text",
+                                             "created_at": "2026-10-13T10:00:00Z"})
+    vault = loaded(paths)
+    judge = FakeServiceLLM(equivalence_verdict="related")
+    valued = independent_check_eligibility(vault, repository, {"practice_item_id": "pi_eigen_1"},
+                                           intent="discriminate", at=at("2026-10-13T10:05:00"), judge_client=judge)
+    served = independent_check_eligibility(vault, repository, {"practice_item_id": "pi_eigen_1"},
+                                           intent="discriminate", at=at("2026-10-13T11:05:00"), judge_client=judge)
+    assert valued["worked_example"]["seconds_since_exposure"] == 300.0
+    assert served["worked_example"]["seconds_since_exposure"] == 3900.0
+    with repository.connection() as connection:
+        insert_proposal(connection, id="pp_age", created_at="2026-10-13T10:05:00Z", origin="rpc", query_id="q",
+                        query_text="eigen", constraints={}, path="direct", path_reason="t", signals={},
+                        reranked=True, rerank_status="reranked", rerank_model=None,
+                        proposed=[{"practice_item_id": "pi_eigen_1", "rank": 1, "kind": "item"}], exclusions={},
+                        manifest={}, algorithm_version="mvp-0.16", caller="plan", caller_ref=None,
+                        intent="discriminate", valuation={"eligibility": {"pi_eigen_1": valued}})
+    record_pick(vault, repository, proposal_id="pp_age", practice_item_id="pi_eigen_1", serve_verdict=served,
+                clock=FrozenClock(at("2026-10-13T11:05:00")))
+    with repository.connection() as connection:
+        [row] = interventions(connection)
+    assert row["seconds_since_related_exposure"] == 3900.0
+    assert row["created_at"] == "2026-10-13T11:05:00Z"
+    # A verdict recorded before the exposure stamps: its check time less the
+    # age it measured then, carried to the delivery.
+    from learnloop.instructional.interventions import seconds_since_related_exposure
+    legacy = {"checked_at": "2026-10-13T10:05:00Z", "worked_example": {"seconds_since_exposure": 300.0},
+              "inputs": {"seconds_since_impression": 120.0}}
+    assert seconds_since_related_exposure([legacy, None], now="2026-10-13T11:05:00Z") == 3720.0

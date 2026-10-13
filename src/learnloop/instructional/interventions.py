@@ -21,11 +21,12 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
+from datetime import datetime, timedelta
 import json
 import math
 from typing import Any
 
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.practice_index import proposal as stored_proposal
@@ -153,6 +154,36 @@ def _state_ref(valuation: Mapping[str, Any] | None) -> dict[str, Any]:
     return {"problems": problems} if problems else {}
 
 
+def _exposure_moments(verdict: Mapping[str, Any]) -> list[datetime]:
+    """When the verdict's related exposures happened: the persisted stamps,
+    else (a verdict recorded before them) its check time less the age it
+    measured then."""
+
+    moments: list[datetime] = []
+    checked = parse_utc(verdict.get("checked_at")) if verdict.get("checked_at") else None
+    worked = verdict.get("worked_example") or {}
+    inputs = verdict.get("inputs") or {}
+    for stamp, seconds in ((worked.get("related_exposure_at"), worked.get("seconds_since_exposure")),
+                           (inputs.get("impression_at"), inputs.get("seconds_since_impression"))):
+        moment = parse_utc(str(stamp)) if stamp else None
+        if moment is None and seconds is not None and checked is not None:
+            moment = checked - timedelta(seconds=float(seconds))
+        if moment is not None:
+            moments.append(moment)
+    return moments
+
+
+def seconds_since_related_exposure(verdicts: Sequence[Mapping[str, Any] | None], *, now: str) -> float | None:
+    """Seconds from the most recent related exposure any verdict records to
+    ``now`` (the delivery), or None when none records one (Codex third pass F13)."""
+
+    moments = [moment for verdict in verdicts if verdict for moment in _exposure_moments(verdict)]
+    delivered = parse_utc(now)
+    if not moments or delivered is None:
+        return None
+    return round(max(0.0, (delivered - max(moments)).total_seconds()), 1)
+
+
 def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str, practice_item_id: str | None = None,
                 exercise: Mapping[str, Any] | None = None, serve_verdict: Mapping[str, Any] | None = None,
                 session_id: str | None = None, router_decision_id: str | None = None,
@@ -200,18 +231,14 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
         kind = "source_exercise"
     # The time since the most recent related exposure (router §15.2's
     # covariate): a related worked example studied, or an earlier impression
-    # of the question, as the eligibility rule recorded them (re-review F11).
-    seconds = []
-    for verdict in (serve_verdict, valuation_time):
-        if not verdict:
-            continue
-        for value in ((verdict.get("worked_example") or {}).get("seconds_since_exposure"),
-                      (verdict.get("inputs") or {}).get("seconds_since_impression")):
-            if value is not None:
-                seconds.append(float(value))
-    since = min(seconds) if seconds else None
+    # of the question, as the eligibility rule recorded them (re-review F11),
+    # measured at THIS delivery from when each exposure happened, never as
+    # the age a verdict computed at its own check time (third pass F13).
+    delivered = utc_now_iso(clock)
+    since = seconds_since_related_exposure((serve_verdict, valuation_time), now=delivered)
     return record_intervention(
-        vault, repository, kind=kind, clock=clock, existing=_pick_delivery(proposal_id, practice_item_id, import_id),
+        vault, repository, kind=kind, clock=FrozenClock(parse_utc(delivered)),
+        existing=_pick_delivery(proposal_id, practice_item_id, import_id),
         caller_kind=found.get("caller") or "learner",
         caller_ref=found.get("caller_ref"), intent=found.get("intent") or constraints.get("intent") or "practice",
         policy="reading", proposal_id=proposal_id, router_decision_id=router_decision_id, assets=assets,
@@ -479,4 +506,5 @@ __all__ = [
     "record_remediation_delivery",
     "record_shown_spans",
     "record_tutor_citations",
+    "seconds_since_related_exposure",
 ]

@@ -189,7 +189,11 @@ def independent_check_eligibility(
         if earlier:
             result["reasons"].append("seen_in_proposal")
             result["inputs"]["impression_ids"] = [row["id"] for row in earlier]
-            result["inputs"]["seconds_since_impression"] = _seconds_since(now, earlier[-1]["created_at"])
+            # When, not only how long before this check: a delivery later
+            # measures the age at its own instant (Codex third pass F13).
+            latest = max(str(row["created_at"]) for row in earlier)
+            result["inputs"]["impression_at"] = latest
+            result["inputs"]["seconds_since_impression"] = _seconds_since(now, latest)
     worked = _worked_example_rule(vault, repository, candidate, item, extraction_id, since=since,
                                   judge_client=judge_client, now=now)
     result["worked_example"] = worked
@@ -309,6 +313,7 @@ def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: 
                if result["verdict"] == "unjudged" or verdicts.get(key) in ("equivalent", "related")]
     stamps = [studied_at[key] for key in related if studied_at.get(key)]
     result["studied_at"] = {f"{key[0]}:{key[1]}": studied_at.get(key) for key in refs.values()}
+    result["related_exposure_at"] = max(stamps) if stamps else None
     result["seconds_since_exposure"] = (_seconds_since(now, max(stamps))
                                         if stamps and now is not None else None)
     return result
