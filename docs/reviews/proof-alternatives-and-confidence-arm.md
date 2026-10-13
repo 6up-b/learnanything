@@ -91,19 +91,26 @@ says model choice is most of the error.
      commands below).
 
 4. **The gate** (`apply_proof_route_gate`). It is deterministic and runs
-   after PF-c's gate. It follows PF-c's outcome types and its rule that a
+   after PF-c's gate. It follows PF-c's outcome types and P1's rule that a
    criterion may be marked down only where a concrete error is located in
-   the learner's words. Per criterion:
+   the learner's words. It also receives the deterministic `final_answer_check`
+   status and the grader's own `route_check.divergent_route` (Codex review
+   F1, F2). Per criterion:
 
    | Grader | Check | Outcome |
    |---|---|---|
    | below full, no located error | established | **restored**: full points, assessed. The evidence row says so and keeps the grader's note. Attributions on it are withdrawn from the grade and kept on the blind record |
    | below full, located error (verbatim quote) | established | **disputed**: unverified, which PF-c's rule makes unassessed. The grade is provisional. One clarification is asked only when the checker says the dispute turns on what the learner meant (`ambiguous_notation`, `skipped_step`, `method_ambiguity`). A disagreement between two models about a written step is machine-resident and never costs the learner (causal principle 8) |
    | full points | not established, failing step quoted verbatim | **flagged**: the grade stands. The review reason is `proof_route_check_flag` and the criterion carries a note quoting the step. Never silent |
-   | agreement, `cannot_tell`, or an unquoted refutation | — | the grader's grade, recorded |
+   | below full on a route the grader reads as divergent, no error located by either judge | `cannot_tell`, or not established without a verbatim quote | **unlocated**: unverified, so unassessed (P1; review F1). If nothing is then left assessed and nothing validated the answer, the grade is also **held for review** (`proof_route_check_flag`) rather than resting on nothing |
+   | agreement, a located error, or `cannot_tell` off a divergent route | — | the grader's grade, recorded |
 
-   - A grade with fatal errors is never restored. A check that disputes it
-     is a flag.
+   - **The final-answer check outranks the checker** (review F2). When the
+     conclusion `differs_from_reference`, nothing is restored, disputed or
+     left unassessed (outcome `answer_differs`); a flag still stands. The
+     status comes from PF-c's policy, or is computed when the policy is off.
+   - A grade with fatal errors is never restored and keeps its mark-downs. A
+     check that disputes it is a flag.
    - When the gate applies, PF-c's own support keys are rewritten over both
      gates (`unverified_criterion_ids`, `valid_alternative_gate_applied`,
      `assessed_shortfall`, the interpretation mark). The attempt step,
@@ -114,7 +121,8 @@ says model choice is most of the error.
      gates apart.
 
 5. **Review reasons** (`gated_review_reason`). The grader's own concern
-   wins. Then, in order: a flag; a pending clarification
+   wins. Then, in order: a flag (or a disputed fatal error, or a grade held
+   for review); a pending clarification
    (`provisional_pending_clarification`, A8's state); unverified criteria
    (PF-c's non-blocking log). A restore alone leaves nothing to review.
 
@@ -126,7 +134,24 @@ says model choice is most of the error.
 
 7. **Never fails a grade.** No ready client, a provider error or invalid
    output leaves the grader's grade in force. The blind record then carries
-   `proof_route_check.status = "unavailable"` and the error type.
+   `proof_route_check.status = "unavailable"` and the error type. A spend
+   refusal or a cancellation from a command's admission guard is not a model
+   failure: it stops the grade, as a refused grading sample does.
+
+8. **Spend** (review F3). The reading and the check run inside
+   `admit_grading_call` on their own spend route, `proof_check`, with the
+   checker's client. `learnloop attempt` plans them (one reading, then a
+   check only if proof-like; a cached reading decides), estimates them with
+   the grade in the dry run and the up-front admission, meters them, and
+   fails closed on a metered checker route with no price.
+
+9. **Calibration identity** (S1 §4.3; review F4). A grade the check ran on
+   (`status = checked`) is calibrated under
+   `<base>+<gate version>:<checker prompt version>@<checker model>`, on the
+   blind record (where replay reads it) and the raw grade event. A grade the
+   grader produced alone (predecessors, the kill switch, a non-proof-like
+   item, an unavailable check) keeps the base identity. The gate version is
+   `proof-route-check-v2` after the review.
 
 ### Successor, switch, migration
 
@@ -209,7 +234,8 @@ other arm or prepared cache key changes):
   (`grading_evidence.learner_confidence`, confident or hedged), the share
   read as hedged. It shares the grading call, and the report says so.
 
-**Arms.** Each is a MAP logistic fit, by Newton's method, on its own past
+**Arms.** Each is a MAP logistic fit, by damped Newton (backtracking on the
+log posterior, with an explicit convergence check; review F5), on its own past
 only. Each abstains where its signal is absent, so it pairs with its base on
 the attempts that carry it.
 
@@ -244,6 +270,14 @@ in the data snapshot exactly as before.
 ## Results
 
 ### P2: hard cases, live (OpenRouter, on a backup-API copy)
+
+> **After the Codex review.** This run used gold set v1 and gate v1. The
+> review found that the harness scored the gate off the production path (F6),
+> wrote no ledger verdicts (F7), and could not answer P2/R2 (F8).
+> `proof-alternatives-and-confidence-arm-codex-review.md` records the fixes:
+> - gold set v2 with all four cells, labelled synthetic smoke coverage;
+> - the crossed grader arms and fresh repetitions;
+> - a rerun under gate v2.
 
 The gold set (`fixtures/grading_hardcases/cases_v1.json`) has 14 hand-checked
 cases in linear algebra and probability:
@@ -402,6 +436,11 @@ uv run learnloop grading hardcases --vault <copy> --route or_haiku --route or_lu
 uv run learnloop grading hardcases --vault <copy> --route or_haiku --route or_luna \
   --input-price-per-million 0.10 --output-price-per-million 0.50 --max-cost-usd 3
 # a Codex or ChatGPT-plan route needs no price (subscription, estimated only)
+# R2's crossed arms (reference shown/solve-first x final-answer check shown/withheld)
+# and a repeat-run noise floor: 384 calls for two routes, upper bound ~$1.73
+uv run learnloop grading hardcases --vault <copy> --route or_haiku --route or_luna \
+  --input-price-per-million 0.10 --output-price-per-million 0.50 --max-cost-usd 3 \
+  --max-calls 500 --max-tokens 12000000 --ablations --repeats 2 --dry-run
 
 # Confidence and hedging arms (offline replay, no model calls)
 uv run learnloop eval --vault <copy> --section field --legacy-fallback current_content
@@ -423,6 +462,12 @@ uv run learnloop field data-check --vault <copy> --json   # answer_signals cover
   copies.
 - **Free call:** a listing of OpenRouter's model IDs and prices from the
   public `/models` endpoint.
+- **After the Codex review (v2 run).** The dry run planned 384 calls with an
+  upper bound of $1.78. It sent 350 requests on the same copy, **billed
+  $0.5056**: Haiku $0.4068 (183 requests), Luna $0.0988 (165 requests).
+  - **Stage total:** $0.586.
+  - **Details:**
+    `proof-alternatives-and-confidence-arm-codex-review.md`.
 
 ## Open questions
 
