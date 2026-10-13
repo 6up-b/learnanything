@@ -1973,7 +1973,8 @@ class Repository(
         Serving, scheduling and replay read this. Under the Slice 1 split a
         blind-graded event's causal fields (misconception statement, the
         diagnoser's misconception verdict) are empty here; a display surface
-        reads :meth:`active_errors_by_learning_object_overlaid` instead.
+        (and mvp-0.17's probe hypothesis lane) reads
+        :meth:`active_errors_by_learning_object_overlaid` instead.
         """
 
         return [_active_error(row) for row in self._active_error_rows(learning_object_id)]
@@ -1990,9 +1991,9 @@ class Repository(
         and events with no attempt are returned as stored, so a joint-graded
         vault reads exactly what :meth:`active_errors_by_learning_object` reads.
 
-        Display only (the Reader Guide, the TUI feedback screen): replay never
-        reads it, and serving keeps the raw read until an algorithm successor
-        says otherwise.
+        Display (the Reader Guide, the TUI feedback screen) and, from mvp-0.17
+        behind ``diagnosis.probe_lane_reads_diagnosis``, the probe hypothesis
+        lane's serving read. Replay never reads it.
         """
 
         events = [_decode_error_event(row) for row in self._active_error_rows(learning_object_id)]
@@ -7185,6 +7186,7 @@ class Repository(
         completed_at: str | None = None,
         active_state_segment_id: str | None = None,
         completion_posterior_json: str | None = None,
+        completion_detail_json: str | None = None,
         clock: Clock | None = None,
     ) -> None:
         now = utc_now_iso(clock)
@@ -7202,6 +7204,11 @@ class Repository(
         if completion_posterior_json is not None:
             assignments.append("completion_posterior_json = ?")
             parameters.append(completion_posterior_json)
+        if completion_detail_json is not None:
+            # mvp-0.17 (migration 187): the decision that ended the episode
+            # (a value-of-information stop with its forecast).
+            assignments.append("completion_detail_json = ?")
+            parameters.append(completion_detail_json)
         parameters.append(episode_id)
         with self.connection() as connection:
             connection.execute(

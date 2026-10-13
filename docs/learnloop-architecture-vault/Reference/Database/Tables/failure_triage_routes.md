@@ -3,13 +3,13 @@ title: "failure_triage_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
+source_commit_timestamp: "2026-10-13T02:31:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite failure_triage_routes"
   - "table failure_triage_routes"
-schema_head: 183
+schema_head: 187
 table_name: "failure_triage_routes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/diagnosis/failure_triage.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_hypotheses.py"
+  - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/scheduling/action_loss.py"
-  - "src/learnloop/scheduling/voi_stopping.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
 tags:
   - "learnloop/database/table"
@@ -103,7 +103,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
-- `src/learnloop/scheduling/voi_stopping.py`
+- `src/learnloop/diagnosis/voi_stopping.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

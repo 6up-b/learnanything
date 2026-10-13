@@ -2523,9 +2523,22 @@ def _evaluate_completion(
         # generation need — never blocking ordinary practice on the LO.
         # `no_suitable_candidate` completion is reserved for generation being
         # declined or failing.
-        if qualifying and not eligible_instruments(vault, repository, episode, posterior=posterior.posterior):
+        remaining = (
+            eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+            if qualifying
+            else []
+        )
+        if qualifying and not remaining:
             repository.update_probe_episode_status(episode.id, status="pending_items", clock=clock)
             _record_generation_need(vault, repository, episode, posterior.hypothesis_set, clock=clock)
+            return None
+        # mvp-0.17: the episode keeps asking only while the next observation's
+        # value pays for its minutes.
+        value_stop = _value_of_information_stop(vault, repository, episode, posterior, qualifying, remaining)
+        if value_stop is not None:
+            return _complete(
+                repository, episode, "value_of_information_stop", posterior=posterior, detail=value_stop, clock=clock
+            )
         return None
 
     # §7.7: dialogue microprobe turns within one block are correlated
@@ -2562,7 +2575,28 @@ def _evaluate_completion(
     # the repair, the missing breadth buys nothing for routing — stop.
     if _action_equivalent():
         return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
+    # mvp-0.17: breadth is asked for only while its value pays for its minutes.
+    value_stop = _value_of_information_stop(
+        vault,
+        repository,
+        episode,
+        posterior,
+        qualifying,
+        eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+        if qualifying and voi_probe_site_active(vault)
+        else [],
+    )
+    if value_stop is not None:
+        return _complete(
+            repository, episode, "value_of_information_stop", posterior=posterior, detail=value_stop, clock=clock
+        )
     return None
+
+
+def voi_probe_site_active(vault: LoadedVault) -> bool:
+    from learnloop.diagnosis.voi_stopping import SITE_PROBE_EPISODE, voi_stopping_active
+
+    return voi_stopping_active(vault.config, SITE_PROBE_EPISODE)
 
 
 def _plausible_actions_agree(
@@ -2688,6 +2722,7 @@ def _complete(
     reason: str,
     *,
     posterior: EpisodePosterior | None = None,
+    detail: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> str:
     active = repository.active_probe_presentation(episode.id)
@@ -2701,9 +2736,53 @@ def _complete(
         completion_posterior_json=(
             json.dumps(posterior.posterior, sort_keys=True) if posterior is not None else None
         ),
+        completion_detail_json=(
+            json.dumps(dict(detail), sort_keys=True, default=str) if detail is not None else None
+        ),
         clock=clock,
     )
     return reason
+
+
+def _value_of_information_stop(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    posterior: EpisodePosterior,
+    qualifying: list[dict[str, Any]],
+    candidates: list[EligibleInstrument],
+) -> dict[str, Any] | None:
+    """mvp-0.17 (voi_stopping, site ``probe_episode``): the logged stop
+    decision when the episode's next observation no longer pays for its
+    minutes, or None (keep asking, or the site is off).
+
+    Checked where the episode would otherwise continue, after at least one
+    qualifying observation (as the decision-equivalence stop is) and with an
+    eligible instrument to value (an empty pool keeps its own park). A
+    calibration session the observation was made in lifts the rule, as it
+    lifted the session cap.
+    """
+
+    from learnloop.diagnosis import voi_stopping as voi
+
+    if not qualifying or not candidates or not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
+        return None
+    session_id = None
+    latest = qualifying[-1]  # observations come oldest first
+    attempt = repository.fetch_practice_attempt(str(latest.get("attempt_id"))) if latest.get("attempt_id") else None
+    if attempt:
+        session_id = attempt.get("session_id")
+    if session_id is not None:
+        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
+
+        if calibration_cap_lifted(repository, str(session_id)):
+            return None
+    decision = voi.probe_episode_decision(
+        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
+    )
+    if decision.decision == voi.CONTINUE:
+        return None
+    return decision.as_dict()
 
 
 # --- Learner controls (§3, §12.1) -----------------------------------------------------

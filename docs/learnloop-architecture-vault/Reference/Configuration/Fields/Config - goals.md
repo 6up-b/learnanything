@@ -3,8 +3,8 @@ title: "Config - goals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
+source_commit_timestamp: "2026-10-13T02:31:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml goals"
@@ -39,7 +39,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `goals.default_projection_horizon_days` | `30` | integer | modeled default or validator seed | Sets the default projection horizon duration in days for goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:106`; `src/learnloop/goals/goal_projection.py:730` |
+| `goals.default_projection_horizon_days` | `30` | integer | modeled default or validator seed | Sets the default projection horizon duration in days for goal-frontier projection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:109`; `src/learnloop/goals/goal_projection.py:730` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

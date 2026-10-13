@@ -759,3 +759,92 @@ def test_the_decision_features_receipt_reads_the_overlay_and_says_so(tmp_path):
             # stored taxonomy prior would have logged one).
             assert not ability.get("misconception_posterior_by_error_type")
     assert compute
+
+
+# ── (a) continued: a value stop ends the episode, with its decision ──────────
+
+
+def _answer_probe(vault, repository, *, score: int = 1):
+    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, apply_attempt
+    from learnloop.attempts.attempts import ResolvedGrade
+    from learnloop.diagnosis.probe_episodes import (
+        commit_presentation,
+        eligible_instruments,
+        episode_hypothesis_set,
+        serve_presentation,
+    )
+    from learnloop.ids import new_ulid
+
+    episode = repository.open_probe_episode(LO)
+    eligible = eligible_instruments(
+        vault, repository, episode, hypothesis_set=episode_hypothesis_set(repository, episode)
+    )[0]
+    presentation = commit_presentation(vault, repository, episode, eligible, clock=CLOCK)
+    serve_presentation(repository, presentation.id, clock=CLOCK)
+    apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=eligible.item.id, learner_answer_md="answer", attempt_type="diagnostic_probe",
+                session_id="sess", probe_presentation_id=presentation.id,
+            ),
+            attempt_id=new_ulid(),
+            grade=ResolvedGrade(
+                rubric_score=score, criterion_points={"correctness": float(score)}, evidence_rows=[],
+                error_attributions=[], grader_confidence=1.0, confidence=4, manual_review_reason=None,
+            ),
+            grading_source="ai",
+        ),
+        clock=CLOCK,
+    )
+    return repository.probe_episode(episode.id)
+
+
+@pytest.mark.parametrize("version", ["mvp-0.16", "mvp-0.17"])
+def test_a_value_stop_ends_the_episode_only_at_the_successor(tmp_path, monkeypatch, version):
+    _paths, vault, repository = _probe_vault(tmp_path, version)
+    _minutes(monkeypatch, 10_000.0)  # after one answer, nothing pays for its minutes
+    episode = _answer_probe(vault, repository)
+    if version == "mvp-0.16":
+        assert episode.completion_reason != "value_of_information_stop"
+        return
+    assert episode.status == "complete" and episode.completion_reason == "value_of_information_stop"
+    with repository.connection() as connection:
+        detail = json.loads(
+            connection.execute(
+                "SELECT completion_detail_json FROM probe_episodes WHERE id = ?", (episode.id,)
+            ).fetchone()[0]
+        )
+    assert detail["site"] == voi.SITE_PROBE_EPISODE and detail["decision"] == voi.STOP
+    assert detail["context"]["session_id"] == "sess" and detail["best"]["forecast"]["predicted_outcomes"]
+
+
+def test_while_the_next_observation_pays_the_episode_keeps_asking(tmp_path, monkeypatch):
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.0001)
+    episode = _answer_probe(vault, repository)
+    assert episode.completion_reason != "value_of_information_stop"
+
+
+# ── every earlier version is unchanged ───────────────────────────────────────
+
+
+@pytest.mark.parametrize("version", ["mvp-0.10", "mvp-0.14", "mvp-0.15", "mvp-0.16"])
+def test_below_the_successor_the_new_switches_change_nothing(tmp_path, monkeypatch, version):
+    _a, on_vault, on_repo = _probe_vault(tmp_path / "on", version)
+    _b, off_vault, off_repo = _probe_vault(
+        tmp_path / "off", version,
+        toml="[voi_stopping]\nenabled = false\n[diagnosis]\nprobe_lane_reads_diagnosis = false\n",
+    )
+    for spent in (0, 4):
+        _session_spent(monkeypatch, on_repo, spent)
+        _session_spent(monkeypatch, off_repo, spent)
+        on_trace, off_trace = OfferTrace(), OfferTrace()
+        assert _fingerprint(_build(on_vault, on_repo, trace=on_trace)) == _fingerprint(
+            _build(off_vault, off_repo, trace=off_trace)
+        )
+        assert on_trace.voi_decisions == () and "voi_stopping" not in on_trace.config_snapshot
+        # The count cap still serves below the successor.
+        expected = "session_cap_reached" if spent else None
+        assert probe_serving_block_reason(on_vault, on_repo, session_id="sess") == expected

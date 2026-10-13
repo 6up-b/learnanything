@@ -27,9 +27,12 @@ The upgrade:
   successor it is a tag change plus an idempotent rebuild of the same
   projection namespace, prepared before the atomic config rename.
 
-Nothing is rewritten: no migration, no persisted row changes meaning. Both
-switches off restore mvp-0.16's serving exactly without a downgrade; rolling
-the version back is restore-only.
+Nothing is rewritten: migration 187 (applied by any repository open, at
+every version) rebuilds ``probe_episodes`` data-preservingly so it can record
+the new ``value_of_information_stop`` completion and its decision
+(``completion_detail_json``), which only this version writes; no persisted row
+changes meaning. Both switches off restore mvp-0.16's serving exactly without
+a downgrade; rolling the version back is restore-only.
 
 This module sits at the top level beside ``learner_text_gap_upgrade`` for the
 same reason: it composes the chain's earlier links.

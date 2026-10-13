@@ -61,7 +61,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_183"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_187"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
@@ -286,3 +286,16 @@ def test_the_successor_rebuild_equals_mvp016s_projection(tmp_path):
             return out
 
     assert derived("mvp-0.17") == derived("mvp-0.16")
+
+
+def test_migration_187_lets_probe_episodes_record_a_value_stop(tmp_path):
+    root = tmp_path / "head"
+    copy_tree_with_databases(HEAD, root)
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        schema = connection.execute("SELECT sql FROM sqlite_master WHERE name = 'probe_episodes'").fetchone()[0]
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(probe_episodes)")}
+        indexes = {row[1] for row in connection.execute("PRAGMA index_list(probe_episodes)")}
+        assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    assert "'value_of_information_stop'" in schema and "'action_equivalent'" in schema
+    assert {"completion_posterior_json", "completion_detail_json"} <= columns
+    assert {"idx_probe_episodes_lo", "idx_probe_episodes_open", "idx_probe_episodes_target_version"} <= indexes

@@ -37,6 +37,9 @@ class SchedulerFollowupConfig(BaseModel):
     tau_repeated_item_failures: int = 2
     tau_repeated_facet_failures: int = 2
     tau_unfamiliar_intervention: float = 0.85
+    # From mvp-0.17 the kill-switch path only (voi_stopping.followups off):
+    # with it on, a further intervention is queued while its value of
+    # information pays for its minutes.
     max_interventions_per_lo_per_session: int = 1
     cold_start_min_lo_evidence: float = 2.0
     min_target_facet_overlap: float = 0.5
@@ -221,6 +224,9 @@ class ProbeEpisodeConfig(BaseModel):
     open_set_trigger_threshold: float = 0.35
     hinted_evidence_weight: float = 0.5
     contaminated_evidence_weight: float = 0.3
+    # From mvp-0.17 the kill-switch path only (voi_stopping.probe_episodes
+    # off): with it on, each next observation is served while its value of
+    # information pays for its minutes.
     session_qualifying_observation_cap: int = 4
     # Explicit §11 fast path replacing the legacy claim_skip_threshold: a strong
     # prior claim plus a highly discriminating cross-facet instrument may complete
@@ -617,11 +623,16 @@ class TeachBackConfig(BaseModel):
     applied to facet evidence contributed by transfer-tier rubric criteria —
     both success and failure are discounted equally, and the multiplier is
     read from config at apply time so replay reproduces it. ``session_cap``
-    is the maximum number of teach_back items in one built practice queue.
+    is the maximum number of teach_back items in one built practice queue
+    below mvp-0.17 (or with ``voi_stopping.teach_back`` off); from mvp-0.17 it
+    is a floor, and each teach-back beyond it stays while its value of
+    information pays for its minutes.
     """
 
     max_followups: int = Field(default=4, ge=1)
     transfer_evidence_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
+    # From mvp-0.17 the floor only (voi_stopping.teach_back): a teach-back
+    # beyond it stays while its value of information pays for its minutes.
     session_cap: int = Field(default=1, ge=0)
 
 
@@ -2022,7 +2033,10 @@ class PlanConfig(BaseModel):
     # D11: a re-entry plan's caps (§7).
     reentry_minutes: int = Field(default=15, ge=1, le=120)
     reentry_max_items: int = Field(default=8, ge=1, le=100)
-    # §6.9: due project probes in the maintain lane per day.
+    # §6.9: due project probes in the maintain lane per day. From mvp-0.17
+    # the kill-switch path only (voi_stopping.project_probes off): with it on,
+    # every due probe whose value pays for its minutes competes for the
+    # plan's minutes.
     project_probes_max_per_day: int = Field(default=4, ge=0, le=50)
     # D7: the optional one-line Today headline.
     headline: bool = True

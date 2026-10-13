@@ -24,7 +24,7 @@ from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_va
 pytestmark = pytest.mark.durability
 
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
-HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_183"
+HEAD_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_187"
 #: Raw ledgers that replay REWRITES (error events, debug payloads) or appends
 #: to (hypotheses), plus the factors the projection reconciles.
 REWRITTEN = ("error_events", "causal_hypotheses", "attempt_debug_payloads", "unresolved_cause_factors")

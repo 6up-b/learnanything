@@ -142,7 +142,9 @@ LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 # Part 1 lifts four count caps onto value of information (a probe episode
 # keeps asking, a further follow-up is queued, a teach-back is offered and a
 # due project probe enters the plan while the next observation's value pays
-# for its minutes; diagnosis.voi_stopping), kill switch
+# for its minutes; an episode whose next observation no longer pays ends with
+# completion_reason 'value_of_information_stop', migration 187;
+# diagnosis.voi_stopping), kill switch
 # ``voi_stopping.enabled`` (per-site sub-switches); Part 2 makes the probe
 # hypothesis lane read the diagnoser's verdict through the diagnosis overlay
 # under split grading and leave out an event whose diagnosis is pending, kill

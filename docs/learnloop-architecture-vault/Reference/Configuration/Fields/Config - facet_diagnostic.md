@@ -3,8 +3,8 @@ title: "Config - facet_diagnostic"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
+source_commit_timestamp: "2026-10-13T02:31:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml facet_diagnostic"
@@ -40,10 +40,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `facet_diagnostic.tau_facet_failed` | `0.4` | number | modeled default or validator seed | Sets the decision cutoff for facet failed in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:510` |
-| `facet_diagnostic.tau_facet_uncertain_variance` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for facet uncertain variance in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:511` |
-| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:512`; `src/learnloop/learner/facet_diagnostics.py:535` |
-| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:513`; `src/learnloop/learner/facet_diagnostics.py:538` |
+| `facet_diagnostic.tau_facet_failed` | `0.4` | number | modeled default or validator seed | Sets the decision cutoff for facet failed in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:516` |
+| `facet_diagnostic.tau_facet_uncertain_variance` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for facet uncertain variance in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:517` |
+| `facet_diagnostic.hedge_uncertainty_floor` | `0.5` | number | modeled default or validator seed | Controls hedge uncertainty floor in facet failure and uncertainty classification, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:518`; `src/learnloop/learner/facet_diagnostics.py:535` |
+| `facet_diagnostic.facet_resolved_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for facet resolved in facet failure and uncertainty classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:519`; `src/learnloop/learner/facet_diagnostics.py:538` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

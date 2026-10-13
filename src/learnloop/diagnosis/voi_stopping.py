@@ -11,7 +11,10 @@ site); off, serving is ``mvp-0.16``'s exactly.
 site                    former count cap (the kill-switch path)     what decides now
 ======================  ==========================================  ==========================
 ``probe_episode``       ``probe.episode.session_qualifying_         every next observation of an
-                        observation_cap`` (4 per session)           episode, while its value pays
+                        observation_cap`` (4 per session)           episode, while its value pays;
+                                                                    then the block closes and the
+                                                                    episode completes with
+                                                                    ``value_of_information_stop``
 ``followup_             ``scheduler.followup.max_interventions_     every further intervention on
 intervention``          per_lo_per_session`` (1)                    an LO in a session
 ``teach_back``          ``teach_back.session_cap`` (1 per queue)    every further teach-back

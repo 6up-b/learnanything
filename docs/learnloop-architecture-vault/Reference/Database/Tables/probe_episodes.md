@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
+source_commit_timestamp: "2026-10-13T02:31:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 183
+schema_head: 187
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -56,7 +56,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/028_probe_episodes.sql`.
-- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`.
+- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`, `187_probe_value_of_information_stop.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -88,6 +88,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `calibration_model_hash` | `TEXT` | no | — | — | Stored value |
 | `probe_mapping_version` | `TEXT` | no | — | — | Stored value |
 | `completion_posterior_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `completion_detail_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -219,7 +220,8 @@ CREATE TABLE "probe_episodes" (
       'fast_path_strong_claim',
       'superseded_by_redesign',
       'couldnt_reliably_distinguish',
-      'action_equivalent'
+      'action_equivalent',
+      'value_of_information_stop'
     )
   ),
   algorithm_version TEXT NOT NULL,
@@ -230,8 +232,10 @@ CREATE TABLE "probe_episodes" (
   target_support_hash TEXT,
   calibration_model_id TEXT,
   calibration_model_hash TEXT,
-  probe_mapping_version TEXT
-, completion_posterior_json TEXT);
+  probe_mapping_version TEXT,
+  completion_posterior_json TEXT,
+  completion_detail_json TEXT
+);
 ```
 
 ## Related notes

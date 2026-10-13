@@ -92,7 +92,47 @@ def block_complete(
         vault.config.probe.block.default_block_observations,
         episode.maximum_observations,
     )
-    return len(segment_rows) >= target
+    if len(segment_rows) >= target:
+        return True
+    # mvp-0.17 (voi_stopping): a sequential block also closes when the
+    # episode's next observation no longer pays for its minutes, so the
+    # learner's deferred feedback is released and the completion policy (which
+    # then ends the episode on that value stop) runs now, not never.
+    return _next_observation_does_not_pay(vault, repository, episode, rows)
+
+
+def _next_observation_does_not_pay(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    rows: list[dict],
+) -> bool:
+    from learnloop.diagnosis import voi_stopping as voi
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
+
+    if not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
+        return False
+    qualifying = [row for row in rows if row["observation"].eligible_for_completion]
+    if not qualifying:
+        return False
+    attempt = repository.fetch_practice_attempt(str(qualifying[-1].get("attempt_id") or ""))
+    session_id = attempt.get("session_id") if attempt else None
+    if session_id is not None:
+        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
+
+        if calibration_cap_lifted(repository, str(session_id)):
+            return False
+    posterior = episode_posterior(vault, repository, episode)
+    if posterior is None:
+        return False
+    candidates = eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+    if not candidates:
+        # An empty pool keeps its own rule (the completion policy parks it).
+        return False
+    decision = voi.probe_episode_decision(
+        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
+    )
+    return decision.decision == voi.STOP
 
 
 def evaluate_open_set_trigger(

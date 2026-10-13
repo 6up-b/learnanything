@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
+source_commit_timestamp: "2026-10-13T02:31:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 183
+schema_head: 187
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -190,6 +190,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/field/signals.py`
@@ -201,7 +202,6 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router/outcomes.py`
-- `src/learnloop/scheduling/voi_stopping.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop_sidecar/handlers/goals.py`
