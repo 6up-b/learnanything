@@ -205,7 +205,10 @@ def _guard_file_upload(ctx: JobContext, flow: str) -> None:
     the learner nothing per book) uploads only after the separate OK for whole
     files (spec §6.6: the connection's OK covers passages and answers only)."""
 
-    if ctx.job.get("_keep_local") or ctx.payload.get("keep_local"):
+    # The book's persisted choice once it is registered (re-review F13); the
+    # Add's request before that.
+    kept_local = ctx.job["_keep_local"] if "_keep_local" in ctx.job else bool(ctx.payload.get("keep_local"))
+    if kept_local:
         raise IngestRunnerError(
             _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
         )
@@ -1846,6 +1849,21 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     return result.as_dict()
 
 
+def _apply_requested_keep_local(ctx: JobContext, source_id: str) -> None:
+    """Persist a link Add's "Keep this book on this computer" when its book is
+    registered, once: the job's stored payload (read fresh, so a choice the
+    learner made since is honoured) is marked ``keep_local_applied``."""
+
+    if ctx.payload.get("source_id") or not ctx.payload.get("keep_local"):
+        return
+    stored = dict((ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {})
+    if not stored.get("keep_local") or stored.get("keep_local_applied"):
+        return
+    ctx.repo.set_source_keep_local(source_id, True, clock=ctx.clock)
+    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, "keep_local_applied": True})
+    ctx.job["payload"] = {**ctx.payload, "keep_local_applied": True}
+
+
 def handle_import(ctx: JobContext) -> dict[str, Any]:
     """import: fetch -> register artifact/revision -> extract to IR -> persist -> health.
 
@@ -1893,10 +1911,13 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     )
     ctx.job["_revision_id"] = registered.revision_id
     # UX Phase 1 review F1: "Keep this book on this computer" belongs to the
-    # book (a link's book exists only now), and binds this extraction too.
-    if payload.get("keep_local"):
-        ctx.repo.set_source_keep_local(registered.source_id, True, clock=ctx.clock)
-    ctx.job["_keep_local"] = bool(payload.get("keep_local")) or ctx.repo.source_kept_local(registered.source_id)
+    # book, and binds this extraction too. Re-review F13: once the book
+    # exists its persisted choice decides. A file's Add persisted it before
+    # queuing this import; a link's book exists only now, so the import
+    # applies the Add's request once (recorded on the job), and a retry never
+    # brings back a choice the learner has since changed.
+    _apply_requested_keep_local(ctx, registered.source_id)
+    ctx.job["_keep_local"] = ctx.repo.source_kept_local(registered.source_id)
     # Label the extracted transcript unit by the real video title (not the
     # "<title> — <author>" display form) when the fetch captured one.
     if fetched.title and not ctx.payload.get("title"):

@@ -668,7 +668,15 @@ class IngestQueueStoreMixin:
         """Every job of ``job_types`` whose payload or result names
         ``source_id``, newest first. Filtered by source before anything is
         limited, so a book's whole history stays visible however much other
-        work the library has done since (UX Phase 1 review F10)."""
+        work the library has done since (UX Phase 1 review F10).
+
+        A job is also found through the work it queued: a job whose payload
+        carries ``auto_build.planner_job_id`` and ``auto_build.source_id``
+        (an automatic build, enqueued in one transaction with that
+        association) names its planner. A link's planner learns its book only
+        from the import, so if it dies after queuing its build and before
+        saving its result, that persisted association is what still ties it
+        to the book (UX Phase 1 re-review F3)."""
 
         placeholders = ",".join("?" for _ in job_types)
         with self.connection() as connection:
@@ -677,10 +685,15 @@ class IngestQueueStoreMixin:
                 SELECT * FROM ingest_jobs
                  WHERE job_type IN ({placeholders})
                    AND (json_extract(payload_json, '$.source_id') = ?
-                        OR json_extract(result_json, '$.source_id') = ?)
+                        OR json_extract(result_json, '$.source_id') = ?
+                        OR id IN (
+                          SELECT json_extract(queued.payload_json, '$.auto_build.planner_job_id')
+                            FROM ingest_jobs AS queued
+                           WHERE json_extract(queued.payload_json, '$.auto_build.source_id') = ?
+                        ))
                  ORDER BY created_at DESC, id DESC
                 """,
-                [*job_types, source_id, source_id],
+                [*job_types, source_id, source_id, source_id],
             ).fetchall()
         return [_decode_ingest_job(row) for row in rows]
 

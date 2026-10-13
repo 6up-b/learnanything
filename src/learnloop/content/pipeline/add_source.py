@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import io
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
@@ -163,8 +164,9 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
         revision_id = artifact.get("current_revision_id")
         if options.keep_local and not artifact.get("keep_local"):
-            # Asking for more privacy on a book already here always applies.
-            repo.set_source_keep_local(artifact["id"], True, clock=clock)
+            # Asking for more privacy on a book already here always applies,
+            # to the work already queued for it too.
+            keep_on_this_computer(ingest_jobs, artifact["id"], clock=clock)
         item.update(
             status="existing",
             source_id=artifact["id"],
@@ -689,15 +691,22 @@ class AutoBuildPaused(Exception):
 
 
 def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
-    """Admit one paid job attempt of an automatic build, or stop it (F1-F5).
+    """Admit one paid job attempt of an automatic build, or stop it (F1-F5),
+    and admit each of its model requests (re-review F2).
 
     Runs at the start of every attempt (a retry is admitted again):
     * the kill switch ``[ingest] auto_build`` and the book's Undo generation
       are read now, not when the build was planned: work they no longer allow
       is cancelled before any model call;
     * a book kept on this computer sends nothing;
-    * money: through ``SpendBudget`` against what is left of the build's
-      authorization and of today's cap, priced at the route resolved now.
+    * money: the job's ceiling-priced estimate must fit what is left of the
+      build's authorization and of today's cap (priced at the route resolved
+      now), and then, for the rest of the attempt, EVERY physical request
+      (transport retries, a provider's JSON repair, append reconciliation's
+      follow-up call, parallel inventory workers) passes a
+      :class:`~learnloop.ai.spend.MeteredRequestGate` over the same limit,
+      settled with what each request reported. A refused request stops the
+      job as ``spend_paused`` before it is sent.
     No-op for jobs that are not part of an automatic build."""
 
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
@@ -720,10 +729,7 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     if repo.source_kept_local(source_id):
         raise IngestRunnerError(KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False)
     route = ctx.services.authoring_route(ctx)
-    if is_subscription_route(config, route.provider):
-        return
     tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
-    usd = tokens * _price_per_million(config, route.provider) / 1_000_000
     spent_build = build_spend_usd(repo, config, batch_id)
     authorized = auto.get("authorized_usd")
     limit = max(float(authorized) - spent_build, 0.0) if authorized is not None else None
@@ -735,26 +741,89 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
         if limit is None or daily_left < limit:
             limit, reason = daily_left, "daily_cap"
     if limit is None:
-        # Planned before this rule (no authorization recorded): the standing
-        # "runs without asking" amount.
+        # Planned before this rule, or on the subscription (no authorization
+        # recorded): the standing "runs without asking" amount.
         limit = float(config.ingest.cost_pause.threshold_usd)
-    budget = SpendBudget(
-        SpendCaps(max_candidates=10**9, max_pairs=10**9, max_retries=10**9, max_calls=10**9,
-                  max_total_tokens=10**15, max_estimated_usd=limit),
-        cancelled=ctx.cancelled,
+    details = {"reason": reason, "provider": route.provider, "limit_usd": round(limit, 4),
+               "spent_by_build_usd": round(spent_build, 4)}
+    if not is_subscription_route(config, route.provider):
+        usd = tokens * _price_per_million(config, route.provider) / 1_000_000
+        budget = SpendBudget(
+            SpendCaps(max_candidates=10**9, max_pairs=10**9, max_retries=10**9, max_calls=10**9,
+                      max_total_tokens=10**15, max_estimated_usd=limit),
+            cancelled=ctx.cancelled,
+        )
+        try:
+            budget.check(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd))
+        except SpendLimitExceeded as exc:
+            raise _spend_paused(reason, {**details, "estimate_usd": round(usd, 4), "spend_check": str(exc)}) from exc
+    # Every request of the rest of this attempt, whatever route it really
+    # takes (a subscription route is never limited; a metered fallback is).
+    gate = _request_gate(config, limit, _request_output_ceiling(config, str(ctx.job.get("job_type") or "")))
+    ctx.hold(_requests_admitted(gate, reason, details))
+
+
+def _request_output_ceiling(config, job_type: str) -> int:
+    """The output a request is reserved for when it names no ceiling of its
+    own (append reconciliation, epigraphs): the configured per-operation
+    output budget the pipeline holds its results to."""
+
+    budgets = config.ingest.budgets
+    if job_type == "inventory":
+        return int(budgets.inventory_output_tokens)
+    return max(int(budgets.synthesis_output_tokens), int(budgets.synthesis_shard_output_tokens),
+               int(budgets.append_output_tokens))
+
+
+def _request_gate(config, limit_usd: float, default_output_tokens: int):
+    from learnloop.ai.spend import MeteredRequestGate, is_subscription_transport
+
+    return MeteredRequestGate(
+        limit_usd=limit_usd,
+        price_per_token=lambda provider: _price_per_million(config, provider) / 1_000_000,
+        is_subscription=lambda client: (
+            is_subscription_transport(client=client)
+            or is_subscription_route(config, getattr(client, "provider_name", None))
+        ),
+        default_output_tokens=max(int(default_output_tokens), 0),
     )
+
+
+def _spend_paused(reason: str, details: Mapping[str, Any]):
+    from learnloop.content.pipeline.runner import IngestRunnerError
+
+    return IngestRunnerError(
+        "Paused: this would spend more than allowed." if reason == "authorization"
+        else "Paused: today's AI budget is used.",
+        code="spend_paused",
+        retryable=True,
+        details=dict(details),
+    )
+
+
+@contextmanager
+def _requests_admitted(gate, reason: str, details: Mapping[str, Any]):
+    """Hold ``gate`` over every model request of the attempt; a request it
+    refused stops the job as ``spend_paused`` (whatever the pipeline made of
+    the refusal on its way out)."""
+
+    from learnloop.ai.execution import gate_model_requests
+    from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled, WaitingForInput
+    from learnloop.db.scopes import JobOwnershipLost
+
     try:
-        budget.check(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd))
-    except SpendLimitExceeded as exc:
-        raise IngestRunnerError(
-            "Paused: this would spend more than allowed." if reason == "authorization"
-            else "Paused: today's AI budget is used.",
-            code="spend_paused",
-            retryable=True,
-            details={"reason": reason, "provider": route.provider, "estimate_usd": round(usd, 4),
-                     "limit_usd": round(limit, 4), "spent_by_build_usd": round(spent_build, 4),
-                     "spend_check": str(exc)},
-        ) from exc
+        with gate_model_requests(gate):
+            yield gate
+    except (JobCancelled, JobOwnershipLost, WaitingForInput):
+        raise
+    except Exception as exc:
+        if gate.refusal is None or (isinstance(exc, IngestRunnerError) and exc.code == "spend_paused"):
+            raise
+        # What the job reported on its way out is kept (a preserved
+        # candidate, for Retry's zero-model repair first).
+        earlier = dict(exc.details) if isinstance(exc, IngestRunnerError) else {}
+        raise _spend_paused(reason, {**earlier, **details, "request": dict(gate.refusal),
+                                     "spent_by_job_usd": round(gate.spent_usd, 4)}) from exc
 
 
 def _cancel_rest_of_batch(ctx) -> None:
@@ -1186,8 +1255,10 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     if payload.get("problem_set") or not artifact.get("reader_enabled", 1):
         return {"outcome": "skipped", "reason": "problem_set", **base}
     # The book's own privacy choice, persisted (review F1): every later build
-    # reads it, not only the Add that set it.
-    if payload.get("keep_local") or artifact.get("keep_local"):
+    # reads it, not only the Add that set it. The Add's own request was
+    # persisted before this planner could run (by Add for a file, by the
+    # import for a link), so the book's current choice decides (re-review F13).
+    if artifact.get("keep_local"):
         return {"outcome": "waiting", "reason": "kept_local", **base}
     resolved = _completed_extraction(ctx.repo, source_id)
     if resolved is None:
@@ -1534,10 +1605,58 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
     return reverted
 
 
-def keep_on_this_computer(repo, source_id: str, *, clock: Clock | None = None) -> None:
-    """Keep a book on this computer from now on (book details)."""
+def keep_on_this_computer(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> None:
+    """Keep a book on this computer from now on (book details, or an Add of a
+    book already here with the option).
 
+    The choice is persisted first, and every outbound boundary reads it when
+    its work runs (re-review F1). Work already queued to send the book out is
+    stopped now too: its queued Reader requests are cancelled (a running one
+    is flagged), and its automatic builds are cancelled (the card then says
+    the book is kept on this computer). A planner still to run costs nothing
+    and records "kept on this computer" itself. A request or model call
+    already under way is not recalled; nothing new starts."""
+
+    repo = ingest_jobs.repository
     repo.set_source_keep_local(source_id, True, clock=clock)
+    for request in repo.reader_requests_for_source(source_id):
+        if request["status"] in {"queued", "running"}:
+            repo.cancel_reader_request(request["id"], clock=clock)
+    for job in auto_jobs(repo, source_id):
+        batch_id = (planner_outcome(repo, job) or {}).get("build_batch_id")
+        if batch_id and _active(repo.get_ingest_batch(batch_id)):
+            ingest_jobs.cancel_batch(batch_id)
+
+
+def share_with_ai(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> str | None:
+    """"Let LearnLoop write questions for it" (book details): the book is no
+    longer kept on this computer, and the persisted choice decides from now on.
+
+    A readable book plans a build. A book that never became readable (a
+    recording kept local stops before transcription, re-review F13) has its
+    Add brought up to date: the stale ``keep_local`` is removed from the
+    Add's jobs, the import asks for the separate whole-file OK before any
+    upload (§6.6), and the Add is resumed. Returns the batch started or
+    resumed, if any."""
+
+    repo = ingest_jobs.repository
+    repo.set_source_keep_local(source_id, False, clock=clock)
+    if _completed_extraction(repo, source_id) is not None:
+        return request_auto_build(ingest_jobs, source_id)
+    batch_id = latest_add_batch(repo, source_id)
+    if batch_id is None:
+        return None
+    for job in repo.ingest_jobs_for_batch(batch_id):
+        payload = dict(job.get("payload") or {})
+        if not (payload.get("keep_local") or payload.get("keep_local_applied")):
+            continue
+        payload.pop("keep_local", None)
+        payload.pop("keep_local_applied", None)
+        if job["job_type"] == "import":
+            payload["require_upload_ok"] = True
+        repo.update_ingest_job_payload(job["id"], payload)
+    ingest_jobs.resume_batch(batch_id)
+    return batch_id
 
 
 # ---------------------------------------------------------------------------
@@ -1704,6 +1823,8 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return _line(f"Questions for {phrase} in about {_minutes(len(outcome.get('chapters') or []))} min",
                      "working")
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
+        if artifact.get("keep_local"):
+            return _line("Kept on this computer — no questions are written for it", "quiet")
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
                 return _budget_used_line(state["error"])
@@ -1855,6 +1976,7 @@ __all__ = [
     "request_auto_build",
     "retry_build",
     "run_auto_study_map",
+    "share_with_ai",
     "source_status_line",
     "spent_today_usd",
     "text_recognition_available",

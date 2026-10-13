@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -350,6 +350,8 @@ class JobContext:
     # The runner's own enqueue, so a planning job can queue the work it planned
     # (UX Phase 1: the automatic build after an Add) as a separate batch.
     _enqueue_batch: Callable[..., str] | None = None
+    # Scopes held until this attempt ends (see ``hold``); set by the runner.
+    _held: ExitStack | None = None
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -409,6 +411,15 @@ class JobContext:
 
         if self._bind_interruptible is not None:
             self._bind_interruptible(client)
+
+    def hold(self, scope: AbstractContextManager[Any]) -> Any:
+        """Enter ``scope`` for the rest of this attempt: the runner exits it
+        when the handler returns or raises (in this thread, so context
+        variables it sets are reset), before the outcome is recorded."""
+
+        if self._held is None:
+            raise IngestRunnerError("this job context cannot hold a scope outside the runner.")
+        return self._held.enter_context(scope)
 
     def enqueue_batch(self, workflow_type: str, jobs: Sequence["JobSpec"], **kwargs: Any) -> str:
         """Queue a follow-up batch through the runner that is running this job."""
@@ -871,11 +882,18 @@ class IngestRunner:
             )
             heartbeat_thread.start()
             try:
-                with guard_ingest_writes(
-                    self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
-                ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
-                    result = handler(ctx)
+                # Scopes a handler holds for the rest of its attempt (the
+                # per-request spend gate of an automatic build) close here,
+                # inside the classification below, so what they raise on the
+                # way out is classified like the handler's own outcome.
+                with ExitStack() as held:
+                    ctx._held = held
+                    with guard_ingest_writes(
+                        self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
+                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
+                        result = handler(ctx)
             finally:
+                ctx._held = None
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
         except JobOwnershipLost:

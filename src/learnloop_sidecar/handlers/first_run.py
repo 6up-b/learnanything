@@ -316,11 +316,11 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
             ctx.ingest_jobs.resume_batch(batch_id)
         result["batch_id"] = batch_id
     elif params.action == "keep_local":
-        core.keep_on_this_computer(repository, params.source_id)
+        core.keep_on_this_computer(ctx.ingest_jobs, params.source_id)
     elif params.action == "share_with_ai":
-        repository.set_source_keep_local(params.source_id, False)
-        if core._completed_extraction(repository, params.source_id) is not None:
-            result["batch_id"] = core.request_auto_build(ctx.ingest_jobs, params.source_id)
+        # A book not readable yet resumes its Add, which asks for the separate
+        # whole-file OK before anything is uploaded (re-review F13).
+        result["batch_id"] = core.share_with_ai(ctx.ingest_jobs, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
         keep_local = bool(artifact.get("keep_local"))
         if not core.text_recognition_available(keep_local=keep_local):

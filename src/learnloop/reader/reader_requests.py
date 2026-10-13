@@ -501,6 +501,10 @@ def _deterministic_synthesis(
     }
 
 
+KEPT_ON_THIS_COMPUTER = "kept_on_this_computer"
+KEPT_ON_THIS_COMPUTER_MESSAGE = "This book is kept on this computer, so LearnLoop doesn't send it to an AI."
+
+
 def drain_requests(
     repository: Repository,
     *,
@@ -530,6 +534,16 @@ def drain_requests(
         if request.get("cancel_requested"):
             repository.resolve_reader_request(
                 request_id=request["id"], status="cancelled", expected_lease_epoch=epoch, clock=clock
+            )
+            continue
+        if request.get("source_id") and repository.source_kept_local(str(request["source_id"])):
+            # The book's privacy, read when the request runs (UX Phase 1
+            # re-review F1): a request queued before "Keep this book on this
+            # computer" is never sent.
+            repository.resolve_reader_request(
+                request_id=request["id"], status="cancelled",
+                error={"code": KEPT_ON_THIS_COMPUTER, "message": KEPT_ON_THIS_COMPUTER_MESSAGE},
+                expected_lease_epoch=epoch, clock=clock,
             )
             continue
         if request.get("reason") == "token_cap_exceeded":

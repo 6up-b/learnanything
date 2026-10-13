@@ -28,6 +28,7 @@ _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata",
 _budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
 _single_request: ContextVar[bool] = ContextVar("model_single_request", default=False)
 _labels: ContextVar[dict[str, str] | None] = ContextVar("model_call_labels", default=None)
+_request_gate: ContextVar["RequestGate | None"] = ContextVar("model_request_gate", default=None)
 
 #: Receipt labels a caller may attach to the calls in its context (router
 #: spec §6.2): which judge answered, the versioned question set, and the hash
@@ -122,6 +123,36 @@ def observe_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
         _observer.reset(token)
 
 
+class RequestGate(Protocol):
+    """Admission for each physical model request made in a context.
+
+    ``admit`` runs immediately before a request is sent (before its receipt
+    opens) and raises to refuse it; whatever it returns is handed back to
+    ``settle`` with the usage the request reported, once it has finished.
+    Transport retries, a provider's JSON repair and any follow-up call are
+    physical requests of their own; the structured operation around them is
+    not (``model_call(..., wrapper=True)``). Inventory workers run in copies
+    of the context and share the gate, so a gate must be thread-safe.
+    """
+
+    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+        ...
+
+    def settle(self, admission: Any, usage: dict[str, Any]) -> None:
+        ...
+
+
+@contextmanager
+def gate_model_requests(gate: RequestGate):
+    """Admit every physical model request started in this context through ``gate``."""
+
+    token = _request_gate.set(gate)
+    try:
+        yield gate
+    finally:
+        _request_gate.reset(token)
+
+
 class ModelEventStore(Protocol):
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
         ...
@@ -182,11 +213,55 @@ def observed_sdk_turn(function):
 
 
 @contextmanager
-def model_call(client: Any, *, purpose: str, prompt: Any = None, schema: Any = None, budget: int | None = None):
+def model_call(
+    client: Any,
+    *,
+    purpose: str,
+    prompt: Any = None,
+    schema: Any = None,
+    budget: int | None = None,
+    wrapper: bool = False,
+):
+    """One model call: a receipt for the observer and, unless ``wrapper`` (an
+    operation around the physical requests a provider makes), admission
+    through the context's request gate before anything is sent."""
+
+    gate = None if wrapper else _request_gate.get()
+    if gate is None:
+        with _observed_call(client, purpose=purpose, prompt=prompt, schema=schema, budget=budget) as metadata:
+            yield metadata
+        return
+    admission = gate.admit(client, purpose=purpose, prompt=prompt, budget=budget)
+    usage: dict[str, Any] = {}
+    try:
+        with _observed_call(
+            client, purpose=purpose, prompt=prompt, schema=schema, budget=budget, collect_usage=True
+        ) as metadata:
+            usage = metadata
+            yield metadata
+    finally:
+        try:
+            gate.settle(admission, usage)
+        except Exception:  # noqa: BLE001 - accounting must never replace the call's own outcome
+            logger.exception("Could not settle the admission of model call %r", purpose)
+
+
+@contextmanager
+def _observed_call(
+    client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool = False
+):
     observer = _observer.get()
     metadata: dict[str, Any] = {}
     if observer is None:
-        yield metadata
+        if not collect_usage:
+            yield metadata
+            return
+        # No receipt, but a request gate settles from the reported usage.
+        metadata_token = _metadata.set(metadata)
+        try:
+            yield metadata
+        finally:
+            _metadata.reset(metadata_token)
         return
     call_id = f"call_{uuid4().hex}"
     profile = getattr(client, "profile", None) or getattr(client, "config", None)

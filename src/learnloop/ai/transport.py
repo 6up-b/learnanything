@@ -195,7 +195,9 @@ def execute_structured_operation(
         workspace=Path(workspace) if workspace is not None else None,
         isolated=isolated,
     )
-    with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens) as metadata:
+    # The operation, not a request: the provider's physical requests inside
+    # it (retries and a JSON repair included) are admitted one by one.
+    with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens, wrapper=True) as metadata:
         result = _execute_request(transport, request, legacy_context, legacy_capability)
         if isinstance(result, BaseModel):
             metadata["output_text"] = result.model_dump_json()

@@ -894,11 +894,10 @@ def test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_t
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-credential")
     fake = install_fake_openai(monkeypatch, FakeAPIConnectionError("reset"), '{"answer": "42"}')
     client = _openrouter_client()
-    probe = MeteredRequestGate(limit_usd=10**9, price_per_token=lambda provider: 1.0, is_subscription=lambda c: False,
-                               default_output_tokens=500)
-    one_request = probe.estimate_usd(client, prompt=None, budget=None)
-    gate = MeteredRequestGate(limit_usd=1.5 * one_request + 4000, price_per_token=lambda provider: 1.0,
-                              is_subscription=lambda c: False, default_output_tokens=500)
+    # One request is its input (a few hundred tokens) plus a 100k output
+    # ceiling, at $1 a token: room for one, not for a second.
+    gate = MeteredRequestGate(limit_usd=150_000, price_per_token=lambda provider: 1.0,
+                              is_subscription=lambda c: False, default_output_tokens=100_000)
     with pytest.raises(SpendLimitExceeded), gate_model_requests(gate):
         execute_structured_operation(client, purpose="probe", prompt="Answer.", result_model=Answer)
     # A failed attempt reports nothing, so its reservation stands: no retry.
@@ -1025,3 +1024,45 @@ def test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file
     call(ctx, "source_action", {"sourceId": source_id, "action": "allow_upload"})
     assert len(sent) == 1
     assert ctx.repository.source_kept_local(source_id) is False
+
+
+def test_f13_a_links_keep_local_is_applied_once_when_its_book_is_registered(tmp_path):
+    """A link's book exists only once the import registers it, so the import
+    applies the Add's choice then, once. After that the book's persisted
+    choice decides: an import tried again never brings the old choice back."""
+
+    from learnloop.content.pipeline import jobs as jobs_module
+    from learnloop.content.pipeline.runner import FetchedBytes
+
+    url = "https://example.org/probability-notes"
+    crash = {"on": True}
+
+    def fetch(source, category, ctx):
+        return FetchedBytes(raw_bytes=_book_html().encode(), content_type="text/html", original_uri=source,
+                            retrieved_at=CLOCK.now().isoformat(), title="Probability notes")
+
+    def extract(fetched, category, ctx):
+        if crash["on"]:
+            raise _Crash()  # the process dies after the book was registered
+        return jobs_module.default_extract(fetched, category, ctx)
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    repo, jobs = _jobs(root, fake_services(fetch=fetch, extract=extract), hold=True)
+    item = _add(root, jobs, url, keep_local=True)
+    with pytest.raises(_Crash):
+        _drain(jobs, max_jobs=1)
+    import_job = next(job for job in repo.ingest_jobs_for_batch(item["batch_id"]) if job["job_type"] == "import")
+    source_id = repo.source_artifact_by_uri("web", url)["id"]
+    assert repo.source_kept_local(source_id) is True
+    assert repo.get_ingest_job(import_job["id"])["payload"]["keep_local_applied"] is True
+
+    repo.set_source_keep_local(source_id, False)  # the learner lets it go
+    crash["on"] = False
+    runner = jobs._require_runner()
+    runner.clock = FrozenClock(CLOCK.now() + timedelta(hours=1))
+    runner.recover_stale_leases()
+    jobs.resume_batch(item["batch_id"])
+    _drain(jobs)
+    assert repo.get_ingest_job(import_job["id"])["status"] == "completed"
+    assert repo.source_kept_local(source_id) is False
