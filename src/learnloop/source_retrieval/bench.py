@@ -171,11 +171,14 @@ def plan_question_calls(seed_texts: Sequence[str | tuple[str, str]], version: st
                         output_tokens: int, instructions: str = QUESTION_INSTRUCTIONS) -> dict[str, int]:
     calls = math.ceil(len(seed_texts) / batch) if seed_texts else 0
     if not calls:
-        return {"calls": 0, "tokens": 0}
+        return {"calls": 0, "tokens": 0, "candidates": 0}
     longest = sorted(seed_texts, key=lambda text: len("".join(text)), reverse=True)[:batch]
     sample = question_prompt(version, {f"s{index}": text for index, text in enumerate(longest, start=1)},
                              instructions)
-    return {"calls": calls, "tokens": calls * estimate_tokens(sample, WrittenQuestions, output_tokens)}
+    # write_questions charges one candidate per seed (review F3: the dry run
+    # plans every candidate the run charges).
+    return {"calls": calls, "tokens": calls * estimate_tokens(sample, WrittenQuestions, output_tokens),
+            "candidates": len(seed_texts)}
 
 
 def plan_label_calls(questions: int, pool_bound: int, batch: int, versions: Sequence[str],

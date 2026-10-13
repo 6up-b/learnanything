@@ -727,11 +727,14 @@ def run_compare(
         billing = {role: (resolve_role_clients(vault, role, injected=clients[role])
                           if clients and role in clients else planned_role_clients(vault, role, tier_routes=routes))
                    for role in roles_plan}
-        totals = {False: [0, 0], True: [0, 0]}  # subscription -> [calls, tokens]
+        # subscription -> [calls, tokens, candidates, pairs]: every role's planned
+        # candidates and pairs count against the shared caps at the dry run, as
+        # they are charged when the run admits each call (T6 follow-up review F3).
+        totals = {False: [0, 0, 0, 0], True: [0, 0, 0, 0]}
         for role, info in roles_plan.items():
             subscription = billing[role][0].subscription
-            totals[subscription][0] += int(info.get("calls", 0))
-            totals[subscription][1] += int(info.get("tokens", 0))
+            for index, name in enumerate(("calls", "tokens", "candidates", "pairs")):
+                totals[subscription][index] += int(info.get(name, 0))
         embed_usd: float | None = 0.0
         for model, entry in plan.get("embedding", {}).items():
             if not isinstance(entry, dict) or not entry.get("calls"):
@@ -745,10 +748,11 @@ def run_compare(
                    else (None if totals[False][0] else 0.0))
         metered = SpendEstimate(
             calls=totals[False][0] + embed_calls, total_tokens=totals[False][1] + embed_tokens,
-            pairs=int(roles_plan.get("freshness", {}).get("pairs", 0)),
+            candidates=totals[False][2], pairs=totals[False][3],
             estimated_usd=None if llm_usd is None else round(llm_usd + embed_usd, 8),
         )
-        subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0])
+        subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0],
+                                       candidates=totals[True][2], pairs=totals[True][3])
         report["estimate"].update(
             metered=asdict(metered), subscription=asdict(subscription),
             billing={role: "subscription" if entries[0].subscription else "metered"

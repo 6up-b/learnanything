@@ -313,15 +313,25 @@ def test_a_failed_verification_is_never_scored_and_blocks_its_verdicts(tmp_path)
         assert results["verdicts"][name] is False
         assert "verification" in results["verdict_blocks"][name]
     assert "hybrid - meaning" not in results["verdict_blocks"]
+    markdown = (tmp_path / "out" / report["report_files"][1]).read_text(encoding="utf-8")
+    assert "| hybrid_verify - hybrid |" in markdown and "hybrid_verify - hybrid blocked:" in markdown
 
 
 # -- F5: the report verifies the pool the tutor would verify ------------------------------------------
 
 
+class UnitEmbedder(HashingEmbedder):
+    """Unit-length query vectors, as real embedding models return them."""
+
+    def embed(self, inputs, task_prefix):
+        vectors = super().embed(inputs, task_prefix)
+        return [[value / sum(v * v for v in vector) ** 0.5 for value in vector] for vector in vectors]
+
+
 def test_the_report_verifies_the_tutors_own_pool_with_its_item_in_context(tmp_path):
     paths, repository = setup(tmp_path)
     live = FakeSourceLLM()
-    provider = TutorSpanProvider(embedder=HashingEmbedder(), rewrite_client=live, rerank_client=live, clock=CLOCK)
+    provider = TutorSpanProvider(embedder=UnitEmbedder(), rewrite_client=live, rerank_client=live, clock=CLOCK)
     ask(paths, repository, CitingTutor(), span_provider=provider)  # a logged practice question (pi_eigen_1)
     [production] = [context for purpose, context in live.calls if purpose == "source_rerank"]
     assert production.get("practice_question")
@@ -329,8 +339,9 @@ def test_the_report_verifies_the_tutors_own_pool_with_its_item_in_context(tmp_pa
     report = run_compare(loaded(paths), request=CompareRequest(suite="source_retrieval", output_dir=tmp_path / "out",
                                                                max_cases=6, views=("pool_verify", "hybrid_verify")),
                          caps=ROOMY, price_per_million=1.0, clients=_clients(bench),
-                         embedding_clients={QWEN: HashingEmbedder()})
+                         embedding_clients={QWEN: UnitEmbedder()})
     assert report["status"] == "complete", report.get("reason")
+    assert report["results"]["verification"]["tutor_contexts"].get("practice (item)") == 1
     verified = [context for purpose, context in bench.calls if purpose == "source_rerank"]
     logged = [context for context in verified if context["question"] == production["question"]]
     assert logged, "the logged practice question was verified in the bench"

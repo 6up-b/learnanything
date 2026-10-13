@@ -273,5 +273,11 @@ def test_the_label_pool_bound_counts_what_each_verification_pool_can_add():
         tutor_candidate_pool = 12
         pool_keyword_extras = 4
 
-    assert SourceRetrievalSuite.label_pool_bound(SYSTEMS, Config) == 60 + 2 + 0 + 12
-    assert SourceRetrievalSuite.label_pool_bound(("pool_verify",), Config) == 12 + 4
+    # The tutor's own pools (review F5): the teaching scope, so no overlap with
+    # the library's display lists is assumed; pool_verify widens the dense top
+    # 12 by up to 4 BM25 and 4 linked-span extras, and holds dense_verify's pool.
+    assert SourceRetrievalSuite.label_pool_bound(SYSTEMS, Config) == 60 + (12 + 4 + 4) + 12
+    assert SourceRetrievalSuite.label_pool_bound(("pool_verify",), Config) == 12 + 4 + 4
+    assert SourceRetrievalSuite.label_pool_bound(("dense_verify",), Config) == 12
+    assert [SourceRetrievalSuite.verify_pool_bound(system, Config)
+            for system in ("hybrid_verify", "pool_verify", "dense_verify")] == [12, 20, 12]

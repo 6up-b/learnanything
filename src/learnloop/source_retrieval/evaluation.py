@@ -22,13 +22,19 @@ agreement reported").
   with the rewrite, as the library shows it (its top 10 is dense first, so
   without a rewrite it equals ``meaning``). Three systems run the PRODUCTION
   tutor-span verification (route ``source_rerank``, ``verify_spans``, at most
-  ``tutor_spans`` picks) on the tutor's pools: ``hybrid_verify`` (the
-  ``hybrid_rrf`` top ``tutor_candidate_pool``, as T6 merged), ``pool_verify``
-  (the dense top ``tutor_candidate_pool`` plus the BM25 top
-  ``pool_keyword_extras`` dense missed) and ``dense_verify`` (the dense top
+  ``tutor_spans`` picks) on the tutor's own pools, built by the tutor's own
+  ``tutor_pool`` for the question's context (review F5: the teaching scope,
+  the LOs' linked spans, answer overlap withheld, and in a practice or feedback
+  context the item's exclusions and its practice question shown to the
+  verifier): ``hybrid_verify`` (``hybrid_rrf``, as T6 merged), ``pool_verify``
+  (``dense_plus_bm25``: the dense top ``tutor_candidate_pool`` plus the BM25 and
+  linked-span tops dense missed) and ``dense_verify`` (the dense top
   ``tutor_candidate_pool`` alone). A verification system's ranking is its picks
   then the rest of its pool, and its picks are scored as the spans the tutor
-  would get: relevant share, nDCG@picks, latency. Dense systems need a complete
+  would get: relevant share, nDCG@picks, latency. A verification that did not
+  run is no ranking (the tutor would fall back to the LO-linked spans): the
+  question leaves that system's scores, its coverage is reported, and its
+  verdicts are blocked (review F4). Dense systems need a complete
   ``source_block/text`` backfill for ``embedding.model``; without it ``meaning``
   and ``dense_verify`` are unavailable and the pool systems report the
   production fallback (``hybrid_rrf``).
@@ -47,6 +53,8 @@ import math
 import statistics
 import time
 from typing import Any
+
+import numpy as np
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import content_key
@@ -85,6 +93,7 @@ from learnloop.source_retrieval.search import (
     SpanHit,
     search_spans,
 )
+from learnloop.source_retrieval.tutor import ITEM_BOUND_CONTEXTS, TutorPool, tutor_pool
 from learnloop.source_retrieval.verify import PASSAGE_CHARS, verify_prompt, verify_spans
 from learnloop.vault.models import LoadedVault
 
@@ -127,6 +136,13 @@ TYPE_COMPARISONS = (("hybrid", "meaning"), ("hybrid_rewrite", "hybrid"), ("pool_
 VERIFY_COMPARISONS = (("pool_verify", "hybrid_verify"), ("pool_verify", "dense_verify"),
                       ("dense_verify", "hybrid_verify"))
 VERIFY_METRICS = ("pick_precision", "ndcg@picks")
+#: The production tutor pool each verification system judges: (pool mode,
+#: extras per widening list; None is ``source_retrieval.pool_keyword_extras``).
+VERIFY_POOLS = {"hybrid_verify": (POOL_HYBRID_RRF, None), "pool_verify": (POOL_DENSE_PLUS_BM25, None),
+                "dense_verify": (POOL_DENSE_PLUS_BM25, 0)}
+#: The context a benchmark question is asked in when the learner gave none:
+#: a library question about the passages it came from (review F5).
+GENERATED_CONTEXT = "library"
 
 
 @dataclass
@@ -156,6 +172,29 @@ class LoggedQuestion:
     text: str
     seed: tuple[str, str] | None
     context: str
+    item_id: str | None = None
+    note_id: str | None = None
+
+
+@dataclass(frozen=True)
+class TutorQuestion:
+    """How the tutor would be asked one benchmark question (review F5).
+
+    A logged practice or feedback question keeps its item (its LO, the item's
+    exclusions, answer withholding and the practice question shown to the
+    verifier); a logged library question its note's related LOs. A generated
+    question, and a reader question (which the tutor's retrieval never serves:
+    the reader answers from its anchored span), is asked as a library question
+    about the learning objects the reader links to its passages.
+    """
+
+    context: str
+    learning_object_ids: tuple[str, ...] = ()
+    item_id: str | None = None
+
+    def describe(self) -> dict[str, Any]:
+        return {"context": self.context, "learning_objects": len(self.learning_object_ids),
+                "item_bound": self.context in ITEM_BOUND_CONTEXTS and self.item_id is not None}
 
 
 @dataclass
@@ -262,7 +301,9 @@ def _logged(repository: Repository, scope: Scope, count: int | None = None) -> l
         if event.get("context") == "reader" and context.get("extraction_id") and context.get("span_id"):
             key = (str(context["extraction_id"]), str(context["span_id"]))
             seed = key if scope.allows(*key) else None
-        found.append(LoggedQuestion(text[:400], seed, str(event.get("context") or "")))
+        found.append(LoggedQuestion(text[:400], seed, str(event.get("context") or ""),
+                                    item_id=str(event["practice_item_id"]) if event.get("practice_item_id") else None,
+                                    note_id=str(event["note_id"]) if event.get("note_id") else None))
     found.sort(key=lambda entry: bench.stable_key("t6-logged-v1", entry.text))
     unique: dict[str, LoggedQuestion] = {}
     for entry in found:
@@ -395,17 +436,19 @@ class SourceRetrievalSuite:
                                 "dense_index": data.dense, "roles": {}, "embedding": {},
                                 "output_tokens": {role: bench.role_budget(vault, role)
                                                   for role in bench.T6_ROLE_TASKS}}
-        writer: dict[str, int] = {"calls": 0, "tokens": 0}
+        # Every role plans the candidates and pairs it charges, so a dry run
+        # that passes cannot stop part-way on them (review F3).
+        writer: dict[str, int] = {"calls": 0, "tokens": 0, "candidates": 0}
         for qtype in QUERY_TYPES:
             part = bench.plan_question_calls(
                 [seed.writer_text for seed in data.seeds_of(qtype)], TYPE_PROMPT_VERSIONS[qtype], QUESTION_BATCH,
                 bench.role_budget(vault, bench.QUESTION_ROLE), bench.TYPE_INSTRUCTIONS[qtype])
-            writer = {"calls": writer["calls"] + part["calls"], "tokens": writer["tokens"] + part["tokens"]}
+            writer = {name: writer[name] + part[name] for name in writer}
         plan["roles"][bench.QUESTION_ROLE] = writer
         if REWRITE_SYSTEMS & set(data.systems):
             sample = rewrite_prompt("x" * 400, None)
             plan["roles"][bench.REWRITE_ROLE] = {
-                "calls": questions,
+                "calls": questions, "candidates": questions,  # one candidate per rewrite
                 "tokens": questions * estimate_tokens(sample, QueryRewrite,
                                                       bench.role_budget(vault, bench.REWRITE_ROLE))}
         plan["roles"][bench.LABEL_ROLE] = bench.plan_label_calls(
@@ -414,13 +457,14 @@ class SourceRetrievalSuite:
             bench.role_budget(vault, bench.LABEL_ROLE))
         verifying = [system for system in data.systems if system in VERIFY_SYSTEMS]
         if verifying:
-            size = config.tutor_candidate_pool + config.pool_keyword_extras
-            sample = verify_prompt("x" * 400, None, config.tutor_spans, [
+            # A verification charges one candidate and one pair per pool member.
+            bounds = [self.verify_pool_bound(system, config) for system in verifying]
+            sample = verify_prompt("x" * 400, "x" * 700, config.tutor_spans, [
                 {"ref": f"p{index}", "source": "x" * 120, "section": "x" * 200, "passage": "x" * PASSAGE_CHARS}
-                for index in range(1, size + 1)])
+                for index in range(1, max(bounds) + 1)])
             calls = questions * len(verifying)
             plan["roles"][bench.VERIFY_ROLE] = {
-                "calls": calls,
+                "calls": calls, "candidates": questions * sum(bounds), "pairs": questions * sum(bounds),
                 "tokens": calls * estimate_tokens(sample, SpanVerification,
                                                   bench.role_budget(vault, bench.VERIFY_ROLE))}
         if set(data.systems) & DENSE_SYSTEMS:
@@ -433,21 +477,30 @@ class SourceRetrievalSuite:
         return plan
 
     @staticmethod
-    def label_pool_bound(systems: Sequence[str], config: Any) -> int:
+    def verify_pool_bound(system: str, config: Any) -> int:
+        """Most candidates a verification system's tutor pool can hold: the dense
+        (or fused) top ``tutor_candidate_pool``, and for ``pool_verify`` at most
+        ``pool_keyword_extras`` more from each widening list (BM25 and the LOs'
+        linked spans; a spare dense hit that stays counts as its list's extra)."""
+
+        k, m = config.tutor_candidate_pool, config.pool_keyword_extras
+        return k + 2 * m if system == "pool_verify" else k
+
+    @classmethod
+    def label_pool_bound(cls, systems: Sequence[str], config: Any) -> int:
         """Upper bound on one question's labelled candidates: each display
-        system's top 10, plus what each verification pool can add beyond them."""
+        system's top 10, plus the tutor pools (the teaching scope's, so no overlap
+        with the library's lists is assumed; dense_verify's pool is the dense part
+        of pool_verify's)."""
 
         chosen = set(systems)
         bound = bench.TOP_K * sum(1 for system in DISPLAY_SYSTEMS if system in chosen)
-        k, m = config.tutor_candidate_pool, config.pool_keyword_extras
-        dense_seen = bench.TOP_K if "meaning" in chosen else 0
-        if "dense_verify" in chosen:
-            bound += max(0, k - dense_seen)
-            dense_seen = max(dense_seen, k)
         if "pool_verify" in chosen:
-            bound += max(0, k - dense_seen) + (0 if "keyword" in chosen and m <= bench.TOP_K else m)
+            bound += cls.verify_pool_bound("pool_verify", config)
+        elif "dense_verify" in chosen:
+            bound += cls.verify_pool_bound("dense_verify", config)
         if "hybrid_verify" in chosen:
-            bound += k  # the tutor's hybrid has no substring list: not the display hybrid
+            bound += cls.verify_pool_bound("hybrid_verify", config)
         return bound
 
     def run(self, data: EvalData, request: Any, ctx: Any) -> dict[str, Any]:
@@ -466,10 +519,12 @@ class SourceRetrievalSuite:
                 entry = written.get(seed.seed_id)
                 if entry is not None:
                     questions.append({"text": entry["question"], "seeds": seed.keys, "origin": "generated",
-                                      "type": qtype, "writer": entry["model"]})
+                                      "type": qtype, "writer": entry["model"],
+                                      "tutor": self._passage_question(vault, repository, seed.keys)})
         for entry in data.logged:
             questions.append({"text": entry.text, "seeds": [entry.seed] if entry.seed else [],
-                              "origin": f"logged_{entry.context}", "type": LOGGED_TYPE, "writer": "learner"})
+                              "origin": f"logged_{entry.context}", "type": LOGGED_TYPE, "writer": "learner",
+                              "tutor": self._logged_question(vault, repository, entry)})
         rewrites: dict[str, Rewrite] = {}
         if REWRITE_SYSTEMS & set(data.systems):
             role = ctx.role(bench.REWRITE_ROLE)[0]
@@ -488,8 +543,13 @@ class SourceRetrievalSuite:
         if dense_ready and set(data.systems) & DENSE_SYSTEMS:
             texts = [question["text"] for question in questions]
             texts += [rewritten_text(rewrite) for rewrite in rewrites.values()]
-            vectors = ctx.vectors(vault.config.embedding.model, texts,
-                                  dims=vault.config.embedding.dimensions, task_prefix="retrieval-query")
+            paid = ctx.vectors(vault.config.embedding.model, texts,
+                               dims=vault.config.embedding.dimensions, task_prefix="retrieval-query")
+            # As production serves a query vector: stored at half precision
+            # (practice_index.query_vectors), so the tutor's and the library's
+            # dense lists are the ones production would rank (review F5).
+            vectors = {text: np.asarray(vector, dtype="<f2").astype(np.float64)
+                       for text, vector in paid.items() if vector is not None}
         # Without a complete index only the dense-only systems are unavailable;
         # the others run as production would (hybrid_rrf, keyword lists only).
         systems = [system for system in data.systems if system not in DENSE_ONLY_SYSTEMS or dense_ready]
@@ -502,19 +562,27 @@ class SourceRetrievalSuite:
         seed_hits: dict[str, list[bool]] = {system: [] for system in systems}
         latency: dict[str, list[float]] = {system: [] for system in verifying}
         statuses: dict[str, dict[str, int]] = {system: {} for system in verifying}
+        coverage: dict[str, dict[str, int]] = {system: {"questions": 0, "verified": 0} for system in verifying}
         pool_modes: dict[str, dict[str, int]] = {}
+        tutor_contexts: dict[str, int] = {}
         verify_truncations: list[dict[str, Any]] = []
         for question in questions:
             text = question["text"]
             rankings = self._rankings(vault, repository, data.scope, text, display, index, vectors,
                                       rewrites.get(text))
-            pools = self._verify_pools(vault, repository, data.scope, text, verifying, vectors, pool_modes)
+            pools = self._verify_pools(vault, repository, question, verifying, vectors, rewrites, pool_modes)
+            if pools:
+                described = question["tutor"].describe()
+                label = described["context"] + (" (item)" if described["item_bound"] else "")
+                tutor_contexts[label] = tutor_contexts.get(label, 0) + 1
             keys = {key for ranked in rankings.values() for key in ranked[: bench.TOP_K]}
-            keys |= {hit.record_id for hits in pools.values() for hit in hits}
+            keys |= {hit.record_id for built in pools.values() for hit in built.pool}
             pool = sorted(keys)
             blocks = self._blocks(repository, pool)
+            titles = {hit.record_id: hit.source_title for built in pools.values() for hit in built.pool}
             candidates = {
-                key: {"source": bench.clip(data.scope.extractions[split_record_id(key)[0]].title, 120),
+                key: {"source": bench.clip(titles.get(key) or data.scope.extractions[split_record_id(key)[0]].title,
+                                           120),
                       "passage": bench.clip(blocks.get(key, ""), LABEL_PASSAGE_CHARS)}
                 for key in pool
             }
@@ -526,24 +594,33 @@ class SourceRetrievalSuite:
                 label_models[model] = label_models.get(model, 0) + count
             all_labels.append(labels)
             verification: dict[str, Any] = {}
-            for system, hits in pools.items():
-                outcome, seconds = self._verify(ctx, vault, text, hits)
+            for system, built in pools.items():
+                outcome, seconds = self._verify(ctx, vault, text, built.pool, context=built.verify_context)
                 statuses[system][outcome.status] = statuses[system].get(outcome.status, 0) + 1
+                coverage[system]["questions"] += 1
                 verify_truncations += list(((outcome.usage or {}).get("usage") or {}).get("truncations") or [])
                 if outcome.status == "verified":
                     latency[system].append(seconds)
-                pool_ids = [hit.record_id for hit in hits]
-                picks = [hit.record_id for hit in outcome.picks] if outcome.ran else []
-                rankings[system] = picks + [key for key in pool_ids if key not in picks]
+                pool_ids = [hit.record_id for hit in built.pool]
+                picks: list[str] = []
+                if outcome.ran:
+                    coverage[system]["verified"] += 1
+                    picks = [hit.record_id for hit in outcome.picks]
+                    rankings[system] = picks + [key for key in pool_ids if key not in picks]
+                # A verification that did not run is no ranking (review F4):
+                # the tutor would fall back to the LO-linked spans, which this
+                # report does not score, so the question leaves this system's
+                # means and comparisons, and its verdicts are blocked below.
                 verification[system] = {
-                    "status": outcome.status, "seconds": seconds,
+                    "status": outcome.status, "seconds": seconds, "pool": len(pool_ids),
                     "metrics": (verification_metrics(pool_ids, picks, config.tutor_spans, labels)
                                 if outcome.ran else None),
                 }
             seeds = [block_record_id(*key) for key in question["seeds"]]
             if seeds:
                 for system in systems:
-                    seed_hits[system].append(any(key in rankings[system][: bench.TOP_K] for key in seeds))
+                    if system in rankings:
+                        seed_hits[system].append(any(key in rankings[system][: bench.TOP_K] for key in seeds))
             scored = bench.score_question(rankings, labels)
             if scored is None:
                 incomplete += 1
@@ -553,6 +630,16 @@ class SourceRetrievalSuite:
             per_question.append(scored)
         comparisons = [(left, right) for left, right in COMPARISONS if left in systems and right in systems]
         summary = bench.summarize(per_question, systems, comparisons)
+        coverage_report = {
+            system: {**counts, "failed": counts["questions"] - counts["verified"],
+                     "share": (counts["verified"] / counts["questions"]) if counts["questions"] else None}
+            for system, counts in coverage.items()
+        }
+        verdicts = {f"{left} - {right}": bench.beats(summary["differences"][f"{left} - {right}"])
+                    for left, right in comparisons}
+        blocks = verdict_blocks(comparisons, coverage_report)
+        for name in blocks:
+            verdicts[name] = False
         return {
             "questions": len(questions),
             "question_origins": _count(question["origin"] for question in questions),
@@ -571,8 +658,10 @@ class SourceRetrievalSuite:
                 "pool_sizes": {"candidate_pool": config.tutor_candidate_pool,
                                "keyword_extras": config.pool_keyword_extras},
                 "statuses": statuses,
+                "coverage": coverage_report,
                 "latency_seconds": {system: _stats(values) for system, values in latency.items()},
                 "pool_modes": pool_modes,
+                "tutor_contexts": dict(sorted(tutor_contexts.items())),
             },
             "by_type": _by_type(per_question, systems, verifying),
             "by_origin": _split(per_question, systems, "origin"),
@@ -589,13 +678,20 @@ class SourceRetrievalSuite:
                             f"pool_keyword_extras {config.pool_keyword_extras})"),
                 "baseline": "substring = today's library search: instr(lower(text), query), document order",
                 "verification": (f"the production verify_spans (route source_rerank) picks at most "
-                                 f"{config.tutor_spans}; its ranking is the picks then the rest of its pool"),
+                                 f"{config.tutor_spans} from the tutor's own pool (tutor_pool: the teaching "
+                                 "scope, the LOs' linked spans, answer overlap withheld, the practice question "
+                                 "shown to the verifier); its ranking is the picks then the rest of its pool. A "
+                                 "verification that did not run is not scored (the tutor would fall back to the "
+                                 "LO-linked spans) and blocks that system's verdicts"),
+                "tutor_context": ("a logged practice or feedback question keeps its item, a logged library "
+                                  "question its note's LOs; a generated or reader question is asked as a "
+                                  "library question about the LOs the reader links to its passages"),
                 "bar": (f"a system beats another when the nDCG@10 difference's 95% bootstrap interval is "
                         f"above 0, mean Recall@10 is not worse and at least {bench.MIN_SCORED_QUESTIONS} "
                         "questions are scored"),
             },
-            "verdicts": {f"{left} - {right}": bench.beats(summary["differences"][f"{left} - {right}"])
-                         for left, right in comparisons},
+            "verdicts": verdicts,
+            "verdict_blocks": blocks,
         }
 
     def _rankings(self, vault: LoadedVault, repository: Repository, scope: Scope, text: str,
@@ -635,32 +731,62 @@ class SourceRetrievalSuite:
                 rankings[system] = [hit.record_id for hit in search.hits][: bench.TOP_K]
         return rankings
 
-    def _verify_pools(self, vault: LoadedVault, repository: Repository, scope: Scope, text: str,
-                      systems: Sequence[str], vectors: Mapping[str, Any],
-                      pool_modes: dict[str, dict[str, int]]) -> dict[str, list[SpanHit]]:
-        """The tutor-shaped pools each verification system judges (no rewrite,
-        no substring list: the tutor's search)."""
+    def _passage_question(self, vault: LoadedVault, repository: Repository,
+                          keys: Sequence[tuple[str, str]]) -> TutorQuestion:
+        """A generated (or reader) question: a library question about its passages' LOs."""
 
-        config = vault.config.source_retrieval
-        k, m = config.tutor_candidate_pool, config.pool_keyword_extras
+        from learnloop.reader.reader_progression import learning_objects_for_span
+
+        lo_ids: dict[str, None] = {}
+        for extraction_id, span_id in keys:
+            for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id,
+                                                   span_id=span_id):
+                lo_ids.setdefault(lo_id, None)
+        return TutorQuestion(GENERATED_CONTEXT, tuple(lo_ids))
+
+    def _logged_question(self, vault: LoadedVault, repository: Repository,
+                         entry: LoggedQuestion) -> TutorQuestion:
+        """A logged question in the context the learner asked it (review F5)."""
+
+        if entry.context in ITEM_BOUND_CONTEXTS and entry.item_id in vault.practice_items:
+            item = vault.practice_items[entry.item_id]
+            return TutorQuestion(entry.context, (item.learning_object_id,), item.id)
+        if entry.context == "library" and entry.note_id in vault.notes:
+            return TutorQuestion("library", tuple(vault.notes[entry.note_id].related_los))
+        return self._passage_question(vault, repository, [entry.seed] if entry.seed else [])
+
+    def _verify_pools(self, vault: LoadedVault, repository: Repository, question: Mapping[str, Any],
+                      systems: Sequence[str], vectors: Mapping[str, Any], rewrites: Mapping[str, Rewrite],
+                      pool_modes: dict[str, dict[str, int]]) -> dict[str, TutorPool]:
+        """The pools each verification system judges: the tutor's own construction
+        (``tutor_pool``) for this question's context, on vectors already paid for."""
+
+        if not systems:
+            return {}
+        text = question["text"]
+        tutor: TutorQuestion = question["tutor"]
+        item = vault.practice_items.get(tutor.item_id) if tutor.item_id else None
         query_vectors = {"query": vectors[text]} if text in vectors else {}
-        pools: dict[str, list[SpanHit]] = {}
+        # The tutor rewrites only when tutor_query_rewrite is on (off by default);
+        # the bench then reuses the rewrite and its vector it already paid for.
+        rewritten = rewrites.get(text) if vault.config.source_retrieval.tutor_query_rewrite else None
+        if rewritten is not None and rewritten_text(rewritten) in vectors:
+            query_vectors["rewrite"] = vectors[rewritten_text(rewritten)]
+        pools: dict[str, TutorPool] = {}
         for system in systems:
-            if system == "hybrid_verify":
-                search = search_spans(vault, repository, text, scope, limit=k, deep=True, rewrite=False,
-                                      query_vectors=query_vectors, pool=POOL_HYBRID_RRF)
-            else:
-                search = search_spans(vault, repository, text, scope, limit=k + m, deep=True, rewrite=False,
-                                      query_vectors=query_vectors, pool=POOL_DENSE_PLUS_BM25, pool_dense=k,
-                                      pool_extras=m if system == "pool_verify" else 0)
-            mode = str((search.pool or {}).get("mode"))
+            mode, extras = VERIFY_POOLS[system]
+            built = tutor_pool(vault, repository, context=tutor.context, question_md=text,
+                               learning_object_ids=tutor.learning_object_ids, item=item,
+                               query_vectors=query_vectors, rewrite=rewritten is not None,
+                               rewritten=rewritten, pool=mode, pool_extras=extras)
+            used = str((built.search.pool or {}).get("mode"))
             counts = pool_modes.setdefault(system, {})
-            counts[mode] = counts.get(mode, 0) + 1
-            hits = list(search.hits)
-            pools[system] = hits if mode == POOL_DENSE_PLUS_BM25 else hits[:k]
+            counts[used] = counts.get(used, 0) + 1
+            pools[system] = built
         return pools
 
-    def _verify(self, ctx: Any, vault: LoadedVault, text: str, hits: Sequence[SpanHit]) -> tuple[Any, float]:
+    def _verify(self, ctx: Any, vault: LoadedVault, text: str, hits: Sequence[SpanHit],
+                context: str | None = None) -> tuple[Any, float]:
         """The production verification under the harness's budget, price and receipts."""
 
         entry = ctx.role(bench.VERIFY_ROLE)[0]
@@ -670,9 +796,9 @@ class SourceRetrievalSuite:
         # admitted under the harness's shared caps across billing classes, and
         # only once the ledger and checkpoints did not answer it (review F2).
         outcome = verify_spans(vault, ctx.caller.repository, question=text, pool=list(hits),
-                               pick_at_most=vault.config.source_retrieval.tutor_spans, client=entry.client,
-                               owner_id=ctx.caller.run_id, budget=budget, price_per_million=ctx.caller.price,
-                               admit=ctx.caller.check_shared)
+                               pick_at_most=vault.config.source_retrieval.tutor_spans, context=context,
+                               client=entry.client, owner_id=ctx.caller.run_id, budget=budget,
+                               price_per_million=ctx.caller.price, admit=ctx.caller.check_shared)
         seconds = time.monotonic() - started
         if outcome.status == "cancelled":
             raise AIInterrupted("Verification cancelled")
@@ -704,21 +830,29 @@ class SourceRetrievalSuite:
             row = means.get(system, {})
             lines.append(f"| {system} | {_fmt(row.get('ndcg@10'))} | {_fmt(row.get('recall@10'))} | "
                          f"{_fmt(row.get('mrr@10'))} | {_fmt((results.get('seed_hit@10') or {}).get(system))} |")
+        blocked = results.get("verdict_blocks") or {}
         lines += ["", "| Comparison | Δ nDCG@10 [95% CI] | Δ Recall@10 | beats |", "|---|---|---|---|"]
         for name, entry in ((results.get("summary") or {}).get("differences") or {}).items():
             ndcg = entry.get("ndcg@10", {})
             ci = ndcg.get("ci95") or [None, None]
+            verdict = "blocked" if name in blocked else (results.get("verdicts") or {}).get(name)
             lines.append(f"| {name} | {_fmt(ndcg.get('mean'))} [{_fmt(ci[0])}, {_fmt(ci[1])}] | "
-                         f"{_fmt((entry.get('recall@10') or {}).get('mean'))} | "
-                         f"{(results.get('verdicts') or {}).get(name)} |")
+                         f"{_fmt((entry.get('recall@10') or {}).get('mean'))} | {verdict} |")
+        for name, reason in blocked.items():
+            lines.append(f"- {name} blocked: {reason}.")
         verification = results.get("verification") or {}
         if verification.get("systems"):
-            lines += ["", f"Verification (production verify_spans, at most {verification.get('pick_at_most')} picks):",
-                      "", "| System | questions | picks/q | relevant share of picks | top-k share (unverified) | "
+            coverage = verification.get("coverage") or {}
+            contexts = ", ".join(f"{name} {count}" for name, count in (verification.get("tutor_contexts") or {}).items())
+            lines += ["", f"Verification (production verify_spans on the tutor's own pools, at most "
+                      f"{verification.get('pick_at_most')} picks; asked as: {contexts or '—'}):",
+                      "", "| System | verified / asked | picks/q | relevant share of picks | top-k share (unverified) | "
                       "nDCG@picks | empty with relevant | latency p50 / p90 s |", "|---|---|---|---|---|---|---|---|"]
             for system, row in verification["systems"].items():
                 stats = (verification.get("latency_seconds") or {}).get(system) or {}
-                lines.append(f"| {system} | {row['questions']} | {_fmt(row['mean_picks'])} | "
+                counts = coverage.get(system) or {}
+                lines.append(f"| {system} | {counts.get('verified')} / {counts.get('questions')} | "
+                             f"{_fmt(row['mean_picks'])} | "
                              f"{_fmt(row['relevant_share_of_picks'])} | {_fmt(row['mean_top_precision'])} | "
                              f"{_fmt(row['mean_ndcg@picks'])} | {row['empty_with_relevant']} | "
                              f"{_fmt(stats.get('p50'))} / {_fmt(stats.get('p90'))} |")
@@ -789,6 +923,23 @@ def _by_type(per_question: list[dict[str, Any]], systems: list[str], verifying: 
     return out
 
 
+def verdict_blocks(comparisons: Sequence[tuple[str, str]],
+                   coverage: Mapping[str, Mapping[str, Any]]) -> dict[str, str]:
+    """Comparisons whose verdict is blocked: a verification system with a
+    verification that did not run (review F4). Its scored questions are only
+    those it verified, so a win there says nothing about the tutor."""
+
+    blocks: dict[str, str] = {}
+    for left, right in comparisons:
+        reasons = [f"{counts['failed']} of {counts['questions']} {system} verifications did not run "
+                   "(the tutor would fall back to the LO-linked spans; not scored)"
+                   for system in (left, right)
+                   if (counts := coverage.get(system)) and counts.get("failed")]
+        if reasons:
+            blocks[f"{left} - {right}"] = "; ".join(reasons)
+    return blocks
+
+
 __all__ = [
     "COMPARISONS",
     "DISPLAY_SYSTEMS",
@@ -801,5 +952,6 @@ __all__ = [
     "VERIFY_SYSTEMS",
     "summarize_verification",
     "type_counts",
+    "verdict_blocks",
     "verification_metrics",
 ]
