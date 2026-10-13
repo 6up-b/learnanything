@@ -86,3 +86,30 @@ def test_harvest_imports_judged_exercises_for_thin_facets(tmp_path):
     assert written and all(row["key_status"] for row in written)
     vault = loaded(paths)
     assert all(vault.practice_items[row["practice_item_id"]].canonical_exercise is not None for row in written)
+
+
+def test_a_harvest_says_why_picked_exercises_were_not_imported(tmp_path):
+    """Live sanity run: the judge picked two exercises but quoted none of the
+    requested facet in them, so the exact facet filter dropped all of them
+    (``failed_unknown``), and the report said "no exercise picked"."""
+    from learnloop.instructional.harvest import harvest
+    from learnloop.practice_index.contracts import ExerciseMetadata
+    from tests.source_service_fakes import service_clients
+
+    class NoFacetQuotes(FakeServiceLLM):
+        def _MixedPracticeRerank(self, request, context):
+            judged = super()._MixedPracticeRerank(request, context)
+            return judged.model_copy(update={"exercise_metadata": [
+                ExerciseMetadata(ref=row.ref, facets=[], practice_mode=row.practice_mode)
+                for row in judged.exercise_metadata]})
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    llm = NoFacetQuotes()
+    report = harvest(loaded(paths), repository, dry_run=False, max_cost_usd=1.0, facet_ids=("facet_eigen",),
+                     clients=service_clients(llm), rerank_client=llm)
+    assert report["imports"] == []
+    [skipped] = report["skipped"]
+    assert skipped["facet_id"] == "facet_eigen"
+    assert skipped["failed_filters"]["failed_unknown"] >= 1
+    assert skipped["reason"].startswith("no exercise passed the exact filters")
+    assert "failed_unknown" in skipped["reason"]

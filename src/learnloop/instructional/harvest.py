@@ -107,6 +107,29 @@ def _spend(vault: LoadedVault, repository: Repository, started: str) -> dict[str
                            subscription_providers=subscription_providers(vault))
 
 
+#: What each exact-filter verdict on a raw exercise means (``exercise_filter``).
+_FILTER_MEANINGS = {
+    "failed_unknown": "the judge quoted none of the requested facets in it",
+    "facets": "the facets it quoted are not the requested ones",
+    "facet_match_all": "it does not exercise every requested facet",
+    "too_long": "it would take longer than allowed",
+}
+
+
+def _skip(facet_id: str, result: Mapping[str, Any]) -> dict[str, Any]:
+    """Why a target imported nothing, in the report's own words (honest labels)."""
+
+    if result.get("source_exercises_status"):
+        return {"facet_id": facet_id, "reason": result["source_exercises_status"]}
+    failed = dict(((result.get("signals") or {}).get("exercises") or {}).get("failed_filters") or {})
+    if not failed:
+        return {"facet_id": facet_id, "reason": "no exercise picked"}
+    parts = "; ".join(f"{count} {reason}: {_FILTER_MEANINGS.get(reason, reason)}"
+                      for reason, count in sorted(failed.items()))
+    return {"facet_id": facet_id, "failed_filters": failed,
+            "reason": f"no exercise passed the exact filters ({parts})"}
+
+
 def _sum_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
     usd = [plan.get("usd") for plan in plans]
     return {"calls": sum(plan["calls"] for plan in plans), "tokens": sum(plan["tokens"] for plan in plans),
@@ -188,8 +211,7 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
             if report.get("status") == "over_budget":
                 break
             if not result.get("source_exercises"):
-                report["skipped"].append({"facet_id": target["facet_id"],
-                                          "reason": result.get("source_exercises_status") or "no exercise picked"})
+                report["skipped"].append(_skip(target["facet_id"], result))
     report["budget"] = envelope.report()
     if report.get("status") == "over_budget" or envelope.report()["refused_requests"]:
         report["status"] = "over_budget"
