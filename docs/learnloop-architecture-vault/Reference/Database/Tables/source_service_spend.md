@@ -3,8 +3,8 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "06d90dbe08865312f5e41e42bff70bf75832df78"
-source_commit_timestamp: "2026-10-13T09:51:54-04:00"
+source_commit: "9380a9135d4cc3b80dd6b3c5c57807d5331cee25"
+source_commit_timestamp: "2026-10-13T10:30:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
@@ -35,7 +35,7 @@ tags:
 
 ## Why it exists
 
-Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that checks the day's total (never less than the service's own receipts) plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. In flight a row counts its estimate (reconciled upward); once the request finished it counts the reported cost, else the estimate. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit. ^table-purpose
+Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that checks the day's total (every row, plus the service's receipts no row covers, such as spend from before the table existed) plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. In flight a row counts its estimate (reconciled upward); once the request finished it counts the reported cost, else the estimate; the request's root receipt names its row (`budget_json.envelope_reservations`), so it is counted once. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
