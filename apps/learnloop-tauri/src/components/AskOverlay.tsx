@@ -118,11 +118,14 @@ function entityIdOf(target: AskTarget): string {
 export function AskOverlay({
   target,
   onClose,
-  onToast
+  onToast,
+  onOpenPractice
 }: {
   target: AskTarget | null;
   onClose: () => void;
   onToast: (message: string) => void;
+  /** The open-list path for a picked offer while the daily plan is off. */
+  onOpenPractice?: (practiceItemId: string) => void;
 }) {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   // ING M8 (§9.2): the citation span currently open in the source viewer.
@@ -591,6 +594,7 @@ export function AskOverlay({
                       }}
                       sessionId={target.sessionId}
                       onToast={onToast}
+                      onOpenPractice={onOpenPractice}
                       onExplainWithWork={(spanKey) =>
                         void send({ text: "Explain this passage using my work.", spanKeys: [spanKey] })
                       }

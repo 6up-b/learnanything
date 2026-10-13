@@ -6,7 +6,7 @@ import type { SourceToolRequestDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({ api: {
   runSourceTool: vi.fn(), findPractice: vi.fn(), recordProposalImpressions: vi.fn(), planLearnerPick: vi.fn(),
-  importSourceExercise: vi.fn(), recordSourceOfferShown: vi.fn(),
+  importSourceExercise: vi.fn(), getSourceExerciseImport: vi.fn(), recordSourceOfferShown: vi.fn(),
   getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), previewTutorOpening: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
@@ -47,8 +47,10 @@ beforeEach(() => {
     }));
   api.recordProposalImpressions.mockResolvedValue({ recorded: 2 });
   api.recordSourceOfferShown.mockResolvedValue({ recorded: true });
-  api.planLearnerPick.mockResolvedValue({});
+  api.planLearnerPick.mockResolvedValue({ version: 1, enabled: true, plan: null, step: { kind: "item" } });
   api.importSourceExercise.mockResolvedValue({ status: "queued", importId: "imp", batchId: "b" });
+  api.getSourceExerciseImport.mockResolvedValue({ version: 1, importId: "imp", status: "written",
+    practiceItemId: "pi_new", keyStatus: "book_solution", keyLabel: "checked against the book's solution" });
 });
 afterEach(() => cleanup());
 
@@ -68,6 +70,70 @@ it("runs eager offers, records impressions and picks through the plan", async ()
   fireEvent.click(screen.getByText("❯ practise from your book"));
   await waitFor(() => expect(api.importSourceExercise).toHaveBeenCalledWith({
     proposalId: "pp_1", extractionId: "ext", spanIds: ["t7"], sessionId: "s1" }));
+});
+
+// Codex sources-build review F6: a pick is followed to delivery, not just enqueued.
+
+function renderOffers(extra: { onOpenPractice?: (id: string) => void; toast?: (message: string) => void } = {}) {
+  const toast = extra.toast ?? vi.fn();
+  render(<SourceOffers answer={{ eventId: "e1", toolRequests: [REQUESTS[0]] }} sessionId="s1" onToast={toast}
+                       onOpenPractice={extra.onOpenPractice} importPollMs={1} />);
+  return toast;
+}
+
+it("an imported exercise is followed until written, then served through the plan's pick", async () => {
+  api.getSourceExerciseImport
+    .mockResolvedValueOnce({ version: 1, importId: "imp", status: "authoring" })
+    .mockResolvedValueOnce({ version: 1, importId: "imp", status: "checking" });
+  const toast = renderOffers();
+  fireEvent.click(await screen.findByText("❯ practise from your book"));
+  await waitFor(() => expect(api.planLearnerPick).toHaveBeenCalledWith("pi_new", "s1", null, "pp_1", "imp"));
+  expect(api.getSourceExerciseImport).toHaveBeenCalledTimes(3);
+  await waitFor(() => expect(toast).toHaveBeenCalledWith(
+    "Added to today's practice. Answer key: checked against the book's solution."));
+  expect(screen.getByText("added")).toBeTruthy();
+});
+
+it("a failed import is shown with its reason and never served", async () => {
+  api.getSourceExerciseImport.mockResolvedValue({ version: 1, importId: "imp", status: "rejected",
+    reason: "the answer key could not be checked" });
+  const toast = renderOffers();
+  fireEvent.click(await screen.findByText("❯ practise from your book"));
+  await screen.findByText("couldn't add: the answer key could not be checked");
+  expect(toast).toHaveBeenCalledWith(
+    "Couldn't bring this exercise into your practice: the answer key could not be checked");
+  expect(api.planLearnerPick).not.toHaveBeenCalled();
+  expect(screen.getByText("❯ try again")).toBeTruthy();
+});
+
+it("with the plan off, an item pick offers the open-list path instead of claiming it was added", async () => {
+  api.planLearnerPick.mockResolvedValue({ version: 1, enabled: false, reason: "plan_disabled", plan: null });
+  const open = vi.fn();
+  const toast = renderOffers({ onOpenPractice: open });
+  fireEvent.click(await screen.findByText("❯ practise"));
+  const action = await screen.findByText("❯ open");
+  expect(toast).not.toHaveBeenCalledWith("Added to today's practice.");
+  expect(toast).toHaveBeenCalledWith("Your daily plan is off: open it from here when you're ready.");
+  fireEvent.click(action);
+  expect(open).toHaveBeenCalledWith("pi_det_2");
+});
+
+it("with the plan off, an imported exercise opens its new item", async () => {
+  api.planLearnerPick.mockResolvedValue({ version: 1, enabled: false, reason: "plan_disabled", plan: null });
+  const open = vi.fn();
+  renderOffers({ onOpenPractice: open });
+  fireEvent.click(await screen.findByText("❯ practise from your book"));
+  fireEvent.click(await screen.findByText("❯ open"));
+  expect(api.planLearnerPick).toHaveBeenCalledWith("pi_new", "s1", null, "pp_1", "imp");
+  expect(open).toHaveBeenCalledWith("pi_new");
+});
+
+it("a pick the plan refuses is shown, not announced as added", async () => {
+  api.planLearnerPick.mockRejectedValue({ message: "That item was not proposed by this proposal" });
+  const toast = renderOffers();
+  fireEvent.click(await screen.findByText("❯ practise"));
+  await screen.findByText("couldn't add: That item was not proposed by this proposal");
+  expect(toast).not.toHaveBeenCalledWith("Added to today's practice.");
 });
 
 it("records a passage offer only when it is opened, and compares on tap", async () => {

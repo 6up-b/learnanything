@@ -1183,7 +1183,12 @@ export function App() {
         onError={onError}
         onQuickCheck={(ids) => void startQuickCheck(ids)}
       />
-      <AskOverlay target={askTarget} onClose={() => setAskTarget(null)} onToast={setToast} />
+      <AskOverlay
+        target={askTarget}
+        onClose={() => setAskTarget(null)}
+        onToast={setToast}
+        onOpenPractice={(practiceItemId) => openPractice(practiceItemId)}
+      />
       {openSource ? (
         <OpenInSource
           extractionId={openSource.extractionId}

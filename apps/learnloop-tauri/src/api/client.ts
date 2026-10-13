@@ -982,7 +982,8 @@ export const api = {
     practiceItemId: string,
     sessionId?: string | null,
     schedulerCandidateId?: string | null,
-    proposalId?: string | null
+    proposalId?: string | null,
+    sourceExerciseImportId?: string | null
   ) =>
     mutating(
       [TAG.queue],
@@ -991,7 +992,8 @@ export const api = {
           practiceItemId,
           sessionId: sessionId ?? null,
           schedulerCandidateId: schedulerCandidateId ?? null,
-          ...(proposalId ? { proposalId } : {})
+          ...(proposalId ? { proposalId } : {}),
+          ...(sourceExerciseImportId ? { sourceExerciseImportId } : {})
         }
       })
     ),

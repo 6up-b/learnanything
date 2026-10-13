@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   CommandError,
+  DailyPlanDto,
   FindPracticeResultDto,
   PracticeRequestDto,
+  SourceExerciseImportDto,
   SourcePassageDto,
   SourceToolRequestDto,
   SourceToolRunDto
@@ -31,6 +33,22 @@ interface PracticeOffer {
 }
 
 const MAX_SHOWN = 3;
+/** How often a queued textbook import is checked, and for how long before the
+ *  learner is offered "check again" (authoring plus the key's time-boxed check). */
+const IMPORT_POLL_MS = 1500;
+const IMPORT_FOLLOW_MS = 6 * 60 * 1000;
+const IMPORT_DONE = new Set(["written", "rejected", "failed"]);
+
+/** Where a picked offer stands. `added`: the plan serves it; `open`: the plan
+ *  is off, so the open list serves it when the learner opens it; the rest
+ *  follow a textbook exercise's import. */
+type PickState =
+  | { state: "picking" }
+  | { state: "added"; note?: string }
+  | { state: "open"; practiceItemId: string; note?: string }
+  | { state: "importing"; importId?: string }
+  | { state: "slow"; importId: string }
+  | { state: "failed"; reason: string };
 
 function message(error: unknown): string {
   return (error as CommandError)?.message ?? String(error);
@@ -104,20 +122,37 @@ export function SourceOffers({
   answer,
   sessionId,
   onExplainWithWork,
-  onToast
+  onOpenPractice,
+  onToast,
+  importPollMs = IMPORT_POLL_MS
 }: {
   answer: SourceOffersAnswer;
   sessionId?: string;
   onExplainWithWork?: (spanKey: string) => void;
+  /** The open-list path (DL0's open), used when the daily plan is off. */
+  onOpenPractice?: (practiceItemId: string) => void;
   onToast: (message: string) => void;
+  importPollMs?: number;
 }) {
   const [practice, setPractice] = useState<PracticeOffer[]>([]);
   const [passages, setPassages] = useState<Array<{ request: SourceToolRequestDto; run: SourceToolRunDto }>>([]);
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const [comparisons, setComparisons] = useState<Record<string, SourceToolRunDto | "loading" | string>>({});
   const [errors, setErrors] = useState<string[]>([]);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [picks, setPicks] = useState<Record<string, PickState>>({});
   const impressed = useRef<Set<string>>(new Set());
+  const unmounted = useRef(false);
+
+  useEffect(() => {
+    unmounted.current = false;
+    return () => {
+      unmounted.current = true;
+    };
+  }, []);
+
+  function setPick(key: string, state: PickState) {
+    if (!unmounted.current) setPicks((prev) => ({ ...prev, [key]: state }));
+  }
 
   const toolRequests = answer.toolRequests ?? [];
   const compareRequests = toolRequests.filter((request) => request.tool === "compare_sources");
@@ -179,29 +214,127 @@ export function SourceOffers({
     }
   }, [practice, sessionId]);
 
+  /** After the serving path answered: the plan serves the item (`added`), or,
+   *  with the plan off, the open list does when the learner opens it. */
+  function delivered(key: string, result: DailyPlanDto, practiceItemId: string, note?: string) {
+    if (result.enabled) {
+      setPick(key, { state: "added", note });
+      onToast(note ? `Added to today's practice. ${note}` : "Added to today's practice.");
+      return;
+    }
+    setPick(key, { state: "open", practiceItemId, note });
+    onToast(
+      onOpenPractice
+        ? "Your daily plan is off: open it from here when you're ready."
+        : "Your daily plan is off: open it from your practice list."
+    );
+  }
+
   async function pickItem(offer: PracticeOffer, practiceItemId: string) {
+    setPick(practiceItemId, { state: "picking" });
     try {
-      await api.planLearnerPick(practiceItemId, sessionId ?? null, null, offer.proposalId);
-      setPicked((prev) => new Set(prev).add(practiceItemId));
-      onToast("Added to today's practice.");
+      const result = await api.planLearnerPick(practiceItemId, sessionId ?? null, null, offer.proposalId);
+      delivered(practiceItemId, result, practiceItemId);
     } catch (error) {
+      setPick(practiceItemId, { state: "failed", reason: message(error) });
       onToast(message(error));
     }
   }
 
+  async function followImport(importId: string): Promise<SourceExerciseImportDto | null> {
+    const started = Date.now();
+    for (;;) {
+      const current = await api.getSourceExerciseImport(importId);
+      if (IMPORT_DONE.has(current.status)) return current;
+      if (unmounted.current || Date.now() - started > IMPORT_FOLLOW_MS) return null;
+      await new Promise((resolve) => setTimeout(resolve, importPollMs));
+    }
+  }
+
+  async function deliverImport(offer: PracticeOffer, key: string, importId: string) {
+    setPick(key, { state: "importing", importId });
+    const done = await followImport(importId);
+    if (done === null) {
+      setPick(key, { state: "slow", importId });
+      return;
+    }
+    if (done.status !== "written" || !done.practiceItemId) {
+      const reason = done.reason ?? (done.status === "rejected" ? "it didn't pass its checks" : "the import failed");
+      setPick(key, { state: "failed", reason });
+      onToast(`Couldn't bring this exercise into your practice: ${reason}`);
+      return;
+    }
+    const note = done.keyLabel ? `Answer key: ${done.keyLabel}.` : undefined;
+    const result = await api.planLearnerPick(done.practiceItemId, sessionId ?? null, null, offer.proposalId, importId);
+    delivered(key, result, done.practiceItemId, note);
+  }
+
   async function importExercise(offer: PracticeOffer, exercise: PracticeOffer["exercises"][number]) {
     if (!offer.proposalId) return;
+    setPick(exercise.key, { state: "importing" });
     try {
-      await api.importSourceExercise({
+      const queued = await api.importSourceExercise({
         proposalId: offer.proposalId,
         extractionId: exercise.extractionId,
         spanIds: exercise.spanIds,
         sessionId: sessionId ?? null
       });
-      setPicked((prev) => new Set(prev).add(exercise.key));
       onToast("Bringing this exercise into your practice; its answer key is being checked.");
+      await deliverImport(offer, exercise.key, queued.importId);
     } catch (error) {
+      setPick(exercise.key, { state: "failed", reason: message(error) });
       onToast(message(error));
+    }
+  }
+
+  async function checkAgain(offer: PracticeOffer, key: string, importId: string) {
+    try {
+      await deliverImport(offer, key, importId);
+    } catch (error) {
+      setPick(key, { state: "failed", reason: message(error) });
+      onToast(message(error));
+    }
+  }
+
+  function pickStatus(offer: PracticeOffer, key: string, action: string, onPick: () => void) {
+    const pick = picks[key];
+    if (!pick) {
+      return (
+        <span style={actionStyle} onClick={onPick}>
+          {action}
+        </span>
+      );
+    }
+    switch (pick.state) {
+      case "picking":
+        return <Faint>adding …</Faint>;
+      case "added":
+        return <Faint>added</Faint>;
+      case "open":
+        return onOpenPractice ? (
+          <span style={actionStyle} onClick={() => onOpenPractice(pick.practiceItemId)}>
+            ❯ open
+          </span>
+        ) : (
+          <Faint>in your practice list</Faint>
+        );
+      case "importing":
+        return <Faint>importing, checking its answer key …</Faint>;
+      case "slow":
+        return (
+          <span style={actionStyle} onClick={() => void checkAgain(offer, key, pick.importId)}>
+            ❯ still checking: check again
+          </span>
+        );
+      case "failed":
+        return (
+          <span style={{ display: "inline-flex", gap: 6 }}>
+            <Faint>couldn't add: {pick.reason}</Faint>
+            <span style={actionStyle} onClick={onPick}>
+              ❯ try again
+            </span>
+          </span>
+        );
     }
   }
 
@@ -241,26 +374,14 @@ export function SourceOffers({
           {offer.items.map((item) => (
             <div key={item.practiceItemId} style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 3 }}>
               <span style={{ flex: 1, minWidth: 0, color: COLOR.text }}>{clip(item.prompt)}</span>
-              {picked.has(item.practiceItemId) ? (
-                <Faint>added</Faint>
-              ) : (
-                <span style={actionStyle} onClick={() => void pickItem(offer, item.practiceItemId)}>
-                  ❯ practise
-                </span>
-              )}
+              {pickStatus(offer, item.practiceItemId, "❯ practise", () => void pickItem(offer, item.practiceItemId))}
             </div>
           ))}
           {offer.exercises.map((exercise) => (
             <div key={exercise.key} style={{ marginTop: 4 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                 <span style={{ flex: 1, minWidth: 0, color: COLOR.text }}>{clip(exercise.statement)}</span>
-                {picked.has(exercise.key) ? (
-                  <Faint>importing</Faint>
-                ) : (
-                  <span style={actionStyle} onClick={() => void importExercise(offer, exercise)}>
-                    ❯ practise from your book
-                  </span>
-                )}
+                {pickStatus(offer, exercise.key, "❯ practise from your book", () => void importExercise(offer, exercise))}
               </div>
               <Faint style={{ fontSize: 10 }}>{exercise.label}</Faint>
             </div>
