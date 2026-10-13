@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 180
+schema_head: 186
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/source_ingestion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -52,7 +52,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/032_source_layer.sql`.
-- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `062_source_artifact_display_title.sql`, `088_source_render_views.sql`, `094_source_objects.sql`, `104_source_reader_enabled.sql`.
+- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `062_source_artifact_display_title.sql`, `088_source_render_views.sql`, `094_source_objects.sql`, `104_source_reader_enabled.sql`, `186_add_book_state.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -70,6 +70,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `display_title` | `TEXT` | no | — | — | Stored value |
 | `reader_enabled` | `INTEGER` | yes | `1` | — | Stored value |
+| `keep_local` | `INTEGER` | yes | `0` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -88,8 +89,10 @@ Indexes and uniqueness:
 - `Repository.delete_source_artifact()`
 - `Repository.get_source_artifact()`
 - `Repository.set_source_current_revision()`
+- `Repository.set_source_keep_local()`
 - `Repository.set_source_reader_enabled()`
 - `Repository.source_artifact_by_uri()`
+- `Repository.source_kept_local()`
 - `Repository.upsert_source_artifact()`
 
 ### Direct SQL readers
@@ -104,6 +107,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
@@ -116,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/source_retrieval/corpus.py`
+- `src/learnloop_sidecar/handlers/first_run.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
@@ -136,6 +141,9 @@ Indexes and uniqueness:
 - `tests/test_sidecar_reader.py`
 - `tests/test_source_layer.py`
 - `tests/test_source_search.py`
+- `tests/test_ux_phase1_add_source.py`
+- `tests/test_ux_phase1_auto_build.py`
+- `tests/test_ux_phase1_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -160,7 +168,7 @@ CREATE TABLE source_artifacts (
   current_revision_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-, display_title TEXT, reader_enabled INTEGER NOT NULL DEFAULT 1);
+, display_title TEXT, reader_enabled INTEGER NOT NULL DEFAULT 1, keep_local INTEGER NOT NULL DEFAULT 0);
 ```
 
 ## Related notes

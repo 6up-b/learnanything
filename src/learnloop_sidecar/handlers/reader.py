@@ -66,6 +66,17 @@ def _require_source_reader(repository, source_id: str) -> dict[str, Any]:
     return artifact
 
 
+def _refuse_kept_local(repository, source_id: str | None) -> None:
+    """A book kept on this computer sends nothing to an AI, from the Reader
+    either (UX Phase 1 review F1): Ask, background requests and section checks."""
+
+    if source_id is not None and repository.source_kept_local(source_id):
+        raise SidecarError(
+            "kept_on_this_computer",
+            "This book is kept on this computer, so LearnLoop doesn't send it to an AI.",
+        )
+
+
 def _source_id_for_extraction(repository, extraction_id: str) -> str | None:
     run = repository.get_extraction_run(extraction_id)
     if run is None:
@@ -97,6 +108,7 @@ class ReaderAskInput(ParamsModel):
 def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
+    _refuse_kept_local(repository, ask_source_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
@@ -826,6 +838,7 @@ class ReaderEnqueueRequestInput(ParamsModel):
 @method("reader.enqueue_request", ReaderEnqueueRequestInput)
 def reader_enqueue_request(ctx: SidecarContext, params: ReaderEnqueueRequestInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    _refuse_kept_local(repository, params.source_id)
     try:
         result = RR.enqueue_request(
             repository, source_id=params.source_id, revision_id=params.revision_id,
@@ -858,6 +871,8 @@ def reader_cancel_request(ctx: SidecarContext, params: ReaderRequestStatusInput)
 @method("reader.retry_request", ReaderRequestStatusInput)
 def reader_retry_request(ctx: SidecarContext, params: ReaderRequestStatusInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    existing = RR.request_status(repository, request_id=params.request_id) or {}
+    _refuse_kept_local(repository, existing.get("source_id"))
     result = RR.retry_request(repository, request_id=params.request_id)
     ctx.ingest_jobs.kick_reader_drain()
     return versioned({"request": result})
@@ -1346,6 +1361,7 @@ def reader_author_section_question(
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    _refuse_kept_local(repository, source_id)
 
     existing = repository.latest_reader_authored_question(
         extraction_id=resolved, section_id=params.section_id

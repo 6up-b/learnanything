@@ -103,6 +103,14 @@ class SidecarContext:
             run_startup_maintenance(self.vault, self.repository)
             # A previous process may have left queued or leased jobs; resume.
             self.resume_post_attempt_jobs()
+            # UX Phase 1 (review F7): reading progress that arrived while a
+            # book's questions were being built, and the process ended first.
+            try:
+                from learnloop.content.pipeline.add_source import reconcile_reading_builds
+
+                reconcile_reading_builds(self.ingest_jobs)
+            except Exception:  # noqa: BLE001 - never block opening the library
+                _LOGGER.warning("could not act on pending reading progress", exc_info=True)
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:

@@ -26,7 +26,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.transport import INTERRUPT, interrupt_callback
@@ -163,7 +163,60 @@ def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
         # extraction request hash and needlessly re-extract unchanged sources.
         if engine != "auto":
             config["engine"] = engine
+    if ctx.job.get("_keep_local"):
+        # A book kept on this computer is read by a local extractor only
+        # (UX Phase 1 review F1): never the native-PDF model, never hosted
+        # Marker. Identity and extraction both read this, so they agree.
+        if config.get("engine") == "native":
+            config["engine"] = "auto"
+        if _hosted_marker_selected(config):
+            config["engine"] = "pypdf"
     return config
+
+
+def _hosted_marker_selected(pdf_config: Mapping[str, Any]) -> bool:
+    """The explicit Datalab debug runtime: Marker runs on Datalab's servers."""
+
+    import os
+
+    if str(pdf_config.get("engine") or "auto") in {"pypdf", "native"}:
+        return False
+    return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "local").strip().lower() == "datalab"
+
+
+_UPLOAD_FLOW_MESSAGES = {
+    "audio_transcription": (
+        "Transcribing this recording sends it to an online service. Say OK once to allow that."
+    ),
+    "pdf_upload": "Reading this PDF sends the whole file to your AI. Say OK once to allow that.",
+}
+_KEPT_LOCAL_FLOW_MESSAGES = {
+    "audio_transcription": (
+        "This recording is kept on this computer, and recordings can only be transcribed online."
+    ),
+    "pdf_upload": "This book is kept on this computer, so the whole file is not sent anywhere.",
+}
+
+
+def _guard_file_upload(ctx: JobContext, flow: str) -> None:
+    """Before a whole file leaves the computer (UX Phase 1 review F1).
+
+    A book kept on this computer never uploads its file. An Add (which asked
+    the learner nothing per book) uploads only after the separate OK for whole
+    files (spec §6.6: the connection's OK covers passages and answers only)."""
+
+    if ctx.job.get("_keep_local") or ctx.payload.get("keep_local"):
+        raise IngestRunnerError(
+            _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
+        )
+    if ctx.payload.get("require_upload_ok"):
+        from learnloop.content.pipeline.add_source import file_upload_allowed
+        from learnloop.vault.loader import load_vault
+
+        if not file_upload_allowed(load_vault(ctx.vault_root).config):
+            raise IngestRunnerError(
+                _UPLOAD_FLOW_MESSAGES[flow], code="needs_upload_ok", retryable=True, details={"flow": flow}
+            )
 
 
 def _extract_pdf_locally(
@@ -208,6 +261,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     from learnloop.ingest.extractors.base import ExtractionContext
 
     if category == "audio":
+        _guard_file_upload(ctx, "audio_transcription")
         return _extract_audio(fetched, ctx)
 
     is_pdf = (
@@ -218,9 +272,12 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     if is_pdf:
         pdf_config = _pdf_payload_config(ctx)
         native_fallback: str | None = None
+        if _hosted_marker_selected(pdf_config):
+            _guard_file_upload(ctx, "pdf_upload")
         if pdf_config.get("engine") == "native":
             decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
             if decision is not None and decision.route is not None:
+                _guard_file_upload(ctx, "pdf_upload")
                 return _extract_pdf_native(fetched, ctx, decision.route)
             native_fallback = decision.fallback_reason if decision else "unavailable"
             pdf_config = {**pdf_config, "engine": "auto"}
@@ -280,6 +337,7 @@ def default_extraction_identity(
     from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
     if category == "audio":
+        _guard_file_upload(ctx, "audio_transcription")
         # Lock-step with _extract_audio: the same pure route decision picks
         # native vs routed-chat vs endpoint transcription, and the identity
         # carries the model + provider/endpoint so re-pointing either forces a
@@ -338,9 +396,12 @@ def default_extraction_identity(
     if is_pdf:
         config = _pdf_payload_config(ctx)
         native_fallback: str | None = None
+        if _hosted_marker_selected(config):
+            _guard_file_upload(ctx, "pdf_upload")
         if config.get("engine") == "native":
             decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
             if decision is not None and decision.route is not None:
+                _guard_file_upload(ctx, "pdf_upload")
                 return {
                     "extractor": "pdf_native",
                     "extractor_version": "1",
@@ -1209,6 +1270,40 @@ class _RunnerMailbox:
                 answer.set_exception(JobCancelled())
 
 
+def _sources_of_extractions(repo: Repository, extraction_ids: Sequence[str]) -> set[str]:
+    sources: set[str] = set()
+    for extraction_id in extraction_ids:
+        run = repo.get_extraction_run(str(extraction_id))
+        revision = repo.get_source_revision(run["revision_id"]) if run else None
+        if revision and revision.get("source_id"):
+            sources.add(str(revision["source_id"]))
+    return sources
+
+
+def _sources_of_source_set(ctx: JobContext, source_set_id: str) -> set[str]:
+    from learnloop.vault.loader import load_vault
+
+    try:
+        vault = load_vault(ctx.vault_root)
+    except FileNotFoundError:  # a bare runner host with no vault (tests)
+        return set()
+    source_set = next((item for item in vault.source_sets if item.id == source_set_id), None)
+    return {member.source_id for member in (source_set.members if source_set else [])}
+
+
+def _refuse_kept_local_sources(ctx: JobContext, source_ids: Iterable[str]) -> None:
+    """A question build never sends a book kept on this computer (UX Phase 1
+    review F1): every build path, retry and resume passes through here."""
+
+    from learnloop.content.pipeline.add_source import KEPT_LOCAL_BUILD_MESSAGE
+
+    for source_id in sorted(set(source_ids)):
+        if ctx.repo.source_kept_local(source_id):
+            raise IngestRunnerError(
+                KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False, details={"source_id": source_id}
+            )
+
+
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     """inventory: role-aware per-unit inventories for the selected units (§7).
 
@@ -1233,6 +1328,10 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("inventory job requires an 'extraction_id'.")
     if not units:
         raise IngestRunnerError("inventory job requires at least one unit.")
+    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
+    from learnloop.content.pipeline.add_source import admit_auto_build_job
+
+    admit_auto_build_job(ctx)
     units = _effective_inventory_inputs(ctx.repo, extraction_id, units)
     budgets = _ingest_budgets(ctx)
     budget = _optional_int(payload.get("input_budget_tokens")) or budgets.inventory_input_tokens
@@ -1574,6 +1673,13 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     source_set_id = str(payload.get("source_set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("bootstrap_synthesis job requires a 'source_set_id'.")
+    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+
+    if not payload.get("reuse_candidate"):
+        # A model run: kept-local books never leave, automatic builds are
+        # admitted again (kill switch, Undo generation, money) on every attempt.
+        _refuse_kept_local_sources(ctx, _sources_of_source_set(ctx, source_set_id))
+        admit_auto_build_job(ctx)
 
     # `auto` is a product journey, not an alias for bootstrap: once this subject
     # has a live map, new sources reconcile into it through the bounded append
@@ -1597,6 +1703,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 ctx.vault_root,
                 str(payload["synthesis_run_id"]),
                 apply=bool(payload.get("apply", False)),
+                apply_gate=lambda: auto_apply_allowed(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repair=bool(payload.get("repair_candidate", False)),
                 repair_ops=[dict(op) for op in payload.get("repair_ops") or []],
@@ -1613,6 +1720,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 brief=payload.get("brief") or {},
                 mode=str(payload.get("mode") or "auto"),
                 apply=bool(payload.get("apply", False)),
+                apply_gate=lambda: auto_apply_allowed(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repository=ctx.repo,
                 clock=ctx.clock,
@@ -1645,6 +1753,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
         ctx.report("applied", message="Study map applied")
     else:
         ctx.report("proposed", message="Study-map proposal ready for review")
+    after_auto_build(ctx)
     return result.as_dict()
 
 
@@ -1683,10 +1792,15 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.synthesis.source_append import append_source
     from learnloop.content.synthesis.source_set_synthesis import StudyMapError
 
+    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+
     payload = ctx.payload
     source_set_id = str(payload.get("source_set_id") or payload.get("set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("append_synthesis job requires a 'source_set_id'.")
+    _refuse_kept_local_sources(ctx, _sources_of_source_set(ctx, source_set_id))
+    # Idempotent when the bootstrap lane already admitted this attempt.
+    admit_auto_build_job(ctx)
     ctx.report("inventoried", message="Preparing bounded source reconciliation")
     client = ctx.services.synthesis_client(ctx)
     try:
@@ -1699,6 +1813,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             revision_diff=dict(payload.get("revision_diff") or {}),
             brief=dict(payload.get("brief") or {}),
             auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
+            apply_gate=lambda: auto_apply_allowed(ctx),
             repository=ctx.repo,
             clock=ctx.clock,
             budget_overrides=dict(payload.get("synthesis_budgets") or {}),
@@ -1727,6 +1842,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
         ctx.report("applied", message="Safe source additions applied")
     else:
         ctx.report("proposed", message="Source reconciliation ready for review")
+    after_auto_build(ctx)
     return result.as_dict()
 
 
@@ -1776,6 +1892,11 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         clock=ctx.clock,
     )
     ctx.job["_revision_id"] = registered.revision_id
+    # UX Phase 1 review F1: "Keep this book on this computer" belongs to the
+    # book (a link's book exists only now), and binds this extraction too.
+    if payload.get("keep_local"):
+        ctx.repo.set_source_keep_local(registered.source_id, True, clock=ctx.clock)
+    ctx.job["_keep_local"] = bool(payload.get("keep_local")) or ctx.repo.source_kept_local(registered.source_id)
     # Label the extracted transcript unit by the real video title (not the
     # "<title> — <author>" display form) when the fetch captured one.
     if fetched.title and not ctx.payload.get("title"):
@@ -2204,6 +2325,7 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     )
     if existing is not None:
         return {"question_id": existing["id"], "deduplicated": True}
+    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
     ctx.report("authoring", message="Authoring a quick check for this section")
     client = ctx.services.quick_check_client(ctx)
     row = RQC.author_quick_check(
@@ -2788,15 +2910,23 @@ class DurableIngestJobs:
 
         chosen = options or AddSourceOptions()
         runner = self._require_runner()
-        import_payload: dict[str, Any] = {"source": source}
+        # An Add asked the learner nothing per book: an upload of the whole
+        # file waits for its own OK, and a kept-local book never uploads
+        # (UX Phase 1 review F1; enforced where the bytes would leave).
+        import_payload: dict[str, Any] = {"source": source, "require_upload_ok": True}
         if source_id:
             import_payload["source_id"] = source_id
         if chosen.page_selection:
             import_payload["page_selection"] = list(chosen.page_selection)
         if chosen.problem_set:
             import_payload["reader_enabled"] = False
+        if chosen.keep_local:
+            import_payload["keep_local"] = True
         if chosen.text_recognition:
-            import_payload["pdf_config"] = {"force_ocr": True}
+            # An extractor that really recognises text, named explicitly
+            # (review F9): a configured pypdf engine would ignore force_ocr.
+            # Add and the card check that one is installed before asking.
+            import_payload["pdf_config"] = {"engine": "marker", "force_ocr": True}
         specs = [JobSpec("import", import_payload)]
         if auto_build:
             auto_payload: dict[str, Any] = {

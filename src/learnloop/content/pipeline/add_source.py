@@ -23,16 +23,24 @@ Everything else happens in the durable queue, without a question on the way:
 The job ledger is the record: every planning decision is an ``auto_study_map``
 job whose result says what happened (``building``, ``waiting``, ``paused``,
 ``skipped``), so the status line, the progressive build and undo all derive
-from durable rows. No migration: job types are open strings.
+from durable rows. The build a planner queues has an id derived from the
+planner (:func:`child_batch_id`) and carries the plan on its jobs, so it is
+found even when the planner died before saving its result. Per book, migration
+186 keeps the learner's "Keep this book on this computer" (read at every
+outbound boundary) and the automatic-build state: the generation an Undo
+advances and the reading position a running build could not act on yet.
 
-Kill switch ``[ingest] auto_build``: off, Add only makes the source readable.
+Kill switches ``[ingest] auto_build`` (off: Add only makes the source readable,
+and queued automatic work is cancelled before its next paid stage) and
+``[ingest] auto_apply_passing_builds`` (off: automatic builds wait as
+proposals), both read when the work runs, not when it was planned.
 """
 
 from __future__ import annotations
 
 import io
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -56,6 +64,18 @@ UNSUPPORTED_MESSAGE = (
 MISSING_FILE_MESSAGE = "LearnLoop couldn't find that file. It may have moved."
 EXISTING_MESSAGE = "Already in your library — opened where you left off."
 DATA_FLOW = "passages_and_answers"
+# The separate OK for sending a whole file out: a recording to a transcription
+# service, a whole PDF to a model that reads PDFs (spec §6.6, review F1).
+FILE_UPLOAD_CONSENT = "whole_files"
+FILE_UPLOAD_DATA_FLOW = "whole_files"
+KEPT_LOCAL_BUILD_MESSAGE = "This book is kept on this computer, so no questions are written for it."
+# Automatic builds' batch ids: ``batch_auto_<planner job id>`` (review F3).
+AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
+# The learner's Undo as an owner verdict in judgment_ledger (review F12).
+UNDO_JUDGMENT_TASK = "auto_applied_content"
+TEXT_RECOGNITION_UNAVAILABLE_MESSAGE = (
+    "Text recognition isn't set up, so this was added without it. Settings → Advanced → Import can set it up."
+)
 # A first build accumulates tiny units (page-per-unit extractions) up to this
 # much text, so it is never one page; never past the scope cap.
 FLOOR_TOKENS = 4000
@@ -142,6 +162,9 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     artifact = repo.source_artifact_by_uri(category, resolved.source)
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
         revision_id = artifact.get("current_revision_id")
+        if options.keep_local and not artifact.get("keep_local"):
+            # Asking for more privacy on a book already here always applies.
+            repo.set_source_keep_local(artifact["id"], True, clock=clock)
         item.update(
             status="existing",
             source_id=artifact["id"],
@@ -172,6 +195,10 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
             clock=clock,
         )
         source_id, revision_id = registered.source_id, registered.revision_id
+        if options.keep_local:
+            # Persisted with the book before anything is queued (review F1):
+            # every later build, retry and Reader request reads it.
+            repo.set_source_keep_local(source_id, True, clock=clock)
         item.update(status="added", source_id=source_id, revision_id=revision_id, title=title, preparing=True)
     elif category in {"pdf", "textfile", "audio"} and not resolved.source.lower().startswith(("http://", "https://")):
         item.update(status="unsupported", message=MISSING_FILE_MESSAGE)
@@ -179,6 +206,11 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     else:
         item.update(status="queued", preparing=True)
 
+    if options.text_recognition and not text_recognition_available(keep_local=options.keep_local):
+        # Text recognition was asked for but nothing installed can do it
+        # (review F9): add the book without it and say so, never pretend.
+        options = replace(options, text_recognition=False)
+        item["message"] = TEXT_RECOGNITION_UNAVAILABLE_MESSAGE
     item["batch_id"] = ingest_jobs.enqueue_add_source(resolved.source, source_id=source_id, options=options)
     return item
 
@@ -244,7 +276,7 @@ def _has_text_or_add_in_flight(repo, source_id: str) -> bool:
         return True
     return any(
         job["status"] in {"queued", "running", "waiting_for_input"}
-        for job in _jobs_for_source(repo.ingest_jobs_by_types(("import",), limit=500), source_id)
+        for job in repo.ingest_jobs_for_source(("import",), source_id)
     )
 
 
@@ -429,6 +461,14 @@ def what_leaves(label: str) -> str:
     )
 
 
+def file_upload_allowed(config) -> bool:
+    """The learner's separate OK for sending a whole file out (a recording to
+    be transcribed, a whole PDF to a model that reads PDFs). The connection's
+    OK covers passages and answers only (spec §6.6)."""
+
+    return FILE_UPLOAD_CONSENT in config.ai.consent
+
+
 def authoring_route_for(vault_root: Path, config) -> AuthoringRoute:
     """The route that would write questions for a build, and whether it is
     ready, the way the build resolves it (routed provider, else the fallback)."""
@@ -461,15 +501,55 @@ def default_authoring_route(ctx) -> AuthoringRoute:
     return authoring_route_for(vault.root, vault.config)
 
 
-def estimate_usd(config, provider_name: str, totals: Mapping[str, Any]) -> float:
+# -- Money (Q5; review F2) ----------------------------------------------------
+#
+# Two different things, kept apart:
+# * a *confirmation threshold* (``threshold_usd``, ``daily_cap_fraction``): an
+#   automatic build above it asks first ("would cost about $3.10 · Build them"),
+#   and the learner's "Build them" passes it once;
+# * *enforceable limits*: the build's authorization (what the learner allowed,
+#   with headroom for the estimate) and ``daily_cap_usd``. "Build them" never
+#   passes the daily cap. Every paid job of an automatic build is admitted
+#   through ``learnloop.ai.spend.SpendBudget`` against what is left of both,
+#   priced at the route resolved when the job runs (a runtime fallback is
+#   priced as itself) and counted from the receipts of every attempt.
+# Spending is counted from ``model_call_receipts`` (every model call LearnLoop
+# makes, whatever started it), not from planner estimates. Subscription routes
+# (Codex, the ChatGPT plan) are never paused or capped (Slice A §5 rule 6);
+# their estimate is kept in tokens, ``cost_basis = estimated_only``.
+
+AUTHORIZATION_HEADROOM = 1.25
+
+
+def _price_per_million(config, provider_name: str | None) -> float:
     pause = config.ingest.cost_pause
-    tokens = int(totals.get("input_tokens") or 0) + int(totals.get("max_output_tokens") or 0)
-    price = float(pause.prices.get(provider_name, pause.default_price_per_million_tokens))
-    return tokens * price / 1_000_000
+    return float(pause.prices.get(provider_name or "", pause.default_price_per_million_tokens))
+
+
+def is_subscription_route(config, provider_name: str | None) -> bool:
+    from learnloop.ai.spend import is_subscription_transport
+    from learnloop.config import CODEX_PROVIDER_NAMES
+
+    profile = config.ai.providers.get(provider_name or "")
+    if profile is not None:
+        return is_subscription_transport(profile=profile)
+    return (provider_name or "") in CODEX_PROVIDER_NAMES
+
+
+def plan_tokens(totals: Mapping[str, Any]) -> int:
+    return int(totals.get("input_tokens") or 0) + int(totals.get("max_output_tokens") or 0)
+
+
+def estimate_usd(config, provider_name: str, totals: Mapping[str, Any]) -> float:
+    """A metered route's price for a build plan: input plus maximum output."""
+
+    return plan_tokens(totals) * _price_per_million(config, provider_name) / 1_000_000
 
 
 def cost_pause_reason(config, usd: float, spent_today_usd: float) -> str | None:
-    """``over_threshold`` / ``daily_cap`` when a build should ask first (Q5)."""
+    """``over_threshold`` / ``daily_cap`` when a build should ask first (Q5).
+
+    A confirmation threshold only; :func:`decide_cost` enforces the limits."""
 
     pause = config.ingest.cost_pause
     if usd <= 0:
@@ -483,16 +563,234 @@ def cost_pause_reason(config, usd: float, spent_today_usd: float) -> str | None:
     return None
 
 
-def spent_today_usd(repo, now: datetime) -> float:
-    """What automatic builds started today were estimated to cost."""
+def _receipt_usd(config, row: Mapping[str, Any]) -> float:
+    """What one model call cost in money: the provider's reported cost, else
+    its tokens at the route's price; nothing for a subscription call."""
 
-    day = now.date().isoformat()
-    total = 0.0
-    for job in repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,), limit=500):
-        result = job.get("result") or {}
-        if result.get("outcome") == "building" and str(job.get("finished_at") or "")[:10] == day:
-            total += float(result.get("estimate_usd") or 0.0)
-    return total
+    usage = str(row.get("usage_json") or "")
+    if "estimated_only" in usage or is_subscription_route(config, row.get("provider")):
+        return 0.0
+    if row.get("cost") is not None:
+        return float(row["cost"])
+    tokens = int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
+    return tokens * _price_per_million(config, row.get("provider")) / 1_000_000
+
+
+def metered_spend_usd(config, rows: Iterable[Mapping[str, Any]]) -> float:
+    return sum(_receipt_usd(config, row) for row in rows)
+
+
+def _day_start_iso(now: datetime) -> str:
+    from datetime import UTC
+
+    return now.astimezone(UTC).date().isoformat() + "T00:00:00"
+
+
+def _active_auto_build_batches(repo) -> list[dict[str, Any]]:
+    return [
+        batch for batch in repo.ingest_batches_by_workflow(
+            "bootstrap_synthesis", exclude_statuses=("completed", "failed", "cancelled", "blocked"),
+        )
+        if str(batch["id"]).startswith(AUTO_BUILD_BATCH_PREFIX)
+    ]
+
+
+def _batch_job_ids(repo, batch_id: str) -> list[str]:
+    return [job["id"] for job in repo.ingest_jobs_for_batch(batch_id)]
+
+
+def build_spend_usd(repo, config, batch_id: str) -> float:
+    """What one automatic build has cost so far, every attempt included."""
+
+    rows = repo.model_call_spend_rows(owner_kind="ingest_job", owner_ids=_batch_job_ids(repo, batch_id))
+    return metered_spend_usd(config, rows)
+
+
+def spent_today_usd(repo, config, now: datetime) -> float:
+    """Money spent today on every model call LearnLoop made (receipts), plus
+    what automatic builds still running are allowed to spend."""
+
+    spent = metered_spend_usd(config, repo.model_call_spend_rows(started_since=_day_start_iso(now)))
+    reserved = 0.0
+    for batch in _active_auto_build_batches(repo):
+        auto = _child_auto_info(repo, batch["id"]) or {}
+        estimate = auto.get("estimate_usd")
+        if estimate is None or auto.get("subscription"):
+            continue
+        reserved += max(float(estimate) - build_spend_usd(repo, config, batch["id"]), 0.0)
+    return spent + reserved
+
+
+@dataclass(frozen=True)
+class CostDecision:
+    """What an automatic build may spend, and whether it must ask first."""
+
+    subscription: bool
+    tokens: int
+    estimate_usd: float | None
+    pause: str | None = None
+    authorized_usd: float | None = None
+    daily_remaining_usd: float | None = None
+
+    @property
+    def cost_basis(self) -> str:
+        return "estimated_only" if self.subscription else "metered"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "subscription": self.subscription,
+            "cost_basis": self.cost_basis,
+            "estimate_tokens": self.tokens,
+            "estimate_usd": None if self.estimate_usd is None else round(self.estimate_usd, 4),
+            "authorized_usd": None if self.authorized_usd is None else round(self.authorized_usd, 4),
+            "daily_remaining_usd": None if self.daily_remaining_usd is None else round(self.daily_remaining_usd, 4),
+            "pause": self.pause,
+        }
+
+
+def decide_cost(config, repo, provider_name: str, totals: Mapping[str, Any], *,
+                approved: bool, now: datetime) -> CostDecision:
+    """Price a build plan and decide: run silently, ask first (``over_threshold``
+    / ``daily_cap``: "Build them" passes these), or stop (``budget_used``: the
+    daily cap is spent; "Build them" does not pass it)."""
+
+    tokens = plan_tokens(totals)
+    pause_config = config.ingest.cost_pause
+    if is_subscription_route(config, provider_name):
+        # Billed to the subscription: no pause and no dollar cap, tokens kept.
+        owner_price = pause_config.prices.get(provider_name)
+        usd = tokens * float(owner_price) / 1_000_000 if owner_price is not None else None
+        return CostDecision(subscription=True, tokens=tokens, estimate_usd=usd)
+    usd = estimate_usd(config, provider_name, totals)
+    spent = spent_today_usd(repo, config, now)
+    remaining = None
+    if pause_config.daily_cap_usd is not None:
+        remaining = max(float(pause_config.daily_cap_usd) - spent, 0.0)
+    if remaining is not None and usd > remaining:
+        return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, pause="budget_used",
+                            daily_remaining_usd=remaining)
+    if not approved:
+        reason = cost_pause_reason(config, usd, spent)
+        if reason is not None:
+            return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, pause=reason,
+                                daily_remaining_usd=remaining)
+    threshold = float(pause_config.threshold_usd)
+    # A silent build may spend up to the standing "runs without asking" amount;
+    # an approved one what the learner approved, with headroom for the estimate.
+    authorized = max(usd * AUTHORIZATION_HEADROOM, threshold) if approved else max(threshold, usd)
+    if remaining is not None:
+        authorized = min(authorized, remaining)
+    return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, authorized_usd=authorized,
+                        daily_remaining_usd=remaining)
+
+
+class AutoBuildPaused(Exception):
+    """An automatic build's next paid job is not admitted."""
+
+
+def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
+    """Admit one paid job attempt of an automatic build, or stop it (F1-F5).
+
+    Runs at the start of every attempt (a retry is admitted again):
+    * the kill switch ``[ingest] auto_build`` and the book's Undo generation
+      are read now, not when the build was planned: work they no longer allow
+      is cancelled before any model call;
+    * a book kept on this computer sends nothing;
+    * money: through ``SpendBudget`` against what is left of the build's
+      authorization and of today's cap, priced at the route resolved now.
+    No-op for jobs that are not part of an automatic build."""
+
+    from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
+    from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled
+    from learnloop.vault.loader import load_vault
+
+    auto = ctx.payload.get("auto_build")
+    if not isinstance(auto, Mapping):
+        return
+    repo = ctx.repo
+    source_id = str(auto.get("source_id") or "")
+    config = load_vault(ctx.vault_root).config
+    batch_id = str(ctx.job["batch_id"])
+    if not config.ingest.auto_build:
+        _cancel_rest_of_batch(ctx)
+        raise JobCancelled("Automatic question building was turned off.")
+    if int(repo.source_auto_build_state(source_id)["generation"]) != int(auto.get("generation") or 0):
+        _cancel_rest_of_batch(ctx)
+        raise JobCancelled("This book's questions were taken back out.")
+    if repo.source_kept_local(source_id):
+        raise IngestRunnerError(KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False)
+    route = ctx.services.authoring_route(ctx)
+    if is_subscription_route(config, route.provider):
+        return
+    tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
+    usd = tokens * _price_per_million(config, route.provider) / 1_000_000
+    spent_build = build_spend_usd(repo, config, batch_id)
+    authorized = auto.get("authorized_usd")
+    limit = max(float(authorized) - spent_build, 0.0) if authorized is not None else None
+    reason = "authorization"
+    cap = config.ingest.cost_pause.daily_cap_usd
+    if cap is not None:
+        today = metered_spend_usd(config, repo.model_call_spend_rows(started_since=_day_start_iso(ctx.clock.now())))
+        daily_left = max(float(cap) - today, 0.0)
+        if limit is None or daily_left < limit:
+            limit, reason = daily_left, "daily_cap"
+    if limit is None:
+        # Planned before this rule (no authorization recorded): the standing
+        # "runs without asking" amount.
+        limit = float(config.ingest.cost_pause.threshold_usd)
+    budget = SpendBudget(
+        SpendCaps(max_candidates=10**9, max_pairs=10**9, max_retries=10**9, max_calls=10**9,
+                  max_total_tokens=10**15, max_estimated_usd=limit),
+        cancelled=ctx.cancelled,
+    )
+    try:
+        budget.check(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd))
+    except SpendLimitExceeded as exc:
+        raise IngestRunnerError(
+            "Paused: this would spend more than allowed." if reason == "authorization"
+            else "Paused: today's AI budget is used.",
+            code="spend_paused",
+            retryable=True,
+            details={"reason": reason, "provider": route.provider, "estimate_usd": round(usd, 4),
+                     "limit_usd": round(limit, 4), "spent_by_build_usd": round(spent_build, 4),
+                     "spend_check": str(exc)},
+        ) from exc
+
+
+def _cancel_rest_of_batch(ctx) -> None:
+    """Stop the automatic build this job belongs to: the batch is flagged and
+    its jobs still waiting go straight to cancelled (as a batch cancel does);
+    the runner finishes this job as cancelled."""
+
+    repo = ctx.repo
+    batch_id = str(ctx.job["batch_id"])
+    repo.request_ingest_batch_cancel(batch_id)
+    for job in repo.ingest_jobs_for_batch(batch_id):
+        if job["id"] != ctx.job_id and job["status"] in {"queued", "blocked", "waiting_for_input"}:
+            repo.transition_unleased_ingest_job(
+                job["id"], status="cancelled", phase="cancelled", message="Batch cancelled",
+                error={"code": "cancelled", "message": "The batch was cancelled."}, clock=ctx.clock,
+            )
+
+
+def auto_apply_allowed(ctx) -> bool:
+    """Read immediately before an automatic build applies (F4, F5): the kill
+    switches, the Undo generation and the book's privacy, as they are now. A
+    ``False`` keeps the build's result as an unapplied record."""
+
+    from learnloop.vault.loader import load_vault
+
+    auto = ctx.payload.get("auto_build")
+    if not isinstance(auto, Mapping):
+        return True
+    config = load_vault(ctx.vault_root).config
+    source_id = str(auto.get("source_id") or "")
+    return (
+        bool(config.ingest.auto_build)
+        and bool(config.ingest.auto_apply_passing_builds)
+        and int(ctx.repo.source_auto_build_state(source_id)["generation"]) == int(auto.get("generation") or 0)
+        and not ctx.repo.source_kept_local(source_id)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -537,42 +835,98 @@ def ensure_subject(vault_root: Path, vault, source_id: str, title: str, *, clock
 # ---------------------------------------------------------------------------
 
 
+def child_batch_id(planner_job_id: str) -> str:
+    """The build batch a planning job queues: derived from the planner, so a
+    planner that dies after queuing it finds it again (review F3) and status,
+    coverage and Undo find it even when the planner never saved its result."""
+
+    return f"{AUTO_BUILD_BATCH_PREFIX}{planner_job_id}"
+
+
 def _job_source_id(job: Mapping[str, Any]) -> str | None:
     payload = job.get("payload") or {}
     result = job.get("result") or {}
     return payload.get("source_id") or result.get("source_id")
 
 
-def _jobs_for_source(jobs: Iterable[Mapping[str, Any]], source_id: str) -> list[dict[str, Any]]:
-    return [dict(job) for job in jobs if _job_source_id(job) == source_id]
-
-
 def auto_jobs(repo, source_id: str) -> list[dict[str, Any]]:
-    """This source's planning jobs, newest first."""
+    """This source's planning jobs, newest first: the whole history, filtered
+    by source in SQL before anything is limited (review F10)."""
 
-    return _jobs_for_source(repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,), limit=500), source_id)
+    return repo.ingest_jobs_for_source((AUTO_STUDY_MAP_JOB,), source_id)
+
+
+def import_jobs(repo, source_id: str) -> list[dict[str, Any]]:
+    return repo.ingest_jobs_for_source(("import",), source_id)
+
+
+def _child_auto_info(repo, batch_id: str) -> dict[str, Any] | None:
+    """The plan an automatic build batch carries on its synthesis job."""
+
+    for job in repo.ingest_jobs_for_batch(batch_id):
+        auto = (job.get("payload") or {}).get("auto_build")
+        if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"} and isinstance(auto, Mapping):
+            return dict(auto)
+    return None
+
+
+def _outcome_from_child(repo, batch_id: str) -> dict[str, Any] | None:
+    auto = _child_auto_info(repo, batch_id)
+    if auto is None:
+        return None
+    outcome = {key: value for key, value in auto.items() if key not in {"job_tokens", "planner_job_id"}}
+    outcome.update(outcome="building", build_batch_id=batch_id, recovered=True)
+    return outcome
+
+
+def planner_outcome(repo, job: Mapping[str, Any]) -> dict[str, Any] | None:
+    """What a planning job decided: its saved result, or (when it died after
+    queuing its build) the plan its build batch carries."""
+
+    result = job.get("result") or {}
+    if job.get("status") == "completed" and result:
+        return dict(result)
+    child = child_batch_id(str(job["id"]))
+    if repo.get_ingest_batch(child) is not None:
+        return _outcome_from_child(repo, child)
+    return None
 
 
 def latest_auto_outcome(repo, source_id: str) -> dict[str, Any] | None:
     for job in auto_jobs(repo, source_id):
-        if job["status"] == "completed" and job.get("result"):
-            return dict(job["result"])
+        outcome = planner_outcome(repo, job)
+        if outcome is not None:
+            return outcome
     return None
 
 
-def _build_state(repo, outcome: Mapping[str, Any]) -> dict[str, Any]:
+def current_generation(repo, source_id: str) -> int:
+    return int(repo.source_auto_build_state(source_id)["generation"])
+
+
+def _build_state(repo, outcome: Mapping[str, Any], *, generation: int | None = None) -> dict[str, Any]:
     """What became of a ``building`` outcome's batch: its status, proposal,
     whether it applied, was taken back out, or left changes to look at."""
 
     batch_id = outcome.get("build_batch_id")
     batch = repo.get_ingest_batch(batch_id) if batch_id else None
     state: dict[str, Any] = {"batch": batch, "status": (batch or {}).get("status"), "proposal_id": None,
-                             "applied": False, "undone": False, "pending": 0, "error": None}
+                             "applied": False, "undone": False, "pending": 0, "error": None,
+                             "error_code": None, "error_details": {}}
+    source_id = outcome.get("source_id")
+    if generation is None and source_id:
+        generation = current_generation(repo, str(source_id))
+    if generation is not None and int(outcome.get("generation") or 0) < generation:
+        # Planned before the learner's Undo: never applies, never counts.
+        state["undone"] = True
     if batch is None:
         return state
     for job in repo.ingest_jobs_for_batch(batch_id):
-        if job.get("error") and state["error"] is None:
-            state["error"] = (job.get("error") or {}).get("message")
+        error = job.get("error") or {}
+        if error and job["status"] in {"failed", "blocked", "cancelled"} and state["error"] is None:
+            state["error"] = error.get("message")
+            state["error_code"] = error.get("code")
+            state["error_details"] = dict(error.get("details") or {})
         if job["job_type"] not in {"bootstrap_synthesis", "append_synthesis"}:
             continue
         result = job.get("result") or {}
@@ -598,22 +952,74 @@ def _revertable(item: Mapping[str, Any]) -> bool:
     return item.get("item_type") in _REVERTABLE_ITEM_TYPES and item.get("operation") == "create"
 
 
-def built_unit_ids(repo, source_id: str) -> set[str]:
-    """Chapters an automatic build covers and the learner has not undone."""
+@dataclass
+class Coverage:
+    """Which chapters of a book automatic builds cover (review F6).
 
-    built: set[str] = set()
+    ``built``: a build finished (applied, or waiting for a look); ``reserved``:
+    planned or building now; ``failed``: the last build for it failed or was
+    stopped and nothing later covers it. Undone builds count for nothing."""
+
+    built: set[str] = field(default_factory=set)
+    reserved: set[str] = field(default_factory=set)
+    failed: set[str] = field(default_factory=set)
+
+    @property
+    def covered(self) -> set[str]:
+        """What a new build must not plan again."""
+
+        return self.built | self.reserved
+
+
+def coverage(repo, source_id: str, *, exclude_job_id: str | None = None) -> Coverage:
+    generation = current_generation(repo, source_id)
+    result = Coverage()
     for job in auto_jobs(repo, source_id):
-        result = job.get("result") or {}
-        if job["status"] != "completed" or result.get("outcome") != "building":
+        if job["id"] == exclude_job_id:
             continue
-        if _build_state(repo, result)["undone"]:
+        outcome = planner_outcome(repo, job)
+        if outcome is None:
+            if _active(job):
+                # A planner still to run reserves the chapters it was asked for.
+                result.reserved.update((job.get("payload") or {}).get("chapter_ids") or [])
             continue
-        built.update(result.get("chapter_ids") or [])
-    return built
+        if outcome.get("outcome") != "building":
+            continue
+        state = _build_state(repo, outcome, generation=generation)
+        if state["undone"]:
+            continue
+        chapters = set(outcome.get("chapter_ids") or [])
+        if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
+            result.failed.update(chapters)
+        elif _active(state["batch"]):
+            result.reserved.update(chapters)
+        else:
+            result.built.update(chapters)
+    result.failed -= result.covered
+    return result
+
+
+def built_unit_ids(repo, source_id: str) -> set[str]:
+    """Chapters an automatic build covers or is building, and not undone.
+    Failed and stopped builds do not count (review F6)."""
+
+    return coverage(repo, source_id).covered
 
 
 def _active(job_or_batch: Mapping[str, Any] | None) -> bool:
     return bool(job_or_batch) and job_or_batch.get("status") in {"queued", "running", "waiting_for_input"}
+
+
+def _source_work_active(repo, source_id: str, *, ignore_batch_id: str | None = None) -> bool:
+    for job in auto_jobs(repo, source_id):
+        if job["batch_id"] != ignore_batch_id and _active(job):
+            return True
+        outcome = planner_outcome(repo, job)
+        if outcome and outcome.get("outcome") == "building":
+            batch_id = outcome.get("build_batch_id")
+            if batch_id and batch_id != ignore_batch_id and _active(repo.get_ingest_batch(batch_id)):
+                return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -631,18 +1037,141 @@ def _source_from_dependency(ctx) -> str | None:
     return None
 
 
+@dataclass
+class BuildPlanChoice:
+    """What a build would cover, and its plan totals (no writes, no calls)."""
+
+    extraction_id: str
+    revision_id: str
+    chapters: list[Chapter]
+    whole: bool
+    unit_ids: list[str]
+    stages: dict[str, int]
+    totals: dict[str, Any]
+    outline: Any
+
+    @property
+    def info(self) -> dict[str, Any]:
+        return {"chapters": [chapter.label for chapter in self.chapters],
+                "chapter_ids": [chapter.unit_id for chapter in self.chapters],
+                "whole_source": self.whole}
+
+
+def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str], *,
+                  chapter_ids: Sequence[str] | None, start_unit_id: str | None,
+                  exclude_job_id: str | None) -> BuildPlanChoice | None:
+    from learnloop.content.pipeline.build_plan import build_build_plan
+    from learnloop.content.sources.source_outline import build_source_outline
+
+    revision_id, extraction_id = resolved
+    outline = build_source_outline(repo, extraction_id)
+    chapters = outline_chapters(outline)
+    covered = coverage(repo, source_id, exclude_job_id=exclude_job_id).covered
+    whole = False
+    if chapter_ids:
+        wanted = set(chapter_ids)
+        picked = [
+            chapter for chapter in chapters
+            if chapter.unit_id in wanted and chapter.unit_id not in covered and not _is_front_matter(chapter)
+        ]
+    else:
+        cap = int(config.ingest.budgets.quick_add_scope_input_tokens)
+        if not covered and outline.approx_tokens <= cap:
+            picked, whole = list(chapters), True
+        else:
+            picked = reading_order_scope(
+                chapters, built=covered, start_unit_id=start_unit_id,
+                cap_tokens=cap, floor_tokens=min(FLOOR_TOKENS, max(cap // 4, 1)),
+            )
+    if not picked:
+        return None
+    unit_ids = [unit_id for chapter in picked for unit_id in chapter.unit_ids]
+    plan = build_build_plan(
+        repo, config, vault, subject_id=None,
+        selections=[{"extraction_id": extraction_id, "selected_unit_ids": unit_ids}],
+    ).as_dict()
+    stages = {str(stage.get("stage")): int(stage.get("input_tokens") or 0) + int(stage.get("max_output_tokens") or 0)
+              for stage in plan.get("stages") or []}
+    return BuildPlanChoice(
+        extraction_id=extraction_id, revision_id=revision_id, chapters=picked, whole=whole,
+        unit_ids=unit_ids, stages=stages, totals=dict(plan["totals"]), outline=outline,
+    )
+
+
+def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bool = False,
+                       chapter_ids: Sequence[str] | None = None, approved: bool = False,
+                       route: AuthoringRoute | None = None, now: datetime | None = None) -> dict[str, Any]:
+    """The zero-call dry run of an automatic build (review F2): what it would
+    cover, the route, tokens, money and whether it would ask first or stop.
+    Writes nothing and calls no model."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(vault_root)
+    config = vault.config
+    report: dict[str, Any] = {"source_id": source_id, "model_calls": 0, "writes": 0}
+    artifact = repo.get_source_artifact(source_id)
+    if artifact is None:
+        return {**report, "status": "unknown_source"}
+    if repo.source_kept_local(source_id):
+        return {**report, "status": "kept_local"}
+    if not config.ingest.auto_build:
+        return {**report, "status": "auto_build_off"}
+    resolved = _completed_extraction(repo, source_id)
+    if resolved is None:
+        return {**report, "status": "not_ready"}
+    if whole_book and not chapter_ids:
+        from learnloop.content.sources.source_outline import build_source_outline
+
+        chapter_ids = [chapter.unit_id for chapter in outline_chapters(build_source_outline(repo, resolved[1]))]
+    choice = _choose_scope(repo, config, vault, source_id, resolved, chapter_ids=chapter_ids,
+                           start_unit_id=None, exclude_job_id=None)
+    if choice is None:
+        return {**report, "status": "nothing_to_build"}
+    route = route or authoring_route_for(vault.root, config)
+    cost = decide_cost(config, repo, route.provider, choice.totals, approved=approved,
+                       now=now or SystemClock().now())
+    status = "would_build"
+    if not route.ready:
+        status = "needs_ai"
+    elif route.consent_key not in config.ai.consent:
+        status = "needs_ok"
+    elif cost.pause == "budget_used":
+        status = "would_stop_budget_used"
+    elif cost.pause is not None:
+        status = "would_ask_first"
+    return {
+        **report,
+        "status": status,
+        "provider": route.provider,
+        "route_ready": route.ready,
+        **choice.info,
+        "unit_count": len(choice.unit_ids),
+        "stages": choice.stages,
+        "totals": choice.totals,
+        **cost.as_dict(),
+        "threshold_usd": float(config.ingest.cost_pause.threshold_usd),
+        "daily_cap_usd": config.ingest.cost_pause.daily_cap_usd,
+        "applies": bool(config.ingest.auto_apply_passing_builds),
+    }
+
+
 def run_auto_study_map(ctx) -> dict[str, Any]:
     """Plan (and queue) the automatic question build for one source."""
 
-    from learnloop.content.pipeline.build_plan import build_build_plan
     from learnloop.content.pipeline.quick_add import _default_brief
     from learnloop.content.pipeline.runner import IngestRunnerError, JobSpec
-    from learnloop.content.sources.source_outline import build_source_outline
     from learnloop.vault.loader import load_vault
     from learnloop.vault.writer import upsert_source_set
     from learnloop.vault_lock import vault_mutation_lock
 
     payload = ctx.payload
+    # An earlier attempt of this job may have queued its build and died before
+    # saving its result (review F3): that build is the answer.
+    recovered = _outcome_from_child(ctx.repo, child_batch_id(ctx.job_id))
+    if recovered is not None:
+        return recovered
     source_id = payload.get("source_id") or _source_from_dependency(ctx)
     if not source_id:
         raise IngestRunnerError("The automatic build has no source to plan for.", code="source_missing")
@@ -656,37 +1185,26 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         raise IngestRunnerError(f"Source {source_id!r} is not in the library.", code="source_missing")
     if payload.get("problem_set") or not artifact.get("reader_enabled", 1):
         return {"outcome": "skipped", "reason": "problem_set", **base}
-    if payload.get("keep_local"):
+    # The book's own privacy choice, persisted (review F1): every later build
+    # reads it, not only the Add that set it.
+    if payload.get("keep_local") or artifact.get("keep_local"):
         return {"outcome": "waiting", "reason": "kept_local", **base}
     resolved = _completed_extraction(ctx.repo, source_id)
     if resolved is None:
         raise IngestRunnerError("This source has no text yet.", code="not_extracted", retryable=True)
     revision_id, extraction_id = resolved
+    generation = current_generation(ctx.repo, source_id)
 
     ctx.report("inventoried", message="Choosing what to build first")
-    outline = build_source_outline(ctx.repo, extraction_id)
-    chapters = outline_chapters(outline)
-    built = built_unit_ids(ctx.repo, source_id)
-    approved_chapters = payload.get("chapter_ids")
-    whole = False
-    if approved_chapters:
-        wanted = set(approved_chapters)
-        picked = [chapter for chapter in chapters if chapter.unit_id in wanted and chapter.unit_id not in built]
-    else:
-        cap = int(config.ingest.budgets.quick_add_scope_input_tokens)
-        if not built and outline.approx_tokens <= cap:
-            picked, whole = list(chapters), True
-        else:
-            picked = reading_order_scope(
-                chapters, built=built, start_unit_id=payload.get("start_unit_id"),
-                cap_tokens=cap, floor_tokens=min(FLOOR_TOKENS, max(cap // 4, 1)),
-            )
-    if not picked:
+    choice = _choose_scope(
+        ctx.repo, config, vault, source_id, resolved,
+        chapter_ids=payload.get("chapter_ids"), start_unit_id=payload.get("start_unit_id"),
+        exclude_job_id=ctx.job_id,
+    )
+    if choice is None:
         return {"outcome": "skipped", "reason": "nothing_to_build", **base}
-    labels = [chapter.label for chapter in picked]
-    chapter_ids = [chapter.unit_id for chapter in picked]
-    unit_ids = [unit_id for chapter in picked for unit_id in chapter.unit_ids]
-    plan_info = {"chapters": labels, "chapter_ids": chapter_ids, "whole_source": whole}
+    plan_info = choice.info
+    unit_ids = choice.unit_ids
 
     route = ctx.services.authoring_route(ctx)
     if not route.ready:
@@ -696,16 +1214,11 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         return {"outcome": "waiting", "reason": "needs_consent", "provider": route.provider,
                 "consent_key": route.consent_key, **plan_info, **base}
 
-    totals = build_build_plan(
-        ctx.repo, config, vault, subject_id=None,
-        selections=[{"extraction_id": extraction_id, "selected_unit_ids": unit_ids}],
-    ).as_dict()["totals"]
-    usd = 0.0 if route.subscription else estimate_usd(config, route.provider, totals)
-    if not payload.get("approved"):
-        reason = cost_pause_reason(config, usd, spent_today_usd(ctx.repo, ctx.clock.now()))
-        if reason is not None:
-            return {"outcome": "paused", "reason": "cost", "cost_reason": reason,
-                    "estimate_usd": round(usd, 2), "provider": route.provider, **plan_info, **base}
+    cost = decide_cost(config, ctx.repo, route.provider, choice.totals,
+                       approved=bool(payload.get("approved")), now=ctx.clock.now())
+    if cost.pause is not None:
+        return {"outcome": "paused", "reason": "cost", "cost_reason": cost.pause,
+                "provider": route.provider, **cost.as_dict(), **plan_info, **base}
 
     revision = ctx.repo.get_source_revision(revision_id)
     title = learner_title(artifact, revision)
@@ -722,7 +1235,7 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
             if member.source_id == source_id
             for entry in member.scope
         ]
-        order = {unit.unit_id: index for index, unit in enumerate(outline.units)}
+        order = {unit.unit_id: index for index, unit in enumerate(choice.outline.units)}
         scope = sorted(set(previous) | set(unit_ids), key=lambda unit_id: order.get(unit_id, len(order)))
         upsert_source_set(
             ctx.vault_root,
@@ -742,35 +1255,72 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         )
     brief = _default_brief({"practice_items": "as_you_read"}, title, subject_id, vault=vault)
     apply = bool(config.ingest.auto_apply_passing_builds)
+    outcome = {
+        "outcome": "building",
+        "subject_id": subject_id,
+        "subject_created": created,
+        "source_set_id": source_set_id,
+        "unit_ids": unit_ids,
+        "provider": route.provider,
+        "applies": apply,
+        "generation": generation,
+        **cost.as_dict(),
+        **plan_info,
+        **base,
+    }
+    # The plan travels with the build (same enqueue transaction), so the build
+    # is never orphaned from its book: status, coverage and Undo read it there.
+    auto = {key: value for key, value in outcome.items() if key not in {"outcome", "applies"}}
+    auto["planner_job_id"] = ctx.job_id
+    synthesis_tokens = sum(tokens for stage, tokens in choice.stages.items() if stage != "inventory")
     build_batch_id = ctx.enqueue_batch(
         "bootstrap_synthesis",
         [
             JobSpec("inventory", {"extraction_id": extraction_id,
-                                  "units": [{"unit_id": unit_id, "role": role} for unit_id in unit_ids]}),
+                                  "units": [{"unit_id": unit_id, "role": role} for unit_id in unit_ids],
+                                  "auto_build": {**auto, "job_tokens": choice.stages.get("inventory", 0)}}),
             JobSpec(
                 "bootstrap_synthesis",
                 {"source_set_id": source_set_id, "brief": brief, "mode": "auto", "apply": apply,
-                 "auto_build_source_id": source_id},
+                 "auto_build_source_id": source_id,
+                 "auto_build": {**auto, "job_tokens": synthesis_tokens}},
                 depends_on=(0,),
             ),
         ],
         subject_id=subject_id,
         source_set_id=source_set_id,
         priority=BUILD_PRIORITY,
+        batch_id=child_batch_id(ctx.job_id),
     )
-    return {
-        "outcome": "building",
-        "subject_id": subject_id,
-        "subject_created": created,
-        "source_set_id": source_set_id,
-        "build_batch_id": build_batch_id,
-        "unit_ids": unit_ids,
-        "estimate_usd": round(usd, 4),
-        "provider": route.provider,
-        "applies": apply,
-        **plan_info,
-        **base,
-    }
+    return {**outcome, "build_batch_id": build_batch_id}
+
+
+def after_auto_build(ctx) -> None:
+    """An automatic build's synthesis finished: act on reading progress that
+    arrived while it ran (review F7). Best effort."""
+
+    auto = ctx.payload.get("auto_build")
+    if not isinstance(auto, Mapping) or not auto.get("source_id"):
+        return
+    try:
+        from learnloop.content.pipeline.runner import JobSpec
+
+        source_id = str(auto["source_id"])
+        state = ctx.repo.source_auto_build_state(source_id)
+        if not state.get("wanted_section_id"):
+            return
+        wanted = _wanted_chapters(ctx.repo, ctx.vault_root, source_id, state)
+        if wanted:
+            ctx.enqueue_batch(
+                AUTO_BUILD_WORKFLOW,
+                [JobSpec(AUTO_STUDY_MAP_JOB, {"source_id": source_id, "chapter_ids": wanted})],
+                priority=BUILD_PRIORITY,
+            )
+        ctx.repo.clear_source_wanted_reading(source_id, section_id=state["wanted_section_id"], clock=ctx.clock)
+    except Exception:  # noqa: BLE001 - a follow-up must never fail the build that applied
+        import logging
+
+        logging.getLogger(__name__).warning("could not act on reading progress after a build", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -782,85 +1332,197 @@ def request_auto_build(ingest_jobs, source_id: str, *, approved: bool = False,
                        chapter_ids: Sequence[str] | None = None, start_unit_id: str | None = None) -> str:
     """Plan another automatic build for ``source_id`` (connect, build now,
     keep ahead). ``approved`` is the learner's explicit "Build them": it passes
-    the cost pause once, for the chapters the pause named."""
+    the confirmation threshold once, for the chapters the pause named (never
+    the daily cap)."""
 
     if approved and chapter_ids is None:
-        outcome = latest_auto_outcome(ingest_jobs.repository, source_id) or {}
+        repo = ingest_jobs.repository
+        outcome = latest_auto_outcome(repo, source_id) or {}
         if outcome.get("outcome") == "paused":
             chapter_ids = outcome.get("chapter_ids")
+        elif outcome.get("outcome") == "building":
+            state = _build_state(repo, outcome)
+            if state["error_code"] == "spend_paused":
+                chapter_ids = outcome.get("chapter_ids")
     return ingest_jobs.enqueue_auto_build(
         source_id, approved=approved, chapter_ids=chapter_ids, start_unit_id=start_unit_id,
     )
 
 
 def release_waiting_builds(ingest_jobs) -> list[str]:
-    """After an AI is connected: plan again for every book waiting on it."""
+    """After an AI is connected: plan again for every book waiting on it, and
+    act on reading progress that waited (complete history, review F10)."""
 
     repo = ingest_jobs.repository
-    seen: set[str] = set()
     released: list[str] = []
-    for job in repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,), limit=500):
+    for job in repo.latest_ingest_job_per_source(AUTO_STUDY_MAP_JOB):
         source_id = _job_source_id(job)
-        if not source_id or source_id in seen:
-            continue
-        seen.add(source_id)
-        if _active(job):
+        if not source_id or _active(job):
             continue
         result = job.get("result") or {}
         if job["status"] == "completed" and result.get("outcome") == "waiting" and result.get("reason") in {"no_ai", "needs_consent"}:
             request_auto_build(ingest_jobs, source_id)
             released.append(source_id)
+    reconcile_reading_builds(ingest_jobs, skip=set(released))
     return released
+
+
+def _keep_ahead_ready(repo, vault_root: Path, source_id: str) -> bool:
+    """Whether a book's questions may grow with reading now: it has an
+    automatic build that was not undone, auto-build is on and nothing for it
+    is running."""
+
+    from learnloop.vault.loader import load_vault
+
+    if repo.source_kept_local(source_id):
+        return False
+    if not load_vault(vault_root).config.ingest.auto_build:
+        return False
+    generation = current_generation(repo, source_id)
+    for job in auto_jobs(repo, source_id):
+        outcome = planner_outcome(repo, job)
+        if outcome and outcome.get("outcome") == "building":
+            return not _build_state(repo, outcome, generation=generation)["undone"]
+    return False
+
+
+def _wanted_chapters(repo, vault_root: Path, source_id: str, state: Mapping[str, Any]) -> list[str]:
+    """The chapters a pending reading position asks for (none: nothing to do)."""
+
+    from learnloop.content.sources.source_outline import build_source_outline
+
+    if not _keep_ahead_ready(repo, vault_root, source_id):
+        return []
+    extraction_id = str(state.get("wanted_extraction_id") or "")
+    section_id = str(state.get("wanted_section_id") or "")
+    if not extraction_id or not section_id or repo.get_extraction_run(extraction_id) is None:
+        return []
+    chapters = outline_chapters(build_source_outline(repo, extraction_id))
+    cover = coverage(repo, source_id)
+    # Failed chapters wait for the card's Retry instead of looping here.
+    return [chapter.unit_id for chapter in chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)]
+
+
+def reconcile_reading_builds(ingest_jobs, *, skip: Iterable[str] = ()) -> list[str]:
+    """Act on reading positions recorded while a book's work was running
+    (review F7): at startup, on reconnection and when a build finishes."""
+
+    repo = ingest_jobs.repository
+    skipped = set(skip)
+    started: list[str] = []
+    for state in repo.sources_with_wanted_reading():
+        source_id = str(state["source_id"])
+        if source_id in skipped or _source_work_active(repo, source_id):
+            continue
+        wanted = _wanted_chapters(repo, ingest_jobs.vault_root, source_id, state)
+        if wanted:
+            request_auto_build(ingest_jobs, source_id, chapter_ids=wanted)
+            started.append(source_id)
+        repo.clear_source_wanted_reading(source_id, section_id=state["wanted_section_id"])
+    return started
 
 
 def advance_reading_build(ingest_jobs, extraction_id: str, section_id: str) -> dict[str, Any] | None:
     """The Reader reached ``section_id``: keep one chapter ahead (Q6).
 
     Only for sources added through Add whose questions were built and not
-    undone; nothing while a build for the book is still running."""
+    undone. While a build for the book is running the position is remembered
+    (the latest one wins) and acted on when that work finishes (review F7)."""
 
     repo = ingest_jobs.repository
     run = repo.get_extraction_run(extraction_id)
     revision = repo.get_source_revision(run["revision_id"]) if run else None
     source_id = (revision or {}).get("source_id")
-    if not source_id:
+    if not source_id or not _keep_ahead_ready(repo, ingest_jobs.vault_root, source_id):
         return None
-    jobs = auto_jobs(repo, source_id)
-    if not jobs or any(_active(job) for job in jobs):
-        return None
-    building = [job.get("result") or {} for job in jobs if (job.get("result") or {}).get("outcome") == "building"]
-    if not building:
-        return None
-    latest_state = _build_state(repo, building[0])
-    if latest_state["undone"] or _active(latest_state["batch"]):
-        return None
+    if _source_work_active(repo, source_id):
+        repo.set_source_wanted_reading(source_id, extraction_id, section_id)
+        return {"deferred": True, "source_id": source_id, "section_id": section_id}
 
     from learnloop.content.sources.source_outline import build_source_outline
-    from learnloop.vault.loader import load_vault
 
-    if not load_vault(ingest_jobs.vault_root).config.ingest.auto_build:
-        return None
     chapters = outline_chapters(build_source_outline(repo, extraction_id))
-    wanted = chapters_to_keep_ahead(chapters, section_id, built_unit_ids(repo, source_id))
+    cover = coverage(repo, source_id)
+    wanted = chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)
+    repo.clear_source_wanted_reading(source_id)
     if not wanted:
         return None
     batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=[chapter.unit_id for chapter in wanted])
     return {"batch_id": batch_id, "source_id": source_id, "chapters": [chapter.label for chapter in wanted]}
 
 
+def _record_undo_judgment(repo, source_id: str, proposal_id: str, item_ids: Sequence[str],
+                          generation: int, *, clock: Clock | None = None) -> str | None:
+    """The learner's Undo is an owner verdict on automatically applied content
+    (review F12): one ``judgment_ledger`` row per proposal, idempotent."""
+
+    import json
+    import sqlite3
+    import uuid
+
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.ai.execution import content_key
+
+    items = sorted(str(item_id) for item_id in item_ids)
+    input_hash = content_key({"proposal_id": proposal_id, "item_ids": items, "source_id": source_id})
+    judgment_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"learnloop:auto_apply_undo:{input_hash}"))
+    try:
+        with repo.connection() as connection:
+            if connection.execute("SELECT 1 FROM judgment_ledger WHERE id = ?", (judgment_id,)).fetchone():
+                return judgment_id
+            append_judgment(
+                connection, id=judgment_id, task=UNDO_JUDGMENT_TASK,
+                left_kind="proposal", left_id=proposal_id,
+                right_kind="source", right_id=source_id,
+                judge="owner", input_hash=input_hash, verdict="rejected",
+                rationale=json.dumps({"action": "undo_questions", "source_id": source_id,
+                                      "proposal_id": proposal_id, "item_ids": items,
+                                      "generation": generation}, sort_keys=True),
+                created_at=utc_now_iso(clock),
+            )
+            connection.commit()
+    except sqlite3.Error:
+        import logging
+
+        logging.getLogger(__name__).warning("could not record the undo verdict", exc_info=True)
+        return None
+    return judgment_id
+
+
 def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> int:
-    """Take a book's automatic questions back out (one-tap undo, Q3)."""
+    """Take a book's automatic questions back out (one-tap undo, Q3).
+
+    First a new generation is recorded (review F5): a build already running
+    can no longer apply, queued work for the book is cancelled, and reading
+    stops growing the book's questions until the learner builds them again.
+    Then every applied proposal of the book is reverted, and the verdict is
+    recorded in ``judgment_ledger`` (review F12)."""
 
     from learnloop.content.proposals.proposals import reject_items
 
     repo = ingest_jobs.repository
+    generation = repo.advance_source_auto_build_generation(source_id, clock=clock)
+    for job in auto_jobs(repo, source_id):
+        if _active(job):
+            planner_batch = repo.get_ingest_batch(job["batch_id"]) or {}
+            if planner_batch.get("workflow_type") == AUTO_BUILD_WORKFLOW:
+                ingest_jobs.cancel_batch(job["batch_id"])
+            else:
+                # The planner only: an Add's batch also holds the book's import.
+                repo.set_ingest_job_cancel_requested(job["id"])
+        outcome = planner_outcome(repo, job)
+        batch_id = (outcome or {}).get("build_batch_id")
+        if batch_id and _active(repo.get_ingest_batch(batch_id)):
+            # Waiting jobs are cancelled now; a running one stops at its next
+            # checkpoint and, either way, can no longer apply (generation).
+            ingest_jobs.cancel_batch(batch_id)
     reverted = 0
     for job in auto_jobs(repo, source_id):
-        result = job.get("result") or {}
-        if result.get("outcome") != "building":
+        outcome = planner_outcome(repo, job)
+        if not outcome or outcome.get("outcome") != "building":
             continue
-        state = _build_state(repo, result)
-        if not state["proposal_id"] or state["undone"]:
+        state = _build_state(repo, outcome, generation=-1)
+        if not state["proposal_id"]:
             continue
         item_ids = [
             item["id"] for item in repo.proposal_items(state["proposal_id"])
@@ -868,7 +1530,14 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
         ]
         if item_ids:
             reverted += reject_items(ingest_jobs.vault_root, state["proposal_id"], item_ids)
+            _record_undo_judgment(repo, source_id, state["proposal_id"], item_ids, generation, clock=clock)
     return reverted
+
+
+def keep_on_this_computer(repo, source_id: str, *, clock: Clock | None = None) -> None:
+    """Keep a book on this computer from now on (book details)."""
+
+    repo.set_source_keep_local(source_id, True, clock=clock)
 
 
 # ---------------------------------------------------------------------------
@@ -890,8 +1559,20 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[s
     error = job.get("error") or {}
     message = str(error.get("message") or "")
     code = str(error.get("code") or "")
+    flow = str((error.get("details") or {}).get("flow") or "")
     lowered = f"{code} {message}".lower()
     retry = ("retry", "Try again")
+    if code == "needs_upload_ok":
+        if flow == "audio_transcription" or category == "audio":
+            return _line("Transcribing this recording sends it to an online service", "quiet",
+                         ("allow_upload", "OK"), message or None)
+        return _line("Reading this PDF sends the whole file to your AI", "quiet",
+                     ("allow_upload", "OK"), message or None)
+    if code == "kept_local":
+        return _line(f"Kept on this computer — this {kind_noun(category)} can't be read here", "quiet",
+                     None, message or None)
+    if code == "pdf_extractor_unavailable":
+        return _line("Text recognition isn't set up", "problem", ("open_settings", "Set it up"), message or None)
     if category == "youtube" and ("caption" in lowered or "transcript" in lowered):
         return _line("This video has no captions", "problem", retry, message or None)
     if category in {"web", "arxiv", "youtube"} or any(
@@ -901,6 +1582,22 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[s
     if category == "pdf":
         return _line("Couldn't read this PDF", "problem", retry, message or None)
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
+
+
+def text_recognition_available(*, keep_local: bool = False) -> bool:
+    """Whether an extractor that really recognises text is installed (review
+    F9): local Marker, or (not for a book kept on this computer) the hosted
+    Marker runtime the owner configured."""
+
+    import os
+
+    from learnloop.ingest.extractors import datalab_api_key, marker_available
+
+    if marker_available():
+        return True
+    if keep_local:
+        return False
+    return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "").strip().lower() == "datalab" and bool(datalab_api_key())
 
 
 def _health_line(repo, source_id: str) -> dict[str, Any] | None:
@@ -914,7 +1611,10 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
         "image_only_page" in (page.get("flags") or []) for page in health.get("pages") or [] if isinstance(page, Mapping)
     )
     if scanned:
-        return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
+        if text_recognition_available(keep_local=repo.source_kept_local(source_id)):
+            return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
+        return _line("Some pages look scanned", "quiet", ("open_settings", "Set up text recognition"),
+                     "text_recognition_unavailable")
     if "marker_failed_pypdf_fallback" in flags:
         return _line("Maths may look rough in the text view", "quiet", ("open_settings", "Fix it"),
                      "marker_failed_pypdf_fallback")
@@ -923,6 +1623,11 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
 
 def _minutes(chapter_count: int) -> int:
     return 3 + max(chapter_count, 1)
+
+
+def _budget_used_line(details: str | None = None) -> dict[str, Any]:
+    return _line("Paused — today's AI budget is used", "quiet", ("open_settings", "Raise it"),
+                 details or "Or wait until tomorrow.")
 
 
 def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None = None) -> dict[str, Any] | None:
@@ -947,9 +1652,9 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return None
     category = artifact.get("acquisition_kind")
     noun = kind_noun(category)
-    imports = _jobs_for_source(repo.ingest_jobs_by_types(("import",), limit=500), source_id)
     has_text = _completed_extraction(repo, source_id) is not None
     if not has_text:
+        imports = import_jobs(repo, source_id)
         latest_import = imports[0] if imports else None
         if latest_import is None:
             return None
@@ -957,18 +1662,17 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _import_failure_line(latest_import, category)
         return _line(f"Getting this {noun} ready", "working")
 
-    jobs = auto_jobs(repo, source_id)
-    latest = jobs[0] if jobs else None
+    latest, outcome = latest_planner(repo, source_id)
     if latest is None:
         return _health_line(repo, source_id)
-    if _active(latest):
+    if outcome is None and _active(latest):
         # The text is ready; LearnLoop is choosing what to build (§6.3 states).
         return _line("Chapters found", "working")
-    if latest["status"] in {"failed", "blocked"}:
+    if outcome is None:
+        # Retry plans again; it is not the learner's "Build them" (no approval).
         error = latest.get("error") or {}
-        return _line(f"Questions for this {noun} need another try", "problem", ("build_now", "Retry"),
+        return _line(f"Questions for this {noun} need another try", "problem", ("retry", "Retry"),
                      error.get("message"))
-    outcome = latest.get("result") or {}
     kind = outcome.get("outcome")
     phrase = chapter_phrase(outcome.get("chapters") or [], whole=bool(outcome.get("whole_source")), noun=noun)
     if kind == "skipped":
@@ -986,6 +1690,8 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line("Kept on this computer — no questions are written for it", "quiet")
         return None
     if kind == "paused":
+        if outcome.get("cost_reason") == "budget_used":
+            return _budget_used_line()
         usd = float(outcome.get("estimate_usd") or 0.0)
         return _line(f"Building questions for {phrase} would cost about ${usd:,.2f}", "quiet",
                      ("build_now", "Build them"))
@@ -994,10 +1700,18 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     state = _build_state(repo, outcome)
     if state["undone"]:
         return _line(f"Questions for this {noun} were taken back out", "quiet", ("build_now", "Build them again"))
-    if state["status"] in {"queued", "running", "waiting_for_input"}:
+    if _active(state["batch"]):
         return _line(f"Questions for {phrase} in about {_minutes(len(outcome.get('chapters') or []))} min",
                      "working")
-    if state["status"] in {"failed", "blocked", "cancelled"}:
+    if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
+        if state["error_code"] == "spend_paused":
+            if state["error_details"].get("reason") == "daily_cap":
+                return _budget_used_line(state["error"])
+            return _line(f"Questions for {phrase} would cost more than expected", "quiet",
+                         ("build_now", "Build them"), state["error"])
+        if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
+            # The owner turned automatic building off while it was queued.
+            return _health_line(repo, source_id)
         return _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), state["error"])
     if not state["applied"]:
         return _line(f"Questions for {phrase} need a look", "quiet", ("open_changes", "Review"))
@@ -1018,15 +1732,12 @@ def _category_of(source: Any) -> str | None:
 
 
 def pending_adds(repo, *, limit: int = 30) -> list[dict[str, Any]]:
-    """Adds whose link is still being fetched (no library card yet)."""
+    """Adds whose link is still being fetched (no library card yet): every
+    unfinished Add, not a window over the queue (review F10)."""
 
     entries: list[dict[str, Any]] = []
-    for batch in repo.list_ingest_batches(limit=200):
-        if (
-            batch.get("workflow_type") != ADD_SOURCE_WORKFLOW
-            or batch.get("status") in {"completed", "cancelled"}
-            or batch.get("cancel_requested")
-        ):
+    for batch in repo.ingest_batches_by_workflow(ADD_SOURCE_WORKFLOW, exclude_statuses=("completed", "cancelled")):
+        if batch.get("cancel_requested"):
             continue
         jobs = repo.ingest_jobs_for_batch(batch["id"])
         import_job = next((job for job in jobs if job["job_type"] == "import"), None)
@@ -1048,16 +1759,57 @@ def pending_adds(repo, *, limit: int = 30) -> list[dict[str, Any]]:
 
 
 def latest_add_batch(repo, source_id: str) -> str | None:
-    imports = _jobs_for_source(repo.ingest_jobs_by_types(("import",), limit=500), source_id)
+    imports = import_jobs(repo, source_id)
     return imports[0]["batch_id"] if imports else None
+
+
+def latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """The planning job the card's line speaks for, and its outcome (a planner
+    an Undo or a cancel stopped before it ran is skipped)."""
+
+    for job in auto_jobs(repo, source_id):
+        outcome = planner_outcome(repo, job)
+        if outcome is None and job["status"] == "cancelled":
+            continue
+        return job, outcome
+    return None, None
 
 
 def latest_build_batch(repo, source_id: str) -> str | None:
     for job in auto_jobs(repo, source_id):
-        batch_id = (job.get("result") or {}).get("build_batch_id")
+        batch_id = (planner_outcome(repo, job) or {}).get("build_batch_id")
         if batch_id:
             return str(batch_id)
     return None
+
+
+def retry_build(ingest_jobs, source_id: str) -> str:
+    """The card's Retry for a failed automatic build (§6.7, review F11): the
+    zero-model repair and revalidation of a preserved candidate first; a fresh
+    model run only when there is none, or repairing it already failed, and
+    then under a new admission (a new attempt of each paid job)."""
+
+    repo = ingest_jobs.repository
+    batch_id = latest_build_batch(repo, source_id)
+    if batch_id is None:
+        return request_auto_build(ingest_jobs, source_id)
+    jobs = repo.ingest_jobs_for_batch(batch_id)
+    synthesis = next((job for job in jobs if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}), None)
+    inventories_done = all(job["status"] == "completed" for job in jobs if job["job_type"] == "inventory")
+    if synthesis is not None and inventories_done and synthesis["status"] in {"failed", "blocked", "cancelled"}:
+        details = (synthesis.get("error") or {}).get("details") or {}
+        payload = synthesis.get("payload") or {}
+        repaired_before = bool(payload.get("reuse_candidate") and payload.get("repair_candidate"))
+        if details.get("candidate_preserved") and details.get("synthesis_run_id") and not repaired_before:
+            try:
+                ingest_jobs.retry_synthesis(batch_id, reuse_candidate=True, repair_candidate=True)
+                return batch_id
+            except ValueError:
+                pass  # the candidate is gone: regenerate below
+        ingest_jobs.retry_synthesis(batch_id)
+        return batch_id
+    ingest_jobs.resume_batch(batch_id)
+    return batch_id
 
 
 __all__ = [
@@ -1068,27 +1820,44 @@ __all__ = [
     "AddSourceOptions",
     "AuthoringRoute",
     "Chapter",
+    "CostDecision",
+    "Coverage",
     "add_source",
+    "admit_auto_build_job",
     "advance_reading_build",
+    "after_auto_build",
     "authoring_route_for",
+    "auto_apply_allowed",
     "built_unit_ids",
     "chapter_phrase",
+    "child_batch_id",
     "consent_key",
     "consent_label",
     "cost_pause_reason",
+    "coverage",
+    "decide_cost",
     "default_authoring_route",
     "ensure_subject",
     "estimate_usd",
+    "file_upload_allowed",
+    "keep_on_this_computer",
     "kind_noun",
     "latest_auto_outcome",
+    "latest_planner",
     "learner_title",
     "outline_chapters",
     "pending_adds",
+    "planner_outcome",
+    "preview_auto_build",
     "reading_order_scope",
+    "reconcile_reading_builds",
     "release_waiting_builds",
     "request_auto_build",
+    "retry_build",
     "run_auto_study_map",
     "source_status_line",
+    "spent_today_usd",
+    "text_recognition_available",
     "undo_source_questions",
     "what_leaves",
 ]

@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 180
+schema_head: 186
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/ai/chatgpt_plan/oauth.py"
   - "src/learnloop/ai/isolation.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
@@ -26,8 +27,8 @@ source_paths:
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
   - "learnloop/database/table"

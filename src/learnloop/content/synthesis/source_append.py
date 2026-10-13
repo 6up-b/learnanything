@@ -155,6 +155,7 @@ def append_source(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     embedding_client_factory: Callable[[], Any] | None = None,
+    apply_gate: Callable[[], bool] | None = None,
 ) -> AppendResult:
     """Run bounded append reconciliation and (by policy) auto-apply routine items.
 
@@ -169,7 +170,7 @@ def append_source(
     return _append(
         vault, repository, root, source_set_id,
         client=client, new_revision_ids=new_revision_ids, change_kind=change_kind,
-        revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, clock=clock,
+        revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, apply_gate=apply_gate, clock=clock,
         budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
         embedding_client_factory=embedding_client_factory,
@@ -216,6 +217,7 @@ def _append(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     embedding_client_factory: Callable[[], Any] | None = None,
+    apply_gate: Callable[[], bool] | None = None,
 ) -> AppendResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -437,7 +439,9 @@ def _append(
 
     # §10.3 auto-apply lane: routine span/assessment attachments apply under the
     # vault lock; everything else stays a pending review proposal.
-    if auto_apply and auto_ids:
+    # ``apply_gate`` is read immediately before applying (UX Phase 1: an
+    # automatic build re-reads its kill switches and Undo state here).
+    if auto_apply and auto_ids and (apply_gate is None or apply_gate()):
         from learnloop.content.proposals.patches import apply_accepted_items
 
         snapshot = _snapshot(repository, vault)

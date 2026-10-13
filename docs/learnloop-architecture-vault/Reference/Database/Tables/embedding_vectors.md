@@ -3,13 +3,13 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
   - "table embedding_vectors"
-schema_head: 180
+schema_head: 186
 table_name: "embedding_vectors"
 table_role: "workflow"
 functionality_status: "active"

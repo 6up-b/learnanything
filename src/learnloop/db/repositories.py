@@ -18190,6 +18190,117 @@ class Repository(
             )
             connection.commit()
 
+    def set_source_keep_local(
+        self, source_id: str, keep_local: bool, *, clock: Clock | None = None
+    ) -> None:
+        """The learner's "Keep this book on this computer" (migration 186)."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE source_artifacts SET keep_local = ?, updated_at = ? WHERE id = ?",
+                (int(keep_local), utc_now_iso(clock), source_id),
+            )
+            connection.commit()
+
+    def source_kept_local(self, source_id: str) -> bool:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT keep_local FROM source_artifacts WHERE id = ?", (source_id,)
+            ).fetchone()
+        return bool(row is not None and row["keep_local"])
+
+    # -- UX Phase 1: a book's automatic-build state (migration 186) ----------
+
+    def source_auto_build_state(self, source_id: str) -> dict[str, Any]:
+        """The book's automatic-build generation and pending reading position
+        (generation 0 and nothing pending when the book has no row yet)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_auto_build_state WHERE source_id = ?", (source_id,)
+            ).fetchone()
+        if row is None:
+            return {
+                "source_id": source_id, "generation": 0, "undone_at": None,
+                "wanted_extraction_id": None, "wanted_section_id": None, "wanted_at": None,
+            }
+        return dict(row)
+
+    def advance_source_auto_build_generation(self, source_id: str, *, clock: Clock | None = None) -> int:
+        """Undo: start a new generation (older builds never apply) and drop
+        any pending reading position. Returns the new generation."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_auto_build_state(source_id, generation, undone_at, updated_at)
+                VALUES (?, 1, ?, ?)
+                ON CONFLICT(source_id) DO UPDATE SET
+                  generation = source_auto_build_state.generation + 1,
+                  undone_at = excluded.undone_at,
+                  wanted_extraction_id = NULL,
+                  wanted_section_id = NULL,
+                  wanted_at = NULL,
+                  updated_at = excluded.updated_at
+                """,
+                (source_id, now, now),
+            )
+            row = connection.execute(
+                "SELECT generation FROM source_auto_build_state WHERE source_id = ?", (source_id,)
+            ).fetchone()
+            connection.commit()
+        return int(row["generation"])
+
+    def set_source_wanted_reading(
+        self, source_id: str, extraction_id: str, section_id: str, *, clock: Clock | None = None
+    ) -> None:
+        """Remember the latest reading position a build could not act on yet."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_auto_build_state(
+                  source_id, generation, wanted_extraction_id, wanted_section_id, wanted_at, updated_at
+                )
+                VALUES (?, 0, ?, ?, ?, ?)
+                ON CONFLICT(source_id) DO UPDATE SET
+                  wanted_extraction_id = excluded.wanted_extraction_id,
+                  wanted_section_id = excluded.wanted_section_id,
+                  wanted_at = excluded.wanted_at,
+                  updated_at = excluded.updated_at
+                """,
+                (source_id, extraction_id, section_id, now, now),
+            )
+            connection.commit()
+
+    def clear_source_wanted_reading(
+        self, source_id: str, *, section_id: str | None = None, clock: Clock | None = None
+    ) -> None:
+        """Forget the pending reading position (only ``section_id``'s, when given,
+        so a newer position recorded meanwhile survives)."""
+
+        query = (
+            "UPDATE source_auto_build_state SET wanted_extraction_id = NULL, wanted_section_id = NULL, "
+            "wanted_at = NULL, updated_at = ? WHERE source_id = ?"
+        )
+        params: list[Any] = [utc_now_iso(clock), source_id]
+        if section_id is not None:
+            query += " AND wanted_section_id = ?"
+            params.append(section_id)
+        with self.connection() as connection:
+            connection.execute(query, params)
+            connection.commit()
+
+    def sources_with_wanted_reading(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_auto_build_state WHERE wanted_section_id IS NOT NULL "
+                "ORDER BY wanted_at, source_id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_source_artifact(self, source_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -18403,6 +18514,7 @@ class Repository(
                 "reader_background_requests",
                 "reader_capture_outbox",
                 "entity_source_links",
+                "source_auto_build_state",
             ):
                 run(table, f"DELETE FROM {table} WHERE source_id = ?", (source_id,))
 

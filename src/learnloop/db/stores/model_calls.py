@@ -41,6 +41,37 @@ class ModelCallStoreMixin:
             else:
                 raise ValueError(f"Unknown model receipt action: {action}")
 
+    def model_call_spend_rows(
+        self,
+        *,
+        started_since: str | None = None,
+        owner_kind: str | None = None,
+        owner_ids: Any = None,
+    ) -> list[dict[str, Any]]:
+        """Usage rows for spend accounting: every receipt (usage lands on the
+        innermost one), optionally since an ISO time and for some owners."""
+
+        query = (
+            "SELECT provider, input_tokens, output_tokens, cost, usage_json, output_budget_tokens, "
+            "parent_call_id, status, started_at, owner_kind, owner_id FROM model_call_receipts WHERE 1=1"
+        )
+        params: list[Any] = []
+        if started_since is not None:
+            query += " AND started_at >= ?"
+            params.append(started_since)
+        if owner_kind is not None:
+            query += " AND owner_kind = ?"
+            params.append(owner_kind)
+        if owner_ids is not None:
+            ids = sorted({str(value) for value in owner_ids})
+            if not ids:
+                return []
+            query += f" AND owner_id IN ({','.join('?' for _ in ids)})"
+            params.extend(ids)
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
     def model_checkpoint(self, cache_key: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT result_json,usage_json FROM model_work_checkpoints WHERE cache_key=?", (cache_key,)).fetchone()

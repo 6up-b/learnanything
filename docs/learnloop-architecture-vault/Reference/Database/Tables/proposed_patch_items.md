@@ -3,13 +3,13 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
   - "table proposed_patch_items"
-schema_head: 180
+schema_head: 186
 table_name: "proposed_patch_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,7 +29,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
-  - "src/learnloop/content/pipeline/source_ingestion.py"
+  - "src/learnloop/content/pipeline/add_source.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/proposals/patches.py`
@@ -153,7 +154,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/error_taxonomy.py`
 - `src/learnloop/ops/doctor.py`
-- `src/learnloop/tutor/promotions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

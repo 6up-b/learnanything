@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 180
-table_count: 299
+schema_head: 186
+table_count: 300
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_180/state.sqlite"
+  - "fixtures/migration_head_186/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-180"
+  - "learnloop/database/schema-head-186"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 299 user tables at migration head 180. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 300 user tables at migration head 186. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 299 user tables at migration head 180. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 136 |
 | [[Table Roles#Derived|`derived`]] | 17 |
 | [[Table Roles#Receipt|`receipt`]] | 62 |
-| [[Table Roles#Workflow|`workflow`]] | 74 |
+| [[Table Roles#Workflow|`workflow`]] | 75 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 286 |
+| `active` | 287 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -288,6 +288,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/source_annotation_versions|source_annotation_versions]] — `raw_ledger` · `active` · Pins immutable versions of source annotation so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `annotation_id`, `annotation_type`, `version_ordinal`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_annotations|source_annotations]] — `raw_ledger` · `active` · Gives source annotation a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_artifacts|source_artifacts]] — `raw_ledger` · `active` · Identifies an acquired canonical source independently from any one revision or extraction. It supplies replay-stable input rather than a disposable cache. Rows bind `work_id`, `current_revision_id`, `acquisition_kind`, making the operational relationship explicit.
+- [[Reference/Database/Tables/source_auto_build_state|source_auto_build_state]] — `workflow` · `active` · Maintains the decision-facing current projection for source auto build so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `wanted_extraction_id`, `wanted_section_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_block_fts|source_block_fts]] — `derived` · `active` · Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity as well as its rowid (migration 177), and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_block_health|source_block_health]] — `raw_ledger` · `active` · Gives source block health a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `extraction_id`, `span_id`, `analyzer_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_conflict_resolutions|source_conflict_resolutions]] — `receipt` · `active` · Records explicit resolutions of source conflict without erasing the original evidence so canonical-source work can be retried without losing provenance or silently changing its input set. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `conflict_id`, `resolution_kind`, `actor`, making the operational relationship explicit.

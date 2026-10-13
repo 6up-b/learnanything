@@ -11,7 +11,8 @@ to it, and the learner's one OK is recorded in the library's config with its
 date, then releases every book that was waiting for it.
 
 ``source_action`` runs the one action a book card's status line offers: undo,
-build now, retry, or read scanned pages with text recognition.
+build now, retry, read scanned pages with text recognition, the separate OK for
+sending a whole file out, or keeping a book on this computer.
 
 Desktop only (machine paths, credentials, paid builds): pinned in
 tests/test_mobile_allowlist.py.
@@ -229,7 +230,33 @@ class SourceActionInput(ParamsModel):
     source_id: str | None = None
     # A link still being fetched has no source yet; its Add batch stands in.
     batch_id: str | None = None
-    action: Literal["undo_questions", "build_now", "build_whole_book", "retry", "text_recognition"]
+    action: Literal[
+        "undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
+        "allow_upload", "keep_local", "share_with_ai",
+    ]
+
+
+def _allow_file_upload(ctx: SidecarContext) -> None:
+    """The separate OK for sending whole files out (spec §6.6, review F1),
+    recorded once with its date like the connection's OK."""
+
+    from learnloop.config import global_ai_defaults_path
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates, save_ai_settings_to
+
+    vault, _repository = ctx.require_vault()
+    config_path = vault.root / "learnloop.toml"
+    try:
+        apply_config_updates(config_path, {
+            ("ai", "consent", core.FILE_UPLOAD_CONSENT, "granted_at"): utc_now_iso(),
+            ("ai", "consent", core.FILE_UPLOAD_CONSENT, "data_flow"): core.FILE_UPLOAD_DATA_FLOW,
+        })
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    ctx.reload(maintenance=False)
+    try:
+        save_ai_settings_to(config_path, global_ai_defaults_path())
+    except SettingsStoreError as exc:  # best effort, like connect_ai
+        logger.warning("could not persist global AI defaults: %s", exc)
 
 
 @method("source_action", SourceActionInput)
@@ -239,13 +266,16 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
     vault, repository = ctx.require_vault()
     result: dict[str, Any] = {"source_id": params.source_id, "action": params.action}
     if params.source_id is None:
-        if params.action != "retry" or not params.batch_id:
+        if params.action not in {"retry", "allow_upload"} or not params.batch_id:
             raise SidecarError("source_not_found", "Choose a book first.")
+        if params.action == "allow_upload":
+            _allow_file_upload(ctx)
         batch = ctx.ingest_jobs.resume_batch(params.batch_id)
         if batch is None:
             raise SidecarError("ingest_batch_not_found", "That add is no longer in the queue.")
         return versioned({**result, "batch_id": params.batch_id})
-    if repository.get_source_artifact(params.source_id) is None:
+    artifact = repository.get_source_artifact(params.source_id)
+    if artifact is None:
         raise SidecarError("source_not_found", "That book is no longer in your library.")
 
     if params.action == "undo_questions":
@@ -260,32 +290,50 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         from learnloop.content.sources.source_outline import build_source_outline
 
         chapters = core.outline_chapters(build_source_outline(repository, extraction[1]))
+        # Every chapter not built or building, failed ones included (F6).
         result["batch_id"] = core.request_auto_build(
             ctx.ingest_jobs, params.source_id, chapter_ids=[chapter.unit_id for chapter in chapters]
         )
     elif params.action == "retry":
-        latest_auto = next(iter(core.auto_jobs(repository, params.source_id)), None)
-        build_batch = core.latest_build_batch(repository, params.source_id)
         if core._completed_extraction(repository, params.source_id) is None:
             batch_id = core.latest_add_batch(repository, params.source_id)
             if batch_id is None:
                 raise SidecarError("nothing_to_retry", "There is nothing to try again for this book.")
             ctx.ingest_jobs.resume_batch(batch_id)
-        elif latest_auto is not None and latest_auto["status"] in {"failed", "blocked"}:
-            batch_id = core.request_auto_build(ctx.ingest_jobs, params.source_id)
-        elif build_batch is not None:
-            batch_id = build_batch
-            ctx.ingest_jobs.resume_batch(build_batch)
         else:
-            batch_id = core.request_auto_build(ctx.ingest_jobs, params.source_id)
+            _planner, outcome = core.latest_planner(repository, params.source_id)
+            if (outcome or {}).get("outcome") == "building":
+                # The zero-model repair of a preserved result first (F11).
+                batch_id = core.retry_build(ctx.ingest_jobs, params.source_id)
+            else:
+                # A planner that failed plans again (never as an approval).
+                batch_id = core.request_auto_build(ctx.ingest_jobs, params.source_id)
         result["batch_id"] = batch_id
+    elif params.action == "allow_upload":
+        _allow_file_upload(ctx)
+        batch_id = core.latest_add_batch(repository, params.source_id)
+        if batch_id is not None:
+            ctx.ingest_jobs.resume_batch(batch_id)
+        result["batch_id"] = batch_id
+    elif params.action == "keep_local":
+        core.keep_on_this_computer(repository, params.source_id)
+    elif params.action == "share_with_ai":
+        repository.set_source_keep_local(params.source_id, False)
+        if core._completed_extraction(repository, params.source_id) is not None:
+            result["batch_id"] = core.request_auto_build(ctx.ingest_jobs, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
-        artifact = repository.get_source_artifact(params.source_id) or {}
+        keep_local = bool(artifact.get("keep_local"))
+        if not core.text_recognition_available(keep_local=keep_local):
+            raise SidecarError(
+                "text_recognition_unavailable",
+                "Text recognition isn't set up yet. Settings → Advanced → Import can set it up.",
+                details={"action": "open_settings"},
+            )
         source = str(artifact.get("canonical_uri") or "")
         result["batch_id"] = ctx.ingest_jobs.enqueue_add_source(
             source,
             source_id=params.source_id,
-            options=core.AddSourceOptions(text_recognition=True),
+            options=core.AddSourceOptions(text_recognition=True, keep_local=keep_local),
             auto_build=False,
         )
     return versioned(result)

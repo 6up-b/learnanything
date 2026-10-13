@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
+source_commit_timestamp: "2026-10-13T01:47:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 180
+schema_head: 186
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,9 +26,9 @@ source_paths:
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
-  - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -126,7 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
-- `src/learnloop/source_retrieval/b4.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

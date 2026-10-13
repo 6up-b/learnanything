@@ -561,6 +561,7 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "reader_enabled": bool(artifact.get("reader_enabled", 1)),
                 "update_available": len(revisions) > 1 and current is not None and current["id"] != revisions[-1]["id"],
                 "kind_noun": auto.kind_noun(artifact.get("acquisition_kind")),
+                "keep_local": bool(artifact.get("keep_local", 0)),
                 "subject_id": subject_by_source.get(artifact["id"]),
                 "status_line": auto.source_status_line(repository, vault, artifact["id"]),
             }
