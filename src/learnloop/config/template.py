@@ -894,9 +894,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # follow-up evaluation), pool_keyword_extras and tutor_deadline_cancels,
     # and raises three per-question reservation caps (rewrite 0.15, rerank
     # 0.30, practice rerank 0.30). Modelled defaults only, none in the
-    # decision-only template. Retrieval and output budgets are context: no
-    # scoring, scheduling, projection or serving change, so no successor;
-    # every snapshot was recomputed (defaults_fingerprint_for_version).
+    # decision-only template. These change, under every version, which source
+    # spans the tutor's verifier and the library list see and how much a model
+    # may write (context and transport), never scoring, scheduling,
+    # projections, evidence, certification or which item is served, and
+    # nothing persisted changes meaning (replay makes no model call). T6's rule
+    # applies ("retrieval is context, so no successor unless something
+    # persisted changes meaning"), with the owner's live-behind-kill-switches
+    # decision: no successor (Codex review F7 rejected, see
+    # docs/reviews/t6-followup-codex-review.md); the kill switches restore T6
+    # as merged. Every snapshot was recomputed (defaults_fingerprint_for_version).
     "mvp-0.9": "95c181f4f214bcd4a454677b4a34496f0fa78bea462f45e8149a8c3927bcef10",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
