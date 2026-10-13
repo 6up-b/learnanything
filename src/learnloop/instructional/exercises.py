@@ -233,11 +233,13 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
                         pool_size: int, embedder: Any | None = None, rewrite_client: Any | None = None,
                         owner_id: str = "", deadline: float | None = None,
                         list_depth: int | Mapping[str, int] | None = None,
-                        exclude_keys: Sequence[tuple[str, ...]] = ()) -> ExercisePool:
+                        exclude_keys: Sequence[str | Sequence[str]] = ()) -> ExercisePool:
     """Up to ``pool_size`` exercise regions for the request (a prompt-size bound).
 
     ``exclude_keys`` are regions already judged in an earlier page (resumable
-    paging, §8.3.4).
+    paging, §8.3.4), as exercise keys (``srcex:...``) or region tuples; they
+    are dropped before the pool is cut, so a continuation reaches the next
+    regions instead of re-reading the first pool.
     """
 
     lo_ids = list(getattr(constraints, "learning_object_ids", ()) or ())
@@ -256,9 +258,10 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
     pool.list_ends = dict(search.list_ends)
     pool.list_depths = dict(search.list_depths)
     imported = imported_span_keys(vault, repository)
-    excluded_regions = {tuple(key) for key in exclude_keys}
+    excluded_regions = {key if isinstance(key, str) else exercise_key(str(key[0]), [str(span) for span in key[1:]])
+                        for key in exclude_keys}
     seen: set[tuple[str, ...]] = set()
-    dropped = {"already_imported": 0, "excluded": 0, "no_region": 0}
+    dropped = {"already_imported": 0, "excluded": 0, "no_region": 0, "judged_earlier": 0}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         imported |= _same_text_keys(connection, imported, sorted(scope.extractions))
         regions_by_extraction: dict[str, list[ExerciseRegion]] = {}
@@ -284,7 +287,8 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
             if any(not scope.allows(region.extraction_id, span) for span in region.span_ids):
                 dropped["excluded"] += 1
                 continue
-            if region.key in excluded_regions:
+            if exercise_key(region.extraction_id, region.span_ids) in excluded_regions:
+                dropped["judged_earlier"] += 1
                 continue
             ordered.append(region)
         pool.unjudged = max(0, len(ordered) - pool_size)

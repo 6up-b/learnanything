@@ -1220,12 +1220,15 @@ def find_practice(
     exercise_pool = None
     exercises: list[dict[str, Any]] = []
     if want_exercises and exercise_arm is not None:
+        judged_exercises = set((cursor or {}).get("judged_exercises") or ())
+        # Judged regions leave the arm's candidates before its pool is cut
+        # (F9): a continuation reaches the regions past the first pool.
         exercise_pool = exercise_arm(
             vault, repository, text, constraints, pool_size=config.candidate_pool, embedder=embedder,
             owner_id=proposal_id,
             **({"list_depth": cursor["exercise_list_depths"]} if cursor and cursor.get("exercise_list_depths") else {}),
+            **({"exclude_keys": sorted(judged_exercises)} if judged_exercises else {}),
         )
-        judged_exercises = set((cursor or {}).get("judged_exercises") or ())
         exercises = [exercise for exercise in exercise_pool.candidates if exercise["key"] not in judged_exercises]
     use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
     if constraints.intent in VALUE_INTENTS:

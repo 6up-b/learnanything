@@ -162,3 +162,49 @@ def test_an_exercise_keeps_its_setup_and_its_unnumbered_lines(tmp_path):
         regions = exercise_regions(connection, "ext_setup")
     assert [region.text.split("\n\n")[0][:2] for region in regions] == ["20", "21"]
     assert "Find a subspace W" in regions[0].text and "(a) Find a complement" in regions[1].text
+
+
+def test_exercise_paging_reaches_every_region_through_exhaustion(tmp_path, monkeypatch):
+    """F9 (Codex sources-build review): continuations re-read the same leading
+    pool and dropped the judged exercises only afterwards, so regions past the
+    first pool (and past the first retrieval depth) were never reached."""
+
+    from tests import source_service_fakes
+
+    count = 60
+    monkeypatch.setattr(source_service_fakes, "TEXTBOOK", {"exercises": ("Exercises", [
+        (f"{n}. Find the eigenvalue of the matrix with diagonal entry {n} and solve for x.", 9)
+        for n in range(1, count + 1)])})
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    vault.config.practice_index.candidate_pool = 5
+    llm = FakeServiceLLM()
+    depths: list[object] = []
+
+    def shallow_arm(*args, **kwargs):
+        # A first retrieval depth of 20 spans: a third of the regions lie
+        # beyond it, reached only by a continuation that searches deeper.
+        kwargs.setdefault("list_depth", 20)
+        depths.append(kwargs["list_depth"])
+        return exercise_candidates(*args, **kwargs)
+
+    seen: list[str] = []
+    cursor = None
+    for _page in range(40):
+        result = find_practice(vault, repository, "find the eigenvalue of the matrix and solve for x",
+                               {"kinds": "source_exercises", "limit": 5}, exercise_arm=shallow_arm,
+                               rerank_client=llm, cursor=cursor)
+        judged = [key for key in result["paging"].get("cursor", {}).get("judged_exercises", [])
+                  if key not in seen] if result["paging"].get("cursor") else []
+        page_keys = [entry["key"] for entry in result["source_exercises"]]
+        assert not set(page_keys) & set(seen), "a continuation proposed an exercise judged on an earlier page"
+        seen += [key for key in page_keys if key not in seen]
+        seen += [key for key in judged if key not in seen]
+        if result["paging"]["outcome"] == "exhausted":
+            break
+        assert result["paging"]["outcome"] == "page"
+        cursor = result["paging"]["cursor"]
+    else:
+        raise AssertionError("paging never reached exhaustion")
+    assert len(set(seen)) == count
+    assert depths[0] == 20 and any(isinstance(depth, dict) and depth.get("keyword", 0) > 20 for depth in depths)
