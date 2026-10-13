@@ -3,8 +3,8 @@ title: "voi_forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
-source_commit_timestamp: "2026-10-13T02:38:19-04:00"
+source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
+source_commit_timestamp: "2026-10-13T03:38:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite voi_forecasts"
@@ -126,6 +126,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_evsi_router_composition.py`
 - `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
