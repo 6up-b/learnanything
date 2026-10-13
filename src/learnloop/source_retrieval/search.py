@@ -37,7 +37,7 @@ from learnloop.db.stores.source_block_fts import (
 )
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.practice_index.text import reciprocal_rank_fusion
-from learnloop.source_retrieval.corpus import Scope, role_keys
+from learnloop.source_retrieval.corpus import Scope, role_keys, role_proposal_keys
 from learnloop.source_retrieval.dense import DenseIndex, load_dense_index
 from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
@@ -99,6 +99,9 @@ class SpanSearch:
     #: The depth each list was asked for.
     list_depths: dict[str, int] = field(default_factory=dict)
     roles: list[str] = field(default_factory=list)
+    #: With ``roles``: how many spans each kind of role evidence admitted
+    #: (ingest hints, RW4e proposals, low-confidence proposals).
+    role_basis: dict[str, int] = field(default_factory=dict)
 
     @property
     def basis(self) -> str:
@@ -121,6 +124,7 @@ class SpanSearch:
                  "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits)}
         if self.roles:
             value["roles"] = list(self.roles)
+            value["role_basis"] = dict(self.role_basis)
         return value
 
 
@@ -191,8 +195,16 @@ def search_spans(
 
     permitted_roles: set[SpanKey] | None = None
     if roles:
+        # Ingest's effective hints and the Reader's RW4e role proposals; a
+        # low-confidence proposal only when nothing better exists (§9.1).
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            permitted_roles = role_keys(connection, extraction_ids, roles)
+            hinted = role_keys(connection, extraction_ids, roles)
+            proposed, low = role_proposal_keys(connection, repository, extraction_ids, roles)
+        permitted_roles = hinted | proposed
+        result.role_basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
+        if not permitted_roles and low:
+            permitted_roles = set(low)
+            result.role_basis["low_confidence"] = len(low)
 
     def keep(key: SpanKey) -> bool:
         return scope.allows(*key) and (permitted_roles is None or key in permitted_roles)

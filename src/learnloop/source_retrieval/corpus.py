@@ -350,6 +350,46 @@ def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -
     return found
 
 
+def role_proposal_keys(connection, repository: Repository, extraction_ids: Iterable[str],
+                       roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
+    """Spans a Reader RW4e role proposal gives one of ``roles``: ``(confident, low)``.
+
+    RW4e writes its proposals as ``source_object_versions.authorial_role``
+    (proposed or reviewed) with the spans they cite; a ``low``-confidence
+    proposal counts only when nothing better exists (the caller decides).
+    A proposal only ever widens the positive filter: the scope, ingest's
+    exclusions and item links still apply (the Reader's G44). Feature-detected:
+    no table, or no proposal, gives nothing."""
+
+    wanted = {str(role) for role in roles if role}
+    extractions = {str(value) for value in extraction_ids if value}
+    strong: set[tuple[str, str]] = set()
+    weak: set[tuple[str, str]] = set()
+    if not wanted or not extractions or connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+        return strong, weak
+    marks = ",".join("?" for _ in wanted)
+    rows = connection.execute(
+        "SELECT v.content_json, c.revision_id, c.span_id FROM source_object_versions v "
+        "JOIN source_object_citations c ON c.source_object_version_id = v.id "
+        f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
+        tuple(sorted(wanted))).fetchall()
+    resolved: dict[str, str | None] = {}
+    for content_json, revision_id, span_id in rows:
+        revision = str(revision_id)
+        if revision not in resolved:
+            resolved[revision] = resolve_extraction_id(repository, revision)
+        extraction_id = resolved[revision]
+        if extraction_id is None or extraction_id not in extractions:
+            continue
+        try:
+            confidence = (json.loads(content_json or "{}") or {}).get("confidence")
+        except (TypeError, ValueError):
+            confidence = None
+        (weak if confidence == "low" else strong).add((extraction_id, str(span_id)))
+    return strong, weak - strong
+
+
 def block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str | None]:
     """Each block's EFFECTIVE role (:func:`effective_hint`), a solution region's
     body included: the unhinted text after a "Solution:" lead is ``solution``.
@@ -618,6 +658,7 @@ __all__ = [
     "library_scope",
     "model_reader_withheld",
     "role_keys",
+    "role_proposal_keys",
     "teaching_exclusions",
     "teaching_scope",
 ]

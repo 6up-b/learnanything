@@ -186,6 +186,39 @@ def _provenance_list(vault: LoadedVault, repository: Repository, lo_ids: Sequenc
             for span in build_cross_source_spans(vault, repository, lo_id, max_spans_per_item=PROVENANCE_SPANS_PER_LO)]
 
 
+#: Teaching relations a facet's source links may have (the cross-source
+#: grounding's set; exercise and assessment links never ground a passage).
+FACET_LINK_RELATIONS = ("primary", "support", "alternate")
+
+
+def facet_lists(vault: LoadedVault, repository: Repository,
+                facet_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], list[dict[str, str]]]:
+    """Facet targeting (§9.1): one ranked list of the spans the facets' teaching
+    source links cite (primary first), and each facet's label for the
+    verification context. Unknown facets contribute nothing."""
+
+    from learnloop.content.authoring.practice_leakage import _span_id_from_locator
+
+    order = {relation: index for index, relation in enumerate(FACET_LINK_RELATIONS)}
+    keys: list[tuple[int, SpanKey]] = []
+    labels: list[dict[str, str]] = []
+    for value in dict.fromkeys(facet_ids):
+        facet_id = vault.canonical_facet_id(str(value))
+        facet = vault.evidence_facets.get(facet_id)
+        if facet is None:
+            continue
+        labels.append({"facet_id": facet_id, "label": str(facet.title or facet.claim or facet_id)})
+        for link in repository.entity_source_links("facet", facet_id):
+            relation = link.get("relation")
+            if relation not in order or link.get("status") not in (None, "current"):
+                continue
+            span_id = _span_id_from_locator(link.get("locator"))
+            if link.get("extraction_id") and span_id:
+                keys.append((order[relation], (str(link["extraction_id"]), str(span_id))))
+    ranked = [key for _rank, key in sorted(keys, key=lambda entry: entry[0])]
+    return ({"facets": list(dict.fromkeys(ranked))} if ranked else {}), labels
+
+
 def expansion_lists(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str],
                     expand: Sequence[str]) -> dict[str, list[SpanKey]]:
     """One ranked list per LO-graph expansion, labelled on the hit (the Reader's rule)."""
@@ -377,6 +410,8 @@ def find_sources(
     owner_id: str = "",
     clock: Clock | None = None,
     misconceptions: Sequence[Any] = (),
+    caller: CallerContext | None = None,
+    compare_client: Any | None = None,
 ) -> SourceHits:
     """Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
 
@@ -391,8 +426,6 @@ def find_sources(
         raise PolicyRefused("policy_refused", f"unknown policy {policy!r}")
     if intent not in INTENTS:
         raise ValueError(f"intent must be one of {', '.join(INTENTS)}")
-    if intent == "compare":
-        raise ValueError("compare is compare_sources (the syntopic operation)")
     if not 1 <= int(limit) <= 40:
         raise ValueError("limit must be between 1 and 40")
     result = SourceHits(intent=intent, policy=policy)
@@ -405,6 +438,11 @@ def find_sources(
     lo_ids = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
     if not lo_ids and item is not None:
         lo_ids = [item.learning_object_id]
+    if intent == "compare":
+        # §9.1: compare delegates to compare_sources (the syntopic operation).
+        return _delegate_compare(vault, repository, query, result, policy=policy, item=item, lo_ids=lo_ids,
+                                 facet_ids=facet_ids, caller=caller, deadline=deadline, embedder=embedder,
+                                 rerank_client=rerank_client, compare_client=compare_client, clock=clock)
     span_scope = scope_for(vault, repository, policy=policy, scope=scope, learning_object_ids=lo_ids, item=item)
     excluded = _span_keys(list(exclude_span_ids) + list(exclude_span_keys))
     extraction_ids = sorted(span_scope.extractions)
@@ -414,6 +452,8 @@ def find_sources(
     personal: dict[str, Any] = {}
     if intent == "explain":
         extra["provenance"] = _provenance_list(vault, repository, lo_ids)
+    facet_list, facet_labels = facet_lists(vault, repository, facet_ids)
+    extra.update(facet_list)
     if intent == "remediate" and personalized:
         for misconception in misconceptions:
             lists, report = correction_lists(vault, repository, misconception, extraction_ids)
@@ -471,6 +511,9 @@ def find_sources(
             context["learner_work"] = learner_work_md[:3000]
         if item is not None and policy == "assisted_practice":
             context["practice_question"] = " ".join(item.prompt.split())[:700]
+        if facet_labels:
+            # Facet targeting: the passage should bear on these facets.
+            context["target_facets"] = [entry["label"] for entry in facet_labels]
         status, rows, picks, reason = _verify(
             vault, repository, intent=intent, question=query_text, pool=page, pick_at_most=int(limit),
             context=context, client=rerank_client, owner_id=owner_id or query_hash, deadline=deadline, clock=clock)
@@ -517,8 +560,51 @@ def find_sources(
         "search": search.describe(), "roles": list(effective_roles), "expand": list(expand),
         "excluded_span_keys": [list(key) for key in sorted(excluded)], "withheld_answer_overlap": withheld,
         "verification": verification, "returned": [[hit["extraction_id"], hit["span_id"]] for hit in result.hits],
-        "facet_ids": list(facet_ids), "target_hypotheses": [dict(ref) for ref in target_hypotheses],
+        "facet_ids": list(facet_ids), "facets_targeted": facet_labels,
+        "target_hypotheses": [dict(ref) for ref in target_hypotheses],
     })
+    return result
+
+
+def _caller_for_policy(policy: str, item: PracticeItem | None, lo_ids: Sequence[str]) -> CallerContext:
+    """A server-side caller whose derived policy is ``policy`` (for a caller-less call)."""
+
+    if policy == "assisted_practice" and item is not None:
+        return CallerContext(kind="code", context="practice", item_id=item.id, learning_object_ids=tuple(lo_ids))
+    if policy == "post_attempt" and item is not None:
+        return CallerContext(kind="code", item_id=item.id, learning_object_ids=tuple(lo_ids),
+                             post_attempt_requested=True, window_open=False)
+    return CallerContext(kind="code", learning_object_ids=tuple(lo_ids))
+
+
+def _delegate_compare(vault: LoadedVault, repository: Repository, query: str, result: SourceHits, *, policy: str,
+                      item: PracticeItem | None, lo_ids: Sequence[str], facet_ids: Sequence[str],
+                      caller: CallerContext | None, deadline: float | None, embedder: Any | None,
+                      rerank_client: Any | None, compare_client: Any | None, clock: Clock | None) -> SourceHits:
+    """``intent="compare"``: the comparison's sources as hits, the comparison on the manifest."""
+
+    from learnloop.source_retrieval.compare import compare_sources
+
+    caller = caller or _caller_for_policy(policy, item, lo_ids)
+    comparison = compare_sources(vault, repository, query, caller=caller, facet_ids=facet_ids, policy=policy,
+                                 deadline=deadline, client=compare_client, verify_client=rerank_client,
+                                 embedder=embedder, clock=clock)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        roles = block_roles(connection, [(entry["extraction_id"], entry["span_id"]) for entry in comparison.sources])
+    for entry in comparison.sources:
+        result.hits.append({
+            "extraction_id": entry["extraction_id"], "span_id": entry["span_id"], "source_id": entry["source_id"],
+            "source_title": entry.get("source_title"),
+            "revision_id": (repository.get_extraction_run(entry["extraction_id"]) or {}).get("revision_id"),
+            "section": None, "section_path": [], "page": entry.get("page"), "text": entry.get("passage"),
+            "block_type": None, "authorship": "source", "label": "source-authored", "verdict": None,
+            "rationale": None, "expansion": None, "ranks": {}, "contributions": entry.get("contributions") or [],
+            "role": roles.get((entry["extraction_id"], entry["span_id"])),
+        })
+    result.status = comparison.status
+    result.manifest.update({"delegated_to": "compare_sources", "comparison": comparison.as_dict(),
+                            "comparison_id": comparison.comparison_id, "facet_ids": list(facet_ids),
+                            "returned": [[hit["extraction_id"], hit["span_id"]] for hit in result.hits]})
     return result
 
 
@@ -550,7 +636,7 @@ def find_sources_for_caller(vault: LoadedVault, repository: Repository, query: s
         if item is not None and item.id != caller.item_id:
             raise PolicyRefused("caller_mismatch", "the request names an item this caller was not called about")
         item = vault.practice_items.get(caller.item_id)
-    hits = find_sources(vault, repository, query, policy=derived, item=item, **kwargs)
+    hits = find_sources(vault, repository, query, policy=derived, item=item, caller=caller, **kwargs)
     hits.manifest["policy_derived_from"] = reason
     hits.manifest["caller"] = {"kind": caller.kind, "ref": caller.ref}
     return hits
@@ -558,6 +644,8 @@ def find_sources_for_caller(vault: LoadedVault, repository: Repository, query: s
 
 __all__ = [
     "EXPANSIONS",
+    "FACET_LINK_RELATIONS",
+    "facet_lists",
     "INTENTS",
     "INTENT_FIT_TASK",
     "INTENT_VERDICTS",

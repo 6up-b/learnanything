@@ -52,7 +52,7 @@ from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.listwise import route_skip
 from learnloop.source_retrieval.corpus import Scope, item_exclusions
-from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, _span_keys, _verify, scope_for
+from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, _span_keys, _verify, facet_lists, scope_for
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import embed_query_texts
 from learnloop.source_retrieval.search import SpanHit, search_spans
@@ -209,9 +209,17 @@ def compare_sources(
         result.manifest["query_embedding"] = embedding
     per_source: dict[str, list[SpanHit]] = {}
     sources = _by_source(scope)
+    # Facet targeting (§9.1): the facets' teaching links rank as one more list
+    # per source, and verification is told what the passages should bear on.
+    facet_list, facet_labels = facet_lists(vault, repository, facet_ids)
+    if facet_labels:
+        result.manifest["facets_targeted"] = facet_labels
     for source_id, extraction_ids in sources.items():
         sub = Scope(f"compare:{source_id}", {e: scope.extractions[e] for e in extraction_ids}, scope.excluded)
         extra: dict[str, list[tuple[str, str]]] = {}
+        facet_keys = [key for key in facet_list.get("facets", []) if key[0] in set(extraction_ids)]
+        if facet_keys:
+            extra["facets"] = facet_keys
         for perspective in requested_perspectives:
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 hits = search_blocks(connection, f"{query} {perspective}", extraction_ids=extraction_ids, limit=50)
@@ -259,7 +267,8 @@ def compare_sources(
             page = per_source[source_id][:VERIFY_PAGE]
         status, rows, picks, why = _verify(
             vault, repository, intent="explain", question=query, pool=page, pick_at_most=len(page),
-            context={}, client=verify_client, owner_id=owner_id, deadline=deadline, clock=clock)
+            context={"target_facets": [entry["label"] for entry in facet_labels]} if facet_labels else {},
+            client=verify_client, owner_id=owner_id, deadline=deadline, clock=clock)
         verification_status = status
         if status not in ("verified", "cached"):
             pending = page_sources + pending

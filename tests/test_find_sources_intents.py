@@ -176,3 +176,91 @@ def test_reader_consumer_contract_calls(textbook):
     keys = find_sources_for_caller(vault, repository, "eigenvalues", caller=reading,
                                    exclude_span_keys=[["ext_book", "s2"]])
     assert ("ext_book", "s2") not in {(hit["extraction_id"], hit["span_id"]) for hit in keys.hits}
+
+
+# -- Codex sources-build review F14: the rest of the Reader's contract -----------------------------
+
+
+def _propose_role(repository, span_id, role, *, confidence=None):
+    from learnloop.reader.source_objects import author_source_object
+
+    author_source_object(repository, source_id="src_text", revision_id="rev_text", object_type="motif_or_passage",
+                         authorial_role=role, content={"confidence": confidence} if confidence else {},
+                         citations=[{"revision_id": "rev_text", "span_id": span_id}])
+
+
+def test_roles_match_an_rw4e_proposal(textbook):
+    """A Reader RW4e role proposal (``authorial_role``) satisfies the positive
+    filter; ingest's hints have no counterexample or intuition role."""
+
+    paths, repository, spans = textbook
+    vault = loaded(paths)
+    reading = CallerContext(kind="reader")
+    before = find_sources_for_caller(vault, repository, "determinant rows swapped", caller=reading,
+                                     roles=["counterexample"])
+    assert before.hits == []
+    _propose_role(repository, spans["ch5"][2], "counterexample")
+    hits = find_sources_for_caller(vault, repository, "determinant rows swapped", caller=reading,
+                                   roles=["counterexample"])
+    assert [(hit["extraction_id"], hit["span_id"]) for hit in hits.hits] == [("ext_text", spans["ch5"][2])]
+    assert hits.manifest["search"]["role_basis"] == {"hints": 0, "proposals": 1, "low_confidence": 0}
+
+
+def test_a_low_confidence_proposal_counts_only_when_nothing_better_exists(textbook):
+    paths, repository, spans = textbook
+    vault = loaded(paths)
+    reading = CallerContext(kind="reader")
+    _propose_role(repository, spans["ch5"][1], "intuition", confidence="low")
+    alone = find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=reading,
+                                    roles=["intuition"])
+    assert {hit["span_id"] for hit in alone.hits} == {spans["ch5"][1]}
+    assert alone.manifest["search"]["role_basis"]["low_confidence"] == 1
+    _propose_role(repository, spans["ch5"][2], "intuition")
+    better = find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial determinant",
+                                     caller=reading, roles=["intuition"])
+    assert {hit["span_id"] for hit in better.hits} == {spans["ch5"][2]}
+
+
+def test_a_proposal_never_admits_a_block_into_an_item_bound_scope(textbook):
+    paths, repository, spans = textbook
+    vault = loaded(paths)
+    _propose_role(repository, spans["solutions"][1], "intuition")  # a solution block
+    practice = CallerContext(kind="tutor", context="practice", item_id="pi_eigen_1")
+    hits = find_sources_for_caller(vault, repository, "subtracting gives eigenvalue", caller=practice,
+                                   scope="teaching", roles=["intuition"])
+    assert spans["solutions"][1] not in {hit["span_id"] for hit in hits.hits}
+
+
+def test_facet_ids_target_retrieval_and_verification(textbook):
+    paths, repository, spans = textbook
+    vault = loaded(paths)
+    repository.insert_entity_source_link(
+        entity_type="facet", entity_id="facet_determinant", locator=format_block_span("ext_text", spans["ch5"][2]),
+        relation="primary", source_id="src_text", revision_id="rev_text", extraction_id="ext_text")
+    llm = _llm()
+    hits = find_sources_for_caller(vault, repository, "what changes the sign", caller=CallerContext(kind="reader"),
+                                   facet_ids=["facet_determinant"], verify=True, rerank_client=llm)
+    assert "facets" in hits.manifest["search"]["lists"]
+    assert hits.manifest["facets_targeted"][0]["facet_id"] == "facet_determinant"
+    assert ("ext_text", spans["ch5"][2]) in {(hit["extraction_id"], hit["span_id"]) for hit in hits.hits}
+    plain = find_sources_for_caller(vault, repository, "what changes the sign", caller=CallerContext(kind="reader"),
+                                    verify=True, rerank_client=llm)
+    assert "facets" not in plain.manifest["search"]["lists"] and plain.manifest["facets_targeted"] == []
+
+
+def test_find_sources_compare_delegates_to_compare_sources(textbook):
+    paths, repository, _spans = textbook
+    vault = loaded(paths)
+    llm = _llm()
+    hits = find_sources_for_caller(vault, repository, "what happens when rows are swapped",
+                                   caller=CallerContext(kind="reader"), intent="compare", rerank_client=llm,
+                                   compare_client=llm)
+    assert hits.intent == "compare" and hits.manifest["delegated_to"] == "compare_sources"
+    comparison = hits.manifest["comparison"]
+    assert comparison["comparison_id"] and "consensus" not in comparison
+    assert [hit["source_id"] for hit in hits.hits] == [source["source_id"] for source in comparison["sources"]]
+    assert all(hit["label"] == "source-authored" for hit in hits.hits)
+    # The policy is the caller's: a cold caller is refused, never widened.
+    cold = find_sources_for_caller(vault, repository, "rows", caller=CallerContext(
+        kind="tutor", context="practice", item_id="pi_eigen_1", cold=True), intent="compare")
+    assert cold.hits == [] and cold.status.startswith("empty")
