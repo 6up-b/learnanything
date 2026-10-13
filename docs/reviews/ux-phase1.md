@@ -435,3 +435,93 @@ The review that follows covers everything since `67ece2c7f`: round 1's revision 
 - **Q-O.** "run uv sync --extra pdf in LearnLoop's folder": keep the developer-install command in the learner's details, or say "ask whoever installed LearnLoop to add its PDF tools" until Q-L (an in-app install) exists?
 - **Q-P.** Naming (D19): is "Codex (your ChatGPT account)" the name Phase 6 should use everywhere for that route?
 - **Q-Q.** Books added through Ingest (D16): offer "Build them" (as now), or build automatically as Add does?
+
+## Landing onto main
+
+**Branch:** `merge/ux-onto-main` (worktree `learnanything-merge`), from main `e8d261405`. **Commits:** `22b574562` the `--no-ff` merge of `ux/phase1-first-run` (`8086986f8`, not modified) · `20ce044e3` the owner's caps direction for automatic builds · `0ece66d14` the composition fixes (exams, keep-local) · `7e2ac4e93` the regenerated references · this record.
+
+Main had gained, since the branch's base: router R1 (181), learner-text gaps (182), facet identity (183), the T6 follow-up's output budget, EVSI forecasts (184), RW1a (185), the route check (186, `mvp-0.17`), the sources track (187-195, `mvp-0.18`/`mvp-0.19`) and facet locks removed with the reword confirm (196-197).
+
+### Versioning: the reading step is a live change, not a successor (owner ruling)
+
+The owner's standing decision is live changes behind kill switches, not successors, for serving changes that replay never reads; the facet-locks F6 ruling (`facet-reword-confirm-codex-review.md`) cites it. The reading-step selection (U4; D13 above; round-2 F2) is such a change:
+
+- A plan block records the section it chose as workflow state (`attention_blocks.reading_json`, `attention_block_events`); R1 logs plan-block decisions as written. No replayer or projection reads the selection rule or `plan.reading_from_furthest`.
+- Checked on backup-API copies of both tracked fixtures, upgraded to `mvp-0.19` (`fixtures-local/ux-parity/latest`): `learnloop rebuild --shadow --json --set plan.reading_from_furthest=true|false` gives identical results once surrogate ids and timestamps are set aside (linear algebra: facet 2, mastery 21, schedule 48 changes, 70 attempts; probability: 2, 18, 1, 2 attempts; `live_database.unchanged` true each time). `tests/test_reading_step_switch.py::test_replay_never_reads_the_switch` shows the same on the head fixture: every DERIVED table is identical after rebuilds with the switch on and off.
+- Served-set diff on the linear-algebra twin: on, the step is `u50` "Sums of Subspaces" (402 words left); off, `u1` "Chapter 1 Vector Spaces" (195), as round 2 found. The probability twin has no as-you-read source.
+
+So the branch's placeholder successor (`mvp-0.15`, `READING_FROM_FURTHEST_*`) is dropped. `SUCCESSOR_CHAIN`, the version sets and `learnloop upgrade` are main's (latest `mvp-0.19`). `reading_step_upgrade.py` and the snapshot entry are gone. `daily_plan.engine.reading_from_furthest_active` is now "the plan is active and the switch is on". Off, the selection is DL1's exactly: the four-history parity test in `test_ux_phase1_round2_review.py` stands. `tests/test_reading_step_upgrade.py` became `tests/test_reading_step_switch.py`. The spec's §11 row (`spec_daily_loop_v1.md`), `PlanConfig`, the template notes and the configuration reference say the same.
+
+### Migrations and the head fixture
+
+- `186_add_book_state` → `198`, `187_reading_request_revision` → `199` (headers name both numbers). `migrations/` runs 1..199 with only main's historical gaps. `source_auto_build_state` stays WORKFLOW (no replayer).
+- `fixtures/migration_head_197` → `migration_head_199`: a backup-API copy with 198-199 applied through `learnloop.db.migrate.apply_migrations`, then `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok and `foreign_key_check` clean. README updated. The 17 hard-coded head paths (15 tests, 2 reference scripts), `SCHEMA_HEAD` and `test_proof_route_check`'s max-migration assertion now name 199.
+
+### Conflicts and how they were composed
+
+| Where | Resolution |
+|---|---|
+| `ai/execution.py`, `ai/spend.py` | Main's annotations, reasoning effort, truncation retry and spend envelopes, beside the branch's per-request gate. Every physical request is admitted; the structured operation is a wrapper. |
+| `config/schema.py` | The output-budget fields and the `[ai]` consent table. |
+| `content/synthesis/*`, `curriculum_locks.py` | Facet locks are gone on main, so the branch's subject-scoped lock reading (U1) went with them. `apply_gate` composes with `facet_identity_client`. U1's tests now pin main's semantics: nothing refuses a bootstrap for a goal-scoped facet. |
+| `cli/sources.py`, `runner.py`, `model_calls.py`, sidecar `context.py` | Both sides kept. |
+| `cli/app.py`, `algorithm_versions.py`, version tests | Main's (the successor was dropped). |
+| `config/template.py` | Main's narrative, plus UX Phase 1's keys noted on every version. All eleven snapshots (`mvp-0.9`..`mvp-0.19`) recomputed from the composed defaults. |
+| `client.ts`, `App.tsx` | Imports from both sides. |
+| `ReaderScreen.tsx` | Rebuilt on RW1a's split. The branch's Reader changes were ported into it and into `GuideRail.tsx`, `AskRail.tsx` and `ReaderAskBranches.tsx` (below). |
+| Generated references, CLI help | Main's references in the merge, regenerated after. CLI help snapshot rewritten (`sources build-preview`). |
+
+### Composition checks
+
+1. **Reader.** RW1a's inquiry, Ask branching, detour strip, reconnect line, passage checks and funnel survive, and so do the branch's resume, reading progress, guide and check offering. The branch's guide moved into `GuideRail.tsx`: the read-progress bar, open checks above Contents with `autoStart` and `onAnswered`, Contents ticking only sections read through, "Try again", and "quick check" in words. The new props are optional, so RW1a's rail tests keep their fixtures. In `AskRail.tsx`: ctrl+Enter sends on either rail, the question appears once (in the learner's voice), and the answer style is in words (in `ReaderAskBranches.tsx` too). On the Ask tab a landed answer is brought into view without moving focus and without animating (RW1a's W12 and G54). Opening a check from a section break also opens a collapsed rail. RW1a's tests change only the labels the branch renamed (`ask · ctrl+↵`, `ask follow-up · ctrl+↵`, `← Library`) and the Contents jump's alignment argument. Vitest: 73 files, 478 tests pass.
+2. **Output budget.** The branch adds no new LLM call. Automatic builds run the existing pipeline jobs, with their owner-set `[ingest.budgets]` (inventory, synthesis, shards, append reconciliation), which `learnloop.ai.output_budget` exempts. Truncation retries are never allowed there. Main's roles inside a build (the facet-identity judge, gate grading, epigraphs) follow `output_budget` as on main. Filing (D2) and estimates (D15) make no model call. The per-request gate reserves each physical request at the `max_tokens` it is sent with, so a transport's truncation retry at double the budget is admitted on its own; with no budget named it falls back to the ingest budget. ChatGPT-plan and Codex requests are subscription requests and are never limited.
+3. **Held grades and facet authority.** No UX path reads grades (its "attempts" are job attempts), so the held-grade predicate has nothing to guard there. No UX path writes facet meaning: automatic builds apply through main's proposal apply and its chokepoint, and Undo rejects only learning-object, practice-item and concept-edge creates. `test_facet_authority.py::test_every_writer_of_facet_meaning_goes_through_the_authority_chokepoint` and `test_facet_locks_landing.py` pass.
+4. **Exams.** These were not composed until `0ece66d14`, which fixes them:
+   - An automatic build drops every unit main's exam predicate marks: exam-role members and unit overrides, and `held_out_evaluation` units. That includes the book's own held-out units before its first study map, through `corpus.source_exam_exclusions`. A book that is exam material whole builds nothing.
+   - U4's reading step skips exam sections and extractions (`corpus.exam_exclusions`) and fails closed. DL1's selection (the switch off) is untouched.
+   - Tests: `tests/test_ux_phase1_landing.py`.
+5. **Today.** Today's begin calls the same RPCs as Start's (`start_session`, then `next_plan_item` to serve, or `plan_learner_pick`). DL1's boundary hands every block decision to R1's logger as before. `test_router_r1_composition.py::test_plan_block_decisions_get_router_decision_ids_end_to_end` and `test_learner_pick_proposal.py` pass, and so does the branch's `TodayScreen.plan.test.tsx`.
+
+Also composed (`0ece66d14`): "Keep this book on this computer" (review F1) now covers RW1a's passage-scoped quick check, a Reader AI request main added. `reader.reconnect_answer` refuses the check before recording anything, and the job refuses again when it runs.
+
+### Spend (the owner's 2026-10-13 caps direction, `20ce044e3`)
+
+There is no per-build money cap by default. The branch's authorization (the estimate with headroom, or the threshold) is no longer a limit; a build planned earlier keeps a recorded one. The confirmation pause stays a question: a build over `threshold_usd` (1.00), or over a quarter of what the guard leaves, still asks "Build them".
+
+The daily guard is `ingest.cost_pause.daily_cap_usd = 5.00` (it was unset), the same figure as `source_service.max_daily_cost_usd`. Every paid job and every physical request is admitted against what today's metered receipts leave, and "Build them" never passes it. `MeteredRequestGate` accepts `limit_usd=None` (no money limit): it still cancels and settles.
+
+Spend is observed from the receipts and the dry run (`learnloop sources build-preview`: `daily_remaining_usd`). No new cap, knob or report was added. Every snapshot was recomputed.
+
+### Gate
+
+Run at `7e2ac4e93` in the worktree, `TMPDIR=<worktree>/fixtures-local/tmp`, after a machine reboot (each run below was started again from scratch).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 17 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,129 passed**, 0 failed (7 min 54 s) |
+| `flock … uv run pytest -m durability` | **99 passed**, 10,030 deselected (serial, 1 min 46 s) |
+| `npm install` · `typecheck` · `npm test` · `frontend:build` | up to date · clean · **73 files, 478 tests passed** · built |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok |
+| References | `db_generate_reference.py` at schema head 199 (318 table notes, 795 configuration leaves; prose counts hand-fixed); `db_validate_reference.py` errors `[]`; `validate_vault.py` passed (1098 notes) |
+
+One frontend run during a parallel stage's full suite failed `FeedbackScreen.test.tsx > falls back to the list…` on timing. It passed alone, and in the clean run above.
+
+### Parity
+
+Backup-API copies of `fixtures/linear_algebra` and `fixtures/probability` (`fixtures-local/ux-parity`) were migrated with main `e8d261405`'s code (to 197) and with the merge's (to 199). On each copy: `learnloop rebuild --shadow --json` and `learnloop doctor`.
+
+- **Shadow rebuilds are identical to main's** once minted ids and timestamps are set aside. Linear algebra: facet 22, mastery 6, schedule 47 changes, 70 attempts. Probability: 2, 1, 1, 2 attempts. These are the fixtures' existing drift at `mvp-0.8`. `live_database.unchanged` is true.
+- **Doctor issue sets are identical.** Linear algebra has 106 issues on both sides; probability has 134, `criterion:unknown_dependency` 46 = 46. The exit status is 1 on both sides, as on main.
+
+### Owner decisions (conservative defaults applied)
+
+- **The reading step without a tag** (ruling applied). If the owner prefers a tag, it would be `mvp-0.20` with an upgrade.
+- **Automatic builds' money.** The daily guard is 5.00, separate from the source service's guard and counting every metered receipt today. There is no per-build cap, and the $1 confirmation pause (Q5) stays.
+- **Exam filtering of the reading step** acts only with the switch on, so off stays DL1's exactly.
+- **Keep-local coverage.**
+  - Gaps left as they were on the branch: the Reader's exercise import (`reader.import_exercise`) and library-wide retrieval (T6 tutor spans; the sources track's `find_sources`/`compare_sources`) can still send a kept-local book's text to a model.
+  - Recommended default: extend the refusal to both.
+- **Undo** leaves facet-identity merges and rewords a build applied; they keep their own undo.
+- **Spend reporting.** `learnloop sources report` covers the source service only, so automatic builds' daily spend has no per-day report.
