@@ -3,13 +3,13 @@ title: "scheduler_offer_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_offer_receipts"
   - "table scheduler_offer_receipts"
-schema_head: 179
+schema_head: 180
 table_name: "scheduler_offer_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/161_collection_contract.sql"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
 tags:
@@ -82,6 +83,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
 
@@ -99,6 +101,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_daily_plan_review_regressions.py`
 - `tests/test_facet_outcome_view.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

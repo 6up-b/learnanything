@@ -14,6 +14,7 @@ import { useCachedQuery } from "../api/useCachedQuery";
 import { peek } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
 import type {
+  PlanStepDto,
   QueueInput,
   QueueSnapshot,
   ScheduledItemDto,
@@ -26,6 +27,8 @@ import { EmptyPlaceholder, KeyBar, SectionHeader } from "../components/ui";
 // Palette-aware colors: every token is a var(--…) string that retints with the
 // selected palette (styles/palettes.css) — replaces the old hardcoded hex map.
 import { COLOR, FONT_MONO } from "../components/term";
+import { aboutMinutes, useDailyPlan } from "../app/dailyPlan";
+import { PlanSplitLine } from "./today/DailyPlanView";
 import { JuliaBackdrop } from "./startBackdrops/JuliaBackdrop";
 import { LifeBackdrop } from "./startBackdrops/LifeBackdrop";
 import { CliffordBackdrop } from "./startBackdrops/CliffordBackdrop";
@@ -1586,10 +1589,13 @@ function vaultAlias(vault: VaultSummary | null): string {
 // started, so the label names exactly that — beginning a session, not
 // "practice". DL1 says "today's plan" once a plan is what Begin starts.
 export const STREAK_KEEP_LABEL = "begin a session today to keep your streak";
+/** Daily-loop DL1 (D8): Begin starts today's plan, which is what the streak counts. */
+export const STREAK_KEEP_PLAN_LABEL = "begin today's plan to keep your streak";
 const STREAK_COUNTS_TITLE = "counts the days on which you began a session";
 
-function StreakBadge({ streak }: { streak: StreakSummary }) {
+function StreakBadge({ streak, plan = false }: { streak: StreakSummary; plan?: boolean }) {
   const { current, activeToday, longest } = streak;
+  const keepLabel = plan ? STREAK_KEEP_PLAN_LABEL : STREAK_KEEP_LABEL;
   if (current <= 0) {
     return (
       <span title={STREAK_COUNTS_TITLE} style={{ color: COLOR.textFaint, display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1605,7 +1611,7 @@ function StreakBadge({ streak }: { streak: StreakSummary }) {
         <b style={{ color: COLOR.amber }}>{current}</b> day{current === 1 ? "" : "s"} streak
       </span>
       <span style={{ color: activeToday ? COLOR.amber : COLOR.textFaint }}>
-        · {activeToday ? "today ✓" : STREAK_KEEP_LABEL}
+        · {activeToday ? "today ✓" : keepLabel}
       </span>
       {longest > current ? <span style={{ color: COLOR.textFaint }}>· best {longest}</span> : null}
     </span>
@@ -1651,7 +1657,7 @@ export function StartScreen({
   streak: snapshotStreak,
   onNewVault
 }: {
-  onBegin: (session: SessionSnapshot) => void;
+  onBegin: (session: SessionSnapshot, firstStep?: PlanStepDto | null) => void;
   onError: (message: string) => void;
   vault: VaultSummary | null;
   /** The streak as of vault load; the start summary's fresher copy wins. */
@@ -1681,14 +1687,21 @@ export function StartScreen({
     : summaryQuery.error
       ? FIRST_RUN_MINUTES
       : null;
-  const minutes = chosenMinutes ?? rememberedMinutes;
-  const choices = minuteChoicesFor(summaryCurrent ? summary : null, minutes);
+  // Daily-loop DL1 (§6.7): while the finite plan serves, Start shows today's
+  // plan -- its split and its first block -- and Begin starts it. The read
+  // answers `enabled: false` at once while the plan is off: Start is DL0's.
+  const planQuery = useDailyPlan(null);
+  const planKnown = planQuery.data !== undefined || planQuery.error !== null;
+  const plan = planQuery.data?.enabled ? planQuery.data.plan : null;
+  const [planBusy, setPlanBusy] = useState(false);
+  const minutes = plan ? plan.rememberedMinutes : chosenMinutes ?? rememberedMinutes;
+  const choices = plan ? plan.minuteChoices : minuteChoicesFor(summaryCurrent ? summary : null, minutes);
 
   // The preview asks for Today's queue with the same scheduler inputs Begin
   // will start: these minutes, no energy, and no readiness limit (Today never
   // applied one). Keyed by its inputs, so a chip already previewed repaints
   // instantly; the last preview stays on screen, dimmed, while a new one loads.
-  const previewInput: QueueInput | null = minutes == null ? null : { availableMinutes: minutes };
+  const previewInput: QueueInput | null = minutes == null || !planKnown || plan ? null : { availableMinutes: minutes };
   const previewQuery = useCachedQuery(
     previewInput ? ["get_today_queue", previewInput] : null,
     () => api.getTodayQueue(previewInput as QueueInput),
@@ -1700,7 +1713,7 @@ export function StartScreen({
   }, [previewQuery.data]);
   const preview: QueueSnapshot | null = previewQuery.data ?? lastPreview;
   const previewIsPrevious = previewQuery.data === undefined && lastPreview !== null;
-  const previewLoading = minutes == null || previewQuery.loading;
+  const previewLoading = plan ? false : minutes == null || !planKnown || previewQuery.loading;
 
   useEffect(() => {
     localStorage.setItem("learnloop.startBackdrop", backdrop);
@@ -1714,11 +1727,25 @@ export function StartScreen({
     if (summaryQuery.error) onError(summaryQuery.error.message);
   }, [summaryQuery.error, onError]);
 
+  function chooseMinutes(next: number) {
+    if (!plan) {
+      setChosenMinutes(next);
+      return;
+    }
+    if (next === plan.rememberedMinutes || planBusy) return;
+    // One tap sets the remembered minutes and re-plans (§6.6).
+    setPlanBusy(true);
+    api
+      .setPlanMinutes(next)
+      .catch((error) => onError((error as Error).message))
+      .finally(() => setPlanBusy(false));
+  }
+
   function stepMinutes(delta: number) {
     if (minutes == null) return;
     const index = choices.indexOf(minutes);
     const next = choices[Math.max(0, Math.min(choices.length - 1, (index < 0 ? 0 : index) + delta))];
-    if (next !== undefined) setChosenMinutes(next);
+    if (next !== undefined) chooseMinutes(next);
   }
 
   useEffect(() => {
@@ -1744,7 +1771,13 @@ export function StartScreen({
     setLoading(true);
     try {
       // Minutes only (§6.6): energy and sleep are no longer asked for or sent.
-      const session = await api.startSession({ availableMinutes: minutes });
+      const session = await api.startSession({ availableMinutes: plan ? Math.round(plan.minutesBudget) : minutes });
+      if (plan) {
+        // Begin starts today's plan at its first step.
+        const first = await api.nextPlanItem({ sessionId: session.sessionId, serve: true });
+        onBegin(session, first.step ?? null);
+        return;
+      }
       onBegin(session);
     } catch (error) {
       onError((error as Error).message);
@@ -1790,8 +1823,9 @@ export function StartScreen({
   if (previewLoading && !preview) {
     return <EmptyPlaceholder title="Loading today's queue" />;
   }
-  const minutesNote =
-    summary?.minutesSource === "last_session" && chosenMinutes == null
+  const minutesNote = plan
+    ? "today's plan · one tap changes the minutes, remembered next time"
+    : summary?.minutesSource === "last_session" && chosenMinutes == null
       ? "minutes from your last session · one tap changes them"
       : "pick today's minutes · they are remembered next time";
 
@@ -1824,9 +1858,34 @@ export function StartScreen({
           <SectionHeader>Time today</SectionHeader>
           <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 12, alignItems: "center", marginTop: 4 }}>
             <span style={{ fontSize: 12, color: COLOR.textFaint }}>available time</span>
-            {minutes != null ? <MinutesPicker value={minutes} choices={choices} onChange={setChosenMinutes} /> : null}
+            {minutes != null ? <MinutesPicker value={minutes} choices={choices} onChange={chooseMinutes} /> : null}
           </div>
 
+          {plan ? (
+            <div data-testid="start-plan" style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8, opacity: planBusy ? 0.5 : 1 }}>
+              <SectionHeader>Today's plan</SectionHeader>
+              <PlanSplitLine plan={plan} />
+              {plan.firstBlock ? (
+                <div data-testid="start-plan-first" style={{ fontSize: 13, color: COLOR.text }}>
+                  First: {plan.firstBlock.title || plan.firstBlock.lane} ·{" "}
+                  {plan.firstBlock.reading
+                    ? "reading"
+                    : `${plan.firstBlock.itemCount} item${plan.firstBlock.itemCount === 1 ? "" : "s"}`}{" "}
+                  · {aboutMinutes(plan.firstBlock.estMinutes)}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: COLOR.textDim }}>Nothing due today.</div>
+              )}
+              {plan.kind === "reentry" && plan.reentry ? (
+                <div style={{ fontSize: 12, color: COLOR.textDim }}>
+                  welcome back — {plan.reentry.gapDays} days · a short re-entry, {aboutMinutes(plan.reentry.planMinutes)}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {plan ? null : (
+          <>
           <div style={{ marginTop: 6, padding: "10px 12px", borderLeft: `3px solid ${COLOR.cyan}`, background: "var(--wash-cyan)", fontSize: 12 }}>
             <span style={{ color: COLOR.cyan, fontWeight: 600 }}>scheduler mode</span>{"  "}
             <span style={{ color: COLOR.textDim }}>{recommendedBudget}</span>
@@ -1854,6 +1913,8 @@ export function StartScreen({
             {"  ·  "}
             {preview ? `${preview.totalItems} item${preview.totalItems === 1 ? "" : "s"} in today's queue` : "loading scheduled items…"}
           </div>
+          </>
+          )}
 
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
@@ -1876,7 +1937,7 @@ export function StartScreen({
                 opacity: loading ? 0.7 : 1
               }}
             >
-              {loading ? "starting…" : `begin session · ${minutes ?? "—"} min`}
+              {loading ? "starting…" : plan ? `begin today's plan · ${Math.round(plan.minutesBudget)} min` : `begin session · ${minutes ?? "—"} min`}
               <span style={{ color: COLOR.amber }}>↵</span>
             </span>
           </div>
@@ -1885,12 +1946,12 @@ export function StartScreen({
 
       <KeyBar
         keys={[
-          { key: "↵", label: "begin session" },
+          { key: "↵", label: plan ? "begin today's plan" : "begin session" },
           { key: "←/→", label: "minutes" },
           { key: "alt+1..8", label: "tabs" },
           { key: "^p", label: "palette" }
         ]}
-        right={<StreakBadge streak={streak} />}
+        right={<StreakBadge streak={streak} plan={Boolean(plan)} />}
       />
     </div>
   );

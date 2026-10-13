@@ -6626,3 +6626,213 @@ export interface AdjudicationScoreboardDto {
   overall: AdjudicationScoreboardGroupDto;
   groups: AdjudicationScoreboardGroupDto[];
 }
+
+// ── Daily-loop DL1: the finite daily plan (spec_daily_loop_v1.md §6, §7) ─────
+// Every count and minute figure Start, Today, the done screen and the re-entry
+// panel show is read from these DTOs (gate G3); the client computes none.
+
+export type PlanLane = "repair" | "maintain" | "new" | "push";
+
+export interface PlanSplitLaneDto {
+  lane: PlanLane;
+  minutes: number;
+  /** Whole minutes for the split line; they add up to the rounded total. */
+  displayMinutes: number;
+  load: number | null;
+  cap: number | null;
+  /** One-line plain-language reason (the "why"). */
+  reason: string | null;
+}
+
+export interface PlanReadingDto {
+  sourceId: string | null;
+  extractionId: string | null;
+  sectionId: string | null;
+  sectionTitle: string | null;
+  wordsLeft: number | null;
+  partial: boolean;
+  startSpanId?: string | null;
+  fullMinutes?: number | null;
+  spansSeen?: number;
+  spanCount?: number;
+}
+
+export interface PlanItemDto {
+  practiceItemId: string;
+  learningObjectId: string;
+  learningObjectTitle: string;
+  practiceMode: string | null;
+  promptPreview: string;
+  lane: PlanLane | null;
+  estMinutes: number;
+  state: "planned" | "served" | "done" | "skipped" | "displaced";
+  origin: "chooser" | "requested" | "followup" | "learner_pick";
+  servedAt: string | null;
+  doneAt: string | null;
+}
+
+export interface PlanBlockDto {
+  id: string;
+  ordinal: number;
+  lane: PlanLane | null;
+  action: string;
+  subtype: string | null;
+  chosenBy: string;
+  why: string;
+  whyKind: string | null;
+  fallback: boolean;
+  estMinutes: number;
+  status: "done" | "current" | "upcoming";
+  startedAt: string | null;
+  endedAt: string | null;
+  outcome: string | null;
+  reading: PlanReadingDto | null;
+  learningObjectTitles: string[];
+  items: PlanItemDto[];
+  displacedCount: number;
+}
+
+export interface PlanProjectedBlockDto {
+  ordinal: number;
+  lane: PlanLane;
+  estMinutes: number;
+  itemCount: number;
+  learningObjectTitles: string[];
+  readingTitle: string | null;
+  why: string;
+}
+
+export interface PlanItemStepDto {
+  kind: "item";
+  planId: string | null;
+  blockId: string | null;
+  blockOrdinal?: number;
+  practiceItemId: string;
+  learningObjectId: string;
+  learningObjectTitle?: string;
+  practiceMode?: string | null;
+  estMinutes?: number;
+  origin: string;
+  schedulerCandidateId: string | null;
+  /** The first item of a block not started yet: show the block line first. */
+  boundary: boolean;
+}
+
+export interface PlanReadingStepDto {
+  kind: "reading";
+  planId: string;
+  blockId: string;
+  blockOrdinal: number;
+  reading: PlanReadingDto;
+  estMinutes: number;
+  boundary: boolean;
+}
+
+export interface PlanDoneStepDto {
+  kind: "done";
+  planId: string;
+  status: string;
+  stopReason: string | null;
+}
+
+export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto;
+
+export interface PlanTotalsDto {
+  plannedMinutes: number;
+  plannedItems: number;
+  doneItems: number;
+  skippedItems: number;
+  displacedItems: number;
+  readingBlocks: number;
+  readingBlocksEnded: number;
+  estMinutesDone: number;
+  actualMinutes: number;
+}
+
+export interface PlanReentryDto {
+  gapDays: number;
+  solidCount: number;
+  slippedCount: number;
+  slippedNames: string[];
+  namedBy: string;
+  target: number;
+  /** Today's re-entry: the chosen blocks plus the projected ones. */
+  planMinutes: number;
+  planItems: number;
+}
+
+export interface DailyPlanBodyDto {
+  id: string;
+  localDate: string;
+  kind: "normal" | "reentry" | "keep_going";
+  status: "open" | "complete" | "stopped" | "abandoned";
+  stopReason: string | null;
+  parentPlanId: string | null;
+  minutesBudget: number;
+  rememberedMinutes: number;
+  minutesSource: "chip" | "carried" | "generated";
+  minuteChoices: number[];
+  minutesLeft: number;
+  split: {
+    rule: string | null;
+    line: string;
+    lanesAllowed: PlanLane[];
+    requestedMinutes: number;
+    lanes: PlanSplitLaneDto[];
+  };
+  admission: {
+    admittedCount: number;
+    exemptRequests: number;
+    stoppedBy: string | null;
+    floorApplied: boolean;
+    reviewLoadPerDay: number | null;
+    ceilingMinutes: number | null;
+    override: string | null;
+  };
+  blocks: PlanBlockDto[];
+  currentBlockId: string | null;
+  projected: PlanProjectedBlockDto[];
+  /** "Block 2 of about N": chosen plus projected. */
+  blockCountEstimate: number;
+  firstBlock: { title: string | null; lane: PlanLane | null; itemCount: number; estMinutes: number; reading: boolean } | null;
+  nextStep: PlanStepDto | null;
+  totals: PlanTotalsDto;
+  reentry: PlanReentryDto | null;
+  source: string | null;
+  chooser: string | null;
+}
+
+export interface DailyPlanDto {
+  version: number;
+  enabled: boolean;
+  /** Present when the plan is off: "plan_disabled" or "algorithm_version". */
+  reason?: string;
+  headlineEnabled?: boolean;
+  localDate?: string;
+  plan: DailyPlanBodyDto | null;
+  day?: PlanTotalsDto & { plans: number; kinds: string[]; complete: boolean };
+  streak?: StreakSummary | null;
+  /** next_plan_item / plan_learner_pick / plan_reading_ended: the typed step. */
+  step?: PlanStepDto;
+  /** plan_more_new: the trade-off shown before anything is added. */
+  preview?: {
+    items: number;
+    estMinutes: number;
+    addsMinutesPerDay: number;
+    horizonDays: number;
+    available: boolean;
+    practiceItemIds?: string[];
+  };
+}
+
+export interface TodayHeadlineDto {
+  version: number;
+  enabled: boolean;
+  counts?: { demonstrated: number; assumed?: number; learning: number; untested: number };
+  showAssumed?: boolean;
+  expectedRecall?: number | null;
+  expectedRecallPercent?: number | null;
+  expectedRecallItems?: number;
+  expectedRecallTooltip?: string;
+  line?: string;
+}

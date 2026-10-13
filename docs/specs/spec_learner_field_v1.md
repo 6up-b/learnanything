@@ -101,7 +101,7 @@ Predictors and diagnostics need, for every graded attempt and every facet it bea
 | `effective_mass` | From `EffectiveObservation` |
 | `cold`, `assisted`, `primed` | Flags |
 | `surface_group_id` | For independence reporting |
-| `serving_origin` | `learner_pick` \| `system_probe` \| `forced_followup` \| `requested` \| `unknown` |
+| `serving_origin` | `learner_pick` \| `system_probe` \| `forced_followup` \| `requested` \| `daily_plan` \| `unknown` (`daily_plan`: served by daily-loop DL1's finite plan, read from its `item_served` receipts; owner decision 2026-10-12, migration 180) |
 | `serving_propensity` | Nullable. Null for `learner_pick` until Q9 |
 | `scheduler_candidate_id` | Nullable link to the offer receipts |
 

@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 179
+schema_head: 180
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -117,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -126,7 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/source_retrieval/b4.py`
-- `src/learnloop/source_retrieval/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "facet_outcome_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_outcome_observations"
   - "table facet_outcome_observations"
-schema_head: 179
+schema_head: 180
 table_name: "facet_outcome_observations"
 table_role: "derived"
 functionality_status: "active"
@@ -47,7 +47,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/167_learner_field_outcomes.sql`.
-- **Schema touched by:** `167_learner_field_outcomes.sql`.
+- **Schema touched by:** `167_learner_field_outcomes.sql`, `180_daily_plans.sql`.
 - **Rebuild owner:** `field_outcomes`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -105,6 +105,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_composition.py`
+- `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_rebuild_orchestrator.py`
 
@@ -124,7 +126,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE facet_outcome_observations (
+CREATE TABLE "facet_outcome_observations" (
   attempt_id TEXT NOT NULL,
   facet_id TEXT NOT NULL,
   practice_item_id TEXT NOT NULL,
@@ -138,7 +140,7 @@ CREATE TABLE facet_outcome_observations (
   assisted INTEGER NOT NULL CHECK (assisted IN (0,1)),
   primed INTEGER NOT NULL CHECK (primed IN (0,1)),
   surface_group_id TEXT,
-  serving_origin TEXT NOT NULL CHECK (serving_origin IN ('learner_pick','system_probe','forced_followup','requested','unknown')),
+  serving_origin TEXT NOT NULL CHECK (serving_origin IN ('learner_pick','system_probe','forced_followup','requested','daily_plan','unknown')),
   serving_propensity REAL CHECK (serving_propensity IS NULL OR serving_propensity BETWEEN 0 AND 1),
   scheduler_candidate_id TEXT,
   PRIMARY KEY (attempt_id, facet_id)

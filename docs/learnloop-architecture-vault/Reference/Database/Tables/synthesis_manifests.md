@@ -3,13 +3,13 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
   - "table synthesis_manifests"
-schema_head: 179
+schema_head: 180
 table_name: "synthesis_manifests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
+  - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -105,6 +106,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 
 ### Direct SQL writers
@@ -124,6 +126,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_reading.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_migrations.py`

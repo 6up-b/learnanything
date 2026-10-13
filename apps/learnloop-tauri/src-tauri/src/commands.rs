@@ -929,6 +929,23 @@ sidecar_passthrough!(get_placement_state, "get_placement_state");
 
 sidecar_passthrough!(start_quick_check, "start_quick_check");
 
+// Daily-loop DL1: the finite daily plan (spec_daily_loop_v1.md §6, §7).
+sidecar_passthrough!(get_daily_plan, "get_daily_plan");
+
+sidecar_passthrough!(set_plan_minutes, "set_plan_minutes");
+
+sidecar_passthrough!(next_plan_item, "next_plan_item");
+
+sidecar_passthrough!(plan_reading_ended, "plan_reading_ended");
+
+sidecar_passthrough!(plan_keep_going, "plan_keep_going");
+
+sidecar_passthrough!(plan_more_new, "plan_more_new");
+
+sidecar_passthrough!(plan_learner_pick, "plan_learner_pick");
+
+sidecar_passthrough!(get_today_headline, "get_today_headline");
+
 #[tauri::command]
 pub async fn get_calibration_session(
     calibration_session_id: String,

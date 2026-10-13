@@ -887,13 +887,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # gates it), so mvp-0.9 to mvp-0.12 serving is unchanged. Built as
     # mvp-0.11 and relabelled mvp-0.13 at its merge after Slice 2 T6, where
     # every snapshot was recomputed (defaults_fingerprint_for_version).
+    # Daily-loop DL1 adds [plan] (modelled defaults only, left out of the
+    # decision-only template), the kill switch and sizes of mvp-0.14's finite
+    # daily plan. It is dormant below mvp-0.14 (the algorithm version gates
+    # the plan), so mvp-0.9 to mvp-0.13 serving is unchanged. Built as
+    # mvp-0.12 and relabelled mvp-0.14 at its merge after the stuck prompt,
+    # where every snapshot was recomputed (defaults_fingerprint_for_version);
+    # they move only because the effective config gains the section.
     # Owner batch 2 (2026-10-12) adds recurrence.require_guard = false: the
     # mvp-0.12 upgrade's same-cause guard becomes advisory (true restores the
     # refusal). It only decides whether `learnloop upgrade` refuses; no
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "10655dd57161c7eba7e34f4ce5af35f5fe9bcae48504b03e2eda3b049a8bd331",
+    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -906,8 +913,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "8942ffa4e5b40f2472a8938b2573ce7b3dcfb7e05bfcfb83751ebf4ff6fd1e7d",
+    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -928,8 +936,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "d2e7d4e8d96f9f5f5d0982f5b66c779786a1bc62262be93fdf826b237c7f8644",
+    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -943,9 +952,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # only from the judge's and the diagnoser's verdicts on their own history.
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "e3ec4a9f76290ba9348e49437ad0bca4d679eb5c4a85999a0901a42382e8a457",
+    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -953,10 +963,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # diagnosed; an empty one scores 0 with no model call and no error tag
     # (owner decision 2026-10-12, no default change). Built as mvp-0.11
     # and relabelled at its merge. Existing vaults reach it by `learnloop
-    # upgrade` (default target) from mvp-0.12, or from mvp-0.9 to mvp-0.11
+    # upgrade --to mvp-0.13` from mvp-0.12, or from mvp-0.9 to mvp-0.11
     # through the chain (under mvp-0.12's guard). New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
+    # change).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "465401502c00e0da240db27c93d52fbf4e46a025a7f5b76375e86bcb6fd67a18",
+    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
+    # recurrence groups and stuck prompt plus the finite daily plan ([plan],
+    # modelled defaults only): the system-set split, load-based new-material
+    # admission, block-by-block choice through the §6.8 source/chooser seam,
+    # goal-optional re-entry and reading blocks. Kill switch plan.enabled.
+    # Built as mvp-0.12 and relabelled at its merge. Existing vaults reach it
+    # by `learnloop upgrade` (default target) from mvp-0.13, or from mvp-0.9
+    # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
+    # here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
 }
 
 

@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 179
+schema_head: 180
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
+  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/estimates.py"
+  - "src/learnloop/daily_plan/records.py"
+  - "src/learnloop/daily_plan_upgrade.py"
+  - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
@@ -34,7 +39,7 @@ tags:
 
 ## Why it exists
 
-Gives attention block a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `commitment_id`, `short_circuit_reason`, making the operational relationship explicit. ^table-purpose
+Gives attention block a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `commitment_id`, `daily_plan_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
 > One coherent 5-15 minute attention block (§4.1): commitment neighborhood + canonical action + subtype + budget + exit rules. A short-circuit (continuation / explicit learner choice / served administration) is logged as such.
@@ -46,7 +51,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -66,13 +71,22 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `short_circuit_reason` | `TEXT` | no | — | — | Stored value |
 | `content_hash` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `daily_plan_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/daily_plans\|daily_plans.id]] | Stored value |
+| `plan_ordinal` | `INTEGER` | no | — | — | Stored value |
+| `lane` | `TEXT` | no | — | — | Stored value |
+| `chosen_by` | `TEXT` | no | — | — | Stored value |
+| `decision_ref` | `TEXT` | no | — | — | Stored value |
+| `reading_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
-No SQLite foreign key is declared. Identifier-looking columns are application-validated soft references where applicable; this is common for YAML-owned entities and cross-generation compatibility seams.
+Declared SQLite foreign keys:
+
+- `daily_plan_id` → [[Reference/Database/Tables/daily_plans|`daily_plans.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
 
 Indexes and uniqueness:
 
+- `idx_attention_blocks_plan` on `daily_plan_id`, `plan_ordinal` (unique).
 - `idx_attention_blocks_session` on `session_id`, `created_at`.
 - `sqlite_autoindex_attention_blocks_1` on `id` (unique).
 
@@ -84,10 +98,12 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/daily_plan/estimates.py`
+- `src/learnloop/db/stores/daily_plans.py`
 
 ### Direct SQL writers
 
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Upstream callers of the repository access surface
@@ -99,7 +115,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_kill_switch.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_replay.py`
 - `tests/test_migrations.py`
+- `tests/test_mvp014_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -128,7 +148,7 @@ CREATE TABLE attention_blocks (
   short_circuit_reason TEXT,
   content_hash TEXT NOT NULL,
   created_at TEXT NOT NULL
-);
+, daily_plan_id TEXT REFERENCES daily_plans(id), plan_ordinal INTEGER, lane TEXT, chosen_by TEXT, decision_ref TEXT, reading_json TEXT);
 ```
 
 ## Related notes

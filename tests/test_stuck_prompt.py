@@ -1359,7 +1359,13 @@ def test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger(tmp_path):
         columns_before = [tuple(row) for row in connection.execute("PRAGMA table_info(reveal_events)")]
     assert len(rows_before) == len(main_kinds)
 
-    assert [migration.version for migration in apply_migrations(sqlite_path)] == [179]
+    from learnloop.db.migrate import discover_migrations
+
+    # 179, then whatever follows it at the head (DL1's 180 does not touch
+    # reveal_events).
+    assert [migration.version for migration in apply_migrations(sqlite_path)] == [
+        migration.version for migration in discover_migrations() if migration.version >= 179
+    ]
     with connect(sqlite_path) as connection:
         assert ledger(connection) == rows_before
         assert [tuple(row) for row in connection.execute("PRAGMA table_info(reveal_events)")] == columns_before

@@ -475,6 +475,30 @@ class VariantAuthoringContractPayload(WireModel):
     drops_checkpoints: list[str] = Field(default_factory=list)
 
 
+#: ``PracticeItem.expected_minutes``'s bounds (``vault/models.py``: > 0, <= 240).
+EXPECTED_MINUTES_MAX = 240.0
+
+
+def _lenient_expected_minutes(value: Any) -> float | None:
+    """A model's minutes estimate, kept inside the vault model's bounds (DL1 F8).
+
+    It is a planning label only, so an out-of-range value never rejects the
+    generated item it rides on: a non-number, zero, a negative or a non-finite
+    value is dropped (the estimator falls back to the mode median, then 3.0),
+    and anything above the ceiling is clamped to it.
+    """
+
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        minutes = float(value)
+    except (TypeError, ValueError):
+        return None
+    if minutes != minutes or minutes in (float("inf"), float("-inf")) or minutes <= 0.0:
+        return None
+    return min(minutes, EXPECTED_MINUTES_MAX)
+
+
 class PracticeItemPatchPayload(WireModel):
     id: str | None = None
     learning_object_id: str | None = None
@@ -504,6 +528,13 @@ class PracticeItemPatchPayload(WireModel):
     variant_contract: VariantAuthoringContractPayload | None = None
     difficulty: float | None = None
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    expected_minutes: Annotated[float | None, BeforeValidator(_lenient_expected_minutes)] = Field(
+        default=None,
+        description=(
+            "Estimated minutes to read the prompt and write the answer, not counting "
+            "feedback (daily-plan sizing only; never evidence)."
+        ),
+    )
     capability: Literal[
         "retrieval", "schema_interpretation", "procedure_execution", "method_selection", "coordination"
     ] | None = Field(
@@ -739,7 +770,7 @@ class AuthoringProposal(WireModel):
 
 AUTHORING_PROMPT_VERSION = "mvp-0.9-criterion-total-scoring"
 DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.5-diagnostic-authoring"
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.2-criterion-total-scoring"
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.3-expected-minutes"
 
 DIAGNOSTIC_AUTHORING_PROMPT = """\
 Author ONE diagnostic Practice Item that discriminates the target misconception \

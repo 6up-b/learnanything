@@ -27,6 +27,7 @@ from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.attempts.stuck import stuck_answer_summary
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.daily_plans import plan_served_origins
 from learnloop.db.stores.families import family_judge_models
 from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
@@ -73,7 +74,31 @@ def _hash(value: Any) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
-def _serving(connection, attempt):
+def _plan_served(plan_served, attempt, candidate_id):
+    """The plan's ``item_served`` receipt for this attempt, or None.
+
+    Owner decision 2026-10-12: an attempt the daily plan served is labelled
+    ``daily_plan`` (or ``learner_pick``, for a pick the plan served). The
+    receipt matches by the offer it was served with; an attempt without one
+    matches the latest receipt for its item in its own session served no
+    later than the attempt was made.
+    """
+    receipts = plan_served.get(attempt["practice_item_id"]) or ()
+    if candidate_id:
+        for receipt in receipts:
+            if receipt["scheduler_candidate_id"] == candidate_id:
+                return receipt
+    session_id = attempt.get("session_id")
+    if not session_id:
+        return None
+    matched = None
+    for receipt in receipts:
+        if receipt["session_id"] == session_id and receipt["served_at"] <= str(attempt["created_at"]):
+            matched = receipt
+    return matched
+
+
+def _serving(connection, attempt, plan_served=None):
     candidate_id = attempt.get("scheduler_candidate_id")
     intent = connection.execute(
         "SELECT * FROM submission_intents WHERE submission_id=? AND practice_item_id=?",
@@ -112,6 +137,14 @@ def _serving(connection, attempt):
         ).fetchone()
         if intent and offer and candidate_id in _json(offer[0], []):
             return "learner_pick", None, candidate_id
+    # Daily-loop DL1 (owner decision 2026-10-12): the plan serves block by
+    # block and publishes no offer list, so its own item_served receipt is the
+    # serving record. Its propensity is not a verified action probability.
+    if plan_served is None:
+        plan_served = plan_served_origins(connection)
+    receipt = _plan_served(plan_served, attempt, candidate_id)
+    if receipt is not None:
+        return receipt["serving_origin"], None, candidate_id
     # Current immutable receipts record an entry surface, not a request kind.
     # Neither free text nor mutable task state proves a direct request.
     return "unknown", None, candidate_id
@@ -308,6 +341,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
     prior_item_attempt: dict[str, str] = {}
     ungraded = Counter()
     unverified_attempts: set[str] = set()
+    plan_served = plan_served_origins(connection)
     for raw_attempt in connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"):
         attempt = dict(raw_attempt)
         if as_of is not None and attempt["created_at"] > as_of:
@@ -339,7 +373,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             if all(r["criterion_id"] in unverified for r in evidence):
                 ungraded[UNVERIFIED_CRITERION_BLOCK] += 1
                 continue
-        origin, propensity, candidate_id = _serving(connection, attempt)
+        origin, propensity, candidate_id = _serving(connection, attempt, plan_served=plan_served)
         item, rubric, digest, status = _revision(
             connection, vault, attempt, evidence, candidate_id, fallback,
         )

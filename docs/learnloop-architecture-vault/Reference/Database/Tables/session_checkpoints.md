@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 179
+schema_head: 180
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,9 +22,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
+  - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/placement/decisions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -84,6 +84,7 @@ Indexes and uniqueness:
 - `Repository.end_open_sessions_except()`
 - `Repository.fetch_session_checkpoint()`
 - `Repository.find_record()`
+- `Repository.most_recent_ended_at()`
 - `Repository.update_session_checkpoint()`
 
 ### Direct SQL readers
@@ -98,9 +99,12 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/item_authoring.py`
+- `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/placement/decisions.py`
+- `src/learnloop/scheduling/reentry_adapter.py`
+- `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`

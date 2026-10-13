@@ -34,6 +34,9 @@ import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from 
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
+import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
+import { PlanReadingBanner } from "../components/PlanReadingBanner";
+import type { PlanReadingDto, PlanStepDto } from "../api/dto";
 import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
 import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft";
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
@@ -81,6 +84,8 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
+  // Daily-loop DL1 (§6.10): the reader opened by a plan's reading block.
+  const [planReading, setPlanReading] = useState<{ reading: PlanReadingDto; estMinutes: number | null } | null>(null);
   const [openSource, setOpenSource] = useState<OpenSourceTarget | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddGuided, setQuickAddGuided] = useState(false);
@@ -88,6 +93,14 @@ export function App() {
   const [ingestGuideActive, setIngestGuideActive] = useState(false);
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
+  // Daily-loop DL1: while the finite plan serves (mvp-0.14, plan.enabled),
+  // feedback's Next follows it. Shares Today's cache entry.
+  const dailyPlanQuery = useDailyPlan(session?.sessionId ?? null, Boolean(session));
+  const planServing = dailyPlanQuery.data?.enabled === true && dailyPlanQuery.data.plan !== null;
+  // The plan banner belongs to the reading step that opened the reader.
+  useEffect(() => {
+    if (tab !== "reader") setPlanReading(null);
+  }, [tab]);
   const [practiceItemId, setPracticeItemId] = useState<string | null>(null);
   const [practiceOffer, setPracticeOffer] = useState<PracticeOffer | null>(null);
   // The current practice item is a primed retry (opened from the feedback
@@ -421,10 +434,27 @@ export function App() {
     [onError]
   );
 
-  function beginSession(next: SessionSnapshot) {
+  function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
     setTab("today");
+    // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
+    if (firstStep && !pendingRedo && !pendingPrimedItemId) {
+      const action = planStepAction(firstStep, { viaBlockLine: false });
+      if (action.type === "practice") {
+        setPracticeOffer({ itemId: action.practiceItemId, candidateId: action.schedulerCandidateId });
+        setPrimedRetry(false);
+        setRedoContext(null);
+        setPracticeItemId(action.practiceItemId);
+        setTodayStage("practice");
+        return;
+      }
+      if (action.type === "reader") {
+        setTodayStage("queue");
+        void openPlanReading(action.reading, firstStep.kind === "reading" ? firstStep.estMinutes : null);
+        return;
+      }
+    }
     if (pendingRedo) {
       // Resume the guided redo that was waiting on a session: its episode is
       // already committed to this item as the primed surface.
@@ -460,6 +490,39 @@ export function App() {
     setPracticeItemId(id);
     setTab("today");
     setTodayStage("practice");
+  }
+
+  // Daily-loop DL1 (§6.10): a reading step opens the reader at its section.
+  async function openPlanReading(reading: PlanReadingDto, estMinutes: number | null = null) {
+    try {
+      const library = await api.getSourceLibrary();
+      const target = readerTargetForReading(reading, library.sources);
+      if (!target) {
+        onError("The source for this reading block is no longer in the library.");
+        return;
+      }
+      setReaderSource(target);
+      setPlanReading({ reading, estMinutes });
+      setTab("reader");
+    } catch (error) {
+      onError(errorMessage(error, "Could not open the reader for today's plan."));
+    }
+  }
+
+  // Daily-loop DL1 (§6.5): where feedback's Next goes under the plan. An item
+  // inside the current block opens directly; a new block's line, a reading
+  // step or the done screen are shown by Today's plan view (continue on Enter).
+  function routePlanStep(step: PlanStepDto | null) {
+    const action = planStepAction(step);
+    if (action.type === "practice") {
+      openPractice(action.practiceItemId, action.schedulerCandidateId);
+      return;
+    }
+    if (action.type === "reader") {
+      void openPlanReading(action.reading, step && step.kind === "reading" ? step.estMinutes : null);
+      return;
+    }
+    setTodayStage("queue");
   }
 
   function openPrimedRetry(id: string) {
@@ -901,6 +964,8 @@ export function App() {
             // round returns to its own screen, which names the next target.
             nextQueue={session && !calibrationSessionId ? todayQueueInput(session) : null}
             onOpenNext={openPractice}
+            nextPlan={session && !calibrationSessionId && planServing ? { sessionId: session.sessionId } : null}
+            onPlanStep={routePlanStep}
             onNext={() => setTodayStage("queue")}
             onBack={() => setTodayStage("queue")}
             onOpenNotes={() => gotoTab("library")}
@@ -937,6 +1002,11 @@ export function App() {
             (snapshot.vault?.counts.learningObjects ?? 0) > 0 &&
             (snapshot.vault?.counts.practiceItems ?? 0) === 0
           }
+          onOpenPlanReading={(reading) => void openPlanReading(reading)}
+          onRequireSession={() => {
+            setTab("start");
+            setToast("Begin today's plan on Start first.");
+          }}
           onError={onError}
         />
       );
@@ -1025,6 +1095,24 @@ export function App() {
       );
     }
     if (tab === "reader") {
+      if (planReading) {
+        return (
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <PlanReadingBanner
+              reading={planReading.reading}
+              estMinutes={planReading.estMinutes}
+              sessionId={session?.sessionId ?? null}
+              onBack={() => {
+                setPlanReading(null);
+                setTab("today");
+                setTodayStage("queue");
+              }}
+              onError={onError}
+            />
+            <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />
+          </div>
+        );
+      }
       return <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
     }
     if (tab === "maintain") {

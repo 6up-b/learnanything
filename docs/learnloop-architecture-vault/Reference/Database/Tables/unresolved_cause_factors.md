@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 179
+schema_head: 180
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/034_assessment_contract_snapshots.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/history.py"
-  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_health.py"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 
@@ -154,10 +155,10 @@ Indexes and uniqueness:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_conjunctive_instruments.py`
+- `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_diagnosis_async_router.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_dialogue_causal_join.py`
-- `tests/test_durable_promotion_arms.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

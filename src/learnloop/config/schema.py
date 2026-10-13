@@ -1792,6 +1792,62 @@ class PlacementConfig(BaseModel):
     quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
 
 
+class PlanConfig(BaseModel):
+    """Daily-loop DL1: the finite daily plan (``spec_daily_loop_v1.md`` §6, §10).
+
+    Acts only on a vault at a daily-plan algorithm version (``mvp-0.14`` or a
+    later successor, ``DAILY_PLAN_VERSIONS``).
+    ``enabled`` is the kill switch: off restores mvp-0.13's Today (the open queue
+    with the re-entry cap) exactly. ``new_admission_enabled`` and
+    ``reading_blocks`` are narrower sub-switches; ``headline`` only hides the
+    optional Today headline (display).
+    """
+
+    enabled: bool = True
+    # §6.3: load-based new-material admission. Off admits no system-chosen new
+    # material at all (learner requests and scheduled checks still serve).
+    new_admission_enabled: bool = True
+    # §6.10: at most one reading block a day from an as_you_read source.
+    reading_blocks: bool = True
+    # D1: minutes on a fresh vault; afterwards the remembered budget.
+    default_minutes: int = Field(default=25, ge=1, le=600)
+    minutes_presets: list[int] = Field(default_factory=lambda: [10, 15, 25, 40, 60])
+    # D2: split caps (§6.2). repair + maintain < 1 leaves room for new and push.
+    repair_max_share: float = Field(default=0.30, ge=0.0, le=1.0)
+    maintain_max_share: float = Field(default=0.60, ge=0.0, le=1.0)
+    # D3: one "keep going" extension.
+    keep_going_minutes: int = Field(default=10, ge=1, le=120)
+    # §6.3 (Q11): projected review load over this horizon, against a ceiling.
+    load_horizon_days: int = Field(default=14, ge=1, le=90)
+    load_ceiling: float = Field(default=0.80, gt=0.0, le=1.0)
+    new_item_reviews_14d: int = Field(default=4, ge=0, le=30)
+    max_new_items_per_day: int = Field(default=10, ge=0, le=200)
+    min_new_items_per_day: int = Field(default=1, ge=0, le=200)
+    # §6.4 (Q12): own latencies are winsorized at this many minutes.
+    latency_cap_minutes: float = Field(default=15.0, gt=0.0, le=120.0)
+    # §6.4: a reading block's estimate is the section's words left / this.
+    read_words_per_minute: int = Field(default=120, ge=10, le=2000)
+    # §6.10: pre-questions arrive in DL4; DL1 never serves any.
+    pre_questions: int = Field(default=3, ge=0, le=10)
+    # D11: a re-entry plan's caps (§7).
+    reentry_minutes: int = Field(default=15, ge=1, le=120)
+    reentry_max_items: int = Field(default=8, ge=1, le=100)
+    # §6.9: due project probes in the maintain lane per day.
+    project_probes_max_per_day: int = Field(default=4, ge=0, le=50)
+    # D7: the optional one-line Today headline.
+    headline: bool = True
+
+    @model_validator(mode="after")
+    def _shares_leave_room(self) -> "PlanConfig":
+        if self.repair_max_share + self.maintain_max_share > 1.0:
+            raise ValueError("plan.repair_max_share + plan.maintain_max_share must not exceed 1.0")
+        if self.min_new_items_per_day > self.max_new_items_per_day:
+            raise ValueError("plan.min_new_items_per_day must not exceed plan.max_new_items_per_day")
+        if not self.minutes_presets or any(value <= 0 for value in self.minutes_presets):
+            raise ValueError("plan.minutes_presets must be positive minute values")
+        return self
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1825,6 +1881,7 @@ class LearnLoopConfig(BaseModel):
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
+    plan: PlanConfig = Field(default_factory=PlanConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

@@ -3,8 +3,8 @@ title: "Config - pf"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml pf"
@@ -29,11 +29,11 @@ source_paths:
   - "tests/test_contract_reachability.py"
   - "tests/test_coverage_denominator_boundary.py"
   - "tests/test_daily_loop_reader_authored_practice.py"
+  - "tests/test_daily_plan_build.py"
   - "tests/test_evsi.py"
   - "tests/test_failure_triage.py"
   - "tests/test_goal_frontier.py"
   - "tests/test_goal_projection.py"
-  - "tests/test_pf_cli.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/pf"
@@ -83,11 +83,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_contract_reachability.py`
 - `tests/test_coverage_denominator_boundary.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_plan_build.py`
 - `tests/test_evsi.py`
 - `tests/test_failure_triage.py`
 - `tests/test_goal_frontier.py`
 - `tests/test_goal_projection.py`
-- `tests/test_pf_cli.py`
 
 ## Extension and modification guidance
 

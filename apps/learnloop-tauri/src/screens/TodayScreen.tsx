@@ -33,6 +33,9 @@ import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
 import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
+import { DailyPlanView } from "./today/DailyPlanView";
+import { planStepAction, useDailyPlan } from "../app/dailyPlan";
+import type { DailyPlanDto, PlanReadingDto, TodayHeadlineDto } from "../api/dto";
 
 const HOTKEYS = "123456789abcdef";
 
@@ -140,6 +143,8 @@ export function TodayScreen({
   onDismissNoGoalBanner,
   onGotoReader,
   readerSeedingActive = false,
+  onOpenPlanReading,
+  onRequireSession,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -162,6 +167,10 @@ export function TodayScreen({
   /** True when the vault has a study map but zero practice items — the items-off
    * bootstrap state where practice accrues from reading. */
   readerSeedingActive?: boolean;
+  /** Daily-loop DL1: open the reader at a plan reading step's section (§6.10). */
+  onOpenPlanReading?: (reading: PlanReadingDto) => void;
+  /** Daily-loop DL1: the plan was asked to serve without a session. */
+  onRequireSession?: () => void;
   onError: (message: string) => void;
 }) {
   // The scheduler queue is cached by its inputs: returning to Today repaints
@@ -173,14 +182,33 @@ export function TodayScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [session?.sessionId, session?.availableMinutes, session?.energy]
   );
-  const queueQuery = useCachedQuery(["get_today_queue", queueInput], () => api.getTodayQueue(queueInput), {
-    tags: [TAG.queue]
-  });
+  // Daily-loop DL1 (spec §6.7): while the finite plan serves, Today is the
+  // plan, and the full list is one key away (`l`). The plan read answers
+  // `enabled: false` at once while the plan is off, and Today is then DL0's.
+  const planQuery = useDailyPlan(session?.sessionId ?? null);
+  const planData: DailyPlanDto | null = planQuery.data ?? null;
+  const planKnown = planQuery.data !== undefined || planQuery.error !== null;
+  const planEnabled = planData?.enabled === true && planData.plan !== null;
+  const [showFullList, setShowFullList] = useState(false);
+  const planView = planEnabled && !showFullList;
+  const headlineQuery = useCachedQuery<TodayHeadlineDto>(
+    planEnabled ? ["get_today_headline"] : null,
+    () => api.getTodayHeadline(),
+    { tags: [TAG.queue, TAG.graph] }
+  );
+  const [planBusy, setPlanBusy] = useState(false);
+  const [moreNewPreview, setMoreNewPreview] = useState<DailyPlanDto["preview"] | null>(null);
+  // The full list is read only when it is shown (or while the plan is off).
+  const queueQuery = useCachedQuery(
+    planKnown && !planView ? ["get_today_queue", queueInput] : null,
+    () => api.getTodayQueue(queueInput),
+    { tags: [TAG.queue] }
+  );
   // After "end session" the queue must not repaint for a dead session while
   // the shell navigates away.
   const [ended, setEnded] = useState(false);
   const queue: QueueSnapshot | null = ended ? null : queueQuery.data ?? null;
-  const queueLoading = !ended && queueQuery.loading;
+  const queueLoading = !ended && (queueQuery.loading || !planKnown);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [ending, setEnding] = useState(false);
@@ -474,10 +502,45 @@ export function TodayScreen({
     }
   }, [ending, onEndSession, onError, session]);
 
+  // Daily-loop DL1 (L3, §6.1): opening an item from the full list while the
+  // plan serves is a learner pick -- a one-item block that displaces the
+  // plan's tail -- served with the offer the learner picked it from (the full
+  // list's own, published when the list was shown). Off: DL0's open.
+  const openPractice = useCallback(
+    (practiceItemId: string, schedulerCandidateId?: string | null) => {
+      if (!planEnabled) {
+        onOpenPractice(practiceItemId, schedulerCandidateId);
+        return;
+      }
+      if (!session) {
+        onRequireSession?.();
+        return;
+      }
+      api
+        .planLearnerPick(practiceItemId, session.sessionId, schedulerCandidateId ?? null)
+        .then((result) => {
+          const step = result.step;
+          onOpenPractice(
+            practiceItemId,
+            step && step.kind === "item" ? step.schedulerCandidateId ?? schedulerCandidateId ?? null : schedulerCandidateId ?? null
+          );
+        })
+        .catch((error) => onError((error as Error).message));
+    },
+    [onError, onOpenPractice, onRequireSession, planEnabled, session]
+  );
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      // The plan view owns the keys while it is shown; `p` returns to it from the list.
+      if (planView) return;
+      if (planEnabled && event.key === "p") {
+        setShowFullList(false);
+        event.preventDefault();
+        return;
+      }
       const index = focusedItem ? flatIds.indexOf(focusedItem.practiceItemId) : -1;
       if (["j", "ArrowDown"].includes(event.key)) {
         setFocusedId(flatIds[Math.min(flatIds.length - 1, index + 1)] ?? null);
@@ -486,13 +549,13 @@ export function TodayScreen({
         setFocusedId(flatIds[Math.max(0, index - 1)] ?? null);
         event.preventDefault();
       } else if (["Enter", "l", "ArrowRight"].includes(event.key) && focusedItem) {
-        if (!queueRefreshing) onOpenPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId);
+        if (!queueRefreshing) openPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId);
         event.preventDefault();
       } else if (/^[1-9]$/.test(event.key)) {
         const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1];
         if (target) {
           setFocusedId(target);
-          onOpenPractice(target, items.find((item) => item.practiceItemId === target)?.schedulerCandidateId);
+          openPractice(target, items.find((item) => item.practiceItemId === target)?.schedulerCandidateId);
           event.preventDefault();
         }
       } else if (event.key.toLowerCase() === "e") {
@@ -508,7 +571,7 @@ export function TodayScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finishSession, flatIds, focusedItem, items, onOpenPractice, queueRefreshing]);
+  }, [finishSession, flatIds, focusedItem, items, openPractice, planEnabled, planView, queueRefreshing]);
 
   // Force a fresh scheduler pass (shares a request already in flight). The
   // `force` option is kept for call-site compatibility; the cache handles the
@@ -537,7 +600,81 @@ export function TodayScreen({
       return;
     }
     setFocusedId(target.practiceItemId);
-    onOpenPractice(target.practiceItemId, target.schedulerCandidateId);
+    openPractice(target.practiceItemId, target.schedulerCandidateId);
+  }
+
+  // ── Daily-loop DL1: the plan's actions ────────────────────────────────────
+  async function runPlan<T>(work: () => Promise<T>): Promise<T | null> {
+    if (planBusy) return null;
+    setPlanBusy(true);
+    try {
+      return await work();
+    } catch (error) {
+      onError((error as Error).message);
+      return null;
+    } finally {
+      setPlanBusy(false);
+    }
+  }
+
+  async function continuePlan() {
+    if (!session) {
+      onRequireSession?.();
+      return;
+    }
+    const result = await runPlan(() => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));
+    const action = planStepAction(result?.step, { viaBlockLine: false });
+    if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId);
+    else if (action.type === "reader") onOpenPlanReading?.(action.reading);
+  }
+
+  async function skipPlanItem(practiceItemId: string) {
+    await runPlan(() => api.nextPlanItem({ sessionId: session?.sessionId ?? null, skipPracticeItemId: practiceItemId }));
+  }
+
+  async function skipPlanReading() {
+    await runPlan(() => api.planReadingEnded("skipped", session?.sessionId ?? null));
+  }
+
+  async function setPlanMinutes(minutes: number) {
+    await runPlan(() => api.setPlanMinutes(minutes, session?.sessionId ?? null));
+  }
+
+  async function keepGoing() {
+    setMoreNewPreview(null);
+    await runPlan(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
+  }
+
+  async function moreNew(confirm: boolean) {
+    const result = await runPlan(() => api.planMoreNew({ sessionId: session?.sessionId ?? null, confirm }));
+    setMoreNewPreview(confirm ? null : result?.preview ?? null);
+  }
+
+  async function donePlan() {
+    await runPlan(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null, stop: true }));
+    void finishSession();
+  }
+
+  if (planView && planData) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <InboxStrip subjects={subjects} onAsk={onAsk} />
+        <DailyPlanView
+          data={planData}
+          headline={headlineQuery.data ?? null}
+          busy={planBusy}
+          onContinue={() => void continuePlan()}
+          onSetMinutes={(minutes) => void setPlanMinutes(minutes)}
+          onKeepGoing={() => void keepGoing()}
+          onDone={() => void donePlan()}
+          onMoreNew={(confirm) => void moreNew(confirm)}
+          moreNewPreview={moreNewPreview}
+          onShowList={() => setShowFullList(true)}
+          onSkip={(id) => void skipPlanItem(id)}
+          onSkipReading={() => void skipPlanReading()}
+        />
+      </div>
+    );
   }
 
   if (queueLoading && !queue) {
@@ -553,7 +690,15 @@ export function TodayScreen({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <InboxStrip subjects={subjects} onAsk={onAsk} />
       {/* F7 welcome-back diff (§4.4): survival-first, BEFORE the hero. */}
-      {reentry ? <ReentryPanel summary={reentry} refreshers={reentryRefreshers(reentry, queue)} /> : null}
+      {reentry && !planEnabled ? <ReentryPanel summary={reentry} refreshers={reentryRefreshers(reentry, queue)} /> : null}
+      {planEnabled ? (
+        <div style={{ margin: "0 18px 8px", fontSize: 12, color: COLOR.textDim, fontFamily: FONT_MONO }}>
+          the full list · opening an item adds it to today's plan as your pick ·{" "}
+          <button type="button" onClick={() => setShowFullList(false)} style={{ ...stripActionStyle, color: COLOR.amberLink }}>
+            back to the plan (p)
+          </button>
+        </div>
+      ) : null}
 
       <TodayHero
         session={session}
@@ -646,7 +791,7 @@ export function TodayScreen({
               onDismiss={() => setBannerOpen(false)}
               onOpen={(id) => {
                 setFocusedId(id);
-                onOpenPractice(id, items.find((item) => item.practiceItemId === id)?.schedulerCandidateId);
+                openPractice(id, items.find((item) => item.practiceItemId === id)?.schedulerCandidateId);
               }}
               onInspect={onInspect}
             />
@@ -749,7 +894,7 @@ export function TodayScreen({
             sessionId={session?.sessionId ?? null}
             visitId={visitIdRef.current}
             producerVersion={algorithmVersion}
-            onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId)}
+            onPractice={() => focusedItem && openPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId)}
             onWriteCard={() => setWriteCardOpen(true)}
             onInspect={onInspect}
             onOpenFacet={setEvidenceFacetId}

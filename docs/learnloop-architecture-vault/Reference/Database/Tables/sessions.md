@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 179
+schema_head: 180
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,12 +24,11 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
+  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +105,8 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -116,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop/scheduling/session_minutes.py`
 - `src/learnloop_sidecar/context.py`
+- `src/learnloop_sidecar/handlers/daily_plan.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
@@ -131,6 +133,9 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reentry_break.py`
 - `tests/test_daily_loop_reentry_cap.py`
 - `tests/test_daily_loop_start_minutes.py`
+- `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_reentry.py`
+- `tests/test_daily_plan_review_regressions.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_init.py`
 - `tests/test_mobile_doctor.py`
@@ -142,9 +147,6 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_codex_attempt_flow.py`
-- `tests/test_collection_dataset.py`
-- `tests/test_diagnosis_async_router.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

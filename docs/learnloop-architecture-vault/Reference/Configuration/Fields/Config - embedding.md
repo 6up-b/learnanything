@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/ai/runtime.py"
   - "src/learnloop/content/synthesis/graph_nomination.py"
   - "src/learnloop_sidecar/handlers/item_text_neighbors.py"
+  - "tests/daily_plan_fakes.py"
   - "tests/decider_fakes.py"
   - "tests/diagnosis_fakes.py"
   - "tests/embedding_fakes.py"
@@ -36,7 +37,6 @@ source_paths:
   - "tests/recurrence_fakes.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/split_live_helpers.py"
-  - "tests/structured_ai.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/embedding"
@@ -62,7 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1628`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/runtime.py:107` |
 | `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1629`; `src/learnloop/ai/client.py:31`; `src/learnloop/content/synthesis/graph_nomination.py:360` |
 | `embedding.map_neighbors_enabled` | `true` | boolean | modeled default or validator seed | Display-only kill switch for the knowledge map: while true, an item whose current stem has a stored vector for the ranking model takes its four shown neighbours from item-text similarity; false keeps the facet/concept-graph neighbours. The ranking model is embedding.model once its stored vectors cover every current stem another stored model covers; until a replacement's backfill catches up, the previous model keeps ranking (Slice 2 §4). Reads stored vectors only (no calls) and never moves map coordinates or learner state. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1634`; `src/learnloop_sidecar/handlers/item_text_neighbors.py:88` |
-| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1819` |
+| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1875` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -71,6 +71,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/daily_plan_fakes.py`
 - `tests/decider_fakes.py`
 - `tests/diagnosis_fakes.py`
 - `tests/embedding_fakes.py`
@@ -82,7 +83,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/recurrence_fakes.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/split_live_helpers.py`
-- `tests/structured_ai.py`
 
 ## Extension and modification guidance
 

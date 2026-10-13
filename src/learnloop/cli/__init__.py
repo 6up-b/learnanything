@@ -32,6 +32,7 @@ from learnloop.cli.placement import placement_app
 from learnloop.cli.pf import pf_app
 from learnloop.cli.recurrence import recurrence_app
 from learnloop.cli.sources import sources_app
+from learnloop.cli.plan import plan_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(inbox_app, name="inbox")
@@ -65,6 +66,7 @@ app.add_typer(placement_app, name="placement")
 app.add_typer(pf_app, name="pf")
 app.add_typer(recurrence_app, name="recurrence")
 app.add_typer(sources_app, name="sources")
+app.add_typer(plan_app, name="plan")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

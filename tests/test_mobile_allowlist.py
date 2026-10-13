@@ -87,10 +87,34 @@ STUCK_PROMPT_RPCS = (
 )
 
 
+# Daily-loop DL1 (mvp-0.14): the finite plan. Mobile M2a will show the plan
+# through allowlisted plan RPCs; until then they are desktop-only, pinned by
+# name. DL1 also extends get_today_queue (no re-entry cap while the plan
+# serves) and reader.mark_section_progress (the reading block's progress),
+# pinned here too.
+DAILY_PLAN_RPCS = (
+    "get_daily_plan",
+    "set_plan_minutes",
+    "next_plan_item",
+    "plan_reading_ended",
+    "plan_keep_going",
+    "plan_more_new",
+    "plan_learner_pick",
+    "get_today_headline",
+)
+DAILY_PLAN_EXTENDED_RPCS = ("get_today_queue", "reader.mark_section_progress")
+
+
+def test_the_pinned_daily_plan_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.daily_plan import DAILY_PLAN_RPCS as registered
+
+    assert set(DAILY_PLAN_RPCS) == set(registered)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
-    + STUCK_PROMPT_RPCS,
+    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

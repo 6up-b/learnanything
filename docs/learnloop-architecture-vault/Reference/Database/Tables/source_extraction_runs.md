@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
+source_commit_timestamp: "2026-10-12T22:23:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 179
+schema_head: 180
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_authoring.py`
@@ -129,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/source_retrieval/b4.py`
 - `src/learnloop/source_retrieval/corpus.py`
-- `src/learnloop_sidecar/handlers/ingest.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_daily_plan_reading.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_sidecar_ingest_m3.py`
