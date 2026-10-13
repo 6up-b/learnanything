@@ -478,3 +478,97 @@ worktree's `fixtures-local/tmp`.
    gap:
    - phrase rubric criteria by the fact established, not the method;
    - build a gold-set case without a checkable answer.
+
+## Landing onto main
+
+Branch `merge/route-rules-onto-main`, from main `e8d261405` (the sources
+track mvp-0.18/0.19 with migrations 187-195, and facet locks with 196-197;
+head fixture `fixtures/migration_head_197`). A real `--no-ff` merge of
+`grading/route-check-in-grader` (`745641edc`, unchanged). No migration.
+
+### Relabel: mvp-0.18 becomes mvp-0.20
+
+Main already uses `mvp-0.18` (`SOURCE_REFERENCE_GATE_ALGORITHM_VERSION`, the
+answer-key gate) and `mvp-0.19` (`SOURCE_FIRST_NEEDS_ALGORITHM_VERSION`,
+source-first needs). The route rules are chained after them as **mvp-0.20**,
+so `LATEST_ALGORITHM_VERSION` is `mvp-0.20` and new vaults start there.
+
+- `ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.20"`, appended to `SUCCESSOR_CHAIN`
+  after the two sources tags; `ROUTE_RULES_VERSIONS = {mvp-0.20}`.
+- `route_rules_upgrade.upgrade_to_mvp020` accepts `mvp-0.19`, or `mvp-0.9` to
+  `mvp-0.18` through `sources_upgrade.upgrade_to_mvp019`. It passes the
+  chained notes through (`chained_notes = list(chained.notes or [])`), and a
+  refusal already named by an earlier step passes unprefixed (as in
+  `sources_upgrade`). T1's guard stays advisory; the refusal test sets
+  `config="[recurrence]\nrequire_guard = true"` and the vault stays at
+  `mvp-0.10`.
+- `learnloop upgrade --to mvp-0.20` is the default; `--to mvp-0.18` and
+  `--to mvp-0.19` still reach the sources tags.
+- The branch's `tests/test_mvp018_upgrade.py` collided with main's file of the
+  same name. It is now `tests/test_mvp020_upgrade.py`; main's file is kept.
+- Every route-rules mention of `mvp-0.18` in code, comments, tests, the
+  playbook note and the reference generator now says `mvp-0.20`. The sources
+  track's own `mvp-0.18` mentions are unchanged. §0-§9 above, and the Codex
+  review, describe the branch and keep its placeholder.
+
+### What the deletion means for main's sources tags
+
+mvp-0.17's kill switch defined "mvp-0.17 without the check". `mvp-0.18` and
+`mvp-0.19` inherited the check, so they now grade new answers in that state
+too, as `mvp-0.16` did. Their own semantics are unchanged: the answer-key gate
+and source-first needs. The version-gate tests say so:
+
+- `tests/test_mvp017_upgrade.py`: the route rules are off at `mvp-0.17` to
+  `mvp-0.19` and on at `mvp-0.20`;
+- `tests/test_mvp018_upgrade.py`: main's test pinned `proof_check_active` at
+  `mvp-0.17` to `mvp-0.19`, so it now pins `route_rules_active` false there;
+- `tests/test_route_rules_in_grader.py`: the kill-switch equivalence test
+  gains a `sources_predecessor` case, `mvp-0.19` graded exactly as `mvp-0.16`.
+
+### Composition
+
+- **Removed symbols.** Main's sources and facet-locks code never imported
+  `attempts.proof_check`, `PROOF_ROUTE_CHECK_VERSIONS`,
+  `ai.routing.proof_check`, the `proof_check` spend route or the checker
+  calibration identity. A grep of `src`, `tests`, `apps` and the reference
+  scripts finds no reader left. Every `learnloop` module imports.
+- **Removed test file.** Main edited `tests/test_proof_route_check.py` (version
+  literals and the head-fixture path), and the branch deleted it. It stays
+  deleted. Its migration-186 test lives on in
+  `tests/test_route_rules_in_grader.py`, now pointed at
+  `fixtures/migration_head_197`.
+- **Held-grade readers the sources merge added.** These read the hold only
+  through `learnloop.held_grades`, which the branch keeps (adding
+  `record_held_for_review`):
+  - `substrate/intervention_outcomes.py`;
+  - `instructional/valuation.recent_assisted_success`;
+  - `instructional/policy.attempt_window_open`.
+
+  A hold written by the own-route rule is excluded from them exactly as an
+  mvp-0.17 hold was. Only a docstring changed.
+- **`judgment_ledger`.** `own_route_rule` and the legacy `proof_route_check`
+  supersession read and supersede only their own task's current row
+  (`left_kind = 'attempt'`). The other writers use other tasks:
+  - facet locks: `facet_manual_authority`, with `facet_registry_saves`;
+  - sources: `attempt_reference_binding` (`left_kind = 'practice_attempt'`)
+    and the import's `same_target` pairs.
+
+  In a regrade's publication transaction, `bind_replacement_grade` (C3)
+  writes its row and the route verdict follows it. Neither reads the other's
+  task. `append_judgment` and the table are unchanged on main.
+- **Defaults.** All twelve `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9
+  to mvp-0.20) were recomputed with `defaults_fingerprint_for_version`, from
+  the composed defaults (the sources sections, the facet reword confirm,
+  minus `ai.routing.proof_check`). The template `.pyc` was deleted before and
+  after.
+- **Regenerated.**
+  - The CLI help snapshot: `attempt`, `upgrade`, `grading hardcases`.
+  - The DB/config reference: 317 table notes, 787 configuration leaves in 47
+    sections (main's 788, less the retired route). `db_validate_reference.py`
+    reports 0 errors.
+  - The hand-written counts in `Configuration.md` and `Database.md`.
+  - `Version Registry.md`, which was still at `mvp-0.17` and head 186 on main,
+    now reads `mvp-0.20` and 197.
+- **The replay fixture.** `fixtures/mvp017_route_check_replay` stays at
+  migration 186. A copy migrates forward to 197 on load, and its exact-replay
+  test passes on the composed code. Its README says so.
