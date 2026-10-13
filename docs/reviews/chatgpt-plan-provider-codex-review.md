@@ -178,3 +178,73 @@ worktree's `fixtures-local/tmp`:
    fallback, or fail the sign-in until the JWKS is reachable?
 3. **Logo asset** (stage open question 5) is still open: the button has the
    approved label and black format but no ChatGPT logo.
+
+## Re-review
+
+Review: Codex job `20261012-225130-sURMIT`, on `49b73fc6`. Verdict: REOPENED,
+with one new Low finding (F8). The reviewer confirmed F1 as fixed: sign-out
+shares `refresh.lock` with credential commits, clears the latest tokens and
+advances an epoch that rejects pending sign-ins. Its in-memory probes found
+that a concurrent refresh cannot restore a sign-in and a stale sign-in cannot
+commit. It raised nothing new on F2–F7.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Sign-out can be undone by an in-flight refresh | fixed (confirmed by the re-review) | `3e9c6a15` | tests listed in the first table |
+| F8 | Low | Aggregate budget rounding rejects a plan exactly at the cap | fixed | `91c82996` (fail-first test), `5cd0e284` (fix) | `test_chatgpt_plan_cli.py::test_latency_admits_a_metered_plan_exactly_at_the_shared_cap` |
+
+**F8 reproduction.** The test asks for three metered profiles with
+`--runs 1 --price-per-million 1000 --max-cost-usd 1.392`, which comes to
+$0.464 per call. It failed on `49b73fc6` in the way the reviewer described:
+the dry run exited 1 with `admissible: false`, because the float sum came to
+`1.3920000000000001` and was over `$1.392`. The shared `SpendBudget` adds up in
+decimal, so it would have admitted the same three calls.
+
+**F8 fix.** `learnloop ai latency` now works out the per-call dollar figure
+once, as `call_usd`, and every metered request reserves that same figure. The
+plan totals in `Decimal`: each row is `Decimal(str(call_usd)) * runs`, and the
+metered total is that times the number of metered providers. This matches how
+`SpendBudget` adds up the per-call reservations, so the plan admits exactly
+what execution admits. The regression test covers three cases:
+
+- the dry run is admissible, with `metered_estimated_usd == 1.392`;
+- the real run makes all three calls and charges `metered_charged_usd == 1.392`;
+- a cap one tenth of a cent lower (`1.391`) is still refused with
+  `over_budget` before any call.
+
+The `ai latency` help text did not change, so the CLI help snapshot still
+matches.
+
+**Owner-directed item.** The faster subscription path for short structured
+calls is the `chatgpt_plan` provider this stage builds: a direct Responses
+call on the owner's ChatGPT plan, with no Codex process spawned. This fix step
+needed no further work on it.
+
+### Spend and calls
+
+No real paid or live call was made. Nothing signed in, and nothing read a
+token store, `settings.env` or `~/.config/learnloop`. No request went to
+`auth.openai.com` or `api.openai.com`. The new test uses the existing fakes
+(metered probe clients and a per-test `LEARNLOOP_CONFIG_DIR`). Cost: $0.
+
+### Gate
+
+All runs were on `5cd0e284` with `TMPDIR` in the worktree's
+`fixtures-local/tmp`:
+
+- `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`: done.
+- `uv run lint-imports --no-cache`: **12 kept, 0 broken.**
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`:
+  **8340 passed** (46 warnings), 4 min 35 s. That is the previous 8339 plus the
+  F8 test.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **88 passed, 8252 deselected** (1 warning).
+- The frontend did not change in this fix step, so the npm gate was not rerun.
+  Its last result is in the first gate above: 124 tests passed.
+- The schema did not change (no migration), so the DB reference scripts were
+  not needed.
+
+The open questions above (pending-sign-in scope at sign-out, the ID-token
+signature fallback, the logo) are unchanged.
