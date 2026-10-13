@@ -3,8 +3,8 @@ title: "facet_registry_saves"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cc30ebb8283b078cced45cfad309beeb6940bc76"
-source_commit_timestamp: "2026-10-13T10:22:59-04:00"
+source_commit: "b59f5a1a88e2481769277ee7f9fc528968d2f5d2"
+source_commit_timestamp: "2026-10-13T11:32:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_registry_saves"
@@ -96,6 +96,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_facet_authority_rereview.py`
+- `tests/test_facet_reword_confirm.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
