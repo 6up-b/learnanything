@@ -9,6 +9,10 @@ refused for spend, failing) is the LLM asked, once, for the whole batch, as
 before: its verdict decides those links and is logged against the Decider's
 row of every link it judged, each a real pair for ``learnloop decider
 agreement``. Diagnosis-quality and planted-cause judgments stay with the LLM.
+
+A link the Decider already answered on the same prompt (a pass whose LLM
+fallback failed, judged again on the next run) reuses that ledgered answer,
+so it is never paid for twice (review F7).
 """
 
 from __future__ import annotations
@@ -52,7 +56,7 @@ def judge_links(
         decision = decide(
             root=vault.root, config=vault.config, repository=repository, task=LINK_TASK, state=prompt,
             question=link_question(label), left_kind="attempt", left_id=left_id,
-            right_kind="attempt", right_id=cited, spend=spend, admit=admit,
+            right_kind="attempt", right_id=cited, spend=spend, admit=admit, reuse=True,
         )
         decisions[label] = decision
         if decision.choice is not None:

@@ -448,6 +448,13 @@ def plan_review(
     if options.judge:
         calls["diagnosis_judge"] = targets * 4 + planted_cases
         tokens["diagnosis_judge"] = calls["diagnosis_judge"] * (8_000 + OUTPUT_ALLOWANCE["diagnosis_judge"])
+        if decider_enabled(vault.config, decider_links.LINK_TASK):
+            # mvp-0.20 (Tier 1, review F7): the Decider asks once per labelled
+            # link in each of a target's two link passes. The labels are known
+            # only after diagnosis, so each pass is allowed the history's error
+            # limit (the earlier failures a diagnosis sees); no output allowance.
+            calls[DECIDER_ROUTE] = targets * 2 * max(1, int(options.settings.history_error_limit))
+            tokens[DECIDER_ROUTE] = calls[DECIDER_ROUTE] * 8_000
     calls["diagnosis_generator"] = (planted_cases if options.generate_planted and options.planted_manifest is None else 0) + probe_grades
     tokens["diagnosis_generator"] = calls["diagnosis_generator"] * (3_000 + OUTPUT_ALLOWANCE["diagnosis_generator"])
     if "c" in options.arms:
@@ -579,6 +586,46 @@ def vault_content_hash(vault: LoadedVault) -> str:
     )
 
 
+#: The Decider's route in a review run: its pattern-link judgments at mvp-0.20 (Tier 1).
+DECIDER_ROUTE = "tier1_decider"
+
+
+def decider_route_profile(vault: LoadedVault) -> dict[str, Any] | None:
+    """The Decider's settings a run prices and binds, from config only; None when links stay with the LLM.
+
+    Review F7: the dry run's estimate, the run's admission and its resume
+    binding name the Decider's route like every other route the run calls.
+    """
+
+    if not decider_enabled(vault.config, decider_links.LINK_TASK):
+        return None
+    from learnloop.ai.providers.decider import resolved_decider_settings
+
+    name = provider_for_task(vault.config, DECIDER_ROUTE).provider_name  # type: ignore[arg-type]
+    profile = vault.config.ai.providers.get(name)
+    if profile is None or profile.type != "decider":
+        return {"provider": name or None, "provider_type": getattr(profile, "type", None), "model": None}
+    try:
+        settings = resolved_decider_settings(profile).as_dict()
+    except AIProviderUnavailable:
+        settings = {}
+    return {"provider": name, "provider_type": profile.type, "model": profile.model, **settings}
+
+
+def register_decider_route(spend: ReviewSpend, profile: Mapping[str, Any] | None) -> None:
+    """Price the Decider's route at its listed input price (no output allowance), as each request is."""
+
+    if profile is None:
+        return
+    from learnloop.ai.review_spend import RouteInfo
+
+    price = profile.get("price_per_million_input")
+    spend.routes[DECIDER_ROUTE] = RouteInfo(
+        DECIDER_ROUTE, profile.get("provider"), profile.get("model"), "metered",
+        float(price) if price is not None else None, "listed_input_price" if price is not None else "unknown", 0,
+    )
+
+
 def route_bindings(clients: ReviewClients, config: Any | None = None) -> dict[str, dict[str, Any] | None]:
     """Per review route, the settings that change what its requests produce.
 
@@ -611,7 +658,7 @@ def run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]:
     return {
         "vault_root": str(Path(vault.root).resolve()),
         "vault_content_hash": vault_content_hash(vault),
-        "routes": route_bindings(clients, vault.config),
+        "routes": {**route_bindings(clients, vault.config), DECIDER_ROUTE: decider_route_profile(vault)},
         "prompt_versions": prompt_versions(),
     }
 
@@ -1827,6 +1874,7 @@ def run_review(
     ):
         if client is not None:
             spend.register(route, client)
+    register_decider_route(spend, decider_route_profile(vault))
     resuming = (Path(run_dir) / RUN_FILE).exists()
     binding = run_binding(vault, clients)
     if resuming:

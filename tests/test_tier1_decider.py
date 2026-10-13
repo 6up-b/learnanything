@@ -686,3 +686,109 @@ def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_che
     # The up-front over-budget refusal still covers the LLM-only requests.
     over = run(loaded, Judge(), dry_run=True, judge_revision="2", caps=SpendCaps(max_total_tokens=1))
     assert over["status"] == "over_budget"
+
+
+def test_a_review_dry_run_plans_and_prices_the_deciders_link_calls(tmp_path):
+    """Review F7: at mvp-0.20 the Decider judges every labelled link; the dry run shows those calls."""
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+
+    from tests.helpers import set_algorithm_version
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    seed_history(paths)
+    set_algorithm_version(paths, "mvp-0.20")
+    result = CliRunner().invoke(app, ["diagnose", "run", "--vault", str(paths.root), "--dry-run", "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["calls"]["tier1_decider"] > 0
+    priced = payload["estimate"]["routes"]["tier1_decider"]
+    assert priced["billing"] == "metered" and priced["estimated_usd"] > 0
+    off = CliRunner().invoke(app, ["diagnose", "run", "--vault", str(paths.root), "--dry-run", "--json",
+                                   "--no-judge"])
+    assert not json.loads(off.output)["calls"].get("tier1_decider")
+
+
+def test_a_review_resume_refuses_a_changed_decider_profile(tmp_path, monkeypatch):
+    """Review F7: the run binds the Decider's route like every other route it calls."""
+
+    from learnloop import decider_judgments as tier1
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.offline_review.runner import ReviewClients, ReviewOptions, run_review
+    from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
+    from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import set_algorithm_version
+
+    monkeypatch.setattr(tier1, "client_for", lambda *a: FixedDecider({}))
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    seed_history(paths)
+    set_algorithm_version(paths, "mvp-0.20")
+    vault = load_vault(paths.root)
+    options = ReviewOptions(sample_size=3, arms=("b",), planted_per_shape=0, generate_planted=False, probes=False,
+                            judge=False, sweep=False, joint_repeat=False, repeat_subset=0)
+    caps = SpendCaps(max_calls=2000, max_candidates=500, max_total_tokens=10**8, max_estimated_usd=10.0)
+
+    def review():
+        client = ReviewFakeClient()
+        clients = ReviewClients(grading=client, diagnosis=client, judge=client, generator=client,
+                                embedding=FakeEmbeddingClient())
+        return run_review(vault, source_sqlite=paths.sqlite_path, run_dir=tmp_path / "run", options=options,
+                          clients=clients, caps=caps, explicit_options=())
+
+    assert review()["status"] == "complete"
+    vault.config.ai.providers["openrouter_decider"].model = "perplexity/another-decider"
+    refused = review()
+    assert refused["status"] == "incompatible_resume"
+    assert any("tier1_decider" in reason for reason in refused["reasons"])
+
+
+def test_links_the_decider_answered_are_never_paid_for_again_when_the_fallback_failed(tmp_path, monkeypatch):
+    """Review F7: a pass whose LLM fallback fails keeps the Decider's answers for the next run."""
+
+    from learnloop import decider_judgments as tier1
+    from learnloop.ai.review_spend import ReviewSpend
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.offline_review.decider_links import judge_links
+    from learnloop.diagnosis.offline_review.judge import LinkJudgment, LinkVerdict
+
+    config = _config()
+    vault = SimpleNamespace(root=tmp_path, config=config)
+    repo = Repository(tmp_path / "state.sqlite")
+
+    class PartlyFailing(FixedDecider):
+        def decide(self, state, questions, *, purpose):
+            if "L2" in next(iter(questions.values())).instructions and not self.recover:
+                self.calls.append((purpose, state))
+                raise RuntimeError("one link failed")
+            return super().decide(state, questions, purpose=purpose)
+
+    decider = PartlyFailing({"diagnosis_link_judgment": "different"})
+    decider.recover = False
+    monkeypatch.setattr(tier1, "client_for", lambda *a: decider)
+    labels = {"L1": "earlier-1", "L2": "earlier-2"}
+
+    def unavailable():
+        raise AIProviderUnavailable("no ready diagnosis_judge route")
+
+    with pytest.raises(AIProviderUnavailable):
+        judge_links(vault, repo, ReviewSpend(SpendCaps(), config=config), "prompt", labels, "now", unavailable,
+                    llm_model="fake/llm")
+    assert len(decider.calls) == 2
+    decider.recover = True
+    llm = []
+
+    def fallback():
+        llm.append(True)
+        return LinkJudgment(links=[LinkVerdict(label=label, verdict="same", reason="r") for label in labels])
+
+    result, producers = judge_links(vault, repo, ReviewSpend(SpendCaps(), config=config), "prompt", labels, "now",
+                                    fallback, llm_model="fake/llm")
+    # Only L2 is asked again; L1's paid answer is reused and the LLM is not needed.
+    assert len(decider.calls) == 3 and not llm
+    assert {row.label: row.verdict for row in result.links} == {"L1": "different", "L2": "different"}
+    assert producers["L1"][0] == producers["L2"][0] == "decider"

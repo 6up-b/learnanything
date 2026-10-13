@@ -172,7 +172,7 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
            ledger_task: str | None = None, question_name: str = "verdict",
            candidates: int = 0, pairs: int = 0, judgment_id: str | None = None,
            admit: Admit | None = None, rationale: Mapping[str, Any] | None = None,
-           route: str = ROUTE) -> Decision:
+           route: str = ROUTE, reuse: bool = False) -> Decision:
     """Ask the Decider one typed question; a disabled judgment returns ``status='disabled'`` unasked.
 
     ``ledger_task`` names the ledger task when it differs from the switch's
@@ -181,13 +181,20 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
     request instead of ``spend.request`` (a caller that records its own calls);
     ``rationale`` adds caller metadata to the row. ``route`` names the spend
     route of a caller that brings its own Decider (``client_factory``): the
-    learner-text gaps keep ``learner_gap_decider``.
+    learner-text gaps keep ``learner_gap_decider``. ``reuse``: an answer this
+    question already has on the ledger (the same task, entities and input
+    hash under :data:`VERSION`) is returned instead of asking again, so work a
+    caller could not finish is never paid for twice.
     """
 
     digest = input_hash or content_key({"state": state, "question": question.wire(), "task": task})
     decision = Decision(ledger_task or task, digest, left_kind, left_id or digest, right_kind, right_id)
     if not enabled(config, task):
         return decision
+    if reuse:
+        recorded = _recorded(repository, decision, question)
+        if recorded is not None:
+            return recorded
     try:
         client = (client_factory or (lambda: client_for(root, config)))()
         if client is None:
@@ -214,6 +221,32 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
         judgment_id=judgment_id if decision.status == "ok" else None,
     )
     return decision
+
+
+def _recorded(repository: Any, decision: Decision, question: ChoiceQuestion) -> Decision | None:
+    """The latest answer (an option, never a failure) already ledgered for ``decision``'s input."""
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT id, verdict, judge_model, rationale FROM judgment_ledger WHERE task = ? AND judge = 'decider' "
+            "AND prompt_version = ? AND input_hash = ? AND left_kind = ? AND left_id = ? "
+            "AND right_kind IS ? AND right_id IS ? ORDER BY created_at DESC, rowid DESC",
+            (decision.task, VERSION, decision.input_hash, decision.left_kind, decision.left_id,
+             decision.right_kind, decision.right_id),
+        ).fetchall()
+    for row in rows:
+        if str(row[1]) not in question.options:
+            continue
+        try:
+            detail = json.loads(row[3] or "{}")
+        except (TypeError, ValueError):
+            detail = {}
+        probabilities = detail.get("probabilities") if isinstance(detail, dict) else None
+        decision.status, decision.choice, decision.judgment_id = "ok", str(row[1]), str(row[0])
+        decision.model = str(row[2] or "unknown")
+        decision.probabilities = dict(probabilities) if isinstance(probabilities, dict) else {}
+        return decision
+    return None
 
 
 def _ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any],

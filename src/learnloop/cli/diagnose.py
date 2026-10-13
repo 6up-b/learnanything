@@ -172,10 +172,13 @@ def diagnose_run(
 
     from learnloop.db.repositories import Repository
     from learnloop.diagnosis.offline_review.runner import (
+        DECIDER_ROUTE,
         ReviewClients,
         ReviewOptions,
+        decider_route_profile,
         estimate_spend,
         plan_review,
+        register_decider_route,
         resolve_review_clients,
         route_profiles,
         run_review,
@@ -229,6 +232,10 @@ def diagnose_run(
                     route, provider=profile["provider"], model=profile["model"],
                     subscription=profile["subscription"], max_tokens=profile.get("max_tokens"),
                 )
+        decider = decider_route_profile(loaded)
+        register_decider_route(spend, decider)
+        if decider is not None:
+            profiles = {**profiles, DECIDER_ROUTE: decider}
         skip = unavailable_arms(
             embedding_ready=profiles["embedding"]["enabled"],
             workspace_ready=profiles["diagnosis"]["profile_type"] == "codex_sdk",
