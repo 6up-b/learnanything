@@ -32,80 +32,39 @@ import type {
   ReaderWatchPlanDto,
   ReaderArcDto,
   ReaderCoachLintDto,
-  ReaderExerciseImportResult,
   SourceLibraryCard,
 } from "../api/dto";
-import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, TermSelect } from "../components/term";
+import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { AffectTap, DispositionPicker, PrimaryButton, SecondaryButton } from "../components/goldenpath/shared";
+import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
-import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
+import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
 import { useBareAltClear } from "./reader/bareAlt";
+import { useReaderRequests } from "./reader/useReaderRequests";
+
+import { type ReaderExchange } from "./reader/ReaderAskBranches";
+import { AskRail } from "./reader/AskRail";
+import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import {
-  parseRequestError,
-  parseRequestResult,
-  useReaderRequests,
-} from "./reader/useReaderRequests";
-
-import { ReaderAskBranches, type ReaderExchange } from "./reader/ReaderAskBranches";
-
-const ANSWER_MODE_OPTIONS = [
-  { value: "answer_directly", label: "answer directly" },
-  { value: "help_me_reason", label: "help me reason" },
-  { value: "ask_me_first", label: "ask me first" },
-];
+  clip,
+  selectionNodes,
+  type AnnotationSegment,
+  type MarginAnnotation,
+  type ReaderSelection,
+} from "./reader/readerShared";
 
 const READER_MODE_OPTIONS = [
   { value: "skim", label: "skim quickly" },
   { value: "anchor", label: "read closely" },
   { value: "incremental", label: "mark for later" },
-];
-
-// The three visible primitives / nine presets (§5.2). Only the three commit presets
-// are P1 commit-class; Ask and Mark never create commitments (§15.2).
-// Naming: the "request" group runs in the BACKGROUND (demand-paged synthesis,
-// results land in this rail) — deliberately distinct from the ask tab, which
-// answers immediately about the selected span.
-const PALETTE: Array<{ group: string; presets: Array<{ preset: string; label: string }> }> = [
-  {
-    group: "Request · answered in background",
-    presets: [
-      { preset: "ask", label: "research this" },
-      { preset: "worked_example", label: "worked example" },
-      { preset: "alt_explanation", label: "explain differently" },
-      { preset: "why_matters", label: "why this matters" },
-    ],
-  },
-  {
-    group: "Remember later",
-    presets: [
-      { preset: "test_me_later", label: "test me later" },
-      { preset: "help_me_remember", label: "help me remember" },
-      { preset: "connect_it", label: "connect it" },
-    ],
-  },
-  {
-    group: "Mark",
-    presets: [
-      { preset: "mark_confusing", label: "mark confusing" },
-      { preset: "not_worth_remembering", label: "not worth remembering" },
-    ],
-  },
-];
-
-const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
-  { value: "too_easy", label: "too easy" },
-  { value: "too_intrusive", label: "bad moment" },
-  { value: "ask_me_differently", label: "ask differently" },
-  { value: "dont_bring_this_back", label: "don’t ask this again" },
-  { value: "i_dont_understand", label: "I don’t understand" },
 ];
 
 // Right-click tag menu: the five plain capture actions. Each is a pure local
@@ -121,31 +80,6 @@ const TAG_ACTIONS: Array<{ action: string; label: string }> = [
 ];
 
 const WHOLE_BLOCK_QUOTE = "(whole block)";
-
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-// The wire nodes for a selection: one per covered block (atomic-unit captures
-// also carry glyph context for backend disambiguation), falling back to the
-// single primary block for selections made outside the DOM capture path.
-export interface SelectionNode {
-  spanId: string;
-  quote: string;
-  prefix?: string;
-  suffix?: string;
-  /** Learner edited this quote (OCR fix) — the backend prefers it over the
-   *  extraction slice as the exercise surface. */
-  edited?: boolean;
-}
-
-function selectionNodes(sel: {
-  spanId: string;
-  quote: string;
-  nodes?: SelectionNode[];
-}): SelectionNode[] {
-  return sel.nodes && sel.nodes.length ? sel.nodes : [{ spanId: sel.spanId, quote: sel.quote }];
-}
 
 type ReaderRailTab = "guide" | "ask" | "notes";
 
@@ -163,21 +97,6 @@ const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfConte
 // "unknown" just means no health row was computed for this extraction — badging
 // it on every block reads as an error state; only suspect/failed warrant a pill.
 const BADGED_HEALTH = new Set(["suspect", "failed"]);
-
-interface AnnotationSegment {
-  spanId: string;
-  page: number | null;
-  bbox: number[] | null;
-}
-
-interface MarginAnnotation {
-  annotationId: string | null;
-  quote: string;
-  status: string | null;
-  learnerText: string;
-  kind: string;
-  segments: AnnotationSegment[];
-}
 
 /** A durably painted annotation region in the PDF surface (one per anchored
  *  segment with geometry). needs_reanchor annotations are never painted. */
@@ -242,14 +161,7 @@ export function ReaderScreen({
   // fragments, so in watch mode it almost always does). `nodes` carries one
   // per-block sub-quote per covered block, whether it came from a native
   // selection, a ctrl-marquee union, or a block sweep.
-  const [selection, setSelection] = useState<{
-    spanId: string;
-    quote: string;
-    nodes?: SelectionNode[];
-    /** Learner-edited combined passage (capture editor). The nodes keep
-     *  anchoring the original blocks; this overrides the exercise surface. */
-    editedText?: string;
-  } | null>(null);
+  const [selection, setSelection] = useState<ReaderSelection | null>(null);
   const [selectionActions, setSelectionActions] = useState<string[]>([]);
   // Capture editor: the learner can fix OCR mishaps in the captured text
   // before acting on it; edited nodes are flagged so the backend prefers the
@@ -313,13 +225,7 @@ export function ReaderScreen({
   // Exact-exercise slice: one background import job per "add exercise to
   // practice" click; the panel survives clearing the selection so the learner
   // can keep reading while it authors.
-  const [exerciseImport, setExerciseImport] = useState<{
-    batchId: string;
-    status: string;
-    quote: string;
-    result: ReaderExerciseImportResult | null;
-    error: string | null;
-  } | null>(null);
+  const [exerciseImport, setExerciseImport] = useState<ExerciseImportState | null>(null);
   // Across-source search on the library screen ("where did I read that?").
   const [librarySearch, setLibrarySearch] = useState("");
   // Enter asks for a deep search (meaning + rewritten question); typing resets it.
@@ -2297,859 +2203,138 @@ export function ReaderScreen({
             ) : null}
           </div>
 
-          <div style={{ display: railTab === "guide" ? "block" : "none" }}>
-            <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
-            {guidePlan?.goalContext ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10, background: COLOR.washCyan }}>
-                <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>YOUR PATH</Faint>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{guidePlan.goalContext.title}</span>
-                <Faint style={{ fontSize: 10 }}>
-                  Reading toward your active goal
-                </Faint>
-              </Card>
-            ) : null}
-            {currentGuideSection ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Pill color="slate">section</Pill>
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{currentGuideSection.label}</span>
-                </div>
-                <div style={{ height: 3, background: COLOR.border }}>
-                  <div style={{ height: "100%", width: `${currentSectionProgress * 100}%`, background: COLOR.cyan }} />
-                </div>
-                <Faint style={{ fontSize: 10 }}>
-                  {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
-                    ? currentGuideSection.question.placement === "auto_authored"
-                      ? "A quick check from this section is waiting below."
-                      : currentGuideSection.question.readingPhase === "before_section"
-                        ? "There’s an optional question before you begin this section."
-                        : currentGuideSection.question.readingPhase === "during_section"
-                          ? "There’s an optional question at this point in the section."
-                          : "You’re near the section break. Take a quick check or keep reading."
-                    : authoringSections.includes(currentGuideSection.id)
-                      ? "◐ writing a quick check for this section…"
-                      : currentSectionProgress >= 0.7
-                        ? "You’re near the section break. Keep going, or revisit a useful passage."
-                        : "Keep reading at your own pace."}
-                </Faint>
-              </Card>
-            ) : guideLoading ? (
-              <Faint style={{ fontSize: 12 }}>◐ connecting this source to your learning path…</Faint>
-            ) : guidePlan === null ? (
-              <Faint style={{ fontSize: 12 }}>No personalized guide is available for this source yet.</Faint>
-            ) : null}
+          <GuideRail
+            visible={railTab === "guide"}
+            extractionId={render.extractionId}
+            offline={offline}
+            guidePlan={guidePlan}
+            guideLoading={guideLoading}
+            currentGuideSection={currentGuideSection}
+            currentSectionProgress={currentSectionProgress}
+            currentQuestionOpen={currentQuestionOpen}
+            boundaryChecksAvailable={boundaryChecksAvailable}
+            authoringSections={authoringSections}
+            revealedSections={revealedSections}
+            completedSections={completedSections}
+            annotatedSpans={annotatedSpans}
+            openQuestionSections={openQuestionSections}
+            setDismissedSections={setDismissedSections}
+            jumpToSpan={jumpToSpan}
+            revealSection={revealSection}
+            completeSection={completeSection}
+            onError={onError}
+            boundaryBlock={boundaryBlock}
+            boundarySkipped={boundarySkipped}
+            setBoundarySkipped={setBoundarySkipped}
+            boundaryAnswered={boundaryAnswered}
+            setBoundaryAnswered={setBoundaryAnswered}
+            boundaryResponse={boundaryResponse}
+            setBoundaryResponse={setBoundaryResponse}
+            boundarySubmitted={boundarySubmitted}
+            setBoundarySubmitted={setBoundarySubmitted}
+            questionControl={questionControl}
+            sendQuestionControl={sendQuestionControl}
+            disposition={disposition}
+            chooseDisposition={chooseDisposition}
+          />
 
-            {(guidePlan?.sections.length ?? 0) > 1 ? (
-              <>
-                <SectionHeader>Contents</SectionHeader>
-                {/* The rail owns vertical scrolling. A nested Contents scroller
-                    traps wheel events at its edges in WebKitGTK/Tauri. */}
-                <div style={{ display: "flex", flexDirection: "column", marginBottom: 4 }}>
-                  {guidePlan!.sections.map((section, index) => {
-                    const currentIndex = guidePlan!.sections.findIndex((s) => s.id === currentGuideSection?.id);
-                    const state = index < currentIndex ? "read" : index === currentIndex ? "current" : "upcoming";
-                    const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·";
-                    return (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => jumpToSpan(section.startSpanId)}
-                        title={section.question ? `${section.label} · quick check available` : section.label}
-                        style={{
-                          display: "flex", alignItems: "baseline", gap: 8, textAlign: "left",
-                          border: 0, borderLeft: `3px solid ${state === "current" ? COLOR.amber : "transparent"}`,
-                          background: state === "current" ? COLOR.washAmber : "transparent",
-                          padding: "3px 8px", cursor: "pointer", fontFamily: FONT_MONO,
-                        }}
-                      >
-                        <span style={{ flexShrink: 0, fontSize: 10, color: state === "read" ? COLOR.green : state === "current" ? COLOR.amber : COLOR.textFaint }}>
-                          {glyph}
-                        </span>
-                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: state === "current" ? COLOR.text : COLOR.textDim }}>
-                          {section.label}
-                        </span>
-                        {section.question ? (
-                          <span style={{ flexShrink: 0, fontSize: 10, color: COLOR.purpleText }} aria-label="quick check available">?</span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null}
+          <NotesRail
+            visible={railTab === "notes"}
+            offline={offline}
+            busy={busy}
+            pdfSurfaceActive={pdfSurfaceActive}
+            activeSpan={activeSpan}
+            activeBlock={activeBlock}
+            selection={selection}
+            selectionActions={selectionActions}
+            editingCapture={editingCapture}
+            setEditingCapture={setEditingCapture}
+            clearSelection={clearSelection}
+            editCaptureText={editCaptureText}
+            resetCaptureText={resetCaptureText}
+            note={note}
+            setNote={setNote}
+            captureHighlight={captureHighlight}
+            invokePreset={invokePreset}
+            importExercise={importExercise}
+            exerciseImport={exerciseImport}
+            setExerciseImport={setExerciseImport}
+            exerciseImportActive={exerciseImportActive}
+            authoringOpen={authoringOpen}
+            setAuthoringOpen={setAuthoringOpen}
+            setAuthoringSpanId={setAuthoringSpanId}
+            authoringQuote={authoringQuote}
+            setAuthoringQuote={setAuthoringQuote}
+            authoredQuestion={authoredQuestion}
+            setAuthoredQuestion={setAuthoredQuestion}
+            authoredAnswer={authoredAnswer}
+            setAuthoredAnswer={setAuthoredAnswer}
+            authoredCardId={authoredCardId}
+            setAuthoredCardId={setAuthoredCardId}
+            authoredStatus={authoredStatus}
+            authoringBusy={authoringBusy}
+            saveOwnQuestion={saveOwnQuestion}
+            coach={coach}
+            setCoach={setCoach}
+            runCoach={runCoach}
+            requests={requests}
+            requestLoadError={requestLoadError}
+            refreshRequests={refreshRequests}
+            synthesizedObjects={synthesizedObjects}
+            openProposalIds={openProposalIds}
+            proposalCount={proposalCount}
+            expandedRequests={expandedRequests}
+            setExpandedRequests={setExpandedRequests}
+            retryRequest={retryRequest}
+            decideProposal={decideProposal}
+            jumpToSpan={jumpToSpan}
+            arc={arc}
+            pauseArc={pauseArc}
+            setArcPolicy={setArcPolicy}
+            annotations={annotations}
+            jumpToAnnotation={jumpToAnnotation}
+            reanchorAnnotation={reanchorAnnotation}
+            manualAnchorToSelection={manualAnchorToSelection}
+            reanchorNotes={reanchorNotes}
+            editingAnnotationId={editingAnnotationId}
+            setEditingAnnotationId={setEditingAnnotationId}
+            editingAnnotationText={editingAnnotationText}
+            setEditingAnnotationText={setEditingAnnotationText}
+            saveAnnotationEdit={saveAnnotationEdit}
+            deleteAnnotation={deleteAnnotation}
+          />
 
-            {currentGuideSection && revealedSections.includes(currentGuideSection.id) ? (
-              <>
-                <SectionHeader>Worth a second look</SectionHeader>
-                {currentGuideSection.suggestedPassages.length === 0 ? (
-                  <Faint style={{ fontSize: 11 }}>No missed passages were identified in this section.</Faint>
-                ) : currentGuideSection.suggestedPassages
-                    .filter((passage) => !annotatedSpans.has(passage.spanId))
-                    .map((passage) => (
-                      <Card key={passage.spanId} onClick={() => jumpToSpan(passage.spanId)} style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7, cursor: "pointer", background: COLOR.washPurple }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <Pill color={passage.learnerSignal === "recent_misunderstanding" ? "pink" : "purple"}>
-                            {passage.learnerSignal === "recent_misunderstanding" ? "repair" : "important"}
-                          </Pill>
-                          <Faint style={{ fontSize: 10 }}>{passage.learningObjectTitle}</Faint>
-                        </div>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>“{clip(passage.quote, 150)}”</span>
-                        <Faint style={{ fontSize: 10, lineHeight: 1.45 }}>{passage.reason}</Faint>
-                      </Card>
-                    ))}
-              </>
-            ) : null}
-
-            {boundaryChecksAvailable
-              ? openQuestionSections.map((section) =>
-                  section.question?.placement === "auto_authored" ? (
-                    <AuthoredQuestionCard
-                      key={section.id}
-                      section={section}
-                      onJump={jumpToSpan}
-                      onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                      onComplete={() => completeSection(section.id)}
-                      onError={onError}
-                    />
-                  ) : (
-                    <SectionQuestionCard
-                      key={section.id}
-                      section={section}
-                      extractionId={render.extractionId}
-                      onReveal={() => revealSection(section.id)}
-                      onJump={jumpToSpan}
-                      onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                      onComplete={() => completeSection(section.id)}
-                      onError={onError}
-                    />
-                  ),
-                )
-              : null}
-            {currentGuideSection && completedSections.includes(currentGuideSection.id) ? (
-              <Card style={{ marginTop: 10, background: COLOR.washGreen }}>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>✓ quick check complete — keep going.</span>
-              </Card>
-            ) : null}
-          </div>
-
-          <div style={{ display: railTab === "notes" ? "block" : "none" }}>
-          <SectionHeader style={{ marginTop: 0 }}>Capture</SectionHeader>
-          {selection ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Faint style={{ fontSize: 11 }}>
-                    selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : selection.spanId}
-                  </Faint>
-                  <button
-                    type="button"
-                    onClick={() => setEditingCapture((v) => !v)}
-                    style={{ marginLeft: "auto", border: 0, background: "transparent", color: editingCapture ? COLOR.amberLink : COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}
-                  >
-                    {editingCapture ? "done" : "edit"}
-                  </button>
-                  <button type="button" onClick={clearSelection} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
-                </div>
-                {editingCapture ? (
-                  // OCR-mishap repair: the whole selection edits as ONE
-                  // combined passage (block fragments joined in reading
-                  // order); the edited text becomes the practice surface while
-                  // the anchors stay on the source blocks.
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <textarea
-                      value={selection.editedText ?? selectionNodes(selection).map((n) => n.quote).join("\n\n")}
-                      onChange={(e) => editCaptureText(e.target.value)}
-                      autoFocus
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${selection.editedText != null ? COLOR.amberLink : COLOR.border}`, color: COLOR.text, padding: 6, minHeight: 110, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Faint style={{ fontSize: 10 }}>
-                        fix any OCR mishaps — the edited passage becomes the practice surface; anchors stay on the source blocks.
-                      </Faint>
-                      {selection.editedText != null ? (
-                        <button
-                          type="button"
-                          onClick={resetCaptureText}
-                          style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          reset
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : selection.editedText != null ? (
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                    “{clip(selection.editedText.replace(/\s+/g, " ").trim(), 360)}”
-                    <Faint style={{ fontSize: 10, color: COLOR.amberLink }}> (edited)</Faint>
-                  </span>
-                ) : selection.nodes && selection.nodes.length > 1 ? (
-                  // Per-block anchor preview: exactly what each capture will
-                  // ground to, so an over-wide sweep is visible before acting.
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    {selection.nodes.map((node, index) => (
-                      <span key={`${node.spanId}-${index}`} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
-                        <Faint style={{ fontSize: 10 }}>[{index + 1}]</Faint> “{clip(node.quote, 110)}”
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>“{clip(selection.quote, 360)}”</span>
-                )}
-                {selectionActions.length > 0 ? (
-                  <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ saved · choose another action or select another passage</Faint>
-                ) : null}
-              </Card>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="your note (optional)…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-              />
-              <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
-                {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
-              </PrimaryButton>
-              {!offline ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>EXERCISES</Faint>
-                  <PrimaryButton
-                    onClick={() => void importExercise()}
-                    disabled={busy || exerciseImportActive || selectionActions.includes("exercise_import")}
-                  >
-                    {selectionActions.includes("exercise_import") ? "exercise queued ✓" : "add exercise to practice"}
-                  </PrimaryButton>
-                  <Faint style={{ fontSize: 10 }}>
-                    the exercise text stays verbatim — AI completes the answer, rubric, hints, and depth.
-                  </Faint>
-                </div>
-              ) : null}
-              {PALETTE.map((grp) => (
-                <div key={grp.group} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>{grp.group.toUpperCase()}</Faint>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {grp.presets.map((p) => (
-                      <SecondaryButton key={p.preset} onClick={() => invokePreset(p.preset)} disabled={busy || selectionActions.includes(p.preset)}>
-                        {p.label}{selectionActions.includes(p.preset) ? " ✓" : ""}
-                      </SecondaryButton>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Faint style={{ fontSize: 12 }}>
-              {pdfSurfaceActive
-                ? "drag to select text like a browser · hold ctrl and drag one or more boxes, release ctrl to capture their union (best for exercises) · alt+drag to sweep whole blocks · right-click to tag."
-                : "select text to capture it · hold ctrl and drag one or more boxes, release ctrl to capture their union."}
-            </Faint>
-          )}
-
-          {exerciseImport ? (
-            <>
-              <SectionHeader>Exercise import</SectionHeader>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {exerciseImportActive ? (
-                  <Faint style={{ fontSize: 11 }}>
-                    ◐ authoring practice from “{clip(exerciseImport.quote, 90)}” — keep reading, the cards land here.
-                  </Faint>
-                ) : exerciseImport.status === "completed" && exerciseImport.result ? (
-                  <>
-                    {exerciseImport.result.items.map((item) => (
-                      <div key={item.practiceItemId} style={{ display: "flex", flexDirection: "column", gap: 3, borderBottom: `1px solid ${COLOR.border}`, paddingBottom: 6 }}>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
-                          ✓ {item.title || clip(item.prompt, 80)}
-                        </span>
-                        <Faint style={{ fontSize: 10 }}>→ {item.learningObjectTitle}</Faint>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {item.capability ? (
-                            <Pill color="purple">{item.capability.replace(/_/g, " ")}</Pill>
-                          ) : (
-                            <Pill color="slate">depth unclassified</Pill>
-                          )}
-                          {typeof item.taskFeatures.span === "string" ? (
-                            <Pill color="cyan">{String(item.taskFeatures.span).replace(/_/g, " ")}</Pill>
-                          ) : null}
-                          {item.difficulty != null ? (
-                            <Pill color="amber">difficulty {Math.round(item.difficulty * 100) / 100}</Pill>
-                          ) : null}
-                        </div>
-                        <Faint style={{ fontSize: 10 }}>
-                          verbatim from the source · {item.evidenceFacets.length} facet{item.evidenceFacets.length === 1 ? "" : "s"} · {item.hintCount} hint{item.hintCount === 1 ? "" : "s"} · scheduled as practice
-                        </Faint>
-                        {item.classificationReason ? (
-                          <Faint style={{ fontSize: 10 }}>{item.classificationReason}</Faint>
-                        ) : null}
-                      </div>
-                    ))}
-                    {exerciseImport.result.skipped.map((skip, index) => (
-                      <Faint key={index} style={{ fontSize: 10 }}>
-                        skipped{skip.title ? ` ${skip.title}` : ""}: {skip.reason}
-                      </Faint>
-                    ))}
-                    {exerciseImport.result.warnings.slice(0, 4).map((warning, index) => (
-                      <Faint key={index} style={{ fontSize: 10, color: COLOR.amberLink }}>⚠ {warning}</Faint>
-                    ))}
-                  </>
-                ) : (
-                  <Faint style={{ fontSize: 11, color: COLOR.red }}>
-                    ✗ {exerciseImport.error || "the exercise import did not complete."}
-                  </Faint>
-                )}
-                {!exerciseImportActive ? (
-                  <button
-                    type="button"
-                    onClick={() => setExerciseImport(null)}
-                    style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    dismiss
-                  </button>
-                ) : null}
-              </Card>
-            </>
-          ) : null}
-
-          {(selection || activeSpan || authoringOpen) ? (
-            <>
-              <SectionHeader>Make your own practice</SectionHeader>
-              {!authoringOpen ? (
-                <SecondaryButton onClick={() => {
-                  const spanId = selection?.spanId ?? activeSpan;
-                  setAuthoringSpanId(spanId);
-                  setAuthoringQuote(selection?.quote ?? activeBlock?.markdown.replace(/\s+/g, " ") ?? "");
-                  setAuthoringOpen(true);
-                  setAuthoredCardId(null);
-                  setCoach(null);
-                }}>
-                  write my own question
-                </SecondaryButton>
-              ) : (
-                <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
-                  {authoringQuote ? (
-                    <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
-                  ) : null}
-                  <textarea
-                    value={authoredQuestion}
-                    disabled={authoredCardId !== null}
-                    onChange={(event) => setAuthoredQuestion(event.target.value)}
-                    placeholder="Write a question future-you should answer…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
-                  />
-                  <textarea
-                    value={authoredAnswer}
-                    disabled={authoredCardId !== null}
-                    onChange={(event) => setAuthoredAnswer(event.target.value)}
-                    placeholder="Write the answer in your own words…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
-                  />
-                  {authoredQuestion.trim() || authoredAnswer.trim() ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
-                      <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
-                      {authoredQuestion.trim() ? (
-                        <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                          <MarkdownMath value={authoredQuestion} />
-                        </div>
-                      ) : null}
-                      {authoredAnswer.trim() ? (
-                        <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
-                          <MarkdownMath value={authoredAnswer} />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {authoredCardId ? (
-                    <>
-                      <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
-                        {authoredQuestionMessage(authoredStatus).text}
-                      </Faint>
-                      {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
-                      {coach ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {coach.suggestions.length === 0 ? (
-                            <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
-                          ) : coach.suggestions.map((suggestion, index) => (
-                            <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
-                          ))}
-                          {coach.suggestions.length > 0 ? (
-                            <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthoredQuestion("");
-                          setAuthoredAnswer("");
-                          setAuthoredCardId(null);
-                          setCoach(null);
-                        }}
-                        style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                      >
-                        write another
-                      </button>
-                    </>
-                  ) : (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
-                        save for practice
-                      </PrimaryButton>
-                      <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
-                    </div>
-                  )}
-                </Card>
-              )}
-            </>
-          ) : null}
-
-          {requestLoadError ? (
-            <Card status="error" style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
-                Some Reader request data is unavailable.
-              </div>
-              <Faint style={{ fontSize: 10 }}>{requestLoadError}</Faint>
-              <button
-                type="button"
-                onClick={() => void refreshRequests()}
-                style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-              >
-                retry request data
-              </button>
-            </Card>
-          ) : null}
-
-          {requests.length > 0 ? (
-            <>
-              <SectionHeader>Your requests</SectionHeader>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {requests.map((request) => {
-                  const { sourceObjectId, proposalId } = parseRequestResult(request.resultJson);
-                  const requestError = parseRequestError(request.errorJson);
-                  const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined;
-                  const expanded = expandedRequests.has(request.id);
-                  const proposalOpen = proposalId !== null && openProposalIds.has(proposalId);
-                  return (
-                    <Card
-                      key={request.id}
-                      status={request.status === "complete" ? "done" : request.status === "failed" ? "error" : "running"}
-                      style={{ display: "flex", flexDirection: "column", gap: 6 }}
-                    >
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <Pill color={request.status === "complete" ? "green" : request.status === "failed" ? "pink" : request.status === "partial" ? "amber" : "slate"}>
-                          {request.status === "complete" ? "ready" : request.status === "failed" ? "needs retry" : "working"}
-                        </Pill>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                          {request.preset.replace(/_/g, " ")}
-                        </span>
-                        {request.status === "complete" && result ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedRequests((ids) => {
-                                const next = new Set(ids);
-                                if (next.has(request.id)) next.delete(request.id);
-                                else next.add(request.id);
-                                return next;
-                              })
-                            }
-                            style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                          >
-                            {expanded ? "▾ hide" : "▸ view result"}
-                          </button>
-                        ) : request.status === "failed" ? (
-                          <button
-                            type="button"
-                            onClick={() => void retryRequest(request.id)}
-                            style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                          >
-                            retry
-                          </button>
-                        ) : null}
-                      </div>
-                      {request.status === "failed" && requestError ? (
-                        <Faint style={{ fontSize: 10, color: COLOR.red }}>{requestError}</Faint>
-                      ) : null}
-                      {expanded && result ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {result.contentMd ? (
-                            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-                              <MarkdownMath value={result.contentMd} />
-                            </div>
-                          ) : (
-                            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(result.exactText, 260)}”</span>
-                          )}
-                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                            {result.spanId ? (
-                              <button
-                                type="button"
-                                onClick={() => jumpToSpan(result.spanId!)}
-                                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                              >
-                                show the passage
-                              </button>
-                            ) : null}
-                            {proposalOpen && proposalId ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => void decideProposal(proposalId, "accept")}
-                                  disabled={busy}
-                                  style={{ border: 0, background: "transparent", color: COLOR.green, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                                >
-                                  keep it
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void decideProposal(proposalId, "reject")}
-                                  disabled={busy}
-                                  style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                                >
-                                  dismiss
-                                </button>
-                              </>
-                            ) : proposalId ? (
-                              <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ reviewed</Faint>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
-                    </Card>
-                  );
-                })}
-                {proposalCount > 0 ? <Faint style={{ fontSize: 10 }}>{proposalCount} idea{proposalCount === 1 ? " is" : "s are"} awaiting your review above.</Faint> : null}
-              </div>
-            </>
-          ) : null}
-
-          {arc ? (
-            <>
-              <SectionHeader>You’ll see this again</SectionHeader>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                  {arc.paused
-                    ? "Paused. This passage will stay saved until you resume."
-                    : "Saved. LearnLoop will bring this idea back as short practice and adjust only from your answers."}
-                </span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <SecondaryButton onClick={pauseArc} disabled={arc.paused}>pause reminders</SecondaryButton>
-                  <SecondaryButton onClick={() => setArcPolicy("hold_at_target")}>keep it at this level</SecondaryButton>
-                  <SecondaryButton onClick={() => setArcPolicy("suggest_next")}>deepen when I’m ready</SecondaryButton>
-                </div>
-              </Card>
-            </>
-          ) : null}
-
-          <SectionHeader>Annotations</SectionHeader>
-          {annotations.length === 0 ? (
-            <Faint style={{ fontSize: 12 }}>no annotations yet.</Faint>
-          ) : (
-            annotations.map((a, i) => (
-              <Card
-                key={a.annotationId ?? i}
-                onClick={() => jumpToAnnotation(a)}
-                style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
-              >
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <Pill color="cyan">{a.kind}</Pill>
-                  {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
-                </div>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span>
-                {a.status === "needs_reanchor" && a.annotationId && !offline ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => void reanchorAnnotation(a.annotationId!)}
-                        disabled={busy}
-                        style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                      >
-                        re-anchor to this version
-                      </button>
-                      {selection ? (
-                        <button
-                          type="button"
-                          onClick={() => void manualAnchorToSelection(a.annotationId!)}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          anchor to selection
-                        </button>
-                      ) : null}
-                    </div>
-                    {reanchorNotes[a.annotationId] ? (
-                      <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
-                    ) : null}
-                  </div>
-                ) : null}
-                {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                    <textarea
-                      autoFocus
-                      value={editingAnnotationText}
-                      onChange={(e) => setEditingAnnotationText(e.target.value)}
-                      placeholder="your note…"
-                      onKeyDown={(e) => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
-                        if (e.key === "Escape") setEditingAnnotationId(null);
-                      }}
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
-                    {a.annotationId && !offline ? (
-                      <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAnnotationId(a.annotationId);
-                            setEditingAnnotationText(a.learnerText);
-                          }}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          {a.learnerText ? "edit note" : "add note"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteAnnotation(a.annotationId!)}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          delete
-                        </button>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </Card>
-            ))
-          )}
-          </div>
-
-          {/* The boundary question below is fixture content (its text is authored for
-              the demo chapter) — it renders only in the offline demo, never over a
-              real source it does not belong to. */}
-          <div style={{ display: railTab === "guide" ? "block" : "none" }}>
-          {offline && boundaryBlock ? (
-            <>
-              <SectionHeader>Quick check</SectionHeader>
-              <Card status="probe" style={{ background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
-                <Faint style={{ fontSize: 11 }}>optional · not a test</Faint>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                  Before executing: which decomposition reads off the variance here, and why?
-                </span>
-                {boundarySkipped ? (
-                  <Faint style={{ fontSize: 11 }}>Skipped. Keep reading.</Faint>
-                ) : !boundaryAnswered ? (
-                  <>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => setBoundaryAnswered(true)}>respond ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => { setBoundarySkipped(true); void sendQuestionControl("skip"); }}>skip</SecondaryButton>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {QUESTION_CONTROLS.map((option) => (
-                        <SecondaryButton key={option.value} onClick={() => sendQuestionControl(option.value)}>{option.label}</SecondaryButton>
-                      ))}
-                    </div>
-                    {questionControl === "i_dont_understand" ? (
-                      <Faint style={{ fontSize: 11 }}>Let’s return to the passage that supports this question.</Faint>
-                    ) : questionControl ? (
-                      <Faint style={{ fontSize: 11 }}>Got it. This changes how quick checks appear for you.</Faint>
-                    ) : null}
-                  </>
-                ) : !boundarySubmitted ? (
-                  <>
-                    <textarea
-                      autoFocus
-                      value={boundaryResponse}
-                      onChange={(event) => setBoundaryResponse(event.target.value)}
-                      placeholder="Answer in your own words…"
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 76, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => setBoundarySubmitted(true)} disabled={!boundaryResponse.trim()}>record answer ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => setBoundaryAnswered(false)}>back</SecondaryButton>
-                    </div>
-                  </>
-                ) : (
-                  <DispositionPicker value={disposition} onChoose={chooseDisposition} />
-                )}
-              </Card>
-            </>
-          ) : null}
-          </div>
-
-          <div style={{ display: railTab === "ask" ? "block" : "none" }}>
-          <SectionHeader style={{ marginTop: 0 }}>Ask</SectionHeader>
-          <Faint style={{ fontSize: 10, display: "block", margin: "2px 0 8px" }}>
-            answers now, grounded in the selected passage · background requests live under notes
-          </Faint>
-          {!enabled ? (
-            <Card style={{ borderStyle: "dashed", display: "flex", flexDirection: "column", gap: 6 }}>
-              <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
-                the reader Ask is disabled in this vault's config (on by default for new vaults). Set <Dim>tutor_qa.reader_enabled = true</Dim> to ask span-grounded questions.
-              </Faint>
-            </Card>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {(inquiry && parentExchange) || activeSpan ? (
-                <>
-                  {/* The Ask grounding is the SAME selection Capture uses —
-                      the learner never targets extraction blocks directly. */}
-                  {inquiry && parentExchange ? (
-                    <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <Faint>FOLLOW-UP TO: {clip(parentExchange.question, 120)}</Faint>
-                      <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
-                      <SecondaryButton onClick={() => jumpToSpan(parentExchange.spanId)}>show inherited passage</SecondaryButton>
-                      <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
-                    </Card>
-                  ) : selection ? (
-                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
-                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT YOUR SELECTION</Faint>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                        <MarkdownMath value={clip((selection.editedText ?? selection.quote).replace(/\s+/g, " ").trim(), 300)} />
-                      </div>
-                    </Card>
-                  ) : activeBlock ? (
-                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
-                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                        <MarkdownMath value={clip(activeBlock.markdown.replace(/\s+/g, " "), 150)} />
-                      </div>
-                    </Card>
-                  ) : null}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Faint style={{ fontSize: 11 }}>mode</Faint>
-                    <TermSelect
-                      value={answerMode}
-                      options={ANSWER_MODE_OPTIONS}
-                      onChange={changeAnswerMode}
-                      width={160}
-                    />
-                  </div>
-                  <textarea
-                    key={`${activeSpan}:${askComposerVersion}`}
-                    ref={askComposerRef}
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="ask about this passage…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
-                  />
-                  <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up ↵" : "ask ↵"}</PrimaryButton>
-                </>
-              ) : (
-                <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
-              )}
-
-              <SectionHeader>{inquiry ? "Clarification threads" : "Previous asks"}</SectionHeader>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Faint style={{ fontSize: 10 }}>{history.length} saved</Faint>
-                {!askFindOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => { setAskFindOpen(true); window.setTimeout(() => askFindInputRef.current?.focus(), 0); }}
-                    title="find in previous asks (ctrl+f)"
-                    aria-label="find in previous asks"
-                    style={{ marginLeft: "auto", width: 20, height: 18, border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
-                  >
-                    ⌕
-                  </button>
-                ) : (
-                  <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      ref={askFindInputRef}
-                      value={askFindQuery}
-                      onChange={(event) => setAskFindQuery(event.target.value)}
-                      placeholder="find in asks…"
-                      style={{ width: 170, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, fontFamily: FONT_MONO, fontSize: 11, padding: "4px 6px" }}
-                    />
-                    <Faint style={{ fontSize: 10 }}>{visibleAskHistory.length}/{history.length}</Faint>
-                    <button type="button" onClick={() => { setAskFindOpen(false); setAskFindQuery(""); }} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer", padding: 0 }}>×</button>
-                  </div>
-                )}
-              </div>
-              {history.length === 0 ? (
-                <Faint style={{ fontSize: 11 }}>No saved asks for this source yet.</Faint>
-              ) : visibleAskHistory.length === 0 ? (
-                <Faint style={{ fontSize: 11 }}>No questions or answers match “{askFindQuery}”.</Faint>
-              ) : inquiry ? (
-                <ReaderAskBranches
-                  exchanges={history}
-                  collapsedIds={collapsedAskIds}
-                  query={askFindQuery}
-                  busy={busy || offline}
-                  onToggle={(id) => setCollapsedAskIds((ids) => {
-                    const next = new Set(ids);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    return next;
-                  })}
-                  onFollowUp={(exchange) => {
-                    setParentExchange(exchange);
-                    // A search can expose a descendant of collapsed ancestors.
-                    // Keep the chosen path visible when the search is cleared.
-                    setCollapsedAskIds((ids) => {
-                      const next = new Set(ids);
-                      const seen = new Set<string>();
-                      let cursor: ReaderExchange | undefined = exchange;
-                      while (cursor && !seen.has(cursor.id)) {
-                        seen.add(cursor.id);
-                        next.delete(cursor.id);
-                        cursor = history.find((item) => item.id === cursor?.parentExchangeId);
-                      }
-                      return next;
-                    });
-                    window.requestAnimationFrame(() => {
-                      askComposerRef.current?.scrollIntoView({ block: "nearest" });
-                      askComposerRef.current?.focus();
-                    });
-                  }}
-                  onShowPassage={jumpToSpan}
-                />
-              ) : visibleAskHistory.map((exchange) => {
-                const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
-                return (
-                  <Card key={exchange.id} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => setCollapsedAskIds((ids) => {
-                        const next = new Set(ids);
-                        if (next.has(exchange.id)) next.delete(exchange.id); else next.add(exchange.id);
-                        return next;
-                      })}
-                      aria-expanded={expanded}
-                      style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", border: 0, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO, padding: 0, textAlign: "left", cursor: "pointer" }}
-                    >
-                      <span style={{ color: COLOR.purpleText, flexShrink: 0 }}>{expanded ? "▼" : "▶"}</span>
-                      <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>
-                    </button>
-                    {expanded ? (
-                      <>
-                        {/* Expanded question renders its LaTeX (the collapsed
-                            header stays plain text — clipping mid-$ would
-                            break KaTeX). */}
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                          <MarkdownMath value={exchange.question} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                          <Pill color="cyan">{exchange.answerMode}</Pill>
-                          <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
-                          {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
-                        </div>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                          <MarkdownMath value={exchange.answerMd} />
-                        </div>
-                      </>
-                    ) : null}
-                  </Card>
-                );
-              })}
-              <AffectTap />
-            </div>
-          )}
-          </div>
+          <AskRail
+            visible={railTab === "ask"}
+            enabled={enabled}
+            inquiry={inquiry}
+            offline={offline}
+            busy={busy}
+            blocks={blocks}
+            activeSpan={activeSpan}
+            activeBlock={activeBlock}
+            selection={selection}
+            parentExchange={parentExchange}
+            setParentExchange={setParentExchange}
+            answerMode={answerMode}
+            changeAnswerMode={changeAnswerMode}
+            question={question}
+            setQuestion={setQuestion}
+            askComposerVersion={askComposerVersion}
+            askComposerRef={askComposerRef}
+            ask={ask}
+            history={history}
+            visibleAskHistory={visibleAskHistory}
+            normalizedAskFind={normalizedAskFind}
+            collapsedAskIds={collapsedAskIds}
+            setCollapsedAskIds={setCollapsedAskIds}
+            askFindOpen={askFindOpen}
+            setAskFindOpen={setAskFindOpen}
+            askFindQuery={askFindQuery}
+            setAskFindQuery={setAskFindQuery}
+            askFindInputRef={askFindInputRef}
+            jumpToSpan={jumpToSpan}
+          />
         </div>
       </div>
 
@@ -3230,397 +2415,6 @@ export function ReaderScreen({
         right={{ key: "^p", label: "palette" }}
       />
     </div>
-  );
-}
-
-function SectionBoundaryOffer({
-  section,
-  allowQuestion,
-  onOpen,
-  onReveal,
-  onDismiss,
-}: {
-  section: ReaderGuideSectionDto;
-  allowQuestion: boolean;
-  onOpen: () => void;
-  onReveal: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <Card status="probe" style={{ margin: "8px 0 18px", padding: 14, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill color="purple">section break</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · usually under a minute</Faint>
-      </div>
-      <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-        {allowQuestion && section.question
-          ? `Before moving on, would you like to check what landed from “${section.label}”?`
-          : `A few passages from “${section.label}” may be worth another look.`}
-      </span>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {allowQuestion && section.question ? <PrimaryButton onClick={onOpen}>quick check →</PrimaryButton> : null}
-        {section.suggestedPassages.length > 0 ? (
-          <SecondaryButton onClick={onReveal}>
-            show {section.suggestedPassages.length} passage{section.suggestedPassages.length === 1 ? "" : "s"} I may have missed
-          </SecondaryButton>
-        ) : null}
-        <SecondaryButton onClick={onDismiss}>keep reading</SecondaryButton>
-      </div>
-    </Card>
-  );
-}
-
-function AuthoredQuestionCard({
-  section,
-  onJump,
-  onDismiss,
-  onComplete,
-  onError,
-}: {
-  section: ReaderGuideSectionDto;
-  onJump: (spanId: string) => void;
-  onDismiss: () => void;
-  onComplete: () => void;
-  onError: (message: string) => void;
-}) {
-  const question = section.question;
-  const [started, setStarted] = useState(false);
-  const [response, setResponse] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [escalatedItemId, setEscalatedItemId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const questionId = question?.authoredQuestionId ?? null;
-  const sourceSpan = question?.spanIds?.[0] ?? null;
-
-  const submit = useCallback(async () => {
-    if (!questionId || !response.trim()) return;
-    setBusy(true);
-    try {
-      await api.readerAuthoredQuestionAction({ questionId, action: "answered", response: response.trim() });
-      setSubmitted(true);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, response, onError]);
-
-  const dismissForever = useCallback(async () => {
-    if (!questionId) return;
-    setBusy(true);
-    try {
-      await api.readerAuthoredQuestionAction({ questionId, action: "dismissed" });
-      onDismiss();
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, onDismiss, onError]);
-
-  const escalate = useCallback(async () => {
-    if (!questionId || !question?.escalationLearningObjectId) return;
-    setBusy(true);
-    try {
-      const result = await api.readerEscalateAuthoredQuestion({
-        questionId,
-        learningObjectId: question.escalationLearningObjectId,
-      });
-      setEscalatedItemId(result.practiceItemId);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, question, onError]);
-
-  if (!question) return null;
-
-  return (
-    <Card status="probe" style={{ marginTop: 10, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <Pill color="purple">quick check</Pill>
-        <Pill color="slate">AI-written</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · self-check, never a grade</Faint>
-      </div>
-      <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-        <MarkdownMath value={question.prompt} />
-      </div>
-      {!started ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <PrimaryButton onClick={() => setStarted(true)}>think it through →</PrimaryButton>
-          <SecondaryButton onClick={onDismiss}>keep reading</SecondaryButton>
-        </div>
-      ) : !submitted ? (
-        <>
-          <textarea
-            autoFocus
-            value={response}
-            onChange={(event) => setResponse(event.target.value)}
-            placeholder="Answer in your own words…"
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void submit();
-            }}
-            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
-          />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>compare with the source ↵</PrimaryButton>
-            <SecondaryButton onClick={onDismiss} disabled={busy}>skip</SecondaryButton>
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ borderLeft: `3px solid ${COLOR.green}`, paddingLeft: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-            <Faint style={{ fontSize: 10, letterSpacing: "0.1em" }}>INTENDED ANSWER — COMPARE, DON’T GRADE</Faint>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-              <MarkdownMath value={question.expectedAnswer ?? ""} />
-            </div>
-          </div>
-          {escalatedItemId ? (
-            <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Added to your practice collection.</Faint>
-          ) : null}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {!escalatedItemId && question.escalationLearningObjectId ? (
-              <PrimaryButton onClick={() => void escalate()} disabled={busy}>add to practice →</PrimaryButton>
-            ) : null}
-            <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
-          </div>
-        </>
-      )}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 2 }}>
-        {sourceSpan ? (
-          <button
-            type="button"
-            onClick={() => onJump(sourceSpan)}
-            disabled={busy}
-            style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-          >
-            show me the passage
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => void dismissForever()}
-          disabled={busy}
-          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-        >
-          don’t bring this back
-        </button>
-      </div>
-    </Card>
-  );
-}
-
-function SectionQuestionCard({
-  section,
-  extractionId,
-  onReveal,
-  onJump,
-  onDismiss,
-  onComplete,
-  onError,
-}: {
-  section: ReaderGuideSectionDto;
-  extractionId: string;
-  onReveal: () => void;
-  onJump: (spanId: string) => void;
-  onDismiss: () => void;
-  onComplete: () => void;
-  onError: (message: string) => void;
-}) {
-  const question = section.question;
-  const [administrationId, setAdministrationId] = useState<string | null>(null);
-  const [response, setResponse] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [disposition, setDisposition] = useState<ReaderDisposition | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [controlMessage, setControlMessage] = useState<string | null>(null);
-
-  const begin = useCallback(async () => {
-    if (!question?.practiceItemId || administrationId) return;
-    setBusy(true);
-    try {
-      const opened = await api.readerPresentQuestion({
-        practiceItemId: question.practiceItemId,
-        readingPhase: question.readingPhase,
-        goalId: question.goalId,
-        targetContractVersionId: question.targetContractVersionId,
-      });
-      setAdministrationId(String(opened.administrationId ?? ""));
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [question, administrationId, onError]);
-
-  const submit = useCallback(async () => {
-    if (!administrationId || !response.trim()) return;
-    setBusy(true);
-    try {
-      await api.readerSubmitQuestion({
-        administrationId,
-        response: response.trim(),
-        targetKey: question?.targetContractVersionId ?? undefined,
-        outcomeClass: "unknown",
-      });
-      setSubmitted(true);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [administrationId, response, question, onError]);
-
-  const skip = useCallback(async () => {
-    try {
-      if (administrationId) {
-        await api.readerSkipQuestion(administrationId);
-      } else if (question?.placementEventId) {
-        await api.readerQuestionControl({
-          control: "skip",
-          subjectId: question.placementEventId,
-          subjectType: "reader_question_placement",
-        });
-      }
-    } catch (error) {
-      onError(errorMessage(error));
-      return;
-    }
-    onDismiss();
-  }, [administrationId, question, onDismiss, onError]);
-
-  const control = useCallback(async (value: string) => {
-    if (!question?.placementEventId) return;
-    setBusy(true);
-    try {
-      await api.readerQuestionControl({
-        control: value,
-        administrationId,
-        subjectId: question.placementEventId,
-        subjectType: "reader_question_placement",
-      });
-      if (value === "i_dont_understand") {
-        setControlMessage("Let’s return to the passage that best supports this question.");
-        if (section.suggestedPassages[0]) {
-          await api.readerRestoreSource({
-            extractionId,
-            spanId: section.suggestedPassages[0].spanId,
-          });
-          onReveal();
-          onJump(section.suggestedPassages[0].spanId);
-        }
-      } else if (value === "ask_me_differently") {
-        setControlMessage("Got it. We’ll vary the wording next time; you can keep reading now.");
-      } else {
-        setControlMessage("Got it. This only changes how checks appear for you.");
-      }
-      if (["too_easy", "too_intrusive", "dont_bring_this_back"].includes(value)) onDismiss();
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [question, administrationId, section.suggestedPassages, extractionId, onReveal, onJump, onDismiss, onError]);
-
-  const choose = useCallback(async (next: ReaderDisposition) => {
-    if (!question?.learningObjectId) return;
-    setDisposition(next);
-    try {
-      await api.readerChooseDisposition({
-        disposition: next,
-        subjectId: question.learningObjectId,
-        subjectType: "learning_object",
-        goalId: question.goalId,
-      });
-      onComplete();
-    } catch (error) {
-      onError(errorMessage(error));
-    }
-  }, [question, onComplete, onError]);
-
-  if (!question) {
-    return section.suggestedPassages.length > 0 ? (
-      <Card status="probe" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, background: COLOR.washPurple }}>
-        <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>Take a quick second pass before moving on?</span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <PrimaryButton onClick={onReveal}>show important passages</PrimaryButton>
-          <SecondaryButton onClick={onDismiss}>not now</SecondaryButton>
-        </div>
-      </Card>
-    ) : null;
-  }
-
-  return (
-    <Card status="probe" style={{ marginTop: 10, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <Pill color="purple">quick check</Pill>
-        {question.goalTitle ? <Pill color="cyan">for {question.goalTitle}</Pill> : null}
-        <Faint style={{ fontSize: 10 }}>optional · not a test</Faint>
-      </div>
-      <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-        <MarkdownMath value={question.prompt} />
-      </div>
-      {!administrationId ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void begin()} disabled={busy}>think it through →</PrimaryButton>
-            <SecondaryButton onClick={() => void skip()} disabled={busy}>keep reading</SecondaryButton>
-          </div>
-          {section.suggestedPassages.length > 0 ? (
-            <SecondaryButton onClick={() => {
-              onReveal();
-              onJump(section.suggestedPassages[0].spanId);
-            }}>
-              show the most relevant passage first
-            </SecondaryButton>
-          ) : null}
-        </div>
-      ) : !submitted ? (
-        <>
-          <textarea
-            autoFocus
-            value={response}
-            onChange={(event) => setResponse(event.target.value)}
-            placeholder="Answer in your own words…"
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void submit();
-            }}
-            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
-          />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>record answer ↵</PrimaryButton>
-            <SecondaryButton onClick={() => void skip()} disabled={busy}>skip</SecondaryButton>
-          </div>
-        </>
-      ) : (
-        <>
-          <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Answer recorded. This was for understanding, not a grade.</Faint>
-          <Faint style={{ fontSize: 10 }}>What should LearnLoop do with this idea?</Faint>
-          <DispositionPicker value={disposition} onChoose={(next) => void choose(next)} />
-          <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
-        </>
-      )}
-      {!submitted ? (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 2 }}>
-          {QUESTION_CONTROLS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => void control(option.value)}
-              disabled={busy}
-              style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {controlMessage ? <Faint style={{ fontSize: 10 }}>{controlMessage}</Faint> : null}
-    </Card>
   );
 }
 
