@@ -14,7 +14,7 @@ frozen: they replay through the legacy path keyed by their recorded
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import log
 import json
 from typing import Any, Mapping, Sequence
@@ -100,6 +100,12 @@ class EligibleInstrument:
     # candidate's family already produced an observation this episode). Never
     # folded into the EIG values themselves — only the ranking uses it.
     redundancy_penalty: float = 1.0
+    # §7.4: the held-out (instrument, slot map) targets ``predictive_eig`` was
+    # computed over, so a conditional valuation (voi_stopping, final verify
+    # F2) recomputes the same objective on each posterior branch. Not logged.
+    predictive_targets: tuple[tuple[CompiledInstrument, dict[str, str]], ...] = field(
+        default=(), compare=False, repr=False
+    )
 
     def selection_components(self) -> dict[str, Any]:
         """§7.3 separately-inspectable utility components for telemetry."""
@@ -970,6 +976,7 @@ def eligible_instruments(
                 predictive_information_rate=rate,
                 selection_objective="predictive_eig" if predictive_adequate else "hypothesis_eig",
                 redundancy_penalty=penalty,
+                predictive_targets=tuple((target, dict(target_map)) for target, target_map in targets),
             )
         )
     # §7.5: within the feasible set, predictive candidates rank by information

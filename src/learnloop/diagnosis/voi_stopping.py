@@ -935,6 +935,10 @@ _COARSE_MERGE_DIGITS = (9, 6, 4, 3, 2, 1)
 #: A check the plan cannot fit (review F10): it is never admitted, and never
 #: conditioned on.
 REASON_DOES_NOT_FIT = "does_not_fit_plan_minutes"
+#: A check the plan already holds (planned, not yet answered) when it values
+#: the rest again (final verify F10): the others are conditioned on it, and its
+#: minutes are not charged again.
+REASON_ALREADY_PLANNED = "already_planned"
 
 _Branches = tuple[tuple[float, tuple[tuple[str, float], ...]], ...]
 
@@ -965,6 +969,74 @@ def _merge_branches(branches: Iterable[tuple[float, Mapping[str, float]]], digit
     ]
 
 
+def _entropy(distribution: Mapping[Any, float]) -> float:
+    return -sum(p * math.log(p) for p in distribution.values() if p > 0)
+
+
+def _targets_predictive_entropy(
+    targets: Sequence[Mapping[str, Mapping[str, float]]], belief: Mapping[str, float]
+) -> float:
+    """Summed predictive outcome entropy of the held-out targets under
+    ``belief`` (each target over the labels it has a row for, renormalized)."""
+
+    total = 0.0
+    for rows in targets:
+        predictive: dict[str, float] = {}
+        mass = 0.0
+        for label, weight in belief.items():
+            row = rows.get(label)
+            if row is None:
+                continue
+            mass += weight
+            for outcome, probability in row.items():
+                predictive[outcome] = predictive.get(outcome, 0.0) + weight * float(probability)
+        if mass <= 0:
+            continue
+        total += _entropy({outcome: value / mass for outcome, value in predictive.items()})
+    return total
+
+
+def predictive_information(
+    likelihood: Mapping[str, Mapping[str, float]],
+    targets: Sequence[Mapping[str, Mapping[str, float]]],
+    posterior: Mapping[str, float],
+) -> float:
+    """The §7.4 predictive EIG of a check (rows ``likelihood``) about held-out
+    ``targets`` under ``posterior``, in nats: ``H_prior - sum_o m(o) H_post(o)``.
+
+    ``probe_families.instrument_predictive_information_gain`` on label-keyed
+    rows (``label_conditionals``), with its conventions: the belief is the
+    posterior over the labels the check has rows for, renormalized; each
+    target's predictive is over the labels it has rows for. So on any belief
+    branch the predictive objective is recomputed, never scaled from the
+    hypothesis information (Codex final verify F2)."""
+
+    labels = [label for label in posterior if label in likelihood]
+    weights = {label: max(float(posterior[label]), 0.0) for label in labels}
+    total = sum(weights.values())
+    if total <= 0 or len(labels) <= 1 or not targets:
+        return 0.0
+    belief = {label: weight / total for label, weight in weights.items()}
+    prior_entropy = _targets_predictive_entropy(targets, belief)
+    mixture: dict[str, float] = {}
+    for label, weight in belief.items():
+        for outcome, probability in likelihood[label].items():
+            mixture[outcome] = mixture.get(outcome, 0.0) + weight * float(probability)
+    expected = 0.0
+    for outcome, outcome_probability in mixture.items():
+        if outcome_probability <= 0:
+            continue
+        updated = {label: weight * float(likelihood[label].get(outcome, 0.0)) for label, weight in belief.items()}
+        updated_total = sum(updated.values())
+        if updated_total <= 0:
+            expected += outcome_probability * prior_entropy
+            continue
+        expected += outcome_probability * _targets_predictive_entropy(
+            targets, {label: value / updated_total for label, value in updated.items()}
+        )
+    return max(prior_entropy - expected, 0.0)
+
+
 @dataclass(frozen=True)
 class HypothesisChannel:
     """What one check tells about the learner's rival hypotheses: its
@@ -972,16 +1044,22 @@ class HypothesisChannel:
     an open probe episode's locked set) with that variable's current belief.
 
     The selection reward's hypothesis term is ``scale`` times the check's
-    hypothesis EIG in nats (the reward normalizes it by the set's maximum
-    entropy, or uses the §7.4 predictive objective, and discounts it for
-    familiarity): ``scale`` is read back as term / standalone EIG, so the
-    first check reproduces the logged term exactly. Valued after earlier
-    checks on the same variable, the information is the expected EIG over the
-    posterior branches their outcomes leave, ``I(E; H | E_earlier)`` (outcomes
-    independent given ``H``): two checks revealing independent bits each keep
-    their information; a check that repeats an earlier one adds none. A label
-    the check has no row for is one it says nothing about (its outcome
-    distribution is the check's predictive over the labels it covers).
+    information in nats under its own objective: the hypothesis EIG (the
+    reward normalizes it by the set's maximum entropy), or, on the §7.4
+    predictive objective, the predictive EIG about the episode's held-out
+    ``targets`` (the reward normalizes it by their prior predictive entropy);
+    both discounted for familiarity. ``scale`` is read back as term /
+    standalone information, so the first check reproduces the logged term
+    exactly. Valued after earlier checks on the same variable, the
+    information is the same objective recomputed on each expected posterior
+    branch their outcomes leave and averaged (outcomes independent given
+    ``H``): for the hypothesis objective ``I(E; H | E_earlier)``; for the
+    predictive objective the targets' expected predictive uncertainty the
+    check still removes. Two checks revealing independent bits each keep
+    their information; a check that repeats an earlier one, or whose targets
+    the earlier ones already settled, adds none. A label the check has no row
+    for is one it says nothing about (its outcome distribution is the check's
+    predictive over the labels it covers).
     """
 
     belief_key: str
@@ -989,12 +1067,14 @@ class HypothesisChannel:
     likelihood: Mapping[str, Mapping[str, float]]
     scale: float
     objective: str = "hypothesis_eig"
+    #: The held-out targets' rows (label-keyed), for the predictive objective.
+    targets: tuple[Mapping[str, Mapping[str, float]], ...] = ()
 
     @classmethod
     def from_mapping(cls, body: Mapping[str, Any] | None, *, hypothesis_term: float) -> "HypothesisChannel | None":
-        """``{belief_key, prior, likelihood, objective}`` (the scheduler's
-        ``ScheduledItem.hypothesis_channel``), or None when it carries no
-        information or the reward logged no hypothesis term."""
+        """``{belief_key, prior, likelihood, objective, targets}`` (the
+        scheduler's ``ScheduledItem.hypothesis_channel``), or None when it
+        carries no information or the reward logged no hypothesis term."""
 
         if not isinstance(body, Mapping) or hypothesis_term <= 0:
             return None
@@ -1002,29 +1082,58 @@ class HypothesisChannel:
             likelihood = _keyed(body["likelihood"])
             raw_prior = {str(label): max(float(value), 0.0) for label, value in dict(body["prior"]).items()}
             belief_key = str(body["belief_key"])
+            objective = str(body.get("objective") or "hypothesis_eig")
+            targets = (
+                tuple(_keyed(rows) for rows in body.get("targets") or () if rows)
+                if objective == "predictive_eig"
+                else ()
+            )
         except (KeyError, TypeError, ValueError, AttributeError):
             return None
         total = sum(raw_prior.values())
         if total <= 0 or not likelihood:
             return None
         prior = {label: value / total for label, value in raw_prior.items() if value > 0}
-        standalone = expected_information_gain(likelihood, prior)
-        if standalone <= 0:
-            return None
-        return cls(
+        channel = cls(
             belief_key=belief_key,
             prior=tuple(sorted(prior.items())),
             likelihood=likelihood,
-            scale=float(hypothesis_term) / standalone,
-            objective=str(body.get("objective") or "hypothesis_eig"),
+            scale=1.0,
+            objective=objective,
+            targets=targets,
         )
+        standalone = channel.standalone_nats
+        if standalone <= 0:
+            return None
+        return replace(channel, scale=float(hypothesis_term) / standalone)
+
+    @property
+    def recomputes_predictive(self) -> bool:
+        """The predictive objective with its held-out targets carried."""
+
+        return self.objective == "predictive_eig" and bool(self.targets)
+
+    @property
+    def standalone_nats(self) -> float:
+        """The check's information at the current belief, under its objective."""
+
+        return self.at(dict(self.prior))
+
+    def at(self, posterior: Mapping[str, float]) -> float:
+        """The check's information (nats, its own objective) under ``posterior``."""
+
+        if self.recomputes_predictive:
+            return predictive_information(self.likelihood, self.targets, posterior)
+        return expected_information_gain(self.likelihood, dict(posterior))
 
     @property
     def labelled(self) -> str:
         """How the conditional hypothesis term is computed, for the receipt."""
 
         if self.objective == "predictive_eig":
-            # The reward's term is the §7.4 predictive objective: it is scaled
+            if self.recomputes_predictive:
+                return "expected_posterior_branches:predictive_objective"
+            # No targets carried (an older body): the reward's term is scaled
             # by the conditional hypothesis information (an approximation).
             return "expected_posterior_branches:predictive_term_scaled_by_hypothesis_eig"
         return "expected_posterior_branches"
@@ -1033,12 +1142,10 @@ class HypothesisChannel:
         return ((1.0, self.prior),)
 
     def information(self, branches: _Branches) -> float:
-        """The check's hypothesis EIG in nats, expected over ``branches``."""
+        """The check's information in nats (its own objective), expected over
+        ``branches``: recomputed on each branch, never scaled."""
 
-        return sum(
-            weight * expected_information_gain(self.likelihood, dict(posterior))
-            for weight, posterior in branches
-        )
+        return sum(weight * self.at(dict(posterior)) for weight, posterior in branches)
 
     def split(self, branches: _Branches) -> tuple[_Branches, bool]:
         """The posterior branches after this check's outcome, merged; the flag
@@ -1292,6 +1399,9 @@ class GreedyAdmission:
     site: str
     admitted: tuple[str, ...]
     steps: tuple[SiteDecision, ...]
+    #: Checks already selected before this admission (planned, not yet
+    #: answered): conditioned on first, never valued or charged again.
+    preselected: tuple[str, ...] = ()
 
     def step_for(self, ref: str) -> tuple[int, SiteDecision] | None:
         """The step that admitted ``ref``, else the final step (its stop)."""
@@ -1304,6 +1414,19 @@ class GreedyAdmission:
         return len(self.steps) - 1, self.steps[-1]
 
     def receipt_for(self, ref: str) -> dict[str, Any] | None:
+        if ref in self.preselected:
+            # Not a value decision: the plan already holds this check, and the
+            # others were valued given it.
+            return {
+                "forecast_version": FORECAST_VERSION,
+                "site": self.site,
+                "decision": CONTINUE,
+                "reason": REASON_ALREADY_PLANNED,
+                "subject_ref": ref,
+                "admitted": True,
+                "context": dict(self.steps[0].context) if self.steps else {},
+                "calibration_label": "heuristic",
+            }
         located = self.step_for(ref)
         if located is None:
             return None
@@ -1343,6 +1466,7 @@ def greedy_information_admission(
     context: Mapping[str, Any] | None = None,
     minutes_budget: float | None = None,
     max_item_minutes: float | None = None,
+    preselected: Iterable[str] = (),
 ) -> GreedyAdmission:
     """Admit checks greedily, each valued conditionally on those already chosen.
 
@@ -1366,10 +1490,22 @@ def greedy_information_admission(
     when it fits one block. A check that does not fit is valued for its receipt
     (``does_not_fit_plan_minutes``) but never admitted, so later checks are
     conditioned only on checks the plan can actually hold.
+
+    ``preselected`` (final verify F10) names checks among ``entries`` the plan
+    already holds (planned on an earlier boundary, not yet answered): every
+    other check is valued given them, and they are neither valued nor charged
+    against ``minutes_budget`` again (the budget is what is left after them).
     """
 
-    remaining = list(entries)
+    preselected_refs = tuple(dict.fromkeys(str(ref) for ref in preselected))
+    by_ref_all = {entry.ref: entry for entry in entries}
+    held = tuple(ref for ref in preselected_refs if ref in by_ref_all)
     state = InformationState()
+    for ref in held:
+        terms = by_ref_all[ref].terms
+        if terms is not None:
+            state = state.after(terms)
+    remaining = [entry for entry in entries if entry.ref not in set(held)]
     admitted: list[str] = []
     steps: list[SiteDecision] = []
     spent = 0.0
@@ -1385,7 +1521,7 @@ def greedy_information_admission(
                 parts = entry.terms.conditional_nats(state)
                 eig = parts["total"]
                 conditioning = {
-                    "conditioning": "chosen_before" if admitted else "none_chosen",
+                    "conditioning": "chosen_before" if (admitted or held) else "none_chosen",
                     "conditional_parts_nats": {key: round(value, _ROUND_DIGITS) for key, value in parts.items()},
                     "hypothesis_conditioning": entry.terms.hypothesis_conditioning,
                 }
@@ -1427,7 +1563,8 @@ def greedy_information_admission(
             context={
                 **dict(context or {}),
                 "greedy_step": len(steps),
-                "chosen_before": list(admitted),
+                "chosen_before": [*held, *admitted],
+                **({"already_planned": list(held)} if held else {}),
                 **(
                     {"minutes_budget": round(float(minutes_budget), 6), "minutes_admitted": round(spent, 6)}
                     if minutes_budget is not None
@@ -1447,7 +1584,7 @@ def greedy_information_admission(
         if picked.terms is not None:
             state = state.after(picked.terms)
         remaining = [entry for entry in remaining if entry.ref != picked.ref]
-    return GreedyAdmission(site=site, admitted=tuple(admitted), steps=tuple(steps))
+    return GreedyAdmission(site=site, admitted=tuple(admitted), steps=tuple(steps), preselected=held)
 
 
 def label_conditionals(
@@ -1474,18 +1611,28 @@ def hypothesis_channel_body(
     objective: str,
 ) -> dict[str, Any]:
     """An in-episode probe's likelihood rows over its episode's hypotheses
-    (``{belief_key, prior, likelihood, objective}``), the input of
-    :meth:`HypothesisChannel.from_mapping`: the instrument's composed
-    ``P(E | H)`` keyed by episode label, as the probe-episode site reads it."""
+    (``{belief_key, prior, likelihood, objective}``, plus ``targets`` on the
+    predictive objective), the input of :meth:`HypothesisChannel.from_mapping`:
+    the instrument's composed ``P(E | H)`` keyed by episode label, as the
+    probe-episode site reads it, and the held-out targets' rows likewise."""
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
 
-    return {
+    body: dict[str, Any] = {
         "belief_key": str(belief_key),
         "prior": {str(label): float(value) for label, value in posterior.items()},
         "likelihood": label_conditionals(instrument_conditionals(eligible.instrument), eligible.slot_map, posterior),
         "objective": str(objective),
     }
+    if str(objective) == "predictive_eig":
+        # The held-out targets the predictive objective is about (the same
+        # ones the episode's own predictive EIG used), so a later conditional
+        # valuation recomputes it on each posterior branch (final verify F2).
+        body["targets"] = [
+            label_conditionals(instrument_conditionals(instrument), slot_map, posterior)
+            for instrument, slot_map in getattr(eligible, "predictive_targets", ()) or ()
+        ]
+    return body
 
 
 # ---------------------------------------------------------------------------
@@ -1681,6 +1828,7 @@ __all__ = [
     "METHOD_EIG_VALUE",
     "METHOD_ROBUST_EVSI",
     "MinutesEstimate",
+    "REASON_ALREADY_PLANNED",
     "REASON_DOES_NOT_FIT",
     "SITES",
     "SITE_FOLLOWUP",
@@ -1698,6 +1846,7 @@ __all__ = [
     "hypothesis_channel_body",
     "information_candidate",
     "label_conditionals",
+    "predictive_information",
     "probe_lane_holds_out_pending",
     "probe_lane_reads_diagnosis",
     "record_followup_decision",
