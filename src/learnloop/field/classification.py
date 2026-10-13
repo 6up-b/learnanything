@@ -81,6 +81,7 @@ def classify_missing_questions(
     dry_run: bool = False,
     cancelled: Callable[[], bool] | None = None,
     subscription: bool = False,
+    decider: Callable | None = None,
 ) -> dict[str, Any]:
     """Classify missing information, recording every returned verdict.
 
@@ -95,10 +96,11 @@ def classify_missing_questions(
         raise ValueError("explicit classification model is required")
     if estimate_per_question.calls != 1 or estimate_per_question.retries:
         raise ValueError("estimate must describe one physical call without retries")
-    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
+    cache_version = PROMPT_VERSION + "+tier1" if decider is not None else PROMPT_VERSION
+    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription and decider is None)
     with repository.connection() as connection:
         cached = {
-            (c["question_event_id"] or c["interaction_event_id"], c["input_hash"], c["model"], c["prompt_version"],
+            (c["question_event_id"] or c["interaction_event_id"], c["input_hash"], model if decider is not None else c["model"], c["prompt_version"],
              "question_event" if c["question_event_id"] else "interaction_event")
             for c in load_cached_classifications(connection)
         }
@@ -111,7 +113,7 @@ def classify_missing_questions(
         if row["question_type"] and row["lo_ids"]:
             continue
         digest = input_hash(event)
-        key = row["id"], digest, model, PROMPT_VERSION, row["event_kind"]
+        key = row["id"], digest, model, cache_version, row["event_kind"]
         if key not in cached:
             pending[key] = row
     count = len(pending)
@@ -132,7 +134,8 @@ def classify_missing_questions(
     if not enabled and not dry_run:
         return {**report, "status": "disabled"}
     try:
-        budget.check(estimate)
+        if decider is None:
+            budget.check(estimate)
         if dry_run:
             return report
         for key, row in pending.items():
@@ -140,6 +143,9 @@ def classify_missing_questions(
             checkpoint_key = hashlib.sha256(json.dumps(key).encode()).hexdigest()
             checkpoint = repository.model_checkpoint(checkpoint_key)
             raw = checkpoint["result"] if checkpoint else None
+            candidates_before = budget.used.candidates
+            if raw is None and decider is not None:
+                raw = decider(row, budget)
             if raw is None:
                 usage: dict[str, Any] = {}
                 physical_calls = 0
@@ -171,7 +177,10 @@ def classify_missing_questions(
                             if event.get(name) is not None:
                                 usage[name] = max(usage.get(name, 0), event[name])
 
-                with budget.request(replace(estimate_per_question, candidates=1)) as charge:
+                admitted = replace(estimate_per_question, candidates=int(budget.used.candidates == candidates_before))
+                if decider is not None and subscription:
+                    admitted = replace(admitted, total_tokens=0, estimated_usd=0.0)
+                with budget.request(admitted, subscription_route=subscription) as charge:
                     with observe_model_calls(observe):
                         try:
                             raw = dict(classify(row))
@@ -184,26 +193,30 @@ def classify_missing_questions(
                                 cost = max(cost or 0, tokens * estimate_per_question.estimated_usd / estimate_per_question.total_tokens)
                             if subscription and estimate_per_question.estimated_usd is None:
                                 cost = None  # estimated tokens only; never refused
-                            charge.reconcile(total_tokens=tokens, estimated_usd=cost)
+                            charge.reconcile(total_tokens=0 if decider is not None and subscription else tokens,
+                                             estimated_usd=0.0 if decider is not None and subscription else cost)
+                if decider is not None and hasattr(decider, 'log_fallback'):
+                    decider.log_fallback(raw, raw.get("_model") or model)
             try:
                 result = _validated(raw)
             except (ValueError, TypeError):
                 result = None
             now = datetime.now(timezone.utc).isoformat()
             with repository.connection() as connection:
-                append_judgment(
-                    connection, task=TASK, left_kind=kind, left_id=event_id,
-                    judge="llm", judge_model=model, prompt_version=PROMPT_VERSION,
-                    input_hash=digest, verdict=json.dumps(raw, sort_keys=True),
-                    created_at=now,
-                )
+                if not raw.get('_decider'):
+                    append_judgment(
+                        connection, task=TASK, left_kind=kind, left_id=event_id,
+                        judge="llm", judge_model=raw.get("_model") or model, prompt_version=PROMPT_VERSION,
+                        input_hash=digest, verdict=json.dumps(raw, sort_keys=True),
+                        created_at=now,
+                    )
                 if result is not None:
                     insert_question_classification(
                         connection,
                         (str(uuid4()), event_id if kind == "question_event" else None,
                          event_id if kind == "interaction_event" else None, digest,
                          result["question_type"], json.dumps(result["lo_ids"]), json.dumps(result["facets"]),
-                         model, PROMPT_VERSION, now),
+                         raw.get("_model") or model, cache_version, now),
                     )
             if result is not None:
                 repository.save_model_checkpoint(checkpoint_key, purpose=TASK, result=dict(raw))

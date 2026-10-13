@@ -15,6 +15,12 @@
 4. **Log** the whole reading as one ``learner_text_gaps`` row (append-only;
    the router's learner-state card reads these, :func:`named_gaps_for_card`).
 
+**Tier 1 (mvp-0.20, owner 2026-10-13).** The Decider is the authoritative
+judge of the kind, every candidate pair (beliefs included) and "needed?"; the
+LLM judge and the context model's kind decide only what it gave no answer
+(``tier1``). The switches ``decider_routes.learner_gap_judge`` and
+``decider_routes.learner_gap_kind`` restore the steps above.
+
 Without a pick (the reading failed, the chooser gave none, the switch is off)
 nothing is targeted and the field loader keeps the F11 grounded rule, then
 the opt-in classifier. Failures of optional steps are recorded in the row's
@@ -56,6 +62,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.diagnosis.text_gaps import actions
 from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequisite_candidates
 from learnloop.diagnosis.text_gaps.contract import (
@@ -206,15 +213,21 @@ def _stopped(results: Sequence[JudgedPair]) -> str | None:
 
 def _judge_all(
     repository: Repository, kind: Any, pairs: list, *, budget: TextBudget, clients: PipelineClients,
-    decider_on: bool,
+    decider_on: bool, vault: LoadedVault | None = None,
 ) -> dict[str, Any]:
     """Both judges on the same pairs; each verdict lands in ``judgment_ledger``.
 
     A spend stop or a cancellation of either judge raises
     :class:`ReadingDeferred` (``spend=True``): what was judged is in the
-    ledger and is reused when the text is read again.
+    ledger and is reused when the text is read again. At mvp-0.20 (Tier 1)
+    the Decider decides and the LLM judges only the pairs it gave no answer
+    (``tier1.judge_all``; the result's ``authority`` is ``selected``).
     """
 
+    if vault is not None and decider_enabled(vault.config, "learner_gap_judge"):
+        from learnloop.diagnosis.text_gaps import tier1
+
+        return tier1.judge_all(repository, kind, pairs, budget=budget, clients=clients)
     out: dict[str, Any] = {"llm": None, "decider": None, "llm_results": [], "decider_results": [],
                            "llm_unsettled": [], "decider_unsettled": []}
     for name, executor_type, client in (
@@ -233,6 +246,19 @@ def _judge_all(
         out[f"{name}_unsettled"] = _unsettled(results)
         out[f"{name}_results"] = [pair.as_dict() for pair in results]
     return out
+
+
+def _pair_authority(vault: LoadedVault, chooser: str) -> str:
+    """The authoritative pair judge before Tier 1: the chooser's (``llm`` for ``context_model``).
+
+    With the Tier-1 kind on, ``chooser`` names who decided the kind (the
+    Decider, or the context model as its fallback), so the configured
+    ``learner_text_gaps.chooser`` names the pair judge, as it did before.
+    """
+
+    if decider_enabled(vault.config, "learner_gap_kind"):
+        chooser = str(vault.config.learner_text_gaps.chooser)
+    return "decider" if chooser == "decider" else "llm"
 
 
 def _require_settled(judged: Mapping[str, Any], authority: str) -> None:
@@ -325,9 +351,11 @@ def _prerequisite(
     )
     detail["candidates"] = candidates.summary()
     judged = _judge_all(repository, SAME_PREREQUISITE, candidates.pairs(query), budget=budget, clients=clients,
-                        decider_on=bool(config.decider_enabled))
-    authority = "decider" if chooser == "decider" else "llm"
+                        decider_on=bool(config.decider_enabled), vault=vault)
+    authority = judged.get("authority") or _pair_authority(vault, chooser)
     detail["judges"] = {"authoritative": authority, "llm": judged["llm"], "decider": judged["decider"]}
+    if "selected_judges" in judged:
+        detail["judges"]["selected"] = judged["selected_judges"]
     verdicts = judged[authority]
     if candidates.subjects and verdicts is None:
         # The authoritative judge's route is not available: nothing decides.
@@ -351,7 +379,9 @@ def _prerequisite(
         outcome = actions.ActionOutcome(
             "matched_prerequisite", target_kind="learning_object", target_id=matched.id,
             target_subject_id=text.subject_id or (matched.scope.get("subjects") or (None,))[0],
-            match_basis=f"judge:{authority}:{matched.scope.get('basis')}", detail=detail,
+            match_basis=f"judge:{judged.get('selected_judges', {}).get(matched.id, authority)}:"
+                        f"{matched.scope.get('basis')}",
+            detail=detail,
         )
         _maybe_edge(root, vault, repository, text, outcome, chooser=chooser, budget=budget, clients=clients,
                     clock=clock, checkpoint=checkpoint)
@@ -378,19 +408,30 @@ def _maybe_edge(
     if item is None or anchor is None or matched == anchor:
         outcome.detail["edge"] = "not_applicable"
         return
-    authority = "decider" if chooser == "decider" else "llm"
+    authority = _pair_authority(vault, chooser)
     if actions.declared_prerequisite(vault, matched, anchor):
         outcome.detail["edge"] = "declared"
         return
     if not config.add_edges_enabled:
         outcome.detail["edge"] = "disabled"
         return
-    needed = ask_needed(
-        repository, budget, context=needed_context(vault, item, vault.learning_objects[matched]),
-        learning_object_id=matched, practice_item_id=item.id, judge_client=clients.get("judge"),
-        decider_client=clients.get("decider") if config.decider_enabled else None,
-    )
-    refused = [name for name, entry in needed.items() if entry.get("status") == "refused"]
+    context = needed_context(vault, item, vault.learning_objects[matched])
+    if decider_enabled(vault.config, "learner_gap_judge"):
+        # Tier 1: the Decider's "needed?", else the LLM judge's.
+        from learnloop.diagnosis.text_gaps import tier1
+
+        authority = "selected"
+        needed = tier1.ask_needed(vault, repository, budget, context=context, learning_object_id=matched,
+                                  practice_item_id=item.id, clients=clients)
+        # The Decider's own refusal fell back; only the deciding judge's stops the reading.
+        refused = ["selected"] if needed["selected"].get("status") == "refused" else []
+    else:
+        needed = ask_needed(
+            repository, budget, context=context,
+            learning_object_id=matched, practice_item_id=item.id, judge_client=clients.get("judge"),
+            decider_client=clients.get("decider") if config.decider_enabled else None,
+        )
+        refused = [name for name, entry in needed.items() if entry.get("status") == "refused"]
     if refused:
         raise ReadingDeferred(f"\"needed?\" refused for {', '.join(refused)}", spend=True)
     if (needed.get(authority) or {}).get("verdict") != "yes":
@@ -625,14 +666,18 @@ def _belief(
     )
     detail["candidates"] = candidates.summary()
     judged = _judge_all(repository, SAME_BELIEF, candidates.pairs(query), budget=budget, clients=clients,
-                        decider_on=bool(config.decider_enabled))
+                        decider_on=bool(config.decider_enabled), vault=vault)
     # Beliefs: the LLM judge is authoritative; the Decider is logged only.
-    detail["judges"] = {"authoritative": "llm", "llm": judged["llm"], "decider": judged["decider"]}
-    verdicts = judged["llm"]
+    # At mvp-0.20 (Tier 1) the Decider decides, the LLM where it gave none.
+    authority = str(judged.get("authority") or "llm")
+    detail["judges"] = {"authoritative": authority, "llm": judged["llm"], "decider": judged["decider"]}
+    if "selected_judges" in judged:
+        detail["judges"]["selected"] = judged["selected_judges"]
+    verdicts = judged[authority]
     if candidates.subjects and verdicts is None:
-        return actions.ActionOutcome("signal_only", detail={**detail, "reason": "no llm judge"})
+        return actions.ActionOutcome("signal_only", detail={**detail, "reason": f"no {authority} judge"})
     # A failed pair could be the true match: a new candidate would duplicate it.
-    _require_settled(judged, "llm")
+    _require_settled(judged, authority)
     same = [subject for subject in candidates.subjects if (verdicts or {}).get(subject.id) == "same"]
     if len(same) > 1:
         return actions.ActionOutcome("unplaced", detail={
@@ -668,6 +713,11 @@ def _decide(
             GapReading.from_progress(recorded) if isinstance(recorded, Mapping) else None,
             DeciderKind(**dict(decided["decider"])), str(decided["chooser"]), str(decided["kind"]),
         )
+    if decider_enabled(vault.config, "learner_gap_kind"):
+        # Tier 1: the Decider's kind is authoritative; the context model names the gap.
+        from learnloop.diagnosis.text_gaps import tier1
+
+        return tier1.decide_kind(vault, repository, text, budget, clients, progress, checkpoint)
     config = vault.config.learner_text_gaps
     reading = text.reading
     if reading is None and text.context_judge == "gap_reader":

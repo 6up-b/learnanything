@@ -96,18 +96,79 @@ def request_misconception_match(
     )
 
 
+#: The Tier-1 judgment that matches a statement to the registry (mvp-0.20).
+MATCH_TASK = "misconception_match"
+#: The Decider's option for a belief none of the candidates holds.
+NEW_BELIEF = "new"
+
+
+def _decided_match(
+    context: MisconceptionMatchContext,
+    candidates: list[MisconceptionRecord],
+    ai_client: object,
+    *,
+    vault: LoadedVault | None,
+    repository: Repository | None,
+) -> MisconceptionMatch:
+    """The match the Decider picks at mvp-0.20 (Tier 1), else the LLM's.
+
+    One typed choice over the same question the LLM is asked: one option per
+    candidate (its id, its statement as the description) and ``new``. The
+    argmax decides. A Decider that is unavailable, refused for spend or failing
+    hands the match to ``misconception_match`` on ``ai_client`` exactly as
+    before, and that verdict is logged against the Decider's row. The switch
+    ``decider_routes.misconception_match = false`` restores the LLM alone.
+    """
+
+    from learnloop.ai.decisions import MAX_CHOICE_OPTIONS, ChoiceQuestion
+    from learnloop.decider_judgments import decide, enabled, log_llm
+
+    decision = None
+    ids = [row.id for row in candidates]
+    if (
+        vault is not None and repository is not None and enabled(vault.config, MATCH_TASK)
+        and len(ids) < MAX_CHOICE_OPTIONS and NEW_BELIEF not in ids
+    ):
+        question = ChoiceQuestion(
+            "Which registry belief is the SAME underlying belief as the statement? "
+            "Choose new when none of them is, or when unsure.",
+            {NEW_BELIEF: "A belief none of the candidates holds",
+             **{row.id: (row.statement or None) for row in candidates}},
+        )
+        decision = decide(
+            root=vault.root, config=vault.config, repository=repository, task=MATCH_TASK,
+            state=misconception_match_prompt(context), question=question,
+            left_kind="learning_object", left_id=context.learning_object_id,
+        )
+        if decision.choice is not None:
+            if decision.choice == NEW_BELIEF:
+                return MisconceptionMatch(decision="new")
+            return MisconceptionMatch(decision="same", misconception_id=decision.choice)
+    result = request_misconception_match(ai_client, context)  # type: ignore[arg-type]
+    if decision is not None and repository is not None:
+        choice = result.misconception_id if result.decision == "same" and result.misconception_id else NEW_BELIEF
+        log_llm(repository, decision, choice=choice,
+                model=str(getattr(ai_client, "model", None) or getattr(ai_client, "provider_name", None) or "unknown"))
+    return result
+
+
 def _match_misconception(
     statement: str,
     candidates: list[MisconceptionRecord],
     ai_client: object | None,
     *,
     learning_object_id: str,
+    vault: LoadedVault | None = None,
+    repository: Repository | None = None,
 ) -> str | None:
     """Return the id of the registry row ``statement`` belongs to, or ``None`` (new).
 
-    Prefers the configured structured provider when available; otherwise falls
-    back to a deterministic normalized-text match. Never dedupes by error type
-    (spec §2.2.2).
+    Prefers the configured structured provider when available (at mvp-0.20 the
+    Decider first, that provider as its fallback: :func:`_decided_match`);
+    otherwise falls back to a deterministic normalized-text match. Never
+    dedupes by error type (spec §2.2.2). Without ``ai_client`` no model is
+    asked, the Decider included: a path that made no model judgment before
+    (replay, the diagnosis worker, a simulation) makes none now.
     """
 
     if not candidates:
@@ -119,7 +180,7 @@ def _match_misconception(
             candidates=[{"id": row.id, "statement": row.statement} for row in candidates],
         )
         try:
-            result = request_misconception_match(ai_client, context)  # type: ignore[arg-type]
+            result = _decided_match(context, candidates, ai_client, vault=vault, repository=repository)
         except Exception:
             result = None
         if result is not None:
@@ -167,12 +228,15 @@ def _durable_match(
     ai_client: object | None,
     *,
     learning_object_id: str,
+    vault: LoadedVault | None = None,
+    repository: Repository | None = None,
 ) -> str | None:
     decided = _registry_match_id(event, candidates)
     if decided is not _NO_REGISTRY_DECISION:
         return decided  # type: ignore[return-value]
     return _match_misconception(
-        statement, candidates, ai_client, learning_object_id=learning_object_id
+        statement, candidates, ai_client, learning_object_id=learning_object_id, vault=vault,
+        repository=repository,
     )
 
 
@@ -236,7 +300,7 @@ def normalize_attempt_misconceptions(
             continue  # already normalized (idempotent / replay-safe)
         severity = float(event.get("severity") or 0.0)
         match_id = _durable_match(
-            event, statement, candidates, ai_client, learning_object_id=learning_object_id
+            event, statement, candidates, ai_client, learning_object_id=learning_object_id, vault=vault, repository=repository
         )
         if match_id is not None:
             existing = repository.misconception(match_id)
@@ -657,7 +721,7 @@ def _normalize_compositional(
         # diagnosed blind attempt answers this with its ``registry_match``;
         # only a joint grade still calls ``misconception_match``.
         match_id = _durable_match(
-            event, statement, durable_candidates, ai_client, learning_object_id=learning_object_id
+            event, statement, durable_candidates, ai_client, learning_object_id=learning_object_id, vault=vault, repository=repository
         )
         if match_id is not None:
             existing = repository.misconception(match_id)

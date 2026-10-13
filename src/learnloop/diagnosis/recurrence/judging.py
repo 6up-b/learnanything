@@ -70,7 +70,7 @@ def beat(heartbeat: Heartbeat | None) -> None:
 
 #: Judges whose verdict settles a pair (the learner's card tap does not: the
 #: judge may still be asked, and authority decides).
-SETTLING_JUDGES = frozenset({"owner", "verifier", "llm", "diagnoser"})
+SETTLING_JUDGES = frozenset({"owner", "verifier", "llm", "diagnoser", "decider"})
 
 
 def estimate_tokens(text: str) -> int:
