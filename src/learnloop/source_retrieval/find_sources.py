@@ -45,6 +45,7 @@ from learnloop.ingest.locators import parse_block_span
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise
 from learnloop.source_retrieval.corpus import (
     Scope,
+    block_roles,
     extraction_scope,
     item_exclusions,
     library_scope,
@@ -496,6 +497,13 @@ def find_sources(
                          "list_depths": {name: depth * 2 for name, depth in search.list_depths.items()
                                          if name in lists_open},
                          "unjudged": remaining}
+    if result.hits:
+        # Each hit's effective role (a solution region's body included), so a
+        # reader that must withhold solutions need not trust ``block_type``.
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            roles = block_roles(connection, [(hit["extraction_id"], hit["span_id"]) for hit in result.hits])
+        for hit in result.hits:
+            hit["role"] = roles.get((hit["extraction_id"], hit["span_id"]))
     if policy == "post_attempt" and item is not None and result.hits:
         result.manifest["reveal_id"] = _record_post_attempt_reveal(repository, item, result.hits, clock=clock)
     if personalized and personal:

@@ -45,6 +45,7 @@ from learnloop.practice_index.retrieval import (
     admissible_corpus,
     facet_shortlist,
 )
+from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES, model_reader_withheld
 from learnloop.source_retrieval.find_sources import INTENTS as SOURCE_INTENTS
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.tutor.tutor_qa import answer_leaks_expected, span_leaks_expected
@@ -228,6 +229,8 @@ class _Withhold:
         item = vault.practice_items.get(caller.item_id) if caller.item_id else None
         self.expected = item.expected_answer if item is not None else None
         self.withheld = 0
+        #: Spans dropped for every caller: ``solution`` and ``assessment_lane``.
+        self.by_reason: dict[str, int] = {}
 
     def keep(self, *texts: Any) -> bool:
         if self.expected is None:
@@ -285,21 +288,50 @@ def _passage(hit: Mapping[str, Any]) -> dict[str, Any]:
             "text": _clip(hit.get("text"), PASSAGE_CHARS), "label": "source-authored"}
 
 
-def _sources_view(hits: Any, withhold: _Withhold) -> dict[str, Any]:
+def _model_withheld(vault: LoadedVault, repository: Repository,
+                    keys: Sequence[tuple[str, str]], withhold: _Withhold) -> dict[tuple[str, str], str]:
+    """Solution regions and assessment-lane spans, for every caller (§5.3, SC3):
+    a bound item's answer filter is not the only thing a model must not read."""
+
+    withheld = model_reader_withheld(vault, repository, keys)
+    for reason in withheld.values():
+        withhold.by_reason[reason] = withhold.by_reason.get(reason, 0) + 1
+    return withheld
+
+
+def _sources_view(vault: LoadedVault, repository: Repository, hits: Any, withhold: _Withhold) -> dict[str, Any]:
+    withheld = _model_withheld(vault, repository, [(hit["extraction_id"], hit["span_id"]) for hit in hits.hits],
+                               withhold)
     passages = [_passage(hit) for hit in hits.hits
-                if hit.get("block_type") not in ("solution",) and withhold.keep(hit.get("text"))]
+                if (hit["extraction_id"], hit["span_id"]) not in withheld
+                and hit.get("role") not in MODEL_WITHHELD_ROLES and withhold.keep(hit.get("text"))]
     return {"intent": hits.intent, "policy": hits.policy, "status": hits.status, "passages": passages}
 
 
-def _comparison_view(comparison: Any, withhold: _Withhold) -> dict[str, Any]:
+def _comparison_view(vault: LoadedVault, repository: Repository, comparison: Any,
+                     withhold: _Withhold) -> dict[str, Any]:
     payload = comparison.as_dict()
+
+    def key(entry: Mapping[str, Any]) -> tuple[str, str]:
+        return (str(entry.get("extraction_id")), str(entry.get("span_id")))
+
+    listed = [entry for group in ("sources", "also_discussed_in", "unverified_sources")
+              for entry in payload.get(group) or ()]
+    withheld = _model_withheld(vault, repository, [key(entry) for entry in listed], withhold)
     sources = [source for source in payload.get("sources") or ()
-               if withhold.keep(source.get("passage"), *[c.get("quote") for c in source.get("contributions") or ()])]
+               if key(source) not in withheld
+               and withhold.keep(source.get("passage"), *[c.get("quote") for c in source.get("contributions") or ()])]
+    kept_refs = {source.get("ref") for source in sources}
+    relations = [relation for relation in payload.get("relations") or ()
+                 if relation.get("left_ref") in kept_refs and relation.get("right_ref") in kept_refs]
     return {"comparison_id": payload.get("comparison_id"), "status": payload.get("status"),
-            "policy": payload.get("policy"), "sources": sources, "relations": payload.get("relations"),
+            "policy": payload.get("policy"), "sources": sources, "relations": relations,
             "missing_perspectives": payload.get("missing_perspectives"),
-            "also_discussed_in": payload.get("also_discussed_in"),
-            "unverified_sources": payload.get("unverified_sources"), "labels": payload.get("labels")}
+            "also_discussed_in": [entry for entry in payload.get("also_discussed_in") or ()
+                                  if key(entry) not in withheld],
+            "unverified_sources": [entry for entry in payload.get("unverified_sources") or ()
+                                   if key(entry) not in withheld],
+            "labels": payload.get("labels")}
 
 
 # -- execution ----------------------------------------------------------------------------
@@ -377,7 +409,7 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                roles=args.roles, target_hypotheses=[ref.model_dump() for ref in args.target_hypotheses],
                                verify=True, rerank_client=client.get("source_rerank"),
                                embedder=injected.get("embedder"), clock=clock)
-        view = _sources_view(hits, withhold)
+        view = _sources_view(vault, repository, hits, withhold)
         out.update(result=view,
                    result_ref=hits.manifest.get("manifest_hash") or content_key([hits.manifest])[:32],
                    result_keys=[passage["span_key"] for passage in view["passages"]],
@@ -390,7 +422,7 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                         client=client.get("source_compare"),
                                         verify_client=client.get("source_rerank"),
                                         embedder=injected.get("embedder"), clock=clock)
-        view = _comparison_view(comparison, withhold)
+        view = _comparison_view(vault, repository, comparison, withhold)
         out.update(result=view, result_ref=comparison.comparison_id,
                    result_keys=[f"{s.get('extraction_id')}:{s.get('span_id')}" for s in view["sources"]],
                    source_versions={s.get("extraction_id"): s.get("revision_id") for s in view["sources"]},
@@ -408,6 +440,8 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
         raise ToolArgumentsInvalid("unknown_tool", name)
     if withhold.withheld:
         out["result"]["withheld_answer_overlap"] = withhold.withheld
+    if withhold.by_reason:
+        out["result"]["withheld_from_model"] = dict(sorted(withhold.by_reason.items()))
     return out
 
 

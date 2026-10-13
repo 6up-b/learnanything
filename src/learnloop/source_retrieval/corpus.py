@@ -350,6 +350,67 @@ def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -
     return found
 
 
+def block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str | None]:
+    """Each block's EFFECTIVE role (:func:`effective_hint`), a solution region's
+    body included: the unhinted text after a "Solution:" lead is ``solution``.
+
+    The Marker ``block_type`` (``Text``, ``ListGroup``) is not a role; readers
+    that must withhold solutions read this instead (spec §5.3, SC3).
+    """
+
+    wanted = {(str(key[0]), str(key[1])) for key in keys}
+    roles: dict[tuple[str, str], str | None] = {}
+    for extraction_id in sorted({key[0] for key in wanted}):
+        titles = section_header_titles(connection, extraction_id)
+        rows = extraction_hint_rows(connection, extraction_id)
+        hints = {row.key: effective_hint(row, titles) for row in rows}
+
+        def mark(row: HintRow, hints: Mapping[tuple[str, str], str | None] = hints) -> str:
+            hint = hints[row.key]
+            if hint in _REGION_ROLE_HINTS:
+                return "region"
+            return "body" if hint in REGION_BODY_HINTS else "stop"
+
+        solution_region = lead_regions(rows, mark)
+        for key in wanted:
+            if key[0] != extraction_id or key not in hints:
+                continue
+            roles[key] = "solution" if key in solution_region else (hints[key] or None)
+    return roles
+
+
+#: Effective roles a model reader never receives (spec §5.3, SC3).
+MODEL_WITHHELD_ROLES = frozenset({"solution"})
+
+
+def model_reader_withheld(vault: LoadedVault, repository: Repository,
+                          keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str]:
+    """The spans a result returned to a MODEL must drop, each with its reason.
+
+    Whatever the policy (``reading`` included, and whether or not an item is
+    bound): ``solution`` for a solution block or the body after its lead, by
+    effective role; ``assessment_lane`` for material without teaching
+    authority (exam, problem-set and unknown-role members, held-out units) and
+    every span an ``exercise`` or ``assessment_alignment`` link cites
+    (:func:`teaching_exclusions`). A learner still reads all of it in the
+    Reader; only what a model receives is narrowed.
+    """
+
+    wanted = {(str(key[0]), str(key[1])) for key in keys}
+    if not wanted:
+        return {}
+    exclusions = teaching_exclusions(vault, repository)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        roles = block_roles(connection, wanted)
+    withheld: dict[tuple[str, str], str] = {}
+    for key in wanted:
+        if roles.get(key) in MODEL_WITHHELD_ROLES:
+            withheld[key] = "solution"
+        elif key in exclusions.spans or key[0] in exclusions.extractions:
+            withheld[key] = "assessment_lane"
+    return withheld
+
+
 def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]:
     """Exercise and solution blocks (a solution with the body after its lead)."""
 
@@ -547,12 +608,15 @@ __all__ = [
     "ITEM_BOUND_EXCLUDED_ROLE_HINTS",
     "Scope",
     "SourceExtraction",
+    "MODEL_WITHHELD_ROLES",
     "assessment_spans",
+    "block_roles",
     "current_extractions",
     "effective_hint",
     "extraction_scope",
     "item_exclusions",
     "library_scope",
+    "model_reader_withheld",
     "role_keys",
     "teaching_exclusions",
     "teaching_scope",
