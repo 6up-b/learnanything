@@ -29,6 +29,7 @@ from learnloop.diagnosis.probe_episodes import (
     EpisodePosterior,
     _evaluate_completion,
     _set_target_decision,
+    episode_maximum_binds,
     episode_posterior,
     persist_episode_beliefs,
 )
@@ -76,8 +77,12 @@ def block_complete(
         return False
 
     rows = repository.probe_observations_for_episode(episode.id)
-    qualifying = sum(1 for row in rows if row["observation"].eligible_for_completion)
-    if qualifying >= episode.maximum_observations:
+    qualifying_rows = [row for row in rows if row["observation"].eligible_for_completion]
+    qualifying = len(qualifying_rows)
+    # mvp-0.17 (voi_stopping): while value decides, the episode's own count
+    # neither closes the block nor bounds its size.
+    maximum_binds = episode_maximum_binds(vault, repository, qualifying_rows)
+    if maximum_binds and qualifying >= episode.maximum_observations:
         return True
 
     segment_rows = [
@@ -88,9 +93,10 @@ def block_complete(
         if target <= 0:
             target = vault.config.probe.block.default_block_observations
         return len(segment_rows) >= target
-    target = min(
-        vault.config.probe.block.default_block_observations,
-        episode.maximum_observations,
+    target = (
+        min(vault.config.probe.block.default_block_observations, episode.maximum_observations)
+        if maximum_binds
+        else vault.config.probe.block.default_block_observations
     )
     if len(segment_rows) >= target:
         return True

@@ -413,8 +413,14 @@ class PracticeScreen(Screen):
         if self.probe_contract is not None:
             observation = self.probe_contract.get("observation_number", 1)
             maximum = self.probe_contract.get("maximum_observations", 4)
+            # mvp-0.17: value decides when the check ends, not a count.
+            header = (
+                f"Diagnostic · observation {observation} · continues while the next question is worth your time"
+                if self.probe_contract.get("value_stopping")
+                else f"Diagnostic · observation {observation} of up to {maximum}"
+            )
             return Content.assemble(
-                (f"Diagnostic · observation {observation} of up to {maximum}", "$probe bold"),
+                (header, "$probe bold"),
                 "\n",
                 (
                     "feedback is delayed for measurement integrity · hints and ask-tutor are "

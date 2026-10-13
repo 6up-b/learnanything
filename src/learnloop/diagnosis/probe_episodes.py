@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import log
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import (
@@ -1393,8 +1393,10 @@ def probe_value_block_reason(
         voi.VoiContext(vault, repository), episode, candidates, live.posterior, session_id=session_id
     )
     if decision.admits(practice_item_id):
-        return None, decision.as_dict()
-    return "value_below_minutes_cost", decision.as_dict()
+        # The item the learner opened is the one this door commits: the
+        # receipt carries ITS forecast (``served``), beside value's own pick.
+        return None, decision.as_dict(served_ref=practice_item_id, served_by={"mechanism": "learner_opened_item"})
+    return "value_below_minutes_cost", decision.as_dict(subject_ref=practice_item_id)
 
 
 def commit_item_presentation(
@@ -2479,7 +2481,12 @@ def _evaluate_completion(
     rows = repository.probe_observations_for_episode(episode.id)
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
 
-    if len(qualifying) >= episode.maximum_observations:
+    # mvp-0.17 (voi_stopping): the episode's own count is lifted with the
+    # session cap (reader spec §18, §20.7); while value decides, an episode
+    # keeps asking past it and ends on its value stop instead.
+    if len(qualifying) >= episode.maximum_observations and episode_maximum_binds(
+        vault, repository, qualifying
+    ):
         return _complete(repository, episode, "observation_budget_exhausted", posterior=posterior, clock=clock)
 
     # Decision-equivalence early stop (evsi.shared_optimal_action semantics on
@@ -2597,6 +2604,42 @@ def voi_probe_site_active(vault: LoadedVault) -> bool:
     from learnloop.diagnosis.voi_stopping import SITE_PROBE_EPISODE, voi_stopping_active
 
     return voi_stopping_active(vault.config, SITE_PROBE_EPISODE)
+
+
+def _latest_observation_session(repository: Repository, qualifying: Sequence[Mapping[str, Any]]) -> str | None:
+    """The session of the episode's latest qualifying observation (oldest first)."""
+
+    if not qualifying:
+        return None
+    latest = qualifying[-1]
+    attempt = repository.fetch_practice_attempt(str(latest.get("attempt_id"))) if latest.get("attempt_id") else None
+    session_id = attempt.get("session_id") if attempt else None
+    return str(session_id) if session_id is not None else None
+
+
+def episode_maximum_binds(
+    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Does ``probe.episode.maximum_observations`` (stamped on the episode at
+    entry) end the episode by count?
+
+    Yes below mvp-0.17 or with the probe-episode site switched off (the
+    kill-switch path, exactly), and in a calibration session (the learner's
+    opt-in lifts the value rule as it lifted the session cap, so the count is
+    what ends that measurement). Otherwise value decides: the episode asks
+    while its next observation pays for its minutes, and the count is only the
+    receipt's counterfactual (``voi_stopping.EPISODE_MAXIMUM_CAP``).
+    """
+
+    if not voi_probe_site_active(vault):
+        return True
+    session_id = _latest_observation_session(repository, qualifying)
+    if session_id is not None:
+        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
+
+        if calibration_cap_lifted(repository, session_id):
+            return True
+    return False
 
 
 def _plausible_actions_agree(
@@ -2767,11 +2810,7 @@ def _value_of_information_stop(
 
     if not qualifying or not candidates or not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
         return None
-    session_id = None
-    latest = qualifying[-1]  # observations come oldest first
-    attempt = repository.fetch_practice_attempt(str(latest.get("attempt_id"))) if latest.get("attempt_id") else None
-    if attempt:
-        session_id = attempt.get("session_id")
+    session_id = _latest_observation_session(repository, qualifying)
     if session_id is not None:
         from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
 
@@ -2930,7 +2969,7 @@ def episode_contract(
         return None
     posterior = episode_posterior(vault, repository, episode)
     qualifying = posterior.qualifying_observations if posterior is not None else 0
-    return {
+    contract = {
         "episode_id": episode.id,
         "status": episode.status,
         "observation_number": qualifying + 1,
@@ -2941,6 +2980,12 @@ def episode_contract(
         "feedback_note": "Feedback is delayed until this short diagnostic block completes.",
         "actions": {"stop_and_teach": True, "leave_and_resume": True},
     }
+    if voi_probe_site_active(vault):
+        # mvp-0.17: the episode asks while the next question is worth its
+        # minutes, not up to ``maximum_observations`` (outside a calibration
+        # session), so a surface must not say "of up to N".
+        contract["value_stopping"] = True
+    return contract
 
 
 def next_probe_item(

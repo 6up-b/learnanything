@@ -136,15 +136,15 @@ def _revalue_capped_followups(vault: Any, repository: Any, capped: list[dict[str
             exclude_practice_item_id=item_id, target_facets=targets, failed_facets=targets, intent=intent,
             max_error_severity=float(gate.get("max_error_severity") or 0.0),
         )
-        decision = F._further_intervention_value(
+        if selection.candidate is None:
+            out.append({"attempt_id": row["attempt_id"], "result": "no_candidate", "cap_comparison": "agree"})
+            continue
+        decision = F._intervention_value(
             vault, repository, selection=selection, learning_object_id=lo_id,
             session_interventions_for_lo=int(config.max_interventions_per_lo_per_session),
             session_id=row["session_id"], clock=None,
         )
-        if decision is None:
-            out.append({"attempt_id": row["attempt_id"], "result": "no_candidate", "cap_comparison": "agree"})
-            continue
-        best = decision.best
+        best = decision.chosen or decision.best
         out.append(
             {
                 "attempt_id": row["attempt_id"],
@@ -204,9 +204,16 @@ def _today(root: Path) -> dict[str, Any]:
         "decisions": [
             {key: decision.get(key) for key in ("site", "learning_object_id", "decision", "reason", "cap_comparison", "former_cap")}
             | {
-                "value_robust_minutes": (decision.get("best") or {}).get("evsi_robust_minutes"),
-                "cost_minutes": (decision.get("best") or {}).get("cost_minutes"),
-                "method": (decision.get("best") or {}).get("method"),
+                # A per-candidate receipt (a teach-back) reports its own
+                # valuation (``subject``); a site decision its best.
+                "ref": (decision.get("subject") or decision.get("best") or {}).get("ref"),
+                "value_robust_minutes": (decision.get("subject") or decision.get("best") or {}).get("evsi_robust_minutes"),
+                "cost_minutes": (decision.get("subject") or decision.get("best") or {}).get("cost_minutes"),
+                "method": (decision.get("subject") or decision.get("best") or {}).get("method"),
+                "conditioning": ((decision.get("subject") or {}).get("detail") or {}).get("conditioning"),
+                "subject_learning_object_id": ((decision.get("subject") or {}).get("detail") or {}).get(
+                    "learning_object_id"
+                ),
             }
             for decision in on_trace.voi_decisions
         ],

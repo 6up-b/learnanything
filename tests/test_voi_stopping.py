@@ -184,17 +184,48 @@ def test_where_routes_differ_robust_evsi_and_rank_feasibles_stop_rule_decide():
     value = spread.best
     assert value.method == voi.METHOD_ROBUST_EVSI and value.continues
     assert value.reason == voi.REASON_EVSI_CLEARS and spread.rank["verdict"] == "measure"
-    # A perfectly sure belief: the observation cannot change the repair.
+    # A near-sure belief: the decision is still at stake across the whole
+    # posterior (review F6), and the observation is unlikely to change the
+    # repair, so robust EVSI stops it rather than the EIG objective.
     sure = voi.value_candidates(
         ctx, voi.SITE_PROBE_EPISODE, [_candidate("q", INFORMATIVE, 0.5)],
         prior={"unfamiliar": 0.97, "robust_initial_grasp": 0.03}, learning_object_id="lo", former_cap=_cap(),
     )
-    assert sure.context["decision_at_stake"] is False  # one plausible hypothesis
+    assert sure.context["decision_at_stake"] is True
+    assert sure.context["plausible_hypotheses"] == ["unfamiliar"]  # described, not gating
+    assert sure.best.method == voi.METHOD_ROBUST_EVSI and sure.decision == voi.STOP
     costly = voi.value_candidates(
         ctx, voi.SITE_PROBE_EPISODE, [_candidate("q", INFORMATIVE, 30.0)],
         prior={"unfamiliar": 0.5, "robust_initial_grasp": 0.5}, learning_object_id="lo", former_cap=_cap(),
     )
     assert costly.decision == voi.STOP and costly.best.reason == "lcb_evsi_below_minutes_cost"
+
+
+def test_greater_certainty_never_restarts_an_unprofitable_measurement():
+    """Review F6: crossing the plausibility cutoff used to switch a near-sure
+    belief from robust EVSI (0.06 min, stop) to the EIG objective (8.04 min,
+    continue). With a complete loss table EVSI decides across the posterior,
+    so more certainty only shrinks the decision value."""
+
+    ctx = _ctx(ROUTES)
+    values = []
+    for p in (0.85, 0.89, 0.91, 0.95, 0.99):
+        decision = voi.value_candidates(
+            ctx, voi.SITE_PROBE_EPISODE, [_candidate("q", INFORMATIVE, 0.5)],
+            prior={"unfamiliar": p, "robust_initial_grasp": 1.0 - p}, learning_object_id="lo", former_cap=_cap(),
+        )
+        assert decision.context["decision_at_stake"] is True
+        assert decision.best.method == voi.METHOD_ROBUST_EVSI
+        if p >= 0.89:
+            assert decision.decision == voi.STOP
+        values.append(decision.best.value_robust_minutes)
+    assert values == sorted(values, reverse=True)
+    # A missing route still falls back to the EIG objective (no loss table).
+    missing = voi.value_candidates(
+        _ctx(ROUTES[:1]), voi.SITE_PROBE_EPISODE, [_candidate("q", INFORMATIVE, 0.5)],
+        prior={"unfamiliar": 0.91, "robust_initial_grasp": 0.09}, learning_object_id="lo", former_cap=_cap(),
+    )
+    assert missing.context["decision_at_stake"] is False and missing.best.method == voi.METHOD_EIG_VALUE
 
 
 def test_rival_misconceptions_are_rival_repairs():
@@ -416,8 +447,7 @@ def _further(loaded, repository, result, **kwargs):
         error_event_written=bool(result.error_event_ids),
         available_minutes=30,
         session_id="sess",
-        session_interventions_for_lo=1,
-        **kwargs,
+        **{"session_interventions_for_lo": 1, **kwargs},
     )
 
 
@@ -456,17 +486,128 @@ def test_at_the_successor_a_further_follow_up_whose_value_does_not_pay_is_suppre
     assert "voi_value_below_minutes_cost" in forced.gate_diagnostics["would_suppress"]
 
 
-def test_the_first_follow_up_in_a_session_is_not_valued(tmp_path, monkeypatch):
+def _first(loaded, repository, result, **kwargs):
+    return _further(loaded, repository, result, **{"session_interventions_for_lo": 0, **kwargs})
+
+
+def test_the_first_follow_up_in_a_session_is_valued_too(tmp_path, monkeypatch):
+    """Review F7: the former per-LO cap is neither a cap nor a floor. The first
+    follow-up is valued like any other, and stops where value does not pay."""
+
     loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
     _minutes(monkeypatch, 10_000.0)
-    first = evaluate_intervention_followup(
-        loaded, repository, attempt_id=result.attempt_id, learning_object_id=result.learning_object_id,
-        practice_item_id=result.practice_item_id, surprise_direction=result.surprise_direction,
-        bayesian_surprise=result.bayesian_surprise, grader_confidence=result.grader_confidence,
-        error_event_written=bool(result.error_event_ids), available_minutes=30, session_id="sess",
-        session_interventions_for_lo=0,
+    first = _first(loaded, repository, result)
+    assert first.triggered is False
+    assert first.reason == f"intervention_followup:voi_value_below_minutes_cost:{LO}"
+    body = first.gate_diagnostics["voi_stopping"]
+    assert body["decision"] == voi.STOP
+    # The cap would have allowed it: value stops earlier.
+    assert body["former_cap"]["would_bind"] is False and body["cap_comparison"] == "earlier"
+    _minutes(monkeypatch, 0.01)
+    queued = _first(loaded, repository, result)
+    assert queued.triggered is True and queued.gate_diagnostics["voi_stopping"]["decision"] == voi.CONTINUE
+
+
+def test_a_cheaper_follow_up_that_pays_is_queued_when_the_old_winner_does_not(tmp_path, monkeypatch):
+    """Review F4: the whole eligible slate is valued. The slate ranking's pick
+    costs too much; a comparable half-minute alternative pays and is queued."""
+
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
+    root = tmp_path / "mvp-0_17"
+    add_followup_item(root, "pi_svd_define_003")
+    loaded = load_vault(root)
+    loaded.config.algorithms.algorithm_version = "mvp-0.17"
+    _minutes(monkeypatch, 0.01)
+    ranking_pick = _further(loaded, repository, result).gate_diagnostics["voi_stopping"]["context"][
+        "slate_ranking_pick"
+    ]
+    other = ({"pi_svd_define_002", "pi_svd_define_003"} - {ranking_pick}).pop()
+    monkeypatch.setattr(
+        voi.VoiContext,
+        "item_minutes",
+        lambda self, item, authored_minutes=None: voi.MinutesEstimate(
+            10_000.0 if item.id == ranking_pick else 0.5, "authored_prior"
+        ),
     )
-    assert first.triggered is True and "voi_stopping" not in first.gate_diagnostics
+    decision = _further(loaded, repository, result)
+    assert decision.triggered is True and decision.practice_item_id == other
+    body = decision.gate_diagnostics["voi_stopping"]
+    assert body["candidate_count"] == 2 and body["context"]["slate_ranking_pick"] == ranking_pick
+    assert body["recommended_ref"] == body["served_ref"] == body["chosen_ref"] == other
+    assert body["served"]["ref"] == other and body["served"]["forecast"]["likelihood"]
+    assert {c["ref"]: c["decision"] for c in body["candidates"]} == {other: voi.CONTINUE, ranking_pick: voi.STOP}
+    # Only when the best remaining candidate fails does the follow-up stop.
+    _minutes(monkeypatch, 10_000.0)
+    stopped = _further(loaded, repository, result)
+    assert stopped.triggered is False and stopped.gate_diagnostics["voi_stopping"]["candidate_count"] == 2
+
+
+def test_the_follow_up_forecast_survives_rebuilds_and_replay_unrevalued(tmp_path, monkeypatch):
+    """Review F1: the decision-time forecast lives on the immutable
+    ``decision_features`` receipt (keyed by the source attempt), which neither
+    a rebuild nor a regrade's LO replay clears, and nothing re-values it."""
+
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from learnloop.substrate.replay import replay_learning_object
+
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.01)
+    decision = _further(loaded, repository, result)
+    assert decision.triggered is True
+    receipt = voi.followup_receipt(repository, result.attempt_id)
+    assert receipt == decision.gate_diagnostics["voi_stopping"]
+    assert receipt["served"]["forecast"]["predicted_outcomes"]
+    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
+    # The derived copy is gone (attempt_surprise is rebuilt without it) ...
+    assert "voi_stopping" not in (repository.latest_attempt_surprise(result.attempt_id).get("gate_diagnostics") or {})
+    # ... the receipt is not, through a second rebuild and a regrade's replay.
+    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
+    replay_learning_object(loaded, repository, result.learning_object_id)
+    assert voi.followup_receipt(repository, result.attempt_id) == receipt
+    # A later evaluation of the same attempt never re-values the receipt.
+    _minutes(monkeypatch, 10_000.0)
+    later = _further(loaded, repository, result)
+    assert later.gate_diagnostics["voi_stopping"]["decision"] == voi.STOP
+    assert voi.followup_receipt(repository, result.attempt_id) == receipt
+
+
+def test_a_value_suppressed_follow_up_keeps_its_receipt(tmp_path, monkeypatch):
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 10_000.0)
+    decision = _further(loaded, repository, result)
+    assert decision.triggered is False
+    receipt = voi.followup_receipt(repository, result.attempt_id)
+    assert receipt is not None and receipt["decision"] == voi.STOP and receipt["best"]["forecast"]
+    row = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
+    assert row["context"]["decision_outcome"] == "suppressed_voi_value_below_minutes_cost"
+
+
+def test_below_the_successor_no_follow_up_receipt_carries_a_value_decision(tmp_path):
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.16")
+    _first(loaded, repository, result)
+    row = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
+    assert row is not None and "voi_stopping" not in row["context"]
+    assert voi.followup_receipt(repository, result.attempt_id) is None
+
+
+def test_value_suppressions_never_label_the_trigger(tmp_path, monkeypatch):
+    """Review F9: a trigger that fired and was then outvalued says nothing
+    about trigger quality: neither a silent negative nor, under a manual
+    override, a gate false negative."""
+
+    from learnloop.diagnosis.gate_fit import assemble_gate_training_set
+
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 10_000.0)
+    suppressed = _further(loaded, repository, result)
+    assert suppressed.gate_diagnostics["decisive_reason"] == voi.VOI_VALUE_SUPPRESSION
+    assert not [e for e in assemble_gate_training_set(repository, loaded.config) if e.attempt_id == result.attempt_id]
+    forced = _further(loaded, repository, result, manual_override=True)
+    assert forced.gate_diagnostics["would_suppress"] == [voi.VOI_VALUE_SUPPRESSION]
+    assert forced.gate_diagnostics["would_auto_fire"] is False  # honest: value would have stopped it
+    assert not [e for e in assemble_gate_training_set(repository, loaded.config) if e.attempt_id == result.attempt_id]
+    # Valuation suppressions are the only reasons the fitter learns to ignore.
+    assert voi.VALUATION_SUPPRESSION_REASONS == {voi.VOI_VALUE_SUPPRESSION}
 
 
 @pytest.mark.parametrize("switch", ["enabled", "followups"])
@@ -499,7 +640,11 @@ def _teach_backs(queue):
     return [entry.practice_item_id for entry in queue if entry.selected_mode == "teach_back"]
 
 
-def test_further_teach_backs_stay_while_their_value_pays(tmp_path, monkeypatch):
+def _teach_back_decisions(trace):
+    return {d["subject_ref"]: d for d in trace.voi_decisions if d["site"] == voi.SITE_TEACH_BACK}
+
+
+def test_teach_backs_stay_while_their_conditional_value_pays(tmp_path, monkeypatch):
     base_vault, base_repo = _teach_back_vault(tmp_path, "mvp-0.16")
     vault, repository = _teach_back_vault(tmp_path, "mvp-0.17")
     assert len(_teach_backs(_build(base_vault, base_repo, session_id="sess_1"))) == 1
@@ -507,20 +652,78 @@ def test_further_teach_backs_stay_while_their_value_pays(tmp_path, monkeypatch):
     trace = OfferTrace()
     queue = _build(vault, repository, session_id="sess_1", trace=trace)
     assert len(_teach_backs(queue)) == 2
-    decisions = [d for d in trace.voi_decisions if d["site"] == voi.SITE_TEACH_BACK]
-    assert len(decisions) == 2 and all(d["decision"] == voi.CONTINUE for d in decisions)
+    decisions = sorted(_teach_back_decisions(trace).values(), key=lambda d: d["greedy_step"])
+    assert len(decisions) == 2 and all(d["decision"] == voi.CONTINUE and d["admitted"] for d in decisions)
     assert [d["former_cap"]["would_bind"] for d in decisions] == [False, True]
     assert trace.teach_back_exclusion_reason == "teach_back_value_below_minutes_cost"
+    # The second is valued given the first (the reward body reproduces the
+    # logged total, so the decomposition is available), and is worth less.
+    first, second = (d["subject"] for d in decisions)
+    assert first["detail"]["conditioning"] == "none_chosen"
+    assert second["detail"]["conditioning"] == "chosen_before"
+    assert second["eig_nats"] < second["detail"]["unconditioned_eig_nats"]
+    assert first["eig_nats"] == pytest.approx(first["detail"]["unconditioned_eig_nats"])
 
 
-def test_a_further_teach_back_whose_value_does_not_pay_is_dropped_and_the_first_kept(tmp_path, monkeypatch):
+def test_a_second_teach_back_that_tells_the_same_thing_is_not_admitted(tmp_path, monkeypatch):
+    """Review F2: two teach-backs on the same uncertainty each clear their
+    minutes alone; once the first is admitted the second adds too little, so
+    it is not (the greedy conditional rule, reader spec §9.3 item 3)."""
+
+    vault, repository = _teach_back_vault(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.01)
+    trace = OfferTrace()
+    _build(vault, repository, session_id="sess_1", trace=trace)
+    second = max(_teach_back_decisions(trace).values(), key=lambda d: d["greedy_step"])["subject"]
+    alone = voi.VALUE_PER_NAT_MINUTES * second["detail"]["unconditioned_eig_nats"]
+    given_first = second["evsi_robust_minutes"]
+    assert given_first < alone
+    _minutes(monkeypatch, (alone + given_first) / 2.0)  # each alone pays; the second given the first does not
+    trace = OfferTrace()
+    queue = _build(vault, repository, session_id="sess_1", trace=trace)
+    assert len(_teach_backs(queue)) == 1
+    decisions = _teach_back_decisions(trace)
+    dropped = [d for d in decisions.values() if not d["admitted"]]
+    assert len(dropped) == 1 and dropped[0]["decision"] == voi.STOP
+    assert dropped[0]["subject"]["detail"]["conditioning"] == "chosen_before"
+    assert dropped[0]["subject"]["detail"]["unconditioned_eig_nats"] * voi.VALUE_PER_NAT_MINUTES > (
+        dropped[0]["subject"]["cost_minutes"]
+    )
+
+
+def test_a_teach_back_whose_value_does_not_pay_is_dropped_the_first_included(tmp_path, monkeypatch):
+    """Review F7: the former cap is not a floor."""
+
     vault, repository = _teach_back_vault(tmp_path, "mvp-0.17")
     _minutes(monkeypatch, 10_000.0)
     trace = OfferTrace()
     queue = _build(vault, repository, session_id="sess_1", trace=trace)
-    assert len(_teach_backs(queue)) == 1  # the former cap's allowance stays
-    decisions = [d for d in trace.voi_decisions if d["site"] == voi.SITE_TEACH_BACK]
-    assert all(d["decision"] == voi.STOP for d in decisions)
+    assert _teach_backs(queue) == []
+    decisions = list(_teach_back_decisions(trace).values())
+    assert len(decisions) == 2 and all(d["decision"] == voi.STOP for d in decisions)
+    # The cap would have kept the first: value stopped earlier.
+    assert all(d["former_cap"]["would_bind"] is False and d["cap_comparison"] == "earlier" for d in decisions)
+
+
+def test_a_sole_teach_back_is_valued_and_receipted(tmp_path, monkeypatch):
+    """Review F7: a sole teach-back used to survive under the cap with no
+    receipt; now it is valued like any other."""
+
+    from tests.test_teach_back import _seed_lo_evidence, _setup
+
+    _root, vault, repository = _setup(tmp_path / "sole")
+    _seed_lo_evidence(repository)
+    vault.config.algorithms.algorithm_version = "mvp-0.17"
+    _minutes(monkeypatch, 10_000.0)
+    trace = OfferTrace()
+    assert _teach_backs(_build(vault, repository, session_id="sess_1", trace=trace)) == []
+    (receipt,) = _teach_back_decisions(trace).values()
+    assert receipt["decision"] == voi.STOP and receipt["subject"]["forecast"]
+    _minutes(monkeypatch, 0.01)
+    trace = OfferTrace()
+    assert len(_teach_backs(_build(vault, repository, session_id="sess_1", trace=trace))) == 1
+    (receipt,) = _teach_back_decisions(trace).values()
+    assert receipt["decision"] == voi.CONTINUE
 
 
 @pytest.mark.parametrize("switch", ["enabled", "teach_back"])
@@ -541,50 +744,144 @@ def _probe_items(eig=0.2):
     return [scheduled(f"pi_probe_{i}", "lo_repo", probe_eig_total=eig) for i in range(5)]
 
 
-def _checks():
-    return {f"pi_probe_{i}": ScheduledCheck("project_probe", priority=1 if i == 4 else 0) for i in range(5)}
+def _checks(ids=None):
+    ids = ids or [f"pi_probe_{i}" for i in range(5)]
+    return {item_id: ScheduledCheck("project_probe", priority=1 if item_id == "pi_probe_4" else 0) for item_id in ids}
 
 
 def _lanes(pool):
     return {item.practice_item_id: item.lane for item in pool}
 
 
-def _valuer(minutes_cost_scale=1.0):
-    ctx = voi.VoiContext(type("V", (), {"config": LearnLoopConfig()})(), None)
+def _probe(item_id, lo, facets, *, lo_variance=0.5, facet_variance=0.2, mass=0.5):
+    """A due project probe carrying the scheduler's reward body, so its
+    ``probe_eig_total`` decomposes and it can be valued conditionally."""
 
-    def value(item, est_minutes, order):
-        return voi.adapter_information_decision(
-            ctx, voi.SITE_PROJECT_PROBE, ref=item.practice_item_id, learning_object_id=item.learning_object_id,
-            eig_nats=float(item.components.get("probe_eig_total", 0.0)),
-            minutes=voi.MinutesEstimate(est_minutes * minutes_cost_scale, "plan_estimate"),
-            predicted_correct=None, cap_value=4, cap_count=order,
-        ).as_dict()
+    from dataclasses import replace
 
-    return value
-
-
-def test_valued_project_probes_have_no_count_cap_and_order_by_value_per_minute():
-    items = _probe_items()
-    items[2] = scheduled("pi_probe_2", "lo_repo", probe_eig_total=0.9)
-    pool = classify_pool(
-        items, item_states={}, requested_ids=[], now=NOW, estimate=lambda _id: 3.0, checks=_checks(),
-        probe_cap_left=4, project_probe_value=_valuer(),
+    from learnloop.scheduling.selection_rewards import (
+        ItemDemandVector,
+        LearnerAbilityVector,
+        probe_information_gain_components,
     )
+
+    ability = LearnerAbilityVector(
+        learning_object_id=lo, lo_mastery=0.0, lo_mastery_variance=lo_variance,
+        facet_recall_mean_by_facet={f: 0.5 for f in facets},
+        facet_recall_variance_by_facet={f: facet_variance for f in facets},
+        facet_independent_evidence_mass_by_facet={f: mass for f in facets},
+        misconception_posterior_by_error_type={},
+    )
+    demand = ItemDemandVector(
+        learning_object_id=lo, evidence_weights=dict(facets), difficulty_b=0.0, discrimination_a=1.0,
+        retrieval_demand=0.5, transfer_distance=0.0, scaffold_level=0.0, surface_family=None,
+        misconception_targets=[], repair_targets=list(facets), bad_item_suspicion=0.0,
+    )
+    probe_eig = probe_information_gain_components(ability, demand, hypothesis_eig=0.0)
+    item = scheduled(item_id, lo, probe_eig_total=float(probe_eig["total_reduction"]))
+    return replace(
+        item,
+        reward_debug={"ability_vector": ability.as_dict(), "item_demand_vector": demand.as_dict(), "probe_eig": probe_eig},
+    )
+
+
+def _admission(probes_planned=0, version="mvp-0.17"):
+    """The plan engine's own admission (greedy, conditional), as the plan calls it."""
+
+    from types import SimpleNamespace
+
+    from learnloop.daily_plan.engine import _project_probe_admission
+
+    config = _config(version)
+    env = SimpleNamespace(vault=SimpleNamespace(config=config), repository=None, plan_config=config.plan)
+    return _project_probe_admission(env, probes_planned)
+
+
+def _classify(items, *, minutes=3.0, checks=None, admission=None):
+    return classify_pool(
+        items, item_states={}, requested_ids=[], now=NOW, estimate=lambda _id: minutes,
+        checks=checks or _checks([item.practice_item_id for item in items]), probe_cap_left=4,
+        project_probe_admission=admission or _admission(),
+    )
+
+
+def test_valued_project_probes_have_no_count_cap_and_are_planned_in_value_order():
+    items = [_probe(f"pi_probe_{i}", f"lo_{i}", {f"facet_{i}": 1.0}) for i in range(5)]
+    items[2] = _probe("pi_probe_2", "lo_2", {"facet_2": 1.0}, lo_variance=2.0, facet_variance=0.25, mass=0.0)
+    pool = _classify(items)
     assert list(_lanes(pool).values()).count("maintain") == 5  # the fifth is no longer "later"
-    probes = [item.practice_item_id for item in pool if item.check_kind == "project_probe"]
-    assert probes[0] == "pi_probe_2"  # the most information per minute first
+    probes = [item for item in pool if item.check_kind == "project_probe"]
+    assert probes[0].practice_item_id == "pi_probe_2"  # the most information per minute first
+    assert [item.plan_rank for item in probes] == [0, 1, 2, 3, 4]  # the plan ranks by value
     assert [item.voi["former_cap"]["would_bind"] for item in pool].count(True) == 1
+    # Independent probes (different LOs and facets) lose nothing to each other.
+    assert all(
+        item.voi["subject"]["eig_nats"] == pytest.approx(item.voi["subject"]["detail"]["unconditioned_eig_nats"])
+        for item in pool
+    )
 
 
 def test_a_project_probe_whose_value_does_not_pay_stays_later():
-    pool = classify_pool(
-        _probe_items(eig=0.001), item_states={}, requested_ids=[], now=NOW, estimate=lambda _id: 3.0,
-        checks=_checks(), probe_cap_left=4, project_probe_value=_valuer(),
-    )
+    pool = _classify(_probe_items(eig=0.001), checks=_checks())
     assert set(_lanes(pool).values()) == {None}
     assert {item.reason for item in pool} == {"a due project probe whose value does not pay for its minutes today"}
-    # Value stopped probes the cap would have allowed.
-    assert sum(1 for item in pool if not item.voi["former_cap"]["would_bind"]) == 4
+    # Value stopped probes the cap would have allowed, the first included.
+    assert sum(1 for item in pool if not item.voi["former_cap"]["would_bind"]) == 5
+    assert all(item.voi["decision"] == voi.STOP for item in pool)
+
+
+def test_a_project_probe_that_duplicates_an_admitted_one_is_not_admitted():
+    """Review F2: two probes on the same uncertainty each clear their minutes
+    alone; given the first, the second adds too little and is not admitted,
+    while an independent probe still is."""
+
+    items = [
+        _probe("pi_a", "lo_same", {"facet_x": 1.0}),
+        _probe("pi_b", "lo_same", {"facet_x": 1.0}),
+        _probe("pi_c", "lo_other", {"facet_y": 1.0}, lo_variance=0.6),
+    ]
+    alone = voi.VALUE_PER_NAT_MINUTES * items[1].components["probe_eig_total"]
+    probe = {item.practice_item_id: item for item in _classify(items, minutes=0.01)}
+    given_first = probe["pi_b"].voi["subject"]["evsi_robust_minutes"]
+    assert probe["pi_b"].voi["subject"]["detail"]["conditioning"] == "chosen_before"
+    assert given_first < alone
+    minutes = (alone + given_first) / 2.0  # each alone pays; the second given the first does not
+    pool = {item.practice_item_id: item for item in _classify(items, minutes=minutes)}
+    assert pool["pi_a"].lane == pool["pi_c"].lane == "maintain"
+    assert pool["pi_b"].lane is None and pool["pi_b"].voi["decision"] == voi.STOP
+    assert pool["pi_b"].voi["subject"]["detail"]["unconditioned_eig_nats"] * voi.VALUE_PER_NAT_MINUTES > minutes
+
+
+def test_the_block_chooser_plans_the_best_probe_per_minute_first():
+    """Review F5: two five-minute probes worth 12 and 60 minutes, five minutes
+    to spend. The scheduler ranked the 12-minute one first; the plan's block
+    score and the chooser must follow the value order, re-entry included."""
+
+    from learnloop.daily_plan.chooser import LaneQuotaChooser
+    from learnloop.daily_plan.lanes import LegacyLanesSource, reentry_order
+    from learnloop.daily_plan.types import LANES, PlanState
+
+    items = [scheduled("pi_low", "lo_a", probe_eig_total=0.2), scheduled("pi_high", "lo_b", probe_eig_total=1.0)]
+    pool = _classify(items, minutes=5.0)
+    by_id = {item.practice_item_id: item for item in pool}
+    assert by_id["pi_high"].voi["subject"]["evsi_robust_minutes"] == pytest.approx(60.0)
+    assert by_id["pi_low"].voi["subject"]["evsi_robust_minutes"] == pytest.approx(12.0)
+    state = PlanState(
+        plan_id="p", kind="normal", minutes_budget=5.0, minutes_left=5.0,
+        lane_minutes_left={lane: 5.0 if lane == "maintain" else 0.0 for lane in LANES},
+        days_since_last_activity=0, streak_days=0, current_block_id=None,
+    )
+    for ordered in (pool, reentry_order(pool)):
+        candidates = LegacyLanesSource(pool=ordered).candidates(state)
+        choice = LaneQuotaChooser().choose(state, candidates)
+        chosen = next(c for c in candidates if c.candidate_id == choice.candidate_id)
+        assert chosen.item_ids == ("pi_high",)
+    # Below the successor the scheduler's rank still decides (no plan rank).
+    old = classify_pool(
+        items, item_states={}, requested_ids=[], now=NOW, estimate=lambda _id: 5.0,
+        checks=_checks(["pi_low", "pi_high"]), probe_cap_left=4,
+    )
+    assert all(item.plan_rank is None for item in old)
 
 
 def _plan_with_probes(tmp_path, version, toml=""):
@@ -825,6 +1122,126 @@ def test_while_the_next_observation_pays_the_episode_keeps_asking(tmp_path, monk
     _minutes(monkeypatch, 0.0001)
     episode = _answer_probe(vault, repository)
     assert episode.completion_reason != "value_of_information_stop"
+
+
+#: Keep the episode's other stops out of the way (decision stability, action
+#: equivalence, the robust abstention after the breadth minimum): only the
+#: count or value ends it.
+_LONG_EPISODE_TOML = (
+    "[probe.episode]\nposterior_stop_threshold = 0.9999\naction_equivalence_enabled = false\n"
+    "minimum_independent_observations = 10\n"
+    "[probe.block]\ndefault_block_observations = 1\n"
+)
+_EXTRA_PROBES = tuple(f"pi_svd_define_{index:03d}" for index in range(3, 8))
+
+
+def _long_probe_vault(tmp_path, version, toml=""):
+    paths, _vault, repository = _probe_vault(tmp_path, version, toml=_LONG_EPISODE_TOML + toml)
+    for item_id in _EXTRA_PROBES:
+        add_followup_item(paths.root, item_id)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    admit_probe_instrument_card(
+        repository, card_id="card_svd_contrast_more", items=("pi_svd_define_001", "pi_svd_define_002", *_EXTRA_PROBES)
+    )
+    return vault, repository
+
+
+def _qualifying(repository, episode_id):
+    return sum(
+        1 for row in repository.probe_observations_for_episode(episode_id) if row["observation"].eligible_for_completion
+    )
+
+
+def test_value_carries_one_episode_past_its_former_maximum(tmp_path, monkeypatch):
+    """Review F3: ``probe.episode.maximum_observations`` (4) is lifted with the
+    session cap. A real fifth observation is served and recorded within the
+    same episode while its value pays; the receipt keeps the count's
+    counterfactual."""
+
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.0001)
+    episode_id = repository.open_probe_episode(LO).id
+    for index in range(5):
+        # Mixed answers keep the rival hypotheses open, so each next one pays.
+        episode = _answer_probe(vault, repository, score=4 if index % 2 else 0)
+        assert episode.id == episode_id and episode.status == "in_progress", episode.completion_reason
+    assert _qualifying(repository, episode_id) == 5 > episode.maximum_observations == 4
+    reason, body = probe_value_block_reason(vault, repository, episode, "pi_svd_define_007", session_id="sess")
+    assert reason is None and body["served_ref"] == "pi_svd_define_007"
+    assert body["former_cap"]["episode_maximum"] == {
+        "name": voi.EPISODE_MAXIMUM_CAP, "value": 4, "count": 5, "would_bind": True,
+    }
+    assert body["cap_comparison"] == "later"
+
+
+@pytest.mark.parametrize(
+    "version,toml", [("mvp-0.16", ""), ("mvp-0.17", "[voi_stopping]\nprobe_episodes = false\n")]
+)
+def test_the_episode_maximum_still_ends_an_episode_off_the_value_rule(tmp_path, monkeypatch, version, toml):
+    vault, repository = _long_probe_vault(tmp_path, version, toml)
+    _minutes(monkeypatch, 0.0001)
+    for _ in range(4):
+        episode = _answer_probe(vault, repository)
+    assert episode.status == "complete" and episode.completion_reason == "observation_budget_exhausted"
+    assert _qualifying(repository, episode.id) == 4
+
+
+def test_a_calibration_session_keeps_the_episode_maximum(tmp_path, monkeypatch):
+    from learnloop.diagnosis import calibration_sessions
+
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.0001)
+    monkeypatch.setattr(calibration_sessions, "calibration_cap_lifted", lambda _repository, _session_id: True)
+    for _ in range(4):
+        episode = _answer_probe(vault, repository)
+    assert episode.completion_reason == "observation_budget_exhausted"
+
+
+@pytest.mark.parametrize("version", ["mvp-0.16", "mvp-0.17"])
+def test_the_probe_contract_says_value_decides_only_at_the_successor(tmp_path, version):
+    from learnloop.diagnosis.probe_episodes import episode_contract
+
+    _paths, vault, repository = _probe_vault(tmp_path, version)
+    contract = episode_contract(vault, repository, LO)
+    assert contract["maximum_observations"] == 4
+    assert contract.get("value_stopping", False) is (version == "mvp-0.17")
+
+
+def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
+    """Review F8: router R1's seeded exploration serves a probe other than
+    value's pick. The committed presentation names both, and carries the
+    SERVED probe's complete forecast with the exploration propensity."""
+
+    from learnloop.scheduling import scheduler as S
+
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.17")
+    session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
+    trace = OfferTrace()
+    _build(vault, repository, session_id=session_id, trace=trace)
+    (decision,) = [d for d in trace.voi_decisions if d["site"] == voi.SITE_PROBE_EPISODE]
+    recommended = decision["recommended_ref"]
+    other = ({"pi_svd_define_001", "pi_svd_define_002"} - {recommended}).pop()
+    assert decision["decision"] == voi.CONTINUE and other in {c["ref"] for c in decision["candidates"]}
+
+    def explore(queue, session, config, now):
+        target = next(item for item in queue if item.practice_item_id == other)
+        return S._explore_to_front(queue, target, 0.25)
+
+    monkeypatch.setattr(S, "_apply_seeded_exploration", explore)
+    S.build_due_queue(
+        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), persist_explanations=True,
+    )
+    presentation = repository.active_probe_presentation_for_session(session_id)
+    assert presentation is not None and presentation.practice_item_id == other
+    body = presentation.selection_components["voi_stopping"]
+    assert body["recommended_ref"] == recommended and body["served_ref"] == body["chosen_ref"] == other
+    assert body["served_is_recommended"] is False
+    served = body["served"]
+    assert served["ref"] == other and served["decision"] == voi.CONTINUE
+    assert served["forecast"]["likelihood"] and sum(served["forecast"]["predicted_outcomes"].values()) == pytest.approx(1.0)
+    assert body["served_by"]["mechanism"] == "scheduler_seeded_exploration"
+    assert body["served_by"]["exploration_rate"] == 0.25 and "selection_propensity" in body["served_by"]
 
 
 # ── every earlier version is unchanged ───────────────────────────────────────

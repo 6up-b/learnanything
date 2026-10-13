@@ -1179,6 +1179,8 @@ export interface ProbeContractDto {
   episodeId?: string;
   observationNumber?: number;
   maximumObservations?: number;
+  /** mvp-0.17: the check asks while the next question is worth its minutes, not up to a count. */
+  valueStopping?: boolean;
   forcedAttemptType?: AttemptType;
   restrictions?: {
     hintsDisabled: boolean;

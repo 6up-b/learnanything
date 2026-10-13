@@ -11,15 +11,20 @@ site); off, serving is ``mvp-0.16``'s exactly.
 site                    former count cap (the kill-switch path)     what decides now
 ======================  ==========================================  ==========================
 ``probe_episode``       ``probe.episode.session_qualifying_         every next observation of an
-                        observation_cap`` (4 per session)           episode, while its value pays;
-                                                                    then the block closes and the
-                                                                    episode completes with
+                        observation_cap`` (4 per session) and       episode, while its value pays;
+                        ``probe.episode.maximum_observations``      then the block closes and the
+                        (4 per episode)                             episode completes with
                                                                     ``value_of_information_stop``
-``followup_             ``scheduler.followup.max_interventions_     every further intervention on
-intervention``          per_lo_per_session`` (1)                    an LO in a session
-``teach_back``          ``teach_back.session_cap`` (1 per queue)    every further teach-back
-``project_probe``       ``plan.project_probes_max_per_day`` (4)     every due project probe, in
-                                                                    value-per-minute order
+``followup_             ``scheduler.followup.max_interventions_     every intervention on an LO,
+intervention``          per_lo_per_session`` (1)                    the first included: the whole
+                                                                    eligible slate is valued and
+                                                                    the best that pays is queued
+``teach_back``          ``teach_back.session_cap`` (1 per queue)    every teach-back, greedily,
+                                                                    each conditional on those
+                                                                    already kept
+``project_probe``       ``plan.project_probes_max_per_day`` (4)     every due project probe,
+                                                                    greedily and conditionally,
+                                                                    in that order
 ======================  ==========================================  ==========================
 
 **The value of the next observation** is computed with the machinery that
@@ -36,13 +41,16 @@ already values probes, never a new constant:
   at stake: the hypotheses' triage routes (``failure_triage_routes``) give
   each hypothesis its effective repair, a misconception's repair targets that
   misconception, and ``action_loss.build_loss_table`` prices a wrong repair in
-  wasted learner-minutes. A decision is at stake when the plausible hypotheses
-  (posterior at least ``probe.episode.action_equivalence_plausible_threshold``,
-  the existing plausibility cutoff) route to two or more repairs.
+  wasted learner-minutes. A decision is at stake when the hypotheses with
+  posterior mass route to two or more repairs through a complete loss table
+  (the plausibility cutoff, ``probe.episode.action_equivalence_plausible_
+  threshold``, only describes the belief in the receipt: EVSI weighs the whole
+  posterior, so growing certainty shrinks the decision value continuously).
   ``evsi.rank_feasible`` then values and stops: continue while the robust
   EVSI's lower bound exceeds ``lambda_time * minutes + burden``.
-* **Otherwise** (no decision at stake, no complete loss table, or
-  ``rank_feasible`` abstains on a flip) the robust EIG is converted to minutes
+* **Otherwise** (no complete loss table, a single repair across the whole
+  posterior, or ``rank_feasible`` abstaining on a flip or excluding an input)
+  the robust EIG is converted to minutes
   with ``robust_composition.VALUE_PER_NAT_MINUTES``, exactly as
   ``robust_composition.evaluate_selection``'s stop rule does, and the same
   stop applies. An abstention's fallback is labelled ``value_uncertain``.
@@ -58,13 +66,22 @@ are heuristic decision parameters (``robust_composition``, ``evsi``,
 ``evsi/calibration`` stage will recommend values.
 
 **Every stop/continue decision is a forecast**, recorded beside the decision
-(router R1's ``router_decisions`` detail for Today offers and plan blocks, the
-probe presentation's selection components, the follow-up's gate diagnostics):
-the predicted outcome distribution, the EIG, the EVSI point and robust value,
-the predicted probability of an action change, the parameters with their
-provenance, and the former cap's counterfactual (would it have bound?). The
-shape follows the ``evsi/calibration`` branch's ``voi_forecast_v2`` body so its
-report can score these too.
+in a table no rebuild clears (router R1's ``router_decisions`` detail for
+Today offers and plan blocks, the probe presentation's selection components,
+the follow-up's ``decision_features`` receipt): the predicted outcome
+distribution, the EIG, the EVSI point and robust value, the predicted
+probability of an action change, the parameters with their provenance, and
+the former cap's counterfactual (would it have bound?). Where the serving path
+commits a different candidate from value's recommendation (router R1's seeded
+exploration, a manual follow-up), the receipt names both and carries the
+SERVED candidate's complete forecast with how it was chosen. The shape follows
+the ``evsi/calibration`` branch's ``voi_forecast_v2`` body so its report can
+score these too.
+
+**Several checks chosen together** (teach-backs in one queue, project probes
+in one plan) are admitted greedily, each valued conditionally on those
+already admitted (:func:`greedy_information_admission`), so two checks that
+would tell LearnLoop the same thing are not both admitted.
 """
 
 from __future__ import annotations
@@ -110,6 +127,22 @@ FORMER_CAPS: dict[str, str] = {
     SITE_TEACH_BACK: "teach_back.session_cap",
     SITE_PROJECT_PROBE: "plan.project_probes_max_per_day",
 }
+
+#: The probe episode's own count, lifted with the session cap at the
+#: ``probe_episode`` site (reader spec §18 and §20.7 name it with the session
+#: cap): stamped on each episode at entry, it ends an episode by count only
+#: where the site is off or a calibration session lifts the value rule.
+EPISODE_MAXIMUM_CAP = "probe.episode.maximum_observations"
+
+#: A follow-up suppressed because the best eligible candidate's value does not
+#: pay for its minutes.
+VOI_VALUE_SUPPRESSION = "voi_value_below_minutes_cost"
+
+#: Follow-up suppressions decided by value, not by the trigger's signals. The
+#: follow-up gate fitter (``gate_fit``) keeps them out of its trigger-quality
+#: labels (silent negatives and manual-override positives alike): a trigger
+#: that fired and was then outvalued says nothing about the trigger.
+VALUATION_SUPPRESSION_REASONS = frozenset({VOI_VALUE_SUPPRESSION})
 
 CONTINUE = "continue"
 STOP = "stop"
@@ -523,6 +556,13 @@ class SiteDecision:
     def best(self) -> CandidateValue | None:
         return self.candidates[0] if self.candidates else None
 
+    @property
+    def chosen(self) -> CandidateValue | None:
+        """The recommended next observation: the first candidate (in robust
+        value-per-minute order) whose value pays for its minutes, or None."""
+
+        return next((value for value in self.candidates if value.continues), None)
+
     def admits(self, ref: str) -> bool:
         value = self.value_for(ref)
         return value is not None and value.continues
@@ -539,15 +579,38 @@ class SiteDecision:
             return "later"
         return "agree"
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(
+        self,
+        *,
+        served_ref: str | None = None,
+        served_by: Mapping[str, Any] | None = None,
+        subject_ref: str | None = None,
+    ) -> dict[str, Any]:
+        """The logged decision.
+
+        ``recommended_ref`` is value's own pick. ``served_ref`` (given once the
+        serving path has chosen, e.g. after router R1's seeded exploration) is
+        the observation actually committed; ``chosen_ref`` names it, and
+        ``served`` carries ITS complete forecast (emission alphabet, predicted
+        outcomes, likelihood rows), so calibration scores the answer against
+        the forecast of the item that was asked, with ``served_by`` saying how
+        it was chosen (the exploration propensity). ``subject_ref`` adds one
+        candidate's own full valuation (``subject``), for a receipt kept per
+        candidate (a plan's due project probe).
+        """
+
         best = self.best
-        return {
+        recommended = self.chosen if self.decision == CONTINUE else None
+        body: dict[str, Any] = {
             "forecast_version": FORECAST_VERSION,
             "site": self.site,
             "learning_object_id": self.learning_object_id,
             "decision": self.decision,
             "reason": self.reason,
-            "chosen_ref": best.ref if best is not None and self.decision == CONTINUE else None,
+            "recommended_ref": recommended.ref if recommended is not None else None,
+            "chosen_ref": served_ref if served_ref is not None else (
+                recommended.ref if recommended is not None else None
+            ),
             "best": best.as_dict() if best is not None else None,
             "candidates": [value.summary() for value in self.candidates[:MAX_RECORDED_CANDIDATES]],
             "candidate_count": len(self.candidates),
@@ -558,6 +621,17 @@ class SiteDecision:
             "parameters": list(self.parameters),
             "calibration_label": "heuristic",
         }
+        if served_ref is not None:
+            served = self.value_for(served_ref)
+            body["served_ref"] = served_ref
+            body["served_is_recommended"] = recommended is not None and recommended.ref == served_ref
+            body["served"] = served.as_dict() if served is not None else None
+            body["served_by"] = dict(served_by) if served_by else {"mechanism": "value_recommendation"}
+        if subject_ref is not None:
+            subject = self.value_for(subject_ref)
+            body["subject_ref"] = subject_ref
+            body["subject"] = subject.as_dict() if subject is not None else None
+        return body
 
 
 def _forecast(
@@ -641,10 +715,16 @@ def value_candidates(
     plausible = sorted(label for label, value in prior_n.items() if value >= ctx.plausible_threshold)
     label_actions = ctx.label_actions(prior_n) if (evsi_enabled and prior_n) else None
     loss_table = ctx.loss_table(label_actions) if label_actions else None
+    # A decision is at stake when the complete loss table routes the belief's
+    # support (every hypothesis with mass) to two or more repairs. EVSI then
+    # decides across the whole posterior, so growing certainty shrinks the
+    # decision value continuously to a stop. The plausibility cutoff only
+    # describes the belief in the receipt: gating on it switched a near-sure
+    # belief onto the EIG objective and restarted measurement (review F6).
     at_stake = (
         loss_table is not None
         and label_actions is not None
-        and len({label_actions[label] for label in plausible if label in label_actions}) >= 2
+        and len({label_actions[label] for label in prior_n if label in label_actions}) >= 2
     )
 
     # The decision value where a next action is at stake (rank_feasible).
@@ -811,6 +891,301 @@ def information_candidate(
     return Candidate(ref=ref, minutes=minutes, extra_eig_nats=max(float(eig_nats), 0.0), detail=body)
 
 
+# ---------------------------------------------------------------------------
+# Greedy conditional valuation of several checks chosen together
+# ---------------------------------------------------------------------------
+
+#: The selection reward's variance floor (``selection_rewards.
+#: probe_information_gain_components``), repeated so the conditional terms below
+#: reproduce its numbers exactly for the first pick.
+_VARIANCE_FLOOR = 1e-6
+#: The facet-variance prior that reward reads for a facet with no state.
+_DEFAULT_FACET_VARIANCE = 0.25
+#: Relative tolerance for "the decomposition reproduces the logged total".
+_RECONSTRUCTION_TOLERANCE = 1e-6
+
+
+def _clamp01(value: float) -> float:
+    return min(max(float(value), 0.0), 1.0)
+
+
+@dataclass(frozen=True)
+class InformationTerms:
+    """One candidate's information as the selection reward decomposes it.
+
+    ``selection_rewards.probe_information_gain_components`` sums three
+    entropy reductions into ``probe_eig_total``: the hypothesis EIG (already
+    discounted for familiarity), the LO-mastery Gaussian
+    ``0.5 * log(prior_var / posterior_var)``, and the facet-recall reduction
+    ``sum_f w_f * 0.5 * log(var_f / var_f * (1 - w_f d / (mass_f + 2)))``.
+    These terms are read back from the reward's debug body (never recomputed
+    from new constants), so the information of a check can be valued
+    conditionally on the checks already chosen:
+
+    * the LO-mastery term adds the check's observation precision
+      ``1/posterior_var - 1/prior_var`` to the belief left by the earlier
+      checks (a Gaussian's posterior variance does not depend on the outcome,
+      so each "expected belief branch" is this one deterministic update);
+    * a facet's term shrinks the variance the earlier checks left, against
+      the evidence mass they added (``w d`` each);
+    * the hypothesis EIG is counted once per learning object: an episode's
+      observations are served one at a time and each next one is valued again
+      on the observed posterior (the ``probe_episode`` site), so a second check
+      in the same plan cannot claim the same hypothesis information.
+
+    For the first check chosen the terms reproduce ``probe_eig_total``
+    exactly (:meth:`from_reward_debug` refuses a body they do not reproduce).
+    """
+
+    learning_object_id: str
+    hypothesis_nats: float
+    lo_prior_variance: float
+    lo_posterior_variance: float
+    discount: float
+    #: ``(facet id, evidence weight, prior variance, prior evidence mass)``.
+    facets: tuple[tuple[str, float, float, float], ...]
+
+    @classmethod
+    def from_reward_debug(
+        cls, learning_object_id: str, debug: Mapping[str, Any] | None, *, total_nats: float | None = None
+    ) -> "InformationTerms | None":
+        """The terms behind a scheduled item's ``reward_debug``, or None when the
+        body is missing or does not reproduce ``total_nats``."""
+
+        if not isinstance(debug, Mapping):
+            return None
+        try:
+            probe = debug["probe_eig"]
+            ability = debug["ability_vector"]
+            demand = debug["item_demand_vector"]
+            lo_mastery = probe["lo_mastery"]
+            discount = _clamp01(float(probe.get("independent_evidence_discount", 1.0)))
+            prior_variance = max(math.exp(2.0 * float(lo_mastery["prior_entropy"])), _VARIANCE_FLOOR)
+            posterior_variance = max(
+                math.exp(2.0 * float(lo_mastery["expected_posterior_entropy"])), _VARIANCE_FLOOR
+            )
+            hypothesis = max(float((probe.get("hypothesis") or {}).get("reduction", 0.0) or 0.0), 0.0)
+            variances = ability.get("facet_recall_variance_by_facet") or {}
+            masses = ability.get("facet_independent_evidence_mass_by_facet") or {}
+            facets = tuple(
+                (
+                    str(facet),
+                    max(float(weight), 0.0),
+                    max(float(variances.get(facet, _DEFAULT_FACET_VARIANCE)), _VARIANCE_FLOOR),
+                    max(float(masses.get(facet, 0.0)), 0.0),
+                )
+                for facet, weight in sorted((demand.get("evidence_weights") or {}).items())
+                if float(weight) > 0
+            )
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return None
+        terms = cls(
+            learning_object_id=str(learning_object_id),
+            hypothesis_nats=hypothesis,
+            lo_prior_variance=prior_variance,
+            lo_posterior_variance=min(posterior_variance, prior_variance),
+            discount=discount,
+            facets=facets,
+        )
+        if total_nats is not None:
+            alone = terms.conditional_nats(InformationState())["total"]
+            if abs(alone - float(total_nats)) > _RECONSTRUCTION_TOLERANCE * max(1.0, abs(float(total_nats))):
+                return None
+        return terms
+
+    @property
+    def lo_precision(self) -> float:
+        return max(1.0 / self.lo_posterior_variance - 1.0 / self.lo_prior_variance, 0.0)
+
+    def conditional_nats(self, state: "InformationState") -> dict[str, float]:
+        """This check's information given the checks already in ``state``."""
+
+        hypothesis = 0.0 if self.learning_object_id in state.hypothesis_learning_objects else self.hypothesis_nats
+        variance = state.lo_variance.get(self.learning_object_id, self.lo_prior_variance)
+        precision = self.lo_precision
+        after = max(1.0 / (1.0 / variance + precision), _VARIANCE_FLOOR) if precision > 0 else variance
+        lo_reduction = max(0.0, 0.5 * math.log(variance / after)) if after > 0 else 0.0
+        facet_reduction = 0.0
+        for facet, weight, prior_variance, prior_mass in self.facets:
+            facet_variance, mass = state.facets.get(facet, (prior_variance, prior_mass))
+            fraction = _clamp01((weight * self.discount) / (mass + 2.0))
+            facet_after = max(facet_variance * (1.0 - fraction), _VARIANCE_FLOOR)
+            facet_reduction += weight * 0.5 * math.log(facet_variance / facet_after)
+        facet_reduction = max(0.0, facet_reduction)
+        return {
+            "hypothesis": hypothesis,
+            "lo_mastery": lo_reduction,
+            "facet_recall": facet_reduction,
+            "total": max(0.0, hypothesis + lo_reduction + facet_reduction),
+        }
+
+
+@dataclass(frozen=True)
+class InformationState:
+    """The belief the checks chosen so far are expected to leave behind."""
+
+    lo_variance: Mapping[str, float] = field(default_factory=dict)
+    facets: Mapping[str, tuple[float, float]] = field(default_factory=dict)
+    hypothesis_learning_objects: frozenset[str] = frozenset()
+
+    def after(self, terms: InformationTerms) -> "InformationState":
+        lo_variance = dict(self.lo_variance)
+        variance = lo_variance.get(terms.learning_object_id, terms.lo_prior_variance)
+        precision = terms.lo_precision
+        if precision > 0:
+            lo_variance[terms.learning_object_id] = max(1.0 / (1.0 / variance + precision), _VARIANCE_FLOOR)
+        facets = dict(self.facets)
+        for facet, weight, prior_variance, prior_mass in terms.facets:
+            facet_variance, mass = facets.get(facet, (prior_variance, prior_mass))
+            fraction = _clamp01((weight * terms.discount) / (mass + 2.0))
+            facets[facet] = (max(facet_variance * (1.0 - fraction), _VARIANCE_FLOOR), mass + weight * terms.discount)
+        hypothesis = set(self.hypothesis_learning_objects)
+        if terms.hypothesis_nats > 0:
+            hypothesis.add(terms.learning_object_id)
+        return InformationState(
+            lo_variance=lo_variance, facets=facets, hypothesis_learning_objects=frozenset(hypothesis)
+        )
+
+
+@dataclass(frozen=True)
+class InformationEntry:
+    """One check valued through the selection reward's information (no
+    hypothesis members): a teach-back or a due project probe."""
+
+    ref: str
+    learning_object_id: str | None
+    eig_nats: float
+    minutes: MinutesEstimate
+    predicted_correct: float | None = None
+    terms: InformationTerms | None = None
+    detail: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class GreedyAdmission:
+    """Checks admitted one at a time, each valued conditionally on those
+    already admitted; ``steps`` holds every step's decision (the last one is
+    the stop, unless every candidate was admitted)."""
+
+    site: str
+    admitted: tuple[str, ...]
+    steps: tuple[SiteDecision, ...]
+
+    def step_for(self, ref: str) -> tuple[int, SiteDecision] | None:
+        """The step that admitted ``ref``, else the final step (its stop)."""
+
+        if ref in self.admitted:
+            index = self.admitted.index(ref)
+            return index, self.steps[index]
+        if not self.steps:
+            return None
+        return len(self.steps) - 1, self.steps[-1]
+
+    def receipt_for(self, ref: str) -> dict[str, Any] | None:
+        located = self.step_for(ref)
+        if located is None:
+            return None
+        index, step = located
+        body = step.as_dict(subject_ref=ref)
+        admitted = ref in self.admitted
+        # The step's own verdict is about its best candidate; this receipt is
+        # about ``ref``: admitted at this step, or never admitted (the stop).
+        body["decision"] = CONTINUE if admitted else STOP
+        if not admitted and step.decision == CONTINUE:
+            body["reason"] = "not_reached"
+        body["greedy_step"] = index
+        body["admitted"] = admitted
+        return body
+
+    def bodies(self) -> list[dict[str, Any]]:
+        out = []
+        for index, step in enumerate(self.steps):
+            body = step.as_dict()
+            body["greedy_step"] = index
+            out.append(body)
+        return out
+
+
+def greedy_information_admission(
+    ctx: VoiContext,
+    site: str,
+    entries: Sequence[InformationEntry],
+    *,
+    cap_value: int,
+    cap_count: int = 0,
+    context: Mapping[str, Any] | None = None,
+) -> GreedyAdmission:
+    """Admit checks greedily, each valued conditionally on those already chosen.
+
+    The reader spec's rule (§9.3 item 3, the four-cap decision in §18): at
+    each step every remaining check is valued given the belief the admitted
+    ones are expected to leave (:class:`InformationTerms`); the best one by
+    robust value per minute is admitted while its value pays for its minutes
+    (``lambda_time * minutes + burden``), and adding stops at the first step
+    whose best remaining check does not pay. So two checks that would tell
+    LearnLoop the same thing are not both admitted, and the number follows
+    from value, never from a count. No next-action decision is at stake for
+    these checks (no locked hypothesis set), so the robust EIG in minutes is
+    the value. The former cap is only a counterfactual in each step's receipt
+    (``cap_count`` checks of this kind were already counted before step 0).
+    A check whose reward body is missing is valued on its logged total alone,
+    and its receipt says ``conditioning: unavailable``.
+    """
+
+    remaining = list(entries)
+    state = InformationState()
+    admitted: list[str] = []
+    steps: list[SiteDecision] = []
+    while remaining:
+        candidates = []
+        for entry in remaining:
+            if entry.terms is not None:
+                parts = entry.terms.conditional_nats(state)
+                eig = parts["total"]
+                conditioning = {
+                    "conditioning": "chosen_before" if admitted else "none_chosen",
+                    "conditional_parts_nats": {key: round(value, _ROUND_DIGITS) for key, value in parts.items()},
+                }
+            else:
+                eig = max(float(entry.eig_nats), 0.0)
+                conditioning = {"conditioning": "unavailable"}
+            candidates.append(
+                information_candidate(
+                    entry.ref,
+                    eig_nats=eig,
+                    minutes=entry.minutes,
+                    predicted_correct=entry.predicted_correct,
+                    detail={
+                        **dict(entry.detail),
+                        "learning_object_id": entry.learning_object_id,
+                        "unconditioned_eig_nats": round(max(float(entry.eig_nats), 0.0), _ROUND_DIGITS),
+                        **conditioning,
+                    },
+                )
+            )
+        by_ref = {entry.ref: entry for entry in remaining}
+        decision = value_candidates(
+            ctx,
+            site,
+            candidates,
+            prior={},
+            learning_object_id=None,
+            former_cap=former_cap(site, value=cap_value, count=int(cap_count) + len(admitted)),
+            context={**dict(context or {}), "greedy_step": len(steps), "chosen_before": list(admitted)},
+            evsi_enabled=False,
+        )
+        steps.append(decision)
+        chosen = decision.chosen
+        if decision.decision != CONTINUE or chosen is None:
+            break
+        picked = by_ref[chosen.ref]
+        admitted.append(picked.ref)
+        if picked.terms is not None:
+            state = state.after(picked.terms)
+        remaining = [entry for entry in remaining if entry.ref != picked.ref]
+    return GreedyAdmission(site=site, admitted=tuple(admitted), steps=tuple(steps))
+
+
 def label_conditionals(
     conditionals: Mapping[str, Mapping[Any, float]],
     slot_map: Mapping[str, str],
@@ -892,62 +1267,73 @@ def probe_episode_decision(
         if session_id is not None
         else 0
     )
+    cap_body = former_cap(SITE_PROBE_EPISODE, value=cap, count=count)
+    # The episode's own count (``probe.episode.maximum_observations``, stamped
+    # on the episode at entry) is lifted with the session cap (reader spec §18,
+    # §20.7); its counterfactual rides on the same receipt.
+    maximum = getattr(episode, "maximum_observations", None)
+    if maximum is not None:
+        qualifying = sum(
+            1
+            for row in ctx.repository.probe_observations_for_episode(episode.id)
+            if row["observation"].eligible_for_completion
+        )
+        episode_bind = qualifying >= int(maximum)
+        cap_body["episode_maximum"] = {
+            "name": EPISODE_MAXIMUM_CAP,
+            "value": int(maximum),
+            "count": int(qualifying),
+            "would_bind": episode_bind,
+        }
+        cap_body["would_bind"] = bool(cap_body["would_bind"]) or episode_bind
     return value_candidates(
         ctx,
         SITE_PROBE_EPISODE,
         candidates,
         prior=belief,
         learning_object_id=str(episode.learning_object_id),
-        former_cap=former_cap(SITE_PROBE_EPISODE, value=cap, count=count),
+        former_cap=cap_body,
         context={"episode_id": str(episode.id), "session_id": session_id},
     )
 
 
-def adapter_information_decision(
-    ctx: VoiContext,
-    site: str,
-    *,
-    ref: str,
-    learning_object_id: str | None,
-    eig_nats: float,
-    minutes: MinutesEstimate,
-    predicted_correct: float | None,
-    cap_value: int,
-    cap_count: int,
-    context: Mapping[str, Any] | None = None,
-    detail: Mapping[str, Any] | None = None,
-) -> SiteDecision:
-    """(c)/(d) A candidate whose information comes from one adapter's EIG.
+# ---------------------------------------------------------------------------
+# The follow-up decision's durable receipt
+# ---------------------------------------------------------------------------
 
-    No hypothesis set is locked for a teach-back or a project probe, so no
-    next-action decision is at stake: the robust EIG (the adapter's, already
-    discounted for familiarity) converted to minutes must exceed the minutes.
+
+def followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None:
+    """The decision-time follow-up value decision for ``attempt_id``, or None.
+
+    It rides on the follow-up's ``decision_features`` row (``decision_type =
+    'followup'``, keyed by the source attempt): a RECEIPT written once, never
+    updated (immutable by trigger) and never cleared by a rebuild or a
+    regrade's replay, unlike ``attempt_surprise.gate_diagnostics_json``
+    (DERIVED), which a replay recreates without it.
     """
 
-    candidate = information_candidate(
-        ref, eig_nats=eig_nats, minutes=minutes, predicted_correct=predicted_correct, detail=detail
-    )
-    return value_candidates(
-        ctx,
-        site,
-        [candidate],
-        prior={},
-        learning_object_id=learning_object_id,
-        former_cap=former_cap(site, value=cap_value, count=cap_count),
-        context=context,
-        evsi_enabled=False,
-    )
+    row = repository.decision_features(decision_id=str(attempt_id), decision_type="followup")
+    if row is None:
+        return None
+    body = (row.get("context") or {}).get("voi_stopping")
+    return dict(body) if isinstance(body, Mapping) else None
 
 
 __all__ = [
     "CONTINUE",
+    "EPISODE_MAXIMUM_CAP",
+    "VALUATION_SUPPRESSION_REASONS",
+    "VOI_VALUE_SUPPRESSION",
     "VOI_STOPPING_VERSIONS",
-    "adapter_information_decision",
     "probe_episode_decision",
     "Candidate",
     "CandidateValue",
     "FORECAST_VERSION",
     "FORMER_CAPS",
+    "GreedyAdmission",
+    "InformationEntry",
+    "InformationState",
+    "InformationTerms",
     "METHOD_EIG_VALUE",
     "METHOD_ROBUST_EVSI",
     "MinutesEstimate",
@@ -959,7 +1345,9 @@ __all__ = [
     "STOP",
     "SiteDecision",
     "VoiContext",
+    "followup_receipt",
     "former_cap",
+    "greedy_information_admission",
     "heuristic_parameters",
     "information_candidate",
     "label_conditionals",

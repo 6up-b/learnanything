@@ -485,7 +485,7 @@ def _classified_pool(
         probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
         deadline_learning_object_ids=deadlines,
         open_problem_learning_object_ids=open_problems,
-        project_probe_value=_project_probe_valuer(env, probes_planned),
+        project_probe_admission=_project_probe_admission(env, probes_planned),
     )
     if reentry:
         pool = reentry_order(pool)
@@ -495,16 +495,23 @@ def _classified_pool(
     )
 
 
-def _project_probe_valuer(env: PlanEnv, probes_planned: int) -> Callable[[Any, float, int], Mapping[str, Any]] | None:
-    """mvp-0.17 (``voi_stopping``, site ``project_probe``): value due project
-    probes instead of counting them; ``None`` keeps the former daily cap.
+def _project_probe_admission(
+    env: PlanEnv, probes_planned: int
+) -> Callable[[Sequence[tuple[Any, float]]], list[tuple[str, Mapping[str, Any]]]] | None:
+    """mvp-0.17 (``voi_stopping``, site ``project_probe``): value today's due
+    project probes instead of counting them; ``None`` keeps the former daily
+    cap.
 
-    A project probe has no locked hypothesis set, so no next-action decision is
-    at stake: its information is the scheduler's ``probe_eig_total`` for the
-    item (LO-mastery and facet-recall entropy reduction, familiarity
-    discounted), converted to minutes and set against the plan's own estimate
-    of its minutes. The former cap's counterfactual counts the probes already
-    planned today plus this one's place in the former order.
+    A project probe has no locked hypothesis set, so no next-action decision
+    is at stake: its information is the scheduler's ``probe_eig_total`` for
+    the item (LO-mastery and facet-recall entropy reduction, familiarity
+    discounted), decomposed from the item's reward body so each probe is
+    valued given the belief the probes admitted before it are expected to
+    leave, converted to minutes and set against the plan's own estimate of its
+    minutes. Probes are admitted greedily by robust value per minute while the
+    best remaining one pays (``voi_stopping.greedy_information_admission``),
+    the first included. The former cap's counterfactual counts the probes
+    already planned today plus those admitted before each step.
     """
 
     from learnloop.diagnosis import voi_stopping as voi
@@ -514,23 +521,37 @@ def _project_probe_valuer(env: PlanEnv, probes_planned: int) -> Callable[[Any, f
     context = voi.VoiContext(env.vault, env.repository)
     cap = int(env.plan_config.project_probes_max_per_day)
 
-    def value(scheduled: Any, est_minutes: float, order: int) -> Mapping[str, Any]:
-        components = getattr(scheduled, "components", {}) or {}
-        decision = voi.adapter_information_decision(
+    def admit(probes: Sequence[tuple[Any, float]]) -> list[tuple[str, Mapping[str, Any]]]:
+        entries = []
+        for order, (scheduled, est_minutes) in enumerate(probes):
+            components = getattr(scheduled, "components", {}) or {}
+            eig = float(components.get("probe_eig_total", 0.0) or 0.0)
+            entries.append(
+                voi.InformationEntry(
+                    ref=scheduled.practice_item_id,
+                    learning_object_id=scheduled.learning_object_id,
+                    eig_nats=eig,
+                    minutes=voi.MinutesEstimate(float(est_minutes), "plan_estimate"),
+                    predicted_correct=components.get("predicted_correctness"),
+                    terms=voi.InformationTerms.from_reward_debug(
+                        scheduled.learning_object_id, getattr(scheduled, "reward_debug", None), total_nats=eig
+                    ),
+                    detail={"former_order": order},
+                )
+            )
+        admission = voi.greedy_information_admission(
             context,
             voi.SITE_PROJECT_PROBE,
-            ref=scheduled.practice_item_id,
-            learning_object_id=scheduled.learning_object_id,
-            eig_nats=float(components.get("probe_eig_total", 0.0) or 0.0),
-            minutes=voi.MinutesEstimate(float(est_minutes), "plan_estimate"),
-            predicted_correct=components.get("predicted_correctness"),
+            entries,
             cap_value=cap,
-            cap_count=int(probes_planned) + int(order),
+            cap_count=int(probes_planned),
             context={"probes_planned_today": int(probes_planned)},
         )
-        return decision.as_dict()
+        admitted = set(admission.admitted)
+        ordered = list(admission.admitted) + [entry.ref for entry in entries if entry.ref not in admitted]
+        return [(ref, receipt) for ref in ordered if (receipt := admission.receipt_for(ref)) is not None]
 
-    return value
+    return admit
 
 
 def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:

@@ -702,9 +702,10 @@ def build_due_queue(
     # policy, which is what off-policy estimation reweights by.
     propensity_by_id = _selection_propensities(queue, session, config)
     greedy_queue = list(queue)
-    # mvp-0.17 (voi_stopping): teach-backs beyond ``teach_back.session_cap``
-    # stay while their value pays for their minutes (a teach-back is a valued
-    # probe, router D11). Valued once, on the greedy order, before the draw.
+    # mvp-0.17 (voi_stopping): no teach-back count; each teach-back stays
+    # while its value, conditional on those already kept, pays for its
+    # minutes (a teach-back is a valued probe, router D11). Valued once,
+    # before the draw.
     teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
         vault, voi_context, greedy_queue, config
     )
@@ -716,7 +717,7 @@ def build_due_queue(
         # offer's logged propensity is computed through exactly these steps;
         # ``record`` is False only for those counterfactuals (no audit rows).
         composed = _enforce_teach_back_session_cap(
-            composed, config.teach_back.session_cap, admitted_beyond_cap=teach_back_admitted
+            composed, config.teach_back.session_cap, admitted=teach_back_admitted
         )
         # Goal-composition quota: guarantee a floor share of goal-frontier items in the
         # ordered queue while a goal has at-risk facets. Applied before the limit slice
@@ -871,10 +872,28 @@ def build_due_queue(
                         voi_decision = voi_probe_decisions.get(episode.id)
                         if voi_decision is not None:
                             # mvp-0.17: the continue decision that admitted
-                            # this observation, with its forecast.
+                            # this observation. It names value's own pick
+                            # (``recommended_ref``) and the item served, with
+                            # the SERVED item's complete forecast and how it
+                            # came to the front (router R1's seeded
+                            # exploration and its propensity, or the queue's
+                            # greedy order), so calibration scores the answer
+                            # against the forecast of the question asked.
+                            explored = selected.components.get("exploration_selected", 0.0) > 0.0
+                            served_by: dict[str, Any] = {
+                                "mechanism": (
+                                    "scheduler_seeded_exploration" if explored else "scheduler_greedy_order"
+                                ),
+                                "selection_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
+                                "greedy_item_id": greedy_queue[0].practice_item_id,
+                            }
+                            if explored:
+                                served_by["exploration_rate"] = selected.components.get("exploration_rate")
                             extra_components = {
                                 **(extra_components or {}),
-                                "voi_stopping": voi_decision.as_dict(),
+                                "voi_stopping": voi_decision.as_dict(
+                                    served_ref=selected.practice_item_id, served_by=served_by
+                                ),
                             }
                         probe_presentation = presentation_commit_payload(
                             vault,
@@ -2036,23 +2055,25 @@ def _enforce_teach_back_session_cap(
     queue: list[ScheduledItem],
     cap: int,
     *,
-    admitted_beyond_cap: frozenset[str] | None = None,
+    admitted: frozenset[str] | None = None,
 ) -> list[ScheduledItem]:
     """Keep at most ``cap`` teach_back items per built queue (config
     ``teach_back.session_cap``), preserving order for everything else.
 
-    ``admitted_beyond_cap`` (mvp-0.17, ``voi_stopping``): the teach-backs whose
-    value of information pays for their minutes; each stays beyond the cap.
-    ``None`` is the count cap exactly.
+    ``admitted`` (mvp-0.17, ``voi_stopping``): the teach-backs whose value of
+    information pays for their minutes, each valued conditionally on those
+    admitted before it; exactly these stay, the first included (the count is
+    neither a cap nor a floor). ``None`` is the count cap exactly.
     """
 
     capped: list[ScheduledItem] = []
     teach_back_count = 0
     for scheduled in queue:
         if scheduled.selected_mode == "teach_back":
-            if teach_back_count >= cap and (
-                admitted_beyond_cap is None or scheduled.practice_item_id not in admitted_beyond_cap
-            ):
+            if admitted is not None:
+                if scheduled.practice_item_id not in admitted:
+                    continue
+            elif teach_back_count >= cap:
                 continue
             teach_back_count += 1
         capped.append(scheduled)
@@ -2065,43 +2086,52 @@ def _teach_back_value_admission(
     greedy_queue: list[ScheduledItem],
     config: LearnLoopConfig,
 ) -> tuple[frozenset[str] | None, list[dict[str, Any]]]:
-    """mvp-0.17 (c): value every teach-back the count cap would have dropped.
+    """mvp-0.17 (c): value every teach-back, greedily and conditionally.
 
-    Returns ``(admitted, decisions)``: ``admitted`` is ``None`` (the count cap
+    Returns ``(admitted, receipts)``: ``admitted`` is ``None`` (the count cap
     serves exactly) unless the teach-back site is on. A teach-back's
     information is its reward's ``probe_eig_total`` (the existing LO-mastery
-    and facet-recall entropy reduction, familiarity-discounted); no
-    hypothesis set is locked for it, so no next-action decision is at stake
-    and its robust EIG in minutes must exceed its minutes.
+    and facet-recall entropy reduction, familiarity-discounted), decomposed
+    from the reward's own body so each next teach-back is valued given the
+    belief the ones already admitted are expected to leave
+    (``voi_stopping.greedy_information_admission``): two teach-backs that
+    would tell LearnLoop the same thing are not both kept. No hypothesis set
+    is locked for a teach-back, so no next-action decision is at stake and its
+    robust EIG in minutes must exceed its minutes. One receipt per
+    teach-back: the step that admitted it, or the stop that left it out.
     """
 
     if not voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
         return None, []
-    cap = int(config.teach_back.session_cap)
     teach_backs = [scheduled for scheduled in greedy_queue if scheduled.selected_mode == "teach_back"]
-    if len(teach_backs) <= cap:
-        # The cap cannot bind: nothing is decided and nothing is logged.
+    if not teach_backs:
         return frozenset(), []
-    admitted: set[str] = set()
-    decisions: list[dict[str, Any]] = []
+    entries = []
     for index, scheduled in enumerate(teach_backs):
         item = vault.practice_items.get(scheduled.practice_item_id)
-        decision = voi.adapter_information_decision(
-            context,
-            voi.SITE_TEACH_BACK,
-            ref=scheduled.practice_item_id,
-            learning_object_id=scheduled.learning_object_id,
-            eig_nats=float(scheduled.components.get("probe_eig_total", 0.0) or 0.0),
-            minutes=context.item_minutes(item),
-            predicted_correct=scheduled.components.get("predicted_correctness"),
-            cap_value=cap,
-            cap_count=index,
-            context={"greedy_rank": index},
+        eig = float(scheduled.components.get("probe_eig_total", 0.0) or 0.0)
+        entries.append(
+            voi.InformationEntry(
+                ref=scheduled.practice_item_id,
+                learning_object_id=scheduled.learning_object_id,
+                eig_nats=eig,
+                minutes=context.item_minutes(item),
+                predicted_correct=scheduled.components.get("predicted_correctness"),
+                terms=voi.InformationTerms.from_reward_debug(
+                    scheduled.learning_object_id, scheduled.reward_debug, total_nats=eig
+                ),
+                detail={"greedy_rank": index},
+            )
         )
-        if decision.decision == voi.CONTINUE:
-            admitted.add(scheduled.practice_item_id)
-        decisions.append(decision.as_dict())
-    return frozenset(admitted), decisions
+    admission = voi.greedy_information_admission(
+        context, voi.SITE_TEACH_BACK, entries, cap_value=int(config.teach_back.session_cap)
+    )
+    receipts = [
+        receipt
+        for receipt in (admission.receipt_for(scheduled.practice_item_id) for scheduled in teach_backs)
+        if receipt is not None
+    ]
+    return frozenset(admission.admitted), receipts
 
 
 def _load_episode_context(

@@ -717,6 +717,20 @@ _reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structur
            owner="voi_stopping",
            rationale="how many candidates' summaries one value-of-information receipt keeps (the "
            "best keeps its full forecast); receipt size only, never a decision.")
+_reg_const("voi_stopping:_VARIANCE_FLOOR", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.17 greedy conditional valuation: the selection reward's own variance "
+           "floor (selection_rewards.probe_information_gain_components, 1e-6) repeated so a check's "
+           "information decomposed from its reward body reproduces the reward's probe_eig_total; a "
+           "numerical clamp, not a decision knob.")
+_reg_const("voi_stopping:_DEFAULT_FACET_VARIANCE", "prior", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.17 greedy conditional valuation: the facet-recall variance the selection "
+           "reward reads for a facet with no state (0.25, Beta(1,1)'s), repeated so the decomposed "
+           "information reproduces the reward's; not a new prior.")
+_reg_const("voi_stopping:_RECONSTRUCTION_TOLERANCE", "numerical", kind="structural",
+           owner="voi_stopping",
+           rationale="mvp-0.17 greedy conditional valuation: relative tolerance for 'the decomposed "
+           "terms reproduce the logged probe_eig_total'; a body that does not is valued on its total "
+           "alone and labelled conditioning: unavailable. A floating-point check, never a decision.")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",

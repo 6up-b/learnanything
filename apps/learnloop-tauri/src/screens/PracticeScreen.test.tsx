@@ -362,6 +362,23 @@ it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt 
   expect(callbacks.onFeedback).not.toHaveBeenCalled();
 });
 
+// mvp-0.17 (value-of-information stopping): a check that asks while the next
+// question is worth its minutes never claims "of up to N".
+it("labels a value-stopped diagnostic check without a count ceiling", async () => {
+  api.getProbeContract.mockResolvedValue({
+    version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
+    observationNumber: 5, maximumObservations: 4, valueStopping: true,
+    restrictions: {
+      hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true,
+      answerRevealDisabled: true, feedbackDeferred: true
+    }
+  });
+  render(<PracticeScreen {...props()} />);
+  await screen.findByText("Diagnostic check");
+  expect(screen.getByText(/question 5 · continues while the next question is worth your time/)).toBeTruthy();
+  expect(screen.queryByText(/of up to/)).toBeNull();
+});
+
 // Review F2: the stuck marker survives navigation and restart before grading.
 it("saves and mirrors the stuck marker with the draft", async () => {
   setAlgoConfig({ practice: { stuckPrompt: true } });
