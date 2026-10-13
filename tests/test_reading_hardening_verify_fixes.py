@@ -12,6 +12,10 @@ docs/reviews/reading-hardening.md, "Verify follow-up").
   are one transaction, and the settle is revision-conditional: a request a
   cancel settled first leaves nothing to queue. A planner whose own batch was
   cancelled while it planned queues no build either.
+* N2: one stored retry time that overflowed on conversion to UTC
+  (``0001-01-01T00:00:00+01:00``) failed the whole sweep pass, so no request
+  after it was ever acted on. Now it reads as due now, and each row's time is
+  read on its own.
 
 Every model call is a house fake.
 """
@@ -23,7 +27,9 @@ import threading
 import pytest
 
 from learnloop.content.pipeline import add_source as core
+from learnloop.content.pipeline import jobs as jobs_module
 from learnloop.content.pipeline.runner import IngestRunner
+from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
 
 from tests.test_reading_request_sweep import (
@@ -35,7 +41,7 @@ from tests.test_reading_request_sweep import (
 )
 from tests.test_ux_phase1_add_source import call
 from tests.test_ux_phase1_round2_review import _added_book
-from tests.ux_phase1_support import CLOCK, fake_services
+from tests.ux_phase1_support import BOOK_MARKDOWN, CLOCK, fake_services, write_book
 
 _SYNTHESIS = ("bootstrap_synthesis", "append_synthesis")
 
@@ -198,3 +204,48 @@ def test_f1_a_planner_cancelled_while_it_plans_queues_no_build(tmp_path, monkeyp
     assert ctx.repository.get_ingest_batch(core.child_batch_id(planner["id"])) is None, "the cancelled planner queued its build"
     assert len(ctx.repository.ingest_jobs_by_types(_SYNTHESIS)) == synthesis_before
     assert _pending(ctx, source_id) is None
+
+
+# ---------------------------------------------------------------------------
+# N2: one unreadable retry time blocks no other request
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("stored", ["0001-01-01T00:00:00+01:00", "not a time"])
+def test_n2_a_stored_retry_time_that_cannot_be_read_is_due_now(stored):
+    assert jobs_module._reading_due_at(stored) is None
+
+
+def test_n2_a_retry_time_that_overflows_blocks_no_other_book(tmp_path, monkeypatch):
+    """Codex's scenario: the first pending request's stored retry time
+    overflows on conversion to UTC, and a second book's request is due after
+    it. Before, every pass raised on the first row and acted on neither. Now
+    the first reads as due now and both are acted on, in one pass that does
+    not fail."""
+
+    root, ctx, first, first_extraction = _added_book(tmp_path)
+    second_book = write_book(tmp_path, "second_book.md", BOOK_MARKDOWN.replace("Probability", "Statistics"))
+    second = call(ctx, "add_source", {"sources": [str(second_book)]})["items"][0]["sourceId"]
+    assert second != first
+    second_extraction = resolve_extraction_id(ctx.repository, second)
+    ctx.ingest_jobs._ensure_worker = lambda: None  # type: ignore[method-assign]
+
+    revision = ctx.repository.record_reading_request(first, first_extraction, "u3")
+    assert ctx.repository.fail_reading_request(first, revision, attempts=1, retry_at="0001-01-01T00:00:00+01:00")
+    ctx.repository.record_reading_request(second, second_extraction, "u3")
+    order = [request["source_id"] for request in ctx.repository.pending_reading_requests()]
+    assert order == [first, second]  # the unreadable time comes first
+
+    acted: list[str] = []
+    real = core.act_on_reading_request
+
+    def spy(jobs, source_id, **kwargs):
+        acted.append(source_id)
+        return real(jobs, source_id, **kwargs)
+
+    monkeypatch.setattr(core, "act_on_reading_request", spy)
+    sweep = ctx.ingest_jobs.sweep_reading_requests(now=_later())
+
+    assert acted == [first, second]
+    assert sweep.failed == 0
+    assert _pending(ctx, first) is None and _pending(ctx, second) is None

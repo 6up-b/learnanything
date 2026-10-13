@@ -2980,14 +2980,15 @@ def _run_reading_sweep(host: "weakref.ref[DurableIngestJobs]") -> None:
 
 def _reading_due_at(retry_at: str | None) -> datetime | None:
     """When a pending reading request is due: its retry time, or ``None``
-    (due now) when it has none or one that does not parse, so no stored
-    value can keep a request from ever being due."""
+    (due now) when it has none or one that does not parse or convert to UTC
+    (``0001-01-01T00:00:00+01:00`` overflows, reading-hardening verify N2),
+    so no stored value can keep a request from ever being due."""
 
     if not retry_at:
         return None
     try:
         return parse_utc(str(retry_at))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -3284,15 +3285,21 @@ class DurableIngestJobs:
         Raises when the scan fails, so a caller never takes a failed scan for
         "nothing due". A failed act is counted (``failed``) and recorded by the
         act itself with its backoff; if even that record failed, the request
-        is still due and the next pass acts on it."""
+        is still due and the next pass acts on it. Each request's retry time
+        is read on its own: one that cannot be read is due now and never
+        stops the pass from reaching the requests after it (verify N2)."""
 
         from learnloop.content.pipeline import add_source
 
         moment = now or self.reading_now()
         sweep = ReadingSweep()
         for request in self.repository.pending_reading_requests():
-            due_at = _reading_due_at(request["retry_at"])
-            if due_at is not None and due_at > moment:
+            try:
+                due_at = _reading_due_at(request["retry_at"])
+                later = due_at is not None and due_at > moment
+            except Exception:  # noqa: BLE001 - an unreadable stored time is due now
+                due_at, later = None, False
+            if later:
                 if sweep.next_due_at is None or due_at < sweep.next_due_at:
                     sweep.next_due_at = due_at
                 continue
