@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_180/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_183/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_180" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_183" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 180
+SCHEMA_HEAD = 183
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -229,7 +229,7 @@ def table_domain(table: str) -> str:
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism", "hypothesis_recurrence", "recurrence_")):
         return "diagnosis"
-    if table.startswith(("scheduler_", "controller_", "attention_", "daily_plans", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
+    if table.startswith(("scheduler_", "controller_", "attention_", "daily_plans", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector", "router_")):
         return "scheduling"
     if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "angle_inventor", "p2_ladder", "lapse_episode", "family_evidence", "target_exemplar")):
         return "curriculum"
@@ -839,6 +839,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
     "graph_nomination": "Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps",
+    "facet_identity": "facet identity at mint time and the dedupe command: the cheap judge's neighbourhood size, shortlist rank, lock policy and spend caps (merges apply live with an undo)",
     "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "field": "offline learner-field analysis, revision exclusions, and opt-in paid experiments",
     "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",
@@ -851,11 +852,13 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "families": "explicit-command offline family authoring, not live scheduling",
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
+    "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
+    "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
 }
 
 
@@ -1003,6 +1006,8 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.reentry_max_items": "Most items a re-entry plan serves after a break, whatever its minutes allow (D11).",
     "plan.project_probes_max_per_day": "Most due project probes a day in the maintain lane (project M2); the rest stay in the full list.",
     "plan.headline": "Shows the optional one-line Today headline (display only, D7).",
+    "router.log_decisions": "Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version.",
+    "router.probe_tie_admission": "Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14.",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
         "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
@@ -1804,7 +1809,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_180/state.sqlite",
+                "fixtures/migration_head_183/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

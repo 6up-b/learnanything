@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 180
+schema_head: 183
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/field/probability_states.py"
-  - "src/learnloop/field/signals.py"
   - "src/learnloop/learner/facet_diagnostics.py"
-  - "src/learnloop/ops/contamination/recipes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -53,7 +53,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -125,7 +125,9 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/field/probability_states.py`
+- `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 
@@ -136,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
@@ -168,11 +171,11 @@ Indexes and uniqueness:
 - `tests/test_tutor_qa.py`
 - `tests/test_contamination_report.py`
 - `tests/test_family_memory_projection.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_composition.py`
 - `tests/test_placement_signals.py`
 - `tests/test_question_context.py`
 - `tests/test_question_promotion_jobs.py`
-- `tests/test_question_queue.py`
-- `tests/test_scheduler_requested_floor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

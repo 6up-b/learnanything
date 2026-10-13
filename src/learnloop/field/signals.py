@@ -1,7 +1,10 @@
 """Read-only interaction derivation. No model, evidence, or repository writes.
 
 ``interaction-signals-v1`` chooses a conservative 0.3 mass per subject/LO/UTC
-day (D12 does not specify a number). Missing timing is NOT evidence of help
+day (D12 does not specify a number). ``interaction-signals-v2`` adds the
+learner-text gap targets (available from when the gap was read, one per
+attempt; read at ``mvp-0.16`` or later, :func:`learner_gap_targets`). Missing
+timing is NOT evidence of help
 before work: only an explicitly logged zero, or the practice screen's explicit
 "no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
 
@@ -24,11 +27,18 @@ import logging
 import math
 from typing import Any
 
+from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
 
-SIGNAL_VERSION = "interaction-signals-v1"
+#: v2: learner-text gap targets (implementation_handoffs §4) join the
+#: derivation, each available from the gap's own read time (Codex review F6)
+#: and at most one per attempt (F14).
+SIGNAL_VERSION = "interaction-signals-v2"
 DAILY_SIGNAL_MASS_CAP = 0.3
+#: A named prerequisite gap's weak observation: the same mass a typed
+#: prerequisite question carries (the daily cap still applies).
+LEARNER_GAP_SIGNAL_MASS = 0.15
 QUESTION_TYPES = frozenset({
     "prerequisite", "mechanism", "clarification", "strategy", "verification", "other",
 })
@@ -138,8 +148,19 @@ def derive_interaction_signals(
     lo_to_subject: Mapping[str, str] | None = None,
     diagnostics: dict[str, Any] | None = None,
     stuck_confusions: Iterable[Mapping[str, Any]] = (),
+    learner_gaps: Iterable[Mapping[str, Any]] = (),
 ) -> tuple[SignalRow, ...]:
     """Derive immutable rows using logged data and already-paid classifications.
+
+    ``learner_gaps`` are learner-text gap rows with a prerequisite target
+    (implementation_handoffs §4): the target the tutor named and a judge
+    matched, persisted with its subject when the gap was read. A tutor
+    question's gap target replaces its grounded facet mapping (a weak
+    ``prerequisite`` observation on that LO), observed no earlier than the
+    gap was read (like a paid classification: never back-dated to the
+    question). A stuck answer's or a diagnosis's gap adds one, at most one per
+    attempt: the first read (its stuck text and its diagnosis are the same
+    answer). Without one, the grounded rule applies.
 
     Classifications supply ONLY missing fields. Their availability is their
     creation time, not the historical question time. Feedback dependent on a
@@ -169,6 +190,23 @@ def derive_interaction_signals(
     events = [normalize_question(e) for e in question_events]
     events += [normalize_question(e, reader=True) for e in interaction_events if e["kind"] == "learner_question_asked"]
     signals: list[SignalRow] = []
+    question_gaps: dict[str, Mapping[str, Any]] = {}
+    answer_gaps: set[str] = set()
+    for gap in sorted(learner_gaps, key=lambda g: (instant(str(g["created_at"])), str(g["id"]))):
+        if gap.get("source_kind") == "tutor_question":
+            question_gaps[str(gap["source_id"])] = gap
+            continue
+        if gap.get("attempt_id"):
+            # One answer, one observation (field §3.1: no double counting).
+            if str(gap["attempt_id"]) in answer_gaps:
+                continue
+            answer_gaps.add(str(gap["attempt_id"]))
+        signals.append(SignalRow(
+            signal_id=f"learner_gap:{gap['id']}", lo_id=str(gap["target_id"]),
+            observed_at=str(gap["created_at"]), signal_type="prerequisite", outcome=0.0,
+            effective_mass=LEARNER_GAP_SIGNAL_MASS, subject_id=str(gap.get("target_subject_id") or "default"),
+            attempt_id=gap.get("attempt_id"),
+        ))
     unmapped = 0
     for event in events:
         event_id = event["id"]
@@ -177,9 +215,24 @@ def derive_interaction_signals(
         logged_at = observed
         qtype = event.get("question_type")
         no_work_yet = _logged_no_work_yet(event)
+        # The question-time assistance row reads logged facts only: the logged
+        # type, never a gap read later (re-review F2) nor a paid classification.
         logged_before = no_work_yet and (
             bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
         )
+        gap = question_gaps.get(str(event_id)) if kind == "question_event" else None
+        if gap is not None:
+            # The tutor named the gap and a judge matched it: the question's
+            # target, with its subject as of the question (F4 contract).
+            event = {**event, "lo_ids": [str(gap["target_id"])],
+                     "_question_time_lo_subjects": {
+                         **event["_question_time_lo_subjects"],
+                         str(gap["target_id"]): str(gap.get("target_subject_id") or "default"),
+                     }}
+            qtype = "prerequisite"
+            # Read (and possibly judged) after the question: available from
+            # then, never back-dated (F6).
+            observed = max((observed, str(gap["created_at"])), key=instant)
         facets = _list(event.get("facets_json", event.get("facets")))
         los = _list(event.get("lo_ids_json", event.get("lo_ids")))
         if event.get("lo_id"):
@@ -354,7 +407,47 @@ def load_interaction_signals(
         # mvp-0.13: graded stuck answers the grader read as confusion. Read
         # from the persisted flag and the reading's judgment, never config.
         stuck_confusions=stuck_answers(connection),
+        learner_gaps=learner_gap_targets(connection, vault),
     )
+
+
+def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
+    """Prerequisite gap targets the pipeline persisted, read at mvp-0.16 or later.
+
+    A target is a weak ``prerequisite`` observation on its LO, and placement's
+    fast-track rule reads these signals (``placement.signals``), so it changes
+    what is served: it belongs to the learner-text gap successor. It is read
+    only at a version in ``LEARNER_TEXT_GAP_VERSIONS`` with the pipeline
+    (``learner_text_gaps.enabled``) and the successor's kill switch
+    (``learner_text_gaps.sooner_check_enabled``) on. Below it, switched off,
+    or for a vault whose version is unknown, the F11 grounded rule applies
+    exactly as at mvp-0.15. Undone creations are left out.
+    """
+
+    config = getattr(vault, "config", None)
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in LEARNER_TEXT_GAP_VERSIONS:
+        return []
+    section = getattr(config, "learner_text_gaps", None)
+    if section is not None and not (section.enabled and section.sooner_check_enabled):
+        return []
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='learner_text_gaps'"
+    ).fetchone() is None:
+        return []
+    cursor = connection.execute(
+        """
+        SELECT g.id, g.source_kind, g.source_id, g.attempt_id, g.target_id, g.target_subject_id, g.created_at
+          FROM learner_text_gaps g
+         WHERE g.kind = 'prerequisite' AND g.target_kind = 'learning_object' AND g.target_id IS NOT NULL
+           AND g.action IN ('matched_prerequisite', 'created_prerequisite')
+           AND NOT EXISTS (SELECT 1 FROM learner_text_gap_reversals r
+                            WHERE r.gap_id = g.id AND r.reversal = 'undo_creation')
+         ORDER BY g.created_at, g.id
+        """
+    )
+    names = [column[0] for column in cursor.description]
+    return [dict(zip(names, row, strict=True)) for row in cursor]
 
 
 def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -> list[dict[str, Any]]:

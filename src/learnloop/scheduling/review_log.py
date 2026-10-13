@@ -10,14 +10,16 @@ successive persisted attempts on the item, matching ``_elapsed_days`` reading
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import fsrs_rating_for_attempt
 from learnloop.attempts.evidence import attempt_evidence_mass
-from learnloop.scheduling.fsrs import Rating
+from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, forgetting_curve
 from learnloop.vault.models import LoadedVault
 
 
@@ -41,13 +43,30 @@ class ReviewLog:
 
 
 def reconstruct_review_log(vault: LoadedVault, repository: Repository) -> ReviewLog:
+    return review_log_from_attempts(vault, repository.list_all_attempts())
+
+
+def review_log_from_attempts(
+    vault: LoadedVault,
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    skip_ungraded: bool = False,
+) -> ReviewLog:
+    """The review log of ``rows`` (``practice_attempts`` rows ordered by item,
+    then time, as ``Repository.list_all_attempts`` returns them).
+
+    ``skip_ungraded`` leaves out attempts with no rubric score (an answer still
+    waiting for its grade), counted as skipped, instead of failing on them:
+    the router's outcome replayer reads the log on every rebuild (R1, D12).
+    """
+
     sequences: dict[str, list[ReviewObservation]] = {}
     total = 0
     skipped = 0
     data_through: str | None = None
     last_seen: dict[str, datetime] = {}
 
-    for row in repository.list_all_attempts():
+    for row in rows:
         created_at_iso = row["created_at"]
         if data_through is None or created_at_iso > data_through:
             data_through = created_at_iso
@@ -55,6 +74,9 @@ def reconstruct_review_log(vault: LoadedVault, repository: Repository) -> Review
         if item is None:
             # Vault content changed since the attempt; rubric/hint policy are
             # unresolvable so live rating semantics can't be reproduced.
+            skipped += 1
+            continue
+        if skip_ungraded and row["rubric_score"] is None:
             skipped += 1
             continue
         observed_at = parse_utc(created_at_iso)
@@ -85,3 +107,28 @@ def reconstruct_review_log(vault: LoadedVault, repository: Repository) -> Review
         data_through=data_through,
         skipped_attempts=skipped,
     )
+
+
+def predicted_retrievability_by_attempt(
+    review_log: ReviewLog, weights: tuple[float, ...]
+) -> dict[str, float]:
+    """FSRS-predicted retrievability at each reviewed attempt (router R1, D12).
+
+    Chains each item's (rating, elapsed) sequence through ``apply_review``
+    exactly as :func:`learnloop.scheduling.fsrs_fitting.review_log_loss` does:
+    an attempt's prediction is the forgetting curve of the memory left by the
+    item's earlier reviews, after the elapsed days. An item's first review has
+    no memory yet, so it has no prediction (absent from the map).
+    """
+
+    predictions: dict[str, float] = {}
+    for sequence in review_log.sequences.values():
+        state: MemoryState | None = None
+        for observation in sequence:
+            if state is not None:
+                predictions[observation.attempt_id] = forgetting_curve(
+                    state.stability, observation.elapsed_days, weights
+                )
+            state = apply_review(state, observation.rating, observation.elapsed_days, weights)
+    return predictions
+

@@ -560,7 +560,14 @@ def test_f7_malformed_choices_fall_back_and_are_flagged(tmp_path):
         block = record.blocks[0]
         assert block.chosen["fallback"] is True and block.chosen["fallback_reason"] == reason, (router, block.chosen)
         assert block.chosen_by == "lane_quota" and block.chosen["propensity"] == 1.0
-        assert block.decision_ref is None
+        # Never the refused chooser's own id: the fallback's decision is router
+        # R1's plan_block row (since R1 merged; tests/test_router_r1_composition.py).
+        assert block.decision_ref != "rd_x"
+        with env.repository.connection() as connection:
+            kind = connection.execute(
+                "SELECT decision_kind FROM router_decisions WHERE id = ?", (block.decision_ref,)
+            ).fetchone()
+        assert kind is not None and kind[0] == "plan_block"
     # A well-formed sampled choice is kept as given.
     env, _clock = _small_plan_env(tmp_path / "ok", policy=PlanPolicy("fake_source", Router("mixture", 0.4), legacy_source))
     block = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip").blocks[0]

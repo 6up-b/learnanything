@@ -282,12 +282,18 @@ def test_router_r1_logs_plan_block_decisions_through_the_boundary_hook(tmp_path)
         logged.append(decision)
         return f"rd_{len(logged)}"
 
+    # The hook's own contract, with router R1's logger (registered by the
+    # engine since R1 merged; tests/test_router_r1_composition.py) set aside.
+    from learnloop.router.plan_log import log_plan_block_decision
+
+    engine.unregister_plan_decision_logger(log_plan_block_decision)
     engine.register_plan_decision_logger(r1_logger)
     try:
         record = get_or_create_today(env)
         record, _step = advance(env, serve=False)
     finally:
         engine.unregister_plan_decision_logger(r1_logger)
+        engine.register_plan_decision_logger(log_plan_block_decision)
     assert logged and all(decision.kind == "plan_block" for decision in logged)
     first = logged[0]
     assert first.plan_id == record.id and first.block_id == record.blocks[0].id

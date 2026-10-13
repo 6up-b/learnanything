@@ -27,7 +27,7 @@ DOSSIER_RECIPES = [f"facet/dossier_{field}" for field in ("contrast", "errors", 
 # database-backed kinds (Slice 1 M2) never join it.
 DEFAULT_RECIPES = sorted([
     "facet/definition", "item/stem", *DOSSIER_RECIPES, "concept/definition", "facet_repair/text",
-    "item/skeleton",
+    "item/skeleton", "learning_object/statement",
 ])
 
 
@@ -66,8 +66,12 @@ def vault(tmp_path):
         id="definition", title="SVD", claim="A canonical factorization claim.",
     )
     # The counts below are about one facet and one item record; Slice 2 T5's
-    # concept/definition recipe is covered in test_graph_nomination.py.
+    # concept/definition recipe is covered in test_graph_nomination.py and the
+    # learner-text gaps' learning_object/statement recipe in
+    # test_learner_text_gaps.py.
     loaded.concepts.clear()
+    for learning_object in loaded.learning_objects.values():
+        learning_object.status = "dormant"
     return loaded, Repository(paths.sqlite_path)
 
 

@@ -213,6 +213,20 @@ it("tells the tutor whether an answer was started when the learner asks", async 
   expect(callbacks.onAsk).toHaveBeenCalledTimes(3);
 });
 
+// Command-palette asks (App) read the same state the screen's own ask sends.
+it("registers its ask state for the command palette and clears it on unmount", async () => {
+  const onAskState = vi.fn();
+  const view = render(<PracticeScreen {...props()} onAskState={onAskState} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  const reader = onAskState.mock.calls[0][0] as () => { openedAtMs: number; attemptProgress: string };
+  expect(reader()).toEqual(expect.objectContaining({ attemptProgress: "no_draft" }));
+  expect(typeof reader().openedAtMs).toBe("number");
+  fireEvent.change(answer, { target: { value: "A = U" } });
+  expect(reader().attemptProgress).toBe("draft_started");
+  view.unmount();
+  expect(onAskState).toHaveBeenLastCalledWith(null);
+});
+
 // Learner field F2: "I know this" on a card is offered only while placement is
 // on; it marks the card's LO assumed known (not tested) and moves on.
 it("does not offer 'I know this' while placement is off", async () => {

@@ -557,6 +557,13 @@ def ask_question(
         # provided-span allowlist. Today can then link this exact discussion
         # instead of guessing from the broader learning-object source set.
         source_context["citations"] = citations
+    learner_gap = _learner_gap_reading(answer, model=getattr(client, "model", None))
+    if learner_gap is not None:
+        source_context = dict(source_context or {})
+        # Learner-text gaps: the tutor's reading of the question, persisted
+        # with the answer (a paid output; the gap pipeline matches it to a
+        # target later and never asks again).
+        source_context["learner_gap"] = learner_gap
     # Hint equivalence and leak accounting follow the ITEM, not the surface. A
     # mechanism question asked from the feedback screen — where the graded
     # solution is already on display — helps the next attempt on that item at
@@ -660,6 +667,7 @@ def ask_question(
         "leak_overlap": leak_overlap,
         "remediation_episode_id": episode,
         "citations": citations,
+        "learner_gap": learner_gap,
         "remaining": max(0, limit - used - 1),
     }
     suggested = (source_context or {}).get("suggested_learning_objects")
@@ -668,6 +676,26 @@ def ask_question(
         # (absent when there are none, so the kill switch changes nothing).
         result["suggested_learning_objects"] = list(suggested)
     return result
+
+
+def _learner_gap_reading(answer: Any, *, model: Any = None) -> dict[str, Any] | None:
+    """The tutor's named gap, trimmed, with the prompt it was read under.
+
+    None when the tutor gave none. A name the kind does not use is kept: the
+    gap pipeline's chooser may be the Decider, which names nothing.
+    """
+
+    gap = getattr(answer, "learner_gap", None)
+    if gap is None:
+        return None
+    data = gap.model_dump(mode="json") if hasattr(gap, "model_dump") else dict(gap)
+    reading: dict[str, Any] = {"kind": str(data.get("kind") or "none")}
+    for key in ("prerequisite_name", "prerequisite_line", "belief_statement"):
+        value = " ".join(str(data.get(key) or "").split())[:500]
+        reading[key] = value or None
+    reading["prompt_version"] = TUTOR_QA_PROMPT_VERSION
+    reading["model"] = str(model) if model else None
+    return reading
 
 
 def _validated_citations(answer: Any, source_spans: list[dict[str, Any]]) -> list[dict[str, Any]]:

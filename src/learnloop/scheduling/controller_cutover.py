@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
-from learnloop.clock import Clock
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.curriculum import commitments as C
 from learnloop.scheduling import controller_actions as A
@@ -185,17 +185,82 @@ def staged_next_action(
     )
     veto = _constraint_or_evsi_veto(result)
     if veto is not None:
-        return LiveNextAction(
+        action = LiveNextAction(
             to_state=None, reason=f"staged veto ({veto})", terminal=False,
             authority="staged_veto", diverged=True, staged_decision_id=result.decision_id,
             staged_action=result.action, veto_reason=veto,
         )
-    # No named constraint/EVSI reason: the canonical successor stands (decision-equivalent).
-    return LiveNextAction(
-        to_state=canonical.to_state, reason=canonical.reason, terminal=canonical.terminal,
-        authority="staged", diverged=False, staged_decision_id=result.decision_id,
-        staged_action=result.action,
+    else:
+        # No named constraint/EVSI reason: the canonical successor stands (decision-equivalent).
+        action = LiveNextAction(
+            to_state=canonical.to_state, reason=canonical.reason, terminal=canonical.terminal,
+            authority="staged", diverged=False, staged_decision_id=result.decision_id,
+            staged_action=result.action,
+        )
+    _log_staged_decision(
+        vault, repository, result, snapshot=snapshot, signals=signals, canonical=canonical,
+        action=action, run_id=run_id, commitment_id=commitment_id, clock=clock,
     )
+    return action
+
+
+def _log_staged_decision(
+    vault: Any,
+    repository: Repository,
+    result: sp.DecisionResult,
+    *,
+    snapshot: cs.ControllerSnapshot,
+    signals: sp.StateSignals,
+    canonical: Any,
+    action: LiveNextAction,
+    run_id: str,
+    commitment_id: str | None,
+    clock: Clock | None,
+) -> None:
+    """Router R1: one ``router_decisions`` row per live staged P2 decision.
+
+    Logging only, never authority: a failure is logged and the decision stands.
+    Idempotent on the staged decision id, so a retried bridge call that returns
+    the standing decision writes nothing new.
+    """
+
+    from learnloop.router import decisions as router_decisions
+
+    config = getattr(vault, "config", None)
+    if config is None or not router_decisions.logging_enabled(config):
+        return
+    try:
+        chosen = result.chosen_candidate_ref
+        item = getattr(vault, "practice_items", {}).get(chosen) if chosen else None
+        row = router_decisions.build_staged_p2_decision(
+            result,
+            ladder=sp.ladder_eligibility(
+                snapshot, signals,
+                short_circuited=bool(
+                    (result.trace.get("attention_block") or {}).get("short_circuit_reason")
+                ),
+            ),
+            canonical={
+                "to_state": canonical.to_state,
+                "reason": canonical.reason,
+                "terminal": canonical.terminal,
+            },
+            authority=action.authority,
+            veto_reason=action.veto_reason,
+            run_id=run_id,
+            commitment_id=commitment_id,
+            algorithm_version=config.algorithms.algorithm_version,
+            session_id=snapshot.session_id,
+            chosen_learning_object_id=getattr(item, "learning_object_id", None),
+            created_at=utc_now_iso(clock),
+        )
+        router_decisions.record_decision(repository, row)
+    except Exception:  # pragma: no cover - logging must never change the decision
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "router R1: failed to log staged P2 decision %s", result.decision_id, exc_info=True
+        )
 
 
 def advance_live(

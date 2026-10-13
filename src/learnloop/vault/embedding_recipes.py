@@ -135,6 +135,28 @@ def concept_definition_text(concept: Any) -> str:
     return "\n".join(parts)
 
 
+def learning_object_statement_text(learning_object: Any, concept: Any = None) -> str:
+    """Canonical ``learning_object/statement`` text: title, concept and statement.
+
+    Authored (or LLM-drafted and written) LO content only; never learner data.
+    """
+    parts = [f"Title: {_text(learning_object, 'title').strip()}"]
+    concept_title = _text(concept, "title").strip() if concept is not None else ""
+    if concept_title:
+        parts.append(f"Concept: {concept_title}")
+    summary = _text(learning_object, "summary").strip()
+    if summary:
+        parts.append(f"Statement: {summary}")
+    return "\n".join(parts)
+
+
+def _learning_object_statements(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+    for lo_id, learning_object in sorted(loaded.learning_objects.items()):
+        if learning_object.status != "active":
+            continue
+        yield lo_id, learning_object_statement_text(learning_object, loaded.concepts.get(learning_object.concept))
+
+
 def repair_record_id(text: str) -> str:
     """A repair text's record id: its own digest, so one text is one record."""
     return "repair_" + hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:32]
@@ -284,6 +306,14 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
         "One record per distinct instructional repair of a non-retired facet, "
         "keyed by the repair text's digest; excludes every other facet field.",
         _facet_repairs,
+    ),
+    # Learner-text gaps (implementation_handoffs §4): the vault-wide LO
+    # shortlist a named missing prerequisite is matched against.
+    EmbeddingRecipe(
+        "learning_object", "statement", 1,
+        "LO title, its concept's title and its statement (summary); active LOs only; "
+        "excludes ids, facets, items and learner data.",
+        _learning_object_statements,
     ),
     EmbeddingRecipe(
         "item", "skeleton", 1,

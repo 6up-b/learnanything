@@ -204,7 +204,9 @@ def _placement_map(vault, repository) -> dict[str, Any]:
     from learnloop.placement.state import load_placement_state, placement_active
 
     if not placement_active(vault):
-        return {"active": False, "assumed": []}
+        return {"active": False, "assumed": [], "added_from_question": []}
+    from learnloop.placement.state import LEARNER_TEXT_GAP_SOURCE
+
     state = load_placement_state(vault, repository)
     return {
         "active": True,
@@ -215,6 +217,14 @@ def _placement_map(vault, repository) -> dict[str, Any]:
                 "first_review_due": assumption.first_review_due,
             }
             for lo_id, assumption in sorted(state.open_by_lo.items())
+            # A prerequisite created from a learner's text was never assumed
+            # known: it is listed apart, with its own label.
+            if assumption.source != LEARNER_TEXT_GAP_SOURCE
+        ],
+        "added_from_question": [
+            {"learning_object_id": lo_id, "first_review_due": assumption.first_review_due}
+            for lo_id, assumption in sorted(state.open_by_lo.items())
+            if assumption.source == LEARNER_TEXT_GAP_SOURCE
         ],
     }
 

@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13 or mvp-0.14); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15 or mvp-0.16); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -102,9 +102,20 @@ def upgrade(
     passes. ``--to mvp-0.13`` replaces "I don't know" with "I'm stuck"
     (write what you can) over an mvp-0.12 vault (or an mvp-0.9 to mvp-0.11
     vault through the chain; kill switch: ``stuck_prompt.enabled = false``);
-    ``--to mvp-0.14`` (default, the latest successor) adds the finite daily
-    plan over an mvp-0.13 vault (or an mvp-0.9 to mvp-0.12 vault through the
-    chain; kill switch: ``plan.enabled = false``)."""
+    ``--to mvp-0.14`` adds the finite daily plan over an mvp-0.13 vault (or an
+    mvp-0.9 to mvp-0.12 vault through the chain; kill switch:
+    ``plan.enabled = false``); ``--to mvp-0.15`` admits probe near-ties,
+    teach-back items included, to the Today queue's seeded exploration with a
+    logged propensity (router R1), over an
+    mvp-0.14 vault (or an mvp-0.9 to mvp-0.13 vault through the chain; kill
+    switch: ``router.probe_tie_admission = false``). Router decision logging
+    (``router.log_decisions``) is not a serving change and runs at every
+    version. ``--to mvp-0.16`` (default, the latest successor) adds
+    learner-text gaps' sooner checks (a prerequisite gap named in the
+    learner's own text brings an assumed or maintenance LO's next check
+    forward) over an mvp-0.15 vault (or an mvp-0.9 to mvp-0.14 vault through
+    the chain; kill switch: ``learner_text_gaps.sooner_check_enabled =
+    false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -136,10 +147,19 @@ def upgrade(
         from learnloop.daily_plan_upgrade import upgrade_to_mvp014
 
         result = upgrade_to_mvp014(_root(vault))
+    elif to == "mvp-0.15":
+        from learnloop.probe_tie_upgrade import upgrade_to_mvp015
+
+        result = upgrade_to_mvp015(_root(vault))
+    elif to == "mvp-0.16":
+        from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
+
+        result = upgrade_to_mvp016(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
-            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13 or mvp-0.14."
+            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
+            "mvp-0.14, mvp-0.15 or mvp-0.16."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -603,6 +623,23 @@ def _echo_ingest_embedding_plan(plan: dict) -> None:
         f"{caps['max_query_calls']} calls, {caps['max_query_tokens']} tokens, ${caps['max_query_cost_usd']})"
     )
     typer.echo(f"  {plan['covers']}.")
+    judge = plan.get("facet_identity") or {}
+    if not judge.get("enabled"):
+        typer.echo("  facet-identity judge: off (facet_identity.enabled = false)")
+        return
+    route = judge["route"]
+    typer.echo(
+        f"  facet-identity judge: {judge['status']} ({route['provider']}, {route['model']}, {judge['billing']}, "
+        f"{judge['cost_basis']})"
+    )
+    if route.get("problem"):
+        typer.echo(f"    {route['problem']}")
+    usd = judge["max_estimated_usd"]
+    typer.echo(
+        f"  judge calls: up to {judge['max_calls']} this run (~{judge['max_total_tokens']} tokens at most, "
+        + (f"at most ${usd:.2f})" if usd is not None else "dollars estimated only on the subscription)")
+    )
+    typer.echo(f"  {judge['covers']}.")
 
 
 @app.command("synthesize")

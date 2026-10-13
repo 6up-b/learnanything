@@ -171,6 +171,13 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # Slice 2 T6: the FTS5 keyword index over source blocks, recomputed from the
     # block ledger alone (no model, no embedding, no learner state).
     DerivedStateReplayer("source_block_fts", frozenset({"source_block_fts"})),
+    # Router R1: R_next / R_cold / S per logged decision, from router_decisions,
+    # the attempt and reveal ledgers, PF-c states, session ends and the vault's
+    # servable items per learning object (raw inputs and content only), with
+    # each outcome's coldness covariates (owner decision D12: exposures from
+    # the attempt, reveal, tutor-question and source-exposure ledgers, and the
+    # FSRS fold of the attempt ledger under the fitted weights).
+    DerivedStateReplayer("router_outcomes", frozenset({"router_outcomes"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -486,6 +493,40 @@ def _run_source_block_fts(
                           rows_processed=report["written"], details=report)
 
 
+def _run_router_outcomes(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.field.outcomes import fsrs_predicted_retrievability
+    from learnloop.router.outcomes import (
+        rebuild_router_outcomes,
+        servable_items_by_learning_object,
+    )
+    from learnloop.substrate.canonical_projection import pfc_assessments
+
+    # Whole-vault: a decision's outcome can come from any later attempt on its
+    # learning object, so the requested LO subset never narrows it.
+    with context.repository.connection() as connection:
+        logged = connection.execute("SELECT 1 FROM router_decisions LIMIT 1").fetchone()
+        attempt_ids = (
+            [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
+            if logged
+            else []
+        )
+        # Owner decision D12: each outcome attempt's FSRS-predicted
+        # retrievability, the fitting job's chain of the attempt ledger under
+        # the vault's current FSRS weights (ungraded answers skipped).
+        retrievability = (
+            fsrs_predicted_retrievability(connection, context.vault, context.repository) if logged else {}
+        )
+        written = rebuild_router_outcomes(
+            connection,
+            pfc_states=pfc_assessments(connection, attempt_ids),
+            servable_items_by_lo=servable_items_by_learning_object(context.vault),
+            retrievability_by_attempt=retrievability,
+        )
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -496,6 +537,7 @@ _RUNNERS = {
     "family_memory": _run_family_memory,
     "item_fingerprints": _run_item_fingerprints,
     "source_block_fts": _run_source_block_fts,
+    "router_outcomes": _run_router_outcomes,
 }
 
 

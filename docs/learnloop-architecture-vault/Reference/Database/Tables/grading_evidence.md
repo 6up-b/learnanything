@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 180
+schema_head: 183
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
@@ -169,6 +170,7 @@ Indexes and uniqueness:
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_field_split_outcomes.py`
+- `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_pfc_unverified_unassessed.py`
@@ -178,7 +180,6 @@ Indexes and uniqueness:
 - `tests/test_teach_back.py`
 - `tests/test_agent_runs.py`
 - `tests/test_assessment_contracts.py`
-- `tests/test_attempt_ai_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

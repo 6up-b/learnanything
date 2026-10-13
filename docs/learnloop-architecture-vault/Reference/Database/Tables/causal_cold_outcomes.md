@@ -3,13 +3,13 @@ title: "causal_cold_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_outcomes"
   - "table causal_cold_outcomes"
-schema_head: 180
+schema_head: 183
 table_name: "causal_cold_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"

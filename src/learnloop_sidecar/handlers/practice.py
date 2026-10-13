@@ -48,10 +48,14 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
-from learnloop_sidecar.handlers.queue import PracticeItemInput, _sections
-from learnloop_sidecar.handlers.serializers import practice_item_detail, scheduled_item_dtos
+from learnloop_sidecar.handlers.queue import (
+    PracticeItemInput,
+    _sections,
+    offer_trace_for,
+    publish_offer,
+)
+from learnloop_sidecar.handlers.serializers import practice_item_detail
 from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
-from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.serving import refuse_inactive_learning_object, refuse_unservable_item
@@ -916,6 +920,7 @@ def _store_submission_receipt(
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     session = _require_open_session(repository, params.session_id)
+    trace = offer_trace_for(vault, params.session_id)
     queue = build_due_queue(
         vault,
         repository,
@@ -924,17 +929,11 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
             available_minutes=session.get("available_minutes"),
             energy=session.get("energy"),
         ),
+        offer_trace=trace,
     )
-    slate_id = queue[0].scheduler_slate_id if queue else None
-    queue = filter_unready_teach_back_items(
-        vault, queue, grading_provider_override=ctx.grading_provider_override
-    )
-    queue = [item for item in queue if item.practice_item_id != params.practice_item_id]
-    repository.finalize_scheduler_offer(slate_id, [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id])
-    dtos = scheduled_item_dtos(
-        vault,
-        repository,
-        queue,
+    queue, dtos = publish_offer(
+        ctx, vault, repository, queue, trace=trace, surface="skip_requeue",
+        removed_ids=frozenset({params.practice_item_id}),
     )
     repository.clear_session_checkpoint(params.session_id)
     return versioned(

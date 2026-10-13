@@ -28,6 +28,7 @@ from learnloop.attempts.stuck import stuck_answer_summary
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.daily_plans import plan_served_origins
+from learnloop.db.stores.facet_identity import settled_merge_rows
 from learnloop.db.stores.families import family_judge_models
 from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
@@ -321,7 +322,8 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         repository, (r.get("active_interpretation") for r in ledger.values()),
     )
     activity_by_attempt = repository.all_causal_activity_classifications()
-    merges = dict(connection.execute("SELECT retired_facet_id,surviving_facet_id FROM facet_merges"))
+    # Settled merges only: an interrupted facet-identity action's rows wait for it (F12).
+    merges = dict(settled_merge_rows(connection))
 
     def canonical(facet):
         current = vault.canonical_facet_id(facet)
@@ -591,6 +593,36 @@ def load_attempt_rows(
 def load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
     """Attempt and facet rows for one prequential replay, read in one pass."""
     return _load(connection, vault, legacy_fallback=legacy_fallback, retrieval=True)
+
+
+def fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository) -> dict[str, float]:
+    """FSRS-predicted retrievability at each graded attempt, from the ledger.
+
+    The fitting job's chain (``scheduling.review_log``): each item's graded
+    attempts in order through ``apply_review`` under the vault's current FSRS
+    weights; an attempt's value is the forgetting curve of the memory its
+    earlier reviews left, after the elapsed days (an item's first review has
+    none). Answers still waiting for a grade are skipped. Router R1's outcome
+    replayer records it as a coldness covariate (owner decision D12); it is
+    the historical retrievability the field's ``ItemFeatures.retrievability``
+    has been missing. Read-only, no model call.
+    """
+
+    from learnloop.params.fitted_params import resolve_fsrs_weights
+    from learnloop.scheduling.review_log import (
+        predicted_retrievability_by_attempt,
+        review_log_from_attempts,
+    )
+
+    rows = [
+        dict(row)
+        for row in connection.execute(
+            "SELECT * FROM practice_attempts ORDER BY practice_item_id ASC, created_at ASC, id ASC"
+        )
+    ]
+    return predicted_retrievability_by_attempt(
+        review_log_from_attempts(vault, rows, skip_ungraded=True), resolve_fsrs_weights(repository)
+    )
 
 
 def load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):

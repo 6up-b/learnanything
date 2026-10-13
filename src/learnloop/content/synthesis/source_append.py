@@ -32,12 +32,12 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
-    APPEND_RECONCILIATION_PROMPT_VERSION,
     AppendReconciliation,
     AppendReconciliationContext,
     SourceSetSynthesis,
     SynthSpanRef,
     append_reconciliation_prompt,
+    append_reconciliation_prompt_version,
 )
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.db.repositories import Repository
@@ -48,12 +48,14 @@ from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_in
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
+    _facet_identity_plan,
     _collect_inputs,
     _gate_context,
     _normalize,
     _resolve_span_requests,
     _row,
     _span_refs,
+    facet_identity_result,
 )
 from learnloop.content.synthesis.synthesis_gates import GateItem, GateProposal, ProvenanceRef, run_synthesis_gates
 from learnloop.content.synthesis.synthesis_manifests import (
@@ -116,6 +118,8 @@ class AppendResult:
     span_request_count: int = 0
     study_map_diff: dict[str, Any] = field(default_factory=dict)
     merge_review_proposals: list[dict[str, Any]] = field(default_factory=list)
+    # Facet identity (handoff §4): None when the switch is off.
+    facet_identity: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -134,6 +138,7 @@ class AppendResult:
             "span_request_count": self.span_request_count,
             "study_map_diff": dict(self.study_map_diff),
             "merge_review_proposals": list(self.merge_review_proposals),
+            "facet_identity": self.facet_identity,
         }
 
 
@@ -155,11 +160,13 @@ def append_source(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     embedding_client_factory: Callable[[], Any] | None = None,
+    facet_identity_client: Any = None,
 ) -> AppendResult:
     """Run bounded append reconciliation and (by policy) auto-apply routine items.
 
     ``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
     for T5 nominations (tests); it is used only when nominations are on.
+    ``facet_identity_client`` replaces the facet-identity judge (tests).
     """
 
     vault = load_vault(root)
@@ -173,6 +180,7 @@ def append_source(
         budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
         embedding_client_factory=embedding_client_factory,
+        facet_identity_client=facet_identity_client,
     )
 
 
@@ -197,7 +205,10 @@ def plan_append_embedding(
     revs = set(new_revision_ids or inputs.selected_revision_ids)
     new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
     plan = plan_ingest_embedding(vault, sqlite_path, entry="append", new_inventories=new_inventories)
-    return {"source_set_id": source_set_id, "new_revision_ids": sorted(revs), **plan}
+    from learnloop.content.facet_identity.plan import ingest_dry_run
+
+    return {"source_set_id": source_set_id, "new_revision_ids": sorted(revs), **plan,
+            "facet_identity": ingest_dry_run(vault)}
 
 
 def _append(
@@ -216,6 +227,7 @@ def _append(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     embedding_client_factory: Callable[[], Any] | None = None,
+    facet_identity_client: Any = None,
 ) -> AppendResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -245,6 +257,24 @@ def _append(
 
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
     model = getattr(client, "model", None)
+    # Facet identity (handoff §4): the rule in the prompt and the judge's
+    # identity in the manifest only while the switch is on.
+    one_facet_per_skill = bool(vault.config.facet_identity.enabled)
+    append_prompt_version = append_reconciliation_prompt_version(one_facet_per_skill)
+    append_scope: dict[str, Any] = {
+        "mode": "append",
+        "change_kind": change_kind,
+        "new_revision_ids": sorted(revs),
+        "neighborhood": neighborhood.as_manifest_record(),
+    }
+    if one_facet_per_skill:
+        from learnloop.content.facet_identity.judge import PROMPT_VERSION as _FI_PROMPT, resolve_route
+
+        append_scope["facet_identity"] = {
+            "prompt_version": _FI_PROMPT,
+            "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
+            "config": vault.config.facet_identity.model_dump(mode="json"),
+        }
     manifest = build_manifest(
         vault,
         source_set_id=source_set.id,
@@ -252,14 +282,9 @@ def _append(
         revision_ids=sorted(revs),
         extraction_ids=inputs.extraction_ids,
         unit_inventory_versions=inputs.unit_inventory_versions,
-        scope={
-            "mode": "append",
-            "change_kind": change_kind,
-            "new_revision_ids": sorted(revs),
-            "neighborhood": neighborhood.as_manifest_record(),
-        },
+        scope=append_scope,
         brief=brief,
-        prompt_version=APPEND_RECONCILIATION_PROMPT_VERSION,
+        prompt_version=append_prompt_version,
         provider=provider,
         model=model,
         assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
@@ -300,7 +325,7 @@ def _append(
             "provider_type": getattr(client, "provider_type", "codex"),
             "model": model,
             "prompt_template": "append-reconciliation",
-            "prompt_version": APPEND_RECONCILIATION_PROMPT_VERSION,
+            "prompt_version": append_prompt_version,
             "input_context_hash": context_hash,
             "output_schema": "AppendReconciliation",
             "started_at": now,
@@ -316,6 +341,7 @@ def _append(
             client, repository, inputs, new_inventories, neighborhood, source_set,
             subject_id, change_kind, revision_diff, brief, budgets, clock=clock,
             unlimited_token_budget=unlimited_token_budget,
+            one_facet_per_skill=one_facet_per_skill,
         )
         preset_diagnostics: list[dict[str, Any]] = []
         if brief.get("authoring_preset") == "narrow_adjunct":
@@ -349,6 +375,15 @@ def _append(
         if brief_items not in ("upfront", "as_you_read"):
             brief_items = vault.config.ingest.bootstrap_practice_items
         items_off = brief_items == "as_you_read"
+        # Facet identity: consolidate the new facets among themselves and judge
+        # them against the registered facets T5 nominates (D2 with a decision).
+        facet_identity_plan = _facet_identity_plan(
+            SourceSetSynthesis(
+                concepts=getattr(reconciliation, "concepts", []) or [],
+                facets=getattr(reconciliation, "facets", []) or [],
+            ),
+            vault, repository, synthesis_run_id, nominator=nominator, client=facet_identity_client,
+        )
         (
             rows,
             gate_items,
@@ -357,9 +392,10 @@ def _append(
             auto_apply_ids,
             normalizer_diagnostics,
             graph_nomination,
+            facet_identity_actions,
         ) = _normalize_append(
             reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
-            items_off=items_off, nominator=nominator,
+            items_off=items_off, nominator=nominator, facet_identity_plan=facet_identity_plan,
         )
 
         gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
@@ -408,9 +444,21 @@ def _append(
             coverage["graph_nomination"] = {
                 **(graph_nomination or {}), "summary": nominator.summary(),
             }
+        actual_usage: dict[str, Any] | None = None
+        if facet_identity_plan is not None:
+            from learnloop.content.facet_identity.actions import record_proposed_actions
+
+            coverage["facet_identity"] = {
+                **facet_identity_plan.summary(),
+                "action_ids": record_proposed_actions(
+                    repository, facet_identity_actions, origin="append",
+                    run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
+                ),
+            }
+            actual_usage = {"facet_identity": facet_identity_plan.as_dict()}
         repository.complete_synthesis_run(
             synthesis_run_id, status="completed", proposal_id=patch_id,
-            coverage_decisions=coverage,
+            coverage_decisions=coverage, actual_usage=actual_usage,
         )
         finish_agent_run(repository, agent_run_id, client, clock=clock)
     except StudyMapError:
@@ -455,6 +503,8 @@ def _append(
             )
         ]
 
+    result.facet_identity = facet_identity_result(root, repository, facet_identity_plan, synthesis_run_id)
+
     # Best-effort Start-screen epigraphs (see vault_epigraphs.py): an append
     # may emit only provenance links, so the digest is topped up from the new
     # inventories and the bounded neighborhood. Never raises.
@@ -474,12 +524,13 @@ def _append(
 def _run_reconciliation(
     client, repository, inputs, new_inventories, neighborhood, source_set,
     subject_id, change_kind, revision_diff, brief, budgets, *, clock,
-    unlimited_token_budget: bool = False,
+    unlimited_token_budget: bool = False, one_facet_per_skill: bool = False,
 ):
     context = AppendReconciliationContext(
         source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
         brief=brief, new_inventories=new_inventories, neighborhood=neighborhood.as_context(),
         exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
+        one_facet_per_skill=one_facet_per_skill,
     )
     result = request_append_reconciliation(client, context)
     if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
@@ -497,6 +548,7 @@ def _run_reconciliation(
             source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
             brief=brief, new_inventories=new_inventories, neighborhood=neighborhood.as_context(),
             exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
+            one_facet_per_skill=one_facet_per_skill,
         )
         result = request_append_reconciliation(client, context)
         if not unlimited_token_budget and _output_tokens(result) > budgets.append_output_tokens:
@@ -515,7 +567,7 @@ def _output_tokens(result: Any) -> int:
 
 
 def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id,
-                      items_off: bool = False, nominator=None):
+                      items_off: bool = False, nominator=None, facet_identity_plan=None):
     """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
 
     The last element is the T5 mint-gate shadow record (``None`` when
@@ -534,7 +586,8 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         practice_items=getattr(reconciliation, "practice_items", []) or [],
     )
     normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id,
-                            items_off=items_off, nominator=nominator)
+                            items_off=items_off, nominator=nominator,
+                            facet_identity_plan=facet_identity_plan)
     rows = list(normalized.rows)
     gate_items = list(normalized.gate_items)
     auto_apply_ids: list[str] = []
@@ -670,6 +723,7 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         auto_apply_ids,
         [*normalized.edge_diagnostics, *dropped_diagnostics],
         normalized.graph_nomination,
+        normalized.facet_identity_actions,
     )
 
 

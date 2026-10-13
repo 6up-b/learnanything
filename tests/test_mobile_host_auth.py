@@ -306,15 +306,20 @@ def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile
         DAILY_PLAN_EXTENDED_RPCS,
         DAILY_PLAN_RPCS,
         DESKTOP_ONLY_CAPTURE_RPCS,
+        FACET_IDENTITY_RPCS,
+        LEARNER_TEXT_GAP_RPCS,
         MAIN_SIDECAR_RPCS,
     )
     client, _, repo, _, headers = mobile
     pending = capture.create_pairing(repo, scope=scope)
     device = capture.exchange_pairing(repo, secret=pending["secret"])
     phone = {**headers, "Authorization": f"Bearer {device['token']}"}
-    # Daily-loop DL1's plan RPCs are pinned here too until mobile M2a allows them.
+    # Daily-loop DL1's plan RPCs, the learner-text gap RPCs (the overlay's
+    # reading and its reversals) and facet identity's action list and undo are
+    # pinned here too: desktop only.
     for method in (
         DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS
+        + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS
     ):
         assert method in METHOD_REGISTRY
         response = client.post("/rpc", json={"method": method, "params": {"captureId": "c"}},

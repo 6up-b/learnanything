@@ -443,6 +443,9 @@ class SourceSetSynthesisContext:
     resolved_spans: list = field(default_factory=list)
     shard_ordinal: int = 0
     shard_count: int = 1
+    # Facet identity (handoff §4): add the "one facet per testable skill"
+    # rule. Not rendered into the context; False keeps the request unchanged.
+    one_facet_per_skill: bool = False
 
 
 @dataclass(frozen=True)
@@ -474,6 +477,8 @@ class AppendReconciliationContext:
     resolved_spans: list = field(default_factory=list)
     shard_ordinal: int = 0
     shard_count: int = 1
+    # Facet identity (handoff §4), as on SourceSetSynthesisContext.
+    one_facet_per_skill: bool = False
 
 
 @dataclass(frozen=True)
@@ -578,9 +583,13 @@ class VaultEpigraphBatch(WireModel):
 
 SOURCE_UNIT_INVENTORY_PROMPT_VERSION = "mvp-0.7-source-unit-inventory-role-aware"
 SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.1-brief-authoring-presets"
+# Facet identity (handoff §4): the same prompt plus the one-facet-per-skill
+# rule, used only while facet_identity.enabled is on.
+SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION = "mvp-1.2-one-facet-per-testable-skill"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1+t5-registry-nominations-1"
 APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.8-append-brief-authoring-presets"
+APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION = "mvp-0.9-append-one-facet-per-testable-skill"
 VAULT_EPIGRAPHS_PROMPT_VERSION = "mvp-0.1-vault-epigraphs"
 
 SOURCE_UNIT_INVENTORY_PROMPT = """\
@@ -744,6 +753,22 @@ requires the whole task to observe; otherwise pick the capability at which the
 coordinating step can actually be seen.
 """
 
+ONE_FACET_PER_SKILL_RULE = """
+15. ONE FACET PER TESTABLE SKILL: mint one facet per testable skill. Do not
+restate a definition as separate facets (the definition, its list of axioms or
+conditions, an introductory version, a terminology note, or a property it
+already states). A special case or worked instance of a facet is an example or
+precondition of that facet, not a facet of its own. Sibling shards may cite
+overlapping spans: prefer one general facet over several restatements.
+"""
+
+APPEND_ONE_FACET_PER_SKILL_RULE = """
+9. ONE FACET PER TESTABLE SKILL: mint one facet per testable skill. Do not
+restate a definition as separate facets, and do not mint a special case or
+worked instance of an existing or new facet as its own facet: it is an
+example or precondition of that facet.
+"""
+
 CONCEPT_GRAPH_STRUCTURING_PROMPT = """\
 Structure the concept graph of a freshly synthesized study-map candidate
 (spec §8.5 graph-structuring stage). The candidate was produced by independent
@@ -894,11 +919,20 @@ def source_unit_inventory_prompt(context: SourceUnitInventoryContext) -> str:
     )
 
 
+def source_set_synthesis_prompt_version(one_facet_per_skill: bool) -> str:
+    return (
+        SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION if one_facet_per_skill
+        else SOURCE_SET_SYNTHESIS_PROMPT_VERSION
+    )
+
+
 def source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
+    payload = asdict(context)
+    nudge = bool(payload.pop("one_facet_per_skill", False))
     return render_structured_prompt(
         "learnloop source set synthesis",
-        SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
-        {"task": SOURCE_SET_SYNTHESIS_PROMPT, "context": asdict(context)},
+        source_set_synthesis_prompt_version(nudge),
+        {"task": SOURCE_SET_SYNTHESIS_PROMPT + (ONE_FACET_PER_SKILL_RULE if nudge else ""), "context": payload},
         context_tail_fields=("resolved_spans",),
     )
 
@@ -928,11 +962,20 @@ def concept_graph_structuring_prompt(context: ConceptGraphContext) -> str:
     )
 
 
+def append_reconciliation_prompt_version(one_facet_per_skill: bool) -> str:
+    return (
+        APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION if one_facet_per_skill
+        else APPEND_RECONCILIATION_PROMPT_VERSION
+    )
+
+
 def append_reconciliation_prompt(context: AppendReconciliationContext) -> str:
+    payload = asdict(context)
+    nudge = bool(payload.pop("one_facet_per_skill", False))
     return render_structured_prompt(
         "learnloop append reconciliation",
-        APPEND_RECONCILIATION_PROMPT_VERSION,
-        {"task": APPEND_RECONCILIATION_PROMPT, "context": asdict(context)},
+        append_reconciliation_prompt_version(nudge),
+        {"task": APPEND_RECONCILIATION_PROMPT + (APPEND_ONE_FACET_PER_SKILL_RULE if nudge else ""), "context": payload},
     )
 
 

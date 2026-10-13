@@ -17,6 +17,7 @@ import type {
   ConceptGraphSnapshot,
   ConfirmQuickAddInput,
   EntityProvenance,
+  FacetIdentityActionDto,
   FacetMergeResultDto,
   PlanQuickAddInput,
   ProposeFacetMergeInput,
@@ -113,6 +114,9 @@ import type {
   SubmitAttemptInput,
   AskTutorQuestionInput,
   TutorAnswerDto,
+  LearnerTextGapReversal,
+  LearnerTextGapReversalDto,
+  LearnerTextGapStatusDto,
   TutorOpeningDto,
   TutorTranscriptInput,
   TutorTranscriptSnapshot,
@@ -736,6 +740,16 @@ export const api = {
     )),
   getSpanView: (input: SpanViewInput) =>
     call<{ version: number; spanView: SpanViewDto }>("get_span_view", { input }),
+  // Facet identity (handoff §4): a run's merges/absorbs and the one-tap undo.
+  listFacetIdentityActions: (runId?: string | null) =>
+    call<{ version: number; actions: FacetIdentityActionDto[] }>("list_facet_identity_actions", {
+      input: { runId: runId ?? null }
+    }),
+  undoFacetIdentityAction: (actionId: string) =>
+    mutatingAll(call<{ version: number; status: string; action: FacetIdentityActionDto | null }>(
+      "undo_facet_identity_action",
+      { input: { actionId } },
+    )),
   getSubjectRegistry: (subjectId: string) =>
     call<SubjectRegistryDto>("get_subject_registry", { input: { subjectId } }),
   proposeFacetMerge: (input: ProposeFacetMergeInput) =>
@@ -852,6 +866,10 @@ export const api = {
     call<{ animations: ConceptAnimationDto[] }>("list_concept_animations", { conceptId }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
+  getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>
+    call<LearnerTextGapStatusDto>("get_learner_text_gap", { input }),
+  reverseLearnerTextGap: (input: { gapId: string; reversal: LearnerTextGapReversal }) =>
+    call<LearnerTextGapReversalDto>("reverse_learner_text_gap", { input }),
   previewTutorOpening: (input: { practiceItemId: string; sessionId?: string }) =>
     call<TutorOpeningDto>("preview_tutor_opening", { input }),
   rateTutorAnswer: (eventId: string, useful: boolean) =>

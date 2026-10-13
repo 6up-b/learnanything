@@ -48,6 +48,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
         "src/learnloop/db/stores/judgments.py",
+        # Facet identity: applied merge/absorb actions and their facet_merges rows.
+        "src/learnloop/db/stores/facet_identity.py",
         "src/learnloop/projects/experiment_store.py",
         # Slice 1 M1: review_* tables that exist only inside a scratch copy.
         "src/learnloop/db/stores/diagnosis_review.py",
@@ -73,6 +75,10 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/source_block_fts.py",
         # Daily-loop DL1: the finite plan's workflow rows and block receipts.
         "src/learnloop/db/stores/daily_plans.py",
+        # Router R1: append-only decision rows and the DERIVED outcome cache.
+        "src/learnloop/db/stores/router.py",
+        # Learner-text gaps: the gap ledger, reversals, queue and receipts.
+        "src/learnloop/db/stores/learner_gaps.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

@@ -46,7 +46,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_180"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_183"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -91,13 +91,16 @@ def _pass_guard(tmp_path, vault, repository, *, judge=None, linked=False, name="
 
 def test_successor_vocabulary():
     """T1 merged after Phase 6 took mvp-0.11: it is mvp-0.12, the split PLUS
-    placement PLUS recurrence groups. The stuck prompt (mvp-0.13) followed it
-    and keeps recurrence groups."""
+    placement PLUS recurrence groups. The stuck prompt (mvp-0.13), the daily
+    plan (mvp-0.14), probe ties (mvp-0.15) and learner-text gaps (mvp-0.16)
+    follow it and keep recurrence groups."""
 
     from learnloop.algorithm_versions import (
         DAILY_PLAN_ALGORITHM_VERSION,
         LATEST_ALGORITHM_VERSION,
+        LEARNER_TEXT_GAP_ALGORITHM_VERSION,
         PLACEMENT_VERSIONS,
+        PROBE_TIE_ALGORITHM_VERSION,
         STUCK_PROMPT_ALGORITHM_VERSION,
     )
 
@@ -105,12 +108,14 @@ def test_successor_vocabulary():
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in DIAGNOSIS_SPLIT_VERSIONS
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in PLACEMENT_VERSIONS
-    # The stuck prompt (mvp-0.13) and daily-loop DL1's plan (mvp-0.14) follow
-    # it and keep recurrence groups.
+    # The stuck prompt (mvp-0.13), daily-loop DL1's plan (mvp-0.14), router
+    # R1's probe ties (mvp-0.15) and learner-text gaps' sooner check
+    # (mvp-0.16) follow it and keep recurrence groups.
     assert RECURRENCE_GROUP_VERSIONS == {
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
+        PROBE_TIE_ALGORITHM_VERSION, LEARNER_TEXT_GAP_ALGORITHM_VERSION,
     }
-    assert LATEST_ALGORITHM_VERSION == DAILY_PLAN_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION == LEARNER_TEXT_GAP_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
@@ -467,9 +472,9 @@ def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
     _pass_guard(tmp_path, vault, repository)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The latest is mvp-0.14 (daily-loop DL1's plan) since it merged; the
-    # chain still passes through mvp-0.12 and its guard.
-    assert "mvp-0.10 -> mvp-0.14" in result.output
+    # The latest is LATEST_ALGORITHM_VERSION (mvp-0.16 since learner-text
+    # gaps merged); the chain still passes through mvp-0.12 and its guard.
+    assert f"mvp-0.10 -> {LATEST_ALGORITHM_VERSION}" in result.output
 
 
 # -- the advisory guard (owner, 2026-10-12) ---------------------------------------------------

@@ -3,13 +3,13 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
   - "table policy_experiment_assignments"
-schema_head: 180
+schema_head: 183
 table_name: "policy_experiment_assignments"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/098_controller_randomization_and_outcomes.sql"
+  - "src/learnloop/db/stores/router.py"
   - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"

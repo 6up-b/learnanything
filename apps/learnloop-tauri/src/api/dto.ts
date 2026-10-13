@@ -498,9 +498,12 @@ export interface KnowledgeItemTextNeighbors {
 export interface KnowledgeMapPlacement {
   active: boolean;
   assumed: Array<{ learningObjectId: string; source: AssumptionSource; firstReviewDue: IsoTimestamp }>;
+  /** Learner-text gaps: prerequisites created from the learner's own text
+   *  whose one check is pending (listed apart: never assumed known). */
+  addedFromQuestion?: Array<{ learningObjectId: string; firstReviewDue: IsoTimestamp }>;
 }
 
-export type AssumptionSource = "self_report" | "fast_track" | "predictor" | "quick_check";
+export type AssumptionSource = "self_report" | "fast_track" | "predictor" | "quick_check" | "learner_text_gap";
 
 export interface KnowledgeMapSnapshot {
   version: number;
@@ -1991,6 +1994,46 @@ export interface TutorAnswerDto {
   leakSuspected: boolean;
   citations: TutorCitationDto[];
   remaining: number;
+  /** Learner-text gaps: the question is read for a named gap off the request
+   *  path ("queued"); the overlay polls getLearnerTextGap for the result. */
+  learnerGap?: LearnerGapQueuedDto;
+}
+
+export interface LearnerGapQueuedDto {
+  status: "queued" | "off" | "failed";
+  kind?: string | null;
+}
+
+/** The learner's one-tap reversals of what a gap reading did. */
+export type LearnerTextGapReversal = "undo_edge" | "undo_creation" | "not_this_belief";
+
+/** What one learner text was read as, and what was done (honest labels only:
+ *  `label` is null when nothing the learner should see happened). */
+export interface LearnerTextGapViewDto {
+  gapId: string;
+  kind: string;
+  action: string;
+  named: { prerequisiteName?: string | null; prerequisiteLine?: string | null; beliefStatement?: string | null };
+  target: { kind: string | null; id: string | null; title: string | null } | null;
+  edgeId: string | null;
+  seedPracticeItemId: string | null;
+  seedStatus: string | null;
+  label: string | null;
+  reversals: string[];
+  allowedReversals: LearnerTextGapReversal[];
+  edge?: string | null;
+}
+
+export interface LearnerTextGapStatusDto {
+  version: number;
+  status: "pending" | "done" | "off" | "none" | "skipped";
+  gap: LearnerTextGapViewDto | null;
+}
+
+export interface LearnerTextGapReversalDto {
+  version: number;
+  status: string;
+  gap: LearnerTextGapViewDto | null;
 }
 
 /** §12.1 proactive handoff: a tutor opening generated with no learner
@@ -2565,6 +2608,12 @@ export interface PlacementLearningObjectDto {
   /** A miss whose diagnosis has not landed yet: the decision waits on it. */
   awaitingDiagnosis?: boolean;
   assumed: boolean;
+  /** Learner-text gaps: a prerequisite created from the learner's own text,
+   *  its one delayed check pending (never "assumed known"). */
+  addedFromQuestion?: boolean;
+  /** mvp-0.16: the first review a learner-text gap brought forward, and the
+   *  due date it replaced. */
+  firstReviewBroughtForwardFrom?: IsoTimestamp | null;
   label: string | null;
   source: AssumptionSource | null;
   firstReviewDue: IsoTimestamp | null;
@@ -2830,6 +2879,59 @@ export interface IngestJobView {
   } | null;
   waitingForInput: Record<string, unknown> | null;
   dependsOn: string[];
+}
+
+/** Facet identity (handoff §4): one merge or absorb a judge applied, with its undo state. */
+export interface FacetIdentityFacetRef {
+  id: string;
+  claim: string;
+}
+
+export interface FacetIdentityActionDto {
+  id: string;
+  origin: "ingest" | "append" | "dedupe";
+  scope: "in_run" | "attach" | "vault";
+  runId: string;
+  proposalId: string | null;
+  action: "merge" | "absorb";
+  absorbAs: "example" | "precondition" | null;
+  survivor: FacetIdentityFacetRef;
+  retired: FacetIdentityFacetRef[];
+  rationale: string;
+  locked: boolean;
+  /** Why a facet's identity is locked: attempts, probe, goal_certified_scope, independent_surface_groups, ... */
+  lockSources?: string[];
+  /** Why an attach left a registered facet's contract as it was. */
+  contractNote?: string | null;
+  /** What an undo does not move back (rows graded while the merge stood). */
+  undoLimits?: string | null;
+  judge: string;
+  judgeModel: string | null;
+  /**
+   * proposed = applies with its proposal; applied = undoable now; undone.
+   * applying/undoing = interrupted mid-write (doctor --fix-state finishes it);
+   * abandoned = withdrawn before it was written.
+   */
+  status: "proposed" | "applying" | "applied" | "undoing" | "undone" | "abandoned";
+  undoable: boolean;
+  /** Why this merge has no undo, when it has none by construction. */
+  note?: string | null;
+  createdAt: string;
+  undoneAt: string | null;
+}
+
+/** The facet-identity block of a synthesis/append job result (absent when switched off). */
+export interface FacetIdentitySummaryDto {
+  status: string;
+  /** The run whose actions the panel re-reads for their live undo state. */
+  runId?: string | null;
+  groups: number;
+  groupsJudged: number;
+  inRunRetired: number;
+  attached: number;
+  judge: string | null;
+  notes: string[];
+  actions: FacetIdentityActionDto[];
 }
 
 export interface IngestBatchDto {
@@ -5897,6 +5999,9 @@ export interface ReaderAnswerDto {
   /** Slice 2 T6: labelled nearest-LO suggestions when the span has no
    *  provenance-linked LO (absent otherwise). */
   suggestedLearningObjects?: SuggestedLearningObjectDto[];
+  /** Learner-text gaps: the reading queued for this question (absent when
+   *  nothing was queued). */
+  learnerGap?: LearnerGapQueuedDto;
 }
 
 /** A completed Reader Ask restored from the durable interaction-event log. */

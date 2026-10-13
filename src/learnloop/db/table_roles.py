@@ -170,6 +170,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Paid practice-index dossiers (Slice 2 §5.9): persisted inputs keyed by
     # facet/source revision, model and prompt; never regenerated on rebuild.
     ("facet_dossiers", TableRole.WORKFLOW),
+    # Facet identity: each applied merge/absorb and the facets.yaml entries
+    # its undo restores (lifecycle state; the verdicts are judgment_ledger's).
+    ("facet_identity_actions", TableRole.WORKFLOW),
     ("facet_merges", TableRole.RAW_LEDGER),
     ("facet_outcome_observations", TableRole.DERIVED),
     ("facet_recall_state", TableRole.DERIVED),
@@ -233,6 +236,15 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
+    # Learner-text gaps (implementation_handoffs §4, mvp-0.16): what each
+    # learner text was read as and what was done (append-only, paid input
+    # never re-asked), the learner's undo taps, the job queue, and the two
+    # placement receipts (a sooner check, a created LO's light commitment).
+    ("learner_gap_check_advances", TableRole.RECEIPT),
+    ("learner_gap_commitments", TableRole.RECEIPT),
+    ("learner_text_gap_jobs", TableRole.WORKFLOW),
+    ("learner_text_gap_reversals", TableRole.RAW_LEDGER),
+    ("learner_text_gaps", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),
     ("learner_theta", TableRole.COMPAT),
     ("learning_object_mastery", TableRole.DERIVED),
@@ -329,6 +341,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
     ("reveal_events", TableRole.RAW_LEDGER),
+    # Router R1: append-only decision facts (candidate sets, chosen candidate,
+    # true propensity). Replay reads them and never re-decides.
+    ("router_decisions", TableRole.RAW_LEDGER),
+    # Router R1: R_next / R_cold / S per decision, one replayer
+    # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
+    ("router_outcomes", TableRole.DERIVED),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),
     ("scheduler_offer_receipts", TableRole.RECEIPT),

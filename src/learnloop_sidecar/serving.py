@@ -18,6 +18,7 @@ before the learner put the LO away still saves.
 from __future__ import annotations
 
 from learnloop.vault.lifecycle import (
+    LEARNER_TEXT_GAP_DISABLED,
     REFERENCE_ADOPTION_DISABLED,
     learning_object_serving_block,
     practice_item_serving_block,
@@ -34,6 +35,14 @@ def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str 
         # A missing LO keeps its existing handling at each door.
         return
     learning_object = vault.learning_objects[str(learning_object_id)]
+    if block == LEARNER_TEXT_GAP_DISABLED:
+        raise SidecarError(
+            LEARNER_TEXT_GAP_DISABLED,
+            f"{learning_object.title} was added from your question, and adding prerequisites that way is "
+            "switched off (learner_text_gaps.create_prerequisites_enabled), so it is not served. "
+            "Turn the switch back on to practise it again.",
+            details={"learning_object_id": learning_object.id},
+        )
     raise SidecarError(
         INACTIVE_LEARNING_OBJECT_ERROR_CODE,
         f"{learning_object.title} is {learning_object.status}, so its practice is not served. "

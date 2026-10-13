@@ -4,6 +4,9 @@ import type {
   AskTutorQuestionInput,
   AttemptProgress,
   CommandError,
+  LearnerGapQueuedDto,
+  LearnerTextGapReversal,
+  LearnerTextGapViewDto,
   PromotionIntent,
   QuestionPromotionDto,
   QuestionPromotionRequestDto,
@@ -68,7 +71,20 @@ interface ThreadEntry {
   /** Slice 2 T6: labelled nearest-LO suggestions for a reader span without
    *  provenance. Ephemeral, like citations. */
   suggestions?: SuggestedLearningObjectDto[];
+  /** Learner-text gaps: what the question was read as, once the worker ran
+   *  (only a label for something that actually happened), with one-tap undo. */
+  gap?: LearnerTextGapViewDto | null;
 }
+
+/** How long the overlay waits for a question's gap reading (polls). */
+const GAP_POLL_MS = 2000;
+const GAP_POLL_LIMIT = 45;
+
+const REVERSAL_LABEL: Record<LearnerTextGapReversal, string> = {
+  undo_edge: "undo",
+  undo_creation: "undo",
+  not_this_belief: "not what I meant"
+};
 
 interface SaveNotice {
   eventId: string;
@@ -133,6 +149,47 @@ export function AskOverlay({
   const promoteNoticeTimerRef = useRef<number | null>(null);
   const routedCaptureRef = useRef<string | null>(null);
   const captureNoteRef = useRef<string | null>(null);
+  const gapTimersRef = useRef<number[]>([]);
+
+  useEffect(
+    () => () => {
+      for (const timer of gapTimersRef.current) window.clearTimeout(timer);
+      gapTimersRef.current = [];
+    },
+    [target]
+  );
+
+  function setEntryGap(eventId: string, gap: LearnerTextGapViewDto | null) {
+    setThread((prev) => prev.map((entry) => (entry.eventId === eventId ? { ...entry, gap } : entry)));
+  }
+
+  function watchGap(eventId: string, queued: LearnerGapQueuedDto | undefined, attempt = 0) {
+    if (queued?.status !== "queued" || attempt >= GAP_POLL_LIMIT) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.getLearnerTextGap({ sourceKind: "tutor_question", sourceId: eventId });
+        if (result.status === "done") {
+          setEntryGap(eventId, result.gap);
+          if (result.gap?.label) notifyQueueChanged();
+          return;
+        }
+        if (result.status === "pending") watchGap(eventId, queued, attempt + 1);
+      } catch {
+        // The answer stands without its gap reading.
+      }
+    }, GAP_POLL_MS);
+    gapTimersRef.current.push(timer);
+  }
+
+  async function reverseGap(eventId: string, gapId: string, reversal: LearnerTextGapReversal) {
+    try {
+      const result = await api.reverseLearnerTextGap({ gapId, reversal });
+      setEntryGap(eventId, result.gap);
+      notifyQueueChanged();
+    } catch (error) {
+      onToast((error as CommandError).message);
+    }
+  }
 
   const open = target !== null;
 
@@ -329,6 +386,7 @@ export function AskOverlay({
         citations: TutorCitationDto[];
         suggestions?: SuggestedLearningObjectDto[];
         remaining: number;
+        learnerGap?: LearnerGapQueuedDto;
       };
       if (target.context === "reader") {
         if (!target.extractionId || !target.spanId) {
@@ -346,7 +404,8 @@ export function AskOverlay({
           hintEquivalent: readerAnswer.hintEquivalent,
           citations: readerAnswer.citations,
           suggestions: readerAnswer.suggestedLearningObjects,
-          remaining: readerAnswer.remaining ?? 0
+          remaining: readerAnswer.remaining ?? 0,
+          learnerGap: readerAnswer.learnerGap
         };
       } else {
         const input: AskTutorQuestionInput = {
@@ -376,7 +435,8 @@ export function AskOverlay({
           questionType: tutorAnswer.questionType,
           hintEquivalent: tutorAnswer.hintEquivalent,
           citations: tutorAnswer.citations,
-          remaining: tutorAnswer.remaining
+          remaining: tutorAnswer.remaining,
+          learnerGap: tutorAnswer.learnerGap
         };
       }
       setThread((prev) =>
@@ -400,6 +460,7 @@ export function AskOverlay({
       );
       setRemaining(answer.remaining);
       if (answer.remaining <= 0) setLimitReached(true);
+      watchGap(answer.eventId, answer.learnerGap);
     } catch (error) {
       const commandError = error as CommandError;
       setThread((prev) => prev.slice(0, -1));
@@ -562,6 +623,23 @@ export function AskOverlay({
                   {suggestionLine(entry.suggestions) ? (
                     <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
                       {suggestionLine(entry.suggestions)}
+                    </div>
+                  ) : null}
+                  {entry.eventId && entry.gap?.label ? (
+                    <div
+                      data-testid="learner-gap"
+                      style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 12, alignItems: "center", flexWrap: "wrap" }}
+                    >
+                      <span style={{ color: COLOR.textDim }}>{entry.gap.label}</span>
+                      {entry.gap.allowedReversals.map((reversal) => (
+                        <span
+                          key={reversal}
+                          onClick={() => void reverseGap(entry.eventId as string, entry.gap!.gapId, reversal)}
+                          style={{ cursor: "pointer", color: COLOR.amberLink }}
+                        >
+                          {REVERSAL_LABEL[reversal]}
+                        </span>
+                      ))}
                     </div>
                   ) : null}
                   {entry.eventId ? (

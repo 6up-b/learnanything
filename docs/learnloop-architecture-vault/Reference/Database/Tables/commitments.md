@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 180
+schema_head: 183
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -133,11 +133,11 @@ Indexes and uniqueness:
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_journey6.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_review.py`
 - `tests/test_reader_adoption_ownership.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_reader_capture.py`
-- `tests/test_reentry_short_session.py`
-- `tests/test_source_deletion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

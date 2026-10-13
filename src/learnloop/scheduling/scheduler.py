@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from math import exp, log
 from typing import Any, Mapping
 
+from learnloop.algorithm_versions import PROBE_TIE_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import (
@@ -87,6 +88,59 @@ class ScheduledItem:
     scheduler_candidate_id: str | None = None
 
 
+@dataclass(frozen=True)
+class ExplorationOutcome:
+    """One outcome of the seeded epsilon tie-break and the offer it composes to.
+
+    ``explored_item_id`` is the near-tie moved to the front, or ``None`` for the
+    greedy order. ``composed`` is the queue after the whole deterministic
+    composition (and the committed presentation pin) under that outcome, before
+    ``limit``: what the build would have produced had the draw landed there.
+    """
+
+    explored_item_id: str | None
+    probability: float
+    composed: tuple[ScheduledItem, ...]
+
+
+@dataclass
+class OfferTrace:
+    """What one queue build decided, for router decision logging (router R1).
+
+    Filled only when a caller passes it to :func:`build_due_queue`; the build
+    itself is unchanged. ``exclusions`` maps a reason code to the item ids the
+    candidate loop withheld for it. ``outcomes`` enumerates the exploration's
+    whole support, each recomposed through the same steps as the live build,
+    so a caller can compute the exact probability of whichever item heads the
+    offer it shows. ``realized`` indexes the outcome the seeded draw chose.
+    """
+
+    exclusions: dict[str, list[str]] = field(default_factory=dict)
+    algorithm_version: str | None = None
+    session_id: str | None = None
+    now_iso: str | None = None
+    limit: int | None = None
+    slate_id: str | None = None
+    candidate_ids: dict[str, str] = field(default_factory=dict)
+    greedy_item_ids: tuple[str, ...] = ()
+    #: The greedy order before the draw: each candidate's planner values with
+    #: no outcome-specific mark (an explored item's ``exploration_selected``).
+    greedy: tuple[ScheduledItem, ...] = ()
+    considered: tuple[ScheduledItem, ...] = ()
+    base_propensity: dict[str, float] = field(default_factory=dict)
+    exploration: dict[str, Any] = field(default_factory=dict)
+    outcomes: tuple[ExplorationOutcome, ...] = ()
+    realized: int = 0
+    pinned_item_id: str | None = None
+    probe_block_reason: str | None = None
+    cold_deferrals: tuple[dict[str, Any], ...] = ()
+    placement_active: bool = False
+    #: The session the build was composed for (budget, energy, readiness).
+    session_context: dict[str, Any] = field(default_factory=dict)
+    #: The configuration that shaped the build (hashed into the decision).
+    config_snapshot: dict[str, Any] = field(default_factory=dict)
+
+
 @pinned_repository_call
 def build_due_queue(
     vault: LoadedVault,
@@ -96,10 +150,19 @@ def build_due_queue(
     session: SchedulerSession | None = None,
     limit: int | None = None,
     persist_explanations: bool = True,
+    offer_trace: OfferTrace | None = None,
 ) -> list[ScheduledItem]:
     now = (clock or SystemClock()).now().astimezone(UTC)
     session = session or SchedulerSession()
     config = vault.config
+    # Router R1: reason codes for the candidates the loop withholds, recorded
+    # only when a caller logs the offer. Never consulted by the build.
+    traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
+
+    def withheld(reason: str, item_id: str) -> None:
+        if traced_exclusions is not None:
+            traced_exclusions.setdefault(reason, []).append(item_id)
+
     if persist_explanations:
         # Freshness supply reconciliation: a consumed (administered) single-use
         # diagnostic_probe surface leaves a diagnostic-coverage hole; derive the
@@ -239,11 +302,14 @@ def build_due_queue(
     for item in vault.practice_items.values():
         # Learner-retired items are never served, independent of sync ordering.
         if item.status != "active":
+            withheld("retired", item.id)
             continue
         state = item_states.get(item.id)
         if state is not None and not state.active:
+            withheld("inactive_state", item.id)
             continue
         if item.id in reserved_item_ids:
+            withheld("reserved_exam", item.id)
             continue
         # Pending-variant hold: the learner asked for an easier/harder sibling
         # of this exact card and it is still being authored. The request's
@@ -251,14 +317,17 @@ def build_due_queue(
         # re-serving the very card the learner stepped away from — before its
         # variant exists — inverts the intended variant-first ordering.
         if item.id in rung_variant_hold_ids:
+            withheld("rung_variant_hold", item.id)
             continue
         # P4 §14.2 step 3: a staged-owned commitment's items are the staged policy's to
         # schedule, never the legacy queue's (design §A.2 rule 3 -- the coexistence seam).
         if item.id in staged_owned_item_ids:
+            withheld("staged_owned", item.id)
             continue
         # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
         # committed diagnostic attempt; they are never ordinary practice.
         if item.practice_mode == "diagnostic_microprobe":
+            withheld("diagnostic_microprobe", item.id)
             continue
         # Vault-authored diagnostic probes are single-use surfaces: once the
         # item has carried an attempt, re-serving it would conflate memorization
@@ -270,20 +339,24 @@ def build_due_queue(
             and state is not None
             and state.last_attempt_at is not None
         ):
+            withheld("diagnostic_probe_administered", item.id)
             continue
         # Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot
         # render is not schedulable. Serving one produces a silent harmful write
         # rather than a visible failure -- see
         # ``learnloop.substrate.instrument_serving``.
         if unservable_reason(item) is not None:
+            withheld("unservable_stimulus", item.id)
             continue
         learning_object = vault.learning_object_for_item(item)
         if learning_object is None:
+            withheld("no_learning_object", item.id)
             continue
         # Learner-set LO lifecycle: a dormant or resolved Learning Object has been
         # put away, so none of its items is served; nor is a card the reference
         # sweep adopted while that sweep's kill switch is off (vault.lifecycle).
         if not practice_item_servable(vault, item):
+            withheld("lifecycle_put_away", item.id)
             continue
         mastery = mastery_states.get(learning_object.id)
         episode = open_episodes.get(learning_object.id)
@@ -302,6 +375,7 @@ def build_due_queue(
         # bypass this candidate gate (delayed follow-up tasks, exam pools, and
         # repair paths that request a specific item).
         if item.practice_mode == "diagnostic_probe" and not in_probe:
+            withheld("diagnostic_freshness_reserve", item.id)
             continue
         frontier_entry = frontier.by_lo.get(learning_object.id)
         # Cold-start gate: never-attempted LOs stay out of the routine queue —
@@ -330,10 +404,19 @@ def build_due_queue(
             never_attempted = state is None or state.last_attempt_at is None
             if learning_object.id in placement_serving.open_learning_object_ids:
                 if placement_serving.check_items.get(learning_object.id) != item.id:
+                    withheld("placement_assumed_withheld", item.id)
                     continue
+                assumed_check = True
+            elif (
+                learning_object.id in placement_serving.gap_check_learning_object_ids
+                and placement_serving.check_items.get(learning_object.id) == item.id
+            ):
+                # mvp-0.16: a learner-text gap brought this maintenance LO's
+                # next check forward and it is due: serve its check item.
                 assumed_check = True
             elif learning_object.id in placement_serving.maintained_learning_object_ids:
                 if never_attempted:
+                    withheld("placement_maintained_withheld", item.id)
                     continue
             elif (
                 never_attempted
@@ -354,6 +437,7 @@ def build_due_queue(
             and not new_material
             and not assumed_check
         ):
+            withheld("cold_start_unattempted", item.id)
             continue
 
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
@@ -486,6 +570,7 @@ def build_due_queue(
                     reward_debug=None,
                 )
             )
+            withheld("diagnostic_reserved", item.id)
             continue
 
         legacy_priority = _priority(components, config)
@@ -517,6 +602,15 @@ def build_due_queue(
             # F2: the same small floor the predecessor's opening episode gave a
             # never-attempted LO; the selection reward decides the rest.
             components["new_material" if new_material else "assumed_check"] = 1.0
+            if assumed_check and placement_serving is not None:
+                if learning_object.id in placement_serving.committed_learning_object_ids:
+                    # A prerequisite created from the learner's own text.
+                    components["gap_commitment_check"] = 1.0
+                elif (
+                    learning_object.id in placement_serving.gap_check_learning_object_ids
+                    or learning_object.id in placement_serving.advanced_learning_object_ids
+                ):
+                    components["gap_sooner_check"] = 1.0
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if episode is not None and (mastery is None or mastery.last_evidence_at is None):
             # Cold-start floor (probe redesign §10): an open episode — including
@@ -531,6 +625,7 @@ def build_due_queue(
             # reorder floor below to be able to pull it forward.
             priority = max(priority, _REQUESTED_PRIORITY_FLOOR)
         if priority <= 0:
+            withheld("zero_priority", item.id)
             continue
         plain_english = _plain_english(item, components)
         if evaluated_head_ids and goal_frontier_component > 0:
@@ -564,30 +659,41 @@ def build_due_queue(
     # it: it is P(this candidate is served | slate) under the seeded exploration
     # policy, which is what off-policy estimation reweights by.
     propensity_by_id = _selection_propensities(queue, session, config)
+    greedy_queue = list(queue)
     queue = _apply_seeded_exploration(queue, session, config, now)
-    queue = _enforce_teach_back_session_cap(queue, config.teach_back.session_cap)
-    # Goal-composition quota: guarantee a floor share of goal-frontier items in the
-    # ordered queue while a goal has at-risk facets. Applied before the limit slice
-    # so the floor holds even in short sessions, and before follow-up insertion
-    # (force-inserted follow-ups are a separate triggered decision).
-    queue = _apply_goal_quota(queue, frontier.quota_floor)
-    # Requested-items floor (spec §4a): the learner explicitly asked to chase a
-    # promoted item, so guarantee up to N of them a front slot. Applied AFTER the
-    # goal quota — the goal quota establishes its floor first, then this pulls at
-    # most `requested_items_per_session` items to the very front, displacing the
-    # goal prefix by at most that many positions (a tiny cap, default 1). Reorder
-    # only: it can never surface a requested item that failed eligibility/gates,
-    # because it only touches items already in the built (eligible) queue.
-    queue = _apply_requested_floor(
-        queue,
-        requested_item_ids,
-        config.tutor_promotion.requested_items_per_session,
-    )
-    queue = _rotate_same_day_frontier_repeats(queue, item_states, now)
-    queue = _insert_pending_followups(
-        vault, queue, pending_followups, readiness_factor, item_states=item_states
-    )
-    queue = _apply_contrast_pair_order(vault, repository, queue, session, clock=clock)
+
+    def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
+        # The deterministic composition after the exploration draw. One function
+        # for the live build and for router R1's counterfactual outcomes, so an
+        # offer's logged propensity is computed through exactly these steps;
+        # ``record`` is False only for those counterfactuals (no audit rows).
+        composed = _enforce_teach_back_session_cap(composed, config.teach_back.session_cap)
+        # Goal-composition quota: guarantee a floor share of goal-frontier items in the
+        # ordered queue while a goal has at-risk facets. Applied before the limit slice
+        # so the floor holds even in short sessions, and before follow-up insertion
+        # (force-inserted follow-ups are a separate triggered decision).
+        composed = _apply_goal_quota(composed, frontier.quota_floor)
+        # Requested-items floor (spec §4a): the learner explicitly asked to chase a
+        # promoted item, so guarantee up to N of them a front slot. Applied AFTER the
+        # goal quota — the goal quota establishes its floor first, then this pulls at
+        # most `requested_items_per_session` items to the very front, displacing the
+        # goal prefix by at most that many positions (a tiny cap, default 1). Reorder
+        # only: it can never surface a requested item that failed eligibility/gates,
+        # because it only touches items already in the built (eligible) queue.
+        composed = _apply_requested_floor(
+            composed,
+            requested_item_ids,
+            config.tutor_promotion.requested_items_per_session,
+        )
+        composed = _rotate_same_day_frontier_repeats(composed, item_states, now)
+        composed = _insert_pending_followups(
+            vault, composed, pending_followups, readiness_factor, item_states=item_states
+        )
+        return _apply_contrast_pair_order(
+            vault, repository, composed, session, clock=clock, record=record
+        )
+
+    queue = compose(queue, record=True)
     active_session_presentation = (
         repository.active_probe_presentation_for_session(session.session_id)
         if session.session_id is not None
@@ -632,6 +738,8 @@ def build_due_queue(
         from learnloop.scheduling.intent_planner import shadow_intent_plan
 
         shadow_intent = shadow_intent_plan(vault, considered_queue)
+    traced_slate_id: str | None = None
+    traced_candidate_ids: dict[str, str] = {}
     if persist_explanations and session.session_id is not None:
         selected_ids = {item.practice_item_id for item in queue}
         explanations = [
@@ -694,6 +802,22 @@ def build_due_queue(
                             planner = routine_planner_shadow(vault, repository, episode.id)
                             if planner is not None:
                                 extra_components = {"shadow_planner": planner}
+                        if selected.components.get("exploration_selected", 0.0) > 0.0:
+                            # Router R1 (mvp-0.15): the seeded exploration moved
+                            # this probe to the front; it is not the EIG pick
+                            # the presentation's other components describe.
+                            extra_components = {
+                                **(extra_components or {}),
+                                "scheduler_exploration": {
+                                    "mechanism": "scheduler_seeded_exploration",
+                                    "exploration_selected": True,
+                                    "exploration_rate": selected.components.get("exploration_rate"),
+                                    "exploration_propensity": propensity_by_id.get(
+                                        selected.practice_item_id, 0.0
+                                    ),
+                                    "greedy_item_id": greedy_queue[0].practice_item_id,
+                                },
+                            }
                         probe_presentation = presentation_commit_payload(
                             vault,
                             repository,
@@ -750,7 +874,254 @@ def build_due_queue(
         _record_probe_elicitation(
             repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
         )
+        traced_slate_id, traced_candidate_ids = slate_id, candidates
+    if offer_trace is not None:
+        _fill_offer_trace(
+            offer_trace,
+            config=config,
+            session=session,
+            now=now,
+            limit=limit,
+            greedy_queue=greedy_queue,
+            considered=considered_queue,
+            compose=compose,
+            base_propensity=propensity_by_id,
+            pinned_item_id=(
+                active_session_presentation.practice_item_id
+                if active_session_presentation is not None
+                else None
+            ),
+            probe_block_reason=probe_block_reason,
+            cold_deferrals=cold_deferrals,
+            slate_id=traced_slate_id,
+            candidate_ids=traced_candidate_ids,
+            placement_active=placement_serving is not None,
+            session_context=_session_context(
+                session, short_session=short_session, readiness_factor=readiness_factor
+            ),
+        )
     return queue
+
+
+def probe_ties_admitted(config: LearnLoopConfig) -> bool:
+    """Router R1's successor (``mvp-0.15``): probe near-ties join the tie-break.
+
+    True only at a ``PROBE_TIE_VERSIONS`` member with the kill switch
+    ``router.probe_tie_admission`` on; otherwise the exploration keeps the
+    predecessor's probe exclusion exactly.
+    """
+
+    router = getattr(config, "router", None)
+    return (
+        config.algorithms.algorithm_version in PROBE_TIE_VERSIONS
+        and bool(getattr(router, "probe_tie_admission", False))
+    )
+
+
+def _is_probe_intent(item: ScheduledItem) -> bool:
+    return (item.reward_debug or {}).get("intent") == SchedulerIntent.PROBE.value
+
+
+def _exploration_support(
+    queue: list[ScheduledItem],
+    session: SchedulerSession,
+    config: LearnLoopConfig,
+) -> tuple[float, list[ScheduledItem]] | None:
+    """The seeded epsilon tie-break's design: ``(rate, near-tie alternatives)``.
+
+    ``None`` means the build is greedy: exploration is off, there is no session
+    to seed it, a single candidate, no alternative within the reward window,
+    or (below the probe-tie successor) a PROBE-intent best. Before ``mvp-0.15``
+    PROBE-intent items (in-episode diagnostic probes and teach-backs) are never
+    displaced and never explored to; at ``mvp-0.15`` with
+    ``router.probe_tie_admission`` they are ordinary near-ties (teach-backs
+    included: owner decision D11, a teach-back dialogue is a high-value probe).
+    """
+
+    rate = clamp(config.scheduler.selection_exploration_rate)
+    if rate <= 0 or session.session_id is None or len(queue) < 2:
+        return None
+    admit_probes = probe_ties_admitted(config)
+    best = queue[0]
+    if not admit_probes and _is_probe_intent(best):
+        return None
+    best_reward = best.components.get("selection_reward", 0.0)
+    window = max(config.scheduler.selection_exploration_reward_window, 0.0)
+    alternatives = [
+        item
+        for item in queue[1:]
+        if (admit_probes or not _is_probe_intent(item))
+        and best_reward - item.components.get("selection_reward", 0.0) <= window
+    ]
+    if not alternatives:
+        return None
+    return rate, alternatives
+
+
+def _explore_to_front(
+    queue: list[ScheduledItem], selected: ScheduledItem, rate: float
+) -> list[ScheduledItem]:
+    """The order an exploration draw that chose ``selected`` produces."""
+
+    promoted = replace(
+        selected,
+        components={
+            **selected.components,
+            "exploration_selected": 1.0,
+            "exploration_rate": rate,
+        },
+        plain_english=[
+            "seeded exploration"
+        ] + [reason for reason in selected.plain_english if reason != "seeded exploration"],
+    )
+    return [promoted] + [
+        item
+        for item in queue
+        if item.practice_item_id != selected.practice_item_id
+    ]
+
+
+def _pin_presentation(
+    queue: list[ScheduledItem], practice_item_id: str | None
+) -> list[ScheduledItem]:
+    """The committed presentation pin, without its invalidation side effect."""
+
+    if practice_item_id is None:
+        return list(queue)
+    assigned = next((item for item in queue if item.practice_item_id == practice_item_id), None)
+    if assigned is None:
+        return list(queue)
+    return [assigned] + [item for item in queue if item is not assigned]
+
+
+def _exploration_draws(
+    queue: list[ScheduledItem], session: SchedulerSession, now: datetime, alternatives: list[ScheduledItem]
+) -> tuple[float, float]:
+    """The seeded roll and choice fractions ``_apply_seeded_exploration`` uses."""
+
+    roll = _stable_fraction("roll", str(session.session_id), now, [item.practice_item_id for item in queue])
+    choice = _stable_fraction(
+        "choice", str(session.session_id), now, [item.practice_item_id for item in alternatives]
+    )
+    return roll, choice
+
+
+def _fill_offer_trace(
+    trace: OfferTrace,
+    *,
+    config: LearnLoopConfig,
+    session: SchedulerSession,
+    now: datetime,
+    limit: int | None,
+    greedy_queue: list[ScheduledItem],
+    considered: list[ScheduledItem],
+    compose,
+    base_propensity: dict[str, float],
+    pinned_item_id: str | None,
+    probe_block_reason: str | None,
+    cold_deferrals: list[dict[str, Any]],
+    slate_id: str | None,
+    candidate_ids: dict[str, str],
+    placement_active: bool,
+    session_context: dict[str, Any] | None = None,
+) -> None:
+    """Record the build's decision inputs and its exploration's whole support.
+
+    Each outcome of the seeded draw is recomposed through ``compose`` (the live
+    build's own composition, without audit writes) and the committed
+    presentation pin, so the composed order under every outcome is exactly what
+    the build would have produced. Read-only: nothing here changes the queue.
+    """
+
+    trace.algorithm_version = config.algorithms.algorithm_version
+    trace.session_id = session.session_id
+    trace.now_iso = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    trace.limit = limit
+    trace.slate_id = slate_id
+    trace.candidate_ids = dict(candidate_ids)
+    trace.greedy_item_ids = tuple(item.practice_item_id for item in greedy_queue)
+    trace.greedy = tuple(greedy_queue)
+    trace.considered = tuple(considered)
+    trace.base_propensity = dict(base_propensity)
+    trace.pinned_item_id = pinned_item_id
+    trace.probe_block_reason = probe_block_reason
+    trace.cold_deferrals = tuple(dict(row) for row in cold_deferrals)
+    trace.placement_active = placement_active
+    trace.session_context = dict(session_context or {})
+    trace.config_snapshot = {
+        "algorithm_version": config.algorithms.algorithm_version,
+        "scheduler": config.scheduler.model_dump(mode="json"),
+        "teach_back_session_cap": config.teach_back.session_cap,
+        "requested_items_per_session": config.tutor_promotion.requested_items_per_session,
+        "router": config.router.model_dump(mode="json"),
+    }
+    rate = clamp(config.scheduler.selection_exploration_rate)
+    window = max(config.scheduler.selection_exploration_reward_window, 0.0)
+    support = _exploration_support(greedy_queue, session, config)
+    exploration: dict[str, Any] = {
+        "mechanism": "scheduler_seeded_exploration",
+        "rate": rate,
+        "reward_window": window,
+        "probe_ties_admitted": probe_ties_admitted(config),
+        "best_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
+        "alternative_item_ids": [],
+        "realized_item_id": None,
+    }
+    if support is None:
+        trace.exploration = exploration
+        trace.outcomes = (ExplorationOutcome(None, 1.0, tuple(considered)),)
+        trace.realized = 0
+        return
+    support_rate, alternatives = support
+    roll, choice = _exploration_draws(greedy_queue, session, now, alternatives)
+    explored = roll < support_rate
+    realized_item_id = None
+    if explored:
+        index = int(choice * len(alternatives))
+        realized_item_id = alternatives[min(index, len(alternatives) - 1)].practice_item_id
+    exploration.update(
+        {
+            "alternative_item_ids": [item.practice_item_id for item in alternatives],
+            "realized_item_id": realized_item_id,
+            "roll": roll,
+            "choice": choice,
+            # The draw's seed material is (label, session, UTC date, sorted
+            # candidate ids); its hash identifies the draw without the ids.
+            "seed": hashlib.sha256(
+                "|".join(
+                    [str(session.session_id), now.date().isoformat(), *sorted(trace.greedy_item_ids)]
+                ).encode("utf-8")
+            ).hexdigest()[:32],
+        }
+    )
+    outcomes: list[ExplorationOutcome] = []
+    realized = 0
+    greedy_probability = 1.0 - support_rate
+    if greedy_probability > 0:
+        if realized_item_id is None:
+            realized = len(outcomes)
+        outcomes.append(
+            ExplorationOutcome(
+                None,
+                greedy_probability,
+                tuple(_pin_presentation(compose(list(greedy_queue), record=False), pinned_item_id)),
+            )
+        )
+    share = support_rate / len(alternatives)
+    for alternative in alternatives:
+        if alternative.practice_item_id == realized_item_id:
+            realized = len(outcomes)
+        pre = _explore_to_front(list(greedy_queue), alternative, support_rate)
+        outcomes.append(
+            ExplorationOutcome(
+                alternative.practice_item_id,
+                share,
+                tuple(_pin_presentation(compose(pre, record=False), pinned_item_id)),
+            )
+        )
+    trace.exploration = exploration
+    trace.outcomes = tuple(outcomes)
+    trace.realized = realized
 
 
 @dataclass(frozen=True)
@@ -764,6 +1135,12 @@ class _PlacementServing:
     #: One first-review check item per assumed LO whose review is due.
     check_items: dict[str, str]
     predictor: Any
+    #: Learner-text gaps: maintenance LOs whose brought-forward check is due
+    #: (mvp-0.16), open assumptions it brought forward, and created LOs whose
+    #: light commitment is open (their check is the seed item).
+    gap_check_learning_object_ids: frozenset[str] = frozenset()
+    advanced_learning_object_ids: frozenset[str] = frozenset()
+    committed_learning_object_ids: frozenset[str] = frozenset()
 
 
 #: Practice modes never used as an assumed-known first review: the check is a
@@ -818,6 +1195,8 @@ def _placement_serving(
     # A check answer whose diagnosis has not landed is the check: the decision
     # waits on it (owner decision 2026-10-12), so no second check item is served.
     due = state.due_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
+    gap_due = state.due_gap_check_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
+    due = due | gap_due
     if due:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
@@ -849,6 +1228,9 @@ def _placement_serving(
         back_to_learning_learning_object_ids=state.back_to_learning_learning_object_ids,
         check_items=choose_check_items(predictor, candidates, attempted_item_ids=attempted),
         predictor=predictor,
+        gap_check_learning_object_ids=frozenset(gap_due),
+        advanced_learning_object_ids=state.advanced_learning_object_ids,
+        committed_learning_object_ids=state.committed_learning_object_ids,
     )
 
 
@@ -1455,6 +1837,7 @@ def _apply_contrast_pair_order(
     session: SchedulerSession,
     *,
     clock: Clock | None = None,
+    record: bool = True,
 ) -> list[ScheduledItem]:
     """Meas §3.A4: randomize which member of a contrast pair is served first.
 
@@ -1510,6 +1893,11 @@ def _apply_contrast_pair_order(
         return queue
     reordered_ids = apply_serving_decisions(ordered_ids, decisions)
     by_id = {item.practice_item_id: item for item in queue}
+    if not record:
+        # A router R1 counterfactual composition: the same order, no audit row
+        # (the pair's draw depends only on the session and the pair, never on
+        # the order it is applied to).
+        return [by_id[item_id] for item_id in reordered_ids]
     try:
         record_contrast_pair_servings(
             repository, decisions, session_id=session.session_id, clock=clock
@@ -1740,26 +2128,13 @@ def _selection_propensities(
         return {}
     propensity = {item.practice_item_id: 0.0 for item in queue}
     best = queue[0]
-
-    def greedy() -> dict[str, float]:
+    # One support for both functions, so the logged design probability and the
+    # draw can never disagree about the gating (including the probe-tie gate).
+    support = _exploration_support(queue, session, config)
+    if support is None:
         propensity[best.practice_item_id] = 1.0
         return propensity
-
-    rate = clamp(config.scheduler.selection_exploration_rate)
-    if rate <= 0 or session.session_id is None or len(queue) < 2:
-        return greedy()
-    if (best.reward_debug or {}).get("intent") == SchedulerIntent.PROBE.value:
-        return greedy()
-    best_reward = best.components.get("selection_reward", 0.0)
-    window = max(config.scheduler.selection_exploration_reward_window, 0.0)
-    alternatives = [
-        item
-        for item in queue[1:]
-        if (item.reward_debug or {}).get("intent") != SchedulerIntent.PROBE.value
-        and best_reward - item.components.get("selection_reward", 0.0) <= window
-    ]
-    if not alternatives:
-        return greedy()
+    rate, alternatives = support
     propensity[best.practice_item_id] = 1.0 - rate
     share = rate / len(alternatives)
     for item in alternatives:
@@ -1773,46 +2148,16 @@ def _apply_seeded_exploration(
     config: LearnLoopConfig,
     now: datetime,
 ) -> list[ScheduledItem]:
-    rate = clamp(config.scheduler.selection_exploration_rate)
-    if rate <= 0 or session.session_id is None or len(queue) < 2:
+    support = _exploration_support(queue, session, config)
+    if support is None:
         return queue
-    if _stable_fraction("roll", session.session_id, now, [item.practice_item_id for item in queue]) >= rate:
+    rate, alternatives = support
+    roll, choice = _exploration_draws(queue, session, now, alternatives)
+    if roll >= rate:
         return queue
-    best = queue[0]
-    best_intent = (best.reward_debug or {}).get("intent")
-    if best_intent == SchedulerIntent.PROBE.value:
-        return queue
-    best_reward = best.components.get("selection_reward", 0.0)
-    window = max(config.scheduler.selection_exploration_reward_window, 0.0)
-    alternatives = [
-        item
-        for item in queue[1:]
-        if (item.reward_debug or {}).get("intent") != SchedulerIntent.PROBE.value
-        and best_reward - item.components.get("selection_reward", 0.0) <= window
-    ]
-    if not alternatives:
-        return queue
-    index = int(
-        _stable_fraction("choice", session.session_id, now, [item.practice_item_id for item in alternatives])
-        * len(alternatives)
-    )
+    index = int(choice * len(alternatives))
     selected = alternatives[min(index, len(alternatives) - 1)]
-    selected = replace(
-        selected,
-        components={
-            **selected.components,
-            "exploration_selected": 1.0,
-            "exploration_rate": rate,
-        },
-        plain_english=[
-            "seeded exploration"
-        ] + [reason for reason in selected.plain_english if reason != "seeded exploration"],
-    )
-    return [selected] + [
-        item
-        for item in queue
-        if item.practice_item_id != selected.practice_item_id
-    ]
+    return _explore_to_front(queue, selected, rate)
 
 
 def _stable_fraction(label: str, session_id: str, now: datetime, candidate_ids: list[str]) -> float:
@@ -2046,7 +2391,11 @@ def _errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list
 
 def _plain_english(item: PracticeItem, components: dict[str, float]) -> list[str]:
     reasons: list[str] = []
-    if components.get("assumed_check", 0.0) > 0:
+    if components.get("gap_commitment_check", 0.0) > 0:
+        reasons.append("the one check on a topic added from your question")
+    elif components.get("gap_sooner_check", 0.0) > 0:
+        reasons.append("a check brought forward: your question pointed at this topic")
+    elif components.get("assumed_check", 0.0) > 0:
         reasons.append("first review of a topic assumed known (not tested): this is the check")
     if components.get("new_material", 0.0) > 0:
         reasons.append("new material: starts as learning, no opening probe")

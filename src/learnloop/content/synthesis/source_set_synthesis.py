@@ -23,8 +23,10 @@ proposed_patch_items -> apply_accepted_items.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from collections import Counter
 from pathlib import Path
@@ -45,12 +47,15 @@ from learnloop.content.synthesis.ai_contracts import (
     concept_graph_has_registry_nominations,
     concept_graph_structuring_prompt,
     source_set_synthesis_prompt,
+    source_set_synthesis_prompt_version,
 )
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.brief import validate_brief
+from learnloop.content.facet_identity.plan import FacetIdentityPlan
+from learnloop.content.facet_identity.views import UNION_LIST_FIELDS, union_payload
 from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_exam_profile
 from learnloop.content.synthesis.graph_nomination import (
     CONCEPT_RECIPE,
@@ -74,6 +79,7 @@ from learnloop.content.synthesis.source_unit_selection import (
 )
 from learnloop.content.synthesis.source_unit_inventory import profile_satisfies
 from learnloop.content.synthesis.synthesis_gates import (
+    ATTACH_GROWABLE_FIELDS,
     GateContext,
     GateDiagnostic,
     GateItem,
@@ -169,6 +175,9 @@ class StudyMapResult:
     span_request_count: int = 0
     resolved_span_hashes: list[str] = field(default_factory=list)
     candidate_repairs: list[dict[str, Any]] = field(default_factory=list)
+    # Facet identity (handoff §4): the run's judge summary and each merge or
+    # absorb it applied, with its undo state. None when the switch is off.
+    facet_identity: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -187,6 +196,7 @@ class StudyMapResult:
             "span_request_count": self.span_request_count,
             "resolved_span_hashes": list(self.resolved_span_hashes),
             "candidate_repairs": list(self.candidate_repairs),
+            "facet_identity": self.facet_identity,
         }
 
 
@@ -507,6 +517,9 @@ class _Normalized:
     # off): embedding neighbours and the repair-equivalence shadow. Never
     # changes a disposition.
     graph_nomination: dict[str, Any] | None = None
+    # Facet identity (handoff §4): one undoable action per judged set the
+    # proposal carries; recorded with the proposal.
+    facet_identity_actions: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _span_refs(
@@ -580,6 +593,7 @@ def _normalize(
     subject_id: str,
     items_off: bool = False,
     nominator: Any = None,
+    facet_identity_plan: Any = None,
 ) -> _Normalized:
     rows: list[dict[str, Any]] = []
     gate_items: list[GateItem] = []
@@ -774,6 +788,33 @@ def _normalize(
             }
         )
 
+    # Facet identity (handoff §4): candidates the judge merged or absorbed are
+    # not minted. In-run survivors take the union of their retirees first, so
+    # D2 and the gates see the consolidated facet.
+    retirements = dict(getattr(facet_identity_plan, "retirements", None) or {})
+    retired_candidates: dict[str, dict[str, Any]] = {}
+    pre_union: dict[str, dict[str, Any]] = {}
+    if retirements:
+        by_client = {str(candidate["fkey"]): candidate for candidate in candidate_facets}
+        for fkey, retirement in sorted(retirements.items()):
+            candidate = by_client.get(fkey)
+            if candidate is None:
+                continue
+            if retirement.scope == "in_run":
+                survivor = by_client.get(str(retirement.survivor_client or ""))
+                if survivor is None or str(retirement.survivor_client) in retirements:
+                    continue
+                pre_union.setdefault(str(survivor["fkey"]), copy.deepcopy(survivor["payload"]))
+                survivor["payload"] = union_payload(
+                    survivor["payload"], [candidate["payload"]],
+                    action=retirement.action, absorb_as=retirement.absorb_as,
+                )
+                survivor["payload"]["id"] = survivor["fid"]
+            elif str(retirement.survivor_facet or "") not in vault.evidence_facets:
+                continue
+            retired_candidates[fkey] = candidate
+        candidate_facets = [c for c in candidate_facets if str(c["fkey"]) not in retired_candidates]
+
     registered_payloads = [
         facet.model_dump(mode="json") for facet in vault.evidence_facets.values()
     ]
@@ -843,18 +884,58 @@ def _normalize(
             )
         )
 
+    # Facet identity: a retired candidate's references point at its survivor
+    # (as D2's alias does) and its id becomes the survivor's alias.
+    attach_unions: dict[str, list[tuple[dict[str, Any], Any]]] = {}
+    alias_canonical: dict[str, str] = {}
+    retired_targets: dict[str, tuple[str, str, Any, dict[str, Any]]] = {}
+    for fkey, candidate in retired_candidates.items():
+        retirement = retirements[fkey]
+        fid = str(candidate["fid"])
+        if retirement.scope == "in_run":
+            target = facet_client_to_id.get(str(retirement.survivor_client))
+            if not target:
+                continue
+        else:
+            target = str(retirement.survivor_facet)
+            attach_unions.setdefault(target, []).append((candidate["payload"], retirement))
+        if target in vault.evidence_facets:
+            # A registered survivor gains the alias through its update row, so
+            # whatever references the alias depends on that row.
+            facet_dep_client[fkey] = f"facet_alias_{target}"
+        elif facet_dep_client.get(str(retirement.survivor_client or "")) is not None:
+            facet_dep_client[fkey] = facet_dep_client[str(retirement.survivor_client)]
+        retired_payload = copy.deepcopy(candidate["payload"])
+        retired_payload["id"] = fid
+        retired_targets[fkey] = (fid, target, retirement, retired_payload)
+        if fid == target or fid in vault.evidence_facets or fid in minted_payload_by_id:
+            # The id is taken (or is the survivor): references point at the
+            # survivor directly, as the D2 alias does.
+            facet_client_to_id[fkey] = target
+            continue
+        # On-disk references keep the candidate's own id, which becomes the
+        # survivor's alias (resolved at load): an undo that re-mints the
+        # candidate needs no reference rewrite. Analysis sees the survivor.
+        facet_client_to_id[fkey] = fid
+        alias_canonical[fid] = target
+        alias_additions.setdefault(target, []).append(fid)
+
     # Register the aliases. An in-batch target is edited in place (its create row
     # holds this very dict); an already-registered target earns an `update` row.
-    for target in sorted(alias_additions):
+    registered_before: dict[str, dict[str, Any]] = {}
+    # Why an attach kept a registered facet's contract as it was (review F2).
+    contract_notes: dict[str, list[str]] = {}
+    merge_locked = bool(vault.config.facet_identity.merge_locked_facets)
+    for target in sorted(set(alias_additions) | set(attach_unions)):
         new_aliases = [
             alias
-            for alias in sorted(dict.fromkeys(alias_additions[target]))
+            for alias in sorted(dict.fromkeys(alias_additions.get(target, [])))
             # Never shadow a real facet id: `loader._facet_aliases` maps aliases
             # and ids into one namespace, so an alias equal to some facet's id
             # would silently reroute that facet's evidence.
             if alias not in minted_payload_by_id and alias not in vault.evidence_facets
         ]
-        if not new_aliases:
+        if not new_aliases and target not in attach_unions:
             continue
         in_batch = minted_payload_by_id.get(target)
         if in_batch is not None:
@@ -865,15 +946,45 @@ def _normalize(
         registered_facet = vault.evidence_facets.get(target)
         if registered_facet is None:
             continue
+        alias_payload: dict[str, Any] = {
+            "id": target,
+            "aliases": list(
+                dict.fromkeys([*(registered_facet.aliases or []), *new_aliases])
+            ),
+        }
+        if target in attach_unions:
+            # Facet identity attach: a registered facet's contract only grows.
+            # A merge is the alias alone; an absorb also adds the special case's
+            # claim as a worked example. Claim, conditions, repairs, signatures
+            # and status stay untouched (§10.2 additivity, verified by the gate).
+            # A precondition narrows the contract, and a locked facet's
+            # contract does not change without the owner's override (knowledge
+            # model §3.4): both stay an alias only, and the action says so.
+            registered_before[target] = registered_facet.model_dump(mode="json")
+            unioned = registered_facet.model_dump(mode="json")
+            for attached_payload, attach_retirement in attach_unions[target]:
+                if attach_retirement.action != "absorb":
+                    continue
+                claim = str(attached_payload.get("claim") or "").strip()
+                if attach_retirement.absorb_as == "precondition":
+                    contract_notes.setdefault(target, []).append(
+                        "kept as an alias only: a precondition would change the registered facet's contract"
+                    )
+                    continue
+                if attach_retirement.survivor_lock_reasons and not merge_locked:
+                    contract_notes.setdefault(target, []).append(
+                        "kept as an alias only: the facet's identity is locked, so its examples stay as they are"
+                    )
+                    continue
+                if claim and claim not in (unioned.get("positive_examples") or []):
+                    unioned["positive_examples"] = [*(unioned.get("positive_examples") or []), claim]
+            for field_name in ATTACH_GROWABLE_FIELDS:
+                if unioned.get(field_name) != registered_before[target].get(field_name):
+                    alias_payload[field_name] = unioned[field_name]
         alias_row = _row(
             "facet",
             target,
-            {
-                "id": target,
-                "aliases": list(
-                    dict.fromkeys([*(registered_facet.aliases or []), *new_aliases])
-                ),
-            },
+            alias_payload,
             [],
             client_id=f"facet_alias_{target}",
             now=now,
@@ -897,6 +1008,12 @@ def _normalize(
                 destructive=False,
             )
         )
+
+    facet_identity_actions = _facet_identity_actions(
+        retired_targets, pre_union=pre_union, minted_payload_by_id=minted_payload_by_id,
+        registered_before=registered_before, rows=rows, vault=vault, aliased=set(alias_canonical),
+        contract_notes=contract_notes,
+    )
 
     # learning objects
     for lo in getattr(synth, "learning_objects", []) or []:
@@ -1019,8 +1136,8 @@ def _normalize(
                             }
                         )
                     comps_out.append({"facet": facet_id, "capability": capability, "modality": cm.get("modality") or "hard", "_slot": slot})
-                    flat_facets.append(facet_id)
-                    recipe_components.append({"facet": facet_id, "capability": capability})
+                    flat_facets.append(alias_canonical.get(facet_id, facet_id))
+                    recipe_components.append({"facet": alias_canonical.get(facet_id, facet_id), "capability": capability})
                     # D2: depend on the row that materializes the facet, which the
                     # mint gate may have redirected to an earlier candidate (alias).
                     fdep = facet_dep_client.get(fclient)
@@ -1082,8 +1199,8 @@ def _normalize(
                             }
                         )
                     integ_out = {"facet": facet_id, "capability": declared_capability, "modality": "hard"}
-                    flat_facets.append(facet_id)
-                    recipe_components.append({"facet": facet_id, "capability": declared_capability})
+                    flat_facets.append(alias_canonical.get(facet_id, facet_id))
+                    recipe_components.append({"facet": alias_canonical.get(facet_id, facet_id), "capability": declared_capability})
                     # D2: depend on the row that materializes the facet, which the
                     # mint gate may have redirected to an earlier candidate (alias).
                     fdep = facet_dep_client.get(fclient)
@@ -1179,7 +1296,7 @@ def _normalize(
                     {
                         "criterion_id": c.get("id") or "",
                         "correlation_group": c.get("correlation_group") or "",
-                        "facet": facet_id,
+                        "facet": alias_canonical.get(facet_id, facet_id),
                         "capability": capability,
                         "role": role,
                     }
@@ -1397,10 +1514,109 @@ def _normalize(
         facet_payloads=facet_payloads,
         criterion_targets=criterion_targets,
         recipe_components=recipe_components,
-        facet_ids=list(dict.fromkeys(facet_client_to_id.values())),
+        facet_ids=list(dict.fromkeys(alias_canonical.get(fid, fid) for fid in facet_client_to_id.values())),
         edge_diagnostics=edge_diagnostics + dropped_diagnostics,
         graph_nomination=graph_nomination,
+        facet_identity_actions=facet_identity_actions,
     )
+
+
+def _facet_identity_actions(
+    retired_targets: Mapping[str, tuple[str, str, Any, dict[str, Any]]],
+    *,
+    pre_union: Mapping[str, dict[str, Any]],
+    minted_payload_by_id: Mapping[str, dict[str, Any]],
+    registered_before: Mapping[str, dict[str, Any]],
+    rows: Sequence[Mapping[str, Any]],
+    vault: LoadedVault,
+    aliased: set[str] | None = None,
+    contract_notes: Mapping[str, Sequence[str]] | None = None,
+) -> list[dict[str, Any]]:
+    """One undoable action per survivor the proposal changes (facet identity).
+
+    ``before``/``after`` are the facets.yaml entries the proposal's apply will
+    replace and write: the survivor's entry without and with every set that
+    joined it, and each retired candidate's entry (absent after). Sets from
+    different judged groups on one survivor fold into one action (review F7):
+    both took ``before`` from the one pre-union snapshot, so separate undos
+    would strip each other's content. A set whose survivor the D2 mint gate
+    itself aliased elsewhere is recorded without an undo.
+    """
+
+    if not retired_targets:
+        return []
+    groups: dict[tuple[str, str], list[tuple[str, str, Any, dict[str, Any]]]] = {}
+    for fkey, (fid, target, retirement, payload) in sorted(retired_targets.items()):
+        groups.setdefault((retirement.scope, target), []).append((fkey, fid, retirement, payload))
+    actions: list[dict[str, Any]] = []
+    for (scope, target), members in sorted(groups.items()):
+        first = members[0][2]
+        retired = [(fid, payload) for _fkey, fid, _r, payload in members
+                   if fid != target and (aliased is None or fid in aliased)]
+        if not retired:
+            continue
+        retired_ids = [fid for fid, _payload in retired]
+        kept = [(fkey, fid, r) for fkey, fid, r, _p in members if fid in set(retired_ids)]
+        verbs = {(r.action, r.absorb_as) for _fkey, _fid, r in kept}
+        action_name = "absorb" if {verb for verb, _as in verbs} == {"absorb"} else "merge"
+        absorb_as = next(iter(verbs))[1] if len(verbs) == 1 else None
+        group_ids = sorted({r.group_id for _fkey, _fid, r in kept})
+        detail: dict[str, Any] = {
+            "group_id": group_ids[0] if len(group_ids) == 1 else group_ids,
+            "absorb_as": absorb_as if action_name == "absorb" else None,
+            "rationale": " / ".join(dict.fromkeys(r.rationale for _fkey, _fid, r in kept if r.rationale)),
+            "retired_clients": [fkey for fkey, *_rest in members],
+        }
+        if len(verbs) > 1 or len(group_ids) > 1:
+            detail["members"] = [
+                {"facet_id": fid, "action": r.action, "absorb_as": r.absorb_as, "group_id": r.group_id}
+                for _fkey, fid, r in kept
+            ]
+        if scope == "attach":
+            if first.survivor_lock_reasons:
+                detail["lock_reasons"] = {target: list(first.survivor_lock_reasons)}
+            notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
+            if notes:
+                detail["contract_note"] = "; ".join(notes)
+        after_entry: dict[str, Any] | None = None
+        before_entry: dict[str, Any] | None = None
+        if scope == "in_run":
+            after_payload = minted_payload_by_id.get(target)
+            survivor_client = str(first.survivor_client or "")
+            if after_payload is None or survivor_client not in pre_union:
+                detail["undo"] = "unavailable: the survivor was aliased by the mint gate"
+            else:
+                after_entry = copy.deepcopy(after_payload)
+                before_entry = copy.deepcopy(after_payload)
+                for field_name in (*UNION_LIST_FIELDS, "provenance"):
+                    if field_name in pre_union[survivor_client]:
+                        before_entry[field_name] = copy.deepcopy(pre_union[survivor_client][field_name])
+                    else:
+                        before_entry.pop(field_name, None)
+                before_entry["aliases"] = [
+                    alias for alias in (after_payload.get("aliases") or []) if alias not in set(retired_ids)
+                ]
+        else:
+            if target in registered_before:
+                before_entry = copy.deepcopy(registered_before[target])
+            elif target in vault.evidence_facets:
+                before_entry = vault.evidence_facets[target].model_dump(mode="json")
+            update = next((row["payload"] for row in rows
+                           if row.get("item_type") == "facet" and row.get("operation") == "update"
+                           and str((row.get("payload") or {}).get("id") or "") == target), None)
+            if before_entry is not None and update is not None:
+                after_entry = {**before_entry, **copy.deepcopy(update)}
+        actions.append({
+            "scope": scope, "action": action_name, "survivor_facet_id": target,
+            "retired_facet_ids": retired_ids,
+            "before": {"facets": {target: before_entry, **dict(retired)}, "order": {}},
+            "after": {"facets": {target: after_entry, **{fid: None for fid in retired_ids}}},
+            "merge_rows": [],
+            "judgment_ids": sorted({jid for _fkey, _fid, r, _p in members for jid in (r.judgment_ids or [])}),
+            "judge": first.judge, "judge_model": first.judge_model, "prompt_version": first.prompt_version,
+            "detail": detail,
+        })
+    return actions
 
 
 def resolve_subject_id(source_set: Any, vault: LoadedVault) -> str:
@@ -1523,9 +1739,12 @@ def create_study_map(
     unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None,
     embedding_client_factory: Callable[[], Any] | None = None,
+    facet_identity_client: Any = None,
 ) -> StudyMapResult:
     """``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
-    for Slice 2 T5 nominations (tests); used only when nominations are on."""
+    for Slice 2 T5 nominations (tests); used only when nominations are on.
+    ``facet_identity_client`` replaces the ``ai.routing.facet_identity_judge``
+    client (tests); used only when facet identity is on."""
 
     vault = load_vault(root)
     if repository is None:
@@ -1538,7 +1757,51 @@ def create_study_map(
         unlimited_token_budget=unlimited_token_budget,
         progress=progress,
         embedding_client_factory=embedding_client_factory,
+        facet_identity_client=facet_identity_client,
     )
+
+
+def _facet_identity_plan(
+    candidate: Any, vault: LoadedVault, repository: Repository, run_id: str, *,
+    nominator: Any = None, client: Any = None, progress: ProgressFn | None = None,
+    attach_enabled: bool = True,
+) -> FacetIdentityPlan | None:
+    """Facet identity for one run's candidates (``None`` when switched off).
+
+    Never fails the paid synthesis: an unavailable or failing judge leaves the
+    candidates as they are and the plan says why.
+    """
+
+    if not vault.config.facet_identity.enabled:
+        return None
+    from learnloop.content.facet_identity.plan import build_plan
+
+    _notify(progress, "synthesis", "Checking facet identity")
+    try:
+        return build_plan(
+            candidate, vault=vault, repository=repository, run_id=run_id,
+            nominator=nominator, judge_client=client, attach_enabled=attach_enabled,
+        )
+    except Exception as exc:  # noqa: BLE001 - facet identity never fails ingest
+        return FacetIdentityPlan(status="error", notes=[f"{type(exc).__name__}: {exc}"])
+
+
+def facet_identity_result(
+    root: Path, repository: Repository, plan: FacetIdentityPlan | None, run_id: str | None,
+) -> dict[str, Any] | None:
+    """The run's facet-identity summary and its actions with their undo state."""
+
+    if plan is None or not run_id:
+        return None
+    from learnloop.content.facet_identity.actions import describe, list_actions
+
+    vault = load_vault(root)
+    return {
+        **plan.summary(),
+        # The desktop re-reads the run's actions by this id (their live undo state).
+        "run_id": run_id,
+        "actions": [describe(record, vault) for record in list_actions(repository, run_id=run_id, limit=None)],
+    }
 
 
 def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
@@ -1556,7 +1819,9 @@ def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
     plan = plan_ingest_embedding(
         vault, VaultPaths(vault.root, vault.config).sqlite_path, entry="bootstrap",
     )
-    return {"source_set_id": source_set_id, **plan}
+    from learnloop.content.facet_identity.plan import ingest_dry_run
+
+    return {"source_set_id": source_set_id, **plan, "facet_identity": ingest_dry_run(vault)}
 
 
 def _create_study_map(
@@ -1575,6 +1840,7 @@ def _create_study_map(
     unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None,
     embedding_client_factory: Callable[[], Any] | None = None,
+    facet_identity_client: Any = None,
 ) -> StudyMapResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -1634,6 +1900,22 @@ def _create_study_map(
             "brief_scope": scope,
             "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
         }
+    # Facet identity (handoff §4): the judge's identity is run identity, so a
+    # cached run is reused only under the same switch, route and policy. Off,
+    # the scope (and the manifest hash) is the pre-change one.
+    one_facet_per_skill = bool(vault.config.facet_identity.enabled)
+    synthesis_prompt_version = source_set_synthesis_prompt_version(one_facet_per_skill)
+    if one_facet_per_skill:
+        from learnloop.content.facet_identity.judge import PROMPT_VERSION as _FI_PROMPT, resolve_route
+
+        scope = {
+            "scope": scope,
+            "facet_identity": {
+                "prompt_version": _FI_PROMPT,
+                "route": resolve_route(vault.config, client=facet_identity_client).as_dict(),
+                "config": vault.config.facet_identity.model_dump(mode="json"),
+            },
+        }
 
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
@@ -1647,7 +1929,7 @@ def _create_study_map(
         unit_inventory_versions=inputs.unit_inventory_versions,
         scope=scope,
         brief=brief,
-        prompt_version=SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+        prompt_version=synthesis_prompt_version,
         provider=provider,
         model=model,
         assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
@@ -1692,7 +1974,7 @@ def _create_study_map(
             "provider_type": getattr(client, "provider_type", "codex"),
             "model": model,
             "prompt_template": "source-set-synthesis",
-            "prompt_version": SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+            "prompt_version": synthesis_prompt_version,
             "input_context_hash": context_hash,
             "output_schema": "SourceSetSynthesis",
             "started_at": now,
@@ -1717,8 +1999,15 @@ def _create_study_map(
                 client=client, provider=provider, model=model,
                 manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
                 progress=progress, nominator=nominator,
+                one_facet_per_skill=one_facet_per_skill,
             )
         token_usage = consume_client_usage(client)
+        facet_identity_plan = _facet_identity_plan(
+            merged, vault, repository, synthesis_run_id, nominator=nominator,
+            client=facet_identity_client, progress=progress,
+        )
+        if facet_identity_plan is not None:
+            usage = {**(usage or {}), "facet_identity": facet_identity_plan.as_dict()}
         repository.save_synthesis_candidate(
             synthesis_run_id,
             merged.model_dump(mode="json") if hasattr(merged, "model_dump") else dict(merged),
@@ -1731,6 +2020,7 @@ def _create_study_map(
             now=now, usage=usage, resolved_hashes=resolved_hashes,
             clock=clock, progress=progress, items_off=items_off,
             token_usage=token_usage, grading_client=client, nominator=nominator,
+            facet_identity_plan=facet_identity_plan,
         )
     except StudyMapError as exc:
         if candidate_preserved:
@@ -1778,6 +2068,7 @@ def _create_study_map(
             root, repository, result, brief=brief, create_goal=create_goal, clock=clock,
             facet_ids=normalized.facet_ids, progress=progress,
         )
+    result.facet_identity = facet_identity_result(root, repository, facet_identity_plan, synthesis_run_id)
 
     # 7. best-effort Start-screen epigraphs about the freshly synthesized
     #    material. Never raises; nothing here can change `result`. Sits after
@@ -1814,6 +2105,7 @@ def _gate_and_persist(
     token_usage: TokenUsage | None = None,
     grading_client: Any = None,
     nominator: Any = None,
+    facet_identity_plan: Any = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
     """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
 
@@ -1840,6 +2132,7 @@ def _gate_and_persist(
     _notify(progress, "validation", "Validating candidate structure")
     normalized = _normalize(
         merged, inputs, vault, now, subject_id=subject_id, items_off=items_off, nominator=nominator,
+        facet_identity_plan=facet_identity_plan,
     )
     duplicate_diagnostics = _duplicate_client_id_diagnostics(normalized.rows)
     if duplicate_diagnostics:
@@ -1922,6 +2215,16 @@ def _gate_and_persist(
     if nominator is not None:
         coverage["graph_nomination"] = {
             **(normalized.graph_nomination or {}), "summary": nominator.summary(),
+        }
+    if facet_identity_plan is not None:
+        from learnloop.content.facet_identity.actions import record_proposed_actions
+
+        coverage["facet_identity"] = {
+            **facet_identity_plan.summary(),
+            "action_ids": record_proposed_actions(
+                repository, normalized.facet_identity_actions, origin="ingest",
+                run_id=synthesis_run_id, proposal_id=patch_id, clock=clock,
+            ),
         }
     repository.complete_synthesis_run(
         synthesis_run_id, status="completed", proposal_id=patch_id,
@@ -2112,6 +2415,9 @@ def revalidate_synthesis_candidate(
     now = utc_now_iso(clock)
     usage = dict(run.get("actual_usage") or {})
     usage["revalidations"] = int(usage.get("revalidations") or 0) + 1
+    stored_plan = (
+        FacetIdentityPlan.from_dict(usage.get("facet_identity")) if vault.config.facet_identity.enabled else None
+    )
     if repair_log:
         usage["candidate_repairs"] = list(usage.get("candidate_repairs") or []) + repair_log
     try:
@@ -2127,6 +2433,9 @@ def revalidate_synthesis_candidate(
             items_off=(dict(manifest.get("brief") or {}).get("practice_items") == "as_you_read"),
             # Zero model calls: stored (content-addressed) vectors only.
             nominator=GraphNominator.for_review(vault),
+            # The run's own facet-identity decisions, replayed (no judge call),
+            # only while the switch is on (review F10: off restores today's run).
+            facet_identity_plan=stored_plan,
         )
     except StudyMapError as exc:
         exc.candidate_preserved = True
@@ -2146,6 +2455,7 @@ def revalidate_synthesis_candidate(
             root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
             clock=clock, facet_ids=normalized.facet_ids, progress=progress,
         )
+    result.facet_identity = facet_identity_result(root, repository, stored_plan, synthesis_run_id)
     return result
 
 
@@ -2217,6 +2527,7 @@ def _run_synthesis(
     client: Any = None, provider: str | None = None, model: str | None = None,
     manifest_hash: str | None = None, unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None, nominator: Any = None,
+    one_facet_per_skill: bool = False,
 ):
     registry = _registry_index(vault)
     shards = _shards(inputs.unit_inventories, budgets.synthesis_shard_input_tokens)
@@ -2238,6 +2549,7 @@ def _run_synthesis(
             source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
             brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
             registry_index=registry, resolved_spans=[], shard_ordinal=ordinal, shard_count=len(shards),
+            one_facet_per_skill=one_facet_per_skill,
         )
 
     # Durable per-shard checkpoints: resolve every shard's cache slot up front so
@@ -2248,6 +2560,7 @@ def _run_synthesis(
             source_set=source_set, brief=brief, registry=registry,
             exam_profile=inputs.exam_profile, shard=shard,
             ordinal=ordinal, count=len(shards), settings=settings,
+            prompt_version=source_set_synthesis_prompt_version(one_facet_per_skill),
         )
         cached = repository.synthesis_shard_result(key)
         shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
@@ -2316,6 +2629,7 @@ def _run_synthesis(
                 source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
                 brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
                 registry_index=registry, resolved_spans=resolved, shard_ordinal=ordinal, shard_count=len(shards),
+                one_facet_per_skill=one_facet_per_skill,
             )
             # Reserve the remaining base shards before spending on optional
             # evidence expansion. Re-check before every subsequent base call.
@@ -2462,6 +2776,7 @@ def _shard_checkpoint_key(
     ordinal: int,
     count: int,
     settings: dict[str, Any],
+    prompt_version: str = SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
 ) -> str:
     """Durable checkpoint identity for one synthesis shard.
 
@@ -2477,7 +2792,7 @@ def _shard_checkpoint_key(
 
     payload = json.dumps(
         {
-            "prompt_version": SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+            "prompt_version": prompt_version,
             "settings": settings,
             "source_set_id": source_set.id,
             "subject_id": source_set.subject_id,

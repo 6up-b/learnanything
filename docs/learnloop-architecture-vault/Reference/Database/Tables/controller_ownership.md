@@ -3,13 +3,13 @@ title: "controller_ownership"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_ownership"
   - "table controller_ownership"
-schema_head: 180
+schema_head: 183
 table_name: "controller_ownership"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/params/parameter_registry.py"
+  - "src/learnloop/router/decisions.py"
   - "src/learnloop/scheduling/controller_cutover.py"
   - "src/learnloop/scheduling/controller_ownership.py"
   - "src/learnloop/scheduling/serving_exclusions.py"
-  - "src/learnloop/scheduling/staged_policy.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_dual_authority_administration.py`
 - `tests/test_quick_check.py`
+- `tests/test_router_staged_p2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -43,6 +43,8 @@ AITask = Literal[
     "source_relevance_judge",
     # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
     "contamination_judge",
+    # Facet identity (handoff §4): the cheap same-skill partition judge.
+    "facet_identity_judge",
     "grading",
     # Slice 1: the history-aware diagnoser (unset -> the resolved grading
     # route, so a vault that never configures it diagnoses with its grader),
@@ -52,6 +54,12 @@ AITask = Literal[
     "diagnosis_generator",
     # Slice 2 T1: the same-cause judge (unset -> the resolved diagnosis route).
     "same_cause_judge",
+    # Learner-text gaps: the same/different and needed-for-item judge and the
+    # stuck-text reader (unset -> the resolved diagnosis route), and the
+    # Decider's second opinion (a decider task).
+    "learner_gap_judge",
+    "learner_gap_reader",
+    "learner_gap_decider",
     "canonical_ingest",
     "canonical_ingest_retry",
     "authoring",
@@ -74,7 +82,13 @@ AITask = Literal[
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
-DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider"})
+DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider"})
+#: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
+#: structured question of a chat model, or typed questions of a decision model
+#: (facet identity: one choice question per facet pair, owner 2026-10-12).
+#: Unlike DECIDER_TASKS they keep the ordinary chat-route resolution (an unset
+#: route is the active provider's, and a decider is chosen by naming one).
+DECIDER_ACCEPTING_TASKS: frozenset[str] = frozenset({"facet_identity_judge"})
 
 # Every structured operation explicitly inherits one configured task route.
 # This is documentation as executable data: feature callers no longer invent
@@ -100,6 +114,15 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Slice 2 T1 §3.7: a repair with a different operator and representation
     # for a recurrence group's K-th answer (the diagnoser's own route).
     "recurrence_escalation_repair": "diagnosis",
+    # Learner-text gaps (implementation_handoffs §4): one pairwise verdict
+    # (same prerequisite / same belief), the "needed for this item?" yes/no,
+    # the stuck-text reading, and the missing prerequisite's draft (the
+    # authoring route, as the owner decided).
+    "learner_gap_same_prerequisite": "learner_gap_judge",
+    "learner_gap_same_belief": "learner_gap_judge",
+    "learner_gap_prerequisite_needed": "learner_gap_judge",
+    "learner_gap_reading": "learner_gap_reader",
+    "learner_gap_prerequisite_draft": "authoring",
     "tutor_qa": "tutor_qa",
     "teach_back_question": "teach_back",
     "teach_back_authoring": "teach_back",
@@ -143,6 +166,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "contamination_reveal_judgment": "contamination_judge",
     # Router R0: the learner field's llm_probability LLM judge (field §7.2).
     "llm_probability_prediction": "llm_probability_llm",
+    # Facet identity at ingest and in `learnloop facets dedupe`.
+    "facet_identity_judgment": "facet_identity_judge",
 }
 
 
@@ -228,6 +253,9 @@ def provider_for_task(
         return provider_for_task(config, "grading", allow_env=allow_env)
     if task == "same_cause_judge" and not routed:
         # Slice 2 §3.1: the same-cause judge is "routed like diagnosis".
+        return provider_for_task(config, "diagnosis", allow_env=allow_env)
+    if task in ("learner_gap_judge", "learner_gap_reader") and not routed:
+        # Learner-text gaps: judged and read like a diagnosis.
         return provider_for_task(config, "diagnosis", allow_env=allow_env)
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
 
@@ -331,7 +359,7 @@ def route_profile_mismatch(
             f"{provider_name!r} is an embedding-only profile; it cannot serve "
             f"{task or 'generation'} work."
         )
-    if task not in DECIDER_TASKS and decider_profile:
+    if task not in DECIDER_TASKS and task not in DECIDER_ACCEPTING_TASKS and decider_profile:
         return (
             f"{provider_name!r} is a decision-model profile; it answers typed questions "
             f"only and cannot serve {task or 'generation'} work."
@@ -544,6 +572,7 @@ def _manual_resolution(
 
 
 __all__ = [
+    "DECIDER_ACCEPTING_TASKS",
     "DECIDER_TASKS",
     "EMBEDDING_PROFILE_TYPE",
     "MANUAL_PROVIDER",

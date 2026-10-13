@@ -1105,6 +1105,13 @@ class AIRoutingConfig(BaseModel):
     # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.
     contamination_judge: str | None = None
+    # Facet identity (handoff §4): the cheap judge that partitions candidate
+    # facets into same-skill sets at ingest and in `learnloop facets dedupe`.
+    # Empty = the code-default `codex_luna` profile when the active provider
+    # is Codex, else ai.active_provider. A decider profile (router R0, e.g.
+    # `openrouter_decider`) is also accepted: one typed choice question per
+    # pair, partitioned with the no-chaining union (owner, 2026-10-12).
+    facet_identity_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None
@@ -1115,6 +1122,14 @@ class AIRoutingConfig(BaseModel):
     # Slice 2 T1: the same-cause judge (live, backlog and the guard suite).
     # Empty = the resolved diagnosis route (itself the grading route when unset).
     same_cause_judge: str | None = None
+    # Learner-text gaps (implementation_handoffs §4): the same/different and
+    # "needed for this item?" judge, and the reader of stuck text. Empty = the
+    # resolved diagnosis route. The Decider's second opinion is a decider task:
+    # empty = the code-default openrouter_decider profile, never a chat
+    # fallback and never LEARNLOOP_AI_PROVIDER.
+    learner_gap_judge: str | None = None
+    learner_gap_reader: str | None = None
+    learner_gap_decider: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
     authoring: str | None = None
@@ -1185,7 +1200,17 @@ DEFAULT_CODEX_REASONING_EFFORT = "low"
 LEGACY_CODEX_MODEL = "gpt-5.5"
 CODEX_LOW_PROVIDER = "codex_low"
 CODEX_MEDIUM_PROVIDER = "codex_medium"
-CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER})
+# The cheapest Codex model the owner's account lists (`gpt-6-luna`, "fast and
+# affordable model for easier tasks"; checked in the Codex CLI's model list on
+# 2026-10-12). Code-default profile for cheap judges such as facet identity.
+CODEX_LUNA_PROVIDER = "codex_luna"
+CODEX_LUNA_MODEL = "gpt-6-luna"
+CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER, CODEX_LUNA_PROVIDER})
+# Claude Haiku through OpenRouter: the metered alternative for cheap judges
+# (OpenRouter listing on 2026-10-12: $0.10 per million input tokens, $0.50
+# per million output tokens).
+OPENROUTER_HAIKU_PROVIDER = "openrouter_haiku"
+OPENROUTER_HAIKU_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_TRANSCRIPTION_PROVIDER = "openrouter_transcription"
 
 DEFAULT_CODEX_TASK_ROUTES = {
@@ -1197,6 +1222,7 @@ DEFAULT_CODEX_TASK_ROUTES = {
     "teach_back": CODEX_LOW_PROVIDER,
     "rung_variant": CODEX_LOW_PROVIDER,
     "animation": CODEX_MEDIUM_PROVIDER,
+    "facet_identity_judge": CODEX_LUNA_PROVIDER,
 }
 
 
@@ -1586,6 +1612,66 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class LearnerTextGapsConfig(BaseModel):
+    """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
+
+    One pipeline turns a learner's own text (a tutor question, a non-empty
+    stuck answer, a diagnosis) into a named gap and acts on it. Live behind
+    kill switches (frictionless defaults); what changes serving is an
+    algorithm successor (``mvp-0.16``), with ``sooner_check_enabled`` as its
+    switch: the sooner check, and a matched gap's target read as a weak
+    prerequisite signal by the field loader (placement's fast-track rule
+    reads it). Nothing here writes evidence, mastery or certification (G13).
+
+    ``chooser`` decides whose kind is authoritative: ``context_model`` (the
+    tutor, the diagnoser or the stuck-text reader: the model with the whole
+    exchange) or ``decider``; the other is a logged second opinion. For
+    prerequisite matches it also picks the authoritative judge; belief matches
+    are always the LLM judge's (the Decider's verdict is logged, never joins).
+    """
+
+    # The pipeline's kill switch: off, no learner text is read or acted on, and
+    # the field loader ignores gap targets (the F11 grounded rule applies).
+    enabled: bool = True
+    chooser: Literal["context_model", "decider"] = "context_model"
+    # The Decider's second opinion on the kind and on every judged pair.
+    decider_enabled: bool = True
+    # Vault-wide LO and registry shortlist breadth (stored vectors; R4).
+    top_k: int = Field(default=4, ge=1, le=20)
+    # Candidate pairs judged per learner text (each by both judges).
+    judge_max_pairs: int = Field(default=8, ge=1, le=20)
+    judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
+    # A matched prerequisite that is not declared: ask "needed for this item?"
+    # and add the edge on yes (refused on a cycle; one-tap undo).
+    add_edges_enabled: bool = True
+    # A missing prerequisite is drafted, written and seeded live. Off: nothing
+    # new is created and earlier creations are not served.
+    create_prerequisites_enabled: bool = True
+    max_creations_per_day: int = Field(default=3, ge=0, le=50)
+    # The created LO's seed item is one delayed check after this many days.
+    seed_check_delay_days: int = Field(default=1, ge=0, le=60)
+    # A stated belief is a holding-pen sighting (or a new candidate).
+    sightings_enabled: bool = True
+    # mvp-0.16's kill switch: a matched prerequisite gap brings an assumed or
+    # maintenance LO's next check forward to no sooner than this delay, and
+    # its target is a weak prerequisite signal (placement's fast-track rule).
+    # Off: mvp-0.15's serving exactly.
+    sooner_check_enabled: bool = True
+    sooner_check_delay_hours: int = Field(default=24, ge=1, le=24 * 60)
+    # Per learner text: paid requests (all routes) and metered dollars.
+    max_calls_per_text: int = Field(default=30, ge=1, le=200)
+    max_usd_per_text: float = Field(default=0.25, ge=0.0, le=5.0)
+    # The live path (sidecar worker) across texts: logical calls per UTC day,
+    # counted from the live path's receipts before each text; at the cap the
+    # queue waits for the next day (`learnloop gaps run` has its own caps,
+    # and its calls are receipted apart and never counted here).
+    max_calls_per_day: int = Field(default=500, ge=0)
+    # Owner price estimate (USD per million tokens) for METERED chat routes
+    # (judge, reader, draft, seed). Unset: a metered route with no published
+    # price is refused before sending (spend rule); Codex needs none.
+    metered_price_per_million: float | None = Field(default=None, gt=0)
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1716,6 +1802,49 @@ class GraphNominationConfig(BaseModel):
     max_query_calls: int = Field(default=8, ge=0)
     max_query_tokens: int = Field(default=200_000, ge=0)
     max_query_cost_usd: float = Field(default=0.05, ge=0)
+
+
+class FacetIdentityConfig(BaseModel):
+    """Facet identity at mint time, and the dedupe command (handoff §4).
+
+    At ingest, a cheap judge sees each concept neighbourhood of candidate
+    facets whole and partitions it into same-skill sets (``merge``,
+    ``absorb``, ``keep_distinct``); candidates nominated against registered
+    facets go to the same judge. ``learnloop facets dedupe`` does the same for
+    an existing vault. Merges and absorbs apply live, each with an undo.
+    Embeddings only bound and shortlist neighbourhoods; the judge decides.
+    ``enabled = false`` is the kill switch: today's lexical gate only, the
+    pre-change synthesis prompts, no judge and no shortlist embedding.
+    """
+
+    enabled: bool = True
+    # Facets one judge call partitions; a larger neighbourhood is split.
+    max_group_size: int = Field(default=40, ge=2, le=120)
+    # Embedding shortlist rank within a run (the study: every duplicate was
+    # within rank 4) and registry nominations per candidate (T5, top-4).
+    shortlist_top_k: int = Field(default=4, ge=1, le=20)
+    attach_top_k: int = Field(default=4, ge=1, le=20)
+    # Owner decision 2026-10-12 (option c): the judge's merges apply live on
+    # identity-locked facets too (independent surface groups, lock mass, an
+    # active goal's certified scope, probes), each action naming the facet's
+    # lock reasons, with the one-tap undo. False restores the knowledge
+    # model's strict policy (§3.4/§12.1): the dedupe result lists such a set
+    # as a proposal and attach only adds an alias to a locked facet. A merge
+    # never adds a precondition to a registered facet, and a retiree that a
+    # graded criterion names with its survivor is held back, under either.
+    merge_locked_facets: bool = True
+    # Per ingest run (and the dedupe command's defaults). Codex runs on the
+    # subscription: tokens and dollars are estimated only, never enforced.
+    max_calls: int = Field(default=24, ge=0)
+    max_facets: int = Field(default=400, ge=0)
+    max_pairs: int = Field(default=20_000, ge=0)
+    max_retries: int = Field(default=2, ge=0)
+    max_total_tokens: int = Field(default=600_000, ge=0)
+    max_cost_usd: float = Field(default=0.5, ge=0)
+    # Owner price override (USD per million tokens, input and output) for a
+    # metered judge model without a built-in price; unknown prices refuse.
+    price_per_million_input: float | None = Field(default=None, gt=0)
+    price_per_million_output: float | None = Field(default=None, ge=0)
 
 
 class FieldConfig(BaseModel):
@@ -1897,6 +2026,22 @@ class PlanConfig(BaseModel):
         return self
 
 
+class RouterConfig(BaseModel):
+    """Action router (spec_action_router_v1). R1: decision logging on today's paths.
+
+    ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
+    P2 decision and learner pick. It is not a serving change and acts at every
+    algorithm version; off stops the rows and nothing else.
+    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor
+    (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included (owner
+    decision D11), join the Today queue's seeded exploration. Off (or below
+    ``mvp-0.15``) serves exactly as ``mvp-0.14``.
+    """
+
+    log_decisions: bool = True
+    probe_tie_admission: bool = True
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1924,11 +2069,13 @@ class LearnLoopConfig(BaseModel):
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     graph_nomination: GraphNominationConfig = Field(default_factory=GraphNominationConfig)
     source_retrieval: SourceRetrievalConfig = Field(default_factory=SourceRetrievalConfig)
+    facet_identity: FacetIdentityConfig = Field(default_factory=FacetIdentityConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
+    router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
@@ -1942,6 +2089,7 @@ class LearnLoopConfig(BaseModel):
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
+    learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
 
     @model_validator(mode="before")
     @classmethod
@@ -1969,6 +2117,12 @@ class LearnLoopConfig(BaseModel):
                 update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": "medium"}
             ),
         )
+        self.ai.providers.setdefault(
+            CODEX_LUNA_PROVIDER,
+            codex_runtime_profile.model_copy(
+                update={"model": CODEX_LUNA_MODEL, "reasoning_effort": "low"}
+            ),
+        )
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
@@ -1977,6 +2131,7 @@ class LearnLoopConfig(BaseModel):
         # them. An explicit vault profile of the same name stays authoritative.
         self.ai.providers.setdefault(DEFAULT_EMBEDDING_PROVIDER, openrouter_embedding_provider())
         self.ai.providers.setdefault(DEFAULT_DECIDER_PROVIDER, openrouter_decider_provider())
+        self.ai.providers.setdefault(OPENROUTER_HAIKU_PROVIDER, openrouter_haiku_provider())
         for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
             if task == "canonical_ingest_retry":
                 # Resolved after the loop so it can mirror the (possibly
@@ -2070,6 +2225,17 @@ def deepseek_pro_provider() -> AIProviderConfig:
         reasoning_effort="high",
         max_tokens=16384,
         timeout_seconds=180,
+    )
+
+
+def openrouter_haiku_provider() -> AIProviderConfig:
+    """Claude Haiku through OpenRouter, for cheap metered judges."""
+
+    return OpenRouterProviderConfig(
+        model=OPENROUTER_HAIKU_MODEL,
+        api_key_env="OPENROUTER_API_KEY",
+        response_format="json_object",
+        timeout_seconds=120,
     )
 
 

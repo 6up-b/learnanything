@@ -22,6 +22,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.capture import finish_route, route_intent
 from learnloop_sidecar.handlers.ai_providers import ready_tutor_qa_provider, provider_label
+from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 from learnloop_sidecar.registry import method
 
 
@@ -151,6 +152,11 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             )}
             response.update(event_id=event_id, remaining=max(0, limit - used),
                             citations=(event.get("source_context") or {}).get("citations", []))
+            # The same gap status the first answer carried (the enqueue is
+            # idempotent per question, so a recovered answer never queues twice).
+            response["learner_gap"] = queue_tutor_question_gap(
+                ctx, vault, repository, event_id, (event.get("source_context") or {}).get("learner_gap")
+            )
         if response is not None:
             return finish_route(ctx, repository, params.capture_id, "ask_tutor",
                                 {"question_event_id": event_id, "note_id": response["note_id"]}, response)
@@ -262,6 +268,11 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             # ING M8 (§9.2): source-span citations; chips open Open-in-source.
             "citations": result.get("citations", []),
             "remaining": result["remaining"],
+            # Learner-text gaps: the question is read for a named gap off the
+            # request path; the overlay polls get_learner_text_gap.
+            "learner_gap": queue_tutor_question_gap(
+                ctx, vault, repository, result["event_id"], result.get("learner_gap")
+            ),
         }
     )
 

@@ -19,6 +19,7 @@ from learnloop.config import (
     LearnLoopConfig,
     load_config,
 )
+from learnloop.content.facet_identity.actions import interrupted_actions, recover_interrupted_actions
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
     WAL_RESET_ADVISORY_URL,
@@ -163,9 +164,17 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         issues,
         fix_state=fix_state,
     )
+    _recover_facet_identity_actions(
+        paths,
+        repository,
+        database_tables,
+        issues,
+        fix_state=fix_state,
+    )
 
     if fix_state:
-        # Apply-intent recovery may have rewritten vault files since they were parsed.
+        # Apply-intent and facet-identity recovery may have rewritten vault
+        # files since they were parsed.
         parsed_yaml.clear()
     try:
         vault = load_vault(vault_root, read_yaml_file=parsed_yaml.read)
@@ -1050,6 +1059,59 @@ def _recover_apply_intents(
                 "warning",
                 "apply_intents:recovered",
                 f"Recovered {len(recovered)} mid-flight proposal apply intent(s)",
+                paths.sqlite_path,
+            )
+        )
+
+
+def _recover_facet_identity_actions(
+    paths: VaultPaths,
+    repository: Repository | None,
+    database_tables: set[str],
+    issues: list[HealthIssue],
+    *,
+    fix_state: bool,
+) -> None:
+    """Finish a facet merge or undo left mid-flight (facet identity, review F4).
+
+    A row left ``applying`` or ``undoing`` is reconciled against facets.yaml
+    under ``--fix-state`` (holding the vault mutation lock); a plain run only
+    reports it.
+    """
+
+    if repository is None or "facet_identity_actions" not in database_tables:
+        return
+    pending = interrupted_actions(repository)
+    if not pending:
+        return
+    if not fix_state:
+        issues.append(
+            _issue(
+                "warning",
+                "facet_identity:interrupted",
+                f"{len(pending)} facet merge/undo action(s) left mid-flight; run doctor --fix-state to finish them",
+                paths.sqlite_path,
+            )
+        )
+        return
+    try:
+        recovered = recover_interrupted_actions(paths.root, repository)
+    except Exception as exc:  # pragma: no cover - defensive
+        issues.append(
+            _issue("error", "facet_identity:recovery_failed", f"Facet-identity recovery failed: {exc}",
+                   paths.sqlite_path)
+        )
+        return
+    for row in recovered:
+        if row.get("problem"):
+            issues.append(_issue("error", "facet_identity:needs_repair", str(row["problem"]), paths.facets_path))
+    finished = [row for row in recovered if not row.get("problem")]
+    if finished:
+        issues.append(
+            _issue(
+                "warning",
+                "facet_identity:recovered",
+                "Finished " + ", ".join(f"{row['id']} ({row['from']} -> {row['to']})" for row in finished),
                 paths.sqlite_path,
             )
         )

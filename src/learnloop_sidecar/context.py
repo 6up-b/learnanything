@@ -62,6 +62,10 @@ class SidecarContext:
             self.vault.root,
             VaultPaths(self.vault.root, self.vault.config).sqlite_path,
         )
+        # Finish a facet merge or undo that a previous process left mid-flight
+        # before anything reads or re-projects the vault (facet identity F12).
+        if _recover_facet_identity_actions(self.vault_root, self.repository):
+            self.vault = load_vault(self.vault_root)
         runner_config = self.vault.config.ingest.runner
         self.ingest_jobs.bind(
             self.repository,
@@ -115,6 +119,12 @@ class SidecarContext:
         if self.repository is None:
             return
         if self.repository.post_attempt_jobs(states=("queued", "leased")):
+            self.post_attempt_worker.notify()
+            return
+        from learnloop.diagnosis.text_gaps.jobs import pending_jobs
+
+        if pending_jobs(self.repository):
+            # Learner-text gap readings left by a previous process.
             self.post_attempt_worker.notify()
 
     def reload(self, *, maintenance: bool = True) -> None:
@@ -321,6 +331,26 @@ class SidecarContext:
                 "streak": repository.session_day_streak(),
             }
         )
+
+
+def _recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool:
+    """Finish interrupted facet merges/undos; True when the vault files may have changed.
+
+    A failure never blocks opening the vault: the merge map leaves an
+    unsettled action's rows out, and ``doctor`` reports the action.
+    """
+
+    from learnloop.content.facet_identity.actions import recover_interrupted_actions
+
+    try:
+        recovered = recover_interrupted_actions(vault_root, repository)
+    except Exception:  # pragma: no cover - defensive: startup must not fail on recovery
+        _LOGGER.warning("facet-identity recovery failed; run doctor --fix-state", exc_info=True)
+        return False
+    for row in recovered:
+        if row.get("problem"):
+            _LOGGER.warning("facet-identity recovery: %s", row["problem"])
+    return bool(recovered)
 
 
 def _adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool:

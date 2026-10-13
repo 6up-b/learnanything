@@ -3,13 +3,13 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
   - "table misconception_candidates"
-schema_head: 180
+schema_head: 183
 table_name: "misconception_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/diagnosis/error_hunt.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/history.py"
+  - "src/learnloop/diagnosis/text_gaps/candidates.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/diagnosis/text_gaps/candidates.py`
 
 ### Direct SQL writers
 
@@ -123,6 +125,8 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/error_hunt.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/text_gaps/actions.py`
+- `src/learnloop/diagnosis/text_gaps/candidates.py`
 - `src/learnloop/learner/independence_audit.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop_sidecar/handlers/remediation.py`
@@ -141,6 +145,8 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_error_hunt_items.py`
 - `tests/test_km4_taxonomy.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_review.py`
 - `tests/test_recurrence_groups.py`
 - `tests/test_recurrence_key.py`
 

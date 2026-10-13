@@ -23,7 +23,8 @@ column and the reading's ``judgment_ledger`` verdict are what an attempt was).
 This module is a leaf: wire model, prompt text, the activity gate, the
 reading's ``judgment_ledger`` verdict (task ``stuck_reading``, written in the
 grading transaction) and a read-only view of stuck answers for the later
-learner-text-gaps stage.
+learner-text-gaps stage (every stuck answer, :func:`stuck_answers`, or one
+by its id, :func:`stuck_answer`).
 """
 
 from __future__ import annotations
@@ -268,6 +269,72 @@ def _has_stuck_column(connection: Any) -> bool:
     )
 
 
+#: The attempt columns a stuck-answer row is built from (in this order).
+_STUCK_ATTEMPT_COLUMNS = (
+    "id, practice_item_id, learning_object_id, subject, session_id, "
+    "attempt_type, learner_answer_md, rubric_score, created_at"
+)
+
+_Reading = tuple[str, str, "Mapping[str, Any] | None"]
+
+
+def _judged_reading(row: Any) -> _Reading:
+    """(judgment id, graded at, reading) from a current stuck-reading judgment."""
+
+    try:
+        verdict = json.loads(row[2] or "{}")
+    except ValueError:
+        verdict = None
+    return str(row[0]), str(row[1]), verdict if isinstance(verdict, Mapping) else None
+
+
+def _blind_reading(record_id: Any, created_at: Any, record_json: Any) -> _Reading:
+    """(blind record id, graded at, reading) from a blind grade record."""
+
+    try:
+        record = json.loads(record_json or "{}")
+    except ValueError:
+        record = {}
+    reading = record.get(STUCK_READING_KEY) if isinstance(record, dict) else None
+    return str(record_id), str(created_at), reading if isinstance(reading, Mapping) else None
+
+
+def _stuck_row(attempt: Any, blind: _Reading | None, judged: _Reading | None) -> dict[str, Any]:
+    (
+        attempt_id,
+        practice_item_id,
+        learning_object_id,
+        subject,
+        session_id,
+        attempt_type,
+        learner_answer_md,
+        rubric_score,
+        created_at,
+    ) = attempt
+    record_id, graded_at, reading = blind if blind is not None else (None, None, None)
+    judgment_id = None
+    if judged is not None:
+        judgment_id, graded_at, reading = judged
+    text = str(learner_answer_md or "")
+    return {
+        "attempt_id": str(attempt_id),
+        "practice_item_id": str(practice_item_id),
+        "learning_object_id": str(learning_object_id),
+        "subject_id": str(subject or "default"),
+        "session_id": session_id,
+        "attempt_type": str(attempt_type),
+        "created_at": str(created_at),
+        "has_text": bool(text.strip()),
+        "learner_answer_md": text,
+        "rubric_score": rubric_score,
+        "blind_grade_record_id": record_id,
+        "judgment_id": judgment_id,
+        "graded_at": graded_at,
+        "reading": dict(reading) if reading is not None else None,
+        "describes_confusion": bool(reading and reading.get("describes_confusion")),
+    }
+
+
 def stuck_answers(connection: Any) -> list[dict[str, Any]]:
     """Every stuck answer, its text and its CURRENT grader reading (read-only).
 
@@ -278,12 +345,13 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
     an empty answer (deterministic), a self-graded fallback, or a grade from
     before the reading existed. ``judgment_id`` names the verdict read. A
     vault without the column (before migration 178) has none. Never migrates.
+    One attempt's row, without reading the others: :func:`stuck_answer`.
     """
 
     if not _has_stuck_column(connection):
         return []
-    readings: dict[str, tuple[str, str, Mapping[str, Any] | None]] = {}
-    judgments: dict[str, tuple[str, str, Mapping[str, Any] | None]] = {}
+    readings: dict[str, _Reading] = {}
+    judgments: dict[str, _Reading] = {}
     if _has_table(connection, "judgment_ledger"):
         for (attempt_id,) in connection.execute(
             "SELECT id FROM practice_attempts WHERE declared_stuck = 1"
@@ -291,15 +359,7 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
             row = _current_stuck_judgment(connection, str(attempt_id))
             if row is None:
                 continue
-            try:
-                verdict = json.loads(row[2] or "{}")
-            except ValueError:
-                verdict = None
-            judgments[str(attempt_id)] = (
-                str(row[0]),
-                str(row[1]),
-                verdict if isinstance(verdict, Mapping) else None,
-            )
+            judgments[str(attempt_id)] = _judged_reading(row)
     if _has_table(connection, "blind_grade_records"):
         for attempt_id, record_id, created_at, record_json in connection.execute(
             """
@@ -310,61 +370,51 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
             ORDER BY b.attempt_id, b.created_at, b.id
             """
         ):
-            try:
-                record = json.loads(record_json or "{}")
-            except ValueError:
-                record = {}
-            reading = record.get(STUCK_READING_KEY) if isinstance(record, dict) else None
-            readings[str(attempt_id)] = (
-                str(record_id),
-                str(created_at),
-                reading if isinstance(reading, Mapping) else None,
-            )
-    rows: list[dict[str, Any]] = []
-    for (
-        attempt_id,
-        practice_item_id,
-        learning_object_id,
-        subject,
-        session_id,
-        attempt_type,
-        learner_answer_md,
-        rubric_score,
-        created_at,
-    ) in connection.execute(
-        """
-        SELECT id, practice_item_id, learning_object_id, subject, session_id,
-               attempt_type, learner_answer_md, rubric_score, created_at
-        FROM practice_attempts
-        WHERE declared_stuck = 1
-        ORDER BY created_at, id
-        """
-    ):
-        record_id, graded_at, reading = readings.get(str(attempt_id), (None, None, None))
-        judgment_id = None
-        if str(attempt_id) in judgments:
-            judgment_id, graded_at, reading = judgments[str(attempt_id)]
-        text = str(learner_answer_md or "")
-        rows.append(
-            {
-                "attempt_id": str(attempt_id),
-                "practice_item_id": str(practice_item_id),
-                "learning_object_id": str(learning_object_id),
-                "subject_id": str(subject or "default"),
-                "session_id": session_id,
-                "attempt_type": str(attempt_type),
-                "created_at": str(created_at),
-                "has_text": bool(text.strip()),
-                "learner_answer_md": text,
-                "rubric_score": rubric_score,
-                "blind_grade_record_id": record_id,
-                "judgment_id": judgment_id,
-                "graded_at": graded_at,
-                "reading": dict(reading) if reading is not None else None,
-                "describes_confusion": bool(reading and reading.get("describes_confusion")),
-            }
+            readings[str(attempt_id)] = _blind_reading(record_id, created_at, record_json)
+    return [
+        _stuck_row(attempt, readings.get(str(attempt[0])), judgments.get(str(attempt[0])))
+        for attempt in connection.execute(
+            f"SELECT {_STUCK_ATTEMPT_COLUMNS} FROM practice_attempts "
+            "WHERE declared_stuck = 1 ORDER BY created_at, id"
         )
-    return rows
+    ]
+
+
+def stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None:
+    """One stuck answer by its id: the row :func:`stuck_answers` gives it.
+
+    Reads that one attempt, its current ``stuck_reading`` judgment and its
+    latest blind record (the same choice of reading), never every stuck
+    answer, so a caller that asks about each answer as it is recorded (the
+    learner-text gaps queue) stays O(1) per answer. None when the attempt is
+    not a stuck answer, does not exist, or the vault predates migration 178.
+    An empty stuck answer is returned with ``has_text`` false: it carries no
+    learner text. Never migrates.
+    """
+
+    if not _has_stuck_column(connection):
+        return None
+    attempt = connection.execute(
+        f"SELECT {_STUCK_ATTEMPT_COLUMNS} FROM practice_attempts WHERE id = ? AND declared_stuck = 1",
+        (attempt_id,),
+    ).fetchone()
+    if attempt is None:
+        return None
+    judged = None
+    if _has_table(connection, "judgment_ledger"):
+        row = _current_stuck_judgment(connection, str(attempt_id))
+        if row is not None:
+            judged = _judged_reading(row)
+    blind = None
+    if _has_table(connection, "blind_grade_records"):
+        record = connection.execute(
+            "SELECT id, created_at, record_json FROM blind_grade_records WHERE attempt_id = ? "
+            "ORDER BY created_at DESC, id DESC LIMIT 1",
+            (attempt_id,),
+        ).fetchone()
+        if record is not None:
+            blind = _blind_reading(*record)
+    return _stuck_row(tuple(attempt), blind, judged)
 
 
 def _seconds_between(start: str | None, end: str | None) -> float | None:
@@ -446,6 +496,7 @@ __all__ = [
     "StuckReading",
     "is_empty_stuck",
     "record_stuck_reading_judgment",
+    "stuck_answer",
     "stuck_answer_prompt",
     "stuck_answer_summary",
     "stuck_answers",

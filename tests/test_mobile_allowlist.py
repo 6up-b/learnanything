@@ -122,12 +122,36 @@ CHATGPT_PLAN_RPCS = (
     "chatgpt_plan_resume",
 )
 
+# Router R1 (mvp-0.15) adds no RPC. It extends these: a published Today offer
+# (and a skip's requeue) writes a router decision, and a first bind of a
+# submission to an offered candidate other than the head writes a learner
+# pick. Every daily-plan block decision and chooser stop (DAILY_PLAN_RPCS,
+# pinned above) is also a plan_block router decision. Desktop only.
+ROUTER_R1_LOGGING_RPCS = (
+    "get_today_queue",
+    "skip_practice_item",
+    "save_practice_draft",
+    "submit_attempt",
+    "submit_dont_know",
+    "start_teach_back",
+)
+
+# Learner-text gaps (mvp-0.16) add get_learner_text_gap and
+# reverse_learner_text_gap (the overlay's gap reading and its one-tap
+# reversals) and extend the two ask RPCs (pinned for T6 above), which now
+# queue a reading and return learnerGap. Desktop only.
+LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "ask_tutor_question", "reader.ask")
+
+# Facet identity adds the ingest activity's merge list and its one-tap undo
+# (a facets.yaml rewrite and owner verdicts). Desktop only.
+FACET_IDENTITY_RPCS = ("list_facet_identity_actions", "undo_facet_identity_action")
+
 
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
-    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS
-    + CHATGPT_PLAN_RPCS,
+    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

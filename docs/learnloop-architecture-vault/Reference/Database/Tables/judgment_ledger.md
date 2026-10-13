@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
+source_commit_timestamp: "2026-10-13T01:11:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 180
+schema_head: 183
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
+  - "src/learnloop/cli/facets.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
-  - "src/learnloop/cli/probability_arms.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -102,6 +102,8 @@ None found by exact static reference scan.
 
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
+- `src/learnloop/content/facet_identity/actions.py`
+- `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -113,6 +115,9 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/diagnosis/text_gaps/judges.py`
+- `src/learnloop/diagnosis/text_gaps/pipeline.py`
+- `src/learnloop/diagnosis/text_gaps/report.py`
 - `src/learnloop/field/probability_prep.py`
 - `src/learnloop/matching/judge.py`
 - `src/learnloop/ops/contamination/judge.py`
@@ -147,17 +152,17 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
+- `tests/test_facet_identity.py`
+- `tests/test_facet_identity_composition.py`
+- `tests/test_facet_identity_ingest.py`
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
-- `tests/test_matching.py`
-- `tests/test_pf_generation.py`
-- `tests/test_pf_reports.py`
-- `tests/test_practice_index_evaluation.py`
-- `tests/test_practice_index_find.py`
-- `tests/test_probability_prep.py`
+- `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_flow.py`
+- `tests/test_learner_text_gaps_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
