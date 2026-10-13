@@ -853,24 +853,21 @@ def check_meaning_write(
                 confirmable=True, **extra,
             )
         meaning = [name for name in fields if name not in PRESENTATION_FIELDS]
-        if explained and meaning and resolver is not None and resolver.span_checker is not None:
+        if (explained and meaning and policy.hold_unsupported and resolver is not None
+                and resolver.span_checker is not None):
             # The span-support check (owner, 2026-10-13): one typed question
             # to the Decider over the validated explanatory spans (never exam
             # text) and the new wording. Only "supports" as its top option
             # applies the reword; any other option, or a Decider that is
             # unavailable, refused for spend or failing, holds it for the
             # owner's one-tap confirm with the verdict and the spans shown.
+            # With the confirm switched off (``EXPLANATORY_ONLY``) nothing can
+            # hold a doubted reword, so the check is not asked and the
+            # predecessor rule applies the cited reword (review F2): a Decider
+            # outage never refuses a write the old rule allowed.
             support = dict(resolver.span_checker(facet_id, after, tuple(resolved_all)))
             extra["span_support"] = support
             if support.get("verdict") != SPAN_SUPPORTS:
-                if not policy.hold_unsupported:
-                    # The confirm's kill switch: nothing can hold it, so it is refused.
-                    return _verdict(
-                        facet_id, False, "span_support",
-                        f"the cited passages do not clearly support the new wording of facet {facet_id} "
-                        f"({', '.join(meaning)}): {span_support_text(support)}",
-                        **extra,
-                    )
                 return _verdict(
                     facet_id, False, "span_support",
                     f"The new wording of facet {facet_id} ({', '.join(meaning)}) cites a textbook, lecture, "

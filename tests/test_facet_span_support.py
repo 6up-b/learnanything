@@ -212,7 +212,7 @@ def test_only_a_registered_facets_meaning_is_checked(tmp_path, monkeypatch):
                                          registered=True, contributions=support, resolver=plain).allowed
 
 
-def test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_refuses(tmp_path, monkeypatch):
+def test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_skips_the_check(tmp_path, monkeypatch):
     from learnloop.content.facet_identity import authority
     from learnloop.vault.loader import load_vault
     from tests.test_facet_identity_actions import SHARED
@@ -229,8 +229,26 @@ def test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_refuse
     assert not _rows(repo, "facet_span_support")
     vault.config.decider_routes.facet_span_support = True
     on = authority.CitationResolver.for_vault(repo, vault).with_span_support(vault, repo)
-    refused = authority.check_meaning_write(SHARED, before=before, after={**before, "claim": NEW_CLAIM},
-                                            registered=True, contributions=support, resolver=on,
-                                            policy=authority.EXPLANATORY_ONLY)
-    # With the reword confirm switched off nothing can hold it: refused, not applied.
-    assert not refused.allowed and not refused.confirmable and refused.code == "span_support"
+    predecessor = authority.check_meaning_write(SHARED, before=before, after={**before, "claim": NEW_CLAIM},
+                                                registered=True, contributions=support, resolver=on,
+                                                policy=authority.EXPLANATORY_ONLY)
+    # Review F2: with the reword confirm switched off nothing can hold a
+    # doubted reword, so the check is not asked and the predecessor rule
+    # applies the cited reword, as it did before the check existed.
+    assert predecessor.allowed and predecessor.code == "explanatory" and not predecessor.span_support
+    assert not _rows(repo, "facet_span_support")
+
+
+@pytest.mark.parametrize("client", ["unavailable", "does not support"])
+def test_reword_confirm_off_applies_a_cited_reword_whatever_the_decider(tmp_path, monkeypatch, client):
+    """Review F2: the reword confirm's kill switch restores the old rule; a Decider outage never refuses."""
+
+    from tests.helpers import append_config_toml
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, None if client == "unavailable" else SpanDecider(client))
+    append_config_toml(paths.root, "[facet_identity]\nreword_confirm = false\n")
+    _apply_cited_reword(paths, repo, citation)
+    assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
+    assert not _rows(repo, "facet_span_support")
