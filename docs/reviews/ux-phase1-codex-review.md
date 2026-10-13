@@ -149,3 +149,120 @@ The first full-suite run (at `e63242e5`) had two failures: `tests/test_cli_help_
 - **Q-R3. The whole-file OK** is mirrored to the machine's AI defaults like the connection's OK (Q-F), so a library made later inherits it. Keep?
 - **Q-R4. Migration 186** will renumber at merge (main holds 181–183); `fixtures/migration_head_186` conflicts with main's `migration_head_183` rename and must be rebuilt at the merged head.
 - Unchanged and still open from `ux-phase1.md`: Q-A to Q-I (chapter-first extraction, LLM subject filing, when "Questions ready" leaves the card, …); captionless video still offers *Try again*, not *Transcribe the audio* (§6.7).
+
+---
+
+# Re-review (Codex, `be3ad518..3784487c`)
+
+**Verdict received:** REOPENED. F1, F2 and F3 (all High) reopened; one new Medium finding, F13. Codex job: `~/.cache/codex-agent/jobs/20261013-033126-uRn30g`.
+
+**Outcome:** all four reproduced with a failing test first and are fixed (`high_fixed`). None is rejected. The answer to F2 also answers Q-R2 above for automatic builds: every physical request is now admitted, not just each paid job attempt.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | Reader requests already queued escape the book's privacy | fixed | `289d75e2`, `1656c0ce` (fail-first `b74d8365`) | `tests/test_ux_phase1_review_fixes.py::test_f1_rereview_keeping_a_book_local_stops_the_reader_requests_it_queued`, `::test_f1_rereview_the_drain_reads_the_books_privacy_when_it_runs`, `::test_f1_rereview_keeping_a_book_local_stops_its_queued_build`, `::test_f1_rereview_a_running_build_sends_nothing_more_once_the_book_is_kept_local` |
+| F2 | High (reopened) | Spend admission does not bound actual calls | fixed | `289d75e2` (fail-first `b74d8365`) | `::test_f2_rereview_a_json_repair_is_admitted_like_any_paid_request`, `::test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included`, `::test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room`, `::test_f2_rereview_append_reconciliation_calls_are_admitted_one_by_one` |
+| F3 | High (reopened) | A link's planner that dies after queuing its build is not found by its book | fixed | `289d75e2` (fail-first `b74d8365`) | `::test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found` |
+| F13 | Medium | Turning privacy off does not recover a blocked recording | fixed | `289d75e2` (fail-first `b74d8365`) | `::test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file_ok`, `::test_f13_a_links_keep_local_is_applied_once_when_its_book_is_registered` |
+
+**Fail first.** At `b74d8365` (the reviewed code plus the new tests) all 9 new tests failed, each for the reason the finding gives:
+- **F1.** The fake Reader client was called once after *Keep this book on this computer*. The queued build failed with `kept_local` instead of being cancelled.
+- **F2.** Each OpenRouter client sent 2 requests, the first answer and its JSON repair, although the first reported $5 against a $1 authorization. The append hook sent both of its requests. The two mechanism tests failed with `ImportError`: `gate_model_requests` did not exist.
+- **F3.** `auto_jobs(source_id)` returned `[]`.
+- **F13.** The card still read *Kept on this computer — this recording can't be read here* after *Let LearnLoop write questions for it*.
+
+Two tests were added with their fixes. Each was run against the old code and failed:
+- `test_f1_rereview_a_running_build_sends_nothing_more_once_the_book_is_kept_local`: sent `['first', 'second']`.
+- `test_f13_a_links_keep_local_is_applied_once_when_its_book_is_registered`, run with `jobs.py` at `b74d8365`: `KeyError: 'keep_local_applied'`. The import re-applied the stale choice.
+
+### F1: the book's privacy is read when the work runs, and queued work is stopped
+
+**Reproduced.** A Reader request queued before *Keep this book on this computer* was drained by the production path (`DurableIngestJobs.kick_reader_drain`, which calls `RR.drain_requests` with `model_synthesis`) and sent to the AI. No check ran.
+
+**Fixed.**
+- **At execution.** `reader_requests.drain_requests` reads `source_kept_local` for each claimed request before calling synthesis. A request for a kept-local book is resolved `cancelled` with `{"code": "kept_on_this_computer"}`, and nothing is sent. This holds however the choice was persisted: book details, an Add of the same book with the option, or another window.
+- **Queued work is stopped.** `keep_on_this_computer(ingest_jobs, source_id)` persists the choice first, then:
+  - cancels the book's queued Reader requests (a running request is flagged);
+  - cancels its active automatic builds. A planner still to run costs nothing and records *waiting · kept_local* itself.
+  The Add-an-existing-book path goes through it too.
+- **The card.** A build stopped this way reads *Kept on this computer — no questions are written for it*, not *need another try · Retry*.
+- **A running build.** The request gate an automatic build holds (F2) also reads the job's cancellation before each request made on the job's own thread, on every route: privacy is not about money, so Codex is included. Once the learner keeps the book local, or Undoes, the build starts no further request.
+
+**Limit, stated.** A request already sent is not recalled. Parallel inventory workers are not checked by the gate, because they keep SQL off their threads. The inventory loop's own cancellation poll stops them and interrupts their clients.
+
+### F2: every physical request of an automatic build is admitted and accounted
+
+**Reproduced.** The auto-build inventory ran on a real `OpenRouterProviderClient` over the `tests/openai_fakes.py` SDK fake. The first answer was invalid JSON and reported a cost of $5 against the build's $1 authorization. The provider's JSON repair was still sent, by each worker. Append reconciliation's second call also ran unadmitted.
+
+**Fixed.**
+- **Mechanism (`learnloop.ai.execution`).** `gate_model_requests(gate)` installs a `RequestGate` for a context. Every `model_call` is treated as a physical request, except the operation wrapper: `structured_call` now passes `wrapper=True`. For each physical request:
+  - `admit` runs before the receipt opens, and raising refuses the request before anything is sent;
+  - `settle` receives the usage the request reported.
+  So transport retries (`_send_once` per attempt), the JSON repair and any follow-up call are each admitted. Without a gate, `model_call` behaves exactly as before.
+- **Gate (`learnloop.ai.spend.MeteredRequestGate`, thread-safe).** A request is admitted only if this sum fits within the limit:
+  - what the attempt has spent;
+  - plus what in-flight requests reserved;
+  - plus this request's estimate: input at about 4 characters per token plus its output ceiling, priced at the request's own route.
+  Requests without a ceiling of their own (append reconciliation, epigraphs) are reserved at the configured per-operation output budget. Settling works like this:
+  - reported usage replaces the reservation: the provider's cost, else its tokens at the price;
+  - a request that reported nothing, such as a failed transport attempt, keeps its whole reservation.
+  Subscription clients are never limited (Slice A §5 rule 6). An unknown price fails closed.
+- **Automatic builds.** `admit_auto_build_job` keeps the job-level check of the ceiling-priced estimate. It then holds a gate for the rest of the attempt, over the same limit: what is left of the build's authorization and of today's cap. The gate is held through the new `JobContext.hold`, an `ExitStack` that the runner closes inside its outcome classification. The gate applies on every route, so a metered runtime fallback under a subscription plan is limited too. A refused request stops the job as `spend_paused`, whatever the pipeline made of the refusal on its way out, and keeps the job's earlier error details: a preserved candidate still gets Retry's zero-model repair. The card shows the existing *would cost more than expected · Build them* or *today's AI budget is used* line.
+
+**Limit, stated.** A provider that ignores its output ceiling, or under-reports usage, can overspend one request; the next request is then refused. This matches `SpendBudget`'s documented semantics. Deliberate builds (Under the hood, `learnloop ingest`) are unchanged and hold no gate. They are the owner's explicit commands, behind their own consent cards and token ceilings. **Q-R2** is now narrowed to them: should a deliberate build hold the same gate? Transports that make physical requests without a `model_call` of their own (the legacy HTTP adapter) are not seen by the gate, but they are all on the subscription and would not be limited anyway.
+
+### F3: a planner is found through the build it queued
+
+**Reproduced.** Codex's case, with a link Add (a fake fetcher serving HTML):
+- the planner's payload had no `source_id`;
+- the planner died right after `enqueue_batch` committed its build;
+- `auto_jobs(source_id)` returned `[]`, so the card, coverage and Undo lost the build.
+
+**Fixed.** `ingest_jobs_for_source` also matches a job that a queued job names as its planner: `auto_build.planner_job_id`, with the book in `auto_build.source_id`. That association is written in the same transaction as the build. The lookup no longer depends on the planner's payload or result. Resuming the recovered planner still returns the one build (`run_auto_study_map` reads `child_batch_id` first).
+
+### F13: the persisted choice decides once the book exists, and letting a book go resumes it
+
+**Reproduced.**
+- A recording added with *Keep this book on this computer* stops before transcription, as intended.
+- *Let LearnLoop write questions for it* cleared the flag but resumed nothing, because there was no extraction to build from.
+- Retrying the import put `keep_local = True` back from the import's payload, which blocked the recording again.
+
+**Fixed.**
+- **`share_with_ai(ingest_jobs, source_id)`.** The `source_action share_with_ai` RPC now calls it. A readable book plans a build, as before. A book that never became readable has its latest Add brought up to date, then resumed:
+  - the stale `keep_local` is removed from the Add's import and planner payloads;
+  - the import gets `require_upload_ok`, so it waits for the separate whole-file OK (§6.6): *Transcribing this recording sends it to an online service · OK*. Nothing leaves before that OK.
+- **The import.** After registration, `handle_import` reads only the book's persisted choice (`_keep_local`, used by `_guard_file_upload` and the PDF engine choice).
+  - A file's Add persists the choice before it queues the import.
+  - A link's book exists only once the import registers it, so the import applies the Add's request once. It re-reads its stored payload first, so a change the learner made in the meantime wins, and marks the payload `keep_local_applied`. A retry never brings the old choice back.
+- **The planner.** It reads the persisted choice only.
+
+The book card already offers *Let LearnLoop write questions for it* on a kept-local book that is not readable yet, so no frontend change was needed.
+
+### Scope notes
+
+- **No algorithm successor.** This step changes spend admission and privacy enforcement. It touches no scoring, scheduling or projection, and does not change what is served.
+- **No migration.** The schema is unchanged (head 186), so the DB reference scripts are not required.
+- **No new RPC.** `tests/test_mobile_allowlist.py` is unchanged.
+- **Frontend and `src-tauri` unchanged.** npm and cargo checks are not required.
+- **Docs.** `docs/learnloop-architecture-vault/Architecture/AI Architecture.md` describes request gates, and the cost-pause note in `ux-phase1.md` (§2 1.8) is corrected again.
+
+## Re-review gate
+
+Run in the worktree at `1656c0ce` (the code as committed; this commit adds documents only) with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 14 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8717 passed**, 0 failed, 0 skipped (6 min 20 s; 8706 before this step + 11 new) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **94 passed**, 8623 deselected |
+| npm (`install`, `typecheck`, `test`, `frontend:build`) | not required: nothing under `apps/learnloop-tauri` changed in this step |
+| `cargo check` (src-tauri) | not required: nothing under `src-tauri` changed |
+| DB reference generate/validate | not required: no schema change (head 186) |
+| Targeted | `tests/test_ux_phase1_review_fixes.py` 38 passed (27 + 11 re-review); the five `tests/test_ux_phase1_*.py` files 84 passed; the AI/ingest/reader neighbours (`test_ai_single_request`, `test_spend_controls`, `test_openai_chat_client`, `test_openrouter_client`, `test_structured_transport_parity`, `test_ingest_jobs`, `test_ingest_runner`, `test_reader_requests`, `test_source_append`, `test_quick_add`, `test_model_call_receipt_owners`, `test_receipt_exactness`, `test_mobile_allowlist`, …) 534 passed together |
+
+No paid calls were made: every model call in the new tests is a house fake (`tests/openai_fakes.py`, `StructuredClientFake` doubles, or a stub client inside `model_call`), and `OPENROUTER_API_KEY` is a placeholder set by the test.
+
+## Owner questions (updated)
+
+- **Q-R2, narrowed.** Automatic builds now admit every physical request. Should deliberate builds (Under the hood, `learnloop ingest`) hold the same gate, or keep their consent cards and token ceilings only?
+- Q-R1, Q-R3 and Q-R4 and the open items from `ux-phase1.md` are unchanged.
