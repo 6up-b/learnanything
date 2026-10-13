@@ -82,6 +82,47 @@ def test_the_map_fit_learns_an_overconfident_learner():
     assert stack.coefficients[0] == 0.0 and stack.coefficients[1] != 0.0
 
 
+def _log_posterior(features, offsets, outcomes, a, b, prior_mean):
+    from math import exp, log1p
+
+    def log_sigmoid(z):
+        return -log1p(exp(-z)) if z >= 0 else z - log1p(exp(z))
+
+    total = -((a - prior_mean[0]) ** 2 + (b - prior_mean[1]) ** 2) / 2
+    for x, offset, y in zip(features, offsets, outcomes):
+        z = offset + a + b * x
+        total += y * log_sigmoid(z) + (1 - y) * log_sigmoid(-z)
+    return total
+
+
+def test_the_fit_converges_where_an_undamped_newton_step_oscillates():
+    """Review F5: ten failures tapped 5 on a base at logit 4. A full Newton step
+    from the prior overshoots into a saturated region and back again; the fit
+    must reach the MAP optimum (b ~ -2.713, p ~ 0.123), not return the prior."""
+
+    x = log(0.9 / 0.1)
+    features, offsets, outcomes = [x] * 10, [4.0] * 10, [0.0] * 10
+    a, b = fit_logistic(features, offsets, outcomes, prior_mean=(0.0, 0.0), intercept=False)
+    assert a == 0.0 and b == pytest.approx(-2.713, abs=1e-3)
+    assert 1 / (1 + np.exp(-(4.0 + b * x))) == pytest.approx(0.1234, abs=1e-3)
+    best = _log_posterior(features, offsets, outcomes, 0.0, b, (0.0, 0.0))
+    for delta in (-1e-4, 1e-4):
+        assert _log_posterior(features, offsets, outcomes, 0.0, b + delta, (0.0, 0.0)) < best
+    # The two-parameter fit on a saturated offset reaches its optimum too.
+    saturated = [9.0] * 10
+    a2, b2 = fit_logistic(features, saturated, outcomes, prior_mean=(0.0, 0.0))
+    best2 = _log_posterior(features, saturated, outcomes, a2, b2, (0.0, 0.0))
+    for da, db in ((1e-4, 0), (-1e-4, 0), (0, 1e-4), (0, -1e-4)):
+        assert _log_posterior(features, saturated, outcomes, a2 + da, b2 + db, (0.0, 0.0)) < best2
+
+
+def test_a_fit_that_cannot_converge_says_so():
+    import learnloop.field.answer_signals as signals
+
+    with pytest.raises(ArithmeticError, match="did not converge"):
+        signals.fit_logistic([1.0] * 5, [0.0] * 5, [1.0] * 5, prior_mean=(0.0, 0.0), max_steps=1)
+
+
 def test_a_prediction_never_sees_its_own_outcome():
     rows = [row(i, outcome=float(i % 3 == 0), confidence=1 + i % 5, hedged=(i % 4) / 4) for i in range(12)]
     for name in ("answer_confidence", "answer_hedging", "mastery_ekf+answer_confidence"):

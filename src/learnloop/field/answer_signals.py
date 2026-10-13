@@ -35,7 +35,7 @@ is absent, so paired comparisons use the common attempts):
   the signal itself adds (a nearly constant tap would otherwise pass off
   recalibration as information).
 
-Every fit is maximum a posteriori by Newton's method on the arm's own past
+Every fit is maximum a posteriori by damped Newton on the arm's own past
 (prediction, outcome) pairs only, refit after each observation, so a
 prediction never sees its own outcome. Outcomes may be fractional rubric
 scores.
@@ -46,7 +46,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from hashlib import sha256
 import json
-from math import exp, isfinite, log
+from math import exp, isfinite, log, log1p
 
 from learnloop.field.predictors import (
     _EKF_INPUTS, _order, create_predictor, register_predictor, registered_predictors,
@@ -62,9 +62,12 @@ ARM_NAMES = {CONFIDENCE: "answer_confidence", HEDGING: "answer_hedging"}
 #: Bases the default registry stacks each signal on: the incumbent and the best
 #: exploratory arm so far. ``stacked_arm`` stacks any attempt-level arm.
 DEFAULT_STACK_BASES = ("mastery_ekf", "lo_general+composite")
-FIT = "logistic-map-newton-v1"
+#: v2 (review F5): Newton directions damped by backtracking on the log
+#: posterior, with an explicit convergence check.
+FIT = "logistic-map-damped-newton-v2"
 CLIP = (1e-4, 1 - 1e-4)
-_NEWTON_STEPS = 60
+_NEWTON_STEPS = 200
+_GRADIENT_TOLERANCE = 1e-9
 #: What each arm's report row must say about where its signal comes from.
 SIGNAL_SOURCES = {
     CONFIDENCE: "learner's pre-answer tap (1-5), taken after composing and before submit",
@@ -108,33 +111,44 @@ def signal_feature(signal: str, signals: AnswerSignals | None) -> float | None:
     raise ValueError(f"unknown answer signal: {signal}")
 
 
+def _log_sigmoid(z: float) -> float:
+    """``log(sigmoid(z))`` without overflow or a saturated ``log(0)``."""
+
+    return -log1p(exp(-z)) if z >= 0 else z - log1p(exp(z))
+
+
+def _log_posterior(
+    a: float, b: float, features: list[float], offsets: list[float], outcomes: list[float],
+    prior_mean: tuple[float, float], precision: float,
+) -> float:
+    total = -0.5 * precision * ((a - prior_mean[0]) ** 2 + (b - prior_mean[1]) ** 2)
+    for x, offset, y in zip(features, offsets, outcomes):
+        z = offset + a + b * x
+        total += y * _log_sigmoid(z) + (1.0 - y) * _log_sigmoid(-z)
+    return total
+
+
 def fit_logistic(
     features: list[float], offsets: list[float], outcomes: list[float],
     *, prior_mean: tuple[float, float], prior_variance: float = 1.0, intercept: bool = True,
+    max_steps: int = _NEWTON_STEPS,
 ) -> tuple[float, float]:
     """MAP ``(a, b)`` of ``logit p = offset + a + b * x`` under N(prior, v) priors.
 
-    The objective is strictly concave (the priors add curvature), so Newton's
-    method converges from the prior mean. Outcomes may be fractional. With
-    ``intercept=False`` only ``b`` is fit and ``a`` stays at its prior mean.
+    The log posterior is strictly concave (the priors add curvature), but a
+    full Newton step can still overshoot: from a saturated offset it jumps
+    into a flat region and back again (review F5). So each Newton direction
+    is damped by backtracking on the log posterior itself (Armijo), which
+    converges from the prior mean, and convergence is checked explicitly: a
+    fit that has not converged raises instead of returning a wrong optimum.
+    Outcomes may be fractional. With ``intercept=False`` only ``b`` is fit and
+    ``a`` stays at its prior mean.
     """
 
     a, b = prior_mean
     precision = 1.0 / prior_variance
-    if not intercept:
-        for _ in range(_NEWTON_STEPS):
-            gradient = -(b - prior_mean[1]) * precision
-            curvature = precision
-            for x, offset, y in zip(features, offsets, outcomes):
-                p = _sigmoid(offset + a + b * x)
-                gradient += (y - p) * x
-                curvature += p * (1 - p) * x * x
-            step = gradient / curvature
-            b += step
-            if abs(step) < 1e-12:
-                break
-        return a, b
-    for _ in range(_NEWTON_STEPS):
+    current = _log_posterior(a, b, features, offsets, outcomes, prior_mean, precision)
+    for _ in range(max_steps):
         ga = -(a - prior_mean[0]) * precision
         gb = -(b - prior_mean[1]) * precision
         haa = hbb = precision
@@ -147,13 +161,35 @@ def fit_logistic(
             haa += weight
             hab += weight * x
             hbb += weight * x * x
-        determinant = haa * hbb - hab * hab
-        step_a = (hbb * ga - hab * gb) / determinant
-        step_b = (haa * gb - hab * ga) / determinant
-        a, b = a + step_a, b + step_b
-        if abs(step_a) < 1e-12 and abs(step_b) < 1e-12:
-            break
-    return a, b
+        if intercept:
+            if max(abs(ga), abs(gb)) < _GRADIENT_TOLERANCE:
+                return a, b
+            determinant = haa * hbb - hab * hab
+            step_a = (hbb * ga - hab * gb) / determinant
+            step_b = (haa * gb - hab * ga) / determinant
+        else:
+            if abs(gb) < _GRADIENT_TOLERANCE:
+                return a, b
+            step_a, step_b = 0.0, gb / hbb
+        # The ascent the full step promises (g . step > 0 for a concave objective).
+        slope = ga * step_a + gb * step_b
+        scale = 1.0
+        while True:
+            trial_a, trial_b = a + scale * step_a, b + scale * step_b
+            trial = _log_posterior(trial_a, trial_b, features, offsets, outcomes, prior_mean, precision)
+            if trial >= current + 1e-4 * scale * slope or scale < 1e-12:
+                break
+            scale *= 0.5
+        if trial < current:
+            # Not even a tiny step ascends: the gradient is at round-off.
+            return a, b
+        a, b, current = trial_a, trial_b, trial
+        if max(abs(scale * step_a), abs(scale * step_b)) < 1e-12:
+            return a, b
+    raise ArithmeticError(
+        f"answer-signal logistic fit did not converge in {max_steps} damped Newton steps "
+        f"(n={len(outcomes)}, a={a:.6g}, b={b:.6g})"
+    )
 
 
 def _hash(value: object) -> str:
