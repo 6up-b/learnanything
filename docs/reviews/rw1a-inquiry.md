@@ -142,13 +142,17 @@ on `reader_inquiry.enabled`, refused with `inquiry_disabled` when off):
 answering model, for the report), `reader.ask_history`,
 `reader.prompt_contract` (`inquiryEnabled`).
 
-**The passage quick check.** Same operation (`reading_quick_check`), route
-and caps as the section check, prompt `rw1a-reading-passage-check-v1`, context
-= the root's anchor spans plus one block before and two after inside the
-anchor's section (no learner text). Reuse per (root exchange, prompt version);
-a dismissed row suppresses re-authoring. Answering stamps the response, the
-learner's verdict lands in `self_check`; nothing else is written. "Partly" and
-"no" become `reader_formative` learner text in RW1b, not here.
+**The passage quick check.** Same operation (`reading_quick_check`) and route
+as the section check, prompt `rw1a-reading-passage-check-v1`, context = the
+root's anchor spans plus one block before and two after inside the anchor's
+section (no learner text). Reuse per (root exchange, prompt version); a
+dismissed row suppresses re-authoring. Answering stamps the response, the
+learner's verdict lands in `self_check`. "Partly" and "no" become
+`reader_formative` learner text in RW1b, not here. *(Revised by the Codex
+review, `rw1a-inquiry-codex-review.md`: the check is an isolated turn (F1),
+admitted through the spend framework with its own `[reader_inquiry]` caps
+(F2), claimed durably per reuse key with a unique index (F3); the self-check
+also appends a `learner_card` verdict to `judgment_ledger` (F11).)*
 
 **The Reader (reader_inquiry on).** The return stack (`returnStack.ts`):
 branches, peeks at shown or cited passages, and another source opened from a
@@ -259,10 +263,13 @@ too, as spec §12 rules; the flat rail's structure and behaviour are today's.
    in the rail.
 5. **The passage check sees the passage only**, never the learner's question
    (no learner text on the producer's route); its own prompt version,
-   `rw1a-reading-passage-check-v1`, on the same operation, route and caps.
-6. **"Opening another source" is a detour only from a search hit** opened
-   after leaving a source; a plain library card starts new reading with no
-   crumb back.
+   `rw1a-reading-passage-check-v1`, on the same operation and route (its
+   spend caps are its own since the Codex review, F2).
+6. ~~**"Opening another source" is a detour only from a search hit**~~
+   Withdrawn by the Codex review (F6): spec §4.1 makes every detour push an
+   entry, so opening another book after leaving one -- a search hit or its
+   library card -- leaves a crumb back. Reopening the same source, or the
+   first open of a visit, is reading.
 7. **Today's "continue the dialogue" overlay keeps its thread.** Under
    branches a parentless Ask is a new root with no prior conversation, which
    would have emptied the overlay's context; with the switch on, the overlay
@@ -323,9 +330,8 @@ ask → branch → return.
 
 ## 8. Open questions for the owner
 
-1. Should opening a book from the library card (not a search hit) after
-   leaving another also leave a crumb back? Default here: no; it is new
-   reading.
+1. *(Answered by the spec, Codex review F6: yes, it is a detour with a crumb
+   back.)*
 2. A branch marked "done" resolves its own question, which leaves Today's
    queue. Keep, or leave branch questions open until their inquiry closes?
 3. An unexpected Ask failure still shows the app's error line (the ported
