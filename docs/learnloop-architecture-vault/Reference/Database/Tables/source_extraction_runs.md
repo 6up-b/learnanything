@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
-source_commit_timestamp: "2026-10-13T08:25:43-04:00"
+source_commit: "97137de4cafbf23903c35561e73564cd90175768"
+source_commit_timestamp: "2026-10-13T09:35:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
-  - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -129,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/source_retrieval/b4.py`
-- `src/learnloop/source_retrieval/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
