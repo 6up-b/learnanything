@@ -182,7 +182,8 @@ def _without_answer_signals(report):
     from learnloop.field.answer_signals import ARM_NAMES, default_pairs
     from learnloop.field.evaluation import ANSWER_SIGNAL_LIMITATIONS
 
-    added = {*ARM_NAMES.values(), *(challenger for _, challenger in default_pairs())}
+    added = {*ARM_NAMES.values(), *(name for pair in default_pairs() for name in pair
+                                    if "+answer_" in name)}
     out = copy.deepcopy(report)
 
     def strip(metrics):

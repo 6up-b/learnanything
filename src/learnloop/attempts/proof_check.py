@@ -53,7 +53,7 @@ fails a grade.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import logging
@@ -65,6 +65,10 @@ from pydantic import Field
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
 from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
+from learnloop.substrate.canonical_projection import (
+    UNASSESSED_INTERPRETATION,
+    UNVERIFIED_INTERPRETATION_KEY,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 LOGGER = logging.getLogger(__name__)
@@ -783,13 +787,6 @@ def checked_run(
     ``assessed_shortfall`` (the attempt step, diagnosis, placement, the field)
     treats a route-check outcome exactly as a PF-c one.
     """
-
-    from dataclasses import replace
-
-    from learnloop.substrate.canonical_projection import (
-        UNASSESSED_INTERPRETATION,
-        UNVERIFIED_INTERPRETATION_KEY,
-    )
 
     if not proof_check_active(vault):
         return run

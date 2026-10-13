@@ -22,12 +22,18 @@ is absent, so paired comparisons use the common attempts):
   comes from the call that grades the answer, so it shares that call; reports
   say so.
 * ``<base>+answer_confidence`` and ``<base>+answer_hedging`` - (b) an existing
-  arm plus the signal: ``logit p = logit(p_base) + a + b * x`` with N(0, 1)
-  priors, so it starts exactly at the base arm. The base arm observes every row
+  arm plus the signal: one parameter, ``logit p = logit(p_base) + b * x`` with
+  b ~ N(0, 1), so it starts exactly at the base arm and any gain over the base
+  is the signal's (the ITS sweep's P4: the ``+recal`` arms' one-parameter
+  method, here on the signal rather than the intercept). The base arm observes every row
   the harness hands it, as it would alone. Registered for the incumbent
   (``mastery_ekf``) and the best exploratory arm on the owner's vault so far
   (``lo_general+composite``, docs/reviews/slice-a-integration-2-3.md); any
   attempt-level registered arm can be stacked with :func:`stacked_arm`.
+  Each stack has a ``:control`` twin on the same attempts whose covariate is a
+  constant: it only recalibrates the base, so the pair (control, stack) is what
+  the signal itself adds (a nearly constant tap would otherwise pass off
+  recalibration as information).
 
 Every fit is maximum a posteriori by Newton's method on the arm's own past
 (prediction, outcome) pairs only, refit after each observation, so a
@@ -66,8 +72,14 @@ SIGNAL_SOURCES = {
 }
 
 
-def stacked_name(base: str, signal: str) -> str:
-    return f"{base}+{ARM_NAMES[signal]}"
+def stacked_name(base: str, signal: str, *, control: bool = False) -> str:
+    return f"{base}+{ARM_NAMES[signal]}" + (CONTROL_SUFFIX if control else "")
+
+
+#: The control stack: the same rows and fit as ``<base>+answer_<signal>``, with
+#: the signal replaced by a constant, so it only recalibrates the base where the
+#: signal is present. A stack's gain over its control is the signal's own.
+CONTROL_SUFFIX = ":control"
 
 
 def _logit(p: float) -> float:
@@ -98,16 +110,30 @@ def signal_feature(signal: str, signals: AnswerSignals | None) -> float | None:
 
 def fit_logistic(
     features: list[float], offsets: list[float], outcomes: list[float],
-    *, prior_mean: tuple[float, float], prior_variance: float = 1.0,
+    *, prior_mean: tuple[float, float], prior_variance: float = 1.0, intercept: bool = True,
 ) -> tuple[float, float]:
     """MAP ``(a, b)`` of ``logit p = offset + a + b * x`` under N(prior, v) priors.
 
     The objective is strictly concave (the priors add curvature), so Newton's
-    method converges from the prior mean. Outcomes may be fractional.
+    method converges from the prior mean. Outcomes may be fractional. With
+    ``intercept=False`` only ``b`` is fit and ``a`` stays at its prior mean.
     """
 
     a, b = prior_mean
     precision = 1.0 / prior_variance
+    if not intercept:
+        for _ in range(_NEWTON_STEPS):
+            gradient = -(b - prior_mean[1]) * precision
+            curvature = precision
+            for x, offset, y in zip(features, offsets, outcomes):
+                p = _sigmoid(offset + a + b * x)
+                gradient += (y - p) * x
+                curvature += p * (1 - p) * x * x
+            step = gradient / curvature
+            b += step
+            if abs(step) < 1e-12:
+                break
+        return a, b
     for _ in range(_NEWTON_STEPS):
         ga = -(a - prior_mean[0]) * precision
         gb = -(b - prior_mean[1]) * precision
@@ -154,10 +180,14 @@ class AnswerSignalArm:
     calibrated_uncertainty = False
     uses_answer_signals = True
 
-    def __init__(self, *, signal: str, base_name: str | None = None, **base_inputs) -> None:
+    def __init__(self, *, signal: str, base_name: str | None = None, control: bool = False,
+                 **base_inputs) -> None:
         if signal not in SIGNALS:
             raise ValueError(f"unknown answer signal: {signal}")
+        if control and base_name is None:
+            raise ValueError("a control arm recalibrates a base arm")
         self.signal = signal
+        self.control = control
         self.base_name = base_name
         self._base_inputs = dict(base_inputs)
         self.base = self._make_base()
@@ -165,10 +195,13 @@ class AnswerSignalArm:
             raise ValueError("answer-signal arms stack only on attempt-level arms")
         if self.base is not None and getattr(self.base, "uses_answer_signals", False):
             raise ValueError("answer-signal arms do not stack on each other")
-        self.name = stacked_name(base_name, signal) if base_name else ARM_NAMES[signal]
+        self.name = stacked_name(base_name, signal, control=control) if base_name else ARM_NAMES[signal]
         # The confidence-alone arm starts at the duel's own mapping; every other
         # arm starts neutral (hedging alone at 1/2, a stack at its base).
         self.prior_mean = (0.0, 1.0) if signal == CONFIDENCE and base_name is None else (0.0, 0.0)
+        # Alone, an arm needs an intercept and a slope; a stack fits only the
+        # signal's slope, so its gain over the base is the signal's.
+        self.fit_intercept = base_name is None
         self.model = getattr(self.base, "model", "not_used") if self.base is not None else "not_used"
         self.signal_source = SIGNAL_SOURCES[signal]
         # Mirrors so the shared registry contract reads the base's behaviour.
@@ -177,6 +210,7 @@ class AnswerSignalArm:
         self.version_hash = _hash({
             "implementation": "answer-signal-arm-v1", "signal": self.signal, "fit": FIT,
             "prior_mean": list(self.prior_mean), "prior_variance": 1.0,
+            "fit_intercept": self.fit_intercept, "control": self.control,
             "mapping": {str(k): v for k, v in ANSWER_CONFIDENCE_PROBABILITY.items()},
             "base": getattr(self.base, "version_hash", None),
         })
@@ -196,6 +230,10 @@ class AnswerSignalArm:
     def covers_answer(self, signals: AnswerSignals | None) -> bool:
         return signal_feature(self.signal, signals) is not None
 
+    def _covariate(self, signals: AnswerSignals | None) -> float | None:
+        x = signal_feature(self.signal, signals)
+        return None if x is None else (1.0 if self.control else x)
+
     def _offset(self, features: ItemFeatures) -> float:
         return _logit(self.base.predict(features)) if self.base is not None else 0.0
 
@@ -213,7 +251,7 @@ class AnswerSignalArm:
     def predict_answer(self, features: ItemFeatures, signals: AnswerSignals | None) -> float:
         if not isinstance(features, ItemFeatures):
             raise TypeError("predict requires outcome-free ItemFeatures")
-        x = signal_feature(self.signal, signals)
+        x = self._covariate(signals)
         if x is None:
             raise ValueError(f"{self.name} has no {self.signal} signal for this attempt")
         a, b = self.coefficients
@@ -226,7 +264,7 @@ class AnswerSignalArm:
             isinstance(row, AttemptRow) and not isinstance(row, (FacetRow, SignalRow))
             and _ability_row(row)
         ):
-            x = signal_feature(self.signal, row.answer_signals)
+            x = self._covariate(row.answer_signals)
             if x is not None:
                 # The base's prediction for this row, read before the base
                 # learns it: the same value the harness scored.
@@ -240,6 +278,7 @@ class AnswerSignalArm:
         self._outcomes.append(float(row.outcome))
         self.coefficients = fit_logistic(
             self._features, self._offsets, self._outcomes, prior_mean=self.prior_mean,
+            intercept=self.fit_intercept,
         )
 
     def rebuild(self, rows: Iterable) -> None:
@@ -256,10 +295,10 @@ class AnswerSignalArm:
         return base + b"|" + own
 
 
-def stacked_arm(base: str, signal: str, **inputs) -> AnswerSignalArm:
-    """``<base>+answer_<signal>`` for any registered attempt-level arm."""
+def stacked_arm(base: str, signal: str, *, control: bool = False, **inputs) -> AnswerSignalArm:
+    """``<base>+answer_<signal>`` (or its ``:control``) for any attempt-level arm."""
 
-    return AnswerSignalArm(signal=signal, base_name=base, **inputs)
+    return AnswerSignalArm(signal=signal, base_name=base, control=control, **inputs)
 
 
 def _register() -> None:
@@ -273,20 +312,26 @@ def _register() -> None:
         )
     for base in DEFAULT_STACK_BASES:
         for signal in SIGNALS:
-            register_predictor(
-                stacked_name(base, signal),
-                lambda base=base, signal=signal, **inputs: stacked_arm(base, signal, **inputs),
-                inputs=_EKF_INPUTS, groups=("answer_signals",),
-            )
+            for control in (False, True):
+                register_predictor(
+                    stacked_name(base, signal, control=control),
+                    lambda base=base, signal=signal, control=control, **inputs: stacked_arm(
+                        base, signal, control=control, **inputs),
+                    inputs=_EKF_INPUTS, groups=("answer_signals",),
+                )
 
 
 def default_pairs() -> tuple[tuple[str, str], ...]:
-    """(base, base+signal) for every registered stack: the duel's pairs."""
+    """The duel's pairs for every registered stack: (base, stack), what the
+    stack adds over its base; and (control, stack), what the signal adds over
+    recalibrating the base on the same attempts."""
 
-    return tuple(
-        (base, stacked_name(base, signal))
-        for base in DEFAULT_STACK_BASES for signal in SIGNALS
-    )
+    pairs: list[tuple[str, str]] = []
+    for base in DEFAULT_STACK_BASES:
+        for signal in SIGNALS:
+            stack = stacked_name(base, signal)
+            pairs += [(base, stack), (stacked_name(base, signal, control=True), stack)]
+    return tuple(pairs)
 
 
 _register()
@@ -296,6 +341,7 @@ __all__ = [
     "ARM_NAMES",
     "AnswerSignalArm",
     "CONFIDENCE",
+    "CONTROL_SUFFIX",
     "DEFAULT_STACK_BASES",
     "FIT",
     "HEDGING",

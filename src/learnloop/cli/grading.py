@@ -130,4 +130,68 @@ def grading_receipt(
     }
     typer.echo(_dump(receipt))
 
+
+@grading_app.command("hardcases")
+def grading_hardcases(
+    vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts and checkpoints are written there).")],
+    route: Annotated[list[str], typer.Option("--route", help="A configured [ai.providers.*] profile to score as a judge; repeatable. Every ordered pair is also scored as the gate (grader route, checker route).")],
+    cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v1.json).")] = None,
+    output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Report destination.")] = Path("fixtures-local/reports/grading-hardcases"),
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls, tokens and cost; build no client and send nothing.")] = False,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend (reservations: each request reserves its full output budget).")] = 3.0,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 200,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Cap on metered tokens (input plus reserved output).")] = 2_000_000,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Counted retries of a failed transport request.")] = 4,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="One USD rate for input and output tokens (an upper bound). Metered routes need a price.")] = None,
+    input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0)] = None,
+    output_price_per_million: Annotated[float | None, typer.Option("--output-price-per-million", min=0)] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Wrong-rejection and wrong-acceptance rates per judge route on hard cases.
+
+    The gold set holds valid alternative proofs, correct answers with flawed
+    reasoning and wrong proofs that look right (linear algebra, probability).
+    Each --route is scored as the blind grader, the mvp-0.15 route checker and
+    the proof-like item reader, with the production prompts; every ordered
+    pair of routes is also scored as the live gate. Run it on a backup-API
+    copy, --dry-run first. Spend is admitted before every request.
+    """
+
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.cli.embeddings import _cancellation
+    from learnloop.diagnosis.grading_hardcases import run_hardcases, write_report
+    from learnloop.vault.loader import load_vault
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml; use a backup-API copy.")
+        # A dry run reads only the vault TOML; a paid run loads like the app,
+        # which reads its own keys.
+        loaded = load_vault(vault, load_environment=not dry_run)
+        caps = SpendCaps(
+            max_candidates=0, max_pairs=0, max_retries=max_retries, max_calls=max_calls,
+            max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
+        with _cancellation() as stop:
+            report = run_hardcases(
+                loaded, routes=route, caps=caps, cases_path=cases, dry_run=dry_run,
+                price_per_million=price_per_million, input_price_per_million=input_price_per_million,
+                output_price_per_million=output_price_per_million, cancelled=stop.is_set,
+            )
+        if report["status"] == "complete":
+            report["reports"] = write_report(report, output_dir)
+    except (ValueError, OSError) as exc:
+        typer.echo(_dump({"status": "invalid", "reason": str(exc)}))
+        raise typer.Exit(code=1) from exc
+    except RuntimeError as exc:  # PFUnavailable, AIProviderUnavailable: a route cannot serve
+        typer.echo(_dump({"status": "unavailable", "reason": str(exc), "error_type": type(exc).__name__}))
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(_dump(report))
+    else:
+        summary = {key: report.get(key) for key in ("status", "reason", "cases", "estimate", "reports") if key in report}
+        typer.echo(_dump(summary))
+    if report["status"] not in {"complete", "dry_run"}:
+        raise typer.Exit(code=1)
+
 __all__ = [name for name in globals() if not name.startswith("__")]

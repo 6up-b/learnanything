@@ -74,6 +74,12 @@ def test_the_map_fit_learns_an_overconfident_learner():
     assert 0.4 < p < 0.7
     a, b = fit_logistic([], [], [], prior_mean=(0.0, 1.0))
     assert (a, b) == (0.0, 1.0)
+    # A stack fits one parameter, the signal's slope: its intercept stays 0, so
+    # a gain over its base is the signal's, never a recalibrated base.
+    stack = stacked_arm("mastery_ekf", "confidence")
+    for r in rows:
+        stack.observe(r)
+    assert stack.coefficients[0] == 0.0 and stack.coefficients[1] != 0.0
 
 
 def test_a_prediction_never_sees_its_own_outcome():
@@ -224,3 +230,20 @@ def test_the_loader_reads_the_tap_and_the_graders_tone_reading(tmp_path):
     assert signals.confidence == 2
     assert signals.hedged_share == 1.0 and signals.hedging_read >= 1
     assert counts["confidence_present"] >= 1 and counts["confidence_levels"]["2"] >= 1
+
+
+def test_a_control_twin_separates_the_signal_from_recalibration():
+    """A tap that never varies carries nothing beyond recalibrating the base:
+    the stack and its control (same rows, constant covariate) score alike, while
+    both may beat a miscalibrated base."""
+
+    rows = [row(i, outcome=float(i % 5 != 0), confidence=5) for i in range(40)]
+    stack, control = "mastery_ekf+answer_confidence", "mastery_ekf+answer_confidence:control"
+    report = evaluate(rows, arms=["mastery_ekf", stack, control], bootstrap_samples=10,
+                      pairwise=[("mastery_ekf", stack), (control, stack)])
+    signal_only = report["report1"]["pairwise"][f"{stack} vs {control}"]["log_loss_improvement"]
+    # No gain beyond recalibration (the two differ only in prior scale).
+    assert signal_only["n"] == 40 and signal_only["mean"] < 0.01
+    assert ("mastery_ekf+answer_confidence:control", stack) in default_pairs()
+    with pytest.raises(ValueError, match="calibrated uncertainty"):
+        validate_active_predictor(control)
