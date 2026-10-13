@@ -410,8 +410,10 @@ class PlanStore:
                 raise LockTimeout(f"Timed out waiting for {path.name}")
             return min(_LOCK_POLL_SECONDS, remaining)
 
-        while not thread_lock.acquire(timeout=wait_or_give_up()):
-            pass
+        # An uncontended lock is always taken, even with no time or a cancellation pending.
+        acquired = thread_lock.acquire(blocking=False)
+        while not acquired:
+            acquired = thread_lock.acquire(timeout=wait_or_give_up())
         try:
             handle = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
             try:

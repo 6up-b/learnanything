@@ -536,3 +536,34 @@ def test_credential_files_are_durable_after_replace_and_delete(monkeypatch, isol
     events.clear()
     store.update_state(force_refresh=True)
     assert ("fsync", "dir") in events[events.index(("replace", "state.json")) + 1:], events
+
+
+def test_the_store_lock_gives_up_on_timeout_or_cancellation_but_not_when_free():
+    from learnloop.ai.chatgpt_plan.store import LockCancelled, LockTimeout
+
+    store = PlanStore()
+    with store.lock("refresh.lock", timeout=0, cancelled=lambda: True):
+        pass  # free: taken at once
+    held, release = threading.Event(), threading.Event()
+
+    def hold():
+        with store.lock("refresh.lock"):
+            held.set()
+            release.wait(10)
+
+    holder = threading.Thread(target=hold, daemon=True)
+    holder.start()
+    assert held.wait(5)
+    try:
+        with pytest.raises(LockTimeout):
+            with store.lock("refresh.lock", timeout=0.1):
+                pass
+        stop = threading.Event()
+        threading.Timer(0.1, stop.set).start()
+        with pytest.raises(LockCancelled):
+            with store.lock("refresh.lock", timeout=10, cancelled=stop.is_set):
+                pass
+    finally:
+        release.set()
+        holder.join(5)
+
