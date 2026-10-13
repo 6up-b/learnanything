@@ -3,8 +3,8 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
-source_commit_timestamp: "2026-10-13T17:56:23-04:00"
+source_commit: "8c3cfe68ac65cac8120739b37fbde26d8d4b4508"
+source_commit_timestamp: "2026-10-13T18:15:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_doctor.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_voi_forecasts.py`
+- `tests/test_voi_merge_composition.py`
 - `tests/test_forecast_ledger.py`
 - `tests/test_sidecar_goals.py`
 

@@ -3,8 +3,8 @@ title: "followup_value_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
-source_commit_timestamp: "2026-10-13T17:56:23-04:00"
+source_commit: "8c3cfe68ac65cac8120739b37fbde26d8d4b4508"
+source_commit_timestamp: "2026-10-13T18:15:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_value_decisions"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/201_followup_value_decisions.sql"
   - "src/learnloop/db/stores/followup_value.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
   - "src/learnloop/voi_stopping_upgrade.py"
 tags:
@@ -96,6 +97,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/followup_value.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 
 ### Direct SQL writers
 
