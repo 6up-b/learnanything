@@ -211,16 +211,17 @@ class _MeteredProbe:
         return usage
 
 
-def _two_metered(tmp_path, server, monkeypatch):
+def _two_metered(tmp_path, server, monkeypatch, extra=("openrouter_b",)):
     import types
 
     vault = _vault(tmp_path, server, {})
     path = vault / "learnloop.toml"
     document = tomlkit.parse(path.read_text(encoding="utf-8"))
-    second = tomlkit.table()
-    for key, value in {"type": "openrouter", "model": "metered/second", "api_key_env": "OPENROUTER_API_KEY"}.items():
-        second[key] = value
-    document["ai"]["providers"]["openrouter_b"] = second
+    for name in extra:
+        profile = tomlkit.table()
+        for key, value in {"type": "openrouter", "model": f"metered/{name}", "api_key_env": "OPENROUTER_API_KEY"}.items():
+            profile[key] = value
+        document["ai"]["providers"][name] = profile
     path.write_text(tomlkit.dumps(document), encoding="utf-8")
     clients: dict[str, _MeteredProbe] = {}
 
@@ -278,3 +279,29 @@ def test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent(ser
     assert clients["openrouter_b"].calls == 0
     total = first["charged"]["estimated_usd"] + (second["charged"]["estimated_usd"] or 0)
     assert total <= 0.095
+
+
+def test_latency_admits_a_metered_plan_exactly_at_the_shared_cap(server, tmp_path, monkeypatch):
+    # Review F8: three metered providers at $0.464 each total exactly $1.392.
+    # A float sum gives 1.3920000000000001 and refused the plan; the shared
+    # SpendBudget sums in decimal and admits the same three calls.
+    vault, clients = _two_metered(tmp_path, server, monkeypatch, extra=("openrouter_b", "openrouter_c"))
+    args = ["ai", "latency", "--vault", str(vault), "--provider", "openrouter", "--provider", "openrouter_b",
+            "--provider", "openrouter_c", "--runs", "1", "--price-per-million", "1000", "--max-cost-usd", "1.392",
+            "--json"]
+    dry = runner.invoke(app, [*args, "--dry-run"])
+    assert dry.exit_code == 0, dry.output
+    report = json.loads(dry.stdout)
+    assert report["admissible"] is True and report["reason"] is None
+    assert report["metered_estimated_usd"] == 1.392
+    run = runner.invoke(app, args)
+    assert run.exit_code == 0, run.output
+    payload = json.loads(run.stdout)
+    assert [row["ok_calls"] for row in payload["results"]] == [1, 1, 1]
+    assert sum(client.calls for client in clients.values()) == 3
+    assert payload["metered_charged_usd"] == 1.392
+
+    over = runner.invoke(app, [*args[:-3], "--max-cost-usd", "1.391", "--json"])
+    assert over.exit_code == 1, over.output
+    assert json.loads(over.stdout)["error"] == "over_budget"
+    assert sum(client.calls for client in clients.values()) == 3  # the refused plan made no call
