@@ -97,6 +97,9 @@ class ReaderAskInput(ParamsModel):
     # RW1a branches: the parent's ``readerAnswerEventId``; omitted or null
     # starts a new root. Refused while reader_inquiry.enabled is off.
     parent_exchange_id: str | None = None
+    # RW1a: the source's own wording when the learner edited the capture
+    # (selection_quote is then theirs). Ignored while reader_inquiry is off.
+    selection_source_quote: str | None = None
     cold_active: bool = False
     cold_attempt_id: str | None = None
 
@@ -128,6 +131,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             selection_span_ids=params.selection_span_ids,
             selection_quote_md=params.selection_quote,
             parent_exchange_id=params.parent_exchange_id,
+            selection_source_quote_md=params.selection_source_quote,
             cold_active=params.cold_active,
             cold_attempt_id=params.cold_attempt_id,
             # Slice 2 T6: a labelled nearest-LO suggestion for an unmapped span.
@@ -1334,6 +1338,9 @@ def _authored_question_payload(row: dict[str, Any]) -> dict[str, Any]:
             "inquiry_root_event_id": row.get("inquiry_root_event_id"),
             "response_md": row.get("response_md"),
             "self_check": row.get("self_check"),
+            # The route the check came from, for the Reader's funnel (F8).
+            "model": row.get("model"),
+            "prompt_version": row.get("prompt_version"),
         })
     return payload
 
@@ -1868,11 +1875,36 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
 class ReaderInquiryQuestionInput(ParamsModel):
     extraction_id: str
     exchange_id: str
+    # The batch reader.reconnect_answer queued: its job's state rides along,
+    # so a failed, capped or unreachable check is said in place (F4).
+    batch_id: str | None = None
+
+
+def _inquiry_check_job(repository, batch_id: str, root_event_id: str) -> dict[str, Any] | None:
+    """The state of the quick-check job ``batch_id`` -- only when it is this
+    inquiry's (any other batch reads as None)."""
+
+    jobs = repository.ingest_jobs_for_batch(batch_id)
+    job = jobs[0] if jobs else None
+    if (
+        job is None
+        or job.get("job_type") != "reader_quick_check"
+        or (job.get("payload") or {}).get("inquiry_root_event_id") != root_event_id
+    ):
+        return None
+    error = job.get("error") or {}
+    return {
+        "status": job.get("status"),
+        "error_code": error.get("code") if isinstance(error, dict) else None,
+        "message": (error.get("message") if isinstance(error, dict) else None)
+        if job.get("status") in ("failed", "cancelled") else None,
+    }
 
 
 @method("reader.inquiry_question", ReaderInquiryQuestionInput)
 def reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionInput) -> dict[str, Any]:
-    """The inquiry's passage-scoped quick check, once authored (a cheap local read)."""
+    """The inquiry's passage-scoped quick check, once authored (a cheap local
+    read), and the state of the job writing it when ``batchId`` names one."""
 
     vault, repository = _require_inquiry(ctx)
     try:
@@ -1884,7 +1916,10 @@ def reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionIn
     row = repository.inquiry_reader_authored_question(
         inquiry_root_event_id=root["event_id"], prompt_version=RQC.INQUIRY_PROMPT_VERSION
     )
-    return versioned({"question": _inquiry_question_payload(vault, repository, row) if row else None})
+    response: dict[str, Any] = {"question": _inquiry_question_payload(vault, repository, row) if row else None}
+    if params.batch_id:
+        response["job"] = _inquiry_check_job(repository, params.batch_id, root["event_id"])
+    return versioned(response)
 
 
 class ReaderInquiryQuestionActionInput(ParamsModel):

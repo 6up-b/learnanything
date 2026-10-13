@@ -963,12 +963,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a adds [reader_inquiry] enabled = true (modelled
     # default, left out of the decision-only template): the kill switch of
     # branching Ask, inquiry status, the detour strip, the reconnect line and
-    # its passage-scoped quick check, and the Reader's funnel activity. Content
+    # its passage-scoped quick check, and the Reader's funnel activity, plus
+    # the passage check's spend caps (max_checks_per_day 100,
+    # max_usd_per_check 0.25, no metered price; Codex review F2). Content
     # and display only: no scoring, scheduling, projection or serving change,
     # so no successor; it acts at every version. Every snapshot was recomputed
     # with defaults_fingerprint_for_version (each moves only because the
     # effective config gains the section).
-    "mvp-0.9": "3f0bee7e96d4252b49b3494262b83bca14add63e60877b0460fb5f52bbdee2e5",
+    "mvp-0.9": "032c4224662944ba1d7dc1e701fe63e63ff6c4b111f6d6445eebe1cdad0d6408",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -988,7 +990,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.10": "c9f86dfa85c720b0b571e6681d9b22453155bfc0ef6b42039c4584b2d6b48070",
+    "mvp-0.10": "4582b8f4ffb9798e85323b0815497dc17e3f754f837bf921c7b94803eb71e979",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1016,7 +1018,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.11": "3d4e22c7fc6a406f7a834b809210e21d9967b656a417e950801b4b5d319290e0",
+    "mvp-0.11": "a045836a54418f89c444553bf906ba5d5ab4dd8b37c09610e32b06ca345edf0c",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1038,7 +1040,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.12": "def89252cb1282b675e3cc256b655c5e2546a0ef04f1c55e5a49ae98a49ba053",
+    "mvp-0.12": "da34bfe4729beeeb083efd6b99fb0fe593cf083119dc4404a129fa5440851726",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1055,7 +1057,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.13": "93104aed64af3e014239ffb03990432149c81b60859b1b5d8cf135d138f3e944",
+    "mvp-0.13": "31eee0db16d5e3cd06cd7dabf195dbb9f7472be1f2376957f3d7b9de0a227694",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1071,7 +1073,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.14": "0e88879021ea8d333660a157ee63d7a0946989306e38b193842edac7e63768e1",
+    "mvp-0.14": "33ee3f39c6b57af30067b4fa431ac4de6cf59a101781263d1445c476fd0915e7",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1085,7 +1087,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.15": "d76b620598dce0292cb803d9668047393b222af9f78913a185f29e2d909e113b",
+    "mvp-0.15": "3b2f0fed7abb3443a5d33a11477fd35da0f0bdad4b9096f2a341f349dde737d6",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1105,7 +1107,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.16": "9365d5c6e03b49e901ccf1a4004f4e8ab84d1401445cbdd639d81471f4477b74",
+    "mvp-0.16": "d38c516b00aaafc2ea2faf1d1899a96db844a29935ad74beec0a5b9311d5400a",
 }
 
 

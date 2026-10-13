@@ -874,6 +874,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learner-text gap judge pairs per text / turn deadline / per-text call and dollar caps / the live "
         "path's daily call cap / owner price for metered routes; spend and latency bounds, no measurement "
         "authority."),
+    # Reader workbench RW1a: the reconnect line's passage check (formative
+    # questions only; the learner's self-checks go to judgment_ledger, never
+    # evidence).
+    _ConfigRule(_exact(
+        "reader_inquiry.max_checks_per_day",
+        "reader_inquiry.max_usd_per_check",
+        "reader_inquiry.metered_price_per_million",
+    ), "structural", "operational",
+        "passage quick checks per UTC day / per-check dollar cap on a metered route / owner price for "
+        "metered routes; spend bounds, no measurement authority."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "

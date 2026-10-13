@@ -111,6 +111,19 @@ class IngestQueueStoreMixin:
             ).fetchone()
         return _decode_ingest_batch(row) if row is not None else None
 
+    def live_ingest_batch_for_subject(self, *, workflow_type: str, subject_id: str) -> dict[str, Any] | None:
+        """The newest batch of ``workflow_type`` for ``subject_id`` that has not
+        finished (queued, running, waiting for input or blocked), if any."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM ingest_batches WHERE workflow_type = ? AND subject_id = ? "
+                "AND status IN ('queued', 'running', 'waiting_for_input', 'blocked') "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (workflow_type, subject_id),
+            ).fetchone()
+        return _decode_ingest_batch(row) if row is not None else None
+
     def list_ingest_batches(self, limit: int | None = None) -> list[dict[str, Any]]:
         query = "SELECT * FROM ingest_batches ORDER BY created_at DESC, id DESC"
         params: tuple[Any, ...] = ()

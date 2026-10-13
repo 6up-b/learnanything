@@ -10,8 +10,9 @@ workbench spec and the UX document's §9.2 ask:
 * **inquiry**: inquiries opened, branch depth and breadth, resolved, dismissed,
   reopened, still open after 7 days, reconnect answers, the passage-scoped
   quick checks and their self-checks;
-* **detours**: the return rate (detours that end back at their origin within
-  the visit) and the detour cost (minutes away, model wait separated);
+* **detours**: the return rate (detours opened in the window that end back at
+  their origin, each counted once however often it is walked back to) and the
+  detour cost (minutes away, model wait separated);
 * **proactive load**: LearnLoop-started elements per reading hour;
 * **waiting behaviour**: the share of model waits during which the learner
   scrolled, selected or typed;
@@ -203,8 +204,20 @@ def build_reader_report(
     reconnects = Counter(str(e["payload"].get("answer")) for e in actions("reconnect_answered"))
 
     # -- detours ----------------------------------------------------------------
-    opened = actions("detour_opened")
-    returned = [r for r in actions("detour_returned") if r["payload"].get("returned_to_origin") is True]
+    # A detour is counted once: its first opening in the window, and its first
+    # return to the origin. A return is joined to an opening in the window by
+    # its detour_id; one whose opening lies before the window (or is unknown)
+    # is not counted, so the return rate is at most 1.
+    opened_by_id: dict[str, dict[str, Any]] = {}
+    for d in actions("detour_opened"):
+        opened_by_id.setdefault(str(d["payload"].get("detour_id") or f"unnamed:{len(opened_by_id)}"), d)
+    opened = list(opened_by_id.values())
+    returned_by_id: dict[str, dict[str, Any]] = {}
+    for r in actions("detour_returned"):
+        detour_id = str(r["payload"].get("detour_id") or "")
+        if r["payload"].get("returned_to_origin") is True and detour_id in opened_by_id:
+            returned_by_id.setdefault(detour_id, r)
+    returned = list(returned_by_id.values())
     by_kind: dict[str, dict[str, int]] = {}
     for d in opened:
         kind = str(d["payload"].get("detour_kind") or "unknown")

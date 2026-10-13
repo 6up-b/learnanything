@@ -165,3 +165,81 @@ def test_transcript_inquiries_count_like_any_other(tmp_path):
            span_id=fixture["span_id"], question_md="Why weighted?", clock=_at(1))
     report = build_reader_report(repo.sqlite_path, now=NOW + timedelta(minutes=5))
     assert report["inquiry"]["opened"] == 1
+
+
+def _detour(minutes, event, detour_id, kind="branch", **payload):
+    return {"kind": "reader_action_invoked", "event": event,
+            "payload": {"visit_id": "v1", "detour_id": detour_id, "detour_kind": kind, **payload}}
+
+
+def test_a_detour_returned_to_again_counts_once_so_the_rate_never_exceeds_one(tmp_path):
+    """Codex review F7: returning, walking forward, and returning again (or a
+    client that reports the same return twice) is one completed detour."""
+    _vault, repo = _setup(tmp_path)
+    _log(repo, 1, _detour(1, "detour_opened", "d1"), _detour(1, "detour_opened", "d2", "peek"))
+    for minutes in (2, 4, 6):
+        _log(repo, minutes, _detour(minutes, "detour_returned", "d1", returned_to_origin=True, seconds_away=60),
+             _detour(minutes, "detour_returned", "d2", "peek", returned_to_origin=True, seconds_away=60))
+    detours = build_reader_report(repo.sqlite_path, now=NOW + timedelta(minutes=30))["detours"]
+    assert (detours["opened"], detours["returned_to_origin"]) == (2, 2)
+    assert detours["return_rate"] == {"count": 2, "of": 2, "share": 1.0}
+    assert detours["by_kind"] == {"branch": {"opened": 1, "returned": 1}, "peek": {"opened": 1, "returned": 1}}
+    assert detours["cost_minutes"]["n"] == 2
+
+
+def test_a_return_whose_opening_is_outside_the_window_is_not_counted(tmp_path):
+    """The window counts detours opened in it, and their first return."""
+    _vault, repo = _setup(tmp_path)
+    _log(repo, 1, _detour(1, "detour_opened", "early"))
+    _log(repo, 20, _detour(20, "detour_opened", "late"))
+    _log(repo, 25, _detour(25, "detour_returned", "early", returned_to_origin=True, seconds_away=1440),
+         _detour(25, "detour_returned", "late", returned_to_origin=True, seconds_away=300),
+         _detour(25, "detour_returned", "unknown", returned_to_origin=True, seconds_away=5))
+    detours = build_reader_report(repo.sqlite_path, since=(NOW + timedelta(minutes=10)).isoformat(),
+                                  now=NOW + timedelta(minutes=30))["detours"]
+    assert detours["return_rate"] == {"count": 1, "of": 1, "share": 1.0}
+    assert detours["cost_minutes"]["p50"] == 5.0
+
+
+def test_the_passage_quick_check_is_a_model_backed_action_in_the_funnel(tmp_path, monkeypatch):
+    """Codex review F8: the events the Reader records for a reconnect quick
+    check (sent through reader.log_activity, as the screen sends them) land in
+    the funnel with its route, failure reasons and cancellations."""
+    from types import SimpleNamespace
+
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+    from learnloop_sidecar.handlers import reader
+    from tests.test_sidecar_reader import _init, _rpc, _setup as _rpc_setup
+
+    root_dir = _rpc_setup(tmp_path)
+    monkeypatch.setattr(reader, "ready_tutor_qa_provider", lambda vault: ("stub", SimpleNamespace(ready=True), RD.StubReaderClient()))
+    visit = {"visitId": "v9", "extractionId": "ext1", "sourceKind": "pdf"}
+    events = [
+        {"kind": "reader_job_queued", "payload": {**visit, "jobId": "batch_1", "jobKind": "quick_check"}},
+        {"kind": "reader_job_completed", "payload": {
+            **visit, "jobId": "batch_1", "jobKind": "quick_check", "status": "completed", "latencyMs": 21000,
+            "modelWaitMs": 21000, "model": "gpt-5.6-sol", "promptVersion": RQC.INQUIRY_PROMPT_VERSION,
+            "activityDuringWait": {"scrolled": True}}},
+        {"kind": "reader_job_queued", "payload": {**visit, "jobId": "batch_2", "jobKind": "quick_check"}},
+        {"kind": "reader_job_completed", "payload": {
+            **visit, "jobId": "batch_2", "jobKind": "quick_check", "status": "failed", "failureReason": "capped",
+            "latencyMs": 3000, "modelWaitMs": 3000, "activityDuringWait": {}}},
+        {"kind": "reader_job_queued", "payload": {**visit, "jobId": "batch_3", "jobKind": "quick_check"}},
+        {"kind": "reader_job_completed", "payload": {
+            **visit, "jobId": "batch_3", "jobKind": "quick_check", "status": "cancelled", "latencyMs": 2000,
+            "modelWaitMs": 2000, "activityDuringWait": {"typed": True}}},
+    ]
+    recorded = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.log_activity",
+                                       "params": {"events": events}}])[1]["result"]
+    assert recorded["recorded"] == 6
+    loaded = load_vault(root_dir)
+    report = build_reader_report(Repository(VaultPaths(loaded.root, loaded.config).sqlite_path).sqlite_path)
+    check = report["selection_to_reading"]["model_backed"]["quick_check"]
+    assert (check["queued"], check["completed"], check["failed"], check["cancelled"]) == (3, 1, 1, 1)
+    assert check["failure_reasons"] == {"capped": 1}
+    assert check["latency_ms"]["p50"] == 21000
+    routes = {(r["job_kind"], r["model"], r["prompt_version"]) for r in report["routes"]}
+    assert ("quick_check", "gpt-5.6-sol", RQC.INQUIRY_PROMPT_VERSION) in routes
+    assert report["waiting"] == {"count": 2, "of": 3, "share": 0.6667}

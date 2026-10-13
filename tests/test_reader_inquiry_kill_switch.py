@@ -169,5 +169,6 @@ def test_rpcs_on_add_only_the_branch_fields(tmp_path, monkeypatch):
     assert answer["manifest"]["version"] == "p3-reader-branches-v1"
     (saved,) = history["exchanges"]
     assert set(saved) - MAIN_HISTORY_KEYS == {
-        "parentExchangeId", "selectionSpanIds", "selectionQuoteMd", "questionEventId", "resolution",
+        "parentExchangeId", "selectionSpanIds", "selectionQuoteMd", "selectionSourceQuoteMd",
+        "questionEventId", "resolution",
     }

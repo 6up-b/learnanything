@@ -489,6 +489,7 @@ def ask(
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
     parent_exchange_id: str | None = None,
+    selection_source_quote_md: str | None = None,
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
     learning_object_suggester: Any | None = None,
@@ -511,6 +512,12 @@ def ask(
     multi-block capture selection: ``span_id`` stays the primary grounding
     block, the extra spans and the exact quote widen the tutor's citable
     context to everything that was actually selected.
+
+    ``selection_source_quote_md`` (RW1a, branches only): when the learner
+    edited the captured text, ``selection_quote_md`` is their wording and this
+    is the source's own; both are kept on the exchange (and inherited by its
+    follow-ups) so history never presents the learner's words as the book's.
+    The tutor still reads ``selection_quote_md``, as before.
 
     The learner question is elicitation about the source, never ability evidence
     (the reader context attaches no facets). On answer commit the revealed cues
@@ -547,6 +554,7 @@ def ask(
             parent = ancestors[-1]
             selection_span_ids = parent["selection_span_ids"]
             selection_quote_md = parent["selection_quote_md"]
+            selection_source_quote_md = parent.get("selection_source_quote_md")
         thread = [
             {"question_md": e["question_md"], "answer_md": e["answer_md"], "question_type": "other"}
             for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
@@ -661,6 +669,10 @@ def ask(
     submitted_payload: dict[str, Any] = {"question_event_id": result["event_id"]}
     if branches:
         submitted_payload["parent_exchange_id"] = parent_exchange_id
+        if selection_source_quote_md:
+            # The capture was edited: the source's own wording, kept apart
+            # from the learner's (which is the manifest's selection quote).
+            submitted_payload["selection_source_quote_md"] = selection_source_quote_md
     submitted_event_id = log_interaction_event(
         repository,
         kind="reader_answer_submitted",
@@ -779,6 +791,9 @@ def ask_history(
                 "parent_exchange_id": payload.get("parent_exchange_id"),
                 "selection_span_ids": list(selection.get("span_ids") or []),
                 "selection_quote_md": selection.get("quote_md"),
+                # Non-null only when the learner edited the capture: then
+                # selection_quote_md is their wording and this the source's.
+                "selection_source_quote_md": payload.get("selection_source_quote_md") or None,
                 "question_event_id": str(question_event_id) if question_event_id else None,
                 "resolution": resolutions.get(str(question_event_id)) if question_event_id else None,
             })

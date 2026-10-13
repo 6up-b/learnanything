@@ -19,10 +19,22 @@ mints a learner-authority card with ``codex_proposal`` provenance and
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
+from learnloop.ai.spend import (
+    SpendBudget,
+    SpendCaps,
+    SpendEstimate,
+    SpendLimitExceeded,
+    is_subscription_transport,
+    subscription_usage_estimate,
+)
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
+from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.reader.ai_contracts import (
     READING_PASSAGE_CHECK_PROMPT_VERSION,
     ReadingQuickCheck,
@@ -30,8 +42,17 @@ from learnloop.reader.ai_contracts import (
     reading_passage_check_prompt,
     reading_quick_check_prompt,
 )
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.judgment_claims import (
+    DONE,
+    HELD,
+    claim_work,
+    complete_claim,
+    holds_claim,
+    release_claim,
+)
+from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
 from learnloop.reader.reader_guidance import extraction_sections
@@ -55,9 +76,95 @@ MAX_PASSAGE_CHARS = 8_000
 INQUIRY_ACTIONS = ("answered", "self_checked", "dismissed")
 SELF_CHECKS = ("matches", "partly", "no")
 
+# The passage check's paid call (W10; Codex review F1-F3). Its receipts are
+# owned by this kind (the daily count reads them); its reuse key is claimed
+# durably before the call (judgment_work_claims, the shared work-claim table)
+# so two workers never pay for, or land, two checks for one inquiry.
+PASSAGE_CHECK_RECEIPT_OWNER = "reader_inquiry_check"
+INQUIRY_CLAIM_TASK = "reader_inquiry_check"
+INQUIRY_CLAIM_PRODUCER = "reader_quick_check"
+# Longer than any one call (the Codex turn timeout is 8 minutes): a live
+# worker is never taken over; a crashed one is after this long, or at once by
+# its own job when the runner re-runs it.
+INQUIRY_CLAIM_LEASE_SECONDS = 30 * 60
+# Prompt-size bound of one passage check (the passage is at most
+# MAX_PASSAGE_CHARS, about 2,000 tokens, plus the envelope).
+PASSAGE_CHECK_PROMPT_TOKENS = 8_000
+# The learner's own verdict after comparing answers (W10: every learner-card
+# verdict appends to judgment_ledger).
+SELF_CHECK_TASK = "reader_quick_check_self_check"
+
 
 class ReaderQuickCheckError(ValueError):
     """Domain error for the reader quick-check producer."""
+
+
+class PassageCheckRefused(ReaderQuickCheckError):
+    """The spend framework refused the passage check before anything was sent.
+
+    ``reason`` is ``capped`` (today's checks are used) or ``spend_refused``
+    (a metered route with no owner price, or an estimate over the per-check
+    cap)."""
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
+class InquiryCheckHeld(ReaderQuickCheckError):
+    """Another worker holds this inquiry's claim: no call was made."""
+
+
+@dataclass(frozen=True)
+class PassageCheckSpend:
+    """Admission settings of one passage check (``[reader_inquiry]``, W10).
+
+    ``max_checks_per_day`` counts the check's root receipts since UTC midnight
+    (failed calls included; None: no daily count). A metered route is priced
+    at ``price_per_million`` (None: refused before sending) and held to
+    ``max_usd_per_check`` and to one admitted request per physical request,
+    its output limited to ``output_tokens``. A subscription route (Codex, the
+    ChatGPT plan) is estimated_only, with no token, dollar or physical-request
+    bound."""
+
+    max_checks_per_day: int | None = 100
+    max_usd_per_check: float = 0.25
+    price_per_million: float | None = None
+    output_tokens: int = DEFAULT_OUTPUT_TOKENS
+    cancelled: Callable[[], bool] | None = None
+
+    def caps(self) -> SpendCaps:
+        return SpendCaps(
+            max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
+            max_total_tokens=self.output_tokens + PASSAGE_CHECK_PROMPT_TOKENS,
+            max_estimated_usd=self.max_usd_per_check,
+        )
+
+
+def passage_check_spend(
+    config: Any, *, provider: str | None = None, cancelled: Callable[[], bool] | None = None,
+) -> PassageCheckSpend:
+    """The vault's passage-check admission settings (``[reader_inquiry]``,
+    and the shared output-budget policy for the check's route)."""
+
+    from learnloop.ai.output_budget import output_budget
+
+    settings = config.reader_inquiry
+    return PassageCheckSpend(
+        max_checks_per_day=int(settings.max_checks_per_day),
+        max_usd_per_check=float(settings.max_usd_per_check),
+        price_per_million=settings.metered_price_per_million,
+        output_tokens=int(output_budget(config, "canonical_ingest", provider=provider)),
+        cancelled=cancelled,
+    )
+
+
+def inquiry_claim_key(inquiry_root_event_id: str, prompt_version: str | None = None) -> str:
+    return f"{INQUIRY_CLAIM_TASK}:{prompt_version or INQUIRY_PROMPT_VERSION}:{inquiry_root_event_id}"
+
+
+def _estimate_tokens(text: str) -> int:
+    return (len(text.encode("utf-8")) + 3) // 4
 
 
 def request_reading_quick_check(
@@ -78,15 +185,103 @@ def request_passage_check(
 ) -> ReadingQuickCheck:
     """Author one passage-scoped quick check (RW1a) through the shared transport.
 
-    The same operation and contract as the section check, so the producer's
-    route and caps apply unchanged; only the prompt says "passage"."""
+    The same operation and contract as the section check (only the prompt says
+    "passage"), but the passage is untrusted source text: the request is an
+    isolated turn (no files, shell, network, connectors or vault), and a
+    transport that cannot isolate it is refused before any request
+    (``AIProviderUnavailable``). Spend admission is the caller's
+    (:func:`author_inquiry_quick_check`)."""
 
     return execute_structured_operation(
         client,
         purpose="reading_quick_check",
         prompt=reading_passage_check_prompt(context),
         result_model=ReadingQuickCheck,
+        isolated=True,
     )
+
+
+def _admitted_passage_check(
+    repository: Repository,
+    client: Any,
+    context: ReadingQuickCheckContext,
+    *,
+    spend: PassageCheckSpend,
+    owner_id: str,
+    clock: Clock | None,
+) -> ReadingQuickCheck:
+    """Admit one passage check through the spend framework, then send it.
+
+    Refused (``PassageCheckRefused``) before anything is sent when today's
+    checks are used, or on a metered route without a price or over the
+    per-check cap. Every receipt (owner ``PASSAGE_CHECK_RECEIPT_OWNER``) is
+    written before its request, so a failed call still counts toward the day."""
+
+    if spend.max_checks_per_day is not None:
+        day = parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
+        used = repository.model_call_roots_since(owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, since=day)
+        if used >= spend.max_checks_per_day:
+            raise PassageCheckRefused(
+                "capped", f"Today's quick checks ({spend.max_checks_per_day}) are used."
+            )
+    subscription = is_subscription_transport(client=client)
+    planned = _estimate_tokens(reading_passage_check_prompt(context)) + spend.output_tokens
+    price = spend.price_per_million
+    estimate = SpendEstimate(
+        candidates=1, calls=1, total_tokens=planned,
+        estimated_usd=(planned * price / 1_000_000) if price is not None else None,
+    )
+    budget = SpendBudget(spend.caps(), cancelled=spend.cancelled, subscription=subscription)
+    try:
+        budget.check(estimate)
+    except SpendLimitExceeded as exc:
+        raise PassageCheckRefused(
+            "spend_refused", f"The quick check was refused before sending: {exc}."
+        ) from exc
+    totals: dict[str, Any] = {"input": 0, "output": 0, "cost": None, "root": None}
+
+    def receipt(action: str, event: dict[str, Any]) -> None:
+        if action == "start" and event.get("parent_call_id") is None:
+            totals["root"] = event.get("id")
+        if action == "finish":
+            totals["input"] += int(event.get("input_tokens") or 0)
+            totals["output"] += int(event.get("output_tokens") or 0)
+            if isinstance(event.get("cost"), (int, float)):
+                totals["cost"] = (totals["cost"] or 0.0) + float(event["cost"])
+            if subscription:
+                # estimated_only (Slice A §5 rule 6): from reported usage (the
+                # root sums its physical requests), else the planned estimate.
+                basis = (
+                    {"input_tokens": totals["input"], "output_tokens": totals["output"]}
+                    if event.get("id") == totals["root"] else event
+                )
+                event = {**event, "usage_json": json.dumps({
+                    **json.loads(event.get("usage_json") or "{}"),
+                    **subscription_usage_estimate(
+                        basis, planned_tokens=planned,
+                        price_per_token=(price / 1_000_000) if price is not None else None,
+                    ),
+                }, sort_keys=True)}
+        repository.record_model_event(action, event, owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, owner_id=owner_id)
+
+    with budget.request(estimate) as charge:
+        try:
+            with ExitStack() as stack:
+                stack.enter_context(observe_model_calls(receipt))
+                if not subscription:
+                    # Metered: the one admitted request is the only physical
+                    # request (no hidden retry or repair), held to the output
+                    # allowance the estimate reserved.
+                    stack.enter_context(single_request())
+                    stack.enter_context(generation_limit(spend.output_tokens))
+                return request_passage_check(client, context)
+        finally:
+            if not subscription:
+                reported = totals["input"] + totals["output"]
+                cost = totals["cost"]
+                if cost is None and reported and price is not None:
+                    cost = reported * price / 1_000_000
+                charge.reconcile(total_tokens=reported or None, estimated_usd=cost)
 
 
 def section_view(repository: Repository, *, extraction_id: str, section_id: str) -> dict[str, Any]:
@@ -233,13 +428,23 @@ def author_inquiry_quick_check(
     inquiry_root_event_id: str,
     anchor_span_ids: list[str] | tuple[str, ...],
     clock: Clock | None = None,
+    spend: PassageCheckSpend | None = None,
+    owner: str | None = None,
 ) -> dict[str, Any]:
     """Author + persist the reconnect line's quick check for one inquiry (RW1a).
 
-    Idempotent per (``inquiry_root_event_id``, prompt version): any existing
-    row is reused, a dismissed one included. Formative only (W1 tier 2): the
-    row is the record, answering it writes no attempt. Span citations are
-    validated against the passage before anything is persisted."""
+    One check per (``inquiry_root_event_id``, prompt version): any existing
+    row is reused, a dismissed one included, and the key is claimed durably
+    before the model call (``owner``: the claiming job; a live claim held by
+    another owner raises ``InquiryCheckHeld`` with no call made; an expired
+    one, or the same owner's after a crash, is taken over). The row lands
+    only while the claim still holds, and the database refuses a second row
+    for the key, so a late completion never replaces the check the learner
+    saw. The call is admitted through ``spend`` first (W10; default: no
+    price, so a metered route is refused) and sent as an isolated turn.
+    Formative only (W1 tier 2): the row is the record, answering it writes no
+    attempt. Span citations are validated against the passage before
+    anything is persisted."""
 
     existing = repository.inquiry_reader_authored_question(
         inquiry_root_event_id=inquiry_root_event_id, prompt_version=INQUIRY_PROMPT_VERSION
@@ -247,24 +452,94 @@ def author_inquiry_quick_check(
     if existing is not None:
         return existing
 
-    view = passage_view(repository, extraction_id=extraction_id, anchor_span_ids=anchor_span_ids)
-    result = request_passage_check(
-        client, ReadingQuickCheckContext(extraction_id=extraction_id, section=view)
-    )
-    question_md = (result.question_md or "").strip()
-    expected_answer_md = (result.expected_answer_md or "").strip()
-    if not question_md or not expected_answer_md:
-        raise ReaderQuickCheckError("the model returned an empty question or answer")
-    valid_spans = {block["span_id"] for block in view["blocks"]}
-    span_ids = [span_id for span_id in result.span_ids if span_id in valid_spans]
-    if not span_ids:
-        raise ReaderQuickCheckError(
-            f"the model cited no valid passage spans: {list(result.span_ids)!r}"
+    owner = owner or f"inline_{new_ulid()}"
+    spend = spend if spend is not None else PassageCheckSpend()
+    key = inquiry_claim_key(inquiry_root_event_id)
+
+    def claim(*, rerun: bool = False) -> tuple[str, int | None]:
+        with repository.atomic():
+            return claim_work(
+                repository.connection(), claim_key=key, task=INQUIRY_CLAIM_TASK,
+                producer=INQUIRY_CLAIM_PRODUCER, prompt_version=INQUIRY_PROMPT_VERSION,
+                input_hash=content_key([inquiry_root_event_id, list(anchor_span_ids)]),
+                owner=owner, now=utc_now_iso(clock), lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS,
+                rerun=rerun,
+            )
+
+    state, epoch = claim()
+    if state == DONE:
+        landed = repository.inquiry_reader_authored_question(
+            inquiry_root_event_id=inquiry_root_event_id, prompt_version=INQUIRY_PROMPT_VERSION
         )
+        if landed is not None:
+            return landed
+        state, epoch = claim(rerun=True)  # a finished claim whose row is gone
+    if state == HELD or epoch is None:
+        raise InquiryCheckHeld("Another worker is writing this quick check.")
+
+    try:
+        view = passage_view(repository, extraction_id=extraction_id, anchor_span_ids=anchor_span_ids)
+        result = _admitted_passage_check(
+            repository, client, ReadingQuickCheckContext(extraction_id=extraction_id, section=view),
+            spend=spend, owner_id=inquiry_root_event_id, clock=clock,
+        )
+        question_md = (result.question_md or "").strip()
+        expected_answer_md = (result.expected_answer_md or "").strip()
+        if not question_md or not expected_answer_md:
+            raise ReaderQuickCheckError("the model returned an empty question or answer")
+        valid_spans = {block["span_id"] for block in view["blocks"]}
+        span_ids = [span_id for span_id in result.span_ids if span_id in valid_spans]
+        if not span_ids:
+            raise ReaderQuickCheckError(
+                f"the model cited no valid passage spans: {list(result.span_ids)!r}"
+            )
+    except BaseException:
+        # Nothing landed: give the key back so the next request may take it.
+        with repository.atomic():
+            release_claim(repository.connection(), claim_key=key, owner=owner, epoch=epoch,
+                          now=utc_now_iso(clock))
+        raise
 
     run = repository.get_extraction_run(extraction_id) or {}
     revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
-    question_id = repository.insert_reader_authored_question(
+    question_id: str | None = None
+    with repository.atomic():
+        connection = repository.connection()
+        if holds_claim(connection, claim_key=key, owner=owner, epoch=epoch):
+            question_id = _insert_inquiry_row(
+                repository, client, extraction_id=extraction_id, view=view, revision=revision,
+                question_md=question_md, expected_answer_md=expected_answer_md, span_ids=span_ids,
+                inquiry_root_event_id=inquiry_root_event_id, clock=clock,
+            )
+            complete_claim(connection, claim_key=key, owner=owner, epoch=epoch,
+                           judgment_id=question_id, now=utc_now_iso(clock))
+    if question_id is None:
+        # Fenced out: another worker took the key over while this call ran.
+        landed = repository.inquiry_reader_authored_question(
+            inquiry_root_event_id=inquiry_root_event_id, prompt_version=INQUIRY_PROMPT_VERSION
+        )
+        if landed is not None:
+            return landed
+        raise InquiryCheckHeld("Another worker took this quick check over.")
+    row = repository.get_reader_authored_question(question_id)
+    assert row is not None
+    return row
+
+
+def _insert_inquiry_row(
+    repository: Repository,
+    client: Any,
+    *,
+    extraction_id: str,
+    view: dict[str, Any],
+    revision: dict[str, Any],
+    question_md: str,
+    expected_answer_md: str,
+    span_ids: list[str],
+    inquiry_root_event_id: str,
+    clock: Clock | None,
+) -> str:
+    return repository.insert_reader_authored_question(
         fields={
             "extraction_id": extraction_id,
             "section_id": view["section_id"],
@@ -284,9 +559,6 @@ def author_inquiry_quick_check(
         },
         clock=clock,
     )
-    row = repository.get_reader_authored_question(question_id)
-    assert row is not None
-    return row
 
 
 def record_inquiry_action(
@@ -302,10 +574,13 @@ def record_inquiry_action(
 
     ``answered`` stamps their response (the expected answer is then shown
     beside it); ``self_checked`` records their own verdict -- matches, partly
-    or no -- in ``self_check``; ``dismissed`` is the durable "don't bring this
-    back". Formative only: the row is updated in place and nothing else is
-    written (no attempt, observation, mastery or FSRS row). A "partly" or "no"
-    becomes reader_formative learner text in RW1b, not here."""
+    or no -- in ``self_check`` and, in the same transaction, appends it to
+    ``judgment_ledger`` as a ``learner_card`` verdict on (question, response)
+    (W10): a changed verdict supersedes the previous one, so the history stays
+    auditable for later calibration, and repeating a verdict appends nothing.
+    ``dismissed`` is the durable "don't bring this back". Formative only: no
+    attempt, observation, mastery or FSRS row. A "partly" or "no" becomes
+    reader_formative learner text in RW1b, not here."""
 
     if action not in INQUIRY_ACTIONS:
         raise ReaderQuickCheckError(f"unknown question action: {action!r}")
@@ -321,9 +596,11 @@ def record_inquiry_action(
             raise ReaderQuickCheckError(f"unknown self-check: {self_check!r}")
         if row["status"] != "answered":
             raise ReaderQuickCheckError("answer the question before comparing")
-        repository.transition_reader_authored_question(
-            question_id=question_id, status="answered", self_check=self_check, clock=clock
-        )
+        with repository.atomic():
+            repository.transition_reader_authored_question(
+                question_id=question_id, status="answered", self_check=self_check, clock=clock
+            )
+            _append_self_check_verdict(repository, row, self_check, clock=clock)
     elif action == "answered":
         response = (response_md or "").strip()
         if not response:
@@ -338,6 +615,53 @@ def record_inquiry_action(
     refreshed = repository.get_reader_authored_question(question_id)
     assert refreshed is not None
     return refreshed
+
+
+def _append_self_check_verdict(
+    repository: Repository, row: dict[str, Any], verdict: str, *, clock: Clock | None
+) -> str | None:
+    """Append the learner's self-check to ``judgment_ledger`` (inside the
+    caller's transaction). The question is (authored question, the response
+    it judges): an answer rewritten later is a new question. Idempotent: the
+    same verdict as the current one appends nothing; a different one
+    supersedes it, with an id derived from the transition so a retried
+    request never appends twice. Returns the appended id, or None."""
+
+    question_id = str(row["id"])
+    response_key = content_key([question_id, row.get("response_md") or "", row.get("answered_at") or ""])[:32]
+    connection = repository.connection()
+    rows = connection.execute(
+        "SELECT id, verdict, supersedes_id FROM judgment_ledger WHERE task = ? AND left_kind = ? "
+        "AND left_id = ? AND right_kind = ? AND right_id = ?",
+        (SELF_CHECK_TASK, "reader_authored_question", question_id, "reader_quick_check_response", response_key),
+    ).fetchall()
+    superseded = {r[2] for r in rows if r[2]}
+    current = next((r for r in rows if r[0] not in superseded), None)
+    if current is not None and current[1] == verdict:
+        return None
+    judgment_id = "rqcsc_" + content_key([question_id, response_key, verdict, current[0] if current else None])[:40]
+    if any(r[0] == judgment_id for r in rows):
+        return None
+    return append_judgment(
+        connection,
+        id=judgment_id,
+        task=SELF_CHECK_TASK,
+        left_kind="reader_authored_question",
+        left_id=question_id,
+        right_kind="reader_quick_check_response",
+        right_id=response_key,
+        judge="learner_card",
+        input_hash=content_key({
+            "question_md": row.get("question_md"),
+            "expected_answer_md": row.get("expected_answer_md"),
+            "response_md": row.get("response_md"),
+        }),
+        verdict=verdict,
+        prompt_version=row.get("prompt_version"),
+        rationale="the learner compared their answer with the quick check's intended answer",
+        supersedes_id=current[0] if current else None,
+        created_at=utc_now_iso(clock),
+    )
 
 
 def record_action(

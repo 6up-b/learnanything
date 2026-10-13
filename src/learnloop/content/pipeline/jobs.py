@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
@@ -2214,10 +2215,24 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     return {"question_id": row["id"], "deduplicated": False}
 
 
+def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
+    """The vault's admission settings for one passage check ([reader_inquiry])."""
+
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    return RQC.passage_check_spend(vault.config, cancelled=getattr(ctx, "cancelled", None))
+
+
 def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     """RW1a: author the reconnect line's quick check for one inquiry's root
-    passage. Same job type, lane and client as the section check; idempotent
-    per (root exchange, prompt version) through the service."""
+    passage. Same job type, lane and client as the section check, but a paid
+    call admitted through the spend framework before it is sent (W10), as an
+    isolated turn, under a durable claim on (root exchange, prompt version)
+    owned by this job (a re-run of the job after a crash takes it back at
+    once). A refusal fails the job with its reason as the error code
+    (``capped``, ``spend_refused``, ``provider_unavailable``), which the
+    Reader shows in place; a claim another job holds makes no call."""
 
     payload = ctx.payload
     extraction_id = str(payload.get("extraction_id") or "")
@@ -2233,11 +2248,30 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     if existing is not None:
         return {"question_id": existing["id"], "deduplicated": True}
     ctx.report("authoring", message="Authoring a quick check for this passage")
-    client = ctx.services.quick_check_client(ctx)
-    row = RQC.author_inquiry_quick_check(
-        ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
-        anchor_span_ids=anchors, clock=ctx.clock,
-    )
+    try:
+        client = ctx.services.quick_check_client(ctx)
+    except IngestRunnerError as exc:
+        raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+    bind = getattr(ctx, "bind_interruptible", None)
+    if callable(bind):
+        bind(client)
+    spend = _passage_check_spend(ctx)
+    try:
+        row = RQC.author_inquiry_quick_check(
+            ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
+            anchor_span_ids=anchors, clock=ctx.clock, spend=spend,
+            owner=str((getattr(ctx, "job", None) or {}).get("id") or "") or None,
+        )
+    except RQC.PassageCheckRefused as exc:
+        raise IngestRunnerError(str(exc), code=exc.reason, details={
+            "max_checks_per_day": spend.max_checks_per_day,
+            "max_usd_per_check": spend.max_usd_per_check,
+            "price_per_million": spend.price_per_million,
+        }) from exc
+    except RQC.InquiryCheckHeld:
+        return {"question_id": None, "deduplicated": True, "held": True}
+    except AIProviderUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
     return {"question_id": row["id"], "deduplicated": False}
 
 
@@ -2961,20 +2995,31 @@ class DurableIngestJobs:
     ) -> str:
         """Enqueue the reconnect line's passage-scoped quick check (RW1a).
 
-        The section check's job type, priority and parallel lane; the handler
-        is idempotent per (root exchange, prompt version)."""
+        The section check's job type, priority and parallel lane. One live job
+        per inquiry: while a batch for this root is queued or running, a second
+        request joins it (checked and inserted in one write transaction), and
+        the handler claims (root exchange, prompt version) before its call."""
 
         runner = self._require_runner()
-        batch_id = runner.enqueue_batch(
-            "reader_quick_check",
-            [JobSpec("reader_quick_check", {
-                "scope_kind": "inquiry",
-                "extraction_id": extraction_id,
-                "inquiry_root_event_id": inquiry_root_event_id,
-                "anchor_span_ids": list(anchor_span_ids),
-            })],
-            priority=QUICK_ADD_PRIORITY,
-        )
+        subject = f"reader_inquiry_check:{inquiry_root_event_id}"
+        with runner.repo.atomic():
+            live = runner.repo.live_ingest_batch_for_subject(
+                workflow_type="reader_quick_check", subject_id=subject
+            )
+            if live is not None:
+                batch_id = str(live["id"])
+            else:
+                batch_id = runner.enqueue_batch(
+                    "reader_quick_check",
+                    [JobSpec("reader_quick_check", {
+                        "scope_kind": "inquiry",
+                        "extraction_id": extraction_id,
+                        "inquiry_root_event_id": inquiry_root_event_id,
+                        "anchor_span_ids": list(anchor_span_ids),
+                    })],
+                    subject_id=subject,
+                    priority=QUICK_ADD_PRIORITY,
+                )
         self._ensure_worker()
         return batch_id
 

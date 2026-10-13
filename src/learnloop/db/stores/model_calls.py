@@ -41,6 +41,19 @@ class ModelCallStoreMixin:
             else:
                 raise ValueError(f"Unknown model receipt action: {action}")
 
+    def model_call_roots_since(self, *, owner_kind: str, since: str) -> int:
+        """Logical model calls (root receipts) of one owner kind started at or
+        after ``since`` -- failed and unfinished calls included, since a receipt
+        is written before its request is sent."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL "
+                "AND started_at >= ?",
+                (owner_kind, since),
+            ).fetchone()
+        return int(row[0] or 0)
+
     def model_checkpoint(self, cache_key: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT result_json,usage_json FROM model_work_checkpoints WHERE cache_key=?", (cache_key,)).fetchone()

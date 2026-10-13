@@ -206,3 +206,41 @@ def test_branches_work_on_a_transcript_and_on_text_notes(tmp_path, kind):
     history = RD.ask_history(repo, extraction_id=fixture["extraction_id"])
     saved = next(e for e in history if e["event_id"] == child["reader_answer_event_id"])
     assert saved["parent_exchange_id"] == root["reader_answer_event_id"]
+
+
+def test_an_edited_capture_keeps_the_sources_wording_apart_from_the_learners(tmp_path):
+    """Codex review F12: an edited capture is the learner's wording; the
+    source's own quotation is kept beside it and inherited by follow-ups, so
+    history never attributes the learner's words to the book."""
+    vault, repo = _setup(tmp_path)
+    client = RD.StubReaderClient()
+    root = _ask(vault, repo, client, "Root", selection_span_ids=["s1"],
+                selection_quote_md="A^T = A (my fix of the OCR)", selection_source_quote_md="A^T = A")
+    # The tutor reads the learner's corrected wording, as before.
+    assert client.contexts[-1].source_spans[0]["text"] == "A^T = A (my fix of the OCR)"
+    child = _ask(vault, repo, client, "Follow-up", root["reader_answer_event_id"])
+    plain = _ask(vault, repo, client, "Unedited", selection_span_ids=["s1"], selection_quote_md="A^T = A")
+    history = {e["event_id"]: e for e in RD.ask_history(Repository(repo.sqlite_path), extraction_id="ext1")}
+    for exchange in (root, child):
+        saved = history[exchange["reader_answer_event_id"]]
+        assert saved["selection_quote_md"] == "A^T = A (my fix of the OCR)"
+        assert saved["selection_source_quote_md"] == "A^T = A"
+    assert history[plain["reader_answer_event_id"]]["selection_source_quote_md"] is None
+
+
+def test_with_the_switch_off_an_edited_capture_changes_nothing(tmp_path):
+    from tests.helpers import append_config_toml
+
+    vault, repo = _setup(tmp_path)
+    append_config_toml(vault.root, """
+    [reader_inquiry]
+    enabled = false
+    """)
+    vault = load_vault(vault.root)
+    client = RD.StubReaderClient()
+    edited = _ask(vault, repo, client, "Root", selection_span_ids=["s1"], selection_quote_md="mine",
+                  selection_source_quote_md="the book's")
+    events = repo.reader_interaction_events(kind="reader_answer_submitted")
+    payload = next(e["payload"] for e in events if e["id"] == edited["reader_answer_event_id"])
+    assert "selection_source_quote_md" not in payload
+    assert all("selection_source_quote_md" not in e for e in RD.ask_history(repo, extraction_id="ext1", branches=False))

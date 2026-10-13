@@ -1685,9 +1685,22 @@ class ReaderInquiryConfig(BaseModel):
     display only: no scoring, scheduling, projection or serving change, so no
     algorithm successor. ``enabled`` is the kill switch: off restores today's
     flat rail, and every RPC RW1a touches answers exactly as before.
+
+    The reconnect line's passage check is a paid call admitted through the
+    Phase 1 spend framework (W10) before it is sent: at most
+    ``max_checks_per_day`` checks a UTC day (counted from their receipts,
+    failed calls included); on a metered route (OpenRouter, an API key) one
+    admitted request per physical request at ``metered_price_per_million``
+    (unset: a metered route is refused before sending), held to
+    ``max_usd_per_check``. Codex on the ChatGPT subscription needs no price:
+    its cost is estimated_only and it has no token, dollar or physical-request
+    bound (Slice A §5 rule 6).
     """
 
     enabled: bool = True
+    max_checks_per_day: int = Field(default=100, ge=0)
+    max_usd_per_check: float = Field(default=0.25, ge=0.0, le=5.0)
+    metered_price_per_million: float | None = Field(default=None, gt=0)
 
 
 class LearnerTextGapsConfig(BaseModel):

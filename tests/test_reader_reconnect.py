@@ -39,6 +39,11 @@ SECTION_PAYLOAD_KEYS = {
 
 
 class FakeClient(StructuredClientFake):
+    # Billed like Codex on the subscription (no price needed): these tests are
+    # about authoring; the passage check's spend admission, isolation and
+    # claim are tests/test_reader_passage_check.py's.
+    provider_type = "codex_sdk"
+
     def __init__(self, span_ids=("s1",)) -> None:
         self.calls: list = []
         self.span_ids = list(span_ids)
@@ -179,12 +184,68 @@ def test_answering_and_self_checking_an_inquiry_check_is_formative(tmp_path):
                                         self_check="partly", clock=_CLOCK)
     assert checked["self_check"] == "partly"
     after = table_counts(repo)
-    assert after == before  # one row updated in place; no attempt, observation or state row
+    # The row is updated in place and the learner's verdict is appended to the
+    # judgment ledger (W10); no attempt, observation, mastery or state row.
+    assert after.pop("judgment_ledger") == before.pop("judgment_ledger") + 1
+    assert after == before
     with pytest.raises(RQC.ReaderQuickCheckError):
         RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="kinda")
     section = RQC.author_quick_check(repo, FakeClient(), extraction_id="ext1", section_id="u1")
     with pytest.raises(RQC.ReaderQuickCheckError):
         RQC.record_inquiry_action(repo, question_id=section["id"], action="answered", response_md="x")
+
+
+def _self_check_verdicts(repo, question_id):
+    with repo.connection() as connection:
+        return [dict(r) for r in connection.execute(
+            "SELECT id, verdict, judge, supersedes_id, left_kind, right_kind, right_id, prompt_version "
+            "FROM judgment_ledger WHERE task = ? AND left_id = ? ORDER BY created_at, rowid",
+            (RQC.SELF_CHECK_TASK, question_id),
+        )]
+
+
+def test_each_self_check_verdict_is_a_learner_card_judgment_and_a_change_supersedes(tmp_path):
+    vault, repo = _setup(tmp_path)
+    root = _ask(vault, repo, "Root")
+    row = RQC.author_inquiry_quick_check(repo, FakeClient(), extraction_id="ext1",
+                                         inquiry_root_event_id=root["reader_answer_event_id"],
+                                         anchor_span_ids=["s1"], clock=_CLOCK)
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="answered", response_md="Symmetric.", clock=_CLOCK)
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="partly", clock=_CLOCK)
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="partly", clock=_CLOCK)
+    (first,) = _self_check_verdicts(repo, row["id"])
+    assert (first["verdict"], first["judge"], first["supersedes_id"]) == ("partly", "learner_card", None)
+    assert (first["left_kind"], first["right_kind"]) == ("reader_authored_question", "reader_quick_check_response")
+    assert first["prompt_version"] == RQC.INQUIRY_PROMPT_VERSION
+    # Changing the verdict keeps the earlier one: the new verdict supersedes it.
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="no", clock=_CLOCK)
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="partly", clock=_CLOCK)
+    verdicts = _self_check_verdicts(repo, row["id"])
+    assert [v["verdict"] for v in verdicts] == ["partly", "no", "partly"]
+    assert verdicts[1]["supersedes_id"] == verdicts[0]["id"] and verdicts[2]["supersedes_id"] == verdicts[1]["id"]
+    assert repo.get_reader_authored_question(row["id"])["self_check"] == "partly"
+    # The ledger keeps hashes and ids only, never the learner's words.
+    with repo.connection() as connection:
+        dumped = json.dumps([dict(r) for r in connection.execute("SELECT * FROM judgment_ledger")])
+    assert "Symmetric." not in dumped
+
+
+def test_the_self_check_and_its_ledger_row_commit_together(tmp_path, monkeypatch):
+    vault, repo = _setup(tmp_path)
+    root = _ask(vault, repo, "Root")
+    row = RQC.author_inquiry_quick_check(repo, FakeClient(), extraction_id="ext1",
+                                         inquiry_root_event_id=root["reader_answer_event_id"],
+                                         anchor_span_ids=["s1"], clock=_CLOCK)
+    RQC.record_inquiry_action(repo, question_id=row["id"], action="answered", response_md="Symmetric.", clock=_CLOCK)
+
+    def refuse(*_args, **_kwargs):
+        raise sqlite3.OperationalError("the ledger is unavailable")
+
+    monkeypatch.setattr(RQC, "append_judgment", refuse)
+    with pytest.raises(sqlite3.OperationalError):
+        RQC.record_inquiry_action(repo, question_id=row["id"], action="self_checked", self_check="no", clock=_CLOCK)
+    assert repo.get_reader_authored_question(row["id"])["self_check"] is None
+    assert _self_check_verdicts(repo, row["id"]) == []
 
 
 # -- reconnect --------------------------------------------------------------------
@@ -236,7 +297,8 @@ def test_quick_check_job_authors_the_inquiry_row(tmp_path):
     ctx = SimpleNamespace(
         payload={"extraction_id": "ext1", "scope_kind": "inquiry",
                  "inquiry_root_event_id": root["reader_answer_event_id"], "anchor_span_ids": ["s1", "s2"]},
-        repo=repo, clock=_CLOCK, report=lambda *a, **k: None,
+        repo=repo, clock=_CLOCK, report=lambda *a, **k: None, vault_root=vault.root,
+        job={"id": "ijob_1"}, cancelled=lambda: False,
         services=SimpleNamespace(quick_check_client=lambda ctx: client),
     )
     first = handle_reader_quick_check(ctx)
@@ -310,6 +372,66 @@ def test_inquiry_question_action_rpc_records_the_self_check(tmp_path, monkeypatc
     assert found["status"] == "proposed" and found["selfCheck"] is None
     assert answered["status"] == "answered"
     assert checked["selfCheck"] == "matches"
+
+
+def test_the_quick_check_read_reports_its_durable_jobs_state(tmp_path, monkeypatch):
+    """Codex review F4: the Reader polls the job it queued, so a failed,
+    capped or unreachable check says so instead of waiting forever."""
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.paths import VaultPaths
+    from learnloop_sidecar.handlers import reader
+
+    root_dir = _rpc_setup(tmp_path)
+    monkeypatch.setattr(reader, "ready_tutor_qa_provider", lambda vault: ("stub", SimpleNamespace(ready=True), RD.StubReaderClient()))
+    asked = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.ask",
+                                    "params": {"extractionId": "ext1", "spanId": "s1", "question": "Root"}}])[1]["result"]
+    exchange = asked["readerAnswerEventId"]
+    loaded = load_vault(root_dir)
+    repo = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, loaded.root, background=False)
+    jobs._ensure_worker = lambda: None
+    batch = jobs.enqueue_reader_inquiry_check(extraction_id="ext1", inquiry_root_event_id=exchange, anchor_span_ids=["s1"])
+    other = jobs.enqueue_reader_inquiry_check(extraction_id="ext1", inquiry_root_event_id="another_root", anchor_span_ids=["s1"])
+
+    def read(batch_id):
+        return _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.inquiry_question",
+                                       "params": {"extractionId": "ext1", "exchangeId": exchange, "batchId": batch_id}}])[1]["result"]
+
+    queued = read(batch)
+    assert queued["question"] is None and queued["job"] == {"status": "queued", "errorCode": None, "message": None}
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    repo.transition_unleased_ingest_job(job["id"], status="failed", phase="failed", message="Today's quick checks (100) are used.",
+                                        error={"code": "capped", "message": "Today's quick checks (100) are used."})
+    failed = read(batch)["job"]
+    assert failed["status"] == "failed" and failed["errorCode"] == "capped"
+    # Another inquiry's job is never reported here.
+    assert read(other)["job"] is None
+    # Without a batch the read is as before.
+    plain = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.inquiry_question",
+                                    "params": {"extractionId": "ext1", "exchangeId": exchange}}])[1]["result"]
+    assert plain["question"] is None and "job" not in plain
+
+
+def test_a_landed_inquiry_check_names_its_model_and_prompt_version(tmp_path, monkeypatch):
+    """Codex review F8: the funnel reads the quick check per route."""
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.paths import VaultPaths
+    from learnloop_sidecar.handlers import reader
+
+    root_dir = _rpc_setup(tmp_path)
+    monkeypatch.setattr(reader, "ready_tutor_qa_provider", lambda vault: ("stub", SimpleNamespace(ready=True), RD.StubReaderClient()))
+    asked = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.ask",
+                                    "params": {"extractionId": "ext1", "spanId": "s1", "question": "Root"}}])[1]["result"]
+    loaded = load_vault(root_dir)
+    repo = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    RQC.author_inquiry_quick_check(repo, FakeClient(), extraction_id="ext1", inquiry_root_event_id=asked["readerAnswerEventId"],
+                                   anchor_span_ids=["s1"], clock=_CLOCK)
+    found = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.inquiry_question",
+                                    "params": {"extractionId": "ext1", "exchangeId": asked["readerAnswerEventId"]}}])[1]["result"]
+    assert found["question"]["model"] == "fake-model"
+    assert found["question"]["promptVersion"] == RQC.INQUIRY_PROMPT_VERSION
 
 
 def test_reconnect_rpcs_are_absent_with_the_switch_off(tmp_path):

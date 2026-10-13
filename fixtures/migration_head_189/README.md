@@ -53,7 +53,7 @@ after it and its undo; built as the branch's 172 and renumbered at its
 merge); migration 189 (reader workbench RW1a; 184-188 are held for branches
 in flight) gives `reader_authored_questions` its quick-check scopes
 (`scope_kind`, `question_style` with all five values, `anchor_span_ids_json`,
-`inquiry_root_event_id`, `self_check`, and the partial index
+`inquiry_root_event_id`, `self_check`, and the unique partial index
 `idx_reader_authored_questions_inquiry`; columns only, no rebuild).
 Upgraded in place from `migration_head_183` (renamed) with only 189 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`

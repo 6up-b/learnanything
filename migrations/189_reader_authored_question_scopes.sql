@@ -13,8 +13,10 @@
 -- shown (matches · partly · no); section quick checks leave it NULL. Answering
 -- stays formative: no attempt, observation, mastery or FSRS row (W1 tier 2).
 -- Reuse keys: section rows as before; inquiry rows per
--- (inquiry_root_event_id, prompt_version); selection rows per
--- (extraction, anchor spans, style, prompt version).
+-- (inquiry_root_event_id, prompt_version), which the database enforces (a
+-- UNIQUE partial index: two workers can never land two checks for one
+-- inquiry, and a late completion can never replace the one the learner saw);
+-- selection rows per (extraction, anchor spans, style, prompt version).
 ALTER TABLE reader_authored_questions ADD COLUMN scope_kind TEXT NOT NULL DEFAULT 'section'
   CHECK (scope_kind IN ('section', 'inquiry', 'selection'));
 ALTER TABLE reader_authored_questions ADD COLUMN question_style TEXT NOT NULL DEFAULT 'recall'
@@ -24,6 +26,6 @@ ALTER TABLE reader_authored_questions ADD COLUMN inquiry_root_event_id TEXT;
 ALTER TABLE reader_authored_questions ADD COLUMN self_check TEXT
   CHECK (self_check IS NULL OR self_check IN ('matches', 'partly', 'no'));
 
-CREATE INDEX idx_reader_authored_questions_inquiry
+CREATE UNIQUE INDEX idx_reader_authored_questions_inquiry
   ON reader_authored_questions(inquiry_root_event_id, prompt_version)
   WHERE inquiry_root_event_id IS NOT NULL;

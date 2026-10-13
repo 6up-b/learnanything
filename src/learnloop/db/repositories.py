@@ -12753,22 +12753,41 @@ class Repository(
             now,
         ]
         scope_kind = fields.get("scope_kind") or "section"
-        if scope_kind != "section":
-            columns += ["scope_kind", "question_style", "anchor_span_ids_json", "inquiry_root_event_id"]
-            values += [
-                scope_kind,
-                fields.get("question_style") or "recall",
-                _json(list(fields.get("anchor_span_ids") or [])),
-                fields.get("inquiry_root_event_id"),
-            ]
+        if scope_kind == "section":
+            with self.connection() as connection:
+                connection.execute(
+                    f"INSERT INTO reader_authored_questions({', '.join(columns)}) "
+                    f"VALUES ({', '.join('?' for _ in columns)})",
+                    tuple(values),
+                )
+                connection.commit()
+            return question_id
+        columns += ["scope_kind", "question_style", "anchor_span_ids_json", "inquiry_root_event_id"]
+        values += [
+            scope_kind,
+            fields.get("question_style") or "recall",
+            _json(list(fields.get("anchor_span_ids") or [])),
+            fields.get("inquiry_root_event_id"),
+        ]
+        # An inquiry row's reuse key (root exchange, prompt version) is unique
+        # (migration 189): a second insert for the key writes nothing and the
+        # row already there -- the one the learner may have answered -- wins.
         with self.connection() as connection:
-            connection.execute(
+            inserted = connection.execute(
                 f"INSERT INTO reader_authored_questions({', '.join(columns)}) "
-                f"VALUES ({', '.join('?' for _ in columns)})",
+                f"VALUES ({', '.join('?' for _ in columns)}) ON CONFLICT DO NOTHING",
                 tuple(values),
-            )
+            ).rowcount
             connection.commit()
-        return question_id
+        if inserted:
+            return question_id
+        existing = self.inquiry_reader_authored_question(
+            inquiry_root_event_id=str(fields.get("inquiry_root_event_id") or ""),
+            prompt_version=str(fields.get("prompt_version", "")),
+        )
+        if existing is None:
+            raise sqlite3.IntegrityError("reader_authored_questions refused a scoped row")
+        return str(existing["id"])
 
     def inquiry_reader_authored_question(
         self, *, inquiry_root_event_id: str, prompt_version: str
