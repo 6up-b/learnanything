@@ -54,17 +54,23 @@ ALL_POLICIES = POLICIES + VARIANTS
 #: the multi-family study proposes for it. Not in ``ALL_POLICIES``, so the
 #: single-family study's arms are unchanged.
 #:
-#: ``voi_successor``: today's per-episode stops (``_incumbent_stop``: the
-#: observation budget, decision stable, action equivalent, the robust
-#: completion gate) and, on every next observation, the successor's value gate
-#: (``voi_stopping.value_candidates``): where the plausible hypotheses route to
-#: two or more repairs, ``rank_feasible``'s robust EVSI stop; where it abstains
-#: on a flip, or no decision is at stake, the robust EIG times
-#: ``VALUE_PER_NAT_MINUTES`` against the minutes. It serves the incumbent's
-#: highest-EIG instrument when that one pays, else the best paying one.
-#: ``voi_proposed``: the caps without the robust completion gate, and the
-#: ``evsi_lookahead`` value rule (loss-derived, no flip abstention, the best
-#: 2-3 checks valued jointly).
+#: ``voi_successor`` (the branch at ``086c24c0``, after its review fixes):
+#: today's per-episode stops (``probe_episodes._evaluate_completion``: decision
+#: stable, action equivalent, the robust completion gate) with the episode's
+#: ``maximum_observations`` lifted onto value (``episode_maximum_binds`` is
+#: false while the site is on), and, on every next observation, the
+#: successor's value gate (``voi_stopping.value_candidates``): where the
+#: hypotheses with posterior mass route to two or more repairs (review F6:
+#: the whole support, not the plausible ones), ``rank_feasible``'s robust EVSI
+#: stop; where it abstains on a flip, or no decision is at stake, the robust
+#: EIG times ``VALUE_PER_NAT_MINUTES`` against the minutes. It serves the
+#: incumbent's highest-EIG instrument when that one pays, else the best paying
+#: one.
+#: ``voi_proposed``: the successor's structure with the changes this study
+#: proposes: the episode maximum lifted as the successor lifts it, the robust
+#: completion gate dropped, and the ``evsi_lookahead`` value rule (loss-derived,
+#: no flip abstention, the best 2-3 checks valued jointly) in place of the
+#: value gate.
 SUCCESSOR_POLICIES = ("voi_successor", "voi_proposed")
 LOOKAHEAD_MAX = 3
 
@@ -257,11 +263,12 @@ def _action_equivalent(state: EpisodeState, config: ProbeEpisodeConfig) -> bool:
     return len(plausible) >= 2 and len({state.actions_by_hypothesis[h] for h in plausible}) == 1
 
 
-def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig) -> str | None:
-    """The cap-only stop rules (``_evaluate_completion`` without the robust gate)."""
+def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool = True) -> str | None:
+    """The cap-only stop rules (``_evaluate_completion`` without the robust gate).
+    ``budget=False``: the episode maximum lifted onto value (mvp-0.17)."""
 
     n = state.observations
-    if n >= config.maximum_observations:
+    if budget and n >= config.maximum_observations:
         return "observation_budget_exhausted"
     if _stable(state, config) and n >= config.minimum_independent_observations:
         return "decision_stable"
@@ -291,11 +298,13 @@ def _robust_gate_abstains(state: EpisodeState, settings: PolicySettings) -> bool
     return bool(decision.abstained)
 
 
-def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig) -> str | None:
-    """``probe_episodes._evaluate_completion`` in its own order (review F8)."""
+def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig, *,
+                    budget: bool = True) -> str | None:
+    """``probe_episodes._evaluate_completion`` in its own order (review F8).
+    ``budget=False``: the episode maximum lifted onto value (mvp-0.17)."""
 
     n = state.observations
-    if n >= config.maximum_observations:
+    if budget and n >= config.maximum_observations:
         return "observation_budget_exhausted"
     if not _stable(state, config):
         if _action_equivalent(state, config):
@@ -333,9 +342,11 @@ def _successor_value_gate(state: EpisodeState, settings: PolicySettings) -> tupl
     """``voi_stopping.value_candidates`` on this episode: the paying candidates
     (ref -> robust value in minutes) and the method that valued them."""
 
-    config = ProbeEpisodeConfig()
-    plausible = [h for h, p in state.belief.items() if p >= config.action_equivalence_plausible_threshold]
-    at_stake = len({state.actions_by_hypothesis[h] for h in plausible}) >= 2
+    # Review F6 on the successor: a decision is at stake when the hypotheses
+    # with posterior MASS (the support, not the plausible ones) route to two
+    # or more repairs; EVSI then weighs the whole posterior.
+    support = [h for h, p in state.belief.items() if p > 0]
+    at_stake = len({state.actions_by_hypothesis[h] for h in support}) >= 2
     refs = _prefilter(state, settings)
     cost = settings.lambda_time * settings.check_minutes + settings.burden_cost
     paying: dict[str, float] = {}
@@ -367,7 +378,7 @@ def _successor_value_gate(state: EpisodeState, settings: PolicySettings) -> tupl
 
 def decide_successor(state: EpisodeState, settings: PolicySettings) -> Decision:
     config = ProbeEpisodeConfig()
-    reason = _incumbent_stop(state, settings, config)
+    reason = _incumbent_stop(state, settings, config, budget=False)
     if reason is not None:
         return Decision("stop", None, "stop", reason)
     pool = list(state.remaining)
@@ -384,7 +395,7 @@ def decide_successor(state: EpisodeState, settings: PolicySettings) -> Decision:
 
 
 def decide_proposed(state: EpisodeState, settings: PolicySettings) -> Decision:
-    reason = _cap_stop(state, ProbeEpisodeConfig())
+    reason = _cap_stop(state, ProbeEpisodeConfig(), budget=False)
     if reason is not None:
         return Decision("stop", None, "stop", reason)
     return decide_lookahead(state, settings)

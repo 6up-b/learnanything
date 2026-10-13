@@ -26,7 +26,9 @@ Then :func:`analyze` scores every claim of the single-family study family by
 family (agreement, effect, CI; ``supported`` only when every family's CI
 agrees) and, per regime, which policy wins in each family, the co-winners,
 the regret of acting on another family's winner and the rank agreement
-(Kendall's tau) between families. The ranked change proposal built on it is in
+(Kendall's tau) between families; and each policy's worst-case regret over
+every family x regime cell (the robust choice when the families disagree
+about the winner). The ranked change proposal built on it is in
 ``docs/reviews/evsi-multisim.md``.
 """
 
@@ -88,7 +90,8 @@ from learnloop.evsi_calibration.world import (
     route_for,
 )
 
-MULTIFAMILY_VERSION = "evsi_multifamily_v1"
+#: v2: rotation claims per regime, S4, and C6c's log loss bootstrapped per arm.
+MULTIFAMILY_VERSION = "evsi_multifamily_v2"
 
 #: Paired comparisons recorded in every cell: (left, right) -> mean(right - left).
 PAIRS: tuple[tuple[str, str], ...] = (
@@ -109,6 +112,7 @@ PAIRS: tuple[tuple[str, str], ...] = (
     ("voi_successor", "voi_proposed"),
     ("incumbent", "voi_proposed"),
     ("caps_only", "voi_proposed"),
+    ("evsi_lookahead", "voi_proposed"),
 )
 
 
@@ -687,8 +691,9 @@ def _rotation_claim(report: Mapping[str, Any], families: Sequence[str], key: str
     out = []
     for name in families:
         block = report["families"][name]
-        cells = [(f"fitted/3 system={system}", cell) for system, cell in block.get("main", {}).items()
-                 if system in families]
+        main = block.get("main", {})
+        # In the study's family order, not the stored dict's (a stored report's keys come back sorted).
+        cells = [(f"fitted/3 system={system}", main[system]) for system in families if system in main]
         cells += [(f"{c['consistency']}/{float(c['repair_minutes']):g} system={c['system']}", c)
                   for c in block.get("rotation", [])]
         for where, cell in cells:
@@ -788,12 +793,68 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
     return rows
 
 
+#: A policy within this many minutes per episode of a cell's best counts as best there.
+NEAR_BEST_MINUTES = 0.10
+
+
+def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: Sequence[str]) -> list[dict[str, Any]]:
+    """RankCert's robust choice: each policy's regret (its mean minutes minus the
+    best policy's) in every family x regime cell, worst case first. A policy
+    that is never far from the best whichever family is true is the one to
+    ship when the families disagree about the winner."""
+
+    regrets: dict[str, dict[str, list[tuple[float, str]]]] = {}
+    for name in list(families) + list(stress):
+        for cell in report["families"][name].get("regimes", []):
+            means = {p: float(np.mean(v["total"])) for p, v in cell["episodes"]["policies"].items()}
+            if not means:
+                continue
+            best = min(means.values())
+            where = f"{cell['consistency']}/{float(cell['repair_minutes']):g}"
+            for policy, mean in means.items():
+                regrets.setdefault(policy, {}).setdefault(name, []).append((mean - best, where))
+    rows = []
+    for policy, by_family in regrets.items():
+        fitted = [(value, f"{name} {where}") for name in families for value, where in by_family.get(name, [])]
+        if not fitted:
+            continue
+        worst = max(fitted)
+        stressed = [(value, f"{name} {where}") for name in stress for value, where in by_family.get(name, [])]
+        rows.append({
+            "policy": policy,
+            "max_regret": round(worst[0], 4),
+            "max_regret_cell": worst[1],
+            "mean_regret": round(float(np.mean([v for v, _ in fitted])), 4),
+            "cells_near_best": f"{sum(1 for v, _ in fitted if v <= NEAR_BEST_MINUTES)}/{len(fitted)}",
+            "max_regret_by_family": {name: round(max(v for v, _ in by_family[name]), 4)
+                                     for name in families if by_family.get(name)},
+            "stress_max_regret": round(max(stressed)[0], 4) if stressed else None,
+            "stress_max_regret_cell": max(stressed)[1] if stressed else None,
+        })
+    rows.sort(key=lambda row: (row["max_regret"], row["mean_regret"], row["policy"]))
+    return rows
+
+
+def _per_check_log_loss(arm: Mapping[str, Any], picks: np.ndarray) -> np.ndarray:
+    """A stream arm's log loss per check under each bootstrap resample of its
+    episodes: a ratio of sums over the arm's OWN checks (two arms stop after
+    different numbers of checks, so one arm's count never divides the other's
+    loss). ``picks`` (draws x episodes) is shared by the arms being compared."""
+
+    loss = np.asarray(arm["per_episode_log_loss"], dtype=float)[picks].sum(axis=1)
+    checks = np.asarray(arm["per_episode_checks"], dtype=float)[picks].sum(axis=1)
+    return loss / np.maximum(checks, 1.0)
+
+
 def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | None = None) -> dict[str, Any]:
     settings = report["settings"]
     seed = settings["seed"] if seed is None else seed
     draws = settings["bootstrap"] if draws is None else draws
-    families = [n for n, b in report["families"].items() if b.get("fitted")]
-    stress = [n for n, b in report["families"].items() if not b.get("fitted")]
+    # The study's own family order (a stored report's keys come back sorted).
+    order = list(settings.get("families") or []) + list(settings.get("stress_families") or [])
+    names = [n for n in order if n in report["families"]] + sorted(n for n in report["families"] if n not in order)
+    families = [n for n in names if report["families"][n].get("fitted")]
+    stress = [n for n in names if not report["families"][n].get("fitted")]
     claims: list[dict[str, Any]] = []
 
     def add(claim_id: str, statement: str, values: list[dict[str, Any]], *, stress_values=None, note: str = "") -> None:
@@ -886,6 +947,9 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                      "voi_proposed-voi_successor", -1)
         paired_claim(f"S3:{regime}", f"{regime}: the proposed package costs fewer minutes than the incumbent",
                      consistency, repair, "voi_proposed-incumbent", -1)
+        paired_claim(f"S4:{regime}", f"{regime}: keeping the stability stops (decision stable, action "
+                     "equivalent) on top of the lookahead saves minutes (voi_proposed - evsi_lookahead < 0)",
+                     consistency, repair, "voi_proposed-evsi_lookahead", -1)
 
     # C4b: loss-derived EVSI (no nat scale) against the nat-scaled EIG rule, both without abstention.
     for consistency, repair in (("fitted", 3.0), ("fitted", 30.0), ("0.9", 10.0), ("0.9", 30.0)):
@@ -894,7 +958,9 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                      "VALUE_PER_NAT_MINUTES = 60 (evsi_lcb_only - eig_no_gate < 0)",
                      consistency, repair, "evsi_lcb_only-eig_no_gate", -1)
 
-    # Rotation: the policy conclusions when the system is calibrated to the wrong family.
+    # Rotation: the policy conclusions when the system is calibrated to the wrong
+    # family, one claim per regime (a claim about strong checks is not expected
+    # to hold where checks are weak, so the regimes are never pooled).
     for key, sign, statement in (
         ("evsi_lookahead-incumbent", -1, "the lookahead beats the incumbent"),
         ("evsi-evsi_lcb_only", +1, "the flip abstention costs minutes"),
@@ -902,17 +968,21 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         ("evsi-incumbent", +1, "evsi as built costs more than the incumbent"),
         ("voi_proposed-voi_successor", -1, "the proposed package beats the successor as built"),
     ):
-        values = _rotation_claim(report, families, key, sign, seed=seed, draws=draws)
-        claims.append({
-            "id": f"R:{key}",
-            "statement": f"system calibrated to another family: {statement} ({key}, sign {sign:+d})",
-            "verdict": _verdict(values),
-            "families_holding": f"{sum(1 for v in values if v['holds'])}/{len(values)}",
-            "families_certified": f"{sum(1 for v in values if v['certified'])}/{len(values)}",
-            "values": values,
-            "stress": [],
-            "note": "cells: every truth family x every other family's system; main (fitted/3) and the rotation regimes",
-        })
+        by_regime: dict[str, list[dict[str, Any]]] = {}
+        for value in _rotation_claim(report, families, key, sign, seed=seed, draws=draws):
+            regime, _, system = value["regime"].partition(" system=")
+            by_regime.setdefault(regime, []).append({**value, "regime": regime, "system": system})
+        for regime, values in by_regime.items():
+            claims.append({
+                "id": f"R:{key}@{regime}",
+                "statement": f"{regime}, system calibrated to another family: {statement} ({key}, sign {sign:+d})",
+                "verdict": _verdict(values),
+                "families_holding": f"{sum(1 for v in values if v['holds'])}/{len(values)}",
+                "families_certified": f"{sum(1 for v in values if v['certified'])}/{len(values)}",
+                "values": values,
+                "stress": [],
+                "note": "counts are cells: every truth family x every other family's calibrated system",
+            })
 
     # C4: VALUE_PER_NAT_MINUTES = 60 is far too high (measured minutes per nat, calibrated model).
     values = []
@@ -1004,18 +1074,20 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
 
     # C6c: pseudo count 8 -> 2.
     values = []
+    regime_order = [f"{_label(s)}/{float(r):g}" for s, r in settings.get("pseudo_count_regimes") or []]
     for name in families:
         streams = report.get("pseudo_count", {}).get("streams", {}).get(name, {})
-        for regime, arms in streams.items():
+        ordered = [r for r in regime_order if r in streams] + sorted(r for r in streams if r not in regime_order)
+        for regime in ordered:
+            arms = streams[regime]
             two, eight = arms.get("pseudo_2"), arms.get("pseudo_8")
             if not two or not eight:
                 continue
             diff = np.asarray(two["per_episode_total"]) - np.asarray(eight["per_episode_total"])
-            ll = np.asarray(two["per_episode_log_loss"]) - np.asarray(eight["per_episode_log_loss"])
             rng = np.random.default_rng(seed)
             picks = rng.integers(0, diff.size, size=(draws, diff.size))
             boots = diff[picks].mean(axis=1)
-            boots_ll = ll[picks].sum(axis=1) / max(np.sum(eight["per_episode_checks"]), 1)
+            boots_ll = _per_check_log_loss(two, picks) - _per_check_log_loss(eight, picks)
             values.append({
                 "family": name, "regime": regime,
                 "value": round(float(diff.mean()), 4),
@@ -1031,7 +1103,8 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         "the hand-set vocabulary (value: minutes per episode, 2 - 8; certified on log loss)", values)
 
     winners = _winners(report, families, seed=seed, draws=draws)
-    return {"families": families, "stress_families": stress, "claims": claims, "winners": winners}
+    return {"families": families, "stress_families": stress, "claims": claims, "winners": winners,
+            "policy_regret": _policy_regret(report, families, stress)}
 
 
 __all__ = ["MultiFamilySettings", "analyze", "counted_row", "run_count_stream", "run_multifamily"]

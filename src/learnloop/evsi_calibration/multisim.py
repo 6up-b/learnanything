@@ -57,7 +57,9 @@ from learnloop.evsi_calibration.world import (
 )
 from learnloop.scheduling import evsi as EV
 
-MULTISIM_VERSION = "evsi_multisim_v1"
+#: v2: the successor arms follow serving/voi-stopping at 086c24c0 (the episode
+#: maximum lifted onto value; a decision at stake over the posterior support).
+MULTISIM_VERSION = "evsi_multisim_v2"
 SYSTEM_FAMILY = "family"
 SYSTEM_HAND_SET = "hand_set"
 

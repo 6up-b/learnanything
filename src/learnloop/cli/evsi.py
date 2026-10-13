@@ -106,7 +106,7 @@ def evsi_simulate_command(
 
 @evsi_app.command("multisim")
 def evsi_multisim_command(
-    eedi_2024: Annotated[Path, typer.Option("--eedi-2024", help="Directory with the Eedi 2024 Kaggle train.csv and misconception_mapping.csv.")],
+    eedi_2024: Annotated[Path | None, typer.Option("--eedi-2024", help="Directory with the Eedi 2024 Kaggle train.csv and misconception_mapping.csv. Needed unless --reanalyze is given.")] = None,
     eedi_2020: Annotated[Path | None, typer.Option("--eedi-2020", help="Directory with the extracted Eedi NeurIPS 2020 archive. Needed unless --fits is given.")] = None,
     fit_path: Annotated[Path | None, typer.Option("--fit", help="The single-family study's response_fit.json: reuse its misconception triples (else they are searched again).")] = None,
     fits_path: Annotated[Path | None, typer.Option("--fits", help="A family_fits.json from an earlier multisim run (skips every family fit).")] = None,
@@ -118,6 +118,7 @@ def evsi_multisim_command(
     workers: Annotated[int, typer.Option("--workers", min=1, help="Worker processes.")] = 4,
     seed: Annotated[int, typer.Option("--seed")] = 20261012,
     quick: Annotated[bool, typer.Option("--quick", help="A small smoke run (few learners, two regimes, short sweeps).")] = False,
+    reanalyze: Annotated[Path | None, typer.Option("--reanalyze", help="A multisim_report.json to re-score: recompute its analysis from the stored per-learner episodes (no fit, no simulation) and write it back.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Fit several simulator families to Eedi and rerun the EVSI study in each (RankCert)."""
@@ -126,14 +127,40 @@ def evsi_multisim_command(
     from learnloop.evsi_calibration.experiments import SWEEPS
     from learnloop.evsi_calibration.family_data import build_subject_data, build_triple_data
     from learnloop.evsi_calibration.family_fit import FamilyFits, FamilyFitSettings, fit_families
-    from learnloop.evsi_calibration.multifamily import MultiFamilySettings, run_multifamily
+    from learnloop.evsi_calibration.multifamily import MultiFamilySettings, analyze, run_multifamily
     from learnloop.evsi_calibration.response_fit import FitSettings, ResponseFit, fit_response_model
 
     def say(message: str) -> None:
         if not json_output:
             typer.echo(f"[evsi multisim] {message}", err=True)
 
+    def headline(report: dict, report_path: Path) -> dict:
+        analysis = report["analysis"]
+        return {
+            "status": "ok",
+            "report": str(report_path),
+            "families": analysis["families"],
+            "stress_families": analysis["stress_families"],
+            "adequacy": {
+                name: block.get("adequate")
+                for name, block in (report["fits"]["validation"].get("families") or {}).items()
+                if name != "marginal"
+            },
+            "claims": {claim["id"]: claim["verdict"] for claim in analysis["claims"]},
+            "most_robust_policy": (analysis.get("policy_regret") or [{}])[0].get("policy"),
+            "elapsed_seconds": report["elapsed_seconds"],
+        }
+
     try:
+        if reanalyze is not None:
+            report = json.loads(reanalyze.read_text(encoding="utf-8"))
+            report["analysis"] = analyze(report)
+            reanalyze.write_text(json.dumps(report, sort_keys=True, default=str), encoding="utf-8")
+            say(f"analysis recomputed from the stored episodes in {reanalyze}")
+            _emit(headline(report, reanalyze), json_output)
+            return
+        if eedi_2024 is None:
+            raise ValueError("--eedi-2024 is required unless --reanalyze names an earlier multisim_report.json")
         bank = load_eedi_2024(eedi_2024)
         output.mkdir(parents=True, exist_ok=True)
         if fits_path is not None:
@@ -175,21 +202,7 @@ def evsi_multisim_command(
         report = run_multifamily(bank, fits, settings, progress=say)
         report_path = output / "multisim_report.json"
         report_path.write_text(json.dumps(report, sort_keys=True, default=str), encoding="utf-8")
-        analysis = report["analysis"]
-        headline = {
-            "status": "ok",
-            "report": str(report_path),
-            "families": analysis["families"],
-            "stress_families": analysis["stress_families"],
-            "adequacy": {
-                name: block.get("adequate")
-                for name, block in (report["fits"]["validation"].get("families") or {}).items()
-                if name != "marginal"
-            },
-            "claims": {claim["id"]: claim["verdict"] for claim in analysis["claims"]},
-            "elapsed_seconds": report["elapsed_seconds"],
-        }
-        _emit(headline, json_output)
+        _emit(headline(report, report_path), json_output)
     except (ValueError, OSError, KeyError) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc

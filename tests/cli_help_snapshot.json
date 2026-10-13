@@ -388,8 +388,8 @@
     "sha256": "cfe13184d9b19f6d2736a5dc7a89a6d14bc12dfe13e81b25f4fd9ada0cb8d80b"
   },
   "evsi multisim": {
-    "bytes": 5292,
-    "sha256": "7768fab037f6b7f9d4d64e5b41a6eb76da7bbf1d056198fec08a5ad34fcff2fe"
+    "bytes": 5630,
+    "sha256": "ff3f5f5db49dfa727a4a496343c88c1b078f18ff6507c8cb23de9831653d018b"
   },
   "evsi simulate": {
     "bytes": 4359,

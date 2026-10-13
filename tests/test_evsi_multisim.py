@@ -260,27 +260,67 @@ def _state(scenario, belief, settings):
 
 
 def test_the_successor_arm_values_with_the_nat_scale_when_no_decision_is_at_stake(eedi):
-    # voi_stopping.value_candidates: with one plausible repair nothing is at
-    # stake, so the robust EIG times VALUE_PER_NAT_MINUTES decides; the
-    # incumbent's highest-EIG instrument is served when it pays.
+    # voi_stopping.value_candidates: when every hypothesis with posterior mass
+    # routes to one repair nothing is at stake, so the robust EIG times
+    # VALUE_PER_NAT_MINUTES decides; the incumbent's highest-EIG instrument is
+    # served when it pays.
     from learnloop.diagnosis import robust_composition as rc
 
     scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
     rest = (1.0 - 0.95) / (len(scenario.hypotheses) - 1)
     belief = {h: (0.95 if h == HYP_KNOWS else rest) for h in scenario.hypotheses}
+    one_repair = {h: "continue" for h in scenario.hypotheses}
+
+    def single_route(settings):
+        state = _state(scenario, belief, settings)
+        state.actions_by_hypothesis = dict(one_repair)
+        return state
+
     generous = P.PolicySettings(value_per_nat_minutes=1.0e6)
-    state = _state(scenario, belief, generous)
+    state = single_route(generous)
     decision = P.decide("voi_successor", state, generous)
     best = max(sorted(state.remaining),
                key=lambda q: rc.expected_information_gain(state.ensembles[q][0], state.belief))
     assert (decision.action, decision.question_id) == ("measure", best)
     assert decision.reason == "value_pays:eig_value"
     stingy = P.PolicySettings(value_per_nat_minutes=0.0)
-    decision = P.decide("voi_successor", _state(scenario, belief, stingy), stingy)
+    decision = P.decide("voi_successor", single_route(stingy), stingy)
     assert (decision.action, decision.reason) == ("stop", "value_of_information_stop:eig_value")
+    # Review F6 on the successor: with the real routes the same near-sure
+    # belief is at stake (its support routes to several repairs), so robust
+    # EVSI values it, not the nat scale, unless rank_feasible abstains.
+    at_stake = P.decide("voi_successor", _state(scenario, belief, generous), generous)
+    method = at_stake.reason.split(":", 1)[1]
+    assert method == "robust_evsi" or method.startswith("eig_value:evsi_")
+    if method == "robust_evsi":
+        assert P.decide("voi_successor", _state(scenario, belief, stingy), stingy).reason == at_stake.reason
     # The proposed package never reads the nat scale.
     assert P.decide("voi_proposed", _state(scenario, belief, generous), generous).reason == \
         P.decide("voi_proposed", _state(scenario, belief, stingy), stingy).reason
+
+
+def test_the_successor_arms_lift_the_episode_maximum_onto_value(eedi):
+    # serving/voi-stopping's episode_maximum_binds: while the site is on, the
+    # episode's maximum_observations no longer ends it; the incumbent's does.
+    from learnloop.config.schema import ProbeEpisodeConfig
+
+    scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
+    belief = {h: 1.0 / len(scenario.hypotheses) for h in scenario.hypotheses}
+    settings = P.PolicySettings()
+    maximum = ProbeEpisodeConfig().maximum_observations
+
+    def at_maximum():
+        state = _state(scenario, belief, settings)
+        state.observations = maximum
+        return state
+
+    assert P.decide("incumbent", at_maximum(), settings).reason == "observation_budget_exhausted"
+    assert P.decide("caps_only", at_maximum(), settings).reason == "observation_budget_exhausted"
+    for policy in P.SUCCESSOR_POLICIES:
+        assert P.decide(policy, at_maximum(), settings).reason != "observation_budget_exhausted"
+    lifted = at_maximum()
+    lifted.observations = settings.safety_bound
+    assert P.decide("voi_successor", lifted, settings).reason == "safety_bound"
 
 
 def test_the_counted_card_row_starts_at_the_vocabulary_and_follows_the_counts(eedi):
@@ -334,6 +374,23 @@ def test_cli_multisim_quick_fits_every_family_and_reports_claims(eedi, tmp_path)
     assert second["fits"]["validation"] == report["fits"]["validation"]
     assert [c["id"] for c in second["analysis"]["claims"]] == [c["id"] for c in analysis["claims"]]
     assert not (tmp_path / "again" / "family_fits.json").exists()
+    assert analysis["policy_regret"] and {r["policy"] for r in analysis["policy_regret"]} == \
+        set(report["families"]["lca"]["regimes"][0]["episodes"]["policies"])
+    # Rotation claims are one per regime, never pooled across regimes.
+    rotation = [c for c in analysis["claims"] if c["id"].startswith("R:")]
+    assert rotation and all("@" in c["id"] for c in rotation)
+    for claim in rotation:
+        assert {v["regime"] for v in claim["values"]} == {claim["id"].split("@", 1)[1]}
+        assert all(v["system"] in analysis["families"] and v["system"] != v["family"] for v in claim["values"])
+    # Re-scoring a stored report recomputes the analysis from its episodes alone.
+    stored = tmp_path / "out" / "multisim_report.json"
+    report["analysis"] = {}
+    stored.write_text(json.dumps(report))
+    rescored = CliRunner().invoke(app, ["evsi", "multisim", "--reanalyze", str(stored), "--json"])
+    assert rescored.exit_code == 0, rescored.output
+    assert json.loads(rescored.output.strip().splitlines()[-1])["most_robust_policy"] == \
+        analysis["policy_regret"][0]["policy"]
+    assert json.loads(stored.read_text())["analysis"] == json.loads(json.dumps(analysis))
 
 
 def test_winners_list_tied_modes_in_name_order_and_score_rank_agreement():
@@ -358,6 +415,31 @@ def test_winners_list_tied_modes_in_name_order_and_score_rank_agreement():
                                               "min": pytest.approx(1 / 3, abs=1e-4), "pairs": 1}
         assert row["regret_of_other_family_winner"]["x"]["y"] == pytest.approx(1.0)
 
+    # The robust choice: "mid" is never best but never far; "zeta" and "alpha"
+    # each lose a full minute in the other family. A stress family is reported
+    # apart and never ranks.
+    report["families"]["x"]["regimes"][0]["episodes"]["policies"]["mid"]["total"] = [1.5, 1.5, 1.5]
+    report["families"]["y"]["regimes"][0]["episodes"]["policies"]["mid"]["total"] = [1.5, 1.5, 1.5]
+    report["families"]["s"] = {"regimes": [cell({"zeta": [1.0] * 3, "alpha": [9.0] * 3, "mid": [1.0] * 3})]}
+    rows = MF._policy_regret(report, ["x", "y"], ["s"])
+    assert [r["policy"] for r in rows] == ["mid", "alpha", "zeta"]
+    assert rows[0]["max_regret"] == pytest.approx(0.5) and rows[0]["cells_near_best"] == "0/2"
+    assert rows[1]["max_regret"] == pytest.approx(1.0) and rows[1]["max_regret_cell"] == "x fitted/3"
+    assert rows[1]["cells_near_best"] == "1/2" and rows[1]["stress_max_regret"] == pytest.approx(8.0)
+
+
+def test_the_pseudo_count_log_loss_is_per_check_of_each_arm():
+    # Arm "few" stops after one check (1 nat each), arm "many" after four
+    # (3 nats over four checks): per check, few is WORSE (1.0 against 0.75),
+    # whatever the resample.
+    few = {"per_episode_log_loss": [1.0, 1.0, 1.0], "per_episode_checks": [1, 1, 1]}
+    many = {"per_episode_log_loss": [3.0, 3.0, 3.0], "per_episode_checks": [4, 4, 4]}
+    picks = np.random.default_rng(0).integers(0, 3, size=(50, 3))
+    difference = MF._per_check_log_loss(few, picks) - MF._per_check_log_loss(many, picks)
+    assert difference == pytest.approx(np.full(50, 0.25))
+    assert MF._per_check_log_loss({"per_episode_log_loss": [0.0], "per_episode_checks": [0]},
+                                  np.zeros((2, 1), dtype=int)) == pytest.approx([0.0, 0.0])
+
 
 def test_cli_multisim_without_fits_needs_the_2020_answers(eedi, tmp_path):
     result = CliRunner().invoke(app, [
@@ -365,3 +447,5 @@ def test_cli_multisim_without_fits_needs_the_2020_answers(eedi, tmp_path):
     ])
     assert result.exit_code == 1
     assert json.loads(result.output)["status"] == "invalid"
+    no_bank = CliRunner().invoke(app, ["evsi", "multisim", "--output", str(tmp_path / "out"), "--json"])
+    assert no_bank.exit_code == 1 and "--eedi-2024" in json.loads(no_bank.output)["reason"]
