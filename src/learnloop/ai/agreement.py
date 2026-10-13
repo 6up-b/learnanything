@@ -6,19 +6,29 @@ shadow stages): it reports what the ordinary course already produced.
 
 * A **pair** is one input (one task, the same two entities in either order and
   the same input hash) that both the Decider and an LLM-family judge (``llm``
-  or ``diagnoser``) answered: T1's same-cause judge, where both already run;
-  learner-text gaps before mvp-0.20, where the Decider was a logged second
-  opinion; the context model's gap kind beside the Decider's; an LLM batch that
-  answered every link of a review target after the Decider failed one. The
-  latest answer of each judge counts, never the product of retries.
+  or ``diagnoser``) answered: learner-text gaps before mvp-0.20, where the
+  Decider was a logged second opinion; the context model's gap kind beside
+  the Decider's; an LLM fallback beside the Decider's failure row; an LLM
+  batch that answered every link of a review target after the Decider failed
+  one (a review run's ``same_cause`` links). T1's own same-cause judge
+  (recurrence live, backlog, guard, ``embeddings adjudicate``) asks only the
+  LLM, so it adds no pair. The latest answer of each judge counts, never the
+  product of retries.
 * A **fallback** is a Decider row holding no answer (``unavailable``,
   ``refused`` or ``failed``) whose input an LLM-family judge then answered.
 * A **label** is an owner or verifier verdict: bound to a Decider row by an
   explicit ``label_for`` (the span-support card's confirm, keep or undo) or a
-  ``supersedes_id`` chain, else by the same input, else by the same question.
+  ``supersedes_id`` chain, else by the same input, else by the same question
+  (the task and its two entities), except for a task whose entities do not
+  name what was judged (:data:`UNNAMED_CONTENT_TASKS`: one facet's checks of
+  different wordings, one learning object's different statements), where a
+  label binds only explicitly or by the same input (review F3).
   Calibration (the multiclass Brier score and top-probability bins) is
   computed only where the Decider's full distribution and an option-valued
   label exist; with no such label it is ``null``, never zero.
+
+Rows are counted once by id: a review run's scratch ledger is a backup copy
+of the vault database, so it repeats every vault row (review F4).
 """
 
 from __future__ import annotations
@@ -34,6 +44,11 @@ from typing import Any
 FAILURES = frozenset({"unavailable", "refused", "failed"})
 LLM_JUDGES = frozenset({"llm", "diagnoser"})
 LABEL_JUDGES = frozenset({"owner", "verifier"})
+#: Tasks whose ledger entities do not identify the judged content: a facet's
+#: span-support checks (``facet:<id>``, whatever the wording) and a learning
+#: object's misconception matches (whatever the statement). A label binds to
+#: one of their rows only explicitly or on the same input hash.
+UNNAMED_CONTENT_TASKS = frozenset({"facet_span_support", "misconception_match"})
 _TEXT_PROBABILITIES = re.compile(r"([^,]+?) ([01](?:\.\d+)?)(?:,|$)")
 
 
@@ -78,8 +93,11 @@ def _new_task() -> dict[str, Any]:
 def agreement_report(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """Per-task pairs, agreement, confusion (Decider by LLM), fallbacks and labelled calibration."""
 
-    ordered = sorted((dict(row) for row in rows), key=lambda row: (str(row["created_at"]), str(row["id"])))
-    by_id = {row["id"]: row for row in ordered}
+    # One row per id: the vault's ledger and a review run's copy of it repeat rows.
+    by_id: dict[Any, dict[str, Any]] = {}
+    for row in rows:
+        by_id.setdefault(row["id"], dict(row))
+    ordered = sorted(by_id.values(), key=lambda row: (str(row["created_at"]), str(row["id"])))
     inputs: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     question_labels: dict[tuple[Any, ...], dict[str, Any]] = {}
     explicit: dict[str, dict[str, Any]] = {}
@@ -119,7 +137,7 @@ def agreement_report(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             cell[str(llm["verdict"])] = cell.get(str(llm["verdict"]), 0) + 1
         group_labels = [row for row in group if row["judge"] in LABEL_JUDGES]
         label = (explicit.get(decider["id"]) or (group_labels[-1] if group_labels else None)
-                 or question_labels.get((task_name, ends)))
+                 or (None if task_name in UNNAMED_CONTENT_TASKS else question_labels.get((task_name, ends))))
         distribution = probabilities(decider)
         if label is None or label["verdict"] not in distribution:
             continue
@@ -142,7 +160,8 @@ def agreement_report(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "tasks": dict(sorted(tasks.items())),
         "pairing": "the latest answer of each judge on one task, entity pair and input hash",
-        "labels": "owner or verifier verdicts: explicit link, else the same input, else the same question",
+        "labels": ("owner or verifier verdicts: explicit link, else the same input, else the same question "
+                   "(never the same question for " + ", ".join(sorted(UNNAMED_CONTENT_TASKS)) + ")"),
         "shadow_calls": 0,
     }
 
@@ -159,4 +178,5 @@ def ledger_rows(connection: Any) -> list[dict[str, Any]]:
     return [dict(zip(names, row, strict=True)) for row in cursor]
 
 
-__all__ = ["FAILURES", "LABEL_JUDGES", "LLM_JUDGES", "agreement_report", "ledger_rows", "probabilities"]
+__all__ = ["FAILURES", "LABEL_JUDGES", "LLM_JUDGES", "UNNAMED_CONTENT_TASKS", "agreement_report", "ledger_rows",
+           "probabilities"]

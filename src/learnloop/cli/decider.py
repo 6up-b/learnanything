@@ -40,12 +40,13 @@ def agreement(
 ) -> None:
     """Agreement, confusion and calibration of the Decider against the LLM, from real pairs only.
 
-    A pair is one input both judges answered in the ordinary course (T1's
-    same-cause judge, the learner-text gap judges before mvp-0.20, an LLM
-    fallback batch); no shadow call is ever made. Labels are the owner's
-    confirms, keeps and undos and verifier verdicts. The pattern-link
-    judgments of a review run live in its own ledger: name the run with
-    `--review-run` to include them.
+    A pair is one input both judges answered in the ordinary course (the
+    learner-text gap judges before mvp-0.20, an LLM fallback beside the
+    Decider's failure, a review run's link batch); no shadow call is ever
+    made. Labels are the owner's confirms, keeps and undos and verifier
+    verdicts. The pattern-link judgments of a review run live in its own
+    ledger: name the run with `--review-run` to include them (each row is
+    counted once, though the run's ledger copies the vault's).
     """
 
     loaded = load_vault(vault, load_environment=False)
