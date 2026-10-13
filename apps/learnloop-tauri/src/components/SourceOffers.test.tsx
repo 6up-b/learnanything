@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SourceOffers } from "./SourceOffers";
 import { AskOverlay } from "./AskOverlay";
+import type { SourceToolRequestDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({ api: {
   runSourceTool: vi.fn(), findPractice: vi.fn(), recordProposalImpressions: vi.fn(), planLearnerPick: vi.fn(),
@@ -28,11 +29,11 @@ const PASSAGE_RUN = {
   result: { passages: [{ spanKey: "ext:t3", sourceTitle: "Matrix Theory", section: "Ch 5", page: 7, revisionId: "r",
                          text: "Swapping two rows changes the sign.", label: "source-authored" }] }
 };
-const REQUESTS = [
+const REQUESTS: SourceToolRequestDto[] = [
   { toolCallId: "stc_p", tool: "find_practice", reason: "Practise the sign rule", run: "eager", dropped: [], arguments: {} },
   { toolCallId: "stc_s", tool: "find_sources", reason: "See how your book explains it", run: "eager", dropped: [], arguments: {} },
   { toolCallId: "stc_c", tool: "compare_sources", reason: "How do your books treat this?", run: "lazy", dropped: [], arguments: {} }
-] as const;
+];
 
 beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
