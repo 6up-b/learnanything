@@ -1065,7 +1065,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # unchanged; every snapshot moves only because the effective config gains
     # the keys, and all thirteen were recomputed from the composed defaults
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "02083a7806a7e456b1860d2a99ae8a4caeece46092278d998a647eb10a00a7c3",
+    # Exam protection's Codex review (F6; docs/reviews/
+    # exam-protection-codex-review.md) adds goals.held_out_selection = true
+    # (modelled default, left out of the decision-only template), the kill
+    # switch of the stage's serving rules (shown material never an exam item,
+    # cold probe or cold retry; exposed exam items withdrawn at the exam's
+    # start; items made from held-out material out of routine practice). A
+    # live change at every version under the owner's standing ruling (live
+    # changes behind kill switches, not successors, for serving changes replay
+    # never reads), so no successor; off restores the stage's predecessor
+    # selection. Every snapshot moves only because the effective config gains
+    # the key; all eleven were recomputed (defaults_fingerprint_for_version)
+    # on its branch, and all thirteen again from the composed defaults when it
+    # landed after value-of-information stopping.
+    "mvp-0.9": "3c467659086f02df410796323739147640ce0ce4ce1f30e5f338a1684c5be222",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1093,7 +1106,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.10": "7971d0019e2e94dac2aec50401684271dffcec9c3628006e9a768aaf871cfa0d",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.10": "c34e2122a8175df3541c138b5f1cbe4320debf2794e90136177b9c80d7015e61",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1129,7 +1143,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.11": "576a1854e3e7054af101dd61735f2d2ecfcdc0f9a8fe27799a8ae92e145432b2",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.11": "c77412a785c85a9ea9a637161e7fa16bcde9afb0355f0fc80cdc8daaad187a3b",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1159,7 +1174,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.12": "a40600230389c6c9bf2313adc24537126e33e36a6ce76e753673e49031aa4d3b",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.12": "a5ef1d3fddee07c89491715b94c79bc3df5827524e3a81a2f61cf915aada4592",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1184,7 +1200,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.13": "d8fde6ce04bdf1804f02455143b490d0e369d0ceca8103cf2e5ba74177d94e43",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.13": "d306c00069af1e26e69c9935cca360a47842c446e2c72e0a3d633f67e172b839",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1208,7 +1225,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.14": "b493a387a0ecfa0493ec263833d0630acf44aaa8dd76c040c07df6433c425d3d",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.14": "3a20db8be1430dbb85966115baa27f10e0ef115bb1c89ce00db878f914ea3c84",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1230,7 +1248,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.15": "7579862a8e63fc7078d0abe4a978ae561421e2bd1df64519ad562d673e5254a8",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.15": "8ea827380cfb945f7c28dca1cabfd264cce40ebeb726dd6ecdca16f74a468b7b",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1259,7 +1278,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.16": "dd17cdd9b2cc7b3da9086f23282c31de1c8f479081dc97469453638a731725f6",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.16": "2c57f2693d6d7048ec6ba8cdc5996e76568e22353bb38a94ab0d37e8b4758838",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1284,7 +1304,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.9).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.17": "488b43883fe08313db8293db5cfe980ba7e8b8ccc310168f1d28b662f88f07ef",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.17": "168cd46817addc5532408657f23e20e4b5c82c4dedc7a86e52ef1ddad57c88ab",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1302,7 +1323,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # separate check no longer runs here either).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.18": "48febe4958bc2c6afdfc01bde0ba21ac9dc1b91f6a6fc9fc2346a9c993e3bde5",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.18": "c45818c3b38f4f9f3668d0e09eb867e86a8c49c1d492f21f086df5636ed3d517",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1320,7 +1342,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # separate check no longer runs here either).
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.19": "8f6fc3e6e46f5ee3d9fe4c14a73cb62e1abbb43d8c8fb358c9d2032f22aaaeb3",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.19": "7c82cfae730483a7c521f91019b1171c3231cb12cadf2b1e9688299b73dfbf40",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1334,7 +1357,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decision 2026-10-12) until mvp-0.21 merged.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
-    "mvp-0.20": "47dab860c1097138c20faf555e5ecd83b8358f3fd285e719f21b33c70806ca6e",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.20": "fd1f040439e4c9eeafcc00d89c74665a5cd7de64fa77446518ab136501d864af",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1356,7 +1380,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (default target) from mvp-0.20, or from mvp-0.9 to mvp-0.19 through the
     # chain (under mvp-0.12's advisory guard). New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.21": "6ea276fa7e5774d049089f95466354cd59b5861a8f9813f47f89823820edcdad",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.21": "5ada7d808c9ec01ae2280bcc1e6897376364e8dbe06544f16b5b1f18036d72f5",
 }
 
 

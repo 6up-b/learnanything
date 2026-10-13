@@ -74,6 +74,7 @@ from learnloop.content.synthesis.facet_mint_gate import (
 )
 from learnloop.learner.learner_profile import read_learner_profile
 from learnloop.learner.identifiability import analyze_identifiability, build_proposal_view
+from learnloop.content.sources import exam_material as EM
 from learnloop.content.sources.role_authority import role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.synthesis.source_unit_selection import (
@@ -253,6 +254,10 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
     membership: list[dict[str, Any]] = []
     unit_inventory_versions: dict[str, str] = {}
     span_origin: dict[str, dict[str, str]] = {}
+    # The one exam predicate over every source set of the vault: a unit held
+    # out for evaluation (any role) or exam material of any revision never
+    # feeds synthesis as teaching, and its spans join the leakage gate.
+    exam = EM.exam_material(vault.source_sets, repo)
 
     for member in source_set.members:
         extraction_id = resolve_extraction_id(repo, member.revision_id)
@@ -314,11 +319,23 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                 for unit_id in scope_units
             ]
         )
+        raw_spans = {unit.unit_id: tuple(unit.span_ids) for unit in ir.units} if ir is not None else {}
         for group in scope_groups:
             unit_id = str(group["unit_id"])
             source_unit_ids = [str(value) for value in group["unit_ids"]]
             effective_role = str(group["role"])
             authority = role_authority(effective_role)
+            if effective_role != "exam":
+                group_spans = {span for source_unit_id in source_unit_ids
+                               for span in raw_spans.get(source_unit_id, ())}
+                withheld = {span for span in group_spans if exam.covers(extraction_id, span)}
+                if withheld or exam.covers(extraction_id):
+                    # Exam material by the shared predicate in a unit whose
+                    # own role teaches (a held-out textbook unit): assessment
+                    # only, its spans fed to the leakage gate, its inventory
+                    # never in the synthesis context.
+                    held_out_span_ids |= {f"{extraction_id}:{span}" for span in (withheld or group_spans)}
+                    continue
             row = _best_inventory(rows, unit_id, "combined")
             if row is None and len(source_unit_ids) > 1:
                 # Transition-safe fallback: an existing per-member cache remains
@@ -380,6 +397,13 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                 }
             )
 
+    # Every held-out span of the synthesis's extractions (any role, the shared
+    # predicate's partition) is fed to the leakage gate.
+    for held_extraction, held_span in exam.held_out.spans:
+        if held_extraction in extraction_spans:
+            held_out_span_ids.add(f"{held_extraction}:{held_span}")
+    for held_extraction in exam.held_out.extractions:
+        held_out_span_ids |= {f"{held_extraction}:{span}" for span in extraction_spans.get(held_extraction, ())}
     exam_profile = aggregate_exam_profile(exam_entries).as_dict() if exam_entries else None
     return _SynthesisInputs(
         unit_inventories=unit_inventories,
@@ -392,7 +416,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         membership=membership,
         unit_inventory_versions=unit_inventory_versions,
         span_origin=span_origin,
-        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set),
+        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set, exam_source_sets=vault.source_sets),
     )
 
 

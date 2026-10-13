@@ -89,6 +89,7 @@ from datetime import UTC, timedelta
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.content.sources.exam_material import exposed_items
 from learnloop.db.repositories import Repository
 from learnloop.learner.contract_reachability import CONTRACT_MODALITIES
 from learnloop.params.fitted_params import CERTIFICATION_COLD_PROBE_SCOPE
@@ -587,6 +588,17 @@ def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
         return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
 
 
+def _shown_items(vault: LoadedVault, repository: Repository, item_ids: Any) -> set[str]:
+    """Candidates that are no longer an independent check (exam protection):
+    the learner has already been shown their own material, ever (owner
+    default 2026-10-13), or they are made from held-out material, which a cold
+    probe would put in front of the learner (Codex review F1). Empty with
+    ``goals.held_out_selection`` off (``exam_material.exposed_items``)."""
+
+    items = [vault.practice_items[item_id] for item_id in item_ids if item_id in vault.practice_items]
+    return set(exposed_items(vault, repository, items, with_held_out=True))
+
+
 def select_held_out_probe_item(
     vault: LoadedVault,
     repository: Repository,
@@ -632,9 +644,14 @@ def select_held_out_probe_item(
     # Canonical sources S1 (C3): an imported exercise whose answer key is not
     # verified is never a certification cold probe.
     unverified = _unverified_imports(vault, repository)
+    # Exam protection (2026-10-13): an item whose own material the learner was
+    # already shown (a reveal of its answer, its exercise or book solution read
+    # in a source, its prompt rendered in a proposal), or one made from
+    # held-out material, is never a cold probe.
+    shown = _shown_items(vault, repository, cells_by_item)
     for item_id, covered in cells_by_item.items():
         item = vault.practice_items.get(item_id)
-        if item is None or item_id in unverified:
+        if item is None or item_id in unverified or item_id in shown:
             continue
         # The certificate is a claim about THIS learning object, integration
         # included. A same-cell item under another LO measures the cell but not

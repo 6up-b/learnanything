@@ -48,7 +48,7 @@ from learnloop_sidecar.handlers.teach_back import (
 )
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_unservable_item
+from learnloop_sidecar.serving import refuse_held_out_item, refuse_unservable_item
 
 
 class QueueInput(ParamsModel):
@@ -292,6 +292,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
         )
     if item is not None:
         refuse_unservable_item(vault, item)
+        refuse_held_out_item(vault, repository, item)
     refusal = unservable_refusal(item) if item is not None else None
     if refusal is not None:
         raise SidecarError(

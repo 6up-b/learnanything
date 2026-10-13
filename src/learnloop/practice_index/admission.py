@@ -62,6 +62,7 @@ EXCLUSION_REASONS = (
     "reference_adoption_disabled",
     "cold_check_reserved",
     "revealed_recently",
+    "held_out_material",
 )
 
 
@@ -75,6 +76,8 @@ class PracticeAdmission:
     staged_owned: frozenset[str]
     cold_reserved: frozenset[str]
     revealed_recently: frozenset[str]
+    #: Items made from held-out material (exam protection, Codex review F1).
+    held_out: frozenset[str] = frozenset()
 
     @classmethod
     def load(cls, vault: LoadedVault, repository: Repository, *,
@@ -92,6 +95,7 @@ class PracticeAdmission:
             staged_owned=exclusions.staged_owned_item_ids,
             cold_reserved=exclusions.cold_check_reserved_item_ids,
             revealed_recently=exclusions.revealed_recently_item_ids,
+            held_out=exclusions.held_out_item_ids,
         )
 
     def exclusion_reason(self, vault: LoadedVault, item: PracticeItem) -> str | None:
@@ -103,6 +107,8 @@ class PracticeAdmission:
             return "inactive_state"
         if item.id in self.exam_reserved:
             return "exam_reserved"
+        if item.id in self.held_out:
+            return "held_out_material"
         if item.id in self.variant_pending:
             return "variant_pending"
         if item.id in self.staged_owned:

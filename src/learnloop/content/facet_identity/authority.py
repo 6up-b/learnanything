@@ -19,12 +19,19 @@ that rule is enforced for a facet, whichever path writes it.
   unit selected in the member's scope; its role is that scope entry's
   ``role_override`` when there is one, else the member's ``default_role`` (the
   least authoritative one when several entries or members select it, in any
-  order), and ``exam`` for a span in a ``held_out_evaluation`` unit whatever
-  its member's role; an exam citation's relation is ``assessment_alignment``;
-  and its locator is derived from the ids. A citation that does not resolve
-  supports nothing, and one that names exam material by its span (under the
-  wrong unit, or in an exam member's unselected unit) still counts as exam
-  material (:meth:`CitationResolver.exam_material`), never as "uncited".
+  order), and ``exam`` for a span the one exam predicate
+  (``content.sources.exam_material``) names exam material: a
+  ``held_out_evaluation`` unit whatever its member's role, an exam member or
+  exam unit in ANY revision of its source, a unit that does not resolve
+  (fail closed), read over every source set of the vault; an exam citation's
+  relation is ``assessment_alignment``; and its locator is derived from the
+  ids. A citation that does not resolve supports nothing, and one that names
+  exam material by its span (under the wrong unit, in an exam member's
+  unselected unit, or in another revision of an exam source) still counts as
+  exam material (:meth:`CitationResolver.exam_material`), never as "uncited".
+  Which spans are exam material is the shared predicate's; that an
+  explanatory citation beside an exam one still supports a facet's meaning
+  is this module's (support, not leakage).
 * :func:`check_meaning_write` judges one facet's change from the resolved
   citations of each contribution to it, with ``role_authority.support_verdict``:
 
@@ -91,6 +98,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from learnloop.content.facet_identity.views import union_payload
+from learnloop.content.sources import exam_material as EM
 from learnloop.content.sources.role_authority import (
     ASSESSMENT_ONLY_ROLES,
     CITATION_RELATIONS,
@@ -161,7 +169,7 @@ def meaning_policy(config: LearnLoopConfig) -> MeaningPolicy:
 #: Proposal bookkeeping a facet payload may carry; never written to facets.yaml.
 PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash", "meaning_support"})
 #: The exam use mode of a protected, held-out evaluation unit (ingestion §4.2).
-HELD_OUT_EVALUATION = "held_out_evaluation"
+HELD_OUT_EVALUATION = EM.HELD_OUT_EVALUATION
 #: The role a citation that does not resolve is given: it supports nothing.
 UNRESOLVED_ROLE = "unresolved"
 
@@ -289,9 +297,6 @@ class _Units:
     raw: dict[str, frozenset[str]]
     effective: dict[str, frozenset[str]]
     spans: set[str]
-    #: Spans of the units the owner marked ``held_out_evaluation`` (§4.2): exam
-    #: material whatever role their member has.
-    held_out: frozenset[str] = frozenset()
     #: Each span's text (an excerpt the owner reads beside a confirm).
     texts: dict[str, str] = field(default_factory=dict)
 
@@ -318,7 +323,12 @@ def _authority_rank(role: str) -> int:
 
 
 class CitationResolver:
-    """Resolves citations against source-set members (their selected units and roles)."""
+    """Resolves citations against source-set members (their selected units and roles).
+
+    ``load_exam`` builds the one exam predicate (``content.sources.exam_material``)
+    the first time a span's exam status is asked; without it no span is exam
+    material by the predicate (only by its member's or scope entry's role).
+    """
 
     def __init__(
         self,
@@ -327,18 +337,35 @@ class CitationResolver:
         load_ir: Callable[[str], Any],
         load_overrides: Callable[[str], Sequence[Mapping[str, Any]]],
         load_revision: Callable[[str], str | None] | None = None,
-        load_held_out: Callable[[str], Iterable[str]] | None = None,
+        load_exam: Callable[[], EM.ExamMaterial] | None = None,
     ) -> None:
         self._members = list(members)
         self._load_ir = load_ir
         self._load_overrides = load_overrides
         self._load_revision = load_revision
-        self._load_held_out = load_held_out
+        self._load_exam = load_exam
+        self._exam: EM.ExamMaterial | None = None
         self._units: dict[str, _Units | None] = {}
         self._revisions: dict[str, str | None] = {}
 
+    def is_exam(self, extraction_id: str, span_id: str) -> bool:
+        """Whether the one exam predicate names this span exam material."""
+
+        if self._load_exam is None or not extraction_id or not span_id:
+            return False
+        if self._exam is None:
+            self._exam = self._load_exam()
+        return self._exam.covers(str(extraction_id), str(span_id))
+
     @classmethod
-    def for_source_sets(cls, repository: Any, source_sets: Iterable[Any]) -> CitationResolver:
+    def for_source_sets(cls, repository: Any, source_sets: Iterable[Any], *,
+                        exam_source_sets: Iterable[Any] | None = None) -> CitationResolver:
+        """Members of ``source_sets``; exam material read over ``exam_source_sets``
+        (the vault's every set: a span that is exam material in ANY set is exam),
+        else over ``source_sets``."""
+
+        source_sets = list(source_sets)
+        exam_sets = list(exam_source_sets) if exam_source_sets is not None else source_sets
         members: list[_Member] = []
         for source_set in source_sets:
             for member in source_set.members:
@@ -357,16 +384,16 @@ class CitationResolver:
             run = repository.get_extraction_run(extraction_id)
             return str(run["revision_id"]) if run and run.get("revision_id") else None
 
-        def held_out(extraction_id: str) -> list[str]:
-            modes = (repository.get_unit_selection(extraction_id) or {}).get("exam_use_modes") or {}
-            return [str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION]
+        def exam() -> EM.ExamMaterial:
+            return EM.exam_material(exam_sets, repository)
 
         return cls(members, load_ir=repository.load_document_ir, load_overrides=overrides, load_revision=revision,
-                   load_held_out=held_out)
+                   load_exam=exam)
 
     @classmethod
-    def for_source_set(cls, repository: Any, source_set: Any) -> CitationResolver:
-        return cls.for_source_sets(repository, [source_set])
+    def for_source_set(cls, repository: Any, source_set: Any, *,
+                       exam_source_sets: Iterable[Any] | None = None) -> CitationResolver:
+        return cls.for_source_sets(repository, [source_set], exam_source_sets=exam_source_sets)
 
     @classmethod
     def for_vault(cls, repository: Any, vault: Any) -> CitationResolver:
@@ -379,17 +406,12 @@ class CitationResolver:
                 self._units[extraction_id] = None
             else:
                 effective = effective_unit_spans(ir, list(self._load_overrides(extraction_id)))
-                units = _Units(
+                self._units[extraction_id] = _Units(
                     raw={unit.unit_id: frozenset(unit.span_ids) for unit in ir.units},
                     effective={unit_id: frozenset(spans) for unit_id, spans in effective.items()},
                     spans={block.span_id for block in ir.blocks},
                     texts={block.span_id: str(block.text or "") for block in ir.blocks},
                 )
-                held: set[str] = set()
-                for unit_id in self._load_held_out(extraction_id) if self._load_held_out is not None else ():
-                    held |= set(units.spans_of(str(unit_id)) or ())
-                units.held_out = frozenset(held)
-                self._units[extraction_id] = units
         return self._units[extraction_id]
 
     def excerpt(self, citation: ResolvedCitation, *, limit: int = 280) -> str | None:
@@ -402,7 +424,7 @@ class CitationResolver:
         selections of today decide.
         """
 
-        if citation.role in ASSESSMENT_ONLY_ROLES:
+        if citation.role in ASSESSMENT_ONLY_ROLES or self.is_exam(citation.extraction_id, citation.span_id):
             return None
         units = self._index(citation.extraction_id)
         text = " ".join(((units.texts.get(citation.span_id) if units is not None else None) or "").split())
@@ -475,9 +497,10 @@ class CitationResolver:
             return CitationProblem(
                 citation, f"span {span_id} is outside the selected units of extraction run {extraction_id}",
             )
-        if span_id in units.held_out:
-            # A held-out evaluation unit is protected exam material (§4.2),
-            # whatever role its member was given (owner, 2026-10-13).
+        if self.is_exam(extraction_id, span_id):
+            # The one exam predicate: a held-out evaluation unit whatever its
+            # member's role (owner, 2026-10-13), an exam unit or member in any
+            # revision, an unresolvable unit (fail closed).
             hits = [("exam", unit, member) for _role, unit, member in hits]
         role, unit, member = min(hits, key=lambda hit: (_authority_rank(hit[0]), hit[0], hit[1]))
         relation = str(citation.get("relation") or default_relation)
@@ -501,10 +524,13 @@ class CitationResolver:
         owner's confirm; an exam-only one is refused): the span is judged by
         its ids alone. Exam when, with the unit it names set aside, it resolves
         as exam, lies in a held-out evaluation unit, or belongs to a member
-        whose role is exam.
+        whose role is exam; or when the one exam predicate names its span exam
+        material (another revision of an exam source included).
         """
 
         bare = {key: value for key, value in dict(citation).items() if key != "unit_id"}
+        if self.is_exam(str(bare.get("extraction_id") or ""), str(bare.get("span_id") or "")):
+            return True
         resolved = self.resolve(bare)
         if isinstance(resolved, ResolvedCitation):
             return resolved.role in ASSESSMENT_ONLY_ROLES
@@ -514,7 +540,7 @@ class CitationResolver:
         units = self._index(extraction_id) if members else None
         if units is None or span_id not in units.spans:
             return False
-        return span_id in units.held_out or any(member.default_role in ASSESSMENT_ONLY_ROLES for member in members)
+        return any(member.default_role in ASSESSMENT_ONLY_ROLES for member in members)
 
     def resolve_ref(self, ref: Mapping[str, Any], *, default_relation: str = "support") -> ResolvedCitation | CitationProblem:
         """Resolve a persisted provenance ref by the span its locator names (its identity)."""
@@ -1203,7 +1229,7 @@ class ProposalAuthority:
         def factory() -> CitationResolver:
             source_set = _proposal_source_set(vault, repository, patch_id)
             if source_set is not None:
-                return CitationResolver.for_source_set(repository, source_set)
+                return CitationResolver.for_source_set(repository, source_set, exam_source_sets=vault.source_sets)
             return CitationResolver.for_vault(repository, vault)
 
         return cls(factory)

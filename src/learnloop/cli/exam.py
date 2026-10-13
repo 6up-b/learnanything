@@ -100,6 +100,14 @@ def exam_answer_command(
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
+    from learnloop.goals.exam_session import ExamItemWithdrawnError, refuse_withdrawn_answer
+
+    try:
+        # Codex re-review F5: an item shown since it was held out takes no
+        # new answer; refused before any grading call is made.
+        refuse_withdrawn_answer(loaded, repository, session, practice_item_id)
+    except ExamItemWithdrawnError as exc:
+        _exam_answer_refusal("exam_item_withdrawn", str(exc), json_output=json_output)
     provider_name, runtime, client = _ready_provider_for_task(
         vault_root, loaded.config, "grading", ai_provider
     )

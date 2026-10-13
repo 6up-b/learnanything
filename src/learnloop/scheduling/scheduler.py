@@ -232,6 +232,9 @@ def build_due_queue(
     # test; pending-variant holds and staged-owned commitments are below.
     exclusions = routine_serving_exclusions(vault, repository)
     reserved_item_ids = set(exclusions.reserved_exam_item_ids)
+    # Exam protection (Codex review F1): an item made from held-out material
+    # is never routine practice, however long ago it was imported.
+    held_out_item_ids = set(exclusions.held_out_item_ids)
     rung_variant_hold_ids = set(exclusions.rung_variant_hold_ids)
     # Learner-requested items (tutor promotions + applied rung variants, never
     # attempted). Fetched once: the in-loop eligibility floor and the §4a
@@ -256,7 +259,7 @@ def build_due_queue(
         clock=clock,
         persist=persist_explanations,
         item_states=item_states,
-        excluded_item_ids=reserved_item_ids | rung_variant_hold_ids | staged_owned_item_ids,
+        excluded_item_ids=reserved_item_ids | rung_variant_hold_ids | staged_owned_item_ids | held_out_item_ids,
     )
     mastery_states = repository.mastery_states()
     # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
@@ -352,6 +355,9 @@ def build_due_queue(
             continue
         if item.id in reserved_item_ids:
             withheld("reserved_exam", item.id)
+            continue
+        if item.id in held_out_item_ids:
+            withheld("held_out_material", item.id)
             continue
         # Pending-variant hold: the learner asked for an easier/harder sibling
         # of this exact card and it is still being authored. The request's

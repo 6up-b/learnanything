@@ -36,6 +36,7 @@ from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock
 from learnloop.content.authoring.practice_leakage import build_cross_source_spans
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
@@ -161,7 +162,12 @@ def span_keys(values: Sequence[Any]) -> set[SpanKey]:
 def scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope: str,
               learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope:
     """The policy's scope (§5.1). ``post_attempt`` with an open window is
-    ``assisted_practice``; after it, reading plus the item's own passages."""
+    ``assisted_practice``; after it, reading plus the item's own passages.
+
+    The item's own passages never reopen exam material (exam protection,
+    2026-10-13): an extraction that is exam material whole is never in its
+    scope, and every exam span (the item's own included) stays excluded, by
+    the one predicate."""
 
     if policy == "assisted_practice":
         if item is None:
@@ -174,11 +180,20 @@ def scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope:
         base = library_scope(repository) if scope == "library" else teaching_scope(
             vault, repository, learning_object_ids or [item.learning_object_id], item_bound=False)
         own = item_exclusions(repository, item)
-        extractions = dict(base.extractions)
-        for extraction_id in {key[0] for key in own.spans} | set(own.extractions):
-            if extraction_id not in extractions:
+        exam = exam_material(vault, repository)
+        released = {key for key in own.spans if not exam.covers(*key)}
+        extractions = {key: value for key, value in base.extractions.items() if not exam.covers(key)}
+        for extraction_id in sorted({key[0] for key in released} | set(own.extractions)):
+            if extraction_id not in extractions and not exam.covers(extraction_id):
                 extractions.update(extraction_scope(repository, extraction_id).extractions)
-        return Scope("post_attempt", extractions, base.excluded - own.spans, base.notes)
+        # Every exam span of a reopened (or library) extraction stays excluded.
+        excluded = (set(base.excluded) - released) | {key for key in exam.spans if key[0] in extractions}
+        notes = list(base.notes)
+        withheld = len({key for key in own.spans if key not in released}) + len(
+            [extraction_id for extraction_id in own.extractions if exam.covers(extraction_id)])
+        if withheld:
+            notes.append(f"{withheld} of the item's own passage(s) or source(s) withheld as exam material")
+        return Scope("post_attempt", extractions, frozenset(excluded), tuple(notes))
     if scope == "teaching":
         return teaching_scope(vault, repository, learning_object_ids, item_bound=False)
     return library_scope(repository)
@@ -496,12 +511,13 @@ def find_sources(
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]
-    # Exam material is assessment-only (role authority; the sources merge):
-    # never judged by the verification model nor offered as a passage for an
-    # intent. A learner still reads it in the Reader. Under post_attempt the
-    # item's own passages stay (the reveal this policy is for).
-    own_spans = item_exclusions(repository, item).spans if policy == "post_attempt" and item is not None else set()
-    exam = exam_withheld(vault, repository, [hit.key for hit in pool]) - set(own_spans)
+    # Exam material is assessment-only (role authority; the one exam
+    # predicate): never judged by the verification model nor offered as a
+    # passage for an intent, under every policy. A learner still reads it in
+    # the Reader. Under post_attempt the item's own passages stay (the reveal
+    # this policy is for) unless they are exam material (exam protection,
+    # 2026-10-13: an exam item's solution is never reopened).
+    exam = exam_withheld(vault, repository, [hit.key for hit in pool])
     if exam:
         pool = [hit for hit in pool if hit.key not in exam]
         result.manifest["exam_withheld"] = len(exam)

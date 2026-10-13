@@ -2352,6 +2352,7 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     section_id = str(payload.get("section_id") or "")
     if not extraction_id or not section_id:
         raise IngestRunnerError("reader_quick_check needs extraction_id and section_id.")
+    _refuse_held_out_reader_material(ctx, extraction_id, _section_span_ids(ctx.repo, extraction_id, section_id))
     existing = ctx.repo.latest_reader_authored_question(
         extraction_id=extraction_id, section_id=section_id
     )
@@ -2364,6 +2365,53 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
         ctx.repo, client, extraction_id=extraction_id, section_id=section_id, clock=ctx.clock
     )
     return {"question_id": row["id"], "deduplicated": False}
+
+
+def _reader_source_sets(vault_root: Path) -> list[Any]:
+    """The vault's source sets, read when a Reader request is sent (the
+    held-out partition reads them; exam protection, Codex review F3). A root
+    with no vault config holds no source sets; a vault that fails to load
+    raises, so the request fails before any model call."""
+
+    from learnloop.vault.loader import load_vault
+
+    if not (Path(vault_root) / "learnloop.toml").exists():
+        return []
+    return list(load_vault(vault_root).source_sets)
+
+
+def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None:
+    """Exam protection (2026-10-13): a Reader check over held-out material (the
+    one held-out partition, read with the vault's source sets) is refused
+    before any model call, and before a check authored before the mark is
+    handed back (code ``exam_material``)."""
+
+    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+
+    held = held_out_among(held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo), extraction_id, span_ids)
+    if held:
+        raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
+                                details={"extraction_id": extraction_id, "span_ids": held})
+
+
+def _section_span_ids(repository: Repository, extraction_id: str, section_id: str) -> list[str]:
+    """Every block of one guide section (the quick check's own derivation), or []."""
+
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return []
+    section_rows, _block_by_span, _span_to_section = RQC.extraction_sections(ir)
+    return next((list(row["span_ids"]) for row in section_rows if row["id"] == section_id), [])
+
+
+def _passage_span_ids(repository: Repository, extraction_id: str, anchors: Sequence[str]) -> list[str]:
+    """The anchors and every block of the passage check's view of them."""
+
+    try:
+        view = RQC.passage_view(repository, extraction_id=extraction_id, anchor_span_ids=list(anchors))
+    except RQC.ReaderQuickCheckError:
+        return list(anchors)
+    return [*anchors, *(str(block["span_id"]) for block in view["blocks"])]
 
 
 def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
@@ -2421,6 +2469,7 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError(
             "an inquiry quick check needs extraction_id, inquiry_root_event_id and anchor_span_ids."
         )
+    _refuse_held_out_reader_material(ctx, extraction_id, _passage_span_ids(ctx.repo, extraction_id, anchors))
     existing = ctx.repo.inquiry_reader_authored_question(
         inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
     )
@@ -2494,6 +2543,19 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
     raw_selection = payload.get("raw_selection") or {}
     if not extraction_id or not raw_selection.get("nodes"):
         raise IngestRunnerError("reader_exercise_import needs extraction_id and raw_selection nodes.")
+    # Exam protection (2026-10-13): held-out material (the one exam predicate's
+    # held-out partition) never becomes practice, whoever selects it. Checked
+    # before any model call.
+    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.vault.loader import load_vault
+
+    exam = exam_material(load_vault(ctx.vault_root), ctx.repo)
+    held = [str(node.get("span_id")) for node in raw_selection.get("nodes") or ()
+            if isinstance(node, dict) and exam.is_held_out(extraction_id, str(node.get("span_id") or ""))]
+    if held:
+        raise IngestRunnerError(
+            "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
+            code="exam_material", details={"extraction_id": extraction_id, "span_ids": held})
     ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
     client = ctx.services.exercise_import_client(ctx)
     source_id = str(payload.get("source_id") or "") or None
@@ -4184,7 +4246,7 @@ class DurableIngestJobs:
         result = RR.drain_requests(
             runner.repo,
             worker_id=f"sidecar-{os.getpid()}",
-            synthesize=RR.model_synthesis(client),
+            synthesize=RR.model_synthesis(client, source_sets=lambda: _reader_source_sets(runner.vault_root)),
             limit=3,
         )
         return len(result["completed"]) + len(result["failed"]) + len(result["partial"])

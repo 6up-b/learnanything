@@ -151,6 +151,10 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
     report: dict[str, Any] = {"dry_run": dry_run, "targets": targets, "imports": [], "skipped": []}
     if dry_run:
         price = vault.config.source_service.llm_price_per_million
+        # The mixed rerank is a practice-index call: the live request is priced
+        # (and refused when unpriced) at practice_index.rerank_price_per_million,
+        # so the plan prices it there too, never at the service's setting.
+        rerank_price = vault.config.practice_index.rerank_price_per_million
         plans = []
         for target in targets:
             constraints = PracticeConstraints(facet_ids=(target["facet_id"],),
@@ -163,16 +167,20 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
             # shared output-budget policy), as the live call reserves it.
             rerank_tokens = sum(statements) + len(_query(vault, target["facet_id"])) + FRAMING_TOKENS \
                 + output_budget(vault.config, "practice_rerank")
-            rerank = {"calls": 1, "tokens": rerank_tokens,
-                      "usd": None if price is None else round(rerank_tokens * float(price) / 1_000_000, 6)}
+            rerank = {"calls": 1, "tokens": rerank_tokens, "price_per_million": rerank_price,
+                      "price_setting": "practice_index.rerank_price_per_million",
+                      "usd": None if rerank_price is None else round(rerank_tokens * float(rerank_price) / 1_000_000, 6)}
             imports = plan_import_cost(vault, statement_chars=max(statements, default=0),
                                        imports=len(pool.candidates))
             target["estimate"] = {"rerank": rerank, "imports": imports, "total": _sum_plans([rerank, imports])}
             plans.append(target["estimate"]["total"])
         report["estimate"] = {**_sum_plans(plans), "price_per_million": price,
+                              "rerank_price_per_million": rerank_price,
                               "basis": "upper bound: every candidate the arm finds is picked and imported; "
-                                       "metered dollars at source_service.llm_price_per_million (None: unpriced, "
-                                       "metered routes are skipped); subscription routes are estimated_only"}
+                                       "metered dollars at source_service.llm_price_per_million for the imports "
+                                       "and at practice_index.rerank_price_per_million for each target's rerank "
+                                       "(None: unpriced, metered routes are skipped); subscription routes are "
+                                       "estimated_only"}
         report["status"] = "dry_run"
         report["note"] = ("Dry run: no client constructed, nothing sent or written. Each target costs one "
                           "rerank call, and each picked exercise one authoring call, one solution match and "

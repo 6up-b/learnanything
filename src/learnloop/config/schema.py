@@ -107,6 +107,16 @@ class GoalsConfig(BaseModel):
     # Projection horizon for goals without a due date: facet recall is
     # forward-projected this many days out when deciding on-track status.
     default_projection_horizon_days: int = 30
+    # Exam protection's serving rules (docs/reviews/exam-protection.md; the
+    # kill switch of its Codex review F6): material the learner has been shown
+    # never becomes an exam item, a certification cold probe or a cold retry;
+    # an exam item shown after its reservation is withdrawn before the exam
+    # starts; an item made from held-out material stays out of routine
+    # practice (Today, the quick check, find_practice, picks and session
+    # serves) and is never a cold probe or retry. Live at every version
+    # (replay never reads it); off restores the selection before the stage.
+    # What a model is shown (teaching, the Reader, leakage) is not switched.
+    held_out_selection: bool = True
 
 
 class HypothesisConfig(BaseModel):

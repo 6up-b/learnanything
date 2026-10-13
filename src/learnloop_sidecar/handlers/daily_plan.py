@@ -328,15 +328,21 @@ def _proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> di
         raise SidecarError("validation_error", str(exc)) from exc
 
 
-def deliver_on_open(ctx: SidecarContext, *, practice_item_id: str, session_id: str, proposal_id: str,
-                    source_exercise_import_id: str | None = None) -> dict[str, Any]:
-    """The open list served a picked proposal's item (the plan off): its
-    selection, re-checked at this serve, and its delivery, recorded once
-    (Codex re-review F10)."""
+def select_on_open(ctx: SidecarContext, *, practice_item_id: str, session_id: str, proposal_id: str,
+                   source_exercise_import_id: str | None = None) -> tuple[PlanLearnerPickInput, dict[str, Any]]:
+    """The open list is about to serve a picked proposal's item (the plan
+    off): its selection, re-checked BEFORE the serve (an item reserved for a
+    held-out exam since it was proposed is refused)."""
 
     params = PlanLearnerPickInput(practice_item_id=practice_item_id, session_id=session_id,
                                   proposal_id=proposal_id, source_exercise_import_id=source_exercise_import_id)
-    selection = _proposal_selection(ctx, params)
+    return params, _proposal_selection(ctx, params)
+
+
+def deliver_on_open(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any]) -> dict[str, Any]:
+    """The open list served a picked proposal's item (the plan off): its
+    delivery, recorded once after the serve (Codex re-review F10)."""
+
     return _proposal_delivery(ctx, params, selection, router_decision_id=None)
 
 

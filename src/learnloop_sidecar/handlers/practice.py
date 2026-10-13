@@ -59,7 +59,11 @@ from learnloop_sidecar.handlers.serializers import practice_item_detail
 from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object, refuse_unservable_item
+from learnloop_sidecar.serving import (
+    refuse_held_out_item,
+    refuse_inactive_learning_object,
+    refuse_unservable_item,
+)
 
 
 class PracticeDraftCheckpoint(ParamsModel):
@@ -203,21 +207,31 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
-        # A session serve of a dormant/resolved LO's item is refused; read-only
-        # opens (feedback, inspector) still render it.
+        # A session serve of a dormant/resolved LO's item, or of one made from
+        # held-out material, is refused; read-only opens (feedback, inspector)
+        # still render it.
         refuse_unservable_item(vault, item)
+        refuse_held_out_item(vault, repository, item)
+    pick = None
+    if params.session_id is not None and params.proposal_id:
+        # A picked proposal is re-checked BEFORE anything is served (an item
+        # reserved for a held-out exam since it was proposed is refused);
+        # its delivery is recorded after the serve (Codex re-review F10).
+        from learnloop_sidecar.handlers.daily_plan import select_on_open
+
+        pick = select_on_open(ctx, practice_item_id=params.practice_item_id, session_id=params.session_id,
+                              proposal_id=params.proposal_id,
+                              source_exercise_import_id=params.source_exercise_import_id)
     detail = practice_item_detail(vault, repository, params.practice_item_id)
     if params.session_id is not None:
         # Slice 1 E7: a session serve is the decision the lag rate counts.
         from learnloop_sidecar.handlers.queue import record_diagnosis_serve
 
         record_diagnosis_serve(ctx, repository, params.session_id)
-        if params.proposal_id:
+        if pick is not None:
             from learnloop_sidecar.handlers.daily_plan import deliver_on_open
 
-            detail["proposalDelivery"] = to_camel(deliver_on_open(
-                ctx, practice_item_id=params.practice_item_id, session_id=params.session_id,
-                proposal_id=params.proposal_id, source_exercise_import_id=params.source_exercise_import_id))
+            detail["proposalDelivery"] = to_camel(deliver_on_open(ctx, *pick))
     detail["elicitation"] = (
         None
         if params.session_id is None

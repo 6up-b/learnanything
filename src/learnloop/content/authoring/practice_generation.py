@@ -1127,6 +1127,7 @@ def generate_cross_source_practice_proposal(
         build_held_out_inventory,
         screen_practice_payload,
     )
+    from learnloop.content.sources.exam_material import exam_material
 
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -1147,12 +1148,14 @@ def generate_cross_source_practice_proposal(
     context_by_lo: dict[str, list[dict[str, Any]]] = {}
     shaping_by_lo: dict[str, list[dict[str, Any]]] = {}
     span_count = 0
+    # The one exam predicate, read once for every target's teaching context.
+    exam = exam_material(vault, repository)
     for target in plan.targets:
         lo = vault.learning_objects.get(target.learning_object_id)
         if lo is None:
             continue
         spans = build_cross_source_spans(
-            vault, repository, target.learning_object_id, max_spans_per_item=max_spans_per_item
+            vault, repository, target.learning_object_id, max_spans_per_item=max_spans_per_item, exam=exam
         )
         context_by_lo[target.learning_object_id] = [span.as_dict() for span in spans]
         shaping_by_lo[target.learning_object_id] = _blueprint_shaping(vault, lo)

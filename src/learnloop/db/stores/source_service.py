@@ -135,6 +135,84 @@ def impressions_of_spans(connection: sqlite3.Connection, extraction_id: str,
     return [row for row in rows if wanted & set(row["span_ids"])]
 
 
+# -- exam protection: material the learner has already been shown ------------
+
+
+#: Reveal kinds that are the feedback of the item's own attempt (an attempted
+#: item is judged by its attempts, not by this rule).
+_OWN_ATTEMPT_REVEALS = ("answer_display",)
+
+
+def shown_items(connection: sqlite3.Connection, items: Iterable[Any]) -> dict[str, list[str]]:
+    """Items whose own material the learner has already been shown, ever, and how.
+
+    Owner default (exam protection, 2026-10-13, conservative): material the
+    learner has been shown never becomes an exam item or a cold check, however
+    long ago. An item's own material was shown when
+
+    * ``revealed``: a reveal of its answer outside its own attempt's feedback
+      (a ``reveal_events`` row for it other than ``answer_display``: a tutor
+      answer, a repair display, a guided redo, a source re-read);
+    * ``source_exposed``: source text of its canonical exercise region, or of
+      the book solution its import found, reached the learner
+      (``source_exposure_events``);
+    * ``seen_in_proposal``: a proposal strip rendered its prompt, or its
+      exercise's statement before it was imported (``instructional_impressions``).
+
+    No time window (the exposure rule of an independent check, §5.4, counts
+    within the cold retrieval delay; this one never forgets). ``items`` are
+    practice items (``id``, ``canonical_exercise``)."""
+
+    by_id = {str(item.id): item for item in items}
+    if not by_id:
+        return {}
+    found: dict[str, set[str]] = {}
+    ids = sorted(by_id)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        marks = ",".join("?" for _ in chunk)
+        if table_exists(connection, "reveal_events"):
+            kinds = ",".join("?" for _ in _OWN_ATTEMPT_REVEALS)
+            for (item_id,) in connection.execute(
+                    f"SELECT DISTINCT practice_item_id FROM reveal_events WHERE practice_item_id IN ({marks}) "
+                    f"AND source_kind NOT IN ({kinds})", (*chunk, *_OWN_ATTEMPT_REVEALS)):
+                found.setdefault(str(item_id), set()).add("revealed")
+        if table_exists(connection, "instructional_impressions"):
+            for (item_id,) in connection.execute(
+                    f"SELECT DISTINCT practice_item_id FROM instructional_impressions "
+                    f"WHERE practice_item_id IN ({marks})", chunk):
+                found.setdefault(str(item_id), set()).add("seen_in_proposal")
+    regions: dict[str, tuple[str, set[str], set[str]]] = {}
+    for item_id, item in by_id.items():
+        exercise = getattr(item, "canonical_exercise", None)
+        if exercise is None or not getattr(exercise, "extraction_id", None):
+            continue
+        regions[item_id] = (str(exercise.extraction_id), {str(span) for span in exercise.span_ids or ()}, set())
+    if regions and table_exists(connection, "source_exercise_imports"):
+        for item_id, (extraction_id, _spans, solution) in regions.items():
+            for row in imports_for_item(connection, item_id):
+                verification = row.get("verification") or {}
+                for key in ("book_solution", "solution_search"):
+                    entry = verification.get(key) or {}
+                    if entry.get("extraction_id") in (None, extraction_id):
+                        solution.update(str(span) for span in entry.get("span_ids") or () if span)
+    if regions and table_exists(connection, "source_exposure_events"):
+        by_extraction: dict[str, dict[str, set[str]]] = {}
+        for item_id, (extraction_id, spans, solution) in regions.items():
+            for span in spans | solution:
+                by_extraction.setdefault(extraction_id, {}).setdefault(span, set()).add(item_id)
+        for extraction_id, owners in by_extraction.items():
+            for (span_id,) in connection.execute(
+                    "SELECT DISTINCT span_id FROM source_exposure_events WHERE extraction_id=?", (extraction_id,)):
+                for item_id in owners.get(str(span_id), ()):
+                    found.setdefault(item_id, set()).add("source_exposed")
+    if regions and table_exists(connection, "instructional_impressions"):
+        for item_id, (extraction_id, spans, _solution) in regions.items():
+            if spans and impressions_of_spans(connection, extraction_id, spans):
+                found.setdefault(item_id, set()).add("seen_in_proposal")
+    return {item_id: sorted(reasons) for item_id, reasons in sorted(found.items())}
+
+
 # -- S1: source-exercise imports and answer-key checks (migration 188) -------
 
 

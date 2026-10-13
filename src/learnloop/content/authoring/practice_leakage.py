@@ -3,7 +3,8 @@
 Two deterministic instruments here are CODE, not prompt instructions:
 
 * ``build_held_out_inventory`` — the normalized word-shingle + numeric-literal
-  fingerprint of every held-out exam span text vault-wide (§4.2 use modes).
+  fingerprint of every held-out span text vault-wide (§4.2 use modes; the
+  held-out partition of the one exam predicate, ``content.sources.exam_material``).
   Held-out questions/answers/numbers must never surface in generated practice.
 * ``screen_practice_payload`` / ``check_leakage`` — a deterministic gate that
   flags any generated surface reproducing a held-out contiguous word-shingle or a
@@ -22,8 +23,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.content.sources import exam_material
+from learnloop.content.sources.exam_material import HeldOutSpan
 from learnloop.db.repositories import Repository
-from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.vault.models import LoadedVault
 
 # Default contiguous word-shingle order for the wording-overlap gate. Six words
@@ -111,75 +113,21 @@ def _numeric_literals(text: str) -> set[str]:
 # --- held-out inventory -----------------------------------------------------
 
 
-@dataclass(frozen=True)
-class HeldOutSpan:
-    """One held-out exam span: its identity and block text (§4.2 use modes)."""
-
-    extraction_id: str
-    span_id: str
-    text: str
-
-    @property
-    def key(self) -> str:
-        return f"{self.extraction_id}/{self.span_id}"
-
-
 def held_out_spans(
     vault: LoadedVault, repository: Repository, *, subject_ids: set[str] | None = None
 ) -> list[HeldOutSpan]:
-    """Resolve every held-out exam span vault-wide, with its identity (§4.2).
+    """Every held-out span vault-wide, with its identity and text (§4.2, §8.5).
 
-    Mirrors ``source_set_synthesis._collect_inputs`` held-out logic: an exam-role
-    unit contributes its held-out assessment-signal spans, and a whole
-    ``held_out_evaluation`` unit contributes all its spans. Order is the
-    deterministic source-set walk; a span reachable twice is listed once.
+    The held-out partition of the one exam predicate
+    (``content.sources.exam_material.held_out_partition``): every unit marked
+    ``held_out_evaluation`` whatever its member's role, in every extraction
+    of its source (an unresolvable mark withholds its whole extraction, every
+    block of which is then fingerprinted), plus the held-out assessment
+    signals of exam units. ``subject_ids`` narrows only the exam units'
+    signals; held-out units count wherever they sit.
     """
 
-    spans: list[HeldOutSpan] = []
-    seen: set[tuple[str, str]] = set()
-    for source_set in vault.source_sets:
-        if subject_ids is not None and source_set.subject_id not in subject_ids:
-            continue
-        for member in source_set.members:
-            role_overrides = {s.unit_id: s.role_override for s in member.scope if s.role_override}
-            is_exam_member = member.default_role == "exam" or "exam" in role_overrides.values()
-            if not is_exam_member:
-                continue
-            extraction_id = resolve_extraction_id(repository, member.revision_id)
-            if extraction_id is None:
-                continue
-            ir = repository.load_document_ir(extraction_id)
-            if ir is None:
-                continue
-            selection = repository.get_unit_selection(extraction_id) or {}
-            exam_use_modes = selection.get("exam_use_modes", {}) or {}
-            unit_span_ids = {u.unit_id: set(u.span_ids) for u in ir.units}
-            scope_units = [s.unit_id for s in member.scope] or [u.unit_id for u in ir.units]
-            inventories = {
-                row["unit_id"]: row["inventory"]
-                for row in repository.unit_inventories_for_revision(member.revision_id)
-                if row.get("inventory")
-            }
-            for unit_id in scope_units:
-                effective_role = role_overrides.get(unit_id, member.default_role)
-                if effective_role != "exam":
-                    continue
-                whole_unit = exam_use_modes.get(unit_id) == "held_out_evaluation"
-                span_ids: set[str] = set()
-                if whole_unit:
-                    span_ids |= unit_span_ids.get(unit_id, set())
-                inventory = inventories.get(unit_id)
-                if inventory:
-                    for signal in inventory.get("assessment_signals", []) or []:
-                        if whole_unit or signal.get("held_out"):
-                            span_ids |= {str(s) for s in signal.get("span_ids", []) or []}
-                for span_id in sorted(span_ids):
-                    block = ir.block_by_span(span_id)
-                    if block is None or not block.text or (extraction_id, span_id) in seen:
-                        continue
-                    seen.add((extraction_id, span_id))
-                    spans.append(HeldOutSpan(str(extraction_id), str(span_id), block.text))
-    return spans
+    return exam_material.held_out_spans(vault, repository, subject_ids=subject_ids)
 
 
 def _held_out_span_texts(
@@ -323,18 +271,26 @@ def build_cross_source_spans(
     learning_object_id: str,
     *,
     max_spans_per_item: int = 4,
+    exam: exam_material.ExamMaterial | None = None,
 ) -> list[CrossSourceSpan]:
     """Bounded multi-source grounding spans for one learning object (§8.5).
 
     Draws semantic-authority ``entity_source_links`` spans (primary first, then
     support, then alternate for variety) across the LO's facets and the LO entity
     itself. Assessment/exercise (held-out-adjacent) relations are excluded — this
-    is a TEACHING context. Capped at ``max_spans_per_item`` so the per-item
-    context does not grow with source count (KM §12.9)."""
+    is a TEACHING context — and so is exam and held-out material whatever
+    relation a link gives it (the one exam predicate,
+    ``content.sources.exam_material``: a legacy ``support`` link into an exam
+    or a held-out unit never grounds the tutor, generation or PF). Capped at
+    ``max_spans_per_item`` so the per-item context does not grow with source
+    count (KM §12.9). ``exam``: the predicate already built (a caller looping
+    over learning objects); None builds it."""
 
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         return []
+    if exam is None:
+        exam = exam_material.exam_material(vault, repository)
 
     candidates: list[tuple[int, str, dict[str, Any]]] = []
     seen: set[tuple[str, str]] = set()
@@ -368,6 +324,8 @@ def build_cross_source_spans(
             break
         extraction_id = str(link["extraction_id"])
         span_id = str(_span_id_from_locator(link.get("locator")))
+        if exam.covers(extraction_id, span_id):
+            continue
         text = _span_text(repository, extraction_id, span_id)
         if text is None:
             continue

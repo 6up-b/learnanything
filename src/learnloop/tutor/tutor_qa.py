@@ -53,6 +53,7 @@ from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     TUTOR_QA_PROMPT_VERSION,
@@ -133,6 +134,11 @@ _MAX_SELECTION_SPANS = 8
 
 class TutorQAError(ValueError):
     pass
+
+
+class HeldOutMaterialRefused(TutorQAError):
+    """A Reader question about held-out material (exam protection, 2026-10-13):
+    refused before anything is written or sent, with the learner-facing reason."""
 
 
 @dataclass(frozen=True)
@@ -347,6 +353,7 @@ def ask_question(
     item: PracticeItem | None = None
     attempt: dict[str, Any] | None = None
     note = None
+    reader_held_out: Any = None
 
     if context == "feedback":
         if attempt_id is None:
@@ -382,6 +389,15 @@ def ask_question(
             answer_mode = READER_ANSWER_MODE_DEFAULT
         if answer_mode not in READER_ANSWER_MODES:
             raise TutorQAError(f"Unknown reader answer mode {answer_mode!r}.")
+        # Exam protection (2026-10-13): held-out material (the one held-out
+        # partition: held-out units and exam units' held-out assessment
+        # signals, Codex review F3) is never shown to a model as explanation,
+        # whoever selects it. A question about it is refused before anything
+        # is written or sent; a held-out neighbour of the passage is left out
+        # of the manifest (``_reader_source_spans``).
+        reader_held_out = held_out_material(vault, repository)
+        if held_out_among(reader_held_out, extraction_id, [span_id, *selection_span_ids]):
+            raise HeldOutMaterialRefused(HELD_OUT_REFUSAL)
         note_id = reader_span_key(extraction_id, span_id)
 
     used, limit = question_usage(
@@ -464,6 +480,7 @@ def ask_question(
             selection_quote_md=selection_quote_md,
             provided_source_spans=provided_spans,
             learner_draft_md=learner_draft_md,
+            reader_withheld=reader_held_out,
         )
 
     if context == "reader":
@@ -1195,6 +1212,7 @@ def _build_context(
     selection_quote_md: str | None = None,
     provided_source_spans: list[dict[str, Any]] | None = None,
     learner_draft_md: str | None = None,
+    reader_withheld: Any = None,
 ) -> TutorQAContext:
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
@@ -1214,6 +1232,7 @@ def _build_context(
                 span_id,
                 selection_span_ids=selection_span_ids,
                 selection_quote_md=selection_quote_md,
+                withheld=reader_withheld,
             ),
             answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
         )
@@ -1380,12 +1399,17 @@ def _reader_source_spans(
     *,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    withheld: Any = None,
 ) -> list[dict[str, Any]]:
     """Block-level span views for the reader manifest (§7.6): the learner's
     selection (exact quote first, then every covered block), plus the primary
     block's immediate neighbours, as citable {extraction_id, span_id, label,
     text} spans. NOT the P3 annotation layer -- just ``span_view`` geometry. The
-    tutor may cite ONLY these. Degrades to [] when the span cannot be resolved."""
+    tutor may cite ONLY these. Degrades to [] when the span cannot be resolved.
+
+    ``withheld`` (the held-out material, ``content.sources.exam_material``):
+    a neighbour it covers is never in the manifest (exam protection; a
+    selection in it never reaches here, ``ask_question`` refuses it)."""
 
     if not extraction_id or not span_id:
         return []
@@ -1444,7 +1468,7 @@ def _reader_source_spans(
     max_spans = max(_MAX_CITATION_SPANS, len(spans) + 2)
     for neighbour in (view.get("previous_spans") or []) + (view.get("next_spans") or []):
         nid = neighbour.get("span_id")
-        if nid is None:
+        if nid is None or (withheld is not None and withheld.covers(str(extraction_id), str(nid))):
             continue
         spans.append(
             {

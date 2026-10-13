@@ -67,6 +67,7 @@ from learnloop.content.authoring.exercise_authoring import (
 )
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
 from learnloop.content.authoring.practice_leakage import build_held_out_inventory, screen_practice_payload
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgment_claims import (
@@ -250,13 +251,23 @@ def find_book_solution(vault: LoadedVault, repository: Repository, *, extraction
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         regions = solution_regions(connection, extraction_id)
     region_of = {(extraction_id, span): region for region in regions for span in region[0]}
+    # A solution that is exam or held-out material (the one predicate) never
+    # reaches the match model, nor the authoring model as the book's solution.
+    exam = exam_material(vault, repository)
     ordered: list[tuple[tuple[str, ...], str, int | None]] = []
+    withheld = 0
     for key in search.fused_keys:
         region = region_of.get(key)
-        if region is not None and region not in ordered:
-            ordered.append(region)
+        if region is None or region in ordered:
+            continue
+        if any(exam.covers(extraction_id, span) for span in region[0]):
+            withheld += 1
+            continue
+        ordered.append(region)
     pool = ordered[:SOLUTION_CANDIDATES]
     manifest = {"search": search.describe(), "candidates": len(pool), "regions": len(regions)}
+    if withheld:
+        manifest["exam_withheld"] = withheld
     if not pool:
         return {"status": "none", "reason": "no solution passage in the exercise's source", **manifest}
     candidates, refs = [], {}
@@ -1151,6 +1162,17 @@ def _import_source_exercise(
         return {"import_id": import_id, "status": status, "reason": reason, "practice_item_id": None,
                 "key_status": fields.get("key_status")}
 
+    # Exam protection (2026-10-13): the region's exam and held-out status is
+    # rechecked now, by the one predicate, before anything is sent or written.
+    # A proposal (or a harvest's or a need's search) may predate the owner's
+    # mark: a stale proposal is never trusted.
+    exam = exam_material(vault, repository)
+    region = [(str(extraction_id), str(span)) for span in span_ids]
+    flagged = [key for key in region if exam.covers(*key)]
+    if flagged:
+        return fail("rejected", "exam_material: this exercise is exam or held-out material now, so it never "
+                    "becomes practice", verification={"exam_material": [exam.verdict(*key).as_dict()
+                                                                        for key in flagged[:5]]})
     started = time.monotonic()
     deadline = None if time_box_seconds is None else started + float(time_box_seconds)
     selection = selection_for_region(repository, extraction_id, span_ids)

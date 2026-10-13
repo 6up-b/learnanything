@@ -19,7 +19,10 @@ CREATE TABLE retrieval_interventions (
   proposal_id TEXT,
   question_event_id TEXT,
   remediation_episode_id TEXT,
-  -- R1's learner_pick row for the pick, when the router_decisions table exists.
+  -- The router decision of the plan block that served the pick, exactly as the
+  -- serving path returned it (the block's decision_ref: R1's row when R1 logs
+  -- plan decisions); never looked up by matching rows; NULL when the serving
+  -- path returned none (an open-list serve, a non-pick kind).
   router_decision_id TEXT,
   assets_json TEXT NOT NULL DEFAULT '{}',
   targets_json TEXT NOT NULL DEFAULT '{}',

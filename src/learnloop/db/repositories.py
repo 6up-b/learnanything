@@ -18211,6 +18211,31 @@ class Repository(
             connection.commit()
         return item_ids
 
+    def release_exam_pool_items(
+        self, goal_id: str, practice_item_ids: Iterable[str], *, clock: Clock | None = None
+    ) -> list[str]:
+        """Release some of a goal's unreleased reservations (the rows stay, with
+        ``released_at``); return the item ids released."""
+
+        wanted = sorted({str(item_id) for item_id in practice_item_ids})
+        if not wanted:
+            return []
+        now = utc_now_iso(clock)
+        marks = ", ".join("?" for _ in wanted)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT practice_item_id FROM exam_pool_items WHERE goal_id = ? AND released_at IS NULL "
+                f"AND practice_item_id IN ({marks})",
+                (goal_id, *wanted),
+            ).fetchall()
+            connection.execute(
+                f"UPDATE exam_pool_items SET released_at = ? WHERE goal_id = ? AND released_at IS NULL "
+                f"AND practice_item_id IN ({marks})",
+                (now, goal_id, *wanted),
+            )
+            connection.commit()
+        return [row["practice_item_id"] for row in rows]
+
     # ------------------------------------------------------------------
     # Exam sessions
     # ------------------------------------------------------------------

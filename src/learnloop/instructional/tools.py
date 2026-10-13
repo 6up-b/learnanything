@@ -34,7 +34,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.source_service import insert_tool_call, tool_call, tool_calls
 from learnloop.ids import new_ulid
 from learnloop.instructional.exercises import exercise_region_count
-from learnloop.instructional.policy import caller_for_question_event, cold_administration_open
+from learnloop.instructional.policy import caller_for_question_event, cold_administration_open, cold_notes
 from learnloop.instructional.practice import continuation_cursor, propose_practice
 from learnloop.instructional.sources import propose_comparison, propose_sources
 from learnloop.instructional.valuation import HYPOTHESIS_ALIASES, REFERENCE_KINDS, named_gap_target
@@ -541,8 +541,10 @@ def run_requested_tool(vault: LoadedVault, repository: Repository, request_id: s
     context.pop("policy_derived_from", None)
     caller = CallerContext.from_dict(context)
     if not caller.cold and cold_administration_open(repository, caller.item_id):
-        # A cold administration opened since: the policy narrows, never widens.
-        caller = CallerContext.from_dict({**caller.as_dict(), "cold": True})
+        # A cold administration opened since (or the item was reserved for a
+        # held-out exam): the policy narrows, never widens.
+        caller = CallerContext.from_dict({**caller.as_dict(), "cold": True,
+                                          "notes": [*caller.notes, *cold_notes(repository, caller.item_id)]})
     started = time.monotonic()
     status, out, error = "ran", None, None
     try:

@@ -287,7 +287,13 @@ def test_a_re_extraction_never_makes_an_exam_only_restoration_admissible(tmp_pat
 
 def test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_resolve(tmp_path):
     """The exam member left the source set: the candidate's recorded citation
-    does not resolve, and that is not the same as citing nothing."""
+    does not resolve, and that is not the same as citing nothing.
+
+    Exam protection (2026-10-13): while the paper's selection still marks it
+    ``held_out_evaluation`` it stays exam material outside any source set (the
+    one predicate, ``content.sources.exam_material``: held-out units count
+    wherever they sit), so the undo is refused as exam authority; once the
+    mark is gone too, the citation is merely unresolved."""
 
     root, repo, result = _exam_alias_consolidation(tmp_path)
     (action,) = result.facet_identity["actions"]
@@ -298,6 +304,11 @@ def test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_reso
                              "members": members}, clock=_CLOCK)
     status = facet_actions.action_by_id(repo, action["id"])["status"]
 
+    with pytest.raises(FacetIdentityActionError) as raised:
+        undo_action(root, repo, action["id"], clock=_CLOCK)
+    assert raised.value.code == "exam_authority"
+
+    save_unit_selection(repo, "ext_exam", ["paper_2024"], clock=_CLOCK, exam_use_modes={})
     with pytest.raises(FacetIdentityActionError) as raised:
         undo_action(root, repo, action["id"], clock=_CLOCK)
 

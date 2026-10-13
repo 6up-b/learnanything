@@ -1,10 +1,15 @@
 """Items routine serving never offers, shared by Today's queue, the quick check
 and ``find_practice``.
 
-Three exclusions keep an item out of every routine selection, whatever ranks it:
+Four exclusions keep an item out of every routine selection, whatever ranks it:
 
 - **exam reservations**: an item reserved for a goal's held-out exam stays
   unseen so the exam remains an honest, uncontaminated test;
+- **held-out material**: an item made from material held out for evaluation
+  (its canonical exercise or a block-level source ref in the one held-out
+  partition, ``content.sources.exam_material``), whenever the unit was marked:
+  held-out exam material is never leaked into practice (exam protection,
+  Codex review F1; kill switch ``goals.held_out_selection``);
 - **pending-variant holds**: the learner asked for an easier or harder sibling
   of this exact card and it is still being authored;
 - **staged-controller ownership**: during the dual-controller cutover the
@@ -49,6 +54,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock
+from learnloop.content.sources.exam_material import held_out_items, held_out_selection_active
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_pool import reserved_item_ids
@@ -63,12 +69,15 @@ class ServingExclusions:
     #: Out-of-timing rules; empty from :func:`routine_serving_exclusions`.
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
     revealed_recently_item_ids: frozenset[str] = frozenset()
+    #: Items made from held-out material (empty with ``goals.held_out_selection`` off).
+    held_out_item_ids: frozenset[str] = frozenset()
 
     @property
     def item_ids(self) -> frozenset[str]:
         """What routine serving never offers."""
 
-        return self.reserved_exam_item_ids | self.rung_variant_hold_ids | self.staged_owned_item_ids
+        return (self.reserved_exam_item_ids | self.rung_variant_hold_ids | self.staged_owned_item_ids
+                | self.held_out_item_ids)
 
     @property
     def out_of_timing_item_ids(self) -> frozenset[str]:
@@ -84,6 +93,7 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
         reserved_exam_item_ids=frozenset(reserved_item_ids(repository)),
         rung_variant_hold_ids=frozenset(repository.rung_variant_pending_source_ids()),
         staged_owned_item_ids=frozenset(controller_ownership.staged_owned_practice_item_ids(vault, repository)),
+        held_out_item_ids=held_out_items(vault, repository) if held_out_selection_active(vault) else frozenset(),
     )
 
 
@@ -123,4 +133,5 @@ def out_of_timing_serving_exclusions(
         staged_owned_item_ids=routine.staged_owned_item_ids,
         cold_check_reserved_item_ids=frozenset(cold_reserved),
         revealed_recently_item_ids=frozenset(revealed),
+        held_out_item_ids=routine.held_out_item_ids,
     )
