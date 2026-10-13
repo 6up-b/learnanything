@@ -13,6 +13,10 @@
 - Every fix has a test that failed first.
 - No new setting and no new panel.
 
+*Superseded in part by Codex's review of this pass (`ux-phase1-finish-codex-review.md`). It found two gaps, and both are fixed there:*
+- *F8: the worker could exit just as a retry fell due.*
+- *#2: the resumed-check guard missed a PDF manifest that arrived after the guide.*
+
 **Paid calls:** none ($0.00). Every model call in the tests is a house fake. No real provider and no network were used, and no app or server was started.
 
 **Commits:**
