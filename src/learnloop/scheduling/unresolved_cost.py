@@ -51,6 +51,12 @@ EEDI_EXCESS_REPEAT_RATE = 0.151  # decision parameter: population prior (Eedi), 
 ENCOUNTERS_UNTIL_CAUGHT = 6.0  # decision parameter: heuristic
 #: A class first seen this recently may still recur (right-censored).
 CENSOR_DAYS = 14.0  # decision parameter: heuristic
+# ``latency_seconds`` is wall-clock presentation-to-submit time, so one long
+# break reads as a long attempt: the pooled median needs this many timed
+# attempts before it replaces the heuristic, and one attempt counts at most
+# this many minutes.
+MIN_TIMED_ATTEMPTS = 20  # decision parameter: heuristic
+LATENCY_CAP_MINUTES = 15.0  # decision parameter: heuristic
 
 PERSISTENT_SCOPES = ("learner_state", "unknown")
 
@@ -134,7 +140,7 @@ def _personal_history(repository: Repository) -> tuple[list[float], int, dict[st
         latency = row["latency_seconds"]
         attempts_by_class.setdefault(key, {})[str(row["attempt_id"])] = (
             _parse_time(row["created_at"]),
-            float(latency) if latency is not None else None,
+            min(float(latency), LATENCY_CAP_MINUTES * 60.0) if latency is not None else None,
         )
     now = _parse_time(newest)
     pooled = [lat for cls in attempts_by_class.values() for (_t, lat) in cls.values() if lat is not None]
@@ -168,12 +174,14 @@ def estimate_unresolved_cost(repository: Repository, *, pseudo_count: float) -> 
     """The shrunk minutes an unresolved persistent misconception costs."""
 
     seconds, sample = repository.median_attempt_latency_seconds()
-    if seconds is not None and sample > 0:
-        per_repeat, per_repeat_source = float(seconds) / 60.0, "pooled_attempt_latency"
+    if seconds is not None and sample >= MIN_TIMED_ATTEMPTS:
+        per_repeat = min(float(seconds) / 60.0, LATENCY_CAP_MINUTES)
+        per_repeat_source = "pooled_attempt_latency"
     else:
         per_repeat, per_repeat_source = AL.DEFAULT_INTERVENTION_MINUTES, "heuristic_default"
     prior = EEDI_EXCESS_REPEAT_RATE * ENCOUNTERS_UNTIL_CAUGHT * per_repeat
     personal, censored, detail = _personal_history(repository)
+    detail = {**detail, "timed_attempts": int(sample or 0)}
     n = len(personal)
     k = max(float(pseudo_count), 0.0)
     mean_personal = statistics.fmean(personal) if personal else None

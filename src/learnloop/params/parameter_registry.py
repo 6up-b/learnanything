@@ -711,6 +711,12 @@ _reg_const("unresolved_cost:ENCOUNTERS_UNTIL_CAUGHT", "prior", owner="unresolved
 _reg_const("unresolved_cost:CENSOR_DAYS", "threshold", owner="unresolved_cost",
            rationale="heuristic: a recurrence class first seen this recently with no repeat yet is "
            "right-censored (excluded from the personal mean, counted).")
+_reg_const("unresolved_cost:MIN_TIMED_ATTEMPTS", "threshold", owner="unresolved_cost",
+           rationale="heuristic: timed attempts the pooled latency median needs before it replaces the "
+           "per-repeat minutes default (wall-clock latency is noisy at small n).")
+_reg_const("unresolved_cost:LATENCY_CAP_MINUTES", "threshold", owner="unresolved_cost",
+           rationale="heuristic: one attempt's wall-clock latency counts at most this many minutes "
+           "(a break is not repeated-error time).")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",

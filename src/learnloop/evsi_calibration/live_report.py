@@ -31,9 +31,11 @@ from contextlib import closing
 from typing import Any, Mapping, Sequence
 
 from learnloop.db.connection import connect
+from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis.probes import score_bucket
 from learnloop.evsi_calibration.metrics import reliability
+from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
 from learnloop.scheduling.voi_forecasts import FORECAST_VERSION, entropy, posterior
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -294,9 +296,20 @@ def calibration_report(vault: LoadedVault, *, since: str | None = None) -> dict[
             joined = _join(connection, vault, forecast, adapters)
             truth = truth_for(connection, forecast)
             rows.append((forecast, joined, truth))
-    return summarize_joined(rows, since=since, router_available=adapters[0].available,
-                            logging_enabled=bool(vault.config.evsi.forecast_logging),
-                            measured_loss_enabled=bool(vault.config.evsi.measured_loss_enabled))
+    report = summarize_joined(rows, since=since, router_available=adapters[0].available,
+                              logging_enabled=bool(vault.config.evsi.forecast_logging),
+                              measured_loss_enabled=bool(vault.config.evsi.measured_loss_enabled))
+    # Part C's estimate as it would be charged now (read-only), so the owner
+    # can see the measured loss before deciding to turn it on.
+    try:
+        estimate = estimate_unresolved_cost(
+            Repository.attach(path, read_only=True),
+            pseudo_count=vault.config.evsi.unresolved_cost_prior_pseudo_count,
+        )
+        report["unresolved_cost_estimate"] = estimate.as_dict()
+    except sqlite3.Error as error:
+        report["unresolved_cost_estimate"] = {"available": False, "reason": str(error)}
+    return report
 
 
 def summarize_joined(

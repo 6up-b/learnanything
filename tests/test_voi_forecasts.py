@@ -331,6 +331,8 @@ def test_cli_calibration_reports_read_only(tmp_path):
     payload = json.loads(result.output)
     assert payload["status"] == "ok" and payload["forecasts"] >= 1
     assert payload["measured_loss_enabled"] is False
+    # Part C's estimate is shown before anyone turns it on.
+    assert payload["unresolved_cost_estimate"]["provenance"] == "population_prior"
     later = CliRunner().invoke(app, ["evsi", "calibration", "--vault", str(loaded.root), "--json",
                                      "--since", "2999-01-01T00:00:00Z"])
     assert json.loads(later.output)["forecasts"] == 0
@@ -396,9 +398,65 @@ def test_unresolved_cost_shrinks_the_eedi_prior_toward_personal_history(tmp_path
     assert estimate.personal_classes == 2  # the transient slip is not a persistent cause
     # Class one repeated twice (2 + 3 minutes); class two never repeated.
     assert estimate.personal_mean_minutes == pytest.approx(2.5)
-    assert estimate.minutes_per_repeat_source == "pooled_attempt_latency"
+    # Five timed attempts are too few to trust a wall-clock median.
+    assert estimate.minutes_per_repeat_source == "heuristic_default"
     assert estimate.prior_weight == pytest.approx(0.5)
     assert estimate.minutes == pytest.approx(0.5 * estimate.prior_minutes + 0.5 * 2.5)
+    with repository.connection() as connection:
+        for index in range(UC.MIN_TIMED_ATTEMPTS):
+            _attempt(connection, f"att_timed_{index}", "2026-03-01T10:00:00Z", 3600)  # an hour-long "attempt"
+        connection.commit()
+    timed = UC.estimate_unresolved_cost(repository, pseudo_count=2.0)
+    assert timed.minutes_per_repeat_source == "pooled_attempt_latency"
+    # A break is not repeated-error time: one attempt counts at most the cap.
+    assert timed.minutes_per_repeat == pytest.approx(UC.LATENCY_CAP_MINUTES)
     per_hypothesis, _ = UC.unresolved_minutes_for_hypotheses(repository, [slip["id"]], pseudo_count=2.0)
     assert per_hypothesis[slip["id"]]["minutes"] == 0.0
     assert per_hypothesis[slip["id"]]["source"] == "not_a_persistent_cause"
+
+
+def test_followup_outcome_maps_into_the_forecasts_alphabet(tmp_path):
+    vault, repository = _vault(tmp_path)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "rubric_score, error_type, created_at) VALUES ('att_f', 'pi_svd_define_001', ?, 'short_answer', "
+            "'independent_attempt', 0, 'conceptual_slip', '2026-05-20T12:00:00Z')",
+            (LO_ID,),
+        )
+        connection.commit()
+        forecast = {"site": "followup_selection", "forecast": {"emission_alphabet": ["low|", "low|conceptual_slip",
+                                                                                     "high|"]}}
+        assert LR.realized_emission(connection, vault, forecast, "att_f") == ("low|conceptual_slip", "realized")
+        other = {"site": "followup_selection", "forecast": {"emission_alphabet": ["low|", "high|"]}}
+        # An error the forecast did not model reads as the bucket's null-error outcome.
+        assert LR.realized_emission(connection, vault, other, "att_f") == ("low|", "realized")
+        assert LR.realized_emission(connection, vault, {"site": "staged_diagnostic_selection"}, "att_f")[1] == (
+            "site_without_outcome_mapping"
+        )
+
+
+def test_a_later_teach_back_naming_the_same_cause_confirms_it(tmp_path):
+    _vault_obj, repository = _vault(tmp_path)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "created_at) VALUES ('att_src', 'pi_svd_define_001', ?, 'short_answer', 'independent_attempt', "
+            "'2026-05-19T12:00:00Z'), ('att_tb', 'pi_svd_define_001', ?, 'teach_back', 'teach_back', "
+            "'2026-05-25T12:00:00Z')",
+            (LO_ID, LO_ID),
+        )
+        connection.commit()
+    common = {"learning_object_id": LO_ID, "cause_scope": "learner_state", "status": "candidate", "clock": CLOCK}
+    source = repository.append_causal_hypothesis(
+        episode_key="src", attempt_id="att_src", statement="Transposes the wrong factor.",
+        statement_normalized="transposes the wrong factor", **common,
+    )
+    repository.append_causal_hypothesis(
+        episode_key="tb", attempt_id="att_tb", statement="Transposes the wrong factor.",
+        statement_normalized="transposes the wrong factor", **common,
+    )
+    forecast = {"created_at": "2026-05-20T00:00:00Z", "forecast": {"prior": {source["id"]: 0.6, "other": 0.4}}}
+    with repository.connection() as connection:
+        truth = LR.truth_for(connection, forecast)
+    assert truth == {"confirmed": [source["id"]], "ruled_out": [], "sources": ["teach_back_recurrence"]}
