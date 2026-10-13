@@ -502,4 +502,4 @@ def service_clients(llm: FakeServiceLLM) -> dict[str, Any]:
     """The injected clients the import pipeline resolves by role."""
 
     return {name: llm for name in ("authoring", "panel", "equivalence", "span_support", "solution_match",
-                                   "family_judge")}
+                                   "family_judge", "exercise_discrimination", "worked_example_equivalence")}

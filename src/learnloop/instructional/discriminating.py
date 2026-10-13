@@ -94,7 +94,8 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
         entries = [item_input(vault, repository, problem, vault.practice_items[item_id], estimator=estimator,
                               channel=channel) for item_id in kept_items if item_id in vault.practice_items]
         if kept_exercises:
-            if intent == "discriminate" and problem.space_kind in ("hypothesis_set", "facet_marginal", "episode"):
+            if intent == "discriminate" and problem.space_kind in ("hypothesis_set", "facet_marginal", "episode",
+                                                                   "causal_factor"):
                 screened = screen_exercises(vault, repository, problem, kept_exercises, client=screen_client)
                 screens[problem.key] = {"status": screened["status"]}
                 for exercise in kept_exercises:

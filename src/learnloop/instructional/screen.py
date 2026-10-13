@@ -16,6 +16,7 @@ Every verdict goes to ``judgment_ledger`` (task ``exercise_discrimination``).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from contextlib import closing
 import json
 from typing import Any
 
@@ -25,6 +26,7 @@ from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import judgments_by_ids
@@ -66,6 +68,11 @@ def slot_description(repository: Repository, slot: str) -> str:
         record = repository.misconception(slot.split(":", 1)[1])
         if record is not None:
             return f"holds the belief: {record.statement}"
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = connection.execute("SELECT statement FROM causal_hypotheses WHERE id=? ORDER BY version DESC LIMIT 1",
+                                 (slot,)).fetchone()
+    if row is not None and row[0]:
+        return f"the error's cause is: {row[0]}"
     return {"mastered": "has the capability and applies it correctly",
             "unfamiliar": "has not learned this yet",
             "holds_unaided": "can do it unaided", "not_unaided": "cannot yet do it unaided"}.get(slot, slot)
