@@ -161,6 +161,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             database_tables,
             issues,
         )
+        _check_retired_keep_local(repository, database_tables, issues)
     _recover_apply_intents(
         paths,
         repository,
@@ -635,6 +636,34 @@ def _check_retired_config(root: Path, issues: list[HealthIssue]) -> None:
                 path,
             )
         )
+
+
+def _check_retired_keep_local(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None:
+    """The per-book "Keep this book on this computer" (spec ux_learnloop_v1
+    §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner,
+    2026-10-13: sending books to an AI is fine; the opt-out was not asked
+    for). The column stays and nothing reads it, so a book that still has it
+    set is named: its passages may now be sent to the AI the learner
+    connected, under the connection's one OK."""
+
+    if "source_artifacts" not in database_tables:
+        return
+    try:
+        kept = repository.sources_with_retired_keep_local()
+    except sqlite3.Error:
+        return
+    if not kept:
+        return
+    issues.append(
+        _issue(
+            "warning",
+            "source:retired_keep_local",
+            f"{len(kept)} book(s) still carry the retired 'Keep this book on this computer' choice "
+            "(source_artifacts.keep_local); it is ignored now, so their passages may be sent to the AI "
+            "you connected, as for every other book.",
+            details={"setting": "source_artifacts.keep_local", "source_ids": kept, "action": "none"},
+        )
+    )
 
 
 def _check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None:

@@ -11,8 +11,9 @@ to it, and the learner's one OK is recorded in the library's config with its
 date, then releases every book that was waiting for it.
 
 ``source_action`` runs the one action a book card's status line offers: undo,
-build now, retry, read scanned pages with text recognition, the separate OK for
-sending a whole file out, or keeping a book on this computer.
+build now, retry, read scanned pages with text recognition, or the separate OK
+for sending a whole file out. (The per-book "Keep this book on this computer"
+and its "Let LearnLoop write questions for it" are retired: owner, 2026-10-13.)
 
 Desktop only (machine paths, credentials, paid builds): pinned in
 tests/test_mobile_allowlist.py.
@@ -70,7 +71,6 @@ class AddSourceInput(ParamsModel):
     # Add → More options (spec §8.2). Nothing here is required.
     pages: str | None = None
     problem_set: bool = False
-    keep_local: bool = False
     text_recognition: bool = False
 
 
@@ -88,7 +88,6 @@ def add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any
     options = core.AddSourceOptions(
         page_selection=tuple(page_selection) if page_selection else None,
         problem_set=params.problem_set,
-        keep_local=params.keep_local,
         text_recognition=params.text_recognition,
     )
     items = [core.add_source(vault, ctx.ingest_jobs, source, options) for source in sources]
@@ -232,7 +231,7 @@ class SourceActionInput(ParamsModel):
     batch_id: str | None = None
     action: Literal[
         "undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
-        "allow_upload", "keep_local", "share_with_ai",
+        "allow_upload",
     ]
 
 
@@ -315,15 +314,8 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         if batch_id is not None:
             ctx.ingest_jobs.resume_batch(batch_id)
         result["batch_id"] = batch_id
-    elif params.action == "keep_local":
-        core.keep_on_this_computer(ctx.ingest_jobs, params.source_id)
-    elif params.action == "share_with_ai":
-        # A book not readable yet resumes its Add, which asks for the separate
-        # whole-file OK before anything is uploaded (re-review F13).
-        result["batch_id"] = core.share_with_ai(ctx.ingest_jobs, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
-        keep_local = bool(artifact.get("keep_local"))
-        if not core.text_recognition_available(keep_local=keep_local):
+        if not core.text_recognition_available():
             # Plain words and how to get it (usability round 2); the shelf
             # offers this only where it can run, so this is a safety net.
             raise SidecarError(
@@ -338,7 +330,7 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         result["batch_id"] = ctx.ingest_jobs.enqueue_add_source(
             source,
             source_id=params.source_id,
-            options=core.AddSourceOptions(text_recognition=True, keep_local=keep_local),
+            options=core.AddSourceOptions(text_recognition=True),
             auto_build=never_read,
         )
     return versioned(result)

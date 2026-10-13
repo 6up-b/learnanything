@@ -527,7 +527,7 @@ class MeteredRequestGate:
 
     ``cancelled``, when given, is consulted before every request made on the
     thread that created the gate, whatever the route: work that was stopped
-    (cancelled, a book kept on this computer) starts no further request, and
+    (cancelled: Undo, the kill switch) starts no further request, and
     :class:`SpendCancelled` is raised instead. Worker threads skip it: they
     keep SQL off their threads and are stopped by their owner's own poll.
     """

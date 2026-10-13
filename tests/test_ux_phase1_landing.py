@@ -9,9 +9,10 @@
 * Spend (the owner's 2026-10-13 caps direction): the request gate an
   automatic build installs works with no money limit (no per-operation cap)
   and still stops a cancelled build's requests.
-* Keep this book on this computer (UX review F1) covers RW1a's passage-scoped
-  quick check, a Reader AI request main added: refused when asked and when
-  its job runs.
+* RW1a's passage-scoped quick check: the landing refused it for a book kept
+  on this computer (UX review F1). That per-book choice is retired (owner,
+  2026-10-13; reading-hardening part 3), so the two tests below now pin that
+  a book still carrying it gets its check like any other.
 """
 
 from __future__ import annotations
@@ -163,15 +164,21 @@ def test_the_request_gate_works_without_a_money_limit():
         gate.admit(Metered(), purpose="chat_request", prompt="x", budget=10)
 
 
-# -- Keep this book on this computer: RW1a's passage check -------------------
+# -- RW1a's passage check for a book that kept the retired choice -------------
 #
-# UX Phase 1 (review F1): a book kept on this computer sends nothing to an AI,
-# the Reader's requests included. RW1a's reconnect quick check sends the
-# root passage to a model; it is refused for such a book when it is asked
-# for, and again when its job runs (the book may be kept local in between).
+# The landing refused RW1a's reconnect quick check for a book kept on this
+# computer, when asked and when its job ran. The per-book choice is retired
+# (owner, 2026-10-13): a book whose ``source_artifacts.keep_local`` is still
+# set gets its check, both ways.
 
 
-def test_a_kept_local_book_gets_no_passage_check_when_asked(tmp_path, monkeypatch):
+def _carry_retired_keep_local(repo, source_id):
+    with repo.connection() as connection:
+        connection.execute("UPDATE source_artifacts SET keep_local = 1 WHERE id = ?", (source_id,))
+        connection.commit()
+
+
+def test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked(tmp_path, monkeypatch):
     from learnloop.content.pipeline.jobs import DurableIngestJobs
     from learnloop.db.repositories import Repository
     from learnloop.reader import reader_dialogue as RD
@@ -189,20 +196,19 @@ def test_a_kept_local_book_gets_no_passage_check_when_asked(tmp_path, monkeypatc
                         lambda self, **payload: queued.append(payload) or "batch_1", raising=False)
     asked = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.ask",
                                     "params": {"extractionId": "ext1", "spanId": "s1", "question": "Root"}}])[1]["result"]
-    Repository(root_dir / "state.sqlite").set_source_keep_local("src1", True)
+    _carry_retired_keep_local(Repository(root_dir / "state.sqlite"), "src1")
     responses = _rpc([
         _init(root_dir),
         {"jsonrpc": "2.0", "id": 2, "method": "reader.reconnect_answer",
          "params": {"extractionId": "ext1", "exchangeId": asked["readerAnswerEventId"], "answer": "quick_check",
                     "via": "rail"}},
     ])
-    assert responses[1]["error"]["data"]["code"] == "kept_on_this_computer"
-    assert queued == []
+    assert "error" not in responses[1], responses[1]
+    assert len(queued) == 1
 
 
-def test_a_queued_passage_check_never_runs_for_a_book_kept_local_since(tmp_path):
+def test_a_queued_passage_check_runs_for_a_book_with_the_retired_keep_local(tmp_path):
     from learnloop.content.pipeline.jobs import handle_reader_quick_check
-    from learnloop.content.pipeline.runner import IngestRunnerError
     from tests.test_reader_reconnect import FakeClient, _ask
     from tests.test_reader_reconnect import _setup as _reconnect_setup
     from tests.test_reader_dialogue import _CLOCK
@@ -213,7 +219,7 @@ def test_a_queued_passage_check_never_runs_for_a_book_kept_local_since(tmp_path)
         source_id = connection.execute(
             "SELECT r.source_id FROM source_extraction_runs e JOIN source_revisions r ON r.id = e.revision_id "
             "WHERE e.id = 'ext1'").fetchone()[0]
-    repo.set_source_keep_local(source_id, True)
+    _carry_retired_keep_local(repo, source_id)
     client = FakeClient()
     ctx = SimpleNamespace(
         payload={"extraction_id": "ext1", "scope_kind": "inquiry",
@@ -222,7 +228,6 @@ def test_a_queued_passage_check_never_runs_for_a_book_kept_local_since(tmp_path)
         job={"id": "ijob_1"}, cancelled=lambda: False,
         services=SimpleNamespace(quick_check_client=lambda ctx: client),
     )
-    with pytest.raises(IngestRunnerError) as refused:
-        handle_reader_quick_check(ctx)
-    assert refused.value.code == "kept_local"
-    assert client.calls == []
+    result = handle_reader_quick_check(ctx)
+    assert result.get("question_id")
+    assert len(client.calls) == 1

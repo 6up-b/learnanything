@@ -30,9 +30,10 @@ job whose result says what happened (``building``, ``waiting``, ``paused``,
 from durable rows. The build a planner queues has an id derived from the
 planner (:func:`child_batch_id`) and carries the plan on its jobs, so it is
 found even when the planner died before saving its result. Per book, migration
-186 keeps the learner's "Keep this book on this computer" (read at every
-outbound boundary) and the automatic-build state: the generation an Undo
-advances and the reading position a running build could not act on yet.
+198 keeps the automatic-build state: the generation an Undo advances and the
+book's reading request. (Its ``source_artifacts.keep_local``, the per-book
+"Keep this book on this computer", is retired (owner, 2026-10-13): nothing
+reads it; ``learnloop doctor`` notes a book that still has it set.)
 
 Kill switches ``[ingest] auto_build`` (off: Add only makes the source readable,
 and queued automatic work is cancelled before its next paid stage) and
@@ -74,7 +75,6 @@ DATA_FLOW = "passages_and_answers"
 # service, a whole PDF to a model that reads PDFs (spec §6.6, review F1).
 FILE_UPLOAD_CONSENT = "whole_files"
 FILE_UPLOAD_DATA_FLOW = "whole_files"
-KEPT_LOCAL_BUILD_MESSAGE = "This book is never sent to an AI, so no questions are written for it."
 # Automatic builds' batch ids: ``batch_auto_<planner job id>`` (review F3).
 AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
 # The learner's Undo as an owner verdict in judgment_ledger (review F12).
@@ -129,7 +129,6 @@ class AddSourceOptions:
 
     page_selection: tuple[int, ...] | None = None
     problem_set: bool = False
-    keep_local: bool = False
     text_recognition: bool = False
 
 
@@ -218,10 +217,6 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     artifact = repo.source_artifact_by_uri(category, resolved.source)
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
         revision_id = artifact.get("current_revision_id")
-        if options.keep_local and not artifact.get("keep_local"):
-            # Asking for more privacy on a book already here always applies,
-            # to the work already queued for it too.
-            keep_on_this_computer(ingest_jobs, artifact["id"], clock=clock)
         item.update(
             status="existing",
             source_id=artifact["id"],
@@ -252,10 +247,6 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
             clock=clock,
         )
         source_id, revision_id = registered.source_id, registered.revision_id
-        if options.keep_local:
-            # Persisted with the book before anything is queued (review F1):
-            # every later build, retry and Reader request reads it.
-            repo.set_source_keep_local(source_id, True, clock=clock)
         item.update(status="added", source_id=source_id, revision_id=revision_id, title=title, preparing=True)
     elif category in {"pdf", "textfile", "audio"} and not resolved.source.lower().startswith(("http://", "https://")):
         item.update(status="unsupported", message=MISSING_FILE_MESSAGE)
@@ -263,7 +254,7 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     else:
         item.update(status="queued", preparing=True)
 
-    if options.text_recognition and not text_recognition_available(keep_local=options.keep_local):
+    if options.text_recognition and not text_recognition_available():
         # Text recognition was asked for but nothing installed can do it
         # (review F9): add the book without it and say so, never pretend.
         options = replace(options, text_recognition=False)
@@ -765,7 +756,6 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     * the kill switch ``[ingest] auto_build`` and the book's Undo generation
       are read now, not when the build was planned: work they no longer allow
       is cancelled before any model call;
-    * a book kept on this computer sends nothing;
     * money: the job's ceiling-priced estimate must fit what is left of the
       build's authorization and of today's cap (priced at the route resolved
       now), and then, for the rest of the attempt, EVERY physical request
@@ -774,8 +764,8 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
       :class:`~learnloop.ai.spend.MeteredRequestGate` over the same limit,
       settled with what each request reported. A refused request stops the
       job as ``spend_paused`` before it is sent;
-    * once the build is cancelled (Undo, keeping the book on this computer)
-      it starts no further request, on any route.
+    * once the build is cancelled (Undo, the kill switch) it starts no
+      further request, on any route.
     No-op for jobs that are not part of an automatic build."""
 
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
@@ -795,8 +785,6 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     if int(repo.source_auto_build_state(source_id)["generation"]) != int(auto.get("generation") or 0):
         _cancel_rest_of_batch(ctx)
         raise JobCancelled("This book's questions were taken back out.")
-    if repo.source_kept_local(source_id):
-        raise IngestRunnerError(KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False)
     route = ctx.services.authoring_route(ctx)
     tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
     spent_build = build_spend_usd(repo, config, batch_id)
@@ -915,8 +903,8 @@ def _cancel_rest_of_batch(ctx) -> None:
 
 def auto_apply_allowed(ctx) -> bool:
     """Read immediately before an automatic build applies (F4, F5): the kill
-    switches, the Undo generation and the book's privacy, as they are now. A
-    ``False`` keeps the build's result as an unapplied record."""
+    switches and the Undo generation, as they are now. A ``False`` keeps the
+    build's result as an unapplied record."""
 
     from learnloop.vault.loader import load_vault
 
@@ -929,7 +917,6 @@ def auto_apply_allowed(ctx) -> bool:
         bool(config.ingest.auto_build)
         and bool(config.ingest.auto_apply_passing_builds)
         and int(ctx.repo.source_auto_build_state(source_id)["generation"]) == int(auto.get("generation") or 0)
-        and not ctx.repo.source_kept_local(source_id)
     )
 
 
@@ -1315,8 +1302,6 @@ def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bo
     artifact = repo.get_source_artifact(source_id)
     if artifact is None:
         return {**report, "status": "unknown_source"}
-    if repo.source_kept_local(source_id):
-        return {**report, "status": "kept_local"}
     if not config.ingest.auto_build:
         return {**report, "status": "auto_build_off"}
     resolved = _completed_extraction(repo, source_id)
@@ -1386,12 +1371,6 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         raise IngestRunnerError(f"Source {source_id!r} is not in the library.", code="source_missing")
     if payload.get("problem_set") or not artifact.get("reader_enabled", 1):
         return {"outcome": "skipped", "reason": "problem_set", **base}
-    # The book's own privacy choice, persisted (review F1): every later build
-    # reads it, not only the Add that set it. The Add's own request was
-    # persisted before this planner could run (by Add for a file, by the
-    # import for a link), so the book's current choice decides (re-review F13).
-    if artifact.get("keep_local"):
-        return {"outcome": "waiting", "reason": "kept_local", **base}
     resolved = _completed_extraction(ctx.repo, source_id)
     if resolved is None:
         raise IngestRunnerError("This source has no text yet.", code="not_extracted", retryable=True)
@@ -1580,8 +1559,6 @@ def _keep_ahead_ready(repo, vault_root: Path, source_id: str) -> bool:
 
     from learnloop.config.loader import load_config
 
-    if repo.source_kept_local(source_id):
-        return False
     # The config alone (review F1): this runs on the Reader's progress path,
     # and parsing the whole vault there stalled the serial sidecar.
     if not load_config(Path(vault_root) / "learnloop.toml").ingest.auto_build:
@@ -1928,60 +1905,6 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
     return reverted
 
 
-def keep_on_this_computer(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> None:
-    """Keep a book on this computer from now on (book details, or an Add of a
-    book already here with the option).
-
-    The choice is persisted first, and every outbound boundary reads it when
-    its work runs (re-review F1). Work already queued to send the book out is
-    stopped now too: its queued Reader requests are cancelled (a running one
-    is flagged), and its automatic builds are cancelled (the card then says
-    the book is kept on this computer). A planner still to run costs nothing
-    and records "kept on this computer" itself. A request or model call
-    already under way is not recalled; nothing new starts."""
-
-    repo = ingest_jobs.repository
-    repo.set_source_keep_local(source_id, True, clock=clock)
-    for request in repo.reader_requests_for_source(source_id):
-        if request["status"] in {"queued", "running"}:
-            repo.cancel_reader_request(request["id"], clock=clock)
-    for job in auto_jobs(repo, source_id):
-        batch_id = (planner_outcome(repo, job) or {}).get("build_batch_id")
-        if batch_id and _active(repo.get_ingest_batch(batch_id)):
-            ingest_jobs.cancel_batch(batch_id)
-
-
-def share_with_ai(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> str | None:
-    """"Let LearnLoop write questions for it" (book details): the book is no
-    longer kept on this computer, and the persisted choice decides from now on.
-
-    A readable book plans a build. A book that never became readable (a
-    recording kept local stops before transcription, re-review F13) has its
-    Add brought up to date: the stale ``keep_local`` is removed from the
-    Add's jobs, the import asks for the separate whole-file OK before any
-    upload (§6.6), and the Add is resumed. Returns the batch started or
-    resumed, if any."""
-
-    repo = ingest_jobs.repository
-    repo.set_source_keep_local(source_id, False, clock=clock)
-    if _completed_extraction(repo, source_id) is not None:
-        return request_auto_build(ingest_jobs, source_id)
-    batch_id = latest_add_batch(repo, source_id)
-    if batch_id is None:
-        return None
-    for job in repo.ingest_jobs_for_batch(batch_id):
-        payload = dict(job.get("payload") or {})
-        if not (payload.get("keep_local") or payload.get("keep_local_applied")):
-            continue
-        payload.pop("keep_local", None)
-        payload.pop("keep_local_applied", None)
-        if job["job_type"] == "import":
-            payload["require_upload_ok"] = True
-        repo.update_ingest_job_payload(job["id"], payload)
-    ingest_jobs.resume_batch(batch_id)
-    return batch_id
-
-
 # ---------------------------------------------------------------------------
 # The book card's one status line (§6.3, §6.7)
 # ---------------------------------------------------------------------------
@@ -2010,7 +1933,7 @@ def _is_scan_failure(lowered: str) -> bool:
     return "no extractable text" in lowered or "likely scanned" in lowered
 
 
-def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_local: bool = False) -> dict[str, Any]:
+def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[str, Any]:
     error = job.get("error") or {}
     message = str(error.get("message") or "")
     code = str(error.get("code") or "")
@@ -2024,8 +1947,9 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
         return _line("Reading this PDF sends the whole file to your AI", "quiet",
                      ("allow_upload", "OK"), message or None)
     if code == "kept_local":
-        return _line(f"Never sent to an AI — this {kind_noun(category)} can't be read here", "quiet",
-                     None, message or None)
+        # Refused under the retired "Keep this book on this computer" (owner,
+        # 2026-10-13): nothing refuses it now, so trying again reads it.
+        return _line(f"This {kind_noun(category)} isn't ready yet", "quiet", ("retry", "Get it ready"))
     if code == "pdf_extractor_unavailable":
         return _line("Text recognition isn't set up", "problem", ("open_settings", "Set it up"), message or None)
     if category == "youtube" and ("caption" in lowered or "transcript" in lowered):
@@ -2033,7 +1957,7 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
     if _is_scan_failure(lowered):
         # A scan reads the same way on every try (usability round 1, U7): the
         # one action that can help, or one plain line when nothing can.
-        if text_recognition_available(keep_local=keep_local):
+        if text_recognition_available():
             return _line("This PDF is a scan", "quiet", ("text_recognition", "Read it with text recognition"),
                          message or None)
         # The extractor's own words ("install marker-pdf for OCR support") are
@@ -2049,10 +1973,9 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
 
 
-def text_recognition_available(*, keep_local: bool = False) -> bool:
+def text_recognition_available() -> bool:
     """Whether an extractor that really recognises text is installed (review
-    F9): local Marker, or (not for a book kept on this computer) the hosted
-    Marker runtime the owner configured."""
+    F9): local Marker, or the hosted Marker runtime the owner configured."""
 
     import os
 
@@ -2060,8 +1983,6 @@ def text_recognition_available(*, keep_local: bool = False) -> bool:
 
     if marker_available():
         return True
-    if keep_local:
-        return False
     return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "").strip().lower() == "datalab" and bool(datalab_api_key())
 
 
@@ -2076,7 +1997,7 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
         "image_only_page" in (page.get("flags") or []) for page in health.get("pages") or [] if isinstance(page, Mapping)
     )
     if scanned:
-        if text_recognition_available(keep_local=repo.source_kept_local(source_id)):
+        if text_recognition_available():
             return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
         # Settings can't install it (usability round 1, U7): say so, no dead end.
         return _line("Some pages look scanned — their words can't be read here yet", "quiet", None, _SCAN_DETAILS)
@@ -2166,7 +2087,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if latest_import is None:
             return None
         if latest_import["status"] in {"failed", "blocked", "cancelled"}:
-            return _import_failure_line(latest_import, category, keep_local=bool(artifact.get("keep_local")))
+            return _import_failure_line(latest_import, category)
         return _line(f"Getting this {noun} ready", "working")
 
     latest, outcome = latest_planner(repo, source_id)
@@ -2178,7 +2099,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         # never applied: one line and the one action, never silence
         # (usability round 2: its card had no line at all). Filing it in a
         # collection builds nothing (round-2 review F6).
-        if not artifact.get("reader_enabled", 1) or artifact.get("keep_local"):
+        if not artifact.get("reader_enabled", 1):
             return None
         built = _study_map_questions(repo, source_id)
         if built == "applied":
@@ -2211,7 +2132,9 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line("Questions wait for your OK", "quiet", ("connect_ai", "Review"),
                          consent_label(str(outcome.get("consent_key") or "")))
         if reason == "kept_local":
-            return _line("Never sent to an AI — no questions are written for it", "quiet")
+            # A plan that waited under the retired "Keep this book on this
+            # computer" (owner, 2026-10-13): the learner's one tap plans again.
+            return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them as you read"))
         return None
     if kind == "paused":
         if outcome.get("cost_reason") == "budget_used":
@@ -2230,8 +2153,6 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line(f"Writing questions for {phrase}", "working")
         return _line(f"Questions for {phrase} {estimate}", "working")
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
-        if artifact.get("keep_local"):
-            return _line("Never sent to an AI — no questions are written for it", "quiet")
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
                 return _budget_used_line(state["error"])
@@ -2467,7 +2388,6 @@ __all__ = [
     "estimate_usd",
     "file_upload_allowed",
     "keep_ahead_for_reader",
-    "keep_on_this_computer",
     "kind_noun",
     "source_kind_noun",
     "build_minutes_phrase",
@@ -2489,7 +2409,6 @@ __all__ = [
     "retry_build",
     "run_auto_study_map",
     "settle_reading_for_cancelled_batch",
-    "share_with_ai",
     "source_status_line",
     "spent_today_usd",
     "text_recognition_available",

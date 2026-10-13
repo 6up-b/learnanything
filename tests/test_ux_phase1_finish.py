@@ -421,19 +421,3 @@ def test_6_build_them_says_it_builds_as_you_read(tmp_path):
     assert card["statusLine"]["text"] == "No questions for this book yet"
     assert card["statusLine"]["action"] == {"kind": "retry", "label": "Build them as you read"}
 
-
-def test_6_a_book_never_sent_to_an_ai_says_so_plainly(tmp_path):
-    """"Keep this book on this computer" read as "isn't it already here?"."""
-
-    from learnloop.content.pipeline import add_source as core
-    from learnloop.content.pipeline import jobs as jobs_module
-    from learnloop.reader import reader_requests
-
-    sentences = [
-        core.KEPT_LOCAL_BUILD_MESSAGE,
-        reader_requests.KEPT_ON_THIS_COMPUTER_MESSAGE,
-        *jobs_module._KEPT_LOCAL_FLOW_MESSAGES.values(),
-    ]
-    for sentence in sentences:
-        assert "never sent to an AI" in sentence
-        assert "kept on this computer" not in sentence.lower()

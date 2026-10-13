@@ -18418,24 +18418,20 @@ class Repository(
             )
             connection.commit()
 
-    def set_source_keep_local(
-        self, source_id: str, keep_local: bool, *, clock: Clock | None = None
-    ) -> None:
-        """The learner's "Keep this book on this computer" (migration 198)."""
+    def sources_with_retired_keep_local(self) -> list[str]:
+        """Books that still carry the retired "Keep this book on this
+        computer" (``source_artifacts.keep_local``, migration 198; retired by
+        the owner 2026-10-13): nothing reads the column now, ``learnloop
+        doctor`` names them. Empty on a database without the column."""
 
         with self.connection() as connection:
-            connection.execute(
-                "UPDATE source_artifacts SET keep_local = ?, updated_at = ? WHERE id = ?",
-                (int(keep_local), utc_now_iso(clock), source_id),
-            )
-            connection.commit()
-
-    def source_kept_local(self, source_id: str) -> bool:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT keep_local FROM source_artifacts WHERE id = ?", (source_id,)
-            ).fetchone()
-        return bool(row is not None and row["keep_local"])
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(source_artifacts)").fetchall()}
+            if "keep_local" not in columns:
+                return []
+            rows = connection.execute(
+                "SELECT id FROM source_artifacts WHERE keep_local != 0 ORDER BY id"
+            ).fetchall()
+        return [str(row["id"]) for row in rows]
 
     # -- UX Phase 1: a book's automatic-build state (migration 198) ----------
 

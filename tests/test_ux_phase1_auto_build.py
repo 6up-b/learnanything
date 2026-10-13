@@ -233,16 +233,6 @@ def test_missing_consent_waits_for_one_ok(tmp_path):
     _assert_plain(line)
 
 
-def test_a_book_kept_on_this_computer_sends_nothing(tmp_path):
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    repo, jobs = _jobs(root, fake_services())
-    item = _add(root, jobs, write_book(tmp_path), keep_local=True)
-    outcome = latest_auto_outcome(repo, item["source_id"])
-    assert (outcome["outcome"], outcome["reason"]) == ("waiting", "kept_local")
-    assert _build_batches(repo) == []
-
-
 # --------------------------------------------------------------------------
 # Money only when unusual (Q5)
 # --------------------------------------------------------------------------
