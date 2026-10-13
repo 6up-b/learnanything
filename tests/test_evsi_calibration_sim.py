@@ -325,6 +325,8 @@ def test_cli_simulate_quick_writes_a_report(eedi, tmp_path):
     report = json.loads((tmp_path / "out" / "simulation_report.json").read_text())
     assert {"main", "regimes", "sensitivity", "part_c", "recommendations", "hand_set_implied"} <= set(report)
     assert set(report["main"]) == {"hand_set", "eedi_fitted"}
+    # No count bound unless one is asked for (stage evsi-single-family-unbounded).
+    assert report["settings"]["safety_bound"] is None and payload["safety_bound"] is None
 
 
 def test_cli_simulate_without_a_fit_needs_the_2020_answers(eedi, tmp_path):

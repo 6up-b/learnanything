@@ -421,7 +421,6 @@ def fit_response_model(
     """Find misconception triples per subject and fit the latent class model."""
 
     settings = settings or FitSettings()
-    rng = np.random.default_rng(settings.seed)
     leaf = responses.leaf_subject
     question_subject = np.full(int(responses.question.max()) + 1, -1, dtype=np.int64)
     for question, subject in leaf.items():
@@ -438,6 +437,31 @@ def fit_response_model(
         if rows.size < settings.min_triple_overlap * 3:
             continue
         triples.extend(_fit_subject(responses, subject, rows, settings))
+    return assemble_response_fit(
+        triples,
+        settings=settings,
+        source={
+            "dataset": "Eedi NeurIPS 2020 Education Challenge (public archive)",
+            "task": responses.task,
+            "source_hash": responses.source_hash,
+            "rows": responses.rows,
+            "settings": settings.as_dict(),
+            "notes": list(responses.notes),
+        },
+    )
+
+
+def assemble_response_fit(
+    triples: Sequence[TripleFit],
+    *,
+    settings: FitSettings,
+    source: Mapping[str, Any],
+) -> ResponseFit:
+    """Pool fitted triples into a :class:`ResponseFit` (medians, subject medians,
+    dispersion, persistence). Shared by the single-family fit and the
+    multi-family stage's refit on its fit split (:mod:`.family_fit`)."""
+
+    rng = np.random.default_rng(settings.seed)
     pooled = {
         name: _estimate([t.params()[name] for t in triples], rng, settings.bootstrap) for name in PARAMETERS
     }
@@ -457,15 +481,7 @@ def fit_response_model(
         for key in ("repeat_rate_after_designated", "designated_rate_after_correct", "excess_repeat_rate"):
             persistence[key] = _estimate([float(p[key]) for p in with_persistence], rng, settings.bootstrap)
     return ResponseFit(
-        source={
-            "dataset": "Eedi NeurIPS 2020 Education Challenge (public archive)",
-            "task": responses.task,
-            "source_hash": responses.source_hash,
-            "rows": responses.rows,
-            "settings": settings.as_dict(),
-            "subjects_with_triples": len(grouped),
-            "notes": list(responses.notes),
-        },
+        source={**dict(source), "subjects_with_triples": len(grouped)},
         triples=tuple(triples),
         pooled=pooled,
         by_subject=by_subject,
