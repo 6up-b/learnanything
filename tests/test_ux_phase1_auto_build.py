@@ -355,10 +355,13 @@ def test_undo_takes_the_books_questions_back_out(tmp_path):
     grant_consent(root)
     repo, jobs = _jobs(root, fake_services())
     item = _add(root, jobs, write_book(tmp_path))
-    assert load_vault(root).evidence_facets
+    built = [lo_id for lo_id, lo in load_vault(root).learning_objects.items() if lo.status == "active"]
+    assert built
     reverted = undo_source_questions(jobs, item["source_id"], clock=CLOCK)
     assert reverted > 0
-    assert not load_vault(root).evidence_facets
+    # The book's topics stop being served; nothing the learner earned is deleted.
+    after = load_vault(root).learning_objects
+    assert all(after[lo_id].status == "dormant" for lo_id in built)
     line = source_status_line(repo, load_vault(root), item["source_id"])
     assert line["text"] == "Questions for this book were taken back out"
     assert line["action"] == {"kind": "build_now", "label": "Build them again"}

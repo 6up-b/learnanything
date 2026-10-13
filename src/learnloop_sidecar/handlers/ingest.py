@@ -508,9 +508,24 @@ def get_synthesis_candidate(ctx: SidecarContext, params: IngestBatchInput) -> di
 def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
     """The Source library card grid (§5.7): one card per artifact fed by the M1
     artifact/revision/extraction tables — title, readiness/health line, suggested
-    role, and an update-available placeholder."""
+    role, and an update-available placeholder.
 
-    _vault, repository = ctx.require_vault()
+    UX Phase 1 (docs/specs/ux_learnloop_v1.md §7.2): each card also carries the
+    one learner-facing ``status_line`` (or null), its ``kind_noun`` and the
+    subject it is filed under, and ``pending`` lists links an Add is still
+    fetching (no card yet)."""
+
+    from learnloop.content.pipeline import add_source as auto
+
+    # A build that applied in the background changes what Today and the map
+    # read; the shelf is polled while books are prepared, so reload here too.
+    _reload_applied_batches(ctx, ctx.ingest_jobs.list_batches(limit=10))
+    vault, repository = ctx.require_vault()
+    subject_by_source = {
+        member.source_id: source_set.subject_id
+        for source_set in vault.source_sets
+        for member in source_set.members
+    }
     cards: list[dict[str, Any]] = []
     for artifact in repository.all_source_artifacts():
         revisions = repository.source_revisions_for(artifact["id"])
@@ -545,9 +560,12 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "suggested_role": None,
                 "reader_enabled": bool(artifact.get("reader_enabled", 1)),
                 "update_available": len(revisions) > 1 and current is not None and current["id"] != revisions[-1]["id"],
+                "kind_noun": auto.kind_noun(artifact.get("acquisition_kind")),
+                "subject_id": subject_by_source.get(artifact["id"]),
+                "status_line": auto.source_status_line(repository, vault, artifact["id"]),
             }
         )
-    return versioned({"sources": cards})
+    return versioned({"sources": cards, "pending": auto.pending_adds(repository)})
 
 
 class SourceDeletionInput(ParamsModel):
@@ -1439,12 +1457,12 @@ def _validate_inventory_output_budget(value: int | None) -> None:
 
 
 def _artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str:
-    display_title = artifact.get("display_title")
-    if isinstance(display_title, str) and display_title.strip():
-        return display_title
-    if revision is not None and revision.get("original_uri"):
-        return str(revision["original_uri"])
-    return str(artifact.get("canonical_uri") or artifact["id"])
+    """The card and Reader title. A local file without a captured title reads
+    as its file name in words, never a ``file://`` URI (UX Phase 1, §7.3)."""
+
+    from learnloop.content.pipeline.add_source import learner_title
+
+    return learner_title(artifact, revision)
 
 
 def _reload_completed_jobs(ctx: SidecarContext, jobs: list[dict[str, Any]]) -> None:

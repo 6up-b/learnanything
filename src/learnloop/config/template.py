@@ -914,7 +914,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
+    # UX Phase 1 (docs/specs/ux_learnloop_v1.md §6) adds [ingest] auto_build
+    # and auto_apply_passing_builds (both true: the kill switches of Add's
+    # automatic, reading-order question builds), [ingest.cost_pause] (when an
+    # automatic build asks before spending, Q5) and an empty [ai] consent
+    # table (the learner's one OK per provider, Q4), all modelled defaults
+    # left out of the decision-only template. Auto-applied study maps from Add
+    # are a content change under the owner's R1 decision, not an algorithm
+    # successor: no scoring, scheduling, projection or serving change. Every
+    # snapshot moves only because the effective config gains the keys; all
+    # six were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "999bc612a62e8828431fb2a778215932c24042e36ce4a252c127bbcc39b4f2c3",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -929,7 +939,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
+    "mvp-0.10": "d79079f2323f767f870ef6c48a8ed7991c85ea3b41dea7e9d1e4c41a66977676",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -952,7 +962,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
+    "mvp-0.11": "047ed7248eff50243b10329c3e78e4c010ba94613a601a01d8a9d4e86d64eead",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -969,7 +979,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
+    "mvp-0.12": "637bfc4ec13ca7e4f6a73536c69b2d842f92104d75d602da02e8b1b4d2e07c0b",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -983,7 +993,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
     # change).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    "mvp-0.13": "6483fdc728d4d5654ee3262345abcb79871f3e9fd4bedd7c1f86595bab7fca31",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -994,7 +1004,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
-    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
+    "mvp-0.14": "399a600547d0c099e39e6a7e9d70c0251349f8dcab5c2b07c06c14713f694e9d",
 }
 
 

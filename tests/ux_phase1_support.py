@@ -73,7 +73,7 @@ def write_pdf(tmp_path: Path, name: str = "blitzstein.pdf", *, title: str | None
     return path
 
 
-def fresh_library(tmp_path: Path, *, name: str = "LearnLoop", scope_cap: int | None = 60) -> Path:
+def fresh_library(tmp_path: Path, *, name: str = "LearnLoop", scope_cap: int | None = 150) -> Path:
     """A brand-new library the way first run makes one: no subject, no level.
 
     ``scope_cap`` shrinks ``quick_add_scope_input_tokens`` so the tiny test book

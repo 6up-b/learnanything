@@ -200,6 +200,9 @@ class RunnerServices:
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
     video_client_factory: Callable[["JobContext"], Any] | None = None
+    # UX Phase 1: which provider would write questions for an automatic build
+    # and whether it is ready (learnloop.content.pipeline.add_source).
+    authoring_route_factory: Callable[["JobContext"], Any] | None = None
     _inventory_identity_cache: tuple[str, str] | None = field(
         default=None, init=False, repr=False
     )
@@ -307,6 +310,15 @@ class RunnerServices:
 
         return (self.video_client_factory or _job_defaults().default_video_client)(ctx)
 
+    def authoring_route(self, ctx: "JobContext") -> Any:
+        """The question-writing route an automatic build would use (no model call)."""
+
+        if self.authoring_route_factory is not None:
+            return self.authoring_route_factory(ctx)
+        from learnloop.content.pipeline.add_source import default_authoring_route
+
+        return default_authoring_route(ctx)
+
 
 def _job_defaults() -> Any:
     """Load concrete ingest jobs only when a default seam is actually used.
@@ -335,6 +347,9 @@ class JobContext:
     _usage: dict[str, Any] = field(default_factory=dict)
     _phase: str | None = None
     _bind_interruptible: Callable[[Any], None] | None = None
+    # The runner's own enqueue, so a planning job can queue the work it planned
+    # (UX Phase 1: the automatic build after an Add) as a separate batch.
+    _enqueue_batch: Callable[..., str] | None = None
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -394,6 +409,13 @@ class JobContext:
 
         if self._bind_interruptible is not None:
             self._bind_interruptible(client)
+
+    def enqueue_batch(self, workflow_type: str, jobs: Sequence["JobSpec"], **kwargs: Any) -> str:
+        """Queue a follow-up batch through the runner that is running this job."""
+
+        if self._enqueue_batch is None:
+            raise IngestRunnerError("this job context cannot enqueue follow-up work.")
+        return self._enqueue_batch(workflow_type, jobs, **kwargs)
 
     def _cancel_requested(self) -> bool:
         fresh = self.repo.get_ingest_job(self.job_id)
@@ -822,6 +844,7 @@ class IngestRunner:
             _bind_interruptible=lambda client: self._bind_job_interruptible(
                 job["id"], job["attempt_count"], client
             ),
+            _enqueue_batch=self.enqueue_batch,
         )
         if ctx.cancelled():
             finish(

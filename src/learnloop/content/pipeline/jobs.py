@@ -2594,8 +2594,22 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
     }
 
 
+def handle_auto_study_map(ctx: JobContext) -> dict[str, Any]:
+    """auto_study_map: plan the automatic question build after an Add (UX Phase 1).
+
+    Runs after the source's import (or alone, when the learner connects an AI,
+    says "Build them", or reads into the next chapter). Its result is the
+    ledger entry the book card's status line reads; see
+    ``learnloop.content.pipeline.add_source``."""
+
+    from learnloop.content.pipeline.add_source import run_auto_study_map
+
+    return run_auto_study_map(ctx)
+
+
 DEFAULT_HANDLERS: dict[str, Handler] = {
     "import": handle_import,
+    "auto_study_map": handle_auto_study_map,
     "legacy_ingest": handle_legacy_ingest,
     "exam_ingest": handle_legacy_ingest,
     "inventory": handle_inventory,
@@ -2742,6 +2756,90 @@ class DurableIngestJobs:
         if self._runner is None:
             raise RuntimeError("Ingest jobs are not bound to a vault yet.")
         return self._runner
+
+    @property
+    def repository(self) -> Repository:
+        return self._require_runner().repo
+
+    @property
+    def vault_root(self) -> Path:
+        return self._require_runner().vault_root
+
+    # -- UX Phase 1: one Add, automatic builds ---------------------------------
+
+    def enqueue_add_source(
+        self,
+        source: str,
+        *,
+        source_id: str | None = None,
+        options: Any = None,
+        auto_build: bool = True,
+    ) -> str:
+        """Enqueue an Add: the import, then the automatic build planner that
+        depends on it (``learnloop.content.pipeline.add_source``). The import
+        drains ahead of question builds: the learner is waiting to read."""
+
+        from learnloop.content.pipeline.add_source import (
+            ADD_SOURCE_PRIORITY,
+            ADD_SOURCE_WORKFLOW,
+            AUTO_STUDY_MAP_JOB,
+            AddSourceOptions,
+        )
+
+        chosen = options or AddSourceOptions()
+        runner = self._require_runner()
+        import_payload: dict[str, Any] = {"source": source}
+        if source_id:
+            import_payload["source_id"] = source_id
+        if chosen.page_selection:
+            import_payload["page_selection"] = list(chosen.page_selection)
+        if chosen.problem_set:
+            import_payload["reader_enabled"] = False
+        if chosen.text_recognition:
+            import_payload["pdf_config"] = {"force_ocr": True}
+        specs = [JobSpec("import", import_payload)]
+        if auto_build:
+            auto_payload: dict[str, Any] = {
+                "source": source,
+                "problem_set": bool(chosen.problem_set),
+                "keep_local": bool(chosen.keep_local),
+            }
+            if source_id:
+                auto_payload["source_id"] = source_id
+            specs.append(JobSpec(AUTO_STUDY_MAP_JOB, auto_payload, depends_on=(0,)))
+        batch_id = runner.enqueue_batch(ADD_SOURCE_WORKFLOW, specs, priority=ADD_SOURCE_PRIORITY)
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_auto_build(
+        self,
+        source_id: str,
+        *,
+        approved: bool = False,
+        chapter_ids: Sequence[str] | None = None,
+        start_unit_id: str | None = None,
+    ) -> str:
+        """Plan another automatic build for an already-readable source."""
+
+        from learnloop.content.pipeline.add_source import (
+            AUTO_BUILD_WORKFLOW,
+            AUTO_STUDY_MAP_JOB,
+            BUILD_PRIORITY,
+        )
+
+        runner = self._require_runner()
+        payload: dict[str, Any] = {"source_id": source_id}
+        if approved:
+            payload["approved"] = True
+        if chapter_ids:
+            payload["chapter_ids"] = list(chapter_ids)
+        if start_unit_id:
+            payload["start_unit_id"] = start_unit_id
+        batch_id = runner.enqueue_batch(
+            AUTO_BUILD_WORKFLOW, [JobSpec(AUTO_STUDY_MAP_JOB, payload)], priority=BUILD_PRIORITY
+        )
+        self._ensure_worker()
+        return batch_id
 
     # -- sidecar-facing API ------------------------------------------------
 

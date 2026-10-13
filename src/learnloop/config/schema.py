@@ -788,6 +788,26 @@ class IngestRunnerConfig(BaseModel):
     poll_interval_seconds: float = 1.0
 
 
+class IngestCostPauseConfig(BaseModel):
+    """When an automatic question build asks before spending (UX Phase 1, Q5).
+
+    A build started by Add or by reading progress runs silently unless its
+    estimate exceeds ``threshold_usd`` or ``daily_cap_fraction`` of what is
+    left of ``daily_cap_usd`` today (no daily cap when unset). Routes billed to
+    the ChatGPT subscription (Codex, the ChatGPT plan) cost nothing extra and
+    never pause. A metered route is priced at ``prices[<profile>]`` USD per
+    million tokens, else ``default_price_per_million_tokens``.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    threshold_usd: float = Field(default=1.0, ge=0)
+    daily_cap_fraction: float = Field(default=0.25, ge=0, le=1)
+    daily_cap_usd: float | None = Field(default=None, ge=0)
+    default_price_per_million_tokens: float = Field(default=5.0, ge=0)
+    prices: dict[str, float] = Field(default_factory=dict)
+
+
 class IngestConfig(BaseModel):
     window_char_cap: int = 150000
     min_content_chars: int = 400
@@ -799,6 +819,15 @@ class IngestConfig(BaseModel):
     # product UI sends the brief field explicitly, so this default only governs
     # briefless callers.
     bootstrap_practice_items: str = "upfront"
+    # UX Phase 1 kill switches (docs/specs/ux_learnloop_v1.md §6, §10). With
+    # auto_build on, a source added through Add builds questions for the
+    # chapter being read (and the next) once its text is ready, and keeps one
+    # chapter ahead as reading advances; off, Add only makes the source
+    # readable. auto_apply_passing_builds applies those automatic builds when
+    # every gate passes (undo from the book); off, they wait as proposals.
+    auto_build: bool = True
+    auto_apply_passing_builds: bool = True
+    cost_pause: IngestCostPauseConfig = Field(default_factory=IngestCostPauseConfig)
     pdf: PdfIngestConfig = Field(default_factory=PdfIngestConfig)
     audio: AudioIngestConfig = Field(default_factory=AudioIngestConfig)
     native: NativeIngestConfig = Field(default_factory=NativeIngestConfig)
@@ -1165,12 +1194,28 @@ class AIRoutingConfig(BaseModel):
         return self
 
 
+class AIConsentRecord(BaseModel):
+    """One learner OK for one data flow to one AI provider (UX Phase 1, Q4).
+
+    Recorded once, when the provider is connected, instead of a checkbox per
+    build. ``data_flow`` names what may leave the machine; an action that
+    would send something new asks again in place."""
+
+    model_config = ConfigDict(extra="allow")
+
+    granted_at: str
+    data_flow: str = "passages_and_answers"
+
+
 class AIConfig(BaseModel):
     active_provider: str = "codex"
     fallback_provider: str | None = None
     timeout_seconds: int = 180
     providers: dict[str, AIProviderProfile] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
+    # Keyed by provider family ("codex", "chatgpt", "openrouter", or a
+    # profile name), see learnloop.content.pipeline.add_source.consent_key.
+    consent: dict[str, AIConsentRecord] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
