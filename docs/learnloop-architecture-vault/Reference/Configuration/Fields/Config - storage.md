@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/content/proposals/apply_protocol.py:250`; `src/learnloop/vault/paths.py:21` |
+| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/content/proposals/apply_protocol.py:257`; `src/learnloop/vault/paths.py:21` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

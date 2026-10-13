@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 195
+schema_head: 197
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/helpers.py`
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`

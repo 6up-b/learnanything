@@ -3,13 +3,13 @@ title: "voi_forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite voi_forecasts"
   - "table voi_forecasts"
-schema_head: 195
+schema_head: 197
 table_name: "voi_forecasts"
 table_role: "receipt"
 functionality_status: "active"
@@ -127,6 +127,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_evsi_router_composition.py`
+- `tests/test_facet_rewords_migration.py`
 - `tests/test_sources_merge_composition.py`
 - `tests/test_voi_forecasts.py`
 

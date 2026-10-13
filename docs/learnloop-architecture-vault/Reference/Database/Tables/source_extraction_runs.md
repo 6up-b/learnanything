@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 195
+schema_head: 197
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/source_ingestion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/source_exercise_import.py`
+- `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -129,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/source_render_views.py`
-- `src/learnloop/reader/source_search.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -138,7 +138,9 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_sidecar_ingest_m3.py`

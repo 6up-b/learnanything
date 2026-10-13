@@ -3,13 +3,13 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
   - "table synthesis_manifests"
-schema_head: 195
+schema_head: 197
 table_name: "synthesis_manifests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/content/synthesis/synthesis_manifests.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/sources/provenance.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/source_append.py`

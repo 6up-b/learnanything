@@ -3,13 +3,13 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
   - "table agent_runs"
-schema_head: 195
+schema_head: 197
 table_name: "agent_runs"
 table_role: "receipt"
 functionality_status: "active"
@@ -129,7 +129,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/curriculum/subject_registry.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/diagnosis_adjudication.py`
@@ -137,6 +136,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/goals/certification_cold_probe.py`
+- `src/learnloop/tutor/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

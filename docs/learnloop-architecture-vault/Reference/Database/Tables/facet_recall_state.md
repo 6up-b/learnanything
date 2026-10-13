@@ -3,13 +3,13 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
   - "table facet_recall_state"
-schema_head: 195
+schema_head: 197
 table_name: "facet_recall_state"
 table_role: "derived"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/learner/recall_coverage.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/sim/metrics.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
+  - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/goals/exam_readiness.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
@@ -113,7 +113,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
-- `src/learnloop/curriculum/curriculum_locks.py`
+- `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/goals/exam_readiness.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`

@@ -3,13 +3,13 @@ title: "facet_identity_actions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_identity_actions"
   - "table facet_identity_actions"
-schema_head: 195
+schema_head: 197
 table_name: "facet_identity_actions"
 table_role: "workflow"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/183_facet_identity_actions.sql`.
-- **Schema touched by:** `183_facet_identity_actions.sql`.
+- **Schema touched by:** `183_facet_identity_actions.sql`, `196_facet_identity_rewords.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -115,6 +115,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_facet_identity_actions.py`
+- `tests/test_facet_rewords_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -131,17 +132,18 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE facet_identity_actions (
+CREATE TABLE "facet_identity_actions" (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
-    -- ingest (bootstrap synthesis), append, or dedupe.
-    origin TEXT NOT NULL CHECK (origin IN ('ingest', 'append', 'dedupe')),
+    -- ingest (bootstrap synthesis), append, dedupe, proposal (a reword
+    -- applied from a proposal) or registry (an owner-requested merge).
+    origin TEXT NOT NULL CHECK (origin IN ('ingest', 'append', 'dedupe', 'proposal', 'registry')),
     -- in_run: candidates of one run; attach: a candidate into a registered
-    -- facet; vault: two registered facets.
+    -- facet; vault: registered facets (a merge, or one facet's reword).
     scope TEXT NOT NULL CHECK (scope IN ('in_run', 'attach', 'vault')),
     run_id TEXT NOT NULL,
     proposal_id TEXT,
-    action TEXT NOT NULL CHECK (action IN ('merge', 'absorb')),
+    action TEXT NOT NULL CHECK (action IN ('merge', 'absorb', 'reword')),
     survivor_facet_id TEXT NOT NULL,
     retired_facet_ids_json TEXT NOT NULL,
     -- {facet_id: entry or null}: the facets.yaml entries the action replaced.

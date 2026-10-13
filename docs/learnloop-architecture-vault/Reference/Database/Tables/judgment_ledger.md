@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 195
+schema_head: 197
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -158,16 +158,16 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
+- `tests/test_facet_authority.py`
+- `tests/test_facet_authority_review.py`
 - `tests/test_facet_identity.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_facet_identity_ingest.py`
+- `tests/test_facet_reword_confirm.py`
+- `tests/test_facet_reword_paths.py`
 - `tests/test_family_proposals.py`
 - `tests/test_grading_hardcases.py`
 - `tests/test_graph_nomination_ingest.py`
-- `tests/test_interaction_signals.py`
-- `tests/test_intervention_outcomes_replayer.py`
-- `tests/test_judge_routes.py`
-- `tests/test_judgment_ledger.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

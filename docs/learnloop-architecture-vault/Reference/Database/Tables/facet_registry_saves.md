@@ -3,22 +3,22 @@ title: "facet_registry_saves"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d79a24afadfcb2d76529ab9de023600a8290de97"
-source_commit_timestamp: "2026-10-13T12:30:38-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_registry_saves"
   - "table facet_registry_saves"
-schema_head: 186
+schema_head: 197
 table_name: "facet_registry_saves"
 table_role: "workflow"
 functionality_status: "active"
 domain_family: "learner-state"
-introduced_in: "186_facet_registry_saves.sql"
+introduced_in: "197_facet_registry_saves.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/186_facet_registry_saves.sql"
+  - "migrations/197_facet_registry_saves.sql"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/db/stores/facet_identity.py"
 tags:
@@ -43,8 +43,8 @@ It belongs to the **learner state** navigation family. The family context lives 
 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/186_facet_registry_saves.sql`.
-- **Schema touched by:** `186_facet_registry_saves.sql`.
+- **Introduced by:** `migrations/197_facet_registry_saves.sql`.
+- **Schema touched by:** `197_facet_registry_saves.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

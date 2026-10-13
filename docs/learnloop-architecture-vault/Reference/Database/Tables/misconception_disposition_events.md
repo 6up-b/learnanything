@@ -3,13 +3,13 @@ title: "misconception_disposition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_disposition_events"
   - "table misconception_disposition_events"
-schema_head: 195
+schema_head: 197
 table_name: "misconception_disposition_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -114,7 +114,6 @@ Database triggers:
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
-- `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_gate.py`
@@ -129,6 +128,7 @@ Database triggers:
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/instructional/sources.py`
 - `src/learnloop/instructional/tools.py`
+- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "proposed_patch_item_dependencies"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_item_dependencies"
   - "table proposed_patch_item_dependencies"
-schema_head: 195
+schema_head: 197
 table_name: "proposed_patch_item_dependencies"
 table_role: "workflow"
 functionality_status: "active"
@@ -95,7 +95,6 @@ None found by exact static reference scan.
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/curriculum/subject_registry.py`
 - `src/learnloop/diagnosis/error_taxonomy.py`
 
 > [!note] Static-reference boundary
@@ -104,6 +103,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_apply_write_ahead.py`
+- `tests/test_facet_authority.py`
+- `tests/test_facet_reword_confirm.py`
+- `tests/test_facet_rewords.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`
 - `tests/test_proposal_dependencies.py`

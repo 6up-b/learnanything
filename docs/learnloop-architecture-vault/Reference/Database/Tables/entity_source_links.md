@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c4a02a83d2b31404f9a1db03e1ba1295db9a6e2"
-source_commit_timestamp: "2026-10-13T14:00:29-04:00"
+source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
+source_commit_timestamp: "2026-10-13T14:48:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 195
+schema_head: 197
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/facet_identity/actions.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/content/sources/source_outcome_analytics.py"
-  - "src/learnloop/content/synthesis/ai_contracts.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
 tags:
   - "learnloop/database/table"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/sources/provenance.py`
@@ -141,6 +142,11 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_apply_write_ahead.py`
+- `tests/test_facet_authority.py`
+- `tests/test_facet_authority_review.py`
+- `tests/test_facet_reword_confirm.py`
+- `tests/test_facet_reword_confirm_review.py`
+- `tests/test_facet_reword_paths.py`
 - `tests/test_migrations.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
@@ -155,8 +161,6 @@ Indexes and uniqueness:
 - `tests/test_source_deletion.py`
 - `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_rereview.py`
-- `tests/test_source_retrieval_tutor.py`
-- `tests/test_t6_followup_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
