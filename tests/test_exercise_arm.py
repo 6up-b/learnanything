@@ -137,3 +137,28 @@ def test_page_furniture_and_empty_blocks_never_form_an_exercise(tmp_path):
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         regions = exercise_regions(connection, "ext_furn")
     assert [region.text for region in regions] == ["1. Solve 2x = 4 for x.", "2. Solve 3x = 9 for x."]
+
+
+def test_an_exercise_keeps_its_setup_and_its_unnumbered_lines(tmp_path):
+    """Under an "Exercises" heading every block carries the heading's hint;
+    only a numbered or labelled block starts a new exercise (a real textbook
+    split "20 Suppose U = ..." from "Find a subspace W ...")."""
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.instructional.exercises import exercise_regions
+    from tests.source_service_fakes import build_textbook_vault, seed_textbook
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    units = {"exercises": ("Exercises 1C", [
+        ("20 Suppose U is the set of vectors (x, x, y, y) in F^4.", 38),
+        ("Find a subspace W of F^4 such that F^4 is the direct sum of U and W.", 38),
+        ("21 Suppose U is the set of vectors (x, y, x + y) in F^3.", 38),
+        ("(a) Find a complement of U.", 38),
+    ])}
+    seed_textbook(repository, source_id="src_setup", revision_id="rev_setup", extraction_id="ext_setup",
+                  title="Setup", units=units)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        regions = exercise_regions(connection, "ext_setup")
+    assert [region.text.split("\n\n")[0][:2] for region in regions] == ["20", "21"]
+    assert "Find a subspace W" in regions[0].text and "(a) Find a complement" in regions[1].text

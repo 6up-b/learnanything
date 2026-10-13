@@ -78,6 +78,17 @@ class ExercisePool:
                 "scope": self.scope, "list_ends": dict(self.list_ends), "unjudged": self.unjudged}
 
 
+def starts_exercise(text: str | None) -> bool:
+    """Whether a block's own text opens an exercise: "20 Suppose ...",
+    "3. Show ...", "Exercise 4.12", "Problem 2". A sub-part "(a)" does not."""
+
+    value = text or ""
+    if _LABEL_RE.match(value):
+        return True
+    number = _NUMBER_RE.match(value)
+    return number is not None and re.fullmatch(r"\([a-z]\)", number.group(1)) is None
+
+
 #: Marker's page furniture: never an exercise, never part of one.
 PAGE_FURNITURE = frozenset({"PageHeader", "PageFooter"})
 
@@ -108,7 +119,15 @@ def exercise_regions(connection, extraction_id: str) -> list[ExerciseRegion]:
             # region (an exercise can run across a page break).
             continue
         hint = effective_hint(row, titles)
-        if hint == "exercise" and row.block_type != "SectionHeader":
+        if (hint == "exercise" and row.block_type != "SectionHeader" and current and body_left
+                and not starts_exercise(row.text)):
+            # Under an "Exercises" heading every block carries the heading's
+            # hint; only a numbered or labelled block starts a new exercise.
+            # The rest ("Find a subspace W ..." after "20 Suppose U = ...", a
+            # "Hint:" line) belong to the exercise they follow.
+            current.append(row)
+            body_left -= 1
+        elif hint == "exercise" and row.block_type != "SectionHeader":
             close()
             current.append(row)
             body_left = MAX_REGION_BLOCKS
