@@ -410,7 +410,23 @@ doctor check; the desktop RPCs and Settings payload; the React section.
 
 ## Gate
 
-(filled in below after the runs)
+All on the final code (`00e41515` plus this file), `TMPDIR` in the worktree's
+`fixtures-local/tmp`:
+
+- `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`: done.
+- `uv run lint-imports --no-cache`: **12 kept, 0 broken.**
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`:
+  **8321 passed** (46 warnings), 4 min 24 s. The first run had one failure,
+  `tests/test_cli_help_snapshot.py`, because the new `learnloop ai` group
+  changes the CLI help; the snapshot was regenerated
+  (`uv run python tests/test_cli_help_snapshot.py --write`: the root entry
+  plus seven `ai …` entries) and the rerun is the count above.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **87 passed, 8234 deselected.**
+- Frontend (`apps/learnloop-tauri`): `npm install`; `npm run typecheck` clean;
+  `npm test` **26 files, 121 tests passed**; `npm run frontend:build` built.
+- `cargo check`: not runnable on this machine (deviation 9).
+- Schema unchanged, so the DB reference scripts were not needed.
 
 ## Files touched
 
