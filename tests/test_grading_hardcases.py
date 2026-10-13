@@ -222,13 +222,17 @@ class DivergentStrict(JudgeFake):
     optionally citing ``quote`` (a quote from the answer, or a fabricated one)
     as the located error on every criterion."""
 
-    def __init__(self, quote=None, **kwargs):
+    def __init__(self, quote=None, *, declare=False, **kwargs):
         super().__init__("strict", **kwargs)
         self.quote = quote
+        #: Also declare every criterion unverifiable (``unverified_criterion_ids``).
+        self.declare = declare
 
     def _pf_hardcase_grader(self, request, context):
         payload = super()._pf_hardcase_grader(request, context).model_dump(mode="json")
         payload["route_check"] = {"divergent_route": True, "rederivation_md": "r"}
+        if self.declare:
+            payload["unverified_criterion_ids"] = [c["id"] for c in context["rubric"]["criteria"]]
         if self.quote is not None:
             answer = context["learner_answer_md"]
             quote = answer.split(".")[0] if self.quote == "answer" else self.quote
@@ -262,6 +266,20 @@ def test_a_verbatim_quote_keeps_the_mark_down_on_a_divergent_route(tmp_path):
                            clients={"quoting": DivergentStrict("answer")})
     path = report["gate"]["grader=quoting"]
     assert path["wrong_rejection"]["count"] == 8 and path["rule"] == {"unchanged": 16}
+
+
+def test_the_production_path_reads_the_graders_declared_uncertainty(tmp_path):
+    """Review F2: a quoted mark-down the grader itself declares unverifiable
+    is unassessed on a divergent route, as in serving; a conclusion that
+    differs from the reference still outranks it."""
+
+    vault = _vault(tmp_path)
+    report = run_hardcases(vault, routes=["declaring"], caps=CAPS,
+                           clients={"declaring": DivergentStrict("answer", declare=True)})
+    path = report["gate"]["grader=declaring"]
+    assert path["wrong_rejection"]["count"] == 0
+    # The same cases as without a quote: the quote no longer keeps them.
+    assert path["rule"] == {"held": 14, "unchanged": 2}
 
 
 class FlipGrader(JudgeFake):

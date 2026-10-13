@@ -470,6 +470,20 @@ def regrade_attempt(
                 ),
                 clock=clock,
             )
+            if blind_record is not None and blind_plan is not None:
+                from learnloop.attempts.grading_support import record_route_rule_judgment
+
+                # mvp-0.18 (review F4): the regrade's route verdict supersedes
+                # the attempt's current one, in the publication transaction.
+                record_route_rule_judgment(
+                    repository.connection(),
+                    attempt_id=attempt["id"],
+                    grading_support=blind_record.get("grading_support") or {},
+                    judge_model=getattr(client, "model", None) or getattr(client, "model_id", None),
+                    prompt_version=str(blind_record["prompt_version"]),
+                    input_hash=blind_plan.context_hash,
+                    created_at=now,
+                )
             if stuck_judgment is not None:
                 from learnloop.attempts.stuck import record_stuck_reading_judgment
 

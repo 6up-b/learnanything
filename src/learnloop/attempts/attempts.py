@@ -1648,6 +1648,7 @@ def _complete_blind_graded_attempt(
         family_key,
         gated_review_reason,
         grade_uncertainty_signal,
+        record_route_rule_judgment,
         request_blind_grading_run,
         revalidated_support,
     )
@@ -1739,6 +1740,17 @@ def _complete_blind_graded_attempt(
             context_hash=blind.context_hash,
             record=record,
             clock=clock,
+        )
+        # mvp-0.18 (review F4): the grader's route verdict and the rule's
+        # outcome, a ledger verdict in the same transaction (no model call).
+        record_route_rule_judgment(
+            repository.connection(),
+            attempt_id=attempt_id,
+            grading_support=support,
+            judge_model=_client_model(ai_client),
+            prompt_version=run.prompt_version,
+            input_hash=blind.context_hash,
+            created_at=utc_now_iso(clock),
         )
         if STUCK_READING_KEY in record:
             # Review F6: the reading is the grader's classification verdict,

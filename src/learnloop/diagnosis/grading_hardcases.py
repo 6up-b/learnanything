@@ -468,7 +468,7 @@ def gate_states(
     rule = apply_route_rule(
         pfc.proposal, rubric=case.rubric, learner_answer_md=case.answer,
         final_answer_status=case.final_answer_status, divergent_route=divergent_route,
-        unverified_before=pfc.unverified_criterion_ids,
+        unverified_before=pfc.unverified_criterion_ids, declared_unverified=declared_unverified,
     )
     points = {row.criterion_id: float(row.points_awarded) for row in rule.proposal.criterion_evidence}
     status = "held" if rule.held_for_review else ("unlocated" if rule.applied else "unchanged")

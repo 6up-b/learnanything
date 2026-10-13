@@ -1134,8 +1134,9 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Kill switch for mvp-0.18's own-route rules. On, the blind grader's prompt grades every "
         "criterion on the learner's own route and marks down only by quoting the failing step, and "
         "a server-side rule leaves a mark-down on a divergent route that quotes nothing from the "
-        "answer unassessed (holding the grade for review when nothing is then assessed and nothing "
-        "validated): one grading call. Off, new answers grade as mvp-0.17 now does (as mvp-0.16: "
+        "learner's words, an omitted criterion, or one the grader declares it cannot verify "
+        "unassessed (holding the grade for review when nothing is then assessed and nothing "
+        "validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.17 now does (as mvp-0.16: "
         "mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.18; "
         "replay reads the blind record and evidence rows, never this switch."
     ),

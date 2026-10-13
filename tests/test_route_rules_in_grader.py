@@ -192,10 +192,18 @@ def _whole_answer(quote=None):
     )
 
 
-def _rule(proposal, *, final="undecidable", divergent=True, before=(), rubric=RUBRIC):
+def _rule(proposal, *, final="undecidable", divergent=True, before=(), rubric=RUBRIC, **extra):
+    """The rule on ``ANSWER``; ``declared`` (the grader's own unverified
+    criteria) and ``clarification`` (the learner's clarification reply) pass
+    through when given."""
+
+    if "declared" in extra:
+        extra["declared_unverified"] = extra.pop("declared")
+    if "clarification" in extra:
+        extra["clarification_answer_md"] = extra.pop("clarification")
     return apply_route_rule(
         proposal, rubric=rubric, learner_answer_md=ANSWER, final_answer_status=final,
-        divergent_route=divergent, unverified_before=before,
+        divergent_route=divergent, unverified_before=before, **extra,
     )
 
 
@@ -587,3 +595,284 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]
         assert "'route_check_disagreement'" in sql
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+# -- Codex review of route-check-in-grader (F1-F4) -----------------------------------------
+
+
+class OmittingGrader(DivergentGrader):
+    """F1: only ``setup`` (0 points) on a divergent route, locating nothing;
+    ``result`` is omitted from the criterion evidence."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [row for row in result.criterion_evidence if row.criterion_id == "setup"]
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "error_attributions": [], "rubric_score": 0,
+        })
+
+
+class EmptyGrader(DivergentGrader):
+    """F1: no criterion evidence at all on a divergent route."""
+
+    def _blind_grading(self, request, context):
+        return super()._blind_grading(request, context).model_copy(update={
+            "criterion_evidence": [], "error_attributions": [], "rubric_score": 0,
+        })
+
+
+#: A step of ``ALTERNATIVE``, quoted verbatim.
+ALTERNATIVE_STEP = "Take the eigenvectors of A^T A for V"
+
+
+class UncertainQuotingGrader(DivergentGrader):
+    """F2: the grader cannot verify ``setup`` on a divergent route. It says so
+    (``unverified_criterion_ids``), quotes the step it cannot verify, and still
+    marks it down; ``result`` gets full points."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [
+            row.model_copy(update={
+                "points_awarded": 0.0 if row.criterion_id == "setup" else 2.0,
+                "evidence": "I cannot verify this step of the learner's route." if row.criterion_id == "setup"
+                else "graded",
+            })
+            for row in result.criterion_evidence
+        ]
+        attribution = BlindErrorAttribution(
+            error_type="conceptual_slip", evidence="I cannot verify this step.",
+            target_criterion_ids=["setup"], validity_scope="valid_measurement",
+            first_divergence={"anchor_kind": "span", "criterion_id": "setup", "quote": ALTERNATIVE_STEP},
+        )
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "error_attributions": [attribution],
+            "unverified_criterion_ids": ["setup"], "rubric_score": 2,
+        })
+
+
+#: A false claim the learner makes only in a clarification reply.
+CLARIFIED_ERROR = "All continuous functions are differentiable."
+
+
+class ClarifiedErrorGrader(DivergentGrader):
+    """F3: on a clarification regrade, ``setup`` is marked down by quoting the
+    learner's reply (an error the reply newly reveals); ``result`` full."""
+
+    def __init__(self, quote: str = CLARIFIED_ERROR, **kwargs):
+        super().__init__(**kwargs)
+        self.quote = quote
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [
+            row.model_copy(update={"points_awarded": 0.0 if row.criterion_id == "setup" else 2.0})
+            for row in result.criterion_evidence
+        ]
+        attribution = BlindErrorAttribution(
+            error_type="conceptual_slip", evidence="The reply states a false claim.",
+            target_criterion_ids=["setup"], validity_scope="valid_measurement",
+            first_divergence={"anchor_kind": "span", "criterion_id": "setup", "quote": self.quote},
+        )
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "error_attributions": [attribution], "rubric_score": 2,
+        })
+
+
+def _exchange(answer=CLARIFIED_ERROR, question="Why is f differentiable on the interval?"):
+    return {"question_md": question, "answer_md": answer, "criterion_id": "setup", "reason": "method_ambiguity"}
+
+
+def test_f1_an_omitted_criterion_is_unlocated_and_with_nothing_assessed_holds():
+    """Validation scores an omitted criterion 0 (the sum of the rows
+    present), so on a divergent route it is a mark-down with no located
+    error: unlocated, so unassessed, and the hold is computed from what is
+    actually assessed."""
+
+    rule = _rule(_proposal({"setup": 0.0}))
+    assert rule.applied and rule.unlocated == ("setup", "result")
+    assert rule.unverified == ("result", "setup")
+    assert rule.held_for_review is True and rule.assessed_shortfall is False
+    # Empty output: every criterion omitted.
+    empty = _rule(_proposal({}))
+    assert empty.unlocated == ("setup", "result") and empty.held_for_review is True
+    # An omitted criterion beside one at full points: unassessed, no hold.
+    partial = _rule(_proposal({"setup": 2.0}))
+    assert partial.unlocated == ("result",) and partial.held_for_review is False
+    assert partial.assessed_shortfall is False
+    # An omitted criterion an attribution in force locates stays assessed (0).
+    located = _rule(_proposal({"setup": 0.0}, [_attribution("result", "x squared is positive")]))
+    assert located.unlocated == ("setup",) and located.held_for_review is False
+    assert located.assessed_shortfall is True
+    # Off a divergent route the rule does not read the grade at all.
+    assert not _rule(_proposal({"setup": 0.0}), divergent=False).applied
+
+
+@pytest.mark.parametrize("grader", [OmittingGrader, EmptyGrader], ids=["missing_row", "empty_output"])
+def test_f1_live_an_incomplete_grade_with_nothing_located_is_held(tmp_path, grader):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository)
+    before = _schedule(repository)
+    held = submit(vault, repository, grader(), answer=ALTERNATIVE + " (again)",
+                  when=CLOCK.now() + timedelta(days=3))
+    attempt = repository.fetch_practice_attempt(held.attempt_id)
+    rule = _support(repository, held.attempt_id)["proof_route_check"]
+    assert rule["held_for_review"] is True
+    assert sorted(rule["unlocated_criterion_ids"]) == ["result", "setup"]
+    assert attempt["manual_review_reason"] == HELD_REVIEW_REASON
+    assert attempt["rubric_score"] == 0
+    # No FSRS failure on a grade nothing validated.
+    assert _schedule(repository) == before
+    assert diagnosis_status(repository, held.attempt_id)["status"] == "not_needed"
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _schedule(repository) == before
+
+
+def test_f1_live_an_incomplete_regrade_keeps_an_existing_hold(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository)
+    before = _schedule(repository)
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                  when=CLOCK.now() + timedelta(days=3))
+    for index, grader in enumerate((OmittingGrader(), EmptyGrader())):
+        regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+                        runtime=ReadyRuntime(), client=grader, grading_source="ai",
+                        clock=FrozenClock(CLOCK.now() + timedelta(days=4 + index)))
+        rule = _support(repository, held.attempt_id)["proof_route_check"]
+        assert rule["held_for_review"] is True, type(grader).__name__
+        attempt = repository.fetch_practice_attempt(held.attempt_id)
+        assert attempt["manual_review_reason"] == HELD_REVIEW_REASON
+        assert _schedule(repository) == before
+
+
+def test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route():
+    """The grader's own "I cannot verify this" outranks its quote: PF-c reads
+    it only on a verified final answer, so the rule reads it on a divergent
+    route, quoted or not."""
+
+    quoted = _rule(_proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", "Let x be fixed")]),
+                   declared=("setup",))
+    assert quoted.applied and quoted.declared == ("setup",) and quoted.unlocated == ()
+    assert quoted.unverified == ("setup",) and quoted.assessed_shortfall is False
+    assert [row.validity_scope for row in quoted.proposal.error_attributions] == ["grader_interpretation"]
+    setup = {row.criterion_id: row for row in quoted.proposal.criterion_evidence}["setup"]
+    assert setup.notes.startswith("Not assessed")
+    unquoted = _rule(_proposal({"setup": 0.0, "result": 2.0}), declared=("setup",))
+    assert unquoted.unverified == ("setup",) and unquoted.assessed_shortfall is False
+    # Declared everywhere and nothing validated: held.
+    everything = _rule(_proposal({"setup": 0.0, "result": 0.0}, [_attribution("setup", "Let x be fixed"),
+                                                              _attribution("result", "So the claim holds")]),
+                       declared=("setup", "result"))
+    assert everything.held_for_review is True
+    # The documented exceptions stand: a differing conclusion, a fatal error,
+    # a criterion at full points, an unknown id, a route that is not divergent.
+    differs = _rule(_proposal({"setup": 0.0, "result": 2.0}), final="differs_from_reference", declared=("setup",))
+    assert not differs.applied and differs.unverified == ()
+    rubric = Rubric.model_validate({
+        **RUBRIC.model_dump(mode="json"),
+        "fatal_errors": [{"id": "wrong_statement", "description": "proves the wrong claim", "max_grade": 0}],
+    })
+    fatal = _rule(_proposal({"setup": 0.0, "result": 0.0}, fatal=["wrong_statement"]), rubric=rubric,
+                  declared=("setup",))
+    assert not fatal.applied and fatal.unverified == ()
+    full = _rule(_proposal({"setup": 2.0, "result": 2.0}), declared=("setup", "nope"))
+    assert not full.applied and full.unverified == ()
+    straight = _rule(_proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", "Let x be fixed")]),
+                     divergent=False, declared=("setup",))
+    assert not straight.applied and straight.unverified == ()
+
+
+def test_f2_live_declared_uncertainty_on_a_quoted_step_is_unassessed(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, UncertainQuotingGrader(), answer=ALTERNATIVE)
+    support = _support(repository, result.attempt_id)
+    rule = support["proof_route_check"]
+    assert support["grader_unverified_criterion_ids"] == ["setup"]
+    assert rule["applied"] is True and rule["declared_unverified_criterion_ids"] == ["setup"]
+    assert support["unverified_criterion_ids"] == ["setup"]
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert unassessed_evidence_row(rows["setup"].attribution_json)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    # Only ``result`` is assessed, at full points.
+    assert (attempt["rubric_score"], attempt["correctness"]) == (4, 1.0)
+    assert support["assessed_shortfall"] is False
+
+
+def test_f3_a_quote_from_the_learners_clarification_reply_locates_an_error():
+    """The learner's reply is the learner's words; the machine's question is not."""
+
+    proposal = _proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", CLARIFIED_ERROR)])
+    replied = _rule(proposal, clarification=CLARIFIED_ERROR)
+    assert not replied.applied and replied.unverified == () and replied.assessed_shortfall is True
+    assert replied.clarification_located == ("setup",)
+    assert replied.proposal.error_attributions[0].validity_scope == "valid_measurement"
+    # Without the reply the same quote is fabricated.
+    assert _rule(proposal).unlocated == ("setup",)
+    # A quote of the question locates nothing.
+    question = "Is every continuous function differentiable?"
+    asked = _rule(_proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", question)]),
+                  clarification=CLARIFIED_ERROR)
+    assert asked.unlocated == ("setup",) and asked.clarification_located == ()
+
+
+def test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=ClarifiedErrorGrader(), grading_source="ai",
+                    clock=CLOCK, clarification_exchange=_exchange())
+    support = _support(repository, result.attempt_id)
+    rule = support["proof_route_check"]
+    assert rule["applied"] is False and rule["clarification_located_criterion_ids"] == ["setup"]
+    assert support["unverified_criterion_ids"] == []
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert attempt["rubric_score"] == 2
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert not unassessed_evidence_row(rows["setup"].attribution_json)
+    # The machine's question is not learner evidence.
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=ClarifiedErrorGrader(quote="Why is f differentiable"),
+                    grading_source="ai", clock=FrozenClock(CLOCK.now() + timedelta(days=1)),
+                    clarification_exchange=_exchange())
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert rule["unlocated_criterion_ids"] == ["setup"]
+
+
+def _route_judgments(repository, attempt_id):
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return [
+            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row))
+            for row in connection.execute(
+                "SELECT id, supersedes_id, judge, judge_model, prompt_version, input_hash, verdict "
+                "FROM judgment_ledger WHERE task = 'own_route_rule' AND left_kind = 'attempt' "
+                "AND left_id = ? ORDER BY created_at, rowid", (attempt_id,),
+            )
+        ]
+
+
+def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    blind = repository.latest_blind_grade_record(result.attempt_id)
+    [first] = _route_judgments(repository, result.attempt_id)
+    assert first["judge"] == "llm" and first["judge_model"] == "fake-model"
+    assert first["prompt_version"] == blind["grading_prompt_version"]
+    assert first["prompt_version"].endswith(ROUTE_RULES_SUFFIX)
+    assert first["input_hash"] == blind["context_hash"] and first["supersedes_id"] is None
+    verdict = json.loads(first["verdict"])
+    assert verdict["divergent_route"] is True and verdict["held_for_review"] is True
+    assert sorted(verdict["unlocated_criterion_ids"]) == ["result", "setup"]
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai", clock=CLOCK)
+    first_again, second = _route_judgments(repository, result.attempt_id)
+    assert first_again == first and second["supersedes_id"] == first["id"]
+    assert json.loads(second["verdict"])["held_for_review"] is False
+    # Replay writes no verdict.
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert len(_route_judgments(repository, result.attempt_id)) == 2
+
+
+def test_f4_no_route_verdict_without_the_rules(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[proof_check]\nenabled = false")
+    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    assert _route_judgments(repository, result.attempt_id) == []
