@@ -11,6 +11,10 @@ decisions in force: recommended defaults accepted; frictionless defaults
 (honest labels, generous defaults, live behind kill switches, no shadow
 stage).
 
+**Revised by the Codex review fixes** (`docs/reviews/voi-stopping-codex-review.md`,
+findings F1 to F9): the sections below describe the stage as fixed; where the
+first build differed, the fix is named inline.
+
 Both parts change what is served, so they ship as one algorithm successor,
 **`mvp-0.17` (a placeholder label: expect relabelling at the merge)**, with
 **migration 187 (a placeholder number: 184 to 186 are held by branches in
@@ -27,10 +31,10 @@ former cap stays in config and is exactly the switched-off path.
 
 | Site | Former cap (the kill-switch path) | What decides at mvp-0.17 | Scope |
 |---|---|---|---|
-| `probe_episode` | `probe.episode.session_qualifying_observation_cap` (4 qualifying observations per session) | Each next observation of an episode is served while its value pays. When it no longer does, the sequential block closes (the learner's deferred feedback is released) and the episode completes with the new `completion_reason = 'value_of_information_stop'`, its decision kept in the new `probe_episodes.completion_detail_json` (migration 187) | every observation |
-| `followup_intervention` | `scheduler.followup.max_interventions_per_lo_per_session` (1) | A further intervention on an LO in a session (where the cap bound) is queued while its value pays; otherwise suppressed `voi_value_below_minutes_cost` (or `voi_no_candidate`: a further intervention never records a generation need). The first one keeps the existing trigger gate. A learner's manual override still wins; the log says what value would have done | further interventions |
-| `teach_back` | `teach_back.session_cap` (1 per built queue) | The cap becomes a floor: each teach-back beyond it stays in the queue while its value pays, ordered by the queue's own value order (a teach-back is a valued probe, router D11), so it heads the offer whenever it is the highest-value probe | further teach-backs |
-| `project_probe` | `plan.project_probes_max_per_day` (4) | No count: every due project probe whose value pays takes the maintain lane, the probes ordered among themselves by value per minute, and the plan's finite minutes bound how many are planned. A probe whose value does not pay stays "later" with that reason | every due probe |
+| `probe_episode` | `probe.episode.session_qualifying_observation_cap` (4 qualifying observations per session) and `probe.episode.maximum_observations` (4 per episode; lifted with it, review F3: kept off the value rule and in a calibration session) | Each next observation of an episode is served while its value pays. When it no longer does, the sequential block closes (the learner's deferred feedback is released) and the episode completes with the new `completion_reason = 'value_of_information_stop'`, its decision kept in the new `probe_episodes.completion_detail_json` (migration 187) | every observation |
+| `followup_intervention` | `scheduler.followup.max_interventions_per_lo_per_session` (1) | Every intervention on an LO, the first included (review F7), once the trigger gate fires: the whole eligible slate is valued and the best candidate whose value pays is queued (review F4); when none pays, suppressed `voi_value_below_minutes_cost`. With no candidate the need is recorded as for any first intervention. A learner's manual override still wins (value's best candidate is queued); the log says what value would have done | every intervention |
+| `teach_back` | `teach_back.session_cap` (1 per built queue) | Every teach-back, the first included (review F7): admitted greedily, each valued conditionally on those already admitted (review F2), while its value pays; kept teach-backs stay in the queue's own order (a teach-back is a valued probe, router D11) | every teach-back |
+| `project_probe` | `plan.project_probes_max_per_day` (4) | No count: due project probes are admitted greedily and conditionally (review F2) while their value pays, take the maintain lane in that order and carry it as `plan_rank`, which the block score and the chooser read (review F5); the plan's finite minutes bound how many are planned. A probe whose value does not pay stays "later" with that reason | every due probe |
 
 Gates: `voi_stopping_active(config, site)` is true only at a
 `VOI_STOPPING_VERSIONS` member with the switch and the site's sub-switch on. A
@@ -55,16 +59,26 @@ for the sidecar and TUI commit doors; the completion policy),
   LO-mastery and facet-recall entropy reduction). The robust EIG is the
   credible set's lower quantile.
 * **Decision value (robust EVSI, minutes)** where a next-action decision is at
-  stake: each plausible hypothesis (posterior at least
-  `probe.episode.action_equivalence_plausible_threshold`, the existing
-  plausibility cutoff) maps through `probe_hypotheses.triage_reason_for_label`
+  stake: each hypothesis with posterior mass maps through
+  `probe_hypotheses.triage_reason_for_label`
   to its triage route's first intervention (a misconception's or confusion's
   repair targets that belief, so two rival misconceptions are two repairs:
   the owner's "search for the true misconception"), and
   `action_loss.build_loss_table` prices a wrong repair in wasted
-  learner-minutes. At stake = two or more distinct repairs among the plausible
-  hypotheses. Then `evsi.rank_feasible` values and stops: continue while the
-  robust EVSI's lower bound exceeds `lambda_time * minutes + burden`.
+  learner-minutes. At stake = two or more distinct repairs across the whole
+  posterior through a complete loss table (review F6: the plausibility cutoff,
+  `probe.episode.action_equivalence_plausible_threshold`, only describes the
+  belief in the receipt; gating on it switched a near-sure belief onto the EIG
+  objective and restarted measurement). Then `evsi.rank_feasible` values and
+  stops: continue while the robust EVSI's lower bound exceeds
+  `lambda_time * minutes + burden`.
+* **Several checks chosen together** (teach-backs in one queue, project
+  probes in one plan; review F2) are admitted greedily: each step values every
+  remaining check given the belief the admitted ones are expected to leave
+  (the reward's `probe_eig_total` decomposed from its own body: the LO-mastery
+  Gaussian adds the check's precision, a facet's variance shrinks by the
+  evidence the earlier checks add, the hypothesis EIG counts once per LO), and
+  adding stops when the best remaining check does not pay.
 * **Otherwise** (no decision at stake, a route missing, or `rank_feasible`
   abstaining on an action flip or excluding an input) the robust EIG is
   converted to minutes with `robust_composition.VALUE_PER_NAT_MINUTES`, as
@@ -173,10 +187,9 @@ Every remaining number is a cap on time or money, never a learning threshold:
   `robust_composition.BURDEN_COST` = 0 minutes (heuristic).
 
 Counts that are **not** among the four and still bind (listed for the owner,
-not changed here): `probe.episode.maximum_observations` (4 per episode, the
-`observation_budget_exhausted` completion; with it a single episode can never
-run past 4, so "value continues past the former cap" needs a second episode
-in the session), `probe.episode.onboarding_practice_ceiling_observations` (4,
+not changed here; `probe.episode.maximum_observations` was listed here until
+review F3 lifted it with the session cap, which reader spec §18 and §20.7
+name it with): `probe.episode.onboarding_practice_ceiling_observations` (4,
 a fresh vault reaches ordinary practice), `tutor_promotion.requested_items_per_session`,
 `trace_evidence.max_elicitations_per_session`, `plan.reentry_max_items` and
 the new-item admission caps.
@@ -213,8 +226,8 @@ hash and its duration sources), every parameter with its provenance
 |---|---|
 | probe episode (continue) | the committed presentation's `selection_components.voi_stopping`; the Today offer's `router_decisions.detail_json.voi_decisions`; the scheduler slate candidate's components (`voi_value_minutes`, `voi_cost_minutes`, `voi_stop`) |
 | probe episode (stop) | `probe_episodes.completion_detail_json` (migration 187); the offer's `voi_decisions`; the withheld item's exclusion `voi_value_below_minutes_cost` |
-| further follow-up | `attempt_surprise.gate_diagnostics_json.voi_stopping` (queued or suppressed) |
-| further teach-back | the Today offer's `voi_decisions`; a dropped teach-back's exclusion is now `teach_back_value_below_minutes_cost` |
+| follow-up | the follow-up's `decision_features` receipt (`decision_type = 'followup'`, keyed by the source attempt, immutable), `context.voi_stopping`, queued or suppressed (review F1: a rebuild never clears it); a copy rides on `attempt_surprise.gate_diagnostics_json.voi_stopping` (DERIVED, for the feedback screen) |
+| teach-back | the Today offer's `voi_decisions`, one receipt per teach-back (its greedy step, its own valuation as `subject`); a dropped teach-back's exclusion is now `teach_back_value_below_minutes_cost` |
 | project probe | the plan-block `router_decisions.detail_json.voi_decisions` (and the block decision detail) |
 
 Below mvp-0.17 none of these keys is written. The body follows the
@@ -224,6 +237,12 @@ tables carry it); when that table lands, these sites add themselves to its
 `VOI_SITES` and record there too.
 
 ## 5. Report: how often the former caps bound, and what value does instead
+
+*The numbers in this section are the first build's. After the Codex review
+fixes the report was rerun on the same copies; the refreshed numbers (the
+follow-up revaluation on linear_algebra is now `later`, and value stops more
+synthetic episodes after one answer) are in
+`docs/reviews/voi-stopping-codex-review.md`.*
 
 `scripts/voi_cap_report.py` on backup-API copies
 (`learnloop.db.copies.copy_tree_with_databases`) of the worktree's committed
@@ -380,7 +399,10 @@ real `codex sandbox` under load (16 of 16 pass alone).
 1. **Probe episodes now stop much earlier.** With today's heuristic
    parameters (3 minutes per wrong repair, lambda 1, a 45-second probe), value
    stops about 90% of synthetic episodes before the old cap of 4 and most
-   after one answer, usually before `decision_stable`. Keep this live (the
+   after one answer, usually before `decision_stable` (after the review fixes,
+   F6 above all: 97.6% before 4 and 76.7% after one answer on point
+   conditionals, every robust episode after one answer; see the codex review
+   file's refreshed report). Keep this live (the
    recommended frictionless default, behind `voi_stopping.probe_episodes`), or
    hold the probe site off until the `evsi/calibration` report has scored the
    first live forecasts?
@@ -390,13 +412,11 @@ real `codex sandbox` under load (16 of 16 pass alone).
    3). Is "only the plan's and the session's minutes limit them" the intent, or
    should a teach-back be valued over a hypothesis set (EVSI) once one exists
    for it?
-3. **Scope of (b) and (c).** The first follow-up per LO per session and the
-   first teach-back per queue keep their existing rules (the old cap is a
-   floor); value decides only where the count used to bind. Should value also
-   decide the first one (it could then stop earlier, as it does for probes)?
-4. **Counts that remain.** `probe.episode.maximum_observations` (4 per
-   episode) still ends an episode whatever its value, and the onboarding
-   ceiling (4), `requested_items_per_session`,
+3. **Scope of (b) and (c).** *Settled by review F7:* value decides the first
+   follow-up and the first teach-back too (the spec does not make a cap a
+   floor); the old count is only the receipt's counterfactual.
+4. **Counts that remain.** *`probe.episode.maximum_observations` was lifted by
+   review F3.* The onboarding ceiling (4), `requested_items_per_session`,
    `trace_evidence.max_elicitations_per_session` and the plan's re-entry and
    new-item caps are counts too. Lift any of them onto value next?
 5. **A value stop before the first answer.** An episode whose very first
