@@ -161,3 +161,118 @@ frontend steps do not apply.
 | Review tests | `tests/test_voi_forecasts.py` 25 passed (8 new, 2 rewritten), `tests/test_evsi_calibration_sim.py` 10 passed (2 new) |
 | `learnloop evsi simulate` (full study rerun) | ok, 711 s on 12 workers, report in `fixtures-local/evsi-calibration-v2/` |
 | Paid calls | none ($0.00) |
+
+## Re-review
+
+Codex re-review job `20261013-020340-mSpHWK` (read-only over
+`2a75656e..evsi/calibration`; it ran no gate): F2, F4, F7 and F8 confirmed
+fixed; F1, F3, F5 and F6 reopened; two new findings, F9 and F10. Each
+reopened or new finding was reproduced with a failing test first, then fixed,
+except F3, which is rejected below with its reason. No paid call, no vault
+database read, no tracked working vault touched.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test (fails before the fix) or reason |
+|---|---|---|---|---|---|
+| F1 | High | Cited diagnosis support trusted without resolving the cited evidence | fixed | `9bd071e6` | `tests/test_voi_forecasts.py::test_cold_verification_support_counts_only_its_resolved_admitted_observation` (a verification naming `h1`, `h2` with a positive delta citing a missing observation confirmed **both** `h1` and `h2`; so did one citing an observation of an unrelated hypothesis); `::test_cold_verification_with_independent_diagnostic_support_is_truth` rewritten on real observation receipts (it cited ids that did not exist) |
+| F3 | Medium | Live staged decisions have no administration-to-attempt linkage | rejected (deferred, conflicts with the staged policy's spec step) | — | No production code builds a `DiagnosticSelector` (`plan_short_session` has no caller), so no staged diagnostic forecast is written in production; the one live staged path (`controller_cutover.staged_next_action`) passes no selector and uses the decision only to veto or confirm a P2 run transition, administering no candidate as an attempt. `staged_policy` "composes no live Today work. Making it live for P2 runs is the §14.2 cutover (a later step)": there is no administration event to bind, and the receipt belongs to that cutover, outside this stage. Guessing the next attempt on the chosen item is the error F6 removed. Live staged forecasts stay right-censored as `no_attempt_binding` (labelled; study §14 open question) |
+| F5 | Medium | Historical-contract validation misses facet-map changes | fixed (through F9) | `0c8c8500` | see F9 |
+| F6 | Medium | Queue identity inferred chronologically: an answer to A's offer credited to B | fixed | `48130a0d` | `::test_followup_offer_belongs_to_the_decision_that_produced_it` (A queues, the slate offers, B re-queues, the learner answers A's offer: B was `taken` and A `superseded`; an answer that consumed a cold-retry task, same component, was also `taken`); `::test_followup_outcome_joins_only_the_attempt_that_took_the_followup` now builds its slate after the newer queue (its single slate predated that queue, so it had Codex's scenario built in and asserted the wrong side) |
+| F9 | Medium | Facet-map edits bypass the frozen-contract check | fixed | `0c8c8500` | `::test_followup_outcome_needs_the_frozen_facet_map` (map swapped after the forecast, prompt and rubric unchanged, `recall_criterion` 2/2 and `method_criterion` 0/2: realized `high\|` before, `graded_under_another_contract` after; also an attempt that recorded other evidence facets) |
+| F10 | Low | One repair outcome counted twice | fixed | `9bd071e6` | `::test_one_cold_verification_is_one_repair_outcome` (one verification plus the factor closure it caused gave two `repair_effect` entries, `{"success": 2}`) |
+
+F2, F4, F7 and F8: confirmed fixed by Codex; untouched.
+
+### What changed
+
+**F1 (cited support).** `live_report._cited_support` resolves the
+verification's `diagnosis_support_update.observation_id` in
+`causal_discriminating_observations`. It counts only when the receipt exists,
+is admitted, is a `matched_single` naming one hypothesis, is independent
+(`admissible_as_independent` is not 0, and it is not the forecast's own
+realized answer), carries the support authority its basis grants
+(`SUPPORT_BASIS_AUTHORITY`, the one grant table: a `blind_probe_match` must
+cite a `validator_owned` receipt), and matches one of the forecast's
+hypotheses. Positive support then confirms the matched hypothesis only, and
+only when the verification names it; negative support rules out the
+verification's hypotheses only when the observation matched another
+hypothesis of the forecast. The discriminating-observation adapter uses the
+same independence check (`_independent_match`). The bases with no receipt
+table of their own (`learner_confirmation`, `adjudication`,
+`fingerprint_distinct_recurrence`) cannot be resolved and so prove nothing
+here; no production caller supplies diagnosis support today
+(`causal_orchestrator.record_cold_verification_from_task` passes none).
+
+**F10 (repair outcomes).** A factor resolution keeps the
+`cold_verification_id` it cites; when that verification is already listed it
+is annotated (`factor_resolution`) instead of appended, and
+`summarize_joined` counts one outcome per cold verification.
+
+**F6 (offer identity).** The first attempt on the item after the decision's
+queue decides its fate (any attempt ends every earlier queue). It took this
+decision only when its offer is a slate candidate inserted as an intervention
+follow-up, the attempt consumed no delayed task (cold retry and certification
+probe ride the same component and shadow a queued follow-up of the item), and
+the queue the scheduler was serving for the item when that slate was built is
+this decision's (`_queue_serving_at`: `pending_followup_practice_items` as of
+the slate's `created_at`, newest queue first, ended by any attempt since).
+Otherwise `superseded` (a newer decision produced the offer or re-queued
+first), `answered_earlier_offer` (an older one produced it), `not_taken`,
+`unbound_attempt`, `no_queue_receipt` (the decision's own queue is not on
+record) or `pending`. `Repository.followup_source_attempt` is no longer used:
+it names the queue active when the answer arrived, not the one that produced
+the offer.
+
+**F9 (facet map).** The frozen contract (`followup_target_facet_v2`) reads
+the criterion -> facet map from the assessment contract's own criterion
+targets, role-weighted as `target_criterion_facet_weights` reads them, and
+freezes the hash of the contract's `criteria` (targets included) and the
+item's evidence facets beside the item and rubric hashes. An answer whose
+stored contract has other criteria or targets, or whose attempt recorded
+other evidence facets, is `graded_under_another_contract`; a contract frozen
+without the hash is `frozen_contract_without_facet_map`. Why the targets and
+not the item's numeric `criterion_facet_weights`: the graded attempt's stored
+contract records targets, but no grading record keeps numeric facet weights
+(`field.outcomes._revision` reached the same limit), so only the targets can
+be checked against the contract an answer was graded under. The consequence,
+labelled in the contract (`facet_map: assessment_contract_targets`): on an
+item whose criteria split across facets by authored numeric weights, the
+realized target-facet outcome uses role weights (primary 1.0, supporting 0.3)
+where the facet updater uses the numeric map. Forecast body
+`voi_forecast_v3`, report `voi_calibration_report_v3`.
+
+**References.** The fixes moved source lines the config notes cite, and
+`db_validate_reference.py` already failed on 14 stale citations (some from the
+first review round's `policies.py` edits). Regenerated (`c14b0e6a`):
+`errors: []`, 300 table notes, 681 config leaves. No schema or config change.
+
+### Claims withdrawn or corrected
+
+* "The follow-up adapter binds an answer through the scheduler's own rule":
+  corrected. That rule names the queue active when the answer arrived; the
+  adapter now credits the queue that produced the answered offer (F6).
+* "Truth counts a cold verification's diagnosis support on an admitted basis
+  citing its observation": corrected. The citation is now resolved and checked
+  (F1).
+* "The frozen follow-up contract can never be reinterpreted by a later edit":
+  now true for the facet map too, read from the contract's targets (F9).
+
+### Gate (re-review)
+
+Source and tests as of `c14b0e6a` (the commit that adds this section changes
+no code). `TMPDIR` = the worktree's `fixtures-local/tmp`. No migration,
+config, CLI-surface, sidecar-RPC or frontend change, so the frontend steps and
+the mobile allowlist do not apply; the DB/config references were regenerated
+because their source citations had gone stale.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 14 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto -q -p no:cacheprovider` | **8,649 passed**, 0 failed, 0 skipped (280 s; 8,645 after the first round + 4 new tests) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -q -p no:cacheprovider` | **94 passed**, 8,555 deselected (128 s) |
+| Re-review tests | `tests/test_voi_forecasts.py` 29 passed (4 new, 3 rewritten), `tests/test_evsi_calibration_sim.py` 10 passed |
+| Each fix commit on its own | `9bd071e6` and `48130a0d` checked from an exported index: `tests/test_voi_forecasts.py` + `tests/test_architecture.py` 41 and 42 passed |
+| `db_generate_reference.py` then `db_validate_reference.py` | `errors: []`, 300 table notes, 681 config leaves (before: 14 stale source citations) |
+| Paid calls | none ($0.00) |
