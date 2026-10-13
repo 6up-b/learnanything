@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
+source_commit_timestamp: "2026-10-13T16:04:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -125,6 +125,7 @@ Database triggers:
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
+- `tests/test_exam_protection.py`
 - `tests/test_find_sources_intents.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`

@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
+source_commit_timestamp: "2026-10-13T16:04:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -52,7 +52,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `193_retrieval_interventions.sql`.
+- **Schema touched by:** `181_router_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

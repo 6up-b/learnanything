@@ -3,8 +3,8 @@ title: "hypothesis_sets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
+source_commit_timestamp: "2026-10-13T16:04:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_sets"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_discriminating_search.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_exam_protection.py`
 - `tests/test_probe_entry.py`
 - `tests/test_self_attributed_misconceptions.py`
 - `tests/test_show.py`

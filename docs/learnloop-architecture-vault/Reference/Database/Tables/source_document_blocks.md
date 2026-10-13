@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
+source_commit_timestamp: "2026-10-13T16:04:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
@@ -103,6 +104,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -118,6 +120,7 @@ Database triggers:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -132,13 +135,13 @@ Database triggers:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_render_views.py`
-- `src/learnloop/reader/source_review.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_exam_protection.py`
 - `tests/test_exercise_arm.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_branches.py`

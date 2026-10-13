@@ -3,8 +3,8 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
+source_commit_timestamp: "2026-10-13T16:04:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
@@ -21,7 +21,7 @@ source_paths:
   - "migrations/041_source_unit_inventories.sql"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
@@ -109,7 +109,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
