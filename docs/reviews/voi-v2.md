@@ -10,6 +10,10 @@ from `1b094b73` (the successor after its Codex review and re-review,
   (`docs/reviews/evsi-multisim.md` §6.1 on the `evsi/calibration` branch at
   `95d51782`), each behind its own switch at the study's recommendation.
 
+*The Codex review of this stage (F10, F13, F14, F15) and its fixes are in
+`docs/reviews/voi-v2-codex-review.md`; the passages below that it revised
+say so.*
+
 Owner decisions in force (2026-10-12/13): the recommended defaults recorded
 in each spec are accepted (the owner may override any); frictionless defaults
 (honest labels, generous defaults, live changes behind kill switches, no
@@ -112,6 +116,12 @@ The maintain lane's share is not used as a bound: idle lanes release their
 minutes to maintain first (`redistribute`), so a probe that fits the usable
 minutes can be planned; a probe that fits but is not chosen is re-valued at
 the next boundary, conditioned only on what was actually planned.
+
+*Revised by the Codex review (`voi-v2-codex-review.md`): the build selects
+its requests once, requested probes and ordinary requests under one rule,
+and a requested probe chosen as a request is conditioned on, not valued
+(F14); a refresh values only the probes the plan can still take, never a
+skipped, answered or out-of-universe one (F10).*
 
 Tests: `test_project_probes_are_admitted_against_the_minutes_left_after_requests`
 (planned = request + B; B's receipt has 5.0 minutes and `none_chosen`; A
@@ -247,11 +257,12 @@ Implementation notes, for honesty against the simulated rule:
 * **Cost** is the sum of each check's `lambda_time × minutes + burden`
   (§6.1's wording); the study's code adds the burden once. Identical while
   `BURDEN_COST = 0`.
-* **Reach.** `value_candidates` is shared, so the lookahead also acts at the
-  follow-up site when its hypotheses route to different repairs (the owner's
-  "multiple follow ups might be high ROI"); the study simulated probe
-  episodes only (its §7.1). `lookahead_max_checks = 1` turns it off
-  everywhere.
+* **Reach.** *Superseded by the Codex review (F15): the lookahead acts at
+  probe episodes only (`voi_stopping.LOOKAHEAD_SITES`), as the study
+  simulated (its §7.1); §6.2 waits for live calibration at the follow-up
+  and teach-back sites. A batch also holds one check per canonical surface
+  group (F13).* As first built, `value_candidates` was shared, so the
+  lookahead also acted at the follow-up site.
 * **Depth** is bounded at 4 in the schema: the joint table grows as |E|^k; a
   valuation depth, not a count of observations.
 
@@ -401,10 +412,9 @@ tests were added with their fixes.
    site's own information order instead (more informative batches, and the
    site's pick more often inside them), or keep the simulated rule until live
    data?
-2. **The lookahead at the follow-up site.** It acts wherever a decision is at
-   stake (shared `value_candidates`), the follow-up site included, which the
-   study did not simulate. Keep (the switch turns it off everywhere), or
-   scope it to probe episodes until per-site calibration?
+2. **The lookahead at the follow-up site.** *Answered by the Codex review
+   (F15): scoped to probe episodes until per-site calibration; a later
+   follow-up rollout gets its own site control.*
 3. **Rank 1's continue-side counterfactual** costs one robust-selection
    evaluation per committed observation in a value-decided unstable episode.
    Keep, or record only the stop side as §6.1 words it?
