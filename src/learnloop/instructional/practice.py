@@ -281,18 +281,54 @@ def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: s
     raise ValueError("That exercise was not proposed by this proposal")
 
 
+#: Authored durations the estimator is sampled at (minutes): two fix the
+#: line, the third checks it.
+_DURATION_SAMPLES = (1.0, 2.0, 10.0)
+
+
+def duration_response(estimator: Any, item_id: str, mode: str) -> dict[str, float] | None:
+    """The injected minutes estimator's evidence for a not-yet-authored item
+    of ``mode``, as plain data the import job evaluates the AUTHORED draft
+    against (Codex third pass F7: minutes computed with ``expected_minutes=None``
+    let a 20-minute draft pass a five-minute bound as 3.5).
+
+    The plan's estimate is affine in the item's authored duration (DL1 §6.4:
+    the mode's median shrunk toward the authored prior, plus feedback), so
+    the response is ``minutes = at_zero + per_authored_minute * expected``,
+    and ``fallback_minutes`` when the draft authors none. Sampled through the
+    estimator itself, never re-derived; a response that is not affine (a
+    future estimator) is not carried, and the bound is then refused, never
+    passed. None when the mode has no estimate."""
+
+    def minutes(expected: float | None) -> float:
+        estimate = estimator(item_id, mode, expected)
+        return float(getattr(estimate, "minutes", estimate))
+
+    try:
+        fallback = minutes(None)
+        low, high, check = (minutes(value) for value in _DURATION_SAMPLES)
+    except Exception:  # noqa: BLE001 - no estimate for this mode
+        return None
+    slope = (high - low) / (_DURATION_SAMPLES[1] - _DURATION_SAMPLES[0])
+    at_zero = low - slope * _DURATION_SAMPLES[0]
+    if abs(at_zero + slope * _DURATION_SAMPLES[2] - check) > 1e-6 * max(1.0, abs(check)):
+        return None
+    return {"at_zero": at_zero, "per_authored_minute": slope, "fallback_minutes": fallback}
+
+
 def interactive_import_request(vault: LoadedVault, repository: Repository, proposal_id: str,
                                entry: Mapping[str, Any], *, estimator: Any | None = None) -> dict[str, Any]:
     """What a learner's pick of a textbook exercise was proposed for, as plain
     data the import job validates the authored draft against (Codex re-review F7).
 
     The proposal's own constraints and intent (its receipt), the estimator's
-    minutes per practice mode when the request bounded minutes (the job cannot
-    import the plan's estimator), and, for a ``discriminate`` proposal, the
-    exercise's persisted screen, whose profiles and rubric links the item
-    gets (§8.4). A learner's pick is written whatever the validation says
-    (learner authority); a failed validation is the correction shown, and the
-    item is then served as practice, never as an independent check."""
+    duration evidence per practice mode when the request bounded minutes (the
+    job cannot import the plan's estimator; :func:`duration_response`), and,
+    for a ``discriminate`` proposal, the exercise's persisted screen, whose
+    profiles and rubric links the item gets (§8.4). A learner's pick is
+    written whatever the validation says (learner authority); a failed
+    validation is the correction shown, and the item is then served as
+    practice, never as an independent check."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         found = stored_proposal(connection, proposal_id) or {}
@@ -303,14 +339,12 @@ def interactive_import_request(vault: LoadedVault, repository: Repository, propo
     if constraints.get("max_estimated_minutes") is not None and estimator is not None:
         from learnloop.practice_index.retrieval import practice_modes
 
-        minutes = {}
+        durations = {}
         for mode in practice_modes(vault):
-            try:
-                estimate = estimator(str(entry.get("key") or ""), mode, None)
-            except Exception:  # noqa: BLE001 - a mode with no estimate fails the bound, never passes it
-                continue
-            minutes[mode] = float(getattr(estimate, "minutes", estimate))
-        request["minutes_by_mode"] = minutes
+            response = duration_response(estimator, str(entry.get("key") or ""), mode)
+            if response is not None:  # a mode with no estimate fails the bound, never passes it
+                durations[mode] = response
+        request["duration_by_mode"] = durations
     if intent == "discriminate":
         from learnloop.instructional.screen import persisted_screen
 
@@ -399,6 +433,7 @@ __all__ = [
     "record_proposal_impressions",
     "proposed_exercise",
     "imported_exercise_selection",
+    "duration_response",
     "interactive_import_request",
     "record_exercise_pick",
     "record_proposal_delivery",

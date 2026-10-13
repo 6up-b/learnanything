@@ -12,8 +12,10 @@ constraints:
 * its ``evidence_facets`` must be ones the author asserted, not the LO-union
   fallback the import applies when the author names none (``facet_basis``);
 * it must test the requested facets (any, or all for an integrative request);
-* the estimator's minutes for the authored practice mode must fit
-  ``max_estimated_minutes`` (refused without an estimator, never ignored).
+* the estimator's minutes for the authored practice mode AND the authored
+  duration (``expected_minutes``) must fit ``max_estimated_minutes``
+  (refused without an estimator, never ignored). The interactive job
+  evaluates the plan estimator's carried response (:func:`duration_estimator`).
 
 A draft that fails does not fulfil the need or the check; a learner's own
 pick is still imported (learner authority) and the claim corrected on screen.
@@ -84,4 +86,28 @@ def draft_validator(vault: LoadedVault, constraints: Any, *, intent: str = "prac
     return validate
 
 
-__all__ = ["draft_validator"]
+def duration_estimator(duration_by_mode: Mapping[str, Mapping[str, Any]]) -> Callable[..., float | None]:
+    """The plan estimator's carried response per practice mode
+    (``instructional.practice.duration_response``), evaluated on the authored
+    draft: ``(item_id, practice_mode, expected_minutes) -> minutes``, or None
+    for a mode it has no estimate for (Codex third pass F7).
+
+    An authored duration (``expected_minutes`` > 0) is the estimator's prior;
+    without one the estimator's fallback holds, as the plan computes it."""
+
+    def estimate(_item_id: str, practice_mode: str | None, expected_minutes: Any) -> float | None:
+        response = duration_by_mode.get(str(practice_mode or ""))
+        if not response:
+            return None
+        try:
+            authored = None if expected_minutes is None else float(expected_minutes)
+        except (TypeError, ValueError):
+            authored = None
+        if authored is not None and authored > 0:
+            return float(response["at_zero"]) + float(response["per_authored_minute"]) * authored
+        return float(response["fallback_minutes"])
+
+    return estimate
+
+
+__all__ = ["draft_validator", "duration_estimator"]

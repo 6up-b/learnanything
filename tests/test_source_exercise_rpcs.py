@@ -176,6 +176,72 @@ def test_an_interactive_import_is_validated_against_its_proposal_and_corrected(t
     assert status["validation"]["correction"] == validation["correction"]
 
 
+def test_an_interactive_import_bounds_the_authored_drafts_own_duration(tmp_path, monkeypatch):
+    """Codex third pass F7: the job validated minutes computed before authoring
+    with ``expected_minutes=None``, so a draft authored at 20 minutes passed a
+    five-minute bound as ``minutes=3.5`` while the plan's estimator, given the
+    draft, says 20.5. The job now evaluates the authored draft's duration."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+    from learnloop.db.stores.source_service import import_row
+    from learnloop.instructional.exercises import exercise_key
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    span = spans["exercises"][1]
+    exercise = {"kind": "source_exercise", "key": exercise_key("ext_text", [span]), "extraction_id": "ext_text",
+                "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
+                "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
+                "rationale": "fits", "provisional": {"facets": [], "practice_mode": "short_answer"}}
+    _proposal_row(repository, proposal_id="pp_short", constraints={"max_estimated_minutes": 5},
+                  intent="practice", exercise=exercise)
+    queued = {}
+    monkeypatch.setattr(DurableIngestJobs, "enqueue_source_exercise_import",
+                        lambda self, **kwargs: queued.update(kwargs) or "batch_1")
+    import_id = call(paths.root, "import_source_exercise", {"proposalId": "pp_short", "extractionId": "ext_text",
+                                                            "spanIds": [span]})["result"]["importId"]
+    authored = SEI.author_exercises
+
+    def twenty_minutes(*args, **kwargs):
+        batch = authored(*args, **kwargs)
+        for draft in batch.drafts:
+            draft.payload["expected_minutes"] = 20.0
+        return batch
+
+    monkeypatch.setattr(SEI, "author_exercises", twenty_minutes)
+    result = _run_import_job(paths, repository, queued, FakeServiceLLM())
+    assert result["status"] == "written"  # learner authority
+    vault = loaded(paths)
+    plan = Estimator(load_duration_evidence(repository, latency_cap_minutes=vault.config.plan.latency_cap_minutes),
+                     read_words_per_minute=vault.config.plan.read_words_per_minute)
+    actual = plan.item_minutes(vault, result["practice_item_id"])
+    assert actual == 20.5
+    with repository.connection() as connection:
+        validation = import_row(connection, import_id)["validation"]
+    assert validation["ok"] is False and validation["minutes"] == actual, validation
+    assert "more than 5" in validation["reason"]
+
+
+def test_the_carried_duration_response_is_the_plan_estimate_of_the_authored_draft():
+    """The job's rehydrated estimator agrees with the plan's for any authored
+    duration, with mode latencies and feedback dwell in the evidence."""
+
+    import pytest
+
+    from learnloop.content.authoring.draft_validation import duration_estimator
+    from learnloop.daily_plan.estimates import DurationEvidence, Estimator
+    from learnloop.instructional.practice import duration_response
+
+    plan = Estimator(DurationEvidence(latencies_by_mode={"short_answer": (2.0, 4.0, 6.0, 30.0)},
+                                      feedback_dwell=(1.5,) * 12))
+    carried = {mode: duration_response(plan.estimate, "exercise_key", mode) for mode in ("short_answer", "proof")}
+    job = duration_estimator(carried)
+    for mode in ("short_answer", "proof"):
+        for authored in (None, 0, -1, 0.5, 3.0, 7.25, 20.0, 45.0):
+            assert job("item_new", mode, authored) == pytest.approx(plan.estimate("item_new", mode, authored).minutes)
+    assert job("item_new", "derivation", 5.0) is None  # no carried estimate: the bound is refused
+
+
 def test_an_imported_exercise_is_rechecked_for_independence_when_served(tmp_path):
     """Codex re-review F7: serving an imported exercise from a discriminate
     proposal checked only the import's ownership and status, bypassing the

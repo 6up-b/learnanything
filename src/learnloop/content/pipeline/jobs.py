@@ -2323,12 +2323,15 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
         # The draft is validated against what the exercise was proposed for
         # (§8.1; Codex re-review F7): a learner's pick is written whatever it
         # says, and a failure is the correction shown on screen.
-        from learnloop.content.authoring.draft_validation import draft_validator
+        # Minutes are the plan estimator's response to the AUTHORED draft (its
+        # practice mode and its own expected_minutes), never an estimate made
+        # before authoring (Codex third pass F7).
+        from learnloop.content.authoring.draft_validation import draft_validator, duration_estimator
 
-        minutes = dict(request.get("minutes_by_mode") or {})
+        durations = dict(request.get("duration_by_mode") or {})
         validate = draft_validator(
             vault, dict(request.get("constraints") or {}), intent=str(request.get("intent") or "practice"),
-            estimator=(lambda _item_id, mode, _expected: minutes.get(str(mode))) if minutes else None)
+            estimator=duration_estimator(durations) if durations else None)
     result = SEI.import_source_exercise(
         ctx.vault_root, ctx.repo, extraction_id=extraction_id, span_ids=span_ids,
         caller=str(payload.get("caller") or "learner"), proposal_id=payload.get("proposal_id"),
