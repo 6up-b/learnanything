@@ -22,6 +22,8 @@ failure and changes nothing the decision does.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Any, Callable, Mapping, Sequence
 
@@ -30,8 +32,8 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis import robust_composition as rc
 from learnloop.diagnosis.probes import facet_conditional_distribution, resolve_item_irt
 from learnloop.learner.assessment_contracts import compile_assessment_contract
+from learnloop.learner.capability_mapping import ROLE_WEIGHTS
 from learnloop.learner.facet_diagnostics import candidate_facet_support
-from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
 from learnloop.diagnosis.probe_families import (
     GRADER_CHANNEL_RELIABILITY,
     ORDINAL_VOCABULARY,
@@ -258,44 +260,78 @@ def record_robust_selection_forecast(
 
 
 #: Version of the frozen target-facet scoring contract a follow-up forecast
-#: carries (``target_facet_contract``).
-FACET_OUTCOME_CONTRACT_VERSION = "followup_target_facet_v1"
+#: carries (``target_facet_contract``). v2 (re-review F9): the criterion ->
+#: facet map is the assessment contract's own observation targets, and the
+#: contract's criteria are frozen by hash, so a facet-map edit is detectable.
+FACET_OUTCOME_CONTRACT_VERSION = "followup_target_facet_v2"
+
+
+def facet_contract_criteria_hash(criteria: Any) -> str:
+    """Identity of an assessment contract's ``criteria`` (with their targets).
+
+    Hashed over canonical JSON, so the in-memory compile at selection time and
+    the stored ``assessment_contract_versions.contract_json`` of the graded
+    attempt hash alike when, and only when, they carry the same criteria.
+    """
+
+    canonical = json.dumps(json.loads(json.dumps(criteria, default=str)), sort_keys=True,
+                           separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def target_facet_contract(vault: Any, item: Any, rubric: Any, facet: str) -> dict[str, Any] | None:
     """How the chosen item's answer measures ``facet``, frozen at selection time.
 
     The follow-up forecast predicts the TARGET facet's outcome bucket, so its
-    realized answer is that facet's assessed outcome (review F5), computed the
-    way ``recall_coverage.derive_facet_outcomes`` computes it: each criterion
-    mapped to the facet, weighted by its points and the facet's share of its
-    mapping. The map and the contract hashes are frozen here so a later edit to
-    the item or rubric can never reinterpret an answer given before it.
+    realized answer is that facet's assessed outcome (review F5): each criterion
+    whose observation targets include the facet, weighted by its points and the
+    facet's share of its targets, as ``recall_coverage.derive_facet_outcomes``
+    weights a criterion -> facet map.
+
+    The map is read from the assessment contract's own criterion targets (each
+    target weighted by its role, as ``target_criterion_facet_weights`` reads
+    them), not from the item's numeric ``criterion_facet_weights``: a graded
+    attempt's stored contract records the targets, but no grading record keeps
+    numeric facet weights (``field.outcomes`` reached the same limit), so only
+    the targets can be checked against the contract an answer was graded under
+    (re-review F9). The contract's criteria are frozen by hash beside the item
+    and rubric hashes and the item's evidence facets, so a later edit to the
+    item, the rubric or the facet map can never reinterpret an answer given
+    before it.
     """
 
     if rubric is None:
         return None
-    weights = criterion_facet_weights_for_item(item, rubric)
-    criteria: dict[str, dict[str, float]] = {}
-    for criterion in rubric.criteria:
-        mapped = {
-            str(mapped_facet): max(0.0, float(weight))
-            for mapped_facet, weight in (weights.get(criterion.id) or {}).items()
-            if mapped_facet in item.evidence_facets
-        }
-        total = sum(mapped.values())
-        share = mapped.get(facet, 0.0) / total if total > 0 else 0.0
-        if share > 0:
-            criteria[str(criterion.id)] = {"points": float(criterion.points), "facet_share": round(share, 8)}
     contract = compile_assessment_contract(vault, item, rubric=rubric)
+    canonical = getattr(vault, "canonical_facet_id", None) or (lambda value: value)
+    item_facet: dict[str, str] = {}
+    for evidence_facet in item.evidence_facets:
+        item_facet.setdefault(canonical(str(evidence_facet)), str(evidence_facet))
+    target = item_facet.get(canonical(str(facet)), str(facet))
+    criteria: dict[str, dict[str, float]] = {}
+    for criterion in contract.get("criteria") or []:
+        mapped: dict[str, float] = {}
+        for observed in criterion.get("targets") or []:
+            own = item_facet.get(canonical(str(observed.get("facet"))))
+            weight = float(ROLE_WEIGHTS.get(observed.get("role"), 1.0))
+            if own is not None and weight > 0:
+                mapped[own] = mapped.get(own, 0.0) + weight
+        total = sum(mapped.values())
+        share = mapped.get(target, 0.0) / total if total > 0 else 0.0
+        if share > 0:
+            criteria[str(criterion["id"])] = {"points": float(criterion["max_points"]),
+                                              "facet_share": round(share, 8)}
     return {
         "version": FACET_OUTCOME_CONTRACT_VERSION,
         "facet_id": facet,
+        "facet_map": "assessment_contract_targets",
         "criteria": criteria,
         "max_points": float(rubric.max_points),
         "fatal_error_ids": sorted(str(fatal.id) for fatal in rubric.fatal_errors),
         "item_content_hash": contract.get("item_content_hash"),
         "rubric_content_hash": contract.get("rubric_content_hash"),
+        "criteria_hash": facet_contract_criteria_hash(contract.get("criteria") or []),
+        "evidence_facets": sorted(str(value) for value in item.evidence_facets),
     }
 
 

@@ -42,8 +42,8 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis.causal_attribution import SUPPORT_BASIS_AUTHORITY
+from learnloop.diagnosis.voi_forecasting import facet_contract_criteria_hash
 from learnloop.evsi_calibration.metrics import reliability
-from learnloop.field.outcomes import borrowed_repository
 from learnloop.learner.facet_diagnostics import facet_outcome_bucket
 from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
 from learnloop.scheduling.voi_forecasts import FORECAST_VERSION, entropy, posterior
@@ -53,7 +53,11 @@ from learnloop.vault.paths import VaultPaths
 
 #: v2 (Codex review F1/F5/F6/F3): linked independent truth with repair effect
 #: apart, target-facet follow-up outcomes, bound follow-up and staged joins.
-REPORT_VERSION = "voi_calibration_report_v2"
+#: v3 (re-review F1/F6/F9/F10): cited diagnosis support resolved to its
+#: observation; a follow-up taken only through the offer its own queue
+#: produced; the facet map part of the frozen contract; one repair outcome per
+#: cold verification.
+REPORT_VERSION = "voi_calibration_report_v3"
 
 
 def _has(connection: sqlite3.Connection, table: str) -> bool:
@@ -303,26 +307,40 @@ def _target_facet_emission(
     """A follow-up answer read as its TARGET facet's outcome (review F5).
 
     Scored under the contract the forecast froze (``target_facet_contract``):
-    the attempt's surviving grading evidence on the criteria mapped to the
-    facet, weighted as ``recall_coverage.derive_facet_outcomes`` weights them,
-    bucketed as the facet updater buckets them. Never the whole-item grade and
-    never today's rubric: an answer graded under another contract, a facet no
-    assessed criterion measured, or a forecast without a frozen contract stays
-    unmapped with its reason.
+    the attempt's surviving grading evidence on the criteria whose observation
+    targets include the facet, weighted as ``recall_coverage
+    .derive_facet_outcomes`` weights them, bucketed as the facet updater
+    buckets them. Never the whole-item grade and never today's rubric.
+
+    The answer must have been graded under the frozen scoring contract: same
+    item and rubric content, same criteria with the same criterion -> facet
+    targets (``criteria_hash``, re-review F9) and, when the attempt recorded
+    them, the same evidence facets. An answer graded under another contract, a
+    facet no assessed criterion measured, or a forecast without a frozen
+    contract (or one frozen without its facet map's identity) stays unmapped
+    with its reason.
     """
 
     alphabet = set(body.get("emission_alphabet") or [])
     contract = body.get("target_facet_contract")
     if not isinstance(contract, Mapping):
         return None, "no_frozen_facet_contract"
+    if not contract.get("criteria_hash"):
+        return None, "frozen_contract_without_facet_map"
     criteria = contract.get("criteria") or {}
     if not criteria:
         return None, "facet_unmapped"
     attempt = connection.execute(
-        "SELECT attempt_type, declared_dont_know, error_type FROM practice_attempts WHERE id = ?", (attempt_id,)
+        "SELECT attempt_type, declared_dont_know, error_type, evidence_facets_json FROM practice_attempts "
+        "WHERE id = ?", (attempt_id,)
     ).fetchone()
     if attempt is None:
         return None, "no_attempt"
+    recorded_facets = _loads(attempt["evidence_facets_json"], None)
+    if isinstance(recorded_facets, list) and recorded_facets and (
+        sorted({str(value) for value in recorded_facets}) != sorted(set(contract.get("evidence_facets") or []))
+    ):
+        return None, "graded_under_another_contract"
     if attempt["attempt_type"] == "dont_know" or attempt["declared_dont_know"]:
         outcome = 0.0  # a don't-know answer is a failure on every facet it covers
     else:
@@ -347,6 +365,10 @@ def _target_facet_emission(
             return None, "graded_contract_unknown"
         graded_contract = _loads(graded["contract_json"], {}) or {}
         if any(graded_contract.get(key) != contract.get(key) for key in ("item_content_hash", "rubric_content_hash")):
+            return None, "graded_under_another_contract"
+        # The criterion -> facet targets are part of the contract an answer is
+        # scored under (re-review F9): a remapped facet is another contract.
+        if facet_contract_criteria_hash(graded_contract.get("criteria") or []) != contract.get("criteria_hash"):
             return None, "graded_under_another_contract"
         max_points = max(float(contract.get("max_points") or 1.0), 1.0)
         numerator = denominator = 0.0

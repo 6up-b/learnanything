@@ -860,19 +860,19 @@ def test_untimed_recurrence_is_not_a_measured_zero(tmp_path):
     assert imputed.personal_mean_minutes == pytest.approx((4.0 + 2.0) / 2)
 
 
-def _multi_facet_followup(tmp_path):
-    """A two-facet follow-up item (recall, method), one criterion per facet."""
+_SPLIT_FACET_MAP = {"recall_criterion": {"recall": 1.0}, "method_criterion": {"method": 1.0}}
 
+
+def _write_two_facet_item(paths, facet_map: dict) -> None:
     from learnloop.vault.yaml_io import write_yaml
 
-    from tests.helpers import NOW_ISO, create_basic_vault
+    from tests.helpers import NOW_ISO
 
-    paths = create_basic_vault(tmp_path / "vault")
     write_yaml(paths.practice_item_path("linear-algebra", "pi_two_facets"), {
         "schema_version": 1, "id": "pi_two_facets", "learning_object_id": LO_ID, "subjects": None,
         "practice_mode": "short_answer", "attempt_types_allowed": ["independent_attempt"],
         "evidence_facets": ["recall", "method"], "evidence_weights": {"recall": 0.5, "method": 0.5},
-        "criterion_facet_weights": {"recall_criterion": {"recall": 1.0}, "method_criterion": {"method": 1.0}},
+        "criterion_facet_weights": facet_map,
         "prompt": "State SVD and compute one.", "expected_answer": "U Sigma V^T; the worked factorization.",
         "difficulty": 0.5, "tags": [],
         "grading_rubric": {
@@ -883,6 +883,15 @@ def _multi_facet_followup(tmp_path):
         },
         "provenance": {"origin": "human", "source_refs": []}, "created_at": NOW_ISO, "updated_at": NOW_ISO,
     })
+
+
+def _multi_facet_followup(tmp_path):
+    """A two-facet follow-up item (recall, method), one criterion per facet."""
+
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _write_two_facet_item(paths, _SPLIT_FACET_MAP)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     item = vault.practice_items["pi_two_facets"]
@@ -950,6 +959,41 @@ def test_followup_outcome_is_the_target_facets_not_the_whole_items(tmp_path):
         legacy = {**forecast, "forecast": {k: v for k, v in forecast["forecast"].items()
                                            if k != "target_facet_contract"}}
         assert LR.realized_emission(connection, vault, legacy, "att_split") == (None, "no_frozen_facet_contract")
+
+
+def test_followup_outcome_needs_the_frozen_facet_map(tmp_path):
+    # Re-review F9: the item and rubric hashes leave the criterion -> facet map
+    # out. Swap the map after the forecast froze it (prompt and rubric
+    # unchanged) and grade recall's old criterion right, method's wrong: under
+    # the grading contract recall scored zero, so the answer is graded under
+    # another contract, never `high|` under the frozen one.
+    from learnloop.vault.paths import VaultPaths
+
+    vault, repository, forecast, item = _multi_facet_followup(tmp_path)
+    assert forecast["forecast"]["target_facet_contract"]["criteria_hash"]
+    _write_two_facet_item(VaultPaths(vault.root, vault.config),
+                          {"recall_criterion": {"method": 1.0}, "method_criterion": {"recall": 1.0}})
+    swapped = load_vault(vault.root)
+    with repository.connection() as connection:
+        _graded_attempt(connection, swapped, swapped.practice_items["pi_two_facets"], "att_swapped",
+                        {"recall_criterion": 2.0, "method_criterion": 0.0}, rubric_score=2)
+        assert LR.realized_emission(connection, swapped, forecast, "att_swapped") == (
+            None, "graded_under_another_contract")
+        # The frozen contract, but the attempt recorded other evidence facets.
+        _graded_attempt(connection, vault, item, "att_facets", {"recall_criterion": 2.0, "method_criterion": 0.0},
+                        rubric_score=2)
+        connection.execute("UPDATE practice_attempts SET evidence_facets_json = ? WHERE id = 'att_facets'",
+                           (json.dumps(["recall"]),))
+        assert LR.realized_emission(connection, vault, forecast, "att_facets") == (
+            None, "graded_under_another_contract")
+        connection.execute("UPDATE practice_attempts SET evidence_facets_json = ? WHERE id = 'att_facets'",
+                           (json.dumps(["method", "recall"]),))
+        assert LR.realized_emission(connection, vault, forecast, "att_facets") == ("high|", "realized")
+        # A forecast frozen without the map's identity cannot be checked: unmapped, not guessed.
+        frozen = {k: v for k, v in forecast["forecast"]["target_facet_contract"].items() if k != "criteria_hash"}
+        older = {**forecast, "forecast": {**forecast["forecast"], "target_facet_contract": frozen}}
+        assert LR.realized_emission(connection, vault, older, "att_facets") == (
+            None, "frozen_contract_without_facet_map")
 
 
 def test_followup_outcome_maps_into_the_forecasts_alphabet(tmp_path):

@@ -38,7 +38,9 @@ logger = logging.getLogger(__name__)
 #: v2 (Codex review F3/F5): staged forecasts describe the committed candidate
 #: with the decision id and assignment (``forecast_of``, ``nominal_best_ref``);
 #: follow-up forecasts freeze the target facet's scoring contract.
-FORECAST_VERSION = "voi_forecast_v2"
+#: v3 (re-review F9): that contract is ``followup_target_facet_v2`` (the facet
+#: map read from the assessment contract's targets, frozen by hash).
+FORECAST_VERSION = "voi_forecast_v3"
 
 #: Decision sites that record forecasts. A successor that puts another
 #: decision on value of information (teach-back, project probes, ...) adds its
