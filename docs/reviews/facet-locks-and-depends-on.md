@@ -340,3 +340,114 @@ trace-checkpoint keys can break the same way on their next write.
   - `FacetIdentityPanel.test.tsx`: evidence label and a reword row with undo;
   - `KnowledgeWellView.test.tsx`: fixture.
 - `tests/cli_help_snapshot.json` regenerated (`doctor`, `facets*`).
+
+## 7. Deviations
+
+1. **Review file name.** The handoff names `docs/reviews/facet-locks.md`;
+   the stage prompt asked for `docs/reviews/facet-locks-and-depends-on.md`,
+   which covers both parts.
+2. **Every existing facet's reword is versioned, not only an evidenced
+   one.** The handoff says "an evidenced facet". Versioning every meaning
+   change to a registered facet is simpler and never loses wording. Whether
+   the facet carried evidence is recorded on the action.
+3. **The owner's registry merge applies live.** The handoff speaks of the
+   judge's merges. The registry/inspector merge was a lock-gated review item
+   that could never apply, so it now uses the same live merge and undo.
+4. **Config keys kept.** The handoff allows "keep `merge_locked_facets`
+   with default true only as a compatibility key"; `[locks]` is treated the
+   same way, for snapshot stability.
+
+## 8. Files touched
+
+- **New:**
+  - `migrations/188_facet_identity_rewords.sql`;
+  - `src/learnloop/ops/content_fixes.py`;
+  - `tests/test_facet_rewords.py`, `tests/test_synthesis_criterion_dependencies.py`;
+  - `apps/learnloop-tauri/src/components/FacetInspector.test.tsx`;
+  - this file.
+- **Changed, Python:**
+  - `curriculum/{curriculum_locks,subject_registry,graph_edit_proposals}.py`;
+  - `content/facet_identity/{actions,dedupe,plan}.py`;
+  - `content/synthesis/{source_set_synthesis,source_append,append_neighborhood,ai_contracts,synthesis_gates}.py`;
+  - `content/proposals/{patches,apply_protocol}.py`;
+  - `content/pipeline/jobs.py`;
+  - `db/stores/facet_identity.py`;
+  - `config/{schema,template}.py`;
+  - `ops/{doctor,maintenance_feed}.py`;
+  - `cli/{app,facets}.py`;
+  - sidecar `handlers/{facet_detail,knowledge_map,registry,graph_edit,ingest}.py`.
+- **Changed, frontend:** `api/{dto,client}.ts`, `FacetInspector.tsx`,
+  `FacetIdentityPanel.tsx` (+ test), `RegistryReviewScreen.tsx`,
+  `KnowledgeMapScreen.tsx`, `KnowledgeWellView.tsx` (+ test),
+  `RecipeTreeEditor.tsx`, `MaintenanceScreen.tsx`. Nothing under
+  `src-tauri` changed (no RPC was added or removed).
+- **Changed, tests:** see §6, plus the head-fixture path in 13 test files.
+- **Changed, docs:** `spec_knowledge_model.md`, `spec_source_ingestion_v2.md`,
+  the reference generator and validator, and the regenerated database and
+  configuration reference.
+- **Fixtures:** `migration_head_183` upgraded through 188 and renamed
+  `migration_head_188`. `fixtures/linear_algebra`, `probability` and
+  `arxiv_v2` were untouched (copies only).
+
+## 9. Migrations
+
+`188_facet_identity_rewords.sql` rebuilds the WORKFLOW table
+`facet_identity_actions` with widened CHECKs (no new table, so no
+`table_roles` change). Branches in flight hold 184-187. At merge:
+- renumber to the next free number;
+- rename the head fixture and update its README, the 13 test/script paths
+  and both `SCHEMA_HEAD` constants;
+- regenerate the references.
+
+## 10. Owner-run commands
+
+No paid calls are needed for anything here.
+
+1. **Repair criterion dependencies** in the working vaults, dry run first:
+   ```bash
+   uv run learnloop doctor --vault fixtures/probability --fix-content --dry-run
+   uv run learnloop doctor --vault fixtures/probability --fix-content
+   uv run learnloop doctor --vault fixtures/arxiv_v2 --fix-content --dry-run
+   uv run learnloop doctor --vault fixtures/arxiv_v2 --fix-content
+   uv run learnloop doctor --vault fixtures/linear_algebra --fix-content --dry-run
+   ```
+   On the tracked copies the result was 46 entries in 13 items
+   (probability) and 46 in 15 (arxiv_v2), and `criterion:unknown_dependency`
+   went from 46 to 0. The linear_algebra copy's dry run found nothing to
+   change. Your live vaults may differ. Grading does not change.
+   Each edited item gets a new assessment-contract version at its next
+   presentation.
+2. **Fix the broken probability item by hand** (§5), then run
+   `uv run learnloop doctor --vault fixtures/probability`. Until then
+   `--fix-content` reports it as unreadable and leaves it alone.
+3. **Optional:** delete `[locks]` and any `merge_locked_facets` line from
+   each vault's `learnloop.toml`. Doctor now warns about both; they do
+   nothing.
+4. **Facets that used to be locked** can now be merged from the facet
+   inspector or registry review (live, with undo). Queued restructure
+   requests for locked merges can be done directly.
+
+## 11. Paid calls
+
+None, so cost $0. The stage needed no model call, and the demonstration runs
+were deterministic.
+
+## 12. Open questions
+
+1. **The learning-object arm.** It refuses a destructive op on an LO, or one
+   of its practice items, once the LO has attempts. That is not a facet lock,
+   so I kept it. With immutable assessment-contract versions, a practice-item
+   or blueprint rewrite does not reinterpret graded attempts either. Remove
+   it too (an append restructure of a practised LO would then apply on
+   acceptance, reviewable and with proposal reject), or keep it?
+2. **Retire the compatibility keys for real?** Removing `[locks]` and
+   `merge_locked_facets` from the schema moves every defaults snapshot
+   (mvp-0.9 to mvp-0.16). Do it at the next version bump, or keep them
+   unread?
+3. **YAML writer width** (§5). Set a large ruamel `width` (re-wraps long
+   scalars on the next write of each file), or key trace dependencies by
+   checkpoint index? Either stops the long-key corruption.
+4. **Module reference notes** (`docs/learnloop-architecture-vault/Reference/Modules`)
+   still describe `identity_locks` and the old lock arms. They are
+   regenerated by `module_generate.py`, which is outside this gate and
+   touches many notes. Regenerate on main after the merge?

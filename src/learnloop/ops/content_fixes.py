@@ -24,7 +24,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from learnloop.content.proposals.apply_protocol import materialize_targets
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
+from learnloop.vault_lock import vault_mutation_lock
 
 FIX = "criterion_dependencies"
 
@@ -67,9 +69,6 @@ def fix_criterion_dependencies(root: Path, *, dry_run: bool = True) -> dict[str,
     JSON-safe report: the items and criteria changed, the entries removed,
     and the files it could not read or would not rewrite.
     """
-
-    from learnloop.content.proposals.apply_protocol import materialize_targets
-    from learnloop.vault_lock import vault_mutation_lock
 
     root = Path(root).resolve()
     report: dict[str, Any] = {

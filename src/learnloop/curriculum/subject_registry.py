@@ -17,8 +17,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.facet_identity.actions import (
+    HELD_BACK_NOTE,
+    action_by_id,
+    describe,
+    merge_registered_facets,
+)
+from learnloop.content.facet_identity.judge import TASK
+from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
+from learnloop.vault.loader import load_vault
 
 
 class RegistryReviewError(ValueError):
@@ -134,17 +144,6 @@ def propose_facet_merge(
     ``need_id`` is given (a coarsening acceptance) the generation-need is
     resolved once the merge applies.
     """
-
-    from learnloop.ai.execution import content_key
-    from learnloop.content.facet_identity.actions import (
-        HELD_BACK_NOTE,
-        action_by_id,
-        describe,
-        merge_registered_facets,
-    )
-    from learnloop.content.facet_identity.judge import TASK
-    from learnloop.db.stores.judgments import append_judgment
-    from learnloop.vault.loader import load_vault
 
     retired = vault.canonical_facet_id(retired_facet_id)
     surviving = vault.canonical_facet_id(surviving_facet_id)
