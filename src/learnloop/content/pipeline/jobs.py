@@ -3352,17 +3352,18 @@ class DurableIngestJobs:
         failures += 1
         return failures, min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
 
-    def _settle_reading_for_cancel(self, batch_id: str) -> None:
+    def _settle_reading_with_cancel(self, runner: IngestRunner, batch_id: str) -> Callable[[], object]:
         """A cancel answers the reading requests of the books whose work it
-        stopped: each is settled at the revision it has now (reading-hardening,
-        part 1). Best effort; a request left pending is acted on by the sweep."""
+        stops: each is settled at the revision it has now (reading-hardening,
+        part 1). It runs inside the cancel's transaction (``alongside``), so
+        the two commit together or not at all: a cancel whose settle fails
+        cancels nothing and says so, and no crash between them can leave the
+        cancelled work's request due for the sweep to re-plan (Codex review
+        F1)."""
 
         from learnloop.content.pipeline import add_source
 
-        try:
-            add_source.settle_reading_for_cancelled_batch(self.repository, batch_id)
-        except Exception:  # noqa: BLE001 - the cancel itself went through
-            logging.getLogger(__name__).warning("could not settle reading after a cancel", exc_info=True)
+        return lambda: add_source.settle_reading_for_cancelled_batch(runner.repo, batch_id)
 
     # -- sidecar-facing API ------------------------------------------------
 
@@ -4079,14 +4080,14 @@ class DurableIngestJobs:
         return self.get_batch(batch_id)
 
     def _cancel_batch(self, runner: IngestRunner, batch_id: str) -> None:
-        """Cancel, then settle the reading requests of the books whose work
-        this was (reading-hardening, part 1: a cancel answers the request, so
-        the sweep never re-plans the work the learner just stopped). Under the
-        reading lock, so no act on the request runs between the two."""
+        """Cancel, and settle the reading requests of the books whose work
+        this was, in one transaction (reading-hardening, part 1: a cancel
+        answers the request, so the sweep never re-plans the work the learner
+        just stopped; review F1: both commit or neither does). Under the
+        reading lock, so no act on the request in this process interleaves."""
 
         with self._reading_lock:
-            runner.cancel_batch(batch_id)
-            self._settle_reading_for_cancel(batch_id)
+            runner.cancel_batch(batch_id, alongside=self._settle_reading_with_cancel(runner, batch_id))
 
     def interrupt_codex(self, job_id: str | None = None) -> dict[str, Any]:
         """Interrupt one live Codex call while keeping the sidecar process alive."""
@@ -4110,11 +4111,12 @@ class DurableIngestJobs:
                     raise ValueError(f"Ingest job '{job_id}' is {job.get('status')}, not running.")
                 raise ValueError(f"Ingest job '{job_id}' has no interruptible Codex call attached.")
         with self._reading_lock:
-            if not runner.interrupt_job(selected["id"]):
-                raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
             # Interrupting cancels the job's batch: as any cancel, it answers
-            # the book's reading request.
-            self._settle_reading_for_cancel(str(selected["batch_id"]))
+            # the book's reading request, in the cancel's transaction; the
+            # call is interrupted only once both committed.
+            settle = self._settle_reading_with_cancel(runner, str(selected["batch_id"]))
+            if not runner.interrupt_job(selected["id"], alongside=settle):
+                raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
         return {
             "job_id": selected["id"],
             "batch_id": selected["batch_id"],
