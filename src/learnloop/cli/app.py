@@ -77,8 +77,8 @@ def upgrade(
         typer.Option(
             "--to",
             help=(
-                "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11 or "
-                "mvp-0.12); default: the latest."
+                "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
+                "mvp-0.12 or mvp-0.13); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -93,11 +93,14 @@ def upgrade(
     over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
     ``--to mvp-0.11`` adds placement, starting new material without ceremony,
     over an mvp-0.10 vault, or over an mvp-0.9 vault by activating mvp-0.10
-    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` (default, the
-    latest successor) adds Slice 2 T1 recurrence groups over an mvp-0.11 vault
-    (or an mvp-0.9/mvp-0.10 vault through the chain), refused while the
-    same-answer/different-cause guard has a false merge or has not run (kill
-    switch: ``recurrence.enabled = false``)."""
+    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` adds Slice 2
+    T1 recurrence groups over an mvp-0.11 vault (or an mvp-0.9/mvp-0.10 vault
+    through the chain), refused while the same-answer/different-cause guard
+    has a false merge or has not run (kill switch: ``recurrence.enabled =
+    false``); ``--to mvp-0.13`` (default, the latest successor) replaces "I
+    don't know" with "I'm stuck" (write what you can) over an mvp-0.12 vault
+    (or an mvp-0.9 to mvp-0.11 vault through the chain, under mvp-0.12's
+    guard; kill switch: ``stuck_prompt.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -121,9 +124,14 @@ def upgrade(
         from learnloop.diagnosis.recurrence.upgrade import upgrade_to_mvp012
 
         result = upgrade_to_mvp012(_root(vault))
+    elif to == "mvp-0.13":
+        from learnloop.stuck_prompt_upgrade import upgrade_to_mvp013
+
+        result = upgrade_to_mvp013(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11 or mvp-0.12."
+            "Unknown target version "
+            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12 or mvp-0.13."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2996,30 +3004,114 @@ def attempt(
             help="Blind-graded vaults (mvp-0.10 and later): only queue the diagnosis (run it later with `learnloop diagnose drain`).",
         ),
     ] = False,
+    stuck: Annotated[
+        bool,
+        typer.Option(
+            "--stuck",
+            help=(
+                "mvp-0.13: the answer was written after \"I'm stuck\" (write what you can, or what's "
+                "confusing you). An empty answer is scored 0 with no grader."
+            ),
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Plan and estimate the grading calls against the caps: no client, no call, no write.",
+        ),
+    ] = False,
+    max_calls: Annotated[
+        int,
+        typer.Option("--max-calls", min=0, help="Grading calls this command may admit (one per sample)."),
+    ] = 10,
+    max_retries: Annotated[
+        int,
+        typer.Option(
+            "--max-retries", min=0,
+            help="Metered routes: physical retries and JSON repairs (Codex physical requests are not bounded).",
+        ),
+    ] = 4,
+    max_tokens: Annotated[
+        int,
+        typer.Option("--max-tokens", min=0, help="Metered routes only; not enforced on the Codex subscription."),
+    ] = 250_000,
+    max_cost_usd: Annotated[
+        float,
+        typer.Option("--max-cost-usd", min=0, help="Metered routes only; Codex cost is estimated_only."),
+    ] = 1.0,
+    price_per_million: Annotated[
+        float | None,
+        typer.Option(
+            "--price-per-million", min=0,
+            help="USD per million tokens for a metered grading route whose price is unknown (it fails closed).",
+        ),
+    ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
+    """Record one practice answer: graded by the grading route, else self-graded.
+
+    Paid grading goes through the Phase 1 spend framework (review F5): the
+    planned calls (one per grading sample) are checked against the caps before
+    anything is sent, and each is admitted as it is sent. ``--dry-run`` prints
+    that plan and its estimate and changes nothing. Codex (the owner's
+    subscription) counts calls only; its tokens and cost are estimated_only. A
+    metered route with an unknown price is refused unless
+    ``--price-per-million`` is given. The inline diagnosis (blind-graded
+    vaults) keeps its own per-job caps and ``diagnosis.max_calls_per_day``.
+    """
+
+    from contextlib import nullcontext
+
+    from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
+    from learnloop.attempts.attempts import plan_grading_calls
+    from learnloop.attempts.grading_admission import estimated_prompt_tokens, grading_admission
+    from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
+    from learnloop.diagnosis.offline_review.spend import ReviewSpend
+
     vault_root = _root(vault)
     loaded = load_vault(vault_root)
-    repository = _repository(loaded.root)
-    sync_vault_state(loaded, repository)
+    if dry_run:
+        # Read-only: a dry run neither syncs nor records anything.
+        repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)
+    else:
+        repository = _repository(loaded.root)
+        sync_vault_state(loaded, repository)
     item = loaded.practice_items.get(practice_item_id)
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
+    stuck_active = stuck_prompt_active(loaded)
+    if stuck and not stuck_active:
+        typer.echo(
+            "This vault does not offer \"I'm stuck\" (mvp-0.13 with stuck_prompt.enabled).", err=True
+        )
+        raise typer.Exit(code=1)
+    stuck_note = None
+    if attempt_type == "dont_know" and stuck_active:
+        # mvp-0.13: "I don't know" is an empty stuck answer now, with no
+        # separate weight; the same switch that restores it restores this.
+        stuck, attempt_type, answer = True, None, ""
+        stuck_note = "\"I don't know\" is \"I'm stuck\" in this vault: recorded as an empty stuck answer."
     rubric = loaded.rubric_for_item(item)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
-    points = _parse_points(criterion_points)
-    if not points and rubric is not None:
-        for criterion in rubric.criteria:
-            raw = typer.prompt(f"{criterion.id} points", default="0")
-            try:
-                points[criterion.id] = float(raw)
-            except ValueError:
-                typer.echo(f"{criterion.id} points must be numeric.", err=True)
-                raise typer.Exit(code=1)
+    caps = SpendCaps(
+        max_candidates=max(max_calls, 1),
+        max_pairs=0,
+        max_retries=max_retries,
+        max_calls=max_calls,
+        max_total_tokens=max_tokens,
+        max_estimated_usd=max_cost_usd,
+    )
+    spend = ReviewSpend(caps, price_per_million=price_per_million)
+    admitted = False
     try:
-        resolved_attempt_type = attempt_type or default_attempt_type(item.attempt_types_allowed)
+        resolved_attempt_type = attempt_type or (
+            stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
+            if stuck
+            else default_attempt_type(item.attempt_types_allowed)
+        )
         draft = AttemptDraft(
             entry_surface="cli_practice",
             evidence_origin="human",
@@ -3028,32 +3120,91 @@ def attempt(
             attempt_type=resolved_attempt_type,
             hints_used=hints_used,
             session_id=session_id,
+            declared_stuck=stuck,
         )
+        plan = plan_grading_calls(loaded, repository, draft)
+        if dry_run:
+            grading = _attempt_grading_estimate(spend, plan, _grading_route_profile(loaded.config, ai_provider), spend_register_profile=True)
+            payload = {
+                "version": 1,
+                "status": "dry_run",
+                "caps": caps.as_dict(),
+                "grading": grading,
+                "diagnosis": _attempt_diagnosis_note(loaded, plan, inline=not no_diagnose),
+            }
+            if stuck_note is not None:
+                payload["note"] = stuck_note
+            _echo_attempt_plan(payload, json_output)
+            if not grading["admissible"]:
+                raise typer.Exit(code=1)
+            return
+        provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
+        admitted = bool(runtime.ready and client is not None and plan.calls > 0)
+        if admitted:
+            from learnloop.cli.receipts import current_command_recorder
+
+            # Admission first (review F5): an over-budget grade sends and records nothing.
+            spend.register("grading", client)
+            # The collector observes the calls it meters; the command keeps its receipts.
+            spend.collector.sink = current_command_recorder()
+            grading = _attempt_grading_estimate(spend, plan, None)
+            if not grading["admissible"]:
+                _echo_attempt_plan({"version": 1, "status": "over_budget", "caps": caps.as_dict(), "grading": grading}, json_output)
+                raise typer.Exit(code=1)
+        points = _parse_points(criterion_points)
+        if stuck and not answer_text.strip():
+            # Nothing to grade: no self-grade is asked for either.
+            points = points or {criterion.id: 0.0 for criterion in (rubric.criteria if rubric else [])}
+        if not points and rubric is not None:
+            for criterion in rubric.criteria:
+                raw = typer.prompt(f"{criterion.id} points", default="0")
+                try:
+                    points[criterion.id] = float(raw)
+                except ValueError:
+                    typer.echo(f"{criterion.id} points must be numeric.", err=True)
+                    raise typer.Exit(code=1)
         fallback_grade = SelfGradeInput(
             criterion_points=points,
             fatal_errors=_split_items(fatal_errors),
             confidence=confidence,
             error_type=error_type,
         )
-        provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
-        if provider_name not in CODEX_PROVIDER_NAMES:
-            result = complete_attempt_with_ai_fallback(
-                loaded,
-                repository,
-                draft,
-                fallback_grade,
-                runtime=runtime,
-                ai_client=client if runtime.ready else None,
-            )
-        else:
-            result = complete_attempt_with_codex_fallback(
-                loaded,
-                repository,
-                draft,
-                fallback_grade,
-                runtime=runtime,
-                codex_client=client if runtime.ready else None,
-            )
+
+        def admit(purpose: str, prompt: str):
+            # One logical grading call (one sample); metered retries and JSON
+            # repairs inside it are admitted by the collector as they start.
+            return spend.request("grading", purpose, input_tokens=estimated_prompt_tokens(prompt))
+
+        with spend.collector.observing() if admitted else nullcontext(), grading_admission(admit if admitted else None):
+            if provider_name not in CODEX_PROVIDER_NAMES:
+                result = complete_attempt_with_ai_fallback(
+                    loaded,
+                    repository,
+                    draft,
+                    fallback_grade,
+                    runtime=runtime,
+                    ai_client=client if runtime.ready else None,
+                )
+            else:
+                result = complete_attempt_with_codex_fallback(
+                    loaded,
+                    repository,
+                    draft,
+                    fallback_grade,
+                    runtime=runtime,
+                    codex_client=client if runtime.ready else None,
+                )
+    except SpendLimitExceeded as exc:
+        # Raised before the request it refuses, so that request was never
+        # sent. It can come mid-grade (re-review F7): a metered retry, or a
+        # later sample after the first used more than its estimate. The grade
+        # door then records nothing (no self-grade either) and closes its run;
+        # the calls already sent are in ``spend``.
+        refusal: dict[str, Any] = {"version": 1, "status": "over_budget", "message": str(exc)}
+        if admitted:
+            refusal["spend"] = spend.summary()
+        _echo_attempt_plan(refusal, json_output)
+        raise typer.Exit(code=1)
     except (AttemptValidationError, ValueError) as exc:
         if json_output:
             typer.echo(_dump({"version": 1, "error": "validation_error", "message": str(exc)}))
@@ -3073,6 +3224,8 @@ def attempt(
     # final now); the diagnosis then runs inline unless --no-diagnose.
     from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, NOT_NEEDED, diagnosis_status, drain
 
+    if stuck_note is not None and not json_output:
+        typer.echo(stuck_note)
     if not json_output:
         typer.echo(
             f"Recorded {result.attempt_id}: score={result.rubric_score} "
@@ -3084,12 +3237,125 @@ def attempt(
         status = diagnosis_status(repository, result.attempt_id)
     if json_output:
         payload = {"version": 1, "attempt": result.as_dict()}
+        if stuck:
+            payload["declared_stuck"] = True
+        if stuck_note is not None:
+            payload["note"] = stuck_note
         if status["status"] != NOT_NEEDED:
             payload["diagnosis_status"] = status["status"]
+        if admitted:
+            payload["spend"] = spend.summary()
         typer.echo(_dump(payload))
         return
     if status["status"] != NOT_NEEDED:
         typer.echo(f"Diagnosis: {status['status']}")
+    if admitted:
+        charged = spend.summary()["charged"]
+        typer.echo(
+            f"Grading spend: {charged['calls']} call(s) admitted, "
+            f"{charged['metered_total_tokens']} metered tokens, "
+            f"${charged['metered_estimated_usd'] or 0:.4f} metered (Codex is estimated_only)."
+        )
+
+
+def _grading_route_profile(config, explicit: str | None) -> dict[str, Any]:
+    """The grading route's provider from config alone (a dry run builds no client)."""
+
+    from learnloop.ai.routing import MANUAL_PROVIDER, provider_for_task
+    from learnloop.ai.spend import SUBSCRIPTION_PROFILE_TYPES
+
+    name = provider_for_task(config, "grading", explicit_provider=explicit).provider_name or ""
+    profile = config.ai.providers.get(name)
+    profile_type = profile.type if profile is not None else ("codex_sdk" if name == "codex" else None)
+    return {
+        "provider": name or None,
+        "model": getattr(profile, "model", None) if profile is not None else (config.codex.model if name == "codex" else None),
+        "max_tokens": getattr(profile, "max_tokens", None) if profile is not None else None,
+        "subscription": profile_type in SUBSCRIPTION_PROFILE_TYPES,
+        "manual": name in {"", MANUAL_PROVIDER},
+    }
+
+
+def _attempt_grading_estimate(spend, plan, profile: dict[str, Any] | None, *, spend_register_profile: bool = False) -> dict[str, Any]:
+    """The grading plan, its estimate on the command's caps, and whether it fits."""
+
+    from learnloop.ai.spend import SpendLimitExceeded
+
+    payload: dict[str, Any] = {**plan.as_dict()}
+    if profile is not None and profile["manual"]:
+        payload.update(calls=0, route={"provider": profile["provider"], "billing": "none"}, admissible=True,
+                       reason="manual grading: the learner self-grades, no model call")
+        return payload
+    if spend_register_profile and profile is not None:
+        spend.register_profile(
+            "grading", provider=profile["provider"], model=profile["model"],
+            subscription=bool(profile["subscription"]), max_tokens=profile["max_tokens"],
+        )
+    route = spend.routes["grading"]
+    payload["route"] = route.as_dict()
+    if plan.calls == 0:
+        payload.update(estimate={"calls": 0, "metered_total_tokens": 0, "estimated_usd": 0.0},
+                       admissible=True, reason="no model call")
+        return payload
+    output = spend.output_limit("grading")
+    estimate = spend.estimate(
+        "grading", calls=plan.calls,
+        input_tokens=plan.estimated_input_tokens_per_call * plan.calls,
+        output_tokens=output * plan.calls,
+    )
+    payload["estimate"] = {
+        "calls": estimate.calls,
+        "estimated_input_tokens": plan.estimated_input_tokens_per_call * plan.calls,
+        "output_limit_per_call": output,
+        "metered_total_tokens": estimate.total_tokens,
+        "estimated_usd": estimate.estimated_usd,
+        "cost_basis": route.as_dict()["cost_basis"],
+    }
+    try:
+        spend.check(estimate)
+        payload.update(admissible=True, reason=None)
+    except SpendLimitExceeded as exc:
+        payload.update(admissible=False, reason=str(exc))
+    return payload
+
+
+def _attempt_diagnosis_note(loaded, plan, *, inline: bool) -> dict[str, Any] | None:
+    """The conditional inline diagnosis (blind-graded vaults): its own caps."""
+
+    if plan.kind != "blind":
+        return None
+    from learnloop.diagnosis.split.jobs import LIVE_DIAGNOSIS_CAPS
+
+    return {
+        "conditional": True,
+        "inline": inline,
+        "calls_at_most": 1,
+        "when": "the blind grade is not a pass (estimated after grading; run `learnloop diagnose drain --dry-run`)",
+        "per_job_caps": LIVE_DIAGNOSIS_CAPS.as_dict(),
+        "max_calls_per_day": getattr(getattr(loaded.config, "diagnosis", None), "max_calls_per_day", None),
+    }
+
+
+def _echo_attempt_plan(payload: dict[str, Any], json_output: bool) -> None:
+    if json_output:
+        typer.echo(_dump(payload))
+        return
+    grading = payload.get("grading") or {}
+    typer.echo(f"{payload['status']}: {payload.get('message') or ''}".rstrip(": "))
+    if grading:
+        estimate = grading.get("estimate") or {}
+        typer.echo(
+            f"Grading: {grading.get('kind')} x{grading.get('calls')} "
+            f"(~{grading.get('estimated_input_tokens_per_call')} input tokens each), "
+            f"metered tokens {estimate.get('metered_total_tokens')}, est. USD {estimate.get('estimated_usd')}, "
+            f"admissible={grading.get('admissible')}" + (f" ({grading['reason']})" if grading.get("reason") else "")
+        )
+    charged = (payload.get("spend") or {}).get("charged") or {}
+    if charged:
+        typer.echo(
+            f"Already sent: {charged.get('calls')} call(s), metered tokens {charged.get('metered_total_tokens')}, "
+            f"est. USD {charged.get('metered_estimated_usd')}. Nothing was recorded."
+        )
 
 @app.command()
 def today(

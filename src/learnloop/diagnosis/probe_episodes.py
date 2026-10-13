@@ -2136,8 +2136,16 @@ def _record_presentation_observation(
     # "I don't know" is an observation outcome, not an attempt channel.  Keep
     # the committed probe type for eligibility, but feed the explicit outcome
     # to the deterministic signature matcher so replay selects `unanswered`.
+    # An empty "I'm stuck" answer (mvp-0.13) answered nothing either, so it
+    # is the same `unanswered` observation; a stuck answer WITH text is
+    # classified from its grade like any other.
+    empty_stuck = bool(persisted_attempt.get("declared_stuck")) and not str(
+        persisted_attempt.get("learner_answer_md") or ""
+    ).strip()
     outcome_attempt_type = (
-        "dont_know" if persisted_attempt.get("declared_dont_know") else attempt_type
+        "dont_know"
+        if persisted_attempt.get("declared_dont_know") or empty_stuck
+        else attempt_type
     )
     outcome = classify_outcome(
         instrument,

@@ -4,6 +4,13 @@
 day (D12 does not specify a number). Missing timing is NOT evidence of help
 before work: only an explicitly logged zero, or the practice screen's explicit
 "no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
+
+A stuck answer (``mvp-0.13``) whose CURRENT grader reading (its
+``stuck_reading`` judgment, blind or joint) describes confusion is one more
+signal of the same kind: a ``stuck_confusion`` row on
+the item's LO. It is already graded as an attempt, so it carries no outcome
+and no mass (no double counting); it only blocks fast-track, like a confused
+question.
 """
 from __future__ import annotations
 
@@ -17,6 +24,7 @@ import logging
 import math
 from typing import Any
 
+from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
 
 SIGNAL_VERSION = "interaction-signals-v1"
@@ -29,6 +37,8 @@ QUESTION_TYPES = frozenset({
 # ("draft_started"). The screen logs elapsed time in fractional seconds, so an
 # exact zero almost never holds; this marker is the explicit "no work yet".
 ATTEMPT_PROGRESS_NO_WORK = "no_draft"
+#: A stuck answer the grader read as describing confusion (mvp-0.13).
+STUCK_CONFUSION_SIGNAL = "stuck_confusion"
 logger = logging.getLogger(__name__)
 
 
@@ -127,6 +137,7 @@ def derive_interaction_signals(
     daily_mass_cap: float = DAILY_SIGNAL_MASS_CAP,
     lo_to_subject: Mapping[str, str] | None = None,
     diagnostics: dict[str, Any] | None = None,
+    stuck_confusions: Iterable[Mapping[str, Any]] = (),
 ) -> tuple[SignalRow, ...]:
     """Derive immutable rows using logged data and already-paid classifications.
 
@@ -138,6 +149,10 @@ def derive_interaction_signals(
     ``facet_to_lo`` may contain only immutable historical mapping evidence,
     never current vault membership. Explicit targets override facet mappings.
     ``lo_to_subject`` is retained for compatibility but cannot retarget history.
+    ``stuck_confusions`` are :func:`learnloop.attempts.stuck.stuck_answers`
+    rows; each one whose current reading describes confusion becomes a
+    ``stuck_confusion`` row on the attempt's own LO, available once the
+    reading existed, with no outcome and no mass.
     """
     if not math.isfinite(daily_mass_cap) or daily_mass_cap < 0:
         raise ValueError("daily_mass_cap must be finite and nonnegative")
@@ -244,6 +259,21 @@ def derive_interaction_signals(
                 subject_id=attempt.features.subject_id, attempt_id=attempt.attempt_id,
                 help_before_work=before,
             ))
+    stuck_rows = 0
+    for stuck in stuck_confusions:
+        if not stuck.get("describes_confusion"):
+            continue
+        stuck_rows += 1
+        observed = max(
+            (str(stuck["created_at"]), str(stuck.get("graded_at") or stuck["created_at"])),
+            key=instant,
+        )
+        signals.append(SignalRow(
+            signal_id=f"stuck:{stuck['attempt_id']}", lo_id=str(stuck["learning_object_id"]),
+            observed_at=observed, signal_type=STUCK_CONFUSION_SIGNAL,
+            subject_id=str(stuck.get("subject_id") or "default"),
+            attempt_id=str(stuck["attempt_id"]),
+        ))
     used: dict[tuple[str, str, str], float] = defaultdict(float)
     result = []
     for signal in sorted(signals, key=lambda s: (instant(s.observed_at), s.signal_id)):
@@ -260,6 +290,7 @@ def derive_interaction_signals(
             version=SIGNAL_VERSION, questions=len(events), unmapped_questions=unmapped,
             signal_rows=len(result), weak_observations=sum(s.effective_mass > 0 for s in result),
             cache_entries_considered=len(cache), daily_mass_cap=daily_mass_cap,
+            stuck_confusion_rows=stuck_rows,
         )
     return tuple(result)
 
@@ -320,6 +351,9 @@ def load_interaction_signals(
     return derive_interaction_signals(
         questions, readers, attempts,
         facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
+        # mvp-0.13: graded stuck answers the grader read as confusion. Read
+        # from the persisted flag and the reading's judgment, never config.
+        stuck_confusions=stuck_answers(connection),
     )
 
 
@@ -390,15 +424,21 @@ def enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]
             # A suspected answer leak also voids the strict memory coldness.
             retrieval_cold=attempt.retrieval_cold and not leaked,
             help_before_work=attempt.help_before_work or any(s.help_before_work for s in linked),
-            preceded_by_question=attempt.preceded_by_question or any(not s.signal_id.startswith("hint:") for s in prior),
+            # A stuck answer is an attempt, not a question: it never marks a
+            # later attempt as preceded by one (report strata stay as before).
+            preceded_by_question=attempt.preceded_by_question or any(
+                not s.signal_id.startswith(("hint:", "stuck:")) for s in prior
+            ),
         ))
     return tuple(result)
 
 
 # Help or confusion on an LO: it is taught first and never fast-tracked on early
 # answers alone (spec §3.1). Curiosity (`other`, `verification`) never blocks.
+# A stuck answer that says what is confusing (mvp-0.13) is confusion too.
 FAST_TRACK_BLOCKING_TYPES = frozenset({
     "prerequisite", "mechanism", "clarification", "strategy", "reader_confusion", "hint",
+    STUCK_CONFUSION_SIGNAL,
 })
 
 

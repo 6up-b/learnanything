@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "854ce1fd7feceffe43925a2f524a87f652c4bd7d"
+source_commit_timestamp: "2026-10-12T20:37:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 177
+schema_head: 179
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"

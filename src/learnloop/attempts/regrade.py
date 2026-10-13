@@ -203,7 +203,18 @@ def regrade_attempt(
     ):
         from learnloop.attempts.attempts import _blind_grading_plan
 
-        blind_plan = _blind_grading_plan(vault, item, context)
+        # mvp-0.13: a stuck answer is regraded under the same stuck rules, so
+        # its new blind record carries a fresh reading (the confusion signal
+        # follows the current record).
+        blind_plan = _blind_grading_plan(
+            vault, item, context, stuck=bool(attempt.get("declared_stuck"))
+        )
+    if blind_plan is None and attempt.get("declared_stuck"):
+        # mvp-0.13 (review F3): a joint regrade of a stuck answer re-reads it
+        # under the same stuck rules, as its first joint grade did.
+        from learnloop.attempts.stuck import stuck_answer_prompt
+
+        context = replace(context, answer_prompt=stuck_answer_prompt())
     if blind_plan is not None:
         identity = {
             "prompt_version": blind_plan.prompt_version,
@@ -225,6 +236,9 @@ def regrade_attempt(
         }
     )
     blind_record: dict | None = None
+    # mvp-0.13 (review F6): a regrade of a stuck answer re-reads it; that
+    # reading is a new judgment superseding the attempt's current one.
+    stuck_judgment: dict | None = None
     unverified: set[str] = set()
     try:
         if blind_plan is not None:
@@ -254,6 +268,17 @@ def regrade_attempt(
                 "grading_support": dict(run.grading_support),
                 "regrade": True,
             }
+            if run.stuck_reading is not None:
+                from learnloop.attempts.stuck import STUCK_READING_KEY, verified_stuck_reading
+
+                blind_record[STUCK_READING_KEY] = verified_stuck_reading(
+                    run.stuck_reading, attempt.get("learner_answer_md") or ""
+                )
+                stuck_judgment = {
+                    "marker": blind_record[STUCK_READING_KEY],
+                    "prompt_version": run.prompt_version,
+                    "input_hash": blind_plan.context_hash,
+                }
             # PF-c: a criterion the gate recorded unverified is unassessed
             # (owner decision 2026-10-12), exactly as on the live grade: its
             # row is stamped with the block, the grade excludes it below, and
@@ -276,6 +301,20 @@ def regrade_attempt(
                 )
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
+            from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
+
+            if isinstance(proposal, StuckGradingProposal):
+                from learnloop.attempts.grading import grading_context_hash
+                from learnloop.attempts.stuck import verified_stuck_reading
+
+                stuck_judgment = {
+                    "marker": verified_stuck_reading(
+                        proposal.stuck_reading, attempt.get("learner_answer_md") or ""
+                    ),
+                    "prompt_version": grading_prompt_version(context),
+                    "input_hash": grading_context_hash(context),
+                }
+                proposal = proposal.as_grading_proposal()
             validated = validate_codex_grading_proposal(
                 proposal,
                 attempt_id=attempt["id"],
@@ -396,6 +435,16 @@ def regrade_attempt(
                 ),
                 clock=clock,
             )
+            if stuck_judgment is not None:
+                from learnloop.attempts.stuck import record_stuck_reading_judgment
+
+                record_stuck_reading_judgment(
+                    repository.connection(),
+                    attempt_id=attempt["id"],
+                    judge_model=getattr(client, "model", None) or getattr(client, "model_id", None),
+                    created_at=now,
+                    **stuck_judgment,
+                )
     except Exception as exc:
         finish_agent_run(
             repository, agent_run_id, client,
@@ -571,7 +620,11 @@ def _agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, s
 def _manual_review_reason(existing: str | None, attempt: dict) -> str | None:
     if existing is not None:
         return existing
-    if attempt.get("attempt_type") != "dont_know" and not str(attempt.get("learner_answer_md") or "").strip():
+    if (
+        attempt.get("attempt_type") != "dont_know"
+        and not attempt.get("declared_stuck")
+        and not str(attempt.get("learner_answer_md") or "").strip()
+    ):
         return "blank_answer"
     return None
 

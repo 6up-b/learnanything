@@ -12,13 +12,18 @@ export interface AlgoDisplayConfig {
   tauFollowupNats: number;
   /** Operating point of the continuous follow-up gate score. */
   gateScoreThreshold: number;
+  /** mvp-0.13: the answer surfaces offer "I'm stuck" (write what you can)
+   *  instead of "I don't know". The sidecar decides (algorithm version +
+   *  the `stuck_prompt.enabled` kill switch); false until it says so. */
+  stuckPrompt: boolean;
 }
 
 const DEFAULTS: AlgoDisplayConfig = {
   masteryStrongThreshold: 0.6,
   masteryDevelopingThreshold: 0.35,
   tauFollowupNats: 0.05,
-  gateScoreThreshold: 0.5
+  gateScoreThreshold: 0.5,
+  stuckPrompt: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -27,14 +32,20 @@ export function setAlgoConfig(config: unknown): void {
   const root = (config ?? {}) as {
     mastery?: { displayStrongThreshold?: unknown; displayDevelopingThreshold?: unknown };
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
+    practice?: { stuckPrompt?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
     masteryDevelopingThreshold: asNumber(root.mastery?.displayDevelopingThreshold, DEFAULTS.masteryDevelopingThreshold),
     tauFollowupNats: asNumber(root.scheduler?.followup?.tauFollowupNats, DEFAULTS.tauFollowupNats),
-    gateScoreThreshold: asNumber(root.scheduler?.followup?.gateScoreThreshold, DEFAULTS.gateScoreThreshold)
+    gateScoreThreshold: asNumber(root.scheduler?.followup?.gateScoreThreshold, DEFAULTS.gateScoreThreshold),
+    stuckPrompt: root.practice?.stuckPrompt === true
   };
 }
+
+/** The one prompt "I'm stuck" opens the answer box with (mirrors
+ *  learnloop.attempts.stuck.STUCK_PROMPT_TEXT). */
+export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you";
 
 export function algoConfig(): AlgoDisplayConfig {
   return current;

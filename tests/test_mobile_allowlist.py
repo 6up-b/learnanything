@@ -68,10 +68,29 @@ SLICE2_T6_RPCS = (
     "confirm_quick_add",
 )
 
+# The stuck prompt (mvp-0.13, "I'm stuck" replaces "I don't know") adds no
+# RPC; it extends nine desktop ones: submit_attempt (declaredStuck),
+# submit_dont_know (an empty stuck answer where the vault offers it),
+# save_practice_draft and update_session_checkpoint (the draft's stuck mode),
+# start_session and get_session (the checkpoint carries it back), and
+# load_vault, reload_vault and get_config (config.practice.stuck_prompt).
+STUCK_PROMPT_RPCS = (
+    "submit_attempt",
+    "submit_dont_know",
+    "save_practice_draft",
+    "update_session_checkpoint",
+    "start_session",
+    "get_session",
+    "load_vault",
+    "reload_vault",
+    "get_config",
+)
+
 
 @pytest.mark.parametrize(
     "method",
-    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS,
+    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
+    + STUCK_PROMPT_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CommandError, DialogueTurnDto, GuidedRedoDto, ProbeBlockEndDto } from "../api/dto";
+import { algoConfig, STUCK_PROMPT_TEXT } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ProbeBlockResult } from "./ProbeBlockResult";
 import { COLOR, FONT_MONO, Faint } from "./term";
@@ -53,6 +54,10 @@ export function DialogueProbePanel({
     Math.max(0, Math.round((Date.now() - turnOpenedAtMs.current) / 1000));
   const [answer, setAnswer] = useState("");
   const [confidence, setConfidence] = useState<number | null>(null);
+  // mvp-0.13: "I'm stuck" replaces "Don't know" — the answer box asks the
+  // learner to write what they can; an empty answer may be committed.
+  const stuckPrompt = algoConfig().stuckPrompt;
+  const [stuck, setStuck] = useState(false);
   const [submitted, setSubmitted] = useState<SubmittedTurn[]>([]);
   const [blockEnd, setBlockEnd] = useState<ProbeBlockEndDto | null>(null);
   const dialogueState = useRef<string | null>(null);
@@ -93,6 +98,7 @@ export function DialogueProbePanel({
       setTurn(next.turn);
       setAnswer("");
       setConfidence(null);
+      setStuck(false);
       // Each dialogue turn is its own committed attempt, so latency is timed per
       // TURN, not per block — a block-scoped timer would bill every turn for the
       // ones before it (B5's `learner_minutes_to_cold_success`).
@@ -125,7 +131,7 @@ export function DialogueProbePanel({
   const submitTurn = useCallback(
     async (dontKnow: boolean) => {
       if (phase !== "asking" || turn == null || dialogueState.current == null) return;
-      if (!dontKnow && !answer.trim()) return;
+      if (!dontKnow && !stuck && !answer.trim()) return;
       setPhase("submitting");
       try {
         // Each turn is one committed diagnostic_probe attempt consuming the
@@ -148,14 +154,23 @@ export function DialogueProbePanel({
             hintsUsed: 0,
             latencySeconds: elapsedSeconds(),
             probePresentationId: turn.presentationId,
-            answerConfidence: confidence
+            answerConfidence: confidence,
+            ...(stuck ? { declaredStuck: true } : {})
           });
         }
         const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId);
         dialogueState.current = recorded.dialogueState;
         setSubmitted((prior) => [
           ...prior,
-          { kind: turn.kind, promptMd: turn.promptMd, answerMd: dontKnow ? "_(don't know)_" : answer }
+          {
+            kind: turn.kind,
+            promptMd: turn.promptMd,
+            answerMd: dontKnow
+              ? "_(don't know)_"
+              : stuck && !answer.trim()
+                ? "_(stuck, nothing written)_"
+                : answer
+          }
         ]);
         setTurn(null);
         if (recorded.blockComplete) {
@@ -169,7 +184,7 @@ export function DialogueProbePanel({
         setPhase("asking");
       }
     },
-    [phase, turn, answer, confidence, sessionId, advance, endBlock, onError]
+    [phase, turn, answer, confidence, stuck, sessionId, advance, endBlock, onError]
   );
 
   // §3: Stop diagnosing and teach me — convert the episode to tutoring, then
@@ -290,9 +305,14 @@ export function DialogueProbePanel({
               style={{ marginTop: 10 }}
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
-              placeholder="Commit to a short answer…"
+              placeholder={stuck ? STUCK_PROMPT_TEXT : "Commit to a short answer…"}
               disabled={phase === "submitting"}
             />
+            {stuck ? (
+              <div role="status" aria-label="stuck prompt" style={{ marginTop: 6, fontSize: 12 }}>
+                <Pill tone="amber">I'm stuck</Pill> {STUCK_PROMPT_TEXT}. <Faint>An empty answer is fine.</Faint>
+              </div>
+            ) : null}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.85 }}>
                 <Faint>confidence</Faint>
@@ -312,20 +332,36 @@ export function DialogueProbePanel({
               <button
                 className="queue-row focused"
                 type="button"
-                disabled={phase === "submitting" || !answer.trim()}
+                disabled={phase === "submitting" || (!stuck && !answer.trim())}
                 onClick={() => void submitTurn(false)}
               >
                 <span className="queue-hotkey">⌃↵</span>
                 <span className="queue-title">{phase === "submitting" ? "Submitting…" : "Commit answer"}</span>
               </button>
-              <button
-                className="queue-row"
-                type="button"
-                disabled={phase === "submitting"}
-                onClick={() => void submitTurn(true)}
-              >
-                <span className="queue-title">Don't know</span>
-              </button>
+              {stuckPrompt ? (
+                stuck ? null : (
+                  <button
+                    className="queue-row"
+                    type="button"
+                    disabled={phase === "submitting"}
+                    onClick={() => {
+                      setStuck(true);
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    <span className="queue-title">I'm stuck</span>
+                  </button>
+                )
+              ) : (
+                <button
+                  className="queue-row"
+                  type="button"
+                  disabled={phase === "submitting"}
+                  onClick={() => void submitTurn(true)}
+                >
+                  <span className="queue-title">Don't know</span>
+                </button>
+              )}
               <button
                 className="queue-row"
                 type="button"

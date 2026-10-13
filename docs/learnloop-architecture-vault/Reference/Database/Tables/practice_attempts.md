@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "854ce1fd7feceffe43925a2f524a87f652c4bd7d"
+source_commit_timestamp: "2026-10-12T20:37:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 177
+schema_head: 179
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,15 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/algorithm_versions.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/db/stores/diagnoses.py"
-  - "src/learnloop/db/stores/observation_ledger.py"
-  - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/attempts/attempt_trace.py"
-  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
 tags:
@@ -53,7 +53,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`.
+- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -94,6 +94,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `collection_version` | `TEXT` | yes | `'legacy-unversioned'` | — | Stored value |
 | `entry_surface` | `TEXT` | yes | `'unknown'` | — | Stored value |
 | `evidence_origin` | `TEXT` | yes | `'unknown'` | — | Stored value |
+| `declared_stuck` | `INTEGER` | yes | `0` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -169,6 +170,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/stuck.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/db/stores/diagnoses.py`
@@ -313,7 +315,8 @@ CREATE TABLE "practice_attempts" (
   answer_confidence INTEGER,
   submission_id TEXT,
   declared_dont_know INTEGER NOT NULL DEFAULT 0
-, collection_version TEXT NOT NULL DEFAULT 'legacy-unversioned', entry_surface TEXT NOT NULL DEFAULT 'unknown', evidence_origin TEXT NOT NULL DEFAULT 'unknown');
+, collection_version TEXT NOT NULL DEFAULT 'legacy-unversioned', entry_surface TEXT NOT NULL DEFAULT 'unknown', evidence_origin TEXT NOT NULL DEFAULT 'unknown', declared_stuck INTEGER NOT NULL DEFAULT 0
+  CHECK (declared_stuck IN (0, 1)));
 ```
 
 ## Related notes

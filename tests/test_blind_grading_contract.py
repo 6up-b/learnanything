@@ -81,8 +81,10 @@ def test_blind_context_has_no_history_capable_field():
     blind = {field.name for field in dataclasses.fields(BlindGradingContext)}
     joint = {field.name for field in dataclasses.fields(GradingContext)}
     # Exactly today's context minus the C4 history (§4.1), plus PF-c's
-    # reference policy, which is item-side and this-answer-only (Slice 2 §5.5).
-    assert blind == (joint - {"diagnostic_history"}) | {"reference_policy"}
+    # reference policy, which is item-side and this-answer-only (Slice 2 §5.5),
+    # and mvp-0.13's answer prompt: how THIS answer was asked for ("I'm stuck"),
+    # a fixed constant, never history.
+    assert blind == (joint - {"diagnostic_history"}) | {"reference_policy", "answer_prompt"}
     forbidden = ("history", "prior", "hypothes", "diagnos", "retriev", "misconception")
     assert not [name for name in blind if any(token in name for token in forbidden)]
     # The facet registry is item-side vocabulary (S1 keeps it); the

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-177. Migration 167 adds the learner-field F1 read model
+179. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -30,8 +30,11 @@ authority (`hypothesis_recurrence_groups`, `hypothesis_recurrence_review`,
 adds Slice 2 T6's FTS5 keyword index over source blocks (`source_block_fts`,
 DERIVED, with its insert, delete and update triggers on
 `source_document_blocks`; the delete paths match the block's identity as well
-as its rowid). Built as a backup-API copy of `migration_head_176` with only 177
-applied. It pins
+as its rowid); migration 178 adds the stuck prompt's
+`practice_attempts.declared_stuck` flag; migration 179 rebuilds the
+append-only `reveal_events` (same columns, indexes and triggers) so its
+`source_kind` CHECK also accepts `answer_display`. Built as a backup-API copy
+of `migration_head_177` with only 178 and 179 applied. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

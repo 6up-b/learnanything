@@ -62,14 +62,41 @@ def request_grading_proposal(
 ) -> GradingProposal:
     """Run the feature-owned grading operation on a structured provider."""
 
-    return execute_structured_operation(
-        client,
-        purpose="grading",
-        prompt=grading_prompt(context),
-        result_model=GradingProposal,
-        legacy_capability="grading",
-        legacy_context=context,
+    from learnloop.ai.transport import STRUCTURED_COMPLETION
+    from learnloop.attempts.ai_contracts import StuckGradingProposal
+    from learnloop.attempts.grading_admission import admit_grading_call
+
+    # mvp-0.13 (review F3): a stuck answer's joint grade carries the reading.
+    # A legacy endpoint adapter never sees the prompt, so it cannot read it.
+    result_model: type[GradingProposal] = (
+        StuckGradingProposal
+        if context.answer_prompt is not None and client.supports(STRUCTURED_COMPLETION)
+        else GradingProposal
     )
+    prompt = grading_prompt(context)
+    # Admitted against a command's caps when one installed a guard (review
+    # F5, ``learnloop attempt``); a no-op on every other door.
+    with admit_grading_call("grading", prompt):
+        return execute_structured_operation(
+            client,
+            purpose="grading",
+            prompt=prompt,
+            result_model=result_model,
+            legacy_capability="grading",
+            legacy_context=context,
+        )
+
+
+def joint_grading_prompt_tokens(context: GradingContext) -> int:
+    """The joint prompt's input-token estimate for a dry run (no call).
+
+    Built here, beside the only joint grading door, so nothing else renders
+    the joint prompt (review F5's ``plan_grading_calls`` reads this).
+    """
+
+    from learnloop.attempts.grading_admission import estimated_prompt_tokens
+
+    return estimated_prompt_tokens(grading_prompt(context))
 
 
 def request_vault_grading_proposal(
@@ -106,7 +133,7 @@ def request_vault_grading_proposal(
 def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> dict[str, str]:
     """The agent-run identity of :func:`request_vault_grading_proposal`'s call."""
 
-    from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
+    from learnloop.attempts.ai_contracts import grading_prompt_version
     from learnloop.attempts.blind_grading import (
         blind_context_from_grading_context,
         blind_grading_context_hash,
@@ -116,7 +143,7 @@ def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> d
 
     if not split_grading_active(vault):
         return {
-            "prompt_version": GRADING_PROMPT_VERSION,
+            "prompt_version": grading_prompt_version(context),
             "input_context_hash": grading_context_hash(context),
             "output_schema": "GradingProposal",
         }
@@ -876,6 +903,10 @@ def grading_context_hash(context: GradingContext) -> str:
         "verifier_observations": context.verifier_observations,
         "diagnostic_history": context.diagnostic_history,
     }
+    if context.answer_prompt is not None:
+        # mvp-0.13: only a stuck answer's context hashes the prompt it was
+        # asked with; every other context hashes exactly as before.
+        payload["answer_prompt"] = context.answer_prompt
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 

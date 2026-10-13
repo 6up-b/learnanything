@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from contextlib import nullcontext
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
@@ -12,6 +13,7 @@ from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
 from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import (
@@ -78,6 +80,19 @@ from learnloop.attempts.blind_grading import (
     split_grading_active,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
+from learnloop.attempts.reveal_ledger import POST_ATTEMPT_REVEAL_KINDS
+from learnloop.attempts.stuck import (
+    EMPTY_STUCK_EVIDENCE,
+    EMPTY_STUCK_FEEDBACK,
+    EMPTY_STUCK_GRADER_TIER,
+    EMPTY_STUCK_LOCAL_GRADER_ID,
+    STUCK_READING_KEY,
+    is_empty_stuck,
+    record_stuck_reading_judgment,
+    stuck_answer_prompt,
+    stuck_prompt_active,
+    verified_stuck_reading,
+)
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
@@ -169,6 +184,12 @@ class AttemptDraft:
     # A diagnostic presentation keeps its measurement attempt type while this
     # flag records the learner's explicit "I don't know" outcome.
     declared_dont_know: bool = False
+    # mvp-0.13: the answer was written after "I'm stuck" ("Write what you can,
+    # or what's confusing you"). It is an ORDINARY attempt of `attempt_type`
+    # at the standard mass: graded when it has text (the blind grader also
+    # reads it for confusion), a deterministic zero when empty. Persisted as
+    # `practice_attempts.declared_stuck`; never combined with dont_know.
+    declared_stuck: bool = False
     # Meas §3.A6: the one line the learner volunteered at a decision point, as
     # its OWN field rather than as text a client appended under an agreed
     # heading. `learner_answer_md` above still carries the composed trace — the
@@ -535,6 +556,9 @@ def _complete_attempt_with_agent_fallback(
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
     item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    if is_empty_stuck(draft):
+        # Nothing to grade, so no model and no self-grade: before any check.
+        return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
     contract = _assessment_contract(repository, draft)
     deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
     if deterministic is not None:
@@ -556,8 +580,16 @@ def _complete_attempt_with_agent_fallback(
         rubric=rubric,
         assessment_contract=contract,
     )
-    blind = _blind_grading_plan(vault, item, context) if split_grading_active(vault) else None
+    blind = (
+        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        if split_grading_active(vault)
+        else None
+    )
     if blind is None:
+        if draft.declared_stuck:
+            # mvp-0.13 (review F3): the joint grader (split switched off)
+            # reads a stuck answer under the same stuck rules.
+            context = replace(context, answer_prompt=stuck_answer_prompt())
         context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -586,29 +618,27 @@ def _complete_attempt_with_agent_fallback(
                 clock=clock,
             )
         else:
-            consensus = _run_augmented_diagnosis(vault, ai_client, context)
-            proposal = consensus.proposal
-            result = complete_codex_graded_attempt(
+            result = _complete_joint_graded_attempt(
                 vault,
                 repository,
                 draft,
-                proposal,
+                context,
+                ai_client=ai_client,
                 attempt_id=attempt_id,
                 agent_run_id=agent_run_id,
                 grading_source=grading_source,
-                diagnostic_sample_support=consensus.agreement_support,
-                clock=clock,
-            )
-            _record_diagnostic_augmentation(
-                repository,
-                attempt_id=attempt_id,
-                context=context,
-                consensus=consensus,
-                client=ai_client,
                 clock=clock,
             )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
+        raise
+    except SpendLimitExceeded as exc:
+        # A command's caps refused a retry or a later sample (re-review F7).
+        # That is the command's over-budget answer, never a grading failure to
+        # cover with the self-grade: close the run (its tokens are recorded)
+        # and let the command report it. It subclasses ValueError, so it is
+        # caught before the fallback below.
+        _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock)
         raise
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
         if _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock):
@@ -734,11 +764,17 @@ def _try_deterministic_grade(
     projection sees a normal graded attempt — but with grading_source
     'deterministic' and grader_confidence 1.0, which the reliability resolver
     exempts from the calibration-channel discount. Runs before the runtime
-    check: a constrained selection is gradable even when no agent is up.
+    check: a constrained selection is gradable even when no agent is up. A
+    declared-stuck answer (mvp-0.13) never takes it: it goes to the grader.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
 
+    if draft.declared_stuck:
+        # mvp-0.13 (review F1): text written under "I'm stuck" is the
+        # learner's own words, not an option pick. "Confused about ..." must
+        # never parse as option C; the grader reads it (and its confusion).
+        return None
     attempt_id = new_ulid()
     proposal = deterministic_recognition_grade(
         item, rubric, draft.learner_answer_md, attempt_id=attempt_id
@@ -758,6 +794,92 @@ def _try_deterministic_grade(
     return result
 
 
+@dataclass(frozen=True)
+class GradingCallPlan:
+    """The model grading one answer would send, computed with no call and no write.
+
+    Review F5: the paid command door (``learnloop attempt``) estimates and
+    admits these calls before sending them. ``kind`` is ``empty_stuck`` or
+    ``deterministic`` (no call), ``blind`` or ``joint`` (``calls`` samples,
+    each about ``estimated_input_tokens_per_call`` input tokens).
+    """
+
+    kind: str
+    calls: int
+    prompt_version: str | None = None
+    estimated_input_tokens_per_call: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "calls": self.calls,
+            "prompt_version": self.prompt_version,
+            "estimated_input_tokens_per_call": self.estimated_input_tokens_per_call,
+        }
+
+
+def plan_grading_calls(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+) -> GradingCallPlan:
+    """What the practice door would send to a grader for ``draft`` (read-only).
+
+    The same decisions as the completion doors, in the same order: an empty
+    stuck answer and an unambiguous option letter make no call; otherwise the
+    blind (split) or joint prompt is assembled exactly as it would be sent and
+    its input tokens estimated, once per sample. Raises like the doors on an
+    invalid draft.
+    """
+
+    from learnloop.attempts.grading import deterministic_recognition_grade
+    from learnloop.attempts.grading_admission import estimated_prompt_tokens
+
+    item, _learning_object, rubric, draft = _resolve_attempt_target(
+        vault, repository, draft, clock=clock
+    )
+    if is_empty_stuck(draft):
+        return GradingCallPlan(kind="empty_stuck", calls=0)
+    if not draft.declared_stuck and deterministic_recognition_grade(
+        item, rubric, draft.learner_answer_md, attempt_id="planned"
+    ) is not None:
+        return GradingCallPlan(kind="deterministic", calls=0)
+    context = build_grading_context(
+        vault,
+        item,
+        attempt_id="planned",
+        learner_answer_md=draft.learner_answer_md,
+        rubric=rubric,
+        assessment_contract=_assessment_contract(repository, draft),
+    )
+    if split_grading_active(vault):
+        from learnloop.attempts.blind_grading import blind_grading_prompt
+
+        blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        return GradingCallPlan(
+            kind="blind",
+            calls=_blind_sample_count(vault),
+            prompt_version=blind.prompt_version,
+            estimated_input_tokens_per_call=estimated_prompt_tokens(
+                blind_grading_prompt(blind.context)
+            ),
+        )
+    from learnloop.attempts.ai_contracts import grading_prompt_version
+    from learnloop.attempts.grading import joint_grading_prompt_tokens
+
+    if draft.declared_stuck:
+        context = replace(context, answer_prompt=stuck_answer_prompt())
+    context = _augmented_grading_context(vault, repository, item, context)
+    return GradingCallPlan(
+        kind="joint",
+        calls=_joint_sample_count(vault),
+        prompt_version=grading_prompt_version(context),
+        estimated_input_tokens_per_call=joint_grading_prompt_tokens(context),
+    )
+
+
 def _complete_attempt_with_agent_required(
     vault: LoadedVault,
     repository: Repository,
@@ -773,6 +895,9 @@ def _complete_attempt_with_agent_required(
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
     item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    if is_empty_stuck(draft):
+        # Nothing to grade: an empty stuck answer never needs a provider.
+        return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
     deterministic = _try_deterministic_grade(vault, repository, draft, item, rubric, clock=clock)
     if deterministic is not None:
         return deterministic
@@ -793,8 +918,16 @@ def _complete_attempt_with_agent_required(
         rubric=rubric,
         assessment_contract=contract,
     )
-    blind = _blind_grading_plan(vault, item, context) if split_grading_active(vault) else None
+    blind = (
+        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        if split_grading_active(vault)
+        else None
+    )
     if blind is None:
+        if draft.declared_stuck:
+            # mvp-0.13 (review F3): the joint grader (split switched off)
+            # reads a stuck answer under the same stuck rules.
+            context = replace(context, answer_prompt=stuck_answer_prompt())
         context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -823,25 +956,15 @@ def _complete_attempt_with_agent_required(
                 clock=clock,
             )
         else:
-            consensus = _run_augmented_diagnosis(vault, ai_client, context)
-            proposal = consensus.proposal
-            result = complete_codex_graded_attempt(
+            result = _complete_joint_graded_attempt(
                 vault,
                 repository,
                 draft,
-                proposal,
+                context,
+                ai_client=ai_client,
                 attempt_id=attempt_id,
                 agent_run_id=agent_run_id,
                 grading_source=grading_source,
-                diagnostic_sample_support=consensus.agreement_support,
-                clock=clock,
-            )
-            _record_diagnostic_augmentation(
-                repository,
-                attempt_id=attempt_id,
-                context=context,
-                consensus=consensus,
-                client=ai_client,
                 clock=clock,
             )
     except sqlite3.IntegrityError as exc:
@@ -870,6 +993,10 @@ def complete_self_graded_attempt(
     because model grading failed or was unavailable.
     """
 
+    if is_empty_stuck(draft):
+        # An empty stuck answer has nothing to self-grade either: whatever
+        # door it arrives through, it is the same deterministic zero.
+        return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
     now_iso = utc_now_iso(clock)
     attempt_id = new_ulid()
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -944,6 +1071,69 @@ def complete_self_graded_attempt(
                 vault, repository, item=item, error_type=promoted_error_type, clock=clock
             )
     return result
+
+
+def complete_empty_stuck_attempt(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+) -> AttemptResult:
+    """Record an empty "I'm stuck" answer: an ordinary attempt scored 0.
+
+    There is nothing to grade, so no model is called and no self-grade is
+    asked for. Every criterion gets 0 points from a deterministic grade
+    (``grading_source = "deterministic"``, grader tier 2, so the deferred
+    self-grade regrade never picks it up). It writes the same deterministic
+    attribution an empty ``dont_know`` writes (retrieval failure, or scaffold
+    failure after hints), but at the attempt type's standard evidence mass:
+    there is no separate "don't know" weight.
+    """
+
+    if not is_empty_stuck(draft):
+        raise AttemptValidationError("only an empty stuck answer is scored without a grader")
+    now_iso = utc_now_iso(clock)
+    attempt_id = new_ulid()
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    criterion_points = {criterion.id: 0.0 for criterion in rubric.criteria}
+    error_attributions = _self_grade_attributions(
+        vault, [], _dont_know_error_type(vault, draft.hints_used), []
+    )
+    evidence_rows = [
+        {
+            "id": new_ulid(),
+            "criterion_id": criterion.id,
+            "points_awarded": 0.0,
+            "evidence": EMPTY_STUCK_EVIDENCE,
+            "notes": None,
+            "local_grader_id": EMPTY_STUCK_LOCAL_GRADER_ID,
+            "grader_tier": EMPTY_STUCK_GRADER_TIER,
+            "learner_confidence": None,
+            "created_at": now_iso,
+        }
+        for criterion in rubric.criteria
+    ]
+    return apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=draft,
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=calculate_rubric_score(rubric, criterion_points, []),
+                criterion_points=criterion_points,
+                evidence_rows=evidence_rows,
+                error_attributions=error_attributions,
+                grader_confidence=1.0,
+                confidence=None,
+                manual_review_reason=None,
+                feedback_md=EMPTY_STUCK_FEEDBACK,
+            ),
+            grading_source="deterministic",
+        ),
+        clock=clock,
+    )
 
 
 def complete_codex_graded_attempt(
@@ -1090,6 +1280,9 @@ def replay_existing_attempt(
         ),
         submission_id=attempt.get("submission_id"),
         declared_dont_know=bool(attempt.get("declared_dont_know")),
+        # mvp-0.13: what the learner sent was a stuck answer (persisted, never
+        # read from today's stuck_prompt switch).
+        declared_stuck=bool(attempt.get("declared_stuck")),
         # Replay must reproduce the recorded assistance state, not re-derive it.
         # `primed` drives the IRT easiness shift, the EB-difficulty exclusion and
         # the repair-activity classification, so a replay that dropped it would
@@ -1264,13 +1457,22 @@ class _BlindGradingPlan:
     calibration_prompt_version: str
 
 
-def _blind_grading_plan(vault: LoadedVault, item: PracticeItem, context: Any) -> _BlindGradingPlan:
+def _blind_grading_plan(
+    vault: LoadedVault,
+    item: PracticeItem,
+    context: Any,
+    *,
+    stuck: bool = False,
+) -> _BlindGradingPlan:
     """The learner-blind context for one answer: item side + this answer only.
 
     C2 verifier observations read only the answer and the reference, so they
     stay; C4 history has no field to go into (S1). PF-c's reference policy is
     attached unless ``diagnosis.grading_support`` is off (its kill switch,
-    which restores the mvp-2.0 blind prompt exactly).
+    which restores the mvp-2.0 blind prompt exactly). ``stuck`` (mvp-0.13)
+    tells the grader the answer came from "I'm stuck" and asks for its
+    reading; an ordinary answer's context is unchanged. The calibration
+    identity is the base grader's: the scoring rules are the same.
     """
 
     from learnloop.attempts.blind_grading import (
@@ -1293,6 +1495,7 @@ def _blind_grading_plan(vault: LoadedVault, item: PracticeItem, context: Any) ->
             context.learner_answer_md, context.expected_answer
         ),
         reference_policy=reference_policy(item, context.learner_answer_md) if support else None,
+        answer_prompt=stuck_answer_prompt() if stuck else None,
     )
     return _BlindGradingPlan(
         context=blind_context,
@@ -1306,8 +1509,10 @@ def _blind_grading_plan(vault: LoadedVault, item: PracticeItem, context: Any) ->
 
 def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict[str, str]:
     if blind is None:
+        from learnloop.attempts.ai_contracts import grading_prompt_version
+
         return {
-            "prompt_version": GRADING_PROMPT_VERSION,
+            "prompt_version": grading_prompt_version(context),
             "input_context_hash": grading_context_hash(context),
             "output_schema": "GradingProposal",
         }
@@ -1316,6 +1521,69 @@ def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict
         "input_context_hash": blind.context_hash,
         "output_schema": "BlindGradingProposal",
     }
+
+
+def _complete_joint_graded_attempt(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    context: Any,
+    *,
+    ai_client: AIProviderClient,
+    attempt_id: str,
+    agent_run_id: str,
+    grading_source: str,
+    clock: Clock | None = None,
+) -> AttemptResult:
+    """Grade jointly (split off), apply it, and record its augmentation receipt.
+
+    A stuck answer's joint grade carries the grader's reading (mvp-0.13,
+    review F3): it is verified against the answer and appended to
+    ``judgment_ledger`` in the transaction that records the grade, so the
+    confusion signal and :func:`learnloop.attempts.stuck.stuck_answers` read
+    it in either grading mode. The applied proposal is the ordinary joint one.
+    """
+
+    from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
+    from learnloop.attempts.grading import grading_context_hash
+
+    consensus = _run_augmented_diagnosis(vault, ai_client, context)
+    proposal = consensus.proposal
+    marker = None
+    if isinstance(proposal, StuckGradingProposal):
+        marker = verified_stuck_reading(proposal.stuck_reading, draft.learner_answer_md)
+        proposal = proposal.as_grading_proposal()
+    with repository.atomic() if marker is not None else nullcontext():
+        result = complete_codex_graded_attempt(
+            vault,
+            repository,
+            draft,
+            proposal,
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_source=grading_source,
+            diagnostic_sample_support=consensus.agreement_support,
+            clock=clock,
+        )
+        if marker is not None:
+            record_stuck_reading_judgment(
+                repository.connection(),
+                attempt_id=attempt_id,
+                marker=marker,
+                judge_model=_client_model(ai_client),
+                prompt_version=grading_prompt_version(context),
+                input_hash=grading_context_hash(context),
+                created_at=utc_now_iso(clock),
+            )
+    _record_diagnostic_augmentation(
+        repository,
+        attempt_id=attempt_id,
+        context=context,
+        consensus=consensus,
+        client=ai_client,
+        clock=clock,
+    )
+    return result
 
 
 def _complete_blind_graded_attempt(
@@ -1350,9 +1618,7 @@ def _complete_blind_graded_attempt(
     )
 
     item = vault.practice_items[draft.practice_item_id]
-    sample_count = 1
-    if bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
-        sample_count = max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
+    sample_count = _blind_sample_count(vault)
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
@@ -1403,6 +1669,12 @@ def _complete_blind_graded_attempt(
         samples=run.samples,
         grading_support=support,
     )
+    if run.stuck_reading is not None:
+        # mvp-0.13: the grader's reading of a stuck answer, on the blind
+        # record (the measurement), where the confusion signal reads it.
+        record[STUCK_READING_KEY] = verified_stuck_reading(
+            run.stuck_reading, draft.learner_answer_md
+        )
     identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
     with repository.atomic():
         result = complete_codex_graded_attempt(
@@ -1428,6 +1700,18 @@ def _complete_blind_graded_attempt(
             record=record,
             clock=clock,
         )
+        if STUCK_READING_KEY in record:
+            # Review F6: the reading is the grader's classification verdict,
+            # appended in the same transaction as the grade and its record.
+            record_stuck_reading_judgment(
+                repository.connection(),
+                attempt_id=attempt_id,
+                marker=record[STUCK_READING_KEY],
+                judge_model=_client_model(ai_client),
+                prompt_version=run.prompt_version,
+                input_hash=blind.context_hash,
+                created_at=utc_now_iso(clock),
+            )
     _record_blind_grading_receipt(
         repository,
         attempt_id=attempt_id,
@@ -1437,6 +1721,12 @@ def _complete_blind_graded_attempt(
         clock=clock,
     )
     return result
+
+
+def _client_model(client: Any) -> str | None:
+    """The resolved model a client graded with (receipts record the same)."""
+
+    return getattr(client, "model", None) or getattr(client, "model_id", None)
 
 
 def _record_blind_grading_receipt(
@@ -1489,20 +1779,23 @@ def _record_blind_grading_receipt(
         )
 
 
-def _run_augmented_diagnosis(
-    vault: LoadedVault,
-    client: AIProviderClient,
-    context: Any,
-) -> Any:
-    from learnloop.diagnosis.diagnostic_augmentation import (
-        DEFAULT_DIAGNOSIS_SAMPLES,
-        run_diagnosis_samples,
-    )
+def _blind_sample_count(vault: LoadedVault) -> int:
+    """Blind grading samples per answer (one unless sampling is configured)."""
+
+    if not bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
+        return 1
+    return max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
+
+
+def _joint_sample_count(vault: LoadedVault) -> int:
+    """Joint grading (C3) samples per answer."""
+
+    from learnloop.diagnosis.diagnostic_augmentation import DEFAULT_DIAGNOSIS_SAMPLES
 
     enabled = bool(
         _diagnostic_augmentation_setting(vault, "sampling_enabled", True)
     )
-    sample_count = (
+    return (
         max(
             1,
             int(
@@ -1514,7 +1807,16 @@ def _run_augmented_diagnosis(
         if enabled
         else 1
     )
-    return run_diagnosis_samples(client, context, sample_count=sample_count)
+
+
+def _run_augmented_diagnosis(
+    vault: LoadedVault,
+    client: AIProviderClient,
+    context: Any,
+) -> Any:
+    from learnloop.diagnosis.diagnostic_augmentation import run_diagnosis_samples
+
+    return run_diagnosis_samples(client, context, sample_count=_joint_sample_count(vault))
 
 
 def _record_diagnostic_augmentation(
@@ -1570,11 +1872,20 @@ def reveal_total_for_submission(
 
     Same window as ``tutor_qa.hint_equivalents_for_submission``: everything
     after the most recent prior attempt on the item, because anything earlier
-    was already absorbed into that attempt's evidence."""
+    was already absorbed into that attempt's evidence. A post-attempt display
+    linked to that attempt (``POST_ATTEMPT_REVEAL_KINDS``: the worked answer
+    after an empty stuck answer, re-review F8) came after it, so it counts
+    even when stamped in the attempt's own second."""
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
-    return repository.total_reveal_amount(practice_item_id, since=since, until=until)
+    return repository.total_reveal_amount(
+        practice_item_id,
+        since=since,
+        until=until,
+        linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
+        linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
+    )
 
 
 def auto_primed_draft(
@@ -1680,6 +1991,12 @@ def _resolve_attempt_target(
         raise AttemptValidationError("latency_seconds must be non-negative")
     if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
         raise AttemptValidationError("answer_confidence must be between 1 and 5")
+    if draft.declared_stuck and (draft.attempt_type == "dont_know" or draft.declared_dont_know):
+        raise AttemptValidationError("a stuck answer is an ordinary attempt, never dont_know")
+    if draft.declared_stuck and not replay and not stuck_prompt_active(vault):
+        raise AttemptValidationError(
+            "this vault does not offer \"I'm stuck\" (mvp-0.13 with stuck_prompt.enabled)"
+        )
     if not replay:
         # Force priming from the reveal ledger BEFORE the cold guard below. The
         # order is the point: a learner who was just shown the answer and then
@@ -2884,6 +3201,7 @@ def _compute_resolved_grade_application(
         hints_used=draft.hints_used,
         learner_answer_md=draft.learner_answer_md,
         evidence=vault.config.evidence,
+        declared_stuck=draft.declared_stuck,
     )
     # Asked-criteria evidence scaling: ungraded criteria certify no facet mass
     # (teach_back partial grading) and transfer-tier criterion evidence carries
@@ -3243,6 +3561,7 @@ def _compute_resolved_grade_application(
         "entry_surface": draft.entry_surface,
         "evidence_origin": draft.evidence_origin,
         "declared_dont_know": draft.declared_dont_know,
+        "declared_stuck": draft.declared_stuck,
     }
     error_event_ids = [
         error_event_ids_override[index]
@@ -3623,7 +3942,11 @@ def _primary_error_type(attributions: list[GradeAttribution]) -> str | None:
 def _attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> str | None:
     if existing is not None:
         return existing
-    if draft.attempt_type != "dont_know" and not draft.learner_answer_md.strip():
+    if (
+        draft.attempt_type != "dont_know"
+        and not draft.declared_stuck
+        and not draft.learner_answer_md.strip()
+    ):
         return "blank_answer"
     return None
 

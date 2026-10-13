@@ -9,6 +9,7 @@ from typing import Any
 from learnloop.ai.routing import (
     is_embedding_profile, is_generation_profile, ready_client_for_task, route_names, runtime_for_provider,
 )
+from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -359,6 +360,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "schema_version": config.schema_version,
             "algorithm_version": config.algorithms.algorithm_version,
             "storage": {"sqlite_path": config.storage.sqlite_path},
+            # mvp-0.13: the answer surfaces offer "I'm stuck" (write what you
+            # can) instead of "I don't know" when this is true.
+            "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,
@@ -567,10 +571,12 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     focus = row.get("focus_block_state")
     hints_used = 0
     submission_id = None
+    declared_stuck = False
     if isinstance(focus, dict):
         practice = focus.get("practice")
         if isinstance(practice, dict):
             hints_used = int(practice.get("hintsUsed") or practice.get("hints_used") or 0)
+            declared_stuck = practice.get("declaredStuck") is True
             candidate_submission_id = practice.get("submissionId") or practice.get("submission_id")
             if isinstance(candidate_submission_id, str) and candidate_submission_id.strip():
                 submission_id = candidate_submission_id.strip()
@@ -581,6 +587,8 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,
             "submission_id": submission_id,
+            # mvp-0.13: the draft was being written after "I'm stuck".
+            "declared_stuck": declared_stuck,
             "focus_block_state": focus,
             "pending_grading_proposal": row.get("pending_grading_proposal"),
             "readiness": row.get("readiness"),

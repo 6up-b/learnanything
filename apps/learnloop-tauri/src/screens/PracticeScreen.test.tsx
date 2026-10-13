@@ -3,12 +3,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PracticeScreen } from "./PracticeScreen";
 import { selectWithDraftFlush } from "../app/vaultTransition";
+import { setAlgoConfig } from "../app/algoConfig";
 
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
   getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
-  placementSelfReport: vi.fn()
+  placementSelfReport: vi.fn(), submitDontKnow: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 const windowApi = vi.hoisted(() => ({
@@ -22,7 +23,7 @@ vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
   },
   destroy: windowApi.destroy,
 }) }));
-vi.mock("../render/MathLiveEditor", () => ({ MathLiveEditor: (props: { value: string; onChange: (value: string) => void; disabled: boolean }) => <textarea aria-label="answer" value={props.value} disabled={props.disabled} onChange={(event) => props.onChange(event.target.value)} /> }));
+vi.mock("../render/MathLiveEditor", () => ({ MathLiveEditor: (props: { value: string; onChange: (value: string) => void; disabled: boolean; placeholder?: string }) => <textarea aria-label="answer" role="textbox" placeholder={props.placeholder} value={props.value} disabled={props.disabled} onChange={(event) => props.onChange(event.target.value)} /> }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: () => null }));
 vi.mock("../components/ItemPresentation", () => ({ ItemPresentation: () => <p>Question</p> }));
 
@@ -52,7 +53,7 @@ beforeEach(() => {
   api.acknowledgePracticeSubmission.mockResolvedValue({ acknowledged: true });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 it("routes a saved deferred result before acknowledging its exact key, without resubmission", async () => {
   const next = deferred<{ active: boolean; practiceItemId: string }>();
@@ -239,4 +240,169 @@ it("offers 'I know this' while placement is on, then leaves the card", async () 
   });
   expect(callbacks.onBack).toHaveBeenCalled();
   expect(callbacks.onCheckpointCleared).toHaveBeenCalled();
+});
+
+// mvp-0.13: "Write what you can" replaces "I don't know".
+const STUCK = "Write what you can, or what's confusing you";
+const RESULT = { attemptId: "att-stuck", learningObjectId: "lo", probeEpisode: { feedbackDeferred: false } };
+
+it("offers I'm stuck where the vault does, and an empty stuck answer submits at once with no self-grade", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.submitAttempt.mockResolvedValue(RESULT);
+  const callbacks = props();
+  // No grader ready: an ordinary answer would ask for a self-grade first.
+  render(<PracticeScreen {...callbacks} gradingReady={false} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  expect(screen.queryByText("don't know")).toBeNull();
+  expect(screen.getAllByText("I'm stuck").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  // One tap: the same answer box, now asking for what they can write.
+  expect(answer.getAttribute("placeholder")).toBe(STUCK);
+  expect(screen.getByRole("status", { name: "stuck prompt" }).textContent).toContain(STUCK);
+  expect(api.submitAttempt).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
+    answerMd: "", declaredStuck: true, selfGrade: null, attemptType: "independent_attempt"
+  }));
+  await waitFor(() => expect(callbacks.onFeedback).toHaveBeenCalledWith("att-stuck"));
+  expect(api.submitDontKnow).not.toHaveBeenCalled();
+});
+
+it("sends a stuck answer with text as an ordinary attempt marked stuck", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.submitAttempt.mockResolvedValue(RESULT);
+  render(<PracticeScreen {...props()} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  await waitFor(() => {
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true });
+    expect(answer.getAttribute("placeholder")).toBe(STUCK);
+  });
+  expect(api.submitAttempt).not.toHaveBeenCalled();
+  expect(api.submitDontKnow).not.toHaveBeenCalled();
+  fireEvent.change(answer, { target: { value: "I don't see why V is transposed" } });
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
+    answerMd: "I don't see why V is transposed", declaredStuck: true
+  })));
+});
+
+it("lets the learner step back out of the stuck prompt before sending", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.submitAttempt.mockResolvedValue(RESULT);
+  render(<PracticeScreen {...props()} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  fireEvent.click(screen.getByRole("button", { name: "never mind" }));
+  expect(answer.getAttribute("placeholder")).not.toBe(STUCK);
+  fireEvent.change(answer, { target: { value: "A = U Sigma V^T" } });
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  expect(api.submitAttempt.mock.calls[0][0].declaredStuck).toBeUndefined();
+});
+
+it("keeps today's don't know control and call when the vault does not offer I'm stuck", async () => {
+  api.submitDontKnow.mockResolvedValue(RESULT);
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  expect(screen.getByText("don't know")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /I'm stuck/ })).toBeNull();
+  await waitFor(() => {
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true });
+    expect(api.submitDontKnow).toHaveBeenCalledOnce();
+  });
+  expect(api.submitAttempt).not.toHaveBeenCalled();
+  await waitFor(() => expect(callbacks.onFeedback).toHaveBeenCalledWith("att-stuck"));
+});
+
+it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt type", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.getProbeContract.mockResolvedValue({
+    version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
+    observationNumber: 1, maximumObservations: 3,
+    restrictions: {
+      hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true,
+      answerRevealDisabled: true, feedbackDeferred: true
+    }
+  });
+  api.submitAttempt.mockResolvedValue({ attemptId: "att-probe", learningObjectId: "lo", probeEpisode: { feedbackDeferred: true } });
+  api.getNextProbeItem.mockResolvedValue({ active: true, practiceItemId: "next-probe" });
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  await screen.findByText("Diagnostic check");
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  // Feedback is deferred in a check, so the prompt promises none.
+  const banner = screen.getByRole("status", { name: "stuck prompt" }).textContent ?? "";
+  expect(banner).toContain("An empty answer is fine.");
+  expect(banner).not.toContain("feedback");
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
+    answerMd: "", attemptType: "diagnostic_probe", probePresentationId: "pres-1", declaredStuck: true
+  })));
+  await waitFor(() => expect(callbacks.onContinueDiagnostic).toHaveBeenCalledWith("next-probe"));
+  expect(callbacks.onFeedback).not.toHaveBeenCalled();
+});
+
+// Review F2: the stuck marker survives navigation and restart before grading.
+it("saves and mirrors the stuck marker with the draft", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  const callbacks = props();
+  const view = render(<PracticeScreen {...callbacks} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  fireEvent.change(answer, { target: { value: "Why is V transposed?" } });
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({
+    answerMd: "Why is V transposed?", declaredStuck: true
+  })));
+  view.unmount();
+  expect(callbacks.onDraftSaved).toHaveBeenLastCalledWith(expect.objectContaining({
+    practiceItemId: "old-item", answerMd: "Why is V transposed?", declaredStuck: true
+  }));
+});
+
+it("saves the cleared marker when the learner steps back out of stuck mode", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  render(<PracticeScreen {...props()} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({ declaredStuck: true })));
+  fireEvent.click(screen.getByRole("button", { name: "never mind" }));
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({ declaredStuck: false })));
+});
+
+it("reopens a restored stuck draft in stuck mode and submits it as a stuck answer", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
+  api.submitAttempt.mockResolvedValue(RESULT);
+  render(
+    <PracticeScreen
+      {...props()}
+      restoredAnswer="Why is V transposed?"
+      restoredSubmissionId="stuck-draft-1"
+      restoredStuck
+    />
+  );
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  expect(answer.getAttribute("placeholder")).toBe(STUCK);
+  expect(screen.getByRole("status", { name: "stuck prompt" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
+    answerMd: "Why is V transposed?", declaredStuck: true, submissionId: "stuck-draft-1"
+  })));
+});
+
+it("never restores stuck mode where the vault does not offer it", async () => {
+  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
+  render(<PracticeScreen {...props()} restoredAnswer="old text" restoredSubmissionId="k" restoredStuck />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  expect(answer.getAttribute("placeholder")).not.toBe(STUCK);
+  expect(screen.queryByRole("status", { name: "stuck prompt" })).toBeNull();
 });

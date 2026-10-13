@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "854ce1fd7feceffe43925a2f524a87f652c4bd7d"
+source_commit_timestamp: "2026-10-12T20:37:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 177
+schema_head: 179
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/algorithm_versions.py"
+  - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
   - "src/learnloop/cli/probability_arms.py"
-  - "src/learnloop/cli/recurrence.py"
-  - "src/learnloop/config/schema.py"
-  - "src/learnloop/content/synthesis/source_set_synthesis.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`

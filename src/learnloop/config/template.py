@@ -881,7 +881,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (tutor_query_rewrite, retrieval_timeout_seconds, tutor_spans at most 4).
     # At its merge after Slice 2 T1 every snapshot, mvp-0.12's included, was
     # recomputed (defaults_fingerprint_for_version); no serving change.
-    "mvp-0.9": "a12da8c2d2eacdce8aa131740a15f84679374736194a271001135f93382d4388",
+    # The stuck prompt adds [stuck_prompt] enabled = true (modelled default,
+    # left out of the decision-only template), the kill switch of mvp-0.13's
+    # "I'm stuck" control. It is dormant below mvp-0.13 (the algorithm version
+    # gates it), so mvp-0.9 to mvp-0.12 serving is unchanged. Built as
+    # mvp-0.11 and relabelled mvp-0.13 at its merge after Slice 2 T6, where
+    # every snapshot was recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "a602f1e4125a593991918a20f8294a2f94ab8def490447eddc71a5274ec286e1",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -893,7 +899,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "4d1e72372a2c214fae0b63c114bc5c3b6fee4908b80b615e5b3f3200e1e05351",
+    # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "70df33c561f1d050f19031c62af7f6a01634cd3c902675320437dd58712102fc",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -913,7 +920,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # placement.
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "1e58dd6709fc82cdb2803910f72faf18be899af87a460412b22607bc6fffaffc",
+    # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "8149195c18eec939b8e4069e03a18ad1d4b0b05e58b56a46471e344dd741be37",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -922,11 +930,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # `learnloop upgrade` (default target) from mvp-0.11, or from
     # mvp-0.9/mvp-0.10 through the chain, once the same-answer/different-cause
     # guard passes for the configured judge. New vaults start here (the
-    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
-    # groups are active from the first answer, built only from the judge's and
-    # the diagnoser's verdicts on their own history.
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.13 merged: their groups are active from the first answer, built
+    # only from the judge's and the diagnoser's verdicts on their own history.
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "d6c9d70d61dd543c51de6c34c168def87361684e8c2807699ad88e9afab0e68b",
+    # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "3e29ee7a1585b85c655a5fb296e5797cb80db8b2fa25c1c33a9fb9e318d33554",
+    # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
+    # split, placement and recurrence groups plus "I'm stuck" live
+    # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
+    # attempt at the standard mass, graded under the +stuck-v1 prompt and
+    # diagnosed; an empty one scores 0 with no model call. Built as mvp-0.11
+    # and relabelled at its merge. Existing vaults reach it by `learnloop
+    # upgrade` (default target) from mvp-0.12, or from mvp-0.9 to mvp-0.11
+    # through the chain (under mvp-0.12's guard). New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.13": "b05a086c81640b1f5b39e263ee823a415d48f3a45d040ceb4ac2090a823dae12",
 }
 
 

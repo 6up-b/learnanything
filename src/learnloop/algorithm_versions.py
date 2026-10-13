@@ -69,8 +69,23 @@ PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
 # relabelled mvp-0.12 when it merged after Phase 6 took mvp-0.11. Kill switch:
 # ``recurrence.enabled`` (off: exact-statement keys again from the next
 # normalization, vault open or rebuild). It keeps the split, placement and the
-# mvp-0.8 projection namespace.
+# mvp-0.8 projection namespace. New vaults started here until mvp-0.13 merged.
 RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
+
+# mvp-0.13 ("Write what you can" replaces "I don't know"), on top of mvp-0.12
+# (the chain stays linear: mvp-0.13 means the split PLUS placement PLUS
+# recurrence groups PLUS the stuck prompt): the learner's "I'm stuck" control.
+# A stuck answer with text is an ordinary attempt at the standard attempt mass,
+# graded (under the blind grader's ``+stuck-v1`` prompt) and diagnosed; an
+# empty one is a deterministic zero with no model call. Persisted meaning
+# changes for NEW attempts only (``practice_attempts.declared_stuck``, the
+# grader's stuck reading on the blind record and in judgment_ledger, the
+# ``answer_display`` reveal kind);
+# historical ``dont_know`` rows keep their meaning, and the projection
+# namespace is unchanged. The branch built it as mvp-0.11 and it was relabelled
+# mvp-0.13 when it merged after placement (mvp-0.11) and recurrence groups
+# (mvp-0.12). Kill switch: ``stuck_prompt.enabled``.
+STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -84,6 +99,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     PLACEMENT_ALGORITHM_VERSION,
     RECURRENCE_GROUP_ALGORITHM_VERSION,
+    STUCK_PROMPT_ALGORITHM_VERSION,
 )
 
 
@@ -104,6 +120,12 @@ DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = successors_from(DIAGNOSIS_SPLIT_ALGOR
 # ``recurrence.enabled``). Every later successor keeps recurrence groups;
 # gates must use this set, never equality.
 RECURRENCE_GROUP_VERSIONS: frozenset[str] = successors_from(RECURRENCE_GROUP_ALGORITHM_VERSION)
+
+# Versions whose learner surfaces offer "I'm stuck" instead of "I don't know"
+# (the kill switch restores the old control and scoring for NEW answers;
+# replay reads the persisted flag, never the switch). Every later successor
+# keeps the stuck prompt; gates must use this set, never equality.
+STUCK_PROMPT_VERSIONS: frozenset[str] = successors_from(STUCK_PROMPT_ALGORITHM_VERSION)
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against

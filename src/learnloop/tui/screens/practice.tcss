@@ -40,6 +40,17 @@ PracticeScreen.-probe #probe-panel {
     background: $probe 10%;
 }
 
+#stuck-prompt {
+    display: none;
+    padding: 0 1;
+    height: auto;
+}
+PracticeScreen.-stuck #stuck-prompt {
+    display: block;
+    border-left: solid $warning;
+    background: $warning 10%;
+}
+
 #answer-row { height: auto; }
 #answer-prompt-char {
     width: 2;
