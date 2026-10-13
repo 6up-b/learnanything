@@ -15,7 +15,7 @@ Output is an ``AppendReconciliation`` mapped to the §10.2 intent/storage vocabu
     assessment_alignment                 -> provenance_link create (relation=...)
     notation_mapping                     -> notation_mapping create (review)
     conflict                             -> source_conflict create (review)
-    restructure_unlocked                 -> update/deactivate (review, lock-checked)
+    restructure_unlocked                 -> update/deactivate (review; an LO with attempts refuses)
 
 Purity is VERIFIED from item type + payload (the append-vocabulary gate + the
 specialized apply handlers), never trusted from the LLM's intent label. Routine
@@ -57,7 +57,13 @@ from learnloop.content.synthesis.source_set_synthesis import (
     _span_refs,
     facet_identity_result,
 )
-from learnloop.content.synthesis.synthesis_gates import GateItem, GateProposal, ProvenanceRef, run_synthesis_gates
+from learnloop.content.synthesis.synthesis_gates import (
+    ASSESSMENT_ONLY_ROLES,
+    GateItem,
+    GateProposal,
+    ProvenanceRef,
+    run_synthesis_gates,
+)
 from learnloop.content.synthesis.synthesis_manifests import (
     agent_run_input_context_hash,
     build_manifest,
@@ -93,7 +99,7 @@ def subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool:
     uses (``loaded.evidence_facets``), but subject-scoped so a multi-subject vault
     routes each subject independently. When this is true, a newly added source
     reconciles into the existing map through the bounded append vocabulary instead
-    of tripping the bootstrap identity-lock refusal.
+    of re-creating it with bootstrap.
     """
 
     return any(subject_id in lo.subjects for lo in vault.learning_objects.values())
@@ -700,6 +706,51 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         target_type = obj.get("target_entity_type") or "learning_object"
         target_id = obj.get("target_entity_id") or ""
         operation = obj.get("operation") or "update"
+        if target_type == "facet":
+            reword = _facet_reword(obj, vault, inputs, operation, target_id)
+            refs = [client, target_id] if target_id else [client]
+            unresolved = "; ".join(reword.unresolved)
+            if reword.payload is None:
+                dropped_diagnostics.append(
+                    {
+                        "gate": "facet_restructure",
+                        "severity": "review",
+                        "entity_refs": refs,
+                        "message": (
+                            f"dropped facet restructure {client!r} of {target_id!r}: {reword.problem}"
+                            + (f" (unresolved citations: {unresolved})" if unresolved else "")
+                        ),
+                        "suggested_action": (
+                            "reword a registered facet with an update carrying its new facet_wording and "
+                            "the provided spans that support it, or reword it yourself in the Library "
+                            "(an owner reword, with an undo); merge facets from the facet inspector"
+                        ),
+                    }
+                )
+                continue
+            if unresolved:
+                dropped_diagnostics.append(
+                    {
+                        "gate": "facet_restructure",
+                        "severity": "review",
+                        "entity_refs": refs,
+                        "message": (
+                            f"facet restructure {client!r} of {target_id!r} kept without the citations "
+                            f"that do not resolve: {unresolved}"
+                        ),
+                        "suggested_action": "check the reword against the spans it still cites",
+                    }
+                )
+            row = _row("facet", target_id, reword.payload, [], client_id=client, now=now,
+                       target_entity_id=target_id, target_entity_type="facet")
+            row["operation"] = operation
+            rows.append(row)
+            gate_items.append(
+                GateItem(client_item_id=client, item_type="facet", operation=operation,
+                         entity_id=target_id, payload=reword.payload, provenance=reword.provenance,
+                         reconciliation_intent="restructure_unlocked")
+            )
+            continue
         payload = dict(obj.get("payload") or {})
         payload["id"] = target_id
         payload["expected_target_hash"] = obj.get("expected_target_hash")
@@ -725,6 +776,106 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         normalized.graph_nomination,
         normalized.facet_identity_actions,
     )
+
+
+@dataclass(frozen=True)
+class _FacetReword:
+    """A facet restructure, normalized: its proposal payload and the citations the gates judge.
+
+    ``payload`` is ``None`` when it cannot apply, and ``problem`` says why.
+    ``unresolved`` names each citation dropped because it does not resolve.
+    """
+
+    payload: dict[str, Any] | None
+    provenance: list[ProvenanceRef] = field(default_factory=list)
+    problem: str | None = None
+    unresolved: list[str] = field(default_factory=list)
+
+
+def _facet_reword(
+    obj: dict[str, Any], vault: LoadedVault, inputs: Any, operation: str, target_id: str,
+) -> _FacetReword:
+    """Normalize a facet restructure: a reword of a registered facet.
+
+    A facet restructure is a reword (Codex review F2): an ``update`` of a
+    registered facet whose new meaning arrives in ``facet_wording`` (declared,
+    so a strict-schema provider can fill it; the bare ``payload`` dict is read
+    too, for a provider that fills it). Only the meaning fields travel, and a
+    blank field keeps the facet's value. The apply writes a facet version
+    with an undo. ``expected_target_hash`` is stamped from the vault the
+    model saw: the neighborhood never shows the model a target hash, so its
+    own value can only be a guess, and a guess would refuse every accept.
+
+    A reword changes a canonical claim, so it obeys the §4.2 authority matrix
+    like a new facet (Codex re-review F6). It must cite the provided spans
+    that support its new wording (``facet_wording.provenance``):
+
+    * a citation that does not resolve in the source set is dropped, as an
+      unresolvable ``provenance_link`` is, rather than hard-failing the run;
+    * a reword left with no citation is dropped. Exam units never reach the
+      model as text, so a reword drawn from exam material alone would arrive
+      uncited, and the gates could not tell;
+    * each citation's role comes from its extraction run, never from the
+      model. The gates then judge them: only exam material is an
+      ``exam_authority`` hard fail, no semantic-authority role is an
+      ``adequate_provenance`` review.
+
+    The citations are added to the facet's ``provenance`` snapshot (the apply
+    links them in ``entity_source_links``). An exam citation is recorded as
+    ``assessment_alignment``, never as semantic support (§9.3).
+    """
+
+    from learnloop.content.facet_identity.actions import MEANING_FIELDS, meaning_changes
+
+    if operation != "update":
+        return _FacetReword(None, problem="a facet is retired by a merge, never a deactivate")
+    facet = vault.evidence_facets.get(target_id)
+    if facet is None:
+        return _FacetReword(None, problem="it names no registered facet")
+    wording = dict(obj.get("facet_wording") or {})
+    loose = dict(obj.get("payload") or {})
+    payload: dict[str, Any] = {}
+    for name in MEANING_FIELDS:
+        value = wording.get(name)
+        if value in (None, "", []):
+            value = loose.get(name)
+        if value not in (None, "", []):
+            payload[name] = value
+    current = facet.model_dump(mode="json", exclude_none=False)
+    if not meaning_changes(current, {**current, **payload}):
+        return _FacetReword(None, problem="it carries no new wording")
+
+    citations = wording.get("provenance") or loose.get("provenance")
+    resolved: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for span in citations if isinstance(citations, list) else []:
+        span = span if isinstance(span, dict) else {}
+        problem = _span_problem(span, inputs)
+        if problem is None:
+            resolved.append(span)
+        else:
+            label = f"{span.get('extraction_id') or '?'}:{span.get('span_id') or '?'}"
+            unresolved.append(f"{label} ({problem})")
+    if not resolved:
+        return _FacetReword(
+            None, unresolved=unresolved,
+            problem="it cites no span from the source set, so its authority cannot be judged (§4.2)",
+        )
+    gate_refs, yaml_refs, _spans = _span_refs(resolved, inputs, default_relation="support")
+    snapshot = dict(current.get("provenance") or {})
+    source_refs = [dict(ref) for ref in snapshot.get("source_refs") or []]
+    seen = {(ref.get("revision_id"), ref.get("locator"), ref.get("relation")) for ref in source_refs}
+    for ref in yaml_refs:
+        if ref.get("role") in ASSESSMENT_ONLY_ROLES:
+            ref["relation"] = "assessment_alignment"
+        key = (ref.get("revision_id"), ref.get("locator"), ref.get("relation"))
+        if key not in seen:
+            seen.add(key)
+            source_refs.append(ref)
+    payload["provenance"] = {"origin": snapshot.get("origin") or "manual", "source_refs": source_refs}
+    payload["id"] = target_id
+    payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
+    return _FacetReword(payload, provenance=gate_refs, unresolved=unresolved)
 
 
 def _span_problem(span: dict[str, Any], inputs) -> str | None:

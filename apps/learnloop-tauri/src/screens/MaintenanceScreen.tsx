@@ -1256,7 +1256,7 @@ function ConceptRef({
   return <span style={{ color: COLOR.text }}>{title}</span>;
 }
 
-// -- Restructure-request card (queued locked-facet intent — read-only) --------
+// -- Restructure-request card (a queued split or merge request — read-only) ---
 
 function RestructureRequestCard({
   notice,
@@ -1272,7 +1272,9 @@ function RestructureRequestCard({
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <Pill color="purple">{detail.operation}</Pill>
         <Pill color="slate">queued</Pill>
-        <Faint style={{ fontSize: 11 }}>read-only intent · §17 restructure machinery not built yet</Faint>
+        <Faint style={{ fontSize: 11 }}>
+          read-only request · {detail.operation === "split" ? "there is no split endpoint yet" : "merge it from the facet inspector, with an undo"}
+        </Faint>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
         {detail.facetIds.map((f) => (

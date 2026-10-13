@@ -3,13 +3,13 @@ title: "facet_merges"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_merges"
   - "table facet_merges"
-schema_head: 184
+schema_head: 185
 table_name: "facet_merges"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,13 +21,13 @@ source_paths:
   - "migrations/037_canonical_facet_state.sql"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/content/facet_identity/dedupe.py"
+  - "src/learnloop/curriculum/curriculum_locks.py"
+  - "src/learnloop/curriculum/subject_registry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/learner/facet_state_reader.py"
-  - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/substrate/dataset.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/learner/facet_evidence_timeline.py"
+  - "src/learnloop/ops/doctor.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -54,7 +54,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/037_canonical_facet_state.sql`.
-- **Schema touched by:** `037_canonical_facet_state.sql`, `183_facet_identity_actions.sql`.
+- **Schema touched by:** `037_canonical_facet_state.sql`, `183_facet_identity_actions.sql`, `185_facet_identity_rewords.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -97,7 +97,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/facet_identity/actions.py`
-- `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/facet_state_reader.py`

@@ -53,7 +53,7 @@ NOTICE_TYPES: dict[str, NoticeType] = {
     # ING M8 (§11): provenance-outcome associations, additive suggestions only.
     "repeated_failure_despite_coverage": NoticeType("repeated_failure_despite_coverage", "auto_expiry", "info"),
     "needs_more_example_sources": NoticeType("needs_more_example_sources", "auto_expiry", "info"),
-    # Graph editor (§8/§12): direction-resolution + locked-facet restructure intent.
+    # Graph editor (§8/§12): direction-resolution + queued restructure requests.
     "ambiguous_edge_direction": NoticeType("ambiguous_edge_direction", "auto_resolution", "warning"),
     "restructure_request": NoticeType("restructure_request", "auto_resolution", "action_needed"),
     # Diagnostic-probe supply: an open probe episode or pending replenishment
@@ -274,7 +274,7 @@ def _source_outcome_notices(vault, repository) -> list[_Notice]:
 
 def _graph_edit_notices(vault, repository) -> list[_Notice]:
     """Graph-editor notices (§8/§12): ambiguous edge direction + queued
-    restructure-intent for locked facets. Both derive deterministically from
+    restructure requests. Both derive deterministically from
     existing state (edges, pending proposals, generation-needs)."""
 
     from learnloop.curriculum.graph_edit_proposals import (

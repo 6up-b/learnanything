@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 184
+schema_head: 185
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -28,7 +28,6 @@ source_paths:
   - "src/learnloop/diagnosis/causal_activity_policy.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/curriculum/depth_rungs.py"
 tags:
   - "learnloop/database/table"
@@ -131,7 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
-- `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/depth_rungs.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
@@ -148,6 +146,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/state_signals.py`
 - `src/learnloop/sim/diagnostic_validation.py`
 - `src/learnloop/substrate/canonical_projection.py`
+- `src/learnloop/substrate/state_sync.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

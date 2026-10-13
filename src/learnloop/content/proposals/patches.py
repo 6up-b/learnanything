@@ -13,7 +13,7 @@ from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.ops.vault_lock import vault_mutation_lock
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import LoadedVault
+from learnloop.vault.models import EvidenceFacet, LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import (
     VaultWriterError,
@@ -119,8 +119,9 @@ def _apply_accepted_locked(
     ordered_items = [requested_by_id[item_id] for item_id in ordered_ids]
 
     # Accept-time refusal: an update/deactivate whose target changed after
-    # synthesis, or whose identity became locked (e.g. an attempt inserted after
-    # synthesis), is refused while holding the mutation lock (§8.2 enforcement 3).
+    # synthesis, or whose learning object gained attempts since (the one lock
+    # left after facet locks were removed), is refused while holding the
+    # mutation lock (§8.2 enforcement 3).
     _accept_time_rechecks(vault, repository, ordered_items)
 
     if not ordered_items:
@@ -472,22 +473,85 @@ def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: s
         )
 
 
+#: Proposal bookkeeping that rides in a payload but is not part of the entity:
+#: written into ``facets.yaml`` it would persist as an unknown key.
+_FACET_PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash"})
+
+
 def _compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
     entity_id = _entity_id(item, payload)
     _refuse_learnable_on_legacy(vault, "facet", entity_id)
-    data = {**payload, "id": entity_id}
+    if item["operation"] == "update" and entity_id not in vault.evidence_facets:
+        # An update (an append restructure, an attach) whose facet was merged
+        # away or removed since synthesis: refuse rather than mint it again.
+        raise PatchApplicationError(f"Cannot update missing facet {entity_id}")
+    data = {key: value for key, value in payload.items() if key not in _FACET_PROPOSAL_ONLY_KEYS}
+    data["id"] = entity_id
     concept_id = data.get("concept_id")
     if concept_id is not None and concept_id not in vault.concepts:
         raise PatchApplicationError(f"Facet {entity_id} references missing concept {concept_id}")
+    data, side_effect = _facet_version(vault, item, entity_id, data)
     return CompiledPatch(
         proposal_item_id=item["id"],
         entity_type="facet",
         entity_id=entity_id,
         subject=None,
         event_type=_event_type(item["operation"]),
-        summary=f"{item['operation']} facet {entity_id}",
+        summary=f"{item['operation']} facet {entity_id}"
+        + (f" (version {data['version']})" if side_effect is not None else ""),
         apply=lambda root, clock: upsert_facet(root, data, clock=clock),
+        db_side_effect=side_effect,
     )
+
+
+def _facet_version(
+    vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """A write that changes an existing facet's meaning becomes a facet version.
+
+    Facet identity locks used to refuse rewording a locked facet (knowledge
+    model §3.4). They were removed (owner, 2026-10-12): instead, when this
+    write changes one of ``MEANING_FIELDS`` of a facet already in the
+    registry, the facet's ``version`` goes up by one and the apply records a
+    ``reword`` action keeping the entry it replaced, with a one-tap undo
+    (``learnloop facets undo``). Growth-only writes (aliases, examples) and
+    new facets are unchanged. ``vault`` is the staging vault, so ``before`` is
+    the entry as the earlier items of this acceptance left it.
+
+    ``version`` is server-managed for an existing facet (review F5): a
+    payload's own ``version``, stale or oversized, is ignored. The facet keeps
+    its version when its meaning is unchanged and gets exactly one more when
+    it changes, so no write lowers or skips a version, and an earlier reword's
+    recorded after-state stays what the file shows until the facet really
+    changes again.
+    """
+
+    from learnloop.content.facet_identity.actions import meaning_changes
+
+    existing = vault.evidence_facets.get(entity_id)
+    if existing is None:
+        return data, None
+    before = existing.model_dump(mode="json", exclude_none=False)
+    current = int(before.get("version") or 1)
+
+    def merged(values: dict[str, Any]) -> dict[str, Any]:
+        # The same overlay ``upsert_facet`` writes: the payload over the entry.
+        return EvidenceFacet.model_validate({**before, **values}).model_dump(mode="json", exclude_none=False)
+
+    fields = meaning_changes(before, merged(data))
+    data = {**data, "version": current + 1 if fields else current}
+    if not fields:
+        return data, None
+    return data, {
+        "kind": "facet_version",
+        "row": {
+            "id": new_ulid(),
+            "facet_id": entity_id,
+            "before": before,
+            "after": merged(data),
+            "proposal_item_id": item["id"],
+        },
+    }
 
 
 def _compile_task_blueprint(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:

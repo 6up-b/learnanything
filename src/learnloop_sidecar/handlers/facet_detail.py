@@ -1,11 +1,13 @@
-"""Graph/knowledge-map editor read RPCs (§3.4 locks, §8 graphs, §9.6 UI).
+"""Graph/knowledge-map editor read RPCs (§3.4 facet history, §8 graphs, §9.6 UI).
 
 Pure reads composing existing services for the facet inspector, autocomplete
 pickers, and recipe-tree blast-radius preview:
 
-* ``get_facet_detail`` — the full facet contract + lock reasons + blueprint
-  membership + evidence ledger for the FacetInspector panel.
-* ``list_facets`` — a lightweight id/title/kind/status/locked list for facet
+* ``get_facet_detail`` — the full facet contract + its version history
+  (rewords and merges, each with its undo state) + blueprint membership +
+  evidence ledger for the FacetInspector panel. Facet identity locks were
+  removed (owner, 2026-10-12), so there is no lock block.
+* ``list_facets`` — a lightweight id/title/kind/status list for facet
   autocomplete.
 * ``preview_blueprint_readiness`` — current-vs-proposed LO readiness for an
   edited (in-memory, never persisted) blueprint payload, with identifiability
@@ -23,7 +25,7 @@ from pydantic import Field, ValidationError
 
 from learnloop.learner.capability_grid import lo_blueprint_readiness
 from learnloop.goals.certification import is_demonstrated_credit
-from learnloop.curriculum.curriculum_locks import Operation, can_apply, identity_locks
+from learnloop.content.facet_identity.actions import facet_history
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
     facet_recall_states_for_lo,
@@ -46,13 +48,15 @@ class FacetIdInput(ParamsModel):
 
 @method("get_facet_detail", FacetIdInput)
 def get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]:
-    """Facet contract + lock reasons + blueprint membership + evidence (§9.6).
+    """Facet contract + history + blueprint membership + evidence (§9.6).
 
     The facet id is resolved canonically (aliases + terminal merges) before any
     lookup, so a retired-into-parent id still resolves to the surviving facet.
-    ``lock`` mirrors ``can_apply(facet_merge)``; ``membership`` walks every LO
-    blueprint recipe that references the facet; ``evidence`` folds the capability
-    ledger (``demonstrated`` = ``is_demonstrated_credit``, credit ≥ 1.0).
+    ``history`` lists the facet-identity actions whose survivor it is (rewords,
+    with the wording each replaced, and merges), newest first, each with its
+    undo state; ``membership`` walks every LO blueprint recipe that references
+    the facet; ``evidence`` folds the capability ledger (``demonstrated`` =
+    ``is_demonstrated_credit``, credit ≥ 1.0).
     """
 
     vault, repository = ctx.require_vault()
@@ -66,19 +70,8 @@ def get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any
     def resolve(raw: str) -> str:
         return resolve_canonical_facet(vault, merge_map, str(raw))
 
-    # Lock closure for this facet (padlock reasons shown before the gesture).
-    lock_result = can_apply(
-        vault,
-        repository,
-        Operation(op_type="facet_merge", entity_type="facet", entity_id=canonical),
-    )
-    lock = {
-        "locked": not lock_result.legal,
-        "reasons": [
-            {"source": reason.source, "detail": reason.detail}
-            for reason in lock_result.lock_reasons
-        ],
-    }
+    # Version history: rewords keep the wording they replaced; both kinds undo.
+    history = facet_history(repository, canonical, vault)
 
     # Membership: every blueprint recipe component (all_of / any_of / integration)
     # across every LO that references this canonical facet.
@@ -129,12 +122,13 @@ def get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any
         "error_signatures": facet.error_signatures,
         "aliases": facet.aliases,
         "status": facet.status,
+        "version": facet.version,
     }
 
     return versioned(
         {
             "facet": facet_contract,
-            "lock": lock,
+            "history": history,
             "membership": membership,
             "evidence": evidence,
             "shared_with": shared_with,
@@ -144,21 +138,15 @@ def get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any
 
 @method("list_facets")
 def list_facets(ctx: SidecarContext, _params) -> dict[str, Any]:
-    """Lightweight facet list for autocomplete pickers, sorted by id.
+    """Lightweight facet list for autocomplete pickers, sorted by id."""
 
-    ``locked`` comes from a single ``identity_locks`` closure pass (not a
-    per-facet ``can_apply`` loop).
-    """
-
-    vault, repository = ctx.require_vault()
-    locks = identity_locks(vault, repository)
+    vault, _repository = ctx.require_vault()
     facets = [
         {
             "id": facet_id,
             "title": vault.evidence_facets[facet_id].title,
             "kind": vault.evidence_facets[facet_id].kind,
             "status": vault.evidence_facets[facet_id].status,
-            "locked": facet_id in locks,
         }
         for facet_id in sorted(vault.evidence_facets)
     ]

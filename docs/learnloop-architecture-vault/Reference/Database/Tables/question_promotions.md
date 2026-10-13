@@ -3,13 +3,13 @@ title: "question_promotions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_promotions"
   - "table question_promotions"
-schema_head: 184
+schema_head: 185
 table_name: "question_promotions"
 table_role: "workflow"
 functionality_status: "active"

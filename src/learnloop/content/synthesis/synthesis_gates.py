@@ -138,8 +138,9 @@ class GateContext:
     # definition-embedding cosine, or None. Display only: it never adds,
     # removes or re-grades a near-duplicate diagnostic.
     facet_cosine: Callable[[Any, Any], float | None] | None = None
-    # Lock guard: when both are present, gates delegate to can_apply; otherwise
-    # they fall back to each item's `lock_reason` field (pure unit tests).
+    # Lock guard: when both are present, gates delegate to can_apply (only its
+    # learning-object arm remains); otherwise they fall back to each item's
+    # `lock_reason` field (pure unit tests).
     vault: Any = None
     repository: Any = None
     # Identifiability SEAM (KM5 doctor fills this; default = degenerate check).
@@ -288,7 +289,7 @@ def _gate_lock_guard(proposal: GateProposal, ctx: GateContext) -> list[GateDiagn
                     severity="hard_fail",
                     entity_refs=item.refs(),
                     message=f"destructive op on locked identity bypassed the lock guard: {reason}",
-                    suggested_action="route through restructure-with-history or drop the destructive op",
+                    suggested_action="add to the learning object instead of restructuring it, or drop the destructive op",
                 )
             )
     return out
@@ -296,7 +297,12 @@ def _gate_lock_guard(proposal: GateProposal, ctx: GateContext) -> list[GateDiagn
 
 def _lock_reason_for(item: GateItem, ctx: GateContext) -> str | None:
     """Delegate to can_apply when a vault/repository is wired, else use the
-    item's injected lock_reason. Never a second enumerated lock list."""
+    item's injected lock_reason. Never a second enumerated lock list.
+
+    Facet identity locks were removed (owner, 2026-10-12), so a facet update
+    never fails here: applying one that rewords an existing facet writes a
+    facet version with an undo. Only the learning-object arm (an LO, or a
+    practice item of an LO, with recorded attempts) can still refuse."""
 
     if ctx.vault is not None and ctx.repository is not None and item.entity_id is not None:
         from learnloop.curriculum.curriculum_locks import Operation, can_apply

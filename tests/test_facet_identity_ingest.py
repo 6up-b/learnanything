@@ -267,9 +267,8 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
 
     root, repo = _bootstrap_and_add(tmp_path)
-    # The bootstrap's probe episodes lock the registered facet; growing its
-    # examples is the default (owner decision 2026-10-12; review F2's strict
-    # policy, merge_locked_facets = false, adds the alias only).
+    # The bootstrap's probe episodes used to lock the registered facet; facet
+    # locks were removed (owner, 2026-10-12), so its examples grow.
     restated = "Symmetry of a real square matrix means it coincides with its transpose."
 
     def builder(context, _n):
@@ -311,10 +310,10 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     assert restated not in vault.evidence_facets["facet_symmetry_definition"].positive_examples
 
 
-# --- review F2: attach never adds a precondition; the strict policy keeps locks ----
+# --- review F2: attach never adds a precondition (facet locks are gone) ----------
 
 
-def _attach_absorb(tmp_path, *, absorb_as, monkeypatch=None, strict=False):
+def _attach_absorb(tmp_path, *, absorb_as, strict=False):
     from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
     from learnloop.content.synthesis.source_append import append_source
 
@@ -322,18 +321,8 @@ def _attach_absorb(tmp_path, *, absorb_as, monkeypatch=None, strict=False):
 
     root, repo = _bootstrap_and_add(tmp_path)
     if strict:
-        # Review F2's strict lock policy (the default merges locked facets).
+        # Review F2's strict lock policy: a retired key nothing reads any more.
         append_config_toml(root, "[facet_identity]\nmerge_locked_facets = false")
-    if monkeypatch is not None:
-        # The registered facet's identity is locked (as by two independent
-        # surface groups); can_apply is what the plan consults.
-        import learnloop.content.facet_identity.actions as actions_module
-
-        def locked(vault, repository, facet_ids):
-            return {facet_id: [{"source": "attempts", "entity_type": "facet", "entity_id": facet_id,
-                                "detail": "two independent surface groups"}] for facet_id in facet_ids}
-
-        monkeypatch.setattr(actions_module, "lock_reasons", locked)
     restated = "Symmetry of a real square matrix means it coincides with its transpose."
 
     def builder(context, _n):
@@ -371,13 +360,16 @@ def test_an_absorbed_precondition_never_grows_a_registered_facet(tmp_path):
     assert "facet_symmetry_restated" in facet_rows[0]["payload"]["aliases"]
 
 
-def test_an_absorb_into_a_locked_facet_adds_only_the_alias_under_the_strict_policy(tmp_path, monkeypatch):
-    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", monkeypatch=monkeypatch,
-                                                  strict=True)
+def test_the_retired_strict_lock_policy_no_longer_keeps_an_absorbed_example_out(tmp_path):
+    """Review F2's strict policy kept a locked facet's examples unchanged; the
+    key is retired, so an absorbed example grows the registered facet."""
+
+    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", strict=True)
     (action,) = result.facet_identity["actions"]
-    assert action["locked"] and "locked" in (action["contract_note"] or "")
+    assert not action.get("contract_note")
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
-    assert set(facet_rows[0]["payload"]) == {"id", "aliases"}
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
 
 
 def test_the_alias_only_append_gate_refuses_a_precondition_growth():
@@ -562,7 +554,7 @@ def test_the_gate_knows_aliases_only_while_facet_identity_is_on():
 # --- review F6/F9: what the desktop needs to show live, accurate state --------------------
 
 
-def test_the_run_summary_names_its_run_and_each_action_its_lock_and_undo_limits(tmp_path):
+def test_the_run_summary_names_its_run_and_each_action_its_evidence_and_undo_limits(tmp_path):
     from learnloop.content.facet_identity.actions import describe
 
     root, repo = _setup(tmp_path, with_exam=False)
@@ -572,11 +564,13 @@ def test_the_run_summary_names_its_run_and_each_action_its_lock_and_undo_limits(
     block = result.facet_identity
     assert block["run_id"] == result.synthesis_run_id
     (action,) = block["actions"]
-    assert "stay with it" in action["undo_limits"] and action["lock_sources"] == []
+    assert "stay with it" in action["undo_limits"] and action["evidenced_facets"] == []
+    assert "locked" not in action and "lock_sources" not in action
     record = dict(list_actions(repo)[0])
-    record["detail"] = {**record["detail"], "lock_reasons": {"facet_x": [
-        {"source": "goal_certified_scope", "entity_type": "facet", "entity_id": "facet_x", "detail": "goal"}]}}
-    view = describe(record, load_vault(root))
-    assert view["locked"] and view["lock_sources"] == ["goal_certified_scope"]
+    record["detail"] = {**record["detail"], "evidence": {"facet_x": {"surface_groups": 2, "independent_mass": 1.0}}}
+    assert describe(record, load_vault(root))["evidenced_facets"] == ["facet_x"]
+    # A row written before locks were removed keeps its lock reasons on disk; none show.
+    record["detail"] = {"lock_reasons": {"facet_x": [{"source": "probe", "detail": "probe"}]}}
+    assert describe(record, load_vault(root))["evidenced_facets"] == []
     undone = undo_action(root, repo, action["id"], clock=_CLOCK)
     assert "stay with it" in undone["not_restored"]

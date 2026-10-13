@@ -70,12 +70,10 @@ def _belief(repository: Repository) -> list[tuple]:
 
 
 def _merge(paths, repository, **kwargs):
-    """Merge DUP into SHARED. These fixtures' facets are probe-locked from the
-    first sync (``can_apply``'s probe arm), so tests of the merge mechanics run
-    under the owner's override; the lock-policy tests pass ``merge_locked=None``
-    to use the configured policy."""
+    """Merge DUP into SHARED. These fixtures' facets have probe episodes from the
+    first sync, which used to lock them; facet locks were removed (owner,
+    2026-10-12), so nothing about their history refuses a merge."""
 
-    kwargs.setdefault("merge_locked", True)
     return merge_registered_facets(
         paths.root, repository, survivor=SHARED, retired=[DUP], action=kwargs.pop("action", "merge"),
         absorb_as=kwargs.pop("absorb_as", None), origin="dedupe", run_id="run1", judge="llm",
@@ -93,10 +91,12 @@ def test_a_merge_rekeys_evidence_and_undo_restores_facets_and_evidence_exactly(t
     before_order = [entry["id"] for entry in read_yaml(paths.facets_path)["facets"]]
     item_file = paths.practice_item_path("linear-algebra", "pi_svd_restated_001").read_text(encoding="utf-8")
 
-    # Probe episodes lock both facets: this is the owner's override
-    # (merge_locked_facets), the only way a facet with history merges.
+    # Both facets carry evidence (and probe episodes, which used to lock
+    # them): the merge applies anyway and records whose evidence it re-keys.
     result = _merge(paths, repository)
     assert result["status"] == "applied"
+    assert {SHARED, DUP} <= set(result["evidence"])
+    assert set(list_actions(repository)[0]["detail"]["evidence"]) == set(result["evidence"])
     merged = load_vault(paths.root)
     assert DUP not in merged.evidence_facets
     assert DUP in merged.evidence_facets[SHARED].aliases
@@ -137,36 +137,55 @@ def test_absorb_adds_the_special_case_as_an_example(tmp_path):
 
 
 def _lock_shared(vault, repository):
-    # Two distinct surface groups lock SHARED (knowledge model §3.4).
+    # Two distinct surface groups: what used to lock SHARED (knowledge model §3.4).
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, FrozenClock(NOW))
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, FrozenClock(NOW))
 
 
-def test_the_strict_lock_policy_refuses_and_the_default_labels_the_lock(tmp_path):
-    """Review F2's strict policy (merge_locked_facets = false) refuses a locked
-    facet; the default (owner decision 2026-10-12) merges it and names the lock."""
+def test_a_facet_that_used_to_be_locked_merges_and_undoes_exactly(tmp_path):
+    """Facet locks no longer block merges (owner, 2026-10-12).
+
+    SHARED has evidence in two independent surface groups and probe episodes
+    (two lock arms that refused this merge under the strict policy). It merges,
+    the action names the facets whose evidence it re-keyed, and the undo
+    restores facets.yaml, facet_merges and the projected beliefs exactly. A
+    vault that still sets the retired ``merge_locked_facets = false`` merges
+    too: nothing reads the key, and doctor says so.
+    """
+
+    from learnloop.ops.doctor import run_doctor
 
     from tests.helpers import append_config_toml
 
     paths, vault, repository = _vault_with_duplicate(tmp_path)
     _lock_shared(vault, repository)
     append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")
-    assert load_vault(paths.root).config.facet_identity.merge_locked_facets is False
-    before = paths.facets_path.read_text(encoding="utf-8")
-    refused = _merge(paths, repository, merge_locked=None)
-    assert refused["status"] == "refused" and refused["reason"] == "identity_locked"
-    assert SHARED in refused["lock_reasons"]
-    assert paths.facets_path.read_text(encoding="utf-8") == before and list_actions(repository) == []
-    applied = _merge(paths, repository, merge_locked=True)
-    assert applied["status"] == "applied" and applied["locked"] and SHARED in applied["lock_reasons"]
-    assert list_actions(repository)[0]["detail"]["lock_reasons"][SHARED]
+    before_file = {entry["id"]: normalized_entry(entry) for entry in read_yaml(paths.facets_path)["facets"]}
+    before_belief = _belief(repository)
+
+    applied = _merge(paths, repository)
+    assert applied["status"] == "applied"
+    assert SHARED in applied["evidence"] and applied["evidence"][SHARED]["surface_groups"] >= 2
+    record = list_actions(repository)[0]
+    assert "lock_reasons" not in record["detail"]
+    from learnloop.content.facet_identity.actions import describe
+
+    described = describe(record, load_vault(paths.root))
+    assert SHARED in described["evidenced_facets"] and "locked" not in described
+    assert any(issue.code == "config:retired_setting" and "merge_locked_facets" in issue.message
+               for issue in run_doctor(paths.root).issues)
+
+    undo_action(paths.root, repository, applied["action_id"], clock=_CLOCK)
+    after_file = {entry["id"]: normalized_entry(entry) for entry in read_yaml(paths.facets_path)["facets"]}
+    assert after_file == before_file
+    assert _merge_rows(paths) == []
+    assert _belief(repository) == before_belief
 
 
-def test_dedupe_proposes_a_locked_set_under_the_strict_policy_and_applies_it_by_default(tmp_path):
+def test_dedupe_applies_a_set_whose_facets_carry_evidence(tmp_path):
     from learnloop.content.facet_identity.dedupe import run_dedupe
 
     from tests.facet_identity_fakes import FakeFacetJudge
-    from tests.helpers import append_config_toml
 
     paths, vault, repository = _vault_with_duplicate(tmp_path)
     facets = read_yaml(paths.facets_path)
@@ -174,26 +193,17 @@ def test_dedupe_proposes_a_locked_set_under_the_strict_policy_and_applies_it_by_
         entry["concept_id"] = "singular_value_decomposition"
     write_yaml(paths.facets_path, facets)
     _lock_shared(load_vault(paths.root), repository)
-    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")
     judge = FakeFacetJudge(clusters=[["SVD factorizes into U, Sigma, V^T.",
                                       "Every matrix A can be written A = U Sigma V^T."]])
-    before = paths.facets_path.read_text(encoding="utf-8")
     report = run_dedupe(paths.root, client=judge, clock=_CLOCK)
-    assert report["status"] == "complete" and report["lock_policy"] == "refuse_locked"
-    assert report["actions"] == [] and report["refused"] == []
-    (proposal,) = report["locked_proposals"]
-    assert proposal["status"] == "proposed_locked" and proposal["survivor"]["id"] == SHARED
-    assert [facet["id"] for facet in proposal["retired"]] == [DUP] and SHARED in proposal["lock_reasons"]
-    assert paths.facets_path.read_text(encoding="utf-8") == before and list_actions(repository) == []
-
-    config = paths.root / "learnloop.toml"
-    config.write_text(config.read_text(encoding="utf-8").replace(
-        "merge_locked_facets = false", "merge_locked_facets = true"), encoding="utf-8")
-    calls = len(judge.requests)
-    applied = run_dedupe(paths.root, client=judge, clock=_CLOCK)
-    assert len(judge.requests) == calls  # the judged group is reused
-    assert [action["survivor"]["id"] for action in applied["actions"]] == [SHARED]
-    assert applied["actions"][0]["locked"] and applied["locked_proposals"] == []
+    assert report["status"] == "complete"
+    for retired_key in ("lock_policy", "locked_proposals", "locked_facets"):
+        assert retired_key not in report
+    assert SHARED in report["evidenced_facets"]
+    (action,) = report["actions"]
+    assert action["survivor"]["id"] == SHARED and [facet["id"] for facet in action["retired"]] == [DUP]
+    assert SHARED in action["evidenced_facets"]
+    assert DUP not in load_vault(paths.root).evidence_facets
 
 
 def test_undo_refuses_to_overwrite_a_later_change(tmp_path):
@@ -202,7 +212,6 @@ def test_undo_refuses_to_overwrite_a_later_change(tmp_path):
     second = merge_registered_facets(
         paths.root, repository, survivor=SHARED, retired=[SELECT], action="merge", absorb_as=None,
         origin="dedupe", run_id="run2", judge="llm", judge_model="fake", prompt_version="v1", clock=_CLOCK,
-        merge_locked=True,
     )
     assert second["status"] == "applied"
     with pytest.raises(FacetIdentityActionError) as exc:
@@ -328,8 +337,9 @@ def test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart(tmp_path
 
     Merging would resolve that criterion's targets to the survivor twice: a
     correct answer read alpha 1.625 / mass 0.5 (one target: 2.0 / 1.0), and a
-    wrong one wrote no recall row (one target: beta 2.0). The merge now holds
-    the retiree back, under either lock policy, and changes nothing.
+    wrong one wrote no recall row (one target: beta 2.0). The merge holds the
+    retiree back and changes nothing: the one hazard a facet merge has, kept
+    after facet locks were removed (owner, 2026-10-12).
     """
 
     paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
@@ -337,7 +347,7 @@ def test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart(tmp_path
     before_belief = _belief(repository)
     before_file = paths.facets_path.read_text(encoding="utf-8")
 
-    refused = _merge(paths, repository)  # the owner's override: the lock policy is not what refuses
+    refused = _merge(paths, repository)  # no lock exists: the shared criterion is what refuses
     assert refused["status"] == "refused" and refused["reason"] == "shared_graded_criterion"
     (held,) = refused["held_back"]
     assert held["facet_id"] == DUP and held["with"] == [SHARED]
@@ -354,7 +364,6 @@ def test_a_held_back_retiree_stays_registered_while_the_rest_of_the_set_merges(t
     result = merge_registered_facets(
         paths.root, repository, survivor=SHARED, retired=[DUP, "recall"], action="merge", absorb_as=None,
         origin="dedupe", run_id="run1", judge="llm", judge_model="fake", prompt_version="v1", clock=_CLOCK,
-        merge_locked=True,
     )
     assert result["status"] == "applied" and result["retired_facet_ids"] == ["recall"]
     assert [held["facet_id"] for held in result["held_back"]] == [DUP]
@@ -380,7 +389,6 @@ def test_dedupe_reports_a_held_back_retiree_as_refused(tmp_path):
     from learnloop.content.facet_identity.dedupe import run_dedupe
 
     from tests.facet_identity_fakes import FakeFacetJudge
-    from tests.helpers import append_config_toml
 
     paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
     facets = read_yaml(paths.facets_path)
@@ -388,11 +396,10 @@ def test_dedupe_reports_a_held_back_retiree_as_refused(tmp_path):
         entry["concept_id"] = "singular_value_decomposition"
     write_yaml(paths.facets_path, facets)
     _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 0}, FrozenClock(NOW))
-    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = true")
     judge = FakeFacetJudge(clusters=[["SVD factorizes into U, Sigma, V^T.",
                                       "Every matrix A can be written A = U Sigma V^T."]])
     report = run_dedupe(paths.root, client=judge, clock=_CLOCK)
-    assert report["status"] == "complete" and report["actions"] == [] and report["locked_proposals"] == []
+    assert report["status"] == "complete" and report["actions"] == [] and "locked_proposals" not in report
     (refused,) = report["refused"]
     assert refused["reason"] == "shared_graded_criterion" and refused["retired"] == [DUP]
     assert refused["survivor"] in {SHARED, DUP} and refused["held_back"][0]["criteria"]

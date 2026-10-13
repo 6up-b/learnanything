@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 184
+schema_head: 185
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -31,7 +31,7 @@ source_paths:
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
+  - "src/learnloop/db/repositories.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -132,7 +132,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
-- `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_gate.py`
@@ -148,6 +147,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/surfaced_beliefs.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop/tutor/promotions.py`
+- `src/learnloop_sidecar/handlers/remediation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

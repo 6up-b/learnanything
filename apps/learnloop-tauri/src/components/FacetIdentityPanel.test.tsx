@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { FacetIdentityActionDto, FacetIdentitySummaryDto } from "../api/dto";
-import { FacetIdentityPanel, facetIdentityOf, lockLabel } from "./FacetIdentityPanel";
+import { evidenceLabel, FacetIdentityPanel, facetIdentityOf } from "./FacetIdentityPanel";
 
 const { api } = vi.hoisted(() => ({
   api: { undoFacetIdentityAction: vi.fn(), listFacetIdentityActions: vi.fn() }
@@ -25,7 +25,6 @@ function action(overrides: Partial<FacetIdentityActionDto> = {}): FacetIdentityA
     survivor: { id: "facet_a", claim: "A vector space is a set with addition and scalar multiplication." },
     retired: [{ id: "facet_b", claim: "A vector space is a set equipped with addition and scalar multiplication." }],
     rationale: "Both state the vector-space definition.",
-    locked: false,
     judge: "llm",
     judgeModel: "gpt-6-luna",
     status: "applied",
@@ -121,23 +120,36 @@ it("offers the undo once a merge's proposal has been applied since the job ran",
   expect(screen.queryByText("applies with the proposal")).toBeNull();
 });
 
-it("names why a facet is locked instead of claiming practice history", () => {
-  expect(lockLabel(action({ locked: true, lockSources: ["goal_certified_scope"] }))).toBe(
-    "identity locked: it is in an active goal's certified scope"
-  );
-  expect(lockLabel(action({ locked: true, lockSources: ["probe"] }))).toContain("probes");
-  expect(lockLabel(action())).toBeNull();
-  render(
-    <FacetIdentityPanel
-      summary={summary([action({ locked: true, lockSources: ["goal_certified_scope"] })])}
-      onError={vi.fn()}
-    />
-  );
+it("says whose evidence a merge re-keys and never mentions a lock (facet locks were removed)", () => {
+  expect(evidenceLabel(action({ evidencedFacets: ["facet_a"] }))).toBe("re-keys one facet's recorded evidence to the survivor");
+  expect(evidenceLabel(action({ evidencedFacets: ["facet_a", "facet_b"] }))).toContain("2 facets");
+  expect(evidenceLabel(action())).toBeNull();
+  render(<FacetIdentityPanel summary={summary([action({ evidencedFacets: ["facet_a"] })])} onError={vi.fn()} />);
   const text = screen.getByTestId("facet-identity").textContent ?? "";
-  expect(text).not.toContain("practice history");
-  expect(text).toContain("certified scope");
+  expect(text).not.toMatch(/\block|padlock/i);
+  expect(text).toContain("re-keys one facet's recorded evidence");
   // Undo is honest about what it does not move back (review F9).
   expect(text).toContain("stays with the survivor");
+});
+
+it("shows a reword with both wordings, its versions and its undo", async () => {
+  const reword = action({
+    id: "act_r", origin: "proposal", scope: "vault", action: "reword", retired: [],
+    evidencedFacets: ["facet_a"],
+    reworded: { from: "Old claim.", to: "New claim.", fromVersion: 1, toVersion: 2, fields: ["claim"] }
+  });
+  api.undoFacetIdentityAction.mockResolvedValue({ version: 1, status: "undone", action: { ...reword, status: "undone", undoable: false } });
+  render(<FacetIdentityPanel summary={summary([reword])} onError={vi.fn()} />);
+  const text = screen.getByTestId("facet-identity").textContent ?? "";
+  expect(text).toContain("Old claim.");
+  expect(text).toContain("reworded (v1 → v2) to");
+  expect(text).toContain("New claim.");
+  expect(text).toContain("undo restores the old wording");
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "undo" }));
+  });
+  expect(api.undoFacetIdentityAction).toHaveBeenCalledWith("act_r");
+  expect(screen.getByText("undone")).toBeTruthy();
 });
 
 it("marks an interrupted merge and says how to finish it", () => {

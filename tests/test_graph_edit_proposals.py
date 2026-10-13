@@ -308,24 +308,26 @@ def test_propose_graph_edits_rejects_concept_delete_at_filing(tmp_path):
 # --- queue_restructure_request ----------------------------------------------
 
 
-def test_queue_restructure_request_requires_a_locked_facet(tmp_path):
+def test_queue_restructure_request_needs_no_lock(tmp_path):
+    """Facet locks were removed (owner, 2026-10-12): a split request is queued
+    for any facet (there is no split endpoint yet)."""
+
     paths = create_basic_vault(tmp_path / "vault")
-    # No goal -> facet "recall" is unlocked; queueing must point at the normal flow.
     write_yaml(paths.goals_path, {"schema_version": 2, "goals": []})
     write_facets(paths, [{"id": "recall", "kind": "definition", "claim": "SVD recall."}])
 
-    with pytest.raises(GraphEditError) as exc:
-        queue_restructure_request(paths.root, ["recall"], "merge", "combine facets")
-    assert exc.value.code == "facets_not_locked"
+    record = queue_restructure_request(paths.root, ["recall"], "split", "recall conflates two skills")
+    assert record["need_id"] and record["status"] == "pending"
+    assert "locked_facet_ids" not in record
 
 
 def test_queue_restructure_request_records_and_surfaces_in_feed(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")  # goal scopes the SVD concept -> facet locked
+    paths = create_basic_vault(tmp_path / "vault")
     write_facets(paths, [{"id": "recall", "kind": "definition", "claim": "SVD recall."}])
 
     record = queue_restructure_request(paths.root, ["recall"], "split", "recall conflates two skills")
     assert record["need_id"]
-    assert record["locked_facet_ids"] == ["recall"]
+    assert record["facet_ids"] == ["recall"]
     assert record["status"] == "pending"
 
     vault = load_vault(paths.root)
@@ -335,6 +337,7 @@ def test_queue_restructure_request_records_and_surfaces_in_feed(tmp_path):
     assert len(restructure) == 1
     assert restructure[0]["detail"]["operation"] == "split"
     assert restructure[0]["detail"]["facet_ids"] == ["recall"]
+    assert "locked" not in restructure[0]["title"]
 
 
 def test_queue_restructure_request_rejects_bad_operation(tmp_path):

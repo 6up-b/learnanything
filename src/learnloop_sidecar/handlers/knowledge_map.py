@@ -10,7 +10,6 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.curriculum.curriculum_locks import identity_locks
 from learnloop.learner.mastery import display_mastery, sigmoid
 from learnloop.diagnosis.probes import resolve_item_irt
 from learnloop.learner.recall_coverage import predicted_correctness
@@ -75,10 +74,7 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
     (``item_text_neighbors.py``). Reads stored vectors only: no model or
     embedding call happens here.
 
-    The ``facet_field`` companion object carries the facet-native dual field;
-    each of its ``points`` also carries lock state for the padlock UI:
-    ``locked`` and the distinct ``lock_sources`` driving it, computed via a
-    single ``identity_locks`` closure pass (§3.4).
+    The ``facet_field`` companion object carries the facet-native dual field.
     """
 
     vault, repository = ctx.require_vault()
@@ -386,18 +382,6 @@ def _facet_field(vault, repository, *, assumed_los: set[str] | None = None) -> d
             ambiguity.setdefault(facet, set()).update(candidates - {facet})
             ambiguity_target.setdefault(facet, str(factor["attempt_id"]))
 
-    # Per-facet padlock state (§3.4): one identity_locks closure pass over every
-    # registered facet, aggregated onto canonical ids so it joins the points below.
-    locks = identity_locks(vault, repository)
-    lock_sources_by_facet: dict[str, set[str]] = {}
-    for raw_facet_id, reasons in locks.items():
-        if not reasons:
-            continue
-        canonical = vault.canonical_facet_id(raw_facet_id)
-        lock_sources_by_facet.setdefault(canonical, set()).update(
-            reason.source for reason in reasons
-        )
-
     # Facets whose repair is instructed-but-unverified: somewhere in their
     # learning objects a cold check is scheduled and has not been spent yet.
     # Reading the TASK (not the episode) is both the cheapest query and the
@@ -498,8 +482,6 @@ def _facet_field(vault, repository, *, assumed_los: set[str] | None = None) -> d
                     if latest_correction is not None
                     else None
                 ),
-                "locked": facet_id in lock_sources_by_facet,
-                "lock_sources": sorted(lock_sources_by_facet.get(facet_id, set())),
             }
         )
 

@@ -1318,14 +1318,16 @@ class FittingConfig(BaseModel):
 
 
 class LocksConfig(BaseModel):
-    """Curriculum identity-lock policy (knowledge-model §3.4/§12).
+    """Retired: facet identity locks were removed (owner, 2026-10-12).
 
-    Facet identity locking is independence-gated: a facet locks when its direct
-    evidence spans >= ``facet_surface_groups`` distinct surface/correlation
-    groups, or its independent evidence mass reaches ``facet_lock_mass``, or it
-    enters an active goal's certified scope. KM1 records the policy and the
-    ``can_apply`` closure; the independence-gate trigger itself lands with KM2's
-    capability ledgers (the seam in ``curriculum_locks.py``).
+    Facets used to lock when their direct evidence spanned
+    ``facet_surface_groups`` distinct surface/correlation groups, reached
+    ``facet_lock_mass`` independent mass, or entered an active goal's
+    certified scope; a locked facet refused merges and rewording. Nothing
+    reads these values any more: merges apply live with an undo and a reword
+    writes a facet version (knowledge-model §3.4). The section stays in the
+    schema so the effective-defaults snapshots of every released version stay
+    as recorded; ``learnloop doctor`` warns when a vault sets it.
     """
 
     facet_lock_mass: float = 2.0
@@ -1908,14 +1910,12 @@ class FacetIdentityConfig(BaseModel):
     # within rank 4) and registry nominations per candidate (T5, top-4).
     shortlist_top_k: int = Field(default=4, ge=1, le=20)
     attach_top_k: int = Field(default=4, ge=1, le=20)
-    # Owner decision 2026-10-12 (option c): the judge's merges apply live on
-    # identity-locked facets too (independent surface groups, lock mass, an
-    # active goal's certified scope, probes), each action naming the facet's
-    # lock reasons, with the one-tap undo. False restores the knowledge
-    # model's strict policy (§3.4/§12.1): the dedupe result lists such a set
-    # as a proposal and attach only adds an alias to a locked facet. A merge
+    # Retired compatibility key: nothing reads it. Facet identity locks were
+    # removed (owner, 2026-10-12), so every merge and absorb applies live with
+    # its undo; ``learnloop doctor`` warns when a vault sets it. (A merge still
     # never adds a precondition to a registered facet, and a retiree that a
-    # graded criterion names with its survivor is held back, under either.
+    # graded criterion names with its survivor is still held back.) Kept so
+    # the recorded effective-defaults snapshots do not move.
     merge_locked_facets: bool = True
     # Per ingest run (and the dedupe command's defaults). Codex runs on the
     # subscription: tokens and dollars are estimated only, never enforced.

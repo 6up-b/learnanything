@@ -570,6 +570,9 @@ def _check_retired_config(root: Path, issues: list[HealthIssue]) -> None:
         ("probe", "dialogue", "max_turns"),
         ("recall_coverage", "coverage_epsilon"),
         ("ingest", "budgets", "evidence_span_input_tokens"),
+        # Facet identity locks were removed (owner, 2026-10-12).
+        ("locks",),
+        ("facet_identity", "merge_locked_facets"),
     )
     for setting_path in retired_setting_paths:
         value: Any = data

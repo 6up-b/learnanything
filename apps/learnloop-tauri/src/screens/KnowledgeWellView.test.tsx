@@ -11,7 +11,7 @@ const base = {
   requiredCapabilities: ["recall"], demonstratedCapabilities: [],
   hasBlueprints: true, capabilityArcs: [],
   learningObjectIds: [], ambiguityCandidates: [], ambiguityAttemptId: null,
-  correction: null, locked: false, lockSources: []
+  correction: null
 };
 const legacy: KnowledgeFacetPoint = { ...base, ready: 0.5, readyGhost: 0.5, readyVariance: 1 / 12 };
 const untested: KnowledgeFacetPoint = { ...base, untested: true };

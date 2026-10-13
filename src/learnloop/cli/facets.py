@@ -56,8 +56,8 @@ def facets_dedupe(
 
     Route: ai.routing.facet_identity_judge (default: the Codex `codex_luna`
     profile, on the subscription; a decider profile is also accepted). Every
-    merge or absorb applies live and is listed with its undo command; locked
-    facets merge too and are labelled. Merged and shortlisted pairs go to
+    merge or absorb applies live and is listed with its undo command, naming
+    the facets whose evidence it re-keys. Merged and shortlisted pairs go to
     judgment_ledger (task same_facet); a rerun reuses judged groups.
     """
     from learnloop.content.facet_identity.dedupe import run_dedupe
@@ -86,7 +86,7 @@ def facets_actions(
     limit: Annotated[int, typer.Option("--limit", min=1, max=10_000)] = 50,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Facet merges and absorbs, newest first, with their undo state."""
+    """Facet merges, absorbs and rewords (facet versions), newest first, with their undo state."""
     from learnloop.content.facet_identity.actions import describe, list_actions
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
@@ -109,7 +109,7 @@ def facets_undo(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Restore the facets one merge or absorb replaced; re-fold their evidence.
+    """Restore the facets one merge, absorb or reword replaced; re-fold their evidence.
 
     Rows graded while the merge stood (exercised facets, notes, error events)
     stay with the surviving facet; the result says so (not_restored).

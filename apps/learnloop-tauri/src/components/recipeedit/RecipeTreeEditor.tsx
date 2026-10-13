@@ -530,7 +530,6 @@ function AddComponent({
                 <span style={{ color: COLOR.text }}>{shortFacet(f.id)}</span>
                 <span style={{ color: COLOR.textFaint, fontSize: 11 }}>
                   {f.title}
-                  {f.locked ? " · 🔒" : ""}
                 </span>
               </div>
             ))}

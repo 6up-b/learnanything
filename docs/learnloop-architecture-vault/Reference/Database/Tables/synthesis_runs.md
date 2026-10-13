@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 184
+schema_head: 185
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,8 +29,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
+  - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/sources/provenance.py"
-  - "src/learnloop/content/synthesis/source_append.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/sources/provenance.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
@@ -138,6 +139,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_ownership.py`
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_source_append.py`
+- `tests/test_synthesis_criterion_dependencies.py`
 - `tests/test_synthesis_runs_repo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

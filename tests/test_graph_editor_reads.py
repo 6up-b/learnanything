@@ -1,6 +1,7 @@
 """Backend read/preview path for the graph/knowledge-map editor (B2).
 
-Covers the extended ``get_knowledge_map`` facet-field lock fields and the new
+Covers the ``get_knowledge_map`` facet field (no lock fields since facet locks
+were removed, owner 2026-10-12) and the
 ``get_facet_detail`` / ``list_facets`` / ``preview_knowledge_map`` /
 ``preview_blueprint_readiness`` RPCs. All are pure reads; none mutate the vault
 or repository.
@@ -125,39 +126,24 @@ def _fixture_ctx(root: Path):
 # --- facet_field + list_facets --------------------------------------------
 
 
-def test_knowledge_map_facet_field_lock_fields(tmp_path):
+def test_knowledge_map_facet_field_carries_no_lock_fields(tmp_path):
     ctx = _blueprint_ctx(tmp_path / "vault")
     result = _call(ctx, "get_knowledge_map", {})
 
-    # Lock state now rides on each facet-field point (HEAD's {points, ...} shape).
     field = {row["id"]: row for row in result["facetField"]["points"]}
     assert set(field) == {COMP_A, COMP_B, INTEG}
-    # Every facet is in the active goal's certified scope, so all are locked.
+    # Every facet is in the active goal's certified scope, which used to lock
+    # it; facet locks were removed, so no point carries a padlock.
     for row in field.values():
-        assert row["locked"] is True
-        assert isinstance(row["lockSources"], list)
-        assert row["lockSources"] == sorted(row["lockSources"])  # distinct + sorted
-        assert "goal_certified_scope" in row["lockSources"]
+        assert "locked" not in row and "lockSources" not in row
     assert field[COMP_A]["title"] == "Component A"
 
 
-def test_facet_field_reflects_fixture_locks(tmp_path):
+def test_fixture_facet_field_carries_no_lock_fields(tmp_path):
     ctx = _fixture_ctx(tmp_path / "vault")
-    result = _call(ctx, "get_knowledge_map", {})
-    points = result["facetField"]["points"]
+    points = _call(ctx, "get_knowledge_map", {})["facetField"]["points"]
     assert points
-
-    from learnloop.curriculum.curriculum_locks import identity_locks
-
-    vault, repository = ctx.require_vault()
-    expected: dict[str, set[str]] = {}
-    for facet_id, reasons in identity_locks(vault, repository).items():
-        canonical = vault.canonical_facet_id(facet_id)
-        expected.setdefault(canonical, set()).update(reason.source for reason in reasons)
-    for point in points:
-        sources = sorted(expected.get(point["id"], set()))
-        assert point["locked"] is bool(sources)
-        assert point["lockSources"] == sources
+    assert all("locked" not in point and "lockSources" not in point for point in points)
 
 
 def test_list_facets_shape_and_sorting(tmp_path):
@@ -166,8 +152,7 @@ def test_list_facets_shape_and_sorting(tmp_path):
     facets = result["facets"]
     assert [f["id"] for f in facets] == sorted([COMP_A, COMP_B, INTEG])
     for facet in facets:
-        assert set(facet) == {"id", "title", "kind", "status", "locked"}
-        assert facet["locked"] is True
+        assert set(facet) == {"id", "title", "kind", "status"}
 
 
 # --- get_facet_detail ------------------------------------------------------
@@ -190,12 +175,10 @@ def test_get_facet_detail_full_contract(tmp_path):
     assert facet["aliases"] == ["comp_a_alias"]
     assert facet["status"] == "reviewed"
 
-    # Lock chip: verbatim reasons with source + detail.
-    assert result["lock"]["locked"] is True
-    sources = {reason["source"] for reason in result["lock"]["reasons"]}
-    assert "goal_certified_scope" in sources
-    for reason in result["lock"]["reasons"]:
-        assert set(reason) == {"source", "detail"}
+    # No lock chip any more; the facet's version history instead (none yet).
+    assert "lock" not in result
+    assert facet["version"] == 1
+    assert result["history"] == []
 
     # Membership: the blueprint recipe component that references COMP_A.
     assert result["membership"] == [

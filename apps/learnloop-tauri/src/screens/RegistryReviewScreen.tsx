@@ -1,7 +1,8 @@
 // Registry review (§5.7): facet-contract cards for a subject with claim /
-// conditions / examples / non-goals / error signatures / repairs, identifiability
-// warnings from synthesis generation-needs, lock chips, and pre-lock merge/coarsen
-// actions that create REVIEW proposals (never auto-merge).
+// conditions / examples / non-goals / error signatures / repairs and version,
+// identifiability warnings from synthesis generation-needs, and merge/coarsen
+// actions. Facet identity locks were removed (owner, 2026-10-12): every facet
+// can be merged, and a merge applies now with a one-tap undo.
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
@@ -34,13 +35,29 @@ export function RegistryReviewScreen({
   const [actionError, setActionError] = useState<string | null>(null);
   const error = actionError ?? registryQuery.error?.message ?? null;
   const [notice, setNotice] = useState<string | null>(null);
+  // The last merge, so it can be undone from here (it applied at once).
+  const [lastMerge, setLastMerge] = useState<{ actionId: string; label: string } | null>(null);
 
   const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null) => {
     if (!subjectId) return;
     setActionError(null);
     try {
-      await api.proposeFacetMerge({ subjectId, retiredFacetId, survivingFacetId, needId: needId ?? null });
-      setNotice("Merge review item created → review in Proposals.");
+      const result = await api.proposeFacetMerge({ subjectId, retiredFacetId, survivingFacetId, needId: needId ?? null });
+      setNotice(`Merged ${retiredFacetId} into ${survivingFacetId}.`);
+      setLastMerge({ actionId: result.actionId, label: retiredFacetId });
+      void registryQuery.refetch();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const undoLastMerge = async () => {
+    if (!lastMerge) return;
+    setActionError(null);
+    try {
+      await api.undoFacetIdentityAction(lastMerge.actionId);
+      setNotice(`Merge undone: ${lastMerge.label} is its own facet again.`);
+      setLastMerge(null);
       void registryQuery.refetch();
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -60,13 +77,22 @@ export function RegistryReviewScreen({
           placeholder="— pick a subject —"
           width={240}
         />
-        {registry ? <Faint>{registry.facetCount} facets · {registry.lockedCount} locked</Faint> : null}
+        {registry ? <Faint>{registry.facetCount} facets</Faint> : null}
       </div>
 
       {!subjectId ? <Faint>Pick a subject to review its facet registry.</Faint> : null}
       {loading ? <Faint>loading registry…</Faint> : null}
       {error ? <div style={{ color: COLOR.red, fontSize: 12 }}>{error}</div> : null}
-      {notice ? <div style={{ color: COLOR.green, fontSize: 12 }}>{notice}</div> : null}
+      {notice ? (
+        <div style={{ color: COLOR.green, fontSize: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <span>{notice}</span>
+          {lastMerge ? (
+            <button style={smallBtn} onClick={() => void undoLastMerge()}>
+              undo
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {registry?.measurementRank ? <MeasurementRankRow rank={registry.measurementRank} /> : null}
 
@@ -145,7 +171,7 @@ function WarningRow({ warning, onCoarsen }: { warning: IdentifiabilityWarningDto
         <Faint style={{ fontSize: 11 }}>missing: {warning.missingCapability}</Faint>
         {canCoarsen ? (
           <button style={{ ...smallBtn, marginLeft: "auto" }} onClick={onCoarsen}>
-            propose coarsening merge
+            coarsen: merge the pair
           </button>
         ) : null}
       </div>
@@ -161,7 +187,6 @@ function FacetCard({ card, facetOptions, onMerge, onOpenSource }: { card: FacetC
   const [survivor, setSurvivor] = useState(others[0] ?? "");
 
   const accent = card.status === "reviewed" ? COLOR.greenSoft : card.status === "proposed" ? COLOR.amber : COLOR.textFaint;
-  const lockDetail = card.lockReasons[0]?.detail;
 
   return (
     <div style={{ border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${accent}`, background: COLOR.bgElev, padding: "12px 16px" }}>
@@ -170,9 +195,8 @@ function FacetCard({ card, facetOptions, onMerge, onOpenSource }: { card: FacetC
         <Faint style={{ fontSize: 11 }}>{card.facetId}</Faint>
         {card.kind ? <Pill color="slate">{card.kind}</Pill> : null}
         <Pill color={card.status === "reviewed" ? "green" : card.status === "proposed" ? "amber" : "slate"}>{card.status}</Pill>
-        {card.locked ? <Pill color="red">locked</Pill> : <Pill color="green">pre-lock</Pill>}
+        <Pill color="slate">v{card.version}</Pill>
       </div>
-      {card.locked && lockDetail ? <Faint style={{ fontSize: 11, display: "block", marginTop: 4 }}>lock: {lockDetail}</Faint> : null}
 
       {card.claim ? <div style={{ fontSize: 13, color: COLOR.text, marginTop: 8, lineHeight: 1.6 }}>{card.claim}</div> : null}
 
@@ -189,15 +213,10 @@ function FacetCard({ card, facetOptions, onMerge, onOpenSource }: { card: FacetC
         <span style={{ cursor: "pointer", color: COLOR.amberLink, fontSize: 12 }} onClick={() => setShowProvenance((v) => !v)}>
           {showProvenance ? "hide provenance" : "provenance"}
         </span>
-        <button
-          style={{ ...smallBtn, opacity: card.canMerge ? 1 : 0.4, cursor: card.canMerge ? "pointer" : "default" }}
-          disabled={!card.canMerge}
-          title={card.canMerge ? "" : lockDetail ?? "facet identity locked"}
-          onClick={() => setMergeOpen((v) => !v)}
-        >
-          propose merge
+        <button style={smallBtn} onClick={() => setMergeOpen((v) => !v)}>
+          merge into…
         </button>
-        {mergeOpen && card.canMerge ? (
+        {mergeOpen ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <Faint style={{ fontSize: 11 }}>into</Faint>
             <TermSelect value={survivor} options={others} onChange={setSurvivor} width={200} />
@@ -209,7 +228,7 @@ function FacetCard({ card, facetOptions, onMerge, onOpenSource }: { card: FacetC
                 setMergeOpen(false);
               }}
             >
-              create review item
+              merge (undo available)
             </button>
           </span>
         ) : null}

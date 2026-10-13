@@ -320,8 +320,8 @@
     "sha256": "e5dd5d5ede091c324d2b56f5918432dc87e68d6a34311ed5af039e1c907a3069"
   },
   "doctor": {
-    "bytes": 1388,
-    "sha256": "0420fa2f947dece8ab28476c9a33701febd83799091c9f963f8885231996d56c"
+    "bytes": 2068,
+    "sha256": "9dfcc5f7b9269d2fb3c9e5ca4b6ea723af26ee9338b257f8a323d1f04486bf6e"
   },
   "edit-proposal-item": {
     "bytes": 1678,
@@ -428,20 +428,20 @@
     "sha256": "ac77a69150d837586317b8765af49e2fdc9e00b93b79ab8ccbda6a68b7105e9b"
   },
   "facets": {
-    "bytes": 1923,
-    "sha256": "94e65c27c3f22fc01cb1f62ce30fdcd6bf1bf46e06b3fbeeae251ca82e7618d4"
+    "bytes": 2008,
+    "sha256": "c13c77acc099b43e5eaa818a14243c8262d881f7cb83c1a824393991fe5fb03c"
   },
   "facets actions": {
-    "bytes": 1380,
-    "sha256": "ca3b9e6f3b4ef26a79a055501a69bea337351be88ff94953f31b6d4c8a5dbf41"
+    "bytes": 1461,
+    "sha256": "226fb4fda6c7289e2c1295a1c0157be0d74b2348964b1c9174014e530b000cb6"
   },
   "facets dedupe": {
     "bytes": 3485,
-    "sha256": "00ed3137d847c439ce474a07e61d962270ab249246ed3a09810adf89eb5bcd76"
+    "sha256": "9f7fea22cc2fad080edcc6a1858015abfd0fa70173773a05e1c09e06939dcada"
   },
   "facets undo": {
-    "bytes": 1998,
-    "sha256": "0bb65bfb7a717ddc7d921bd96ed991fa6b0b308c42cfc67143da5890f850b59d"
+    "bytes": 2079,
+    "sha256": "cc3c9c2cea747797a0d0a963b8f0cfa33197c9b89e103933d5d18a7ef22440d7"
   },
   "families": {
     "bytes": 1757,
