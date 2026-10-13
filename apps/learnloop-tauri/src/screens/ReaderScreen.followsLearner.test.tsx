@@ -392,6 +392,8 @@ it("writes no quick check for a section before the learner has read in it", asyn
   await settle(3_000);
 
   expect(invoke.mock.calls.some(([command]) => command === "reader_author_section_question")).toBe(false);
+  // Nor does the guide say the learner is near a section break they never read to.
+  expect(screen.queryByText(/near the section break/)).toBeNull();
 
   // Reading on does ask for one, for the section actually read.
   await scrollTo(2900);
@@ -415,6 +417,9 @@ it("after the learner compares, the guide no longer says the check is waiting", 
 
   expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
   expect(screen.getByText("You answered this section's quick check: compare below, then keep reading.")).toBeTruthy();
+  // Nor does the Guide tab still count it as a check waiting.
+  expect(screen.queryByRole("button", { name: /quick check ready/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "guide" })).toBeTruthy();
 });
 
 it("Contents says in words which sections have a quick check, and never a bare '?'", async () => {
@@ -485,4 +490,24 @@ it("with no book open, the Reader shows the Library's own shelf, not a second li
   expect(screen.queryByText("Introduction to Probability")).toBeNull();
   expect(screen.getByPlaceholderText("search all sources…")).toBeTruthy();
   expect(screen.getByText("Pick a book to read, or search them all.")).toBeTruthy();
+});
+
+it("R3: a book with block geometry reaches the passage's page even before the document is laid out", async () => {
+  // Axler in the three-month library: boxes for every passage. The resume
+  // asked the pane to centre a block on a page that did not exist yet, and
+  // the pane silently stayed on the chapter's first page.
+  const blocks = PAGES.map(([spanId, page]) => ({ spanId, page, bbox: [50, 100, 550, 300], blockType: "Text" }));
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) =>
+    command === "reader_pdf_view"
+      ? { version: 1, available: true, fileName: "sha256-prob", extractionId: EXTRACTION_ID, sourceId: SOURCE_ID, revisionId: "rev_prob", blocks, pageSpans: [] }
+      : sidecar(command, args)
+  );
+  backend.progress = [
+    { extractionId: EXTRACTION_ID, sectionId: "u3", spansSeen: 0, spanCount: 2, revealedAt: null, completedAt: "2026-07-27T17:58:33Z", generationBatchId: null }
+  ];
+
+  await openReader();
+
+  // The page itself, through the pane's own wait for layout.
+  expect(pane.scrollToPage).toHaveBeenCalledWith(4, 0);
 });

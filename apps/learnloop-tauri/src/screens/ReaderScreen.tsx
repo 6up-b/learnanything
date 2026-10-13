@@ -881,7 +881,11 @@ export function ReaderScreen({
         ),
     );
   }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
-  const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.length : 0;
+  // A check the learner answered is not waiting any more, though its card
+  // stays open to compare (usability round 2).
+  const pendingQuickCheckCount = boundaryChecksAvailable
+    ? openQuestionSections.filter((section) => !answeredSections.includes(section.id)).length
+    : 0;
   const currentQuestionOpen = useMemo(
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
@@ -1712,6 +1716,15 @@ export function ReaderScreen({
     [pdfView, surface, offline],
   );
 
+  // A passage with boxes: its page first, through the pane's own wait for the
+  // document's layout, then the passage centred once its page is drawn
+  // (usability round 2: a resume asked to centre a block on a page that did
+  // not exist yet, and the pane stayed on the chapter's first page).
+  const revealSegment = useCallback((page: number, spanId: string) => {
+    paneRef.current?.scrollToPage(page, 0);
+    paneRef.current?.scrollToSegment(page, spanId);
+  }, []);
+
   const jumpToSpan = useCallback(
     (spanId: string) => {
       // A jump is not reading: the sections it passes are not ticked, and
@@ -1726,7 +1739,7 @@ export function ReaderScreen({
       if (pdfView && surface === "pdf" && !offline) {
         const geometry = pdfView.blocks.find((block) => block.spanId === spanId);
         if (geometry) {
-          paneRef.current?.scrollToSegment(geometry.page, spanId);
+          revealSegment(geometry.page, spanId);
           return;
         }
         // No boxes, only the passage's page (usability round 1, U2).
@@ -1742,7 +1755,7 @@ export function ReaderScreen({
       // can be, must not throw where scrolling is unavailable.)
       if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: "smooth", block: "center" });
     },
-    [pdfView, surface, offline, pageOfSpan],
+    [pdfView, surface, offline, pageOfSpan, revealSegment],
   );
 
   // A book with no saved place but reading history from before the Reader
@@ -1781,7 +1794,7 @@ export function ReaderScreen({
       if (pdfView && surface === "pdf") {
         const geometry = pdfView.blocks.find((block) => block.spanId === readingSpan);
         if (geometry) {
-          paneRef.current?.scrollToSegment(geometry.page, readingSpan);
+          revealSegment(geometry.page, readingSpan);
           return;
         }
         // The page the learner left off on (usability round 1, U2).
@@ -2706,7 +2719,7 @@ export function ReaderScreen({
                             </button>
                           </>
                         )
-                      : currentSectionProgress >= 0.7
+                      : readingMoved && currentSectionProgress >= 0.7
                         ? "You’re near the section break. Keep going, or revisit a useful passage."
                         : "Keep reading at your own pace."}
                 </Faint>
@@ -2783,7 +2796,8 @@ export function ReaderScreen({
                         </span>
                         {/* Said in words, and only while the check is still to do
                             (usability round 2: an unexplained "?" sat after ✓). */}
-                        {section.question && !completedSections.includes(section.id) && !dismissedSections.includes(section.id) ? (
+                        {section.question && !completedSections.includes(section.id) && !dismissedSections.includes(section.id)
+                          && !answeredSections.includes(section.id) ? (
                           <span style={{ flexShrink: 0, fontSize: 9, color: COLOR.purpleText }}>quick check</span>
                         ) : null}
                       </button>

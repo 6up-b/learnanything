@@ -166,7 +166,7 @@ def test_a_later_build_is_estimated_from_this_librarys_own_builds(tmp_path):
 
     _root, ctx, _source_id = _added_book(tmp_path)  # one build, finished (frozen clock: no time at all)
 
-    assert build_minutes_phrase(ctx.repository, chapter_count=1) == "in under a minute"
+    assert build_minutes_phrase(ctx.repository, section_count=1) == "in under a minute"
 
 
 def test_no_finished_build_means_no_estimate(tmp_path):
@@ -175,7 +175,7 @@ def test_no_finished_build_means_no_estimate(tmp_path):
 
     root = fresh_library(tmp_path)
 
-    assert build_minutes_phrase(repository(root), chapter_count=2) is None
+    assert build_minutes_phrase(repository(root), section_count=2) is None
 
 
 # ---------------------------------------------------------------------------
@@ -294,3 +294,25 @@ def test_a_built_books_line_reads_its_text_at_most_once(tmp_path, monkeypatch):
 
     assert line["text"] == "Questions for Ch. 1–2 come up as you read"
     assert len(loads) <= 1, loads
+
+
+def test_the_estimate_scales_with_the_sections_a_build_covers(tmp_path):
+    """Per section, not per chapter (re-walk: a paper's whole-source build was
+    estimated at "about 4 min" from two textbook chapters and took 48 s)."""
+
+    from learnloop.content.pipeline.add_source import AUTO_STUDY_MAP_JOB, build_minutes_phrase, planner_outcome
+
+    _root, ctx, _source_id = _added_book(tmp_path)
+    repo = ctx.repository
+    planner = repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,))[0]
+    outcome = planner_outcome(repo, planner)
+    sections = len(outcome["unit_ids"])
+    with repo.connection() as connection:  # this build took two minutes
+        connection.execute(
+            "UPDATE ingest_batches SET started_at = ?, finished_at = ? WHERE id = ?",
+            ("2026-10-13T09:00:00Z", "2026-10-13T09:02:00Z", outcome["build_batch_id"]),
+        )
+        connection.commit()
+
+    assert build_minutes_phrase(repo, section_count=sections) == "in about 2 min"
+    assert build_minutes_phrase(repo, section_count=sections * 3) == "in about 6 min"

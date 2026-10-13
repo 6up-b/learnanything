@@ -1820,18 +1820,28 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
     return None
 
 
-def build_minutes_phrase(repo, *, chapter_count: int, sample: int = 5) -> str | None:
-    """How long questions for ``chapter_count`` chapters take, from this
+def _scope_size(outcome: Mapping[str, Any]) -> int:
+    """How many sections a build covers (its units, else its chapters)."""
+
+    return len(outcome.get("unit_ids") or outcome.get("chapter_ids") or outcome.get("chapters") or [])
+
+
+def build_minutes_phrase(repo, *, section_count: int, sample: int = 5) -> str | None:
+    """How long questions for ``section_count`` sections take, from this
     library's own finished automatic builds ("in about 4 min", "in under a
     minute"), or ``None`` when it has none to go on (usability round 2: "in
-    about 13 min" was a made-up formula for a build that took seconds)."""
+    about 13 min" was a made-up formula for a build that took seconds).
+
+    The rate is per section in a build's scope, not per chapter: chapters
+    differ in size (a paper's ten short sections took 48 s where two
+    textbook chapters of ten sections each took about 20 s apiece)."""
 
     from datetime import datetime
 
-    per_chapter: list[float] = []
-    # Planning jobs, newest first: each names the build it queued and its chapters.
+    per_section: list[float] = []
+    # Planning jobs, newest first: each names the build it queued and its scope.
     for job in repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,), limit=sample * 4):
-        if len(per_chapter) >= sample:
+        if len(per_section) >= sample:
             break
         if job.get("status") != "completed":
             continue
@@ -1845,12 +1855,12 @@ def build_minutes_phrase(repo, *, chapter_count: int, sample: int = 5) -> str | 
                        - datetime.fromisoformat(str(build["started_at"]).replace("Z", "+00:00"))).total_seconds()
         except ValueError:
             continue
-        per_chapter.append(max(0.0, seconds) / max(1, len(outcome.get("chapters") or outcome.get("chapter_ids") or [])))
-    if not per_chapter:
+        per_section.append(max(0.0, seconds) / max(1, _scope_size(outcome)))
+    if not per_section:
         return None
-    ordered = sorted(per_chapter)
+    ordered = sorted(per_section)
     middle = ordered[len(ordered) // 2]
-    minutes = middle * max(1, chapter_count) / 60.0
+    minutes = middle * max(1, section_count) / 60.0
     if minutes < 1:
         return "in under a minute"
     return f"in about {round(minutes)} min"
@@ -1941,7 +1951,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     if state["undone"]:
         return _line(f"Questions for this {noun} were taken back out", "quiet", ("build_now", "Build them again"))
     if _active(state["batch"]):
-        estimate = build_minutes_phrase(repo, chapter_count=len(outcome.get("chapters") or []))
+        estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome))
         if estimate is None:
             return _line(f"Writing questions for {phrase}", "working")
         return _line(f"Questions for {phrase} {estimate}", "working")
