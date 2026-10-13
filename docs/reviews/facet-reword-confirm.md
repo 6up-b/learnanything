@@ -23,6 +23,27 @@ facet authority chokepoint after its second Codex re-review). Owner-directed,
   and when). Scoring, scheduling, projections and replay are unchanged.
 - No paid call.
 
+**Corrected by the Codex review** (`d79a24af`;
+`docs/reviews/facet-reword-confirm-codex-review.md`). These statements below did
+not hold as built:
+- "Exam-only support is refused on every write path" (§1.2, §3): an attach or
+  in-run absorb whose candidate cited exam material under the wrong unit
+  joined as an uncited example (F1). Fixed: joins are judged with the
+  candidate's unresolved citations.
+- "Only what the reword changed is taken from it, so an alias added to the
+  facet since stays" (§1.1): not when the reword changed the aliases too
+  (F2). Fixed: a three-way merge, and a conflict refuses the confirm.
+- "An exam citation shows no text" (§1.1): a source re-marked as an exam, or
+  a unit held out, after the hold kept its cached excerpt (F3). Fixed:
+  excerpts are read when shown, with that moment's roles.
+- The confirm wrote its citations to facets.yaml but not to
+  `entity_source_links` (F4). Fixed: installed write-ahead, finished by
+  recovery.
+- "Title and worked-example changes from a source update apply" (§1.3, §4):
+  the append producer could not send them (F5). Fixed.
+- "No config change": the review adds the kill switch
+  `facet_identity.reword_confirm` (F6; no algorithm successor, as above).
+
 ## 1. What changed
 
 ### 1.1 One-tap confirm instead of refusal
