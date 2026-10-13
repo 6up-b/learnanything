@@ -34,7 +34,7 @@ The "keep one chapter ahead" request is durable (migration 199: one per book in 
 **Every pending request is due now or at its retry time, and while the sidecar runs something looks.** `DurableIngestJobs` runs a **reading sweep** thread for as long as it is bound in the background:
 - **One pass** is one query, `Repository.pending_reading_requests()` (every book's pending request), then `add_source.act_on_reading_request` on each one due. A request is due when its `retry_at` has passed, or it has none, or the stored value does not parse. Acting keeps its contract: it settles, defers or fails exactly the revision it read (F9), under the in-process reading lock.
 - **Pace:** every `READING_SWEEP_SECONDS` (30 s), sooner when the next retry time comes first. The first pass waits one pace, because the start reconciles every request itself.
-- **Wakes only bring a pass forward.** The worker wakes the sweep after any round that ran a job. A failed act wakes it. A Reader report acts at once on its own RPC, as before.
+- **Wakes only bring a pass forward.** The worker wakes the sweep after any round that ran a job. A failed act outside the sweep (the Reader's RPC, the start) wakes it. A failed act inside the sweep's own pass does not: the pass's outcome alone sets its next wait, so its backoff holds (Codex review F2, `6d892e9de`). A Reader report acts at once on its own RPC, as before.
 - **A failed pass is never "nothing due".** A failed scan, or an act whose failure could not even be recorded, is retried after `READING_SWEEP_RETRY_SECONDS` (1 s), doubling up to the pace. Every iteration of the loop sits inside that handling, so the thread cannot die on a pass.
 - **A failed act backs off and is never given up:** 2, 10, 30, 120 s, then every 300 s (`READING_RETRY_DELAYS`, the last repeating). This replaces the three bounded worker retries and the NULL "retries ran out" state. While a request is unsettled the Reader's next report still asks again at once (F8), and the start still acts on every pending request at once with a fresh backoff.
 - **A deferral is not a failure.** If the book's work is unfinished, the request stays due and its failed attempts are forgotten, so the Reader stops re-asking. When that work waits on the worker (queued or running, not only waiting for the learner's input), the act starts the worker. After a restart nothing else would. Work waiting for the learner's answer starts nothing.
@@ -48,17 +48,17 @@ The "keep one chapter ahead" request is durable (migration 199: one per book in 
 |---|---|
 | The worker finishes a build | settled by `after_auto_build` (the next chapter is queued), or due if that failed |
 | A build fails or is paused for spend, or the kill switch cancels it | due: the sweep's next pass acts (failed chapters wait for the card's Retry; with auto-build off the act settles it) |
-| The CLI drains it (`learnloop ingest-batches resume`, `import`, …) | settled by `after_auto_build`, or due for the running sidecar's sweep or the next start. The CLI does not act itself: a CLI command never starts a paid follow-on build of its own |
+| The CLI drains it (`learnloop ingest-batches resume`, `import`, …) | settled by `after_auto_build`, or due for the running sidecar's sweep or the next start. The CLI runs no sweep and no start reconciliation. *Corrected after Codex's review:* a build the CLI drains to completion runs its own completion step (`after_auto_build`, unchanged by this stage) in the CLI process. That step acts on a pending request and queues the follow-on planner, which the same `drain()` may then run, and so the next build too, under the same admission guards (daily cap, ask-first threshold) as the sidecar |
 | A cancel: the sidecar's `cancel_ingest_batch`, the legacy `cancel`, `kill-codex`'s interrupt, the CLI's `ingest-batches cancel` | **settled** (below) |
 | Undo | forgotten (its revision advances, as before) |
 | The start | acted on at once, with a fresh backoff on failure. A failed read leaves it pending, and so due for the sweep |
 
-**`cancel_batch` semantics, decided: a cancel settles the request.** The learner's cancel answers it. `settle_reading_for_cancelled_batch` finds the books whose automatic-build work the batch held: an Add's or a build's planner, a planner's build batch, or a link Add's planner through its import. It settles each book's request at the revision it has now. In the sidecar the cancel and the settle run under the reading lock, so no act runs between them.
+**`cancel_batch` semantics, decided: a cancel settles the request.** The learner's cancel answers it. `settle_reading_for_cancelled_batch` finds the books whose automatic-build work the batch held: an Add's or a build's planner, a planner's build batch, or a link Add's planner through its import. It settles each book's request at the revision it has now. The cancel and the settle are one transaction (`IngestRunner.cancel_batch(…, alongside=…)`, Codex review F1, `5a7880e8f`). If reading or settling the request fails, nothing is cancelled and the cancel reports the error. A crash before the commit leaves neither. In the sidecar both also run under the reading lock, so no act in that process interleaves.
 - **The next ask:** the next section the learner first reaches, reveals or completes is a new revision and is acted on as usual.
 - **What gets re-planned:** chapters whose build was cancelled count as failed and wait for the card's Retry, as before. A planner cancelled before it ran leaves its chapters unplanned, so a later ask may plan them.
 - **Revision-safe:** a request recorded after the cancel's read survives.
 - **Why not "pending, due again when the learner next reads":** leaving it pending would let the sweep re-plan the cancelled work within one pace (the finish review's Q-F1). Parking it needs a not-due state that the start, the sweep and the Reader would all have to agree on.
-- **Across processes:** the CLI's cancel does not hold the sidecar's in-process lock. A sidecar sweep landing in the microseconds between the CLI's cancel and its settle could act once on the request.
+- **Across processes:** the CLI's cancel does not hold the sidecar's in-process lock. Its cancel and settle commit together, but a sidecar act that read the request just before that commit, and checks the book's work just after it, could still plan once.
 
 ### Tests (`tests/test_reading_request_sweep.py`, the real worker and sweep threads, the sweep's clock scripted through `DurableIngestJobs.reading_clock`)
 
@@ -211,7 +211,7 @@ No new UI, setting or cap. One store read was added (`ingest_batch_spend_rows`: 
   - in the text view, a jump (a search hit, a peek) now needs reading before the landed section's after-section check is offered (in the original it already did).
   - Before- and during-section checks keep their points.
   - An auto-authored check in the text view waits for 70 % with reading, where it used to open at once.
-- **DR5.** The CLI acts on no reading request: it leaves them due for the sidecar's sweep or the next start.
+- **DR5.** The CLI runs no reading sweep and no start reconciliation: it leaves requests due for the sidecar's sweep or the next start. *Corrected after Codex's review:* a build the CLI drains still runs `after_auto_build`, which acts on the pending request and can queue a follow-on planner that the same drain runs (pre-existing, unchanged here; see the table above).
 
 ## Gate
 
