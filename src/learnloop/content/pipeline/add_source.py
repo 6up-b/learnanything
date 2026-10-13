@@ -974,8 +974,10 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if reason == "no_ai":
             return _line("Questions need an AI connection", "quiet", ("connect_ai", "Connect"), outcome.get("message"))
         if reason == "needs_consent":
-            label = consent_label(str(outcome.get("consent_key") or ""))
-            return _line(f"Questions wait for your OK to use {label}", "quiet", ("connect_ai", "Review"))
+            # The provider is named on the connect sheet, not on the surface
+            # (glossary §9: provider names live in Settings and details).
+            return _line("Questions wait for your OK", "quiet", ("connect_ai", "Review"),
+                         consent_label(str(outcome.get("consent_key") or "")))
         if reason == "kept_local":
             return _line("Kept on this computer — no questions are written for it", "quiet")
         return None

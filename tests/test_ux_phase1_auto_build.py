@@ -214,7 +214,8 @@ def test_missing_consent_waits_for_one_ok(tmp_path):
     outcome = latest_auto_outcome(repo, item["source_id"])
     assert (outcome["outcome"], outcome["reason"], outcome["consent_key"]) == ("waiting", "needs_consent", "codex")
     line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Questions wait for your OK to use ChatGPT"
+    assert line["text"] == "Questions wait for your OK"
+    assert line["details"] == "ChatGPT"
     assert line["action"] == {"kind": "connect_ai", "label": "Review"}
     _assert_plain(line)
 
