@@ -151,6 +151,14 @@ function newKey(): string {
 const INQUIRY_CHECK_POLL_MS = 3000;
 const INQUIRY_CHECK_MAX_POLLS = 200;
 
+/** The failed line for a spend refusal, by which limit stopped it (re-review
+ *  F15): no price set for a metered model, or over the per-check limit. */
+function spendRefusalLine(refusal: string | null | undefined): string {
+  if (refusal === "no_price") return "Couldn't write a quick check: no price is set for this model, so LearnLoop won't spend on it.";
+  if (refusal === "over_cap") return "Couldn't write a quick check: it would cost more than the spending limit for one quick check, so LearnLoop didn't send it.";
+  return "Couldn't write a quick check: a spending limit stopped it before it was sent.";
+}
+
 function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
 }
@@ -2364,12 +2372,14 @@ export function ReaderScreen({
   }, [inquiryCommitments, annotations]);
 
   /** End a quick check's wait in the funnel, once (F8): its status, the
-   *  route it came from, and what the learner did while it was written. */
-  const settleInquiryJob = useCallback((rootId: string, status: "completed" | "failed" | "cancelled", extra: {
+   *  route it came from, and what the learner did while it was written.
+   *  Only the wait for ``batchId`` is settled: a late answer for an earlier
+   *  batch never records or ends a retry's wait (re-review F14). */
+  const settleInquiryJob = useCallback((rootId: string, batchId: string | null, status: "completed" | "failed" | "cancelled", extra: {
     failureReason?: string | null; model?: string | null; promptVersion?: string | null;
   } = {}) => {
     const job = inquiryJobsRef.current[rootId];
-    if (!job) return;
+    if (!job || !batchId || job.batchId !== batchId) return;
     delete inquiryJobsRef.current[rootId];
     const waited = Date.now() - job.startedAt;
     logReaderActivity({
@@ -2432,7 +2442,7 @@ export function ReaderScreen({
    *  wait ends, recorded as cancelled. */
   const cancelQuickCheck = useCallback((rootId: string) => {
     const batchId = inquiryChecks[rootId]?.batchId ?? inquiryJobsRef.current[rootId]?.batchId ?? null;
-    settleInquiryJob(rootId, "cancelled");
+    settleInquiryJob(rootId, batchId, "cancelled");
     setInquiryChecks((checks) => {
       const { [rootId]: _dropped, ...rest } = checks;
       return rest;
@@ -2486,7 +2496,7 @@ export function ReaderScreen({
         const attempts = (check.attempts ?? 0) + 1;
         const same = (checks: typeof inquiryChecks) => checks[rootId]?.batchId === batchId;
         const timedOut = () => {
-          settleInquiryJob(rootId, "failed", { failureReason: "timeout" });
+          settleInquiryJob(rootId, batchId, "failed", { failureReason: "timeout" });
           setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "failed", question: null, batchId: null } } : checks));
         };
         void api.readerInquiryQuestion({ extractionId, exchangeId: rootId, batchId })
@@ -2494,10 +2504,10 @@ export function ReaderScreen({
             const job = result.job ?? null;
             if (result.question) {
               const question = result.question;
-              settleInquiryJob(rootId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
+              settleInquiryJob(rootId, batchId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "landed", question } } : checks));
             } else if (job?.status === "cancelled") {
-              settleInquiryJob(rootId, "cancelled");
+              settleInquiryJob(rootId, batchId, "cancelled");
               setInquiryChecks((checks) => {
                 if (!same(checks)) return checks;
                 const { [rootId]: _dropped, ...rest } = checks;
@@ -2505,11 +2515,9 @@ export function ReaderScreen({
               });
             } else if (job?.status === "failed") {
               const code = job.errorCode ?? "error";
-              settleInquiryJob(rootId, "failed", { failureReason: code });
+              settleInquiryJob(rootId, batchId, "failed", { failureReason: code });
               const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed";
-              const failure = code === "spend_refused"
-                ? "Couldn't write a quick check: no price is set for this model, so LearnLoop won't spend on it."
-                : null;
+              const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null;
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null, failure } } : checks));
             } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
               timedOut();
@@ -2523,7 +2531,7 @@ export function ReaderScreen({
             const phase = phaseForError(error);
             if (phase !== "offline") {
               // The read itself was refused (switched off, an unknown inquiry).
-              settleInquiryJob(rootId, "failed", { failureReason: phase === "failed" ? "error" : phase });
+              settleInquiryJob(rootId, batchId, "failed", { failureReason: phase === "failed" ? "error" : phase });
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null } } : checks));
             } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
               timedOut();

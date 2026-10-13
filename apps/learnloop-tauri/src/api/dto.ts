@@ -6101,9 +6101,11 @@ export interface ReaderInquiryQuestionDto {
  *  with a batchId): its state, and why it failed. */
 export interface ReaderInquiryCheckJobDto {
   status: "queued" | "running" | "waiting_for_input" | "blocked" | "completed" | "failed" | "cancelled" | string;
-  /** capped · spend_refused · provider_unavailable · … (failed or cancelled only). */
+  /** capped · spend_refused · provider_unavailable · held · … (failed or cancelled only). */
   errorCode: string | null;
   message: string | null;
+  /** spend_refused only: which limit stopped it (no_price · over_cap). */
+  refusal?: "no_price" | "over_cap" | string | null;
 }
 export interface ReaderInquiryQuestionReadDto {
   question: ReaderInquiryQuestionDto | null;

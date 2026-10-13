@@ -241,6 +241,59 @@ it("a check the model can't be reached for is said in place and recorded as unre
   expect(done.map((e) => [e.payload.status, e.payload.failure_reason])).toEqual([["failed", "unreachable"]]);
 });
 
+// -- Re-review F14 + F15: a retry's wait, and which spend refusal it was -------
+
+it("a late poll for an earlier batch never settles the retry's wait", async () => {
+  await openQuickCheckFromReconnect();
+  let answerLate: (value: unknown) => void = () => undefined;
+  api.readerInquiryQuestion.mockReturnValueOnce(new Promise((resolve) => { answerLate = resolve; }));
+  await poll(); // batch_q's first poll is still outstanding
+  api.readerInquiryQuestion.mockResolvedValueOnce({ question: null, job: { status: "failed", errorCode: "provider_unavailable", message: "down", refusal: null } });
+  await poll();
+  expect(await screen.findByText(/Couldn't reach LearnLoop's model/)).toBeTruthy();
+  // The learner tries again, into batch_b.
+  api.readerReconnectAnswer.mockImplementation(async (input: { answer: string }) => ({
+    rootExchangeId: "root", questionEventId: "q_root", answer: input.answer, resolution: "open",
+    status: "queued", batchId: "batch_b", message: null, question: null,
+  }));
+  fireEvent.click(screen.getByRole("button", { name: "try again ↵" }));
+  await screen.findByText(/writing a quick check on this passage/);
+  // batch_q's late answer arrives.
+  await act(async () => {
+    answerLate({ question: null, job: { status: "failed", errorCode: "provider_unavailable", message: "down", refusal: null } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(screen.getByText(/writing a quick check on this passage/)).toBeTruthy();
+  const settled = (jobId: string) => loggedEvents()
+    .filter((e) => e.kind === "reader_job_completed" && e.payload.job_id === jobId)
+    .map((e) => e.payload.status);
+  expect(settled("batch_b")).toEqual([]);
+  // batch_b lands: its own outcome is recorded, once.
+  api.readerInquiryQuestion.mockResolvedValueOnce({ question: check, job: { status: "completed", errorCode: null, message: null, refusal: null } });
+  await poll();
+  expect(await screen.findByText("Why is the eigenbasis orthonormal?")).toBeTruthy();
+  const done = loggedEvents().filter((e) => e.kind === "reader_job_completed" && e.payload.job_kind === "quick_check");
+  expect(done.map((e) => [e.payload.job_id, e.payload.status])).toEqual([["batch_q", "failed"], ["batch_b", "completed"]]);
+});
+
+it("a check over its per-check spending limit says so, and a missing price says that", async () => {
+  await openQuickCheckFromReconnect();
+  api.readerInquiryQuestion.mockResolvedValueOnce({
+    question: null, job: { status: "failed", errorCode: "spend_refused", message: "estimated_usd exceeds max_estimated_usd", refusal: "over_cap" },
+  });
+  await poll();
+  expect(await screen.findByText(/would cost more than the spending limit for one quick check/)).toBeTruthy();
+  expect(screen.queryByText(/no price is set/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "try again ↵" }));
+  await screen.findByText(/writing a quick check on this passage/);
+  api.readerInquiryQuestion.mockResolvedValueOnce({
+    question: null, job: { status: "failed", errorCode: "spend_refused", message: "no price is set", refusal: "no_price" },
+  });
+  await poll();
+  expect(await screen.findByText(/no price is set for this model/)).toBeTruthy();
+  expect(screen.queryByText(/spending limit for one quick check/)).toBeNull();
+});
+
 // -- F5: the switch off keeps no return stack ---------------------------------
 
 it("with the switch off, a search into another passage of a source left earlier lands and is saved there", async () => {
