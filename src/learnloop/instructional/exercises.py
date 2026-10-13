@@ -37,7 +37,7 @@ from learnloop.db.stores.source_block_fts import (
     section_header_titles,
     spans_with_content_hashes,
 )
-from learnloop.db.stores.source_service import imported_regions
+from learnloop.db.stores.source_service import exercise_key as _store_exercise_key, imported_regions
 from learnloop.ingest.locators import parse_block_span
 from learnloop.source_retrieval.corpus import Scope, effective_hint, teaching_scope
 from learnloop.source_retrieval.search import SpanSearch, search_spans
@@ -317,7 +317,7 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
 def exercise_key(extraction_id: str, span_ids: Sequence[str]) -> str:
     """A stable identity for an unimported exercise (ledger ids, receipts, impressions)."""
 
-    return "srcex:" + extraction_id + ":" + ",".join(str(span) for span in span_ids)
+    return _store_exercise_key(extraction_id, span_ids)
 
 
 __all__ = [

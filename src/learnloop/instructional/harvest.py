@@ -41,8 +41,8 @@ from learnloop.db.stores.source_service import (
     is_exercise_import,
     spend_since,
 )
-from learnloop.instructional.exercises import exercise_candidates
 from learnloop.instructional.validation import draft_validator
+from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.catalog import facet_label, registered_facets
 from learnloop.practice_index.coverage import coverage_targets
 from learnloop.practice_index.paid import FRAMING_TOKENS
@@ -116,6 +116,11 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
             clients: Mapping[str, Any] | None = None, rerank_client: Any | None = None,
             embedder: Any | None = None, clock: Clock | None = None,
             on_progress: Callable[[str], None] | None = None) -> dict[str, Any]:
+    switched_off = disabled_reason(vault, "exercise_arm")
+    if switched_off is not None:
+        return {"dry_run": dry_run, "targets": [], "imports": [], "skipped": [], "status": "disabled",
+                "reason": switched_off}
+    exercise_arm = find_practice_injections(vault)["exercise_arm"]
     targets = harvest_targets(vault, repository, learning_object_ids=learning_object_ids,
                               facet_ids=facet_ids, clock=clock)
     report: dict[str, Any] = {"dry_run": dry_run, "targets": targets, "imports": [], "skipped": []}
@@ -125,8 +130,8 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
         for target in targets:
             constraints = PracticeConstraints(facet_ids=(target["facet_id"],),
                                               learning_object_ids=tuple(target["learning_object_ids"]))
-            pool = exercise_candidates(vault, repository, _query(vault, target["facet_id"]), constraints,
-                                       pool_size=vault.config.practice_index.candidate_pool, embedder=None)
+            pool = exercise_arm(vault, repository, _query(vault, target["facet_id"]), constraints,
+                                pool_size=vault.config.practice_index.candidate_pool, embedder=None)
             target["exercise_candidates"] = len(pool.candidates)
             statements = [len(str(candidate.get("statement") or "")) for candidate in pool.candidates]
             rerank_tokens = sum(statements) + len(_query(vault, target["facet_id"])) + FRAMING_TOKENS \
@@ -161,7 +166,7 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
                                               kinds="source_exercises")
             result = find_practice(load_vault(vault.root), repository, _query(vault, target["facet_id"]),
                                    constraints, origin="cli", caller={"kind": "harvest", "ref": target["facet_id"]},
-                                   exercise_arm=exercise_candidates, rerank_client=rerank_client,
+                                   exercise_arm=exercise_arm, rerank_client=rerank_client,
                                    embedder=embedder, clock=clock)
             for entry in result.get("source_exercises") or []:
                 if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
@@ -213,6 +218,9 @@ def verification_targets(vault: LoadedVault, repository: Repository,
 def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cost_usd: float | None,
            item_ids: tuple[str, ...] = (), clients: Mapping[str, Any] | None = None,
            clock: Clock | None = None) -> dict[str, Any]:
+    switched_off = disabled_reason(vault, "exercise_verification")
+    if switched_off is not None:
+        return {"dry_run": dry_run, "targets": [], "checks": [], "status": "disabled", "reason": switched_off}
     targets = verification_targets(vault, repository, item_ids)
     report: dict[str, Any] = {"dry_run": dry_run, "targets": targets, "checks": []}
     if dry_run:

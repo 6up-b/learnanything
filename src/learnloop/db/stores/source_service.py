@@ -369,6 +369,125 @@ def reference_status_for_item(connection: sqlite3.Connection, item: Any) -> str:
     return "verified" if status in VERIFIED_STATUSES else "unverified"
 
 
+# -- S2b: serve-time independence of a need's source import (§5.4, §8.5 item 4) -------
+
+
+def need_source_import(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None:
+    """The source-first import that fulfilled an intervention need with this item
+    (its retrieval provenance: need, proposal, book solution), or None."""
+
+    if not table_exists(connection, "source_exercise_imports") \
+            or not column_exists(connection, "source_exercise_imports", "need_id"):
+        return None
+    row = connection.execute(
+        "SELECT * FROM source_exercise_imports WHERE practice_item_id=? AND need_id IS NOT NULL "
+        "AND status='written' ORDER BY created_at DESC, id DESC LIMIT 1", (practice_item_id,)).fetchone()
+    return None if row is None else _import(row)
+
+
+WORKED_EXAMPLE_LEDGER_TASK = "worked_example_equivalence"
+
+
+def exercise_key(extraction_id: str, span_ids: Iterable[str]) -> str:
+    """A stable identity for an unimported exercise (ledger ids, receipts, impressions)."""
+
+    return "srcex:" + extraction_id + ":" + ",".join(str(span) for span in span_ids)
+
+
+def serve_time_exposure(connection: sqlite3.Connection, *, practice_item_id: str, family_item_ids: Iterable[str],
+                        extraction_id: str | None, span_ids: Iterable[str], solution_span_ids: Iterable[str] = (),
+                        candidate_keys: Iterable[str] = (), studied_extraction_ids: Iterable[str] | None = None,
+                        since: str) -> dict[str, Any]:
+    """The exposure rule's facts at serving time, with no model call (§5.4).
+
+    Rules 1-3 and 5 as the valuation applied them: an attempt on the item, a
+    reveal on it or its family, source text shown from its span or its book
+    solution, an impression of it from any proposal (a system-initiated check
+    has no pick of its own). Rule 4 reads the judge's verdicts from the ledger:
+    a worked example studied within the window (shown, or in a section read;
+    the stored ``worked_example`` hint, a superset of the effective one) that
+    the judge called ``equivalent`` or ``related`` to this candidate excludes
+    it, and one never judged against it excludes it too (``unjudged``: never
+    assumed unrelated). ``candidate_keys`` are the ids the candidate was
+    judged under (the item id, the exercise key it had before import);
+    ``studied_extraction_ids`` is the candidate's teaching scope, the scope
+    rule 4's shortlist is drawn from at valuation (None: every extraction).
+    """
+
+    reasons: list[str] = []
+    inputs: dict[str, Any] = {"since": since}
+    family = sorted({str(value) for value in family_item_ids} | {practice_item_id})
+    if connection.execute("SELECT 1 FROM practice_attempts WHERE practice_item_id=? LIMIT 1",
+                          (practice_item_id,)).fetchone() is not None:
+        reasons.append("attempted")
+    if table_exists(connection, "reveal_events"):
+        marks = ",".join("?" for _ in family)
+        reveals = connection.execute(
+            f"SELECT id, practice_item_id FROM reveal_events WHERE practice_item_id IN ({marks}) AND created_at >= ?",
+            (*family, since)).fetchall()
+        if reveals:
+            reasons.append("revealed" if any(row[1] == practice_item_id for row in reveals) else "family_revealed")
+            inputs["reveal_ids"] = [str(row[0]) for row in reveals]
+    spans = [str(span) for span in span_ids]
+    solution = [str(span) for span in solution_span_ids]
+    if extraction_id and (spans or solution) and table_exists(connection, "source_exposure_events"):
+        keys = [(extraction_id, span) for span in dict.fromkeys(spans + solution)]
+        marks = ",".join("(?, ?)" for _ in keys)
+        exposed = connection.execute(
+            f"SELECT id FROM source_exposure_events WHERE (extraction_id, span_id) IN (VALUES {marks}) "
+            "AND created_at >= ?", (*[value for key in keys for value in key], since)).fetchall()
+        if exposed:
+            reasons.append("source_exposed")
+            inputs["exposure_event_ids"] = [str(row[0]) for row in exposed]
+    impressions = impressions_of_item(connection, practice_item_id, since=since)
+    if extraction_id and spans:
+        impressions += impressions_of_spans(connection, extraction_id, spans, since=since)
+    if impressions:
+        reasons.append("seen_in_proposal")
+        inputs["impression_ids"] = sorted({row["id"] for row in impressions})
+    studied: set[tuple[str, str]] = set()
+    if table_exists(connection, "source_exposure_events"):
+        studied |= {(str(row[0]), str(row[1])) for row in connection.execute(
+            "SELECT e.extraction_id, e.span_id FROM source_exposure_events e JOIN source_document_blocks b "
+            "ON b.extraction_id = e.extraction_id AND b.span_id = e.span_id "
+            "WHERE e.created_at >= ? AND b.role_hint = 'worked_example'", (since,))}
+    if table_exists(connection, "reader_section_progress") and table_exists(connection, "source_document_units"):
+        for extraction, section in connection.execute(
+                "SELECT extraction_id, section_id FROM reader_section_progress WHERE updated_at >= ? AND "
+                "(completed_at IS NOT NULL OR (span_count > 0 AND spans_seen >= span_count))", (since,)).fetchall():
+            unit = connection.execute(
+                "SELECT span_ids_json FROM source_document_units WHERE extraction_id=? AND unit_id=?",
+                (extraction, section)).fetchone()
+            unit_spans = [str(span) for span in _loads(unit[0], []) if span] if unit is not None else []
+            if unit_spans:
+                marks = ",".join("?" for _ in unit_spans)
+                studied |= {(str(extraction), str(row[0])) for row in connection.execute(
+                    f"SELECT span_id FROM source_document_blocks WHERE extraction_id=? AND span_id IN ({marks}) "
+                    "AND role_hint = 'worked_example'", (extraction, *unit_spans))}
+    if studied_extraction_ids is not None:
+        in_scope = {str(value) for value in studied_extraction_ids}
+        studied = {key for key in studied if key[0] in in_scope}
+    if studied:
+        lefts = sorted({practice_item_id, *[str(key) for key in candidate_keys]})
+        marks = ",".join("?" for _ in lefts)
+        verdicts: dict[str, str] = {}
+        for right_id, verdict in connection.execute(
+                f"SELECT right_id, verdict FROM judgment_ledger WHERE task=? AND left_id IN ({marks}) "
+                "ORDER BY created_at", (WORKED_EXAMPLE_LEDGER_TASK, *lefts)).fetchall():
+            verdicts[str(right_id)] = str(verdict)
+        judged = {f"{key[0]}:{key[1]}": verdicts.get(f"{key[0]}:{key[1]}") for key in sorted(studied)}
+        inputs["studied_worked_examples"] = judged
+        found = set(judged.values())
+        if "equivalent" in found:
+            reasons.append("equivalent_worked_example")
+        elif "related" in found:
+            reasons.append("related_worked_example")
+        elif None in found:
+            reasons.append("worked_example_unjudged")
+    return {"eligible": not reasons, "reasons": reasons, "inputs": inputs,
+            "exposure_rule_version": "reading_exposure_v1", "checked": "serve_time"}
+
+
 # -- S3: comparisons (migration 186) -------------------------------------------
 
 
@@ -714,6 +833,9 @@ __all__ = [
     "insert_key_check",
     "is_exercise_import",
     "is_reader_import",
+    "exercise_key",
+    "need_source_import",
+    "serve_time_exposure",
     "key_checks_for_item",
     "reference_status_for_item",
     "update_import",

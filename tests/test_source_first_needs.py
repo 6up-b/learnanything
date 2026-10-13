@@ -156,3 +156,108 @@ def test_the_cli_dry_run_names_the_source_first_step(active):
     assert result.exit_code == 0, result.stdout
     assert payload.get("source_first") is None or all(
         entry["outcome"] == "would_try_sources_first" for entry in payload["source_first"])
+
+
+def _follow_up_slate(paths, repository):
+    from learnloop.diagnosis.followups import _choose_intervention_item
+
+    selection = _choose_intervention_item(
+        loaded(paths), repository, attempt_id=None, learning_object_id="lo_matrices",
+        exclude_practice_item_id="__none__", target_facets=[], failed_facets=[], intent="diagnostic",
+        max_error_severity=0.5)
+    return selection, {row["practice_item_id"]: row for row in selection.slate}
+
+
+@pytest.mark.parametrize("exposure", ["source_read", "impression", "worked_example"])
+def test_the_follow_up_rechecks_independence_before_serving_a_need_import(active, exposure):
+    """F4 (Codex sources-build review): the item passed the exposure rule when
+    it was retrieved; before the follow-up serves it, the learner reads its
+    source, sees it in another proposal, or studies a worked example nobody
+    judged against it. The follow-up re-checks and does not serve it."""
+
+    from learnloop.db.stores.source_service import insert_impression
+    from learnloop.ids import new_ulid
+
+    paths, repository, spans = active
+    outcome = _fulfil(paths, repository, _need(repository), FakeServiceLLM())
+    item_id = outcome["practice_item_id"]
+    _selection, rows = _follow_up_slate(paths, repository)
+    assert rows[item_id]["source_first"]["need_id"] and rows[item_id]["source_first"]["serve_time"]["eligible"]
+    assert rows[item_id]["gate_passed"]
+    canonical = loaded(paths).practice_items[item_id].canonical_exercise
+    if exposure == "source_read":
+        repository.insert_source_exposure_event({"context": "reader", "extraction_id": canonical.extraction_id,
+                                                 "span_id": canonical.span_ids[0]})
+        reason = "source_exposed"
+    elif exposure == "impression":
+        with repository.connection() as connection:
+            insert_impression(connection, id="imp_" + new_ulid(), created_at="2099-01-01T00:00:00Z",
+                              surface="plan", caller_kind="learner", caller_ref=None, proposal_id="pip_other",
+                              candidate_kind="item", practice_item_id=item_id, extraction_id=None, span_ids=[],
+                              shown_fields={"prompt": True}, session_id=None)
+            connection.commit()
+        reason = "seen_in_proposal"
+    else:
+        repository.insert_source_exposure_event({"context": "reader", "extraction_id": "ext_text",
+                                                 "span_id": spans["worked"][1]})
+        reason = "worked_example_unjudged"
+    selection, rows = _follow_up_slate(paths, repository)
+    row = rows[item_id]
+    assert reason in row["source_first"]["serve_time"]["reasons"]
+    assert not row["gate_passed"] and row["filtered_reason"] == "exposed_since_valuation"
+    assert selection.candidate is None or selection.candidate.id != item_id
+    # An ordinary item on the LO is not touched by the source-first recheck.
+    others = [value for key, value in rows.items() if key != item_id]
+    assert others and all("source_first" not in value for value in others)
+
+
+@pytest.mark.parametrize("switch", ["exercise_arm", "discriminating_search"])
+def test_a_phase_switch_turns_the_need_step_off(active, switch):
+    """F15: the need step used to inject the arm and the valuer itself."""
+
+    paths, repository, _spans = active
+    set_config(paths, "source_service", **{switch: False})
+    misconception = repository.insert_misconception(
+        learning_object_id="lo_matrices", statement="Eigenvalues are the diagonal entries of any matrix",
+        target_facet="facet_eigen", severity=0.9)
+    need = _need(repository, focus={"misconception_ids": [misconception],
+                                    "misconception_statements": {misconception: "diagonal entries"}})
+    llm = FakeServiceLLM()
+    outcome = _fulfil(paths, repository, need, llm, path="cli")
+    assert outcome["outcome"] == "generate" and outcome["reason"] == f"source_service.{switch} is false"
+    assert llm.calls == []
+    with repository.connection() as connection:
+        proposals = connection.execute("SELECT COUNT(*) FROM practice_index_proposals").fetchone()[0]
+    assert proposals == 0
+    if switch == "exercise_arm":
+        # A primed retry (remediate) is off too.
+        assert _fulfil(paths, repository, _need(repository), llm)["outcome"] == "generate"
+
+
+def test_batch_commands_honour_their_switches(active):
+    from learnloop.instructional.harvest import harvest, verify
+
+    paths, repository, _spans = active
+    set_config(paths, "source_service", exercise_arm=False, exercise_verification=False)
+    vault = loaded(paths)
+    assert harvest(vault, repository, dry_run=True, max_cost_usd=None)["status"] == "disabled"
+    assert harvest(vault, repository, dry_run=False, max_cost_usd=1.0)["status"] == "disabled"
+    assert verify(vault, repository, dry_run=False, max_cost_usd=1.0)["status"] == "disabled"
+
+
+def test_a_worked_example_outside_the_items_teaching_scope_does_not_block_it(active):
+    """Rule 4 at serving reads the scope its valuation-time shortlist came
+    from: a worked example studied in a book the LO does not use was never
+    a candidate for the judge, so it is not ``unjudged`` against this item."""
+
+    from tests.source_service_fakes import seed_textbook
+
+    paths, repository, _spans = active
+    outcome = _fulfil(paths, repository, _need(repository), FakeServiceLLM())
+    item_id = outcome["practice_item_id"]
+    other = seed_textbook(repository, source_id="src_other", revision_id="rev_other", extraction_id="ext_other",
+                          title="Another subject")
+    repository.insert_source_exposure_event({"context": "reader", "extraction_id": "ext_other",
+                                             "span_id": other["worked"][1]})
+    _selection, rows = _follow_up_slate(paths, repository)
+    assert rows[item_id]["source_first"]["serve_time"]["eligible"] and rows[item_id]["gate_passed"]

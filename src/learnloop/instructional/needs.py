@@ -41,13 +41,13 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.source_exercise_import import import_source_exercise
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.source_service import update_import
+from learnloop.db.stores.source_service import import_row, update_import
 from learnloop.diagnosis.followups import misconception_discrimination
 from learnloop.diagnosis.probes import build_hypothesis_set
-from learnloop.instructional.discriminating import make_valuer
-from learnloop.instructional.exercises import exercise_candidates
 from learnloop.instructional.validation import draft_validator
+from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
+from learnloop.source_retrieval.corpus import teaching_scope
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -126,12 +126,20 @@ def fulfil_need_from_sources(
         if decision.get("unavailable"):
             return {"outcome": "generate", "intent": intent, "verdict": "abstain",
                     "reason": f"decision unpriced: {decision['unavailable']}"}
-    injected = dict(clients or {})
-    valuer = make_valuer(estimator=estimator, screen_client=injected.get("exercise_discrimination"),
-                         judge_client=injected.get("worked_example_equivalence")) if intent == "discriminate" else None
+    clients_by_role = dict(clients or {})
+    # The same switch-aware wiring every other caller uses (F15): a phase
+    # switched off is off here too, and the need goes to generation.
+    switched_off = disabled_reason(vault, "exercise_arm",
+                                   *(("discriminating_search",) if intent == "discriminate" else ()))
+    if switched_off is not None:
+        return {"outcome": "generate", "intent": intent, "reason": switched_off}
+    injected = find_practice_injections(vault, estimator=estimator,
+                                        screen_client=clients_by_role.get("exercise_discrimination"),
+                                        judge_client=clients_by_role.get("worked_example_equivalence"))
     result = find_practice(vault, repository, query or "practice", constraints, origin="api",
-                           caller={"kind": "need", "ref": str(need["id"])}, exercise_arm=exercise_candidates,
-                           valuer=valuer, estimator=estimator, rerank_client=rerank_client, clock=clock,
+                           caller={"kind": "need", "ref": str(need["id"])}, exercise_arm=injected["exercise_arm"],
+                           valuer=injected.get("valuer") if intent == "discriminate" else None,
+                           estimator=estimator, rerank_client=rerank_client, clock=clock,
                            pending_decision=pending_decision)
     proposal_id = result.get("proposal_id")
     exercises = {entry["key"]: entry for entry in result.get("source_exercises") or ()}
@@ -193,8 +201,15 @@ def fulfil_need_from_sources(
             repository.update_intervention_need_status(
                 str(need["id"]), status="fulfilled",
                 blocked_reason=f"source_exercise:{outcome['practice_item_id']}", clock=clock)
+            # The retrieval provenance the follow-up re-checks at serving
+            # (§5.4): rule 4's shortlist scope, the intent and the proposal.
+            scope = teaching_scope(vault, repository, [str(need["learning_object_id"])], item_bound=False)
             with repository.connection() as connection:
-                update_import(connection, outcome["import_id"], updated_at=utc_now_iso(clock), need_id=str(need["id"]))
+                validation = dict((import_row(connection, outcome["import_id"]) or {}).get("validation") or {})
+                validation["retrieval"] = {"intent": intent, "proposal_id": proposal_id,
+                                           "scope_extraction_ids": sorted(scope.extractions)}
+                update_import(connection, outcome["import_id"], updated_at=utc_now_iso(clock), need_id=str(need["id"]),
+                              validation=validation)
             return {"outcome": "fulfilled", "practice_item_id": outcome["practice_item_id"],
                     "import_id": outcome["import_id"], "tries": tries, **receipt}
         vault = load_vault(vault.root)
