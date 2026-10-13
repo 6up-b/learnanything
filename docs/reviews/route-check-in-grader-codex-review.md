@@ -208,3 +208,124 @@ Targeted runs before the gate:
    - the `+own-route-v1` identity suffix;
    - Haiku 5.5's strict-schema refusals;
    - method-phrased criteria.
+
+# Re-review
+
+The re-review (codex-job `20261013-151129-qrDOcp`) confirmed F1, F2 and F3 as
+fixed. It reopened F4: route verdicts reach the ledger and checked regrades
+supersede them, but supersession was incomplete. That gap is filed as F5.
+F5 reproduced and is fixed. Nothing was rejected.
+
+## Findings
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | An omitted criterion prevents a required hold | confirmed fixed (re-review) | `ceae5937a` | unchanged; tests above |
+| F2 | High | Explicit grader uncertainty is discarded on proofs | confirmed fixed (re-review) | `ceae5937a` | unchanged; tests above |
+| F3 | Medium | Errors quoted from clarification replies are erased | confirmed fixed (re-review) | `ceae5937a` | unchanged; tests above |
+| F4 | Medium | Serving route verdicts no longer reach the judgment ledger | reopened, closed by F5 | `681f25cea` | its supersession half is F5 |
+| F5 | Medium | A regrade without the rule leaves a superseded grade's verdict current | fixed | `681f25cea` | `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`; `test_f5_a_joint_regrade_supersedes_a_route_verdict`; `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict` |
+
+The tests are in `tests/test_route_rules_in_grader.py`. `318bce262`
+regenerates the DB/config reference at the code commit. Only the stamp and
+one source-line anchor moved.
+
+## Reproduction
+
+All three tests were run on `f15d647d7`, the re-reviewed tip, before the fix.
+All three failed:
+
+- **Switched off.** A held, ruled grade was regraded with
+  `proof_check.enabled = false`. One `own_route_rule` row was left, the held
+  verdict, and it was still current.
+- **Joint.** A joint regrade of an attempt with a current verdict appended
+  nothing.
+- **mvp-0.17.** Using a backup-API copy of
+  `fixtures/mvp017_route_check_replay`, the `held` attempt was regraded at
+  mvp-0.17. Its `proof_route_check` verdict was the only row and was still
+  current.
+
+## What changed
+
+`grading_support.record_route_rule_judgment` is still called in the
+transaction that records the grade. What it writes depends on whether the
+own-route rule ran over the new grade.
+
+- **When the rule ran** (`status = checked` on the new record), nothing
+  changes. It appends the verdict, which supersedes the attempt's current one.
+- **When the rule did not run**, and the attempt has a current
+  `own_route_rule` verdict, it appends `{"status": "not_checked"}`
+  superseding that verdict. This covers:
+  - the kill switch;
+  - PF-c turned off;
+  - a version without the rules;
+  - a joint grade.
+
+  The row carries the regrade's own provenance: `judge = llm`, the grader's
+  model, and the run's prompt version and input hash. So the current verdict
+  always describes the current grade, and its `input_hash` matches the latest
+  grade's context hash.
+- **When the attempt has no verdict**, nothing is written. That is the
+  normal case: live grades, and attempts that were never ruled.
+- **Later regrades without the rule** restate `not_checked` each time, one
+  row per regrade. This keeps the current row's provenance equal to the
+  current grade.
+- **Replay** writes none, and no model is called.
+
+`regrade.regrade_attempt` now calls the writer on every successful regrade,
+blind or joint, inside the publication transaction. A joint regrade passes
+its run's `prompt_version` and `input_context_hash`.
+
+- **A joint regrade cannot reach this today.** A verdict is written only
+  beside a blind record, and an attempt with a blind record always regrades
+  blind (`prior_blind is not None`). The test seeds the verdict directly, so
+  the ledger invariant no longer depends on that coupling.
+- **mvp-0.17's verdicts are the same gap.**
+  - mvp-0.17 wrote the attempt's route verdict under task `proof_route_check`,
+    and a checked regrade superseded it.
+  - This stage deleted that writer. So a regrade of an mvp-0.17-checked
+    attempt left that verdict current, at mvp-0.17 and after the upgrade
+    alike.
+  - Any grade that replaces such an attempt's grade now supersedes the
+    verdict with a `not_checked` row in the same task. The ledger trigger
+    requires supersession within one task.
+  - The task's name is kept as one constant,
+    `LEGACY_ROUTE_CHECK_JUDGMENT_TASK`.
+- **Not touched: an owner adjudication.** It releases a hold through tier-4
+  evidence rows. It does not replace the blind grade the verdict describes,
+  so it writes no verdict, as before.
+
+## Gate
+
+Run on the tree at `318bce262`, with `TMPDIR` set to the worktree's
+`fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **15 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **9428 passed**, 0 failed (7 min 32 s; 9425 at the re-reviewed tip plus the 3 new tests) |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **96 passed**, 9332 deselected |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: schema head 186, 308 table notes, 763 configuration leaves in 46 sections, stamped at `681f25cea` |
+
+**Targeted run before the gate.** 51 grading, regrade, clarification, held,
+split, upgrade, router, mvp-0.17-replay, stuck, judgment, route and proof
+test files: **714 passed**.
+
+**Not applicable:**
+
+- No file under `apps/learnloop-tauri` changed, so the npm and cargo steps do
+  not apply.
+- No migration and no schema change.
+- No paid call.
+- The shadow rebuild was not rerun. The fix writes only `judgment_ledger`
+  rows on a regrade, and replay neither reads nor writes them.
+
+## Open questions after the re-review
+
+1. **Restating `not_checked`.** Each later regrade without the rule restates
+   `not_checked`, one row per regrade, so the current row's identity is the
+   current grade's. The alternative is to close the verdict once and leave
+   it. This also applies to mvp-0.17's `proof_route_check` verdicts.
+2. **Earlier open questions 1, 2, 4 and 5 stand.** Open question 3 (a ledger
+   verdict with no successor) is resolved by F5.
