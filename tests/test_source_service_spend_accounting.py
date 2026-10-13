@@ -577,14 +577,19 @@ def _stamp(midnight: datetime, seconds: int) -> str:
     return (midnight + timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def test_an_upgrade_counts_each_request_recorded_before_reservation_links_once(tmp_path):
+def test_an_upgrade_counts_every_request_and_reports_the_unprovable_overlap(tmp_path):
     """A vault at migration 194 has today's service receipts from before the
     ledger ($0.30), requests whose ledger rows were settled before receipts
     named their reservation (a $0.20 import whose receipt names nothing, and
     a $0.05 query embedding outside the service's receipt kinds), and a
-    linked $0.10 request. After the upgrade the day's total is $0.65: before
-    the fix the $0.20 import was counted by its row and again by its receipt
-    ($0.85)."""
+    linked $0.10 request. The linked request counts once. The $0.20 import's
+    receipt cannot be tied to its legacy row by anything durable (only its
+    amount and a second-resolution window match), so both count: $0.85, with
+    the receipt's $0.20 reported as possibly counted twice. (This test used to
+    expect $0.65, which relied on matching the receipt to the row by amount;
+    the Codex verify 20261013-125339-TBEVSp showed amount matching can
+    suppress another request's receipt and undercount, so the rule is now
+    conservative: never less than was spent.)"""
 
     before = tmp_path / "migrations_194"
     before.mkdir()
@@ -627,20 +632,22 @@ def test_an_upgrade_counts_each_request_recorded_before_reservation_links_once(t
     with connect(sqlite_path, read_only=True) as connection:
         unmigrated = service_spend_accounting(connection, envelope=SS.DAILY_ENVELOPE, day=day,
                                               since=day + "T00:00:00", now=SS.utc_now_iso(), price_per_million=PRICE)
-    assert unmigrated["usd"] == pytest.approx(0.65), unmigrated
+    assert unmigrated["usd"] == pytest.approx(0.85), unmigrated
+    assert unmigrated["legacy"]["uncertain_usd"] == pytest.approx(0.20)
     SS._DAILY.clear()
     repository = Repository(sqlite_path)  # the upgrade
     with connect(sqlite_path, read_only=True) as connection:
         legacy = dict(connection.execute("SELECT id, legacy FROM source_service_spend").fetchall())
     assert legacy == {"ssp_import": 1, "ssp_embed": 1, "ssp_linked": 0}
     spent = SS.service_spend_today(vault, repository)
-    assert spent["usd"] == pytest.approx(0.65), spent
+    assert spent["usd"] == pytest.approx(0.85), spent
+    assert spent["legacy"]["uncertain_usd"] == pytest.approx(0.20)
     envelope = _process(vault, repository)
-    assert not _admits(envelope, 0.36)
-    assert _admits(envelope, 0.35)
+    assert not _admits(envelope, 0.16)
+    assert _admits(envelope, 0.15)
 
 
-# -- Codex review of this stage, F1: a legacy row covers only a receipt it can be correlated with ----------
+# -- Codex review of this stage, F1, and its verify (20261013-125339-TBEVSp): a legacy row covers no receipt ------
 
 
 def _database_at_194(tmp_path):
@@ -700,9 +707,12 @@ def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path)
     """Codex's reproduction: a pre-ledger $0.80 receipt starts at …50.100; a
     $0.10 reservation is made later that second (stamped …50Z, to the second)
     and its own receipt starts at …50.600. Migration 195 marks the reservation
-    legacy. Before the fix both receipts fell in its lifetime window and were
-    taken for its own: the day counted $0.10, not $0.90, and admitted $0.20
-    more under a $1 cap."""
+    legacy. Before the first fix both receipts fell in its lifetime window and
+    were taken for its own: the day counted $0.10, not $0.90, and admitted
+    $0.20 more under a $1 cap. The first fix then took the $0.10 receipt for
+    the row's own by its amount; the verify's rule takes nothing by amount,
+    so the row's charge and both receipts count ($1.00, never less than the
+    $0.90 spent) and the two receipts in its window are reported uncertain."""
 
     sqlite_path = _database_at_194(tmp_path)
     _day, midnight = _today()
@@ -713,19 +723,25 @@ def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path)
                 ])
     unmigrated, spent, repository = _unmigrated_and_upgraded(sqlite_path)
     for accounting in (unmigrated, spent):
-        assert accounting["usd"] == pytest.approx(0.90), accounting
-        assert accounting["legacy"]["covered_requests"] == 1 and accounting["legacy"]["uncertain_requests"] == 0
+        assert accounting["usd"] == pytest.approx(1.00), accounting
+        assert accounting["legacy"]["covered_requests"] == 0 and accounting["legacy"]["uncertain_requests"] == 2
+        assert accounting["legacy"]["uncertain_usd"] == pytest.approx(0.90)
     envelope = _process(_vault(1.0), repository)
-    assert not _admits(envelope, 0.20)
-    assert _admits(envelope, 0.10)
+    assert not _admits(envelope, 0.01)  # the $1 cap is reached (conservatively)
+    wider = _process(_vault(1.2), repository)
+    assert not _admits(wider, 0.21)
+    assert _admits(wider, 0.20)
 
 
-def test_overlapping_legacy_requests_cover_only_their_own_receipts(tmp_path):
+def test_overlapping_legacy_requests_cover_no_receipt(tmp_path):
     """Two legacy requests overlap in time, and a receipt from another path
-    starts while both are in flight. Each legacy row covers the one receipt
-    whose cost it settled at (the second settled at its receipt's tokens at
-    the request's recorded rate, above the reported cost); the other path's
-    receipt counts. Before the fix all three were covered: $0.50, not $0.65."""
+    starts while both are in flight. Before the first fix all three receipts
+    were covered ($0.50, not the $0.65 spent); the first fix let each row
+    cover the one receipt whose cost it settled at. That was amount matching,
+    which the verify (20261013-125339-TBEVSp) showed can suppress another
+    request's receipt, so no row covers any: both rows' charges and all
+    three receipts count ($1.10, never less than was spent), and the three
+    receipts in their windows are reported uncertain ($0.60)."""
 
     sqlite_path = _database_at_194(tmp_path)
     _day, midnight = _today()
@@ -739,9 +755,10 @@ def test_overlapping_legacy_requests_cover_only_their_own_receipts(tmp_path):
                 ])
     unmigrated, spent, _repository = _unmigrated_and_upgraded(sqlite_path)
     for accounting in (unmigrated, spent):
-        assert accounting["usd"] == pytest.approx(0.65), accounting
+        assert accounting["usd"] == pytest.approx(1.10), accounting
         legacy = accounting["legacy"]
-        assert (legacy["correlated"], legacy["covered_requests"], legacy["uncertain_requests"]) == (2, 2, 0)
+        assert (legacy["correlated"], legacy["covered_requests"], legacy["uncertain_requests"]) == (0, 0, 3)
+        assert legacy["uncertain_usd"] == pytest.approx(0.60)
 
 
 def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path):
@@ -763,6 +780,36 @@ def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path)
         legacy = accounting["legacy"]
         assert (legacy["correlated"], legacy["uncorrelated"], legacy["covered_requests"]) == (0, 1, 0)
         assert legacy["uncertain_requests"] == 2 and legacy["uncertain_usd"] == pytest.approx(0.20)
+
+
+def test_a_legacy_row_never_suppresses_a_receipt_it_only_matches_by_amount(tmp_path):
+    """Codex verify (20261013-125339-TBEVSp): a legacy embedding reservation
+    settled at its $0.10 estimate; its own receipt (a practice_query_embedding,
+    outside the service's receipt kinds) reports $0.09; an unrelated service
+    receipt in the same legacy window reports $0.10. Before the fix that
+    receipt was the row's unique dollar-matching candidate and was suppressed:
+    the day counted $0.10, not $0.19, with nothing uncertain, and admitted
+    another $0.85 under a $1 cap ($1.04 spent). A legacy row has no durable
+    identity link to any receipt, so it suppresses none: both count ($0.20,
+    never less than was spent), and the overlap is reported as uncertain."""
+
+    sqlite_path = _database_at_194(tmp_path)
+    _day, midnight = _today()
+    _legacy_era(sqlite_path, rows=[("ssp_embed", 0.10, 0.10, _stamp(midnight, 60), _stamp(midnight, 61))],
+                receipts=[
+                    ("r_own", "practice_query_embedding", 0.09, _at(midnight, 60.2), 0, {"billing": "metered"}),
+                    ("r_other", "source_compare", 0.10, _at(midnight, 60.7), 0, {"billing": "metered"}),
+                ])
+    unmigrated, spent, repository = _unmigrated_and_upgraded(sqlite_path)
+    for accounting in (unmigrated, spent):
+        assert accounting["usd"] == pytest.approx(0.20), accounting
+        assert accounting["usd"] >= 0.19
+        legacy = accounting["legacy"]
+        assert (legacy["correlated"], legacy["covered_requests"]) == (0, 0)
+        assert legacy["uncertain_requests"] == 1 and legacy["uncertain_usd"] == pytest.approx(0.10)
+    envelope = _process(_vault(1.0), repository)
+    assert not _admits(envelope, 0.85)
+    assert _admits(envelope, 0.80)
 
 
 # -- Codex review of this stage, F2: a reported cost is never repriced ---------------------------------

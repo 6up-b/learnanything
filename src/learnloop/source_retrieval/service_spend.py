@@ -16,8 +16,10 @@ these envelopes bound the SUM (Codex review F2, re-review F2):
 
 The day's total is ONE accounting function
 (``db.stores.source_service.service_spend_accounting``), read by admission,
-recovery and every report, which counts each request exactly once
-(sources-spend-accounting: Codex F2 reopened, F14). A request's root receipt
+recovery and every report, which counts each linked request exactly once
+(sources-spend-accounting: Codex F2 reopened, F14) and a legacy one at least
+once, never less than was spent (a legacy row suppresses no receipt; the
+overlap is reported as ``legacy.uncertain_usd``). A request's root receipt
 names its reservation; while the reservation's owner lives it counts the
 larger of its charge and what that receipt shows (a worker that died after
 its receipt but before reconciling it leaves both), once reconciled what the

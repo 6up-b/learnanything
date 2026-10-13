@@ -823,13 +823,15 @@ def receipt_time_floor(since: str) -> str:
 # * a released reservation counts what its receipts show (an owner presumed
 #   dead that sent anyway);
 # * a legacy row (written before receipts named reservations, migration 195)
-#   counts its own charge. An unlinked receipt is taken for its request's, and
-#   not counted again, only when the two are correlated beyond doubt: the
-#   receipt started during the row's lifetime, the row settled at exactly
-#   what the receipt shows, and neither has another such partner. Where that
-#   identity is ambiguous both count (conservatively, never less than was
-#   spent) and the report says how much may be counted twice
-#   (``legacy.uncertain_usd``);
+#   counts its own charge, and suppresses no receipt: a receipt is a
+#   request's own only on durable identity evidence (its root budget naming
+#   the reservation, which makes the row not legacy), never on an amount or
+#   a second-resolution timestamp (Codex verify 20261013-125339-TBEVSp: a
+#   same-amount receipt of another request in the row's window was taken for
+#   its own and the request's real receipt went uncounted). So the row's
+#   charge AND every unlinked receipt count (never less than was spent), and
+#   the receipts that started during a legacy row's lifetime, which may be
+#   its own counted twice, are reported (``legacy.uncertain_usd``);
 # * a receipt naming no reservation of the envelope (spend before the ledger,
 #   or another path) counts once by its own cost.
 #
@@ -923,21 +925,6 @@ def _metered_cost(cost: Any, tokens: int, recorded_rate: float | None,
     return None, "unpriced"
 
 
-def _legacy_settlements(cost: Any, tokens: int, rates: Iterable[float | None]) -> list[float]:
-    """What a legacy owner can have settled this receipt's request at. Every
-    metered path of that era reconciled its reservation with the reported
-    cost, or with the larger of it and the reported tokens at its price
-    (``PaidCalls``, ``PFCaller``, the import's authoring); one that reported
-    nothing settled at its estimate, which no receipt shows."""
-
-    values = [] if cost is None else [float(cost)]
-    for rate in rates:
-        if rate is not None and tokens:
-            priced = tokens * rate
-            values.append(priced if cost is None else max(float(cost), priced))
-    return values
-
-
 def _estimated_tokens(tokens: int, usage_json: Any) -> int:
     """A subscription receipt's tokens: reported, else its own estimate."""
 
@@ -998,36 +985,6 @@ def _legacy_rows(connection: sqlite3.Connection, envelope: str, since: datetime)
     return found
 
 
-def _correlate_legacy(legacy: Sequence[Mapping[str, Any]], receipts: Sequence[Mapping[str, Any]]) -> dict[int, str]:
-    """The unlinked receipts that are a legacy row's own request, beyond doubt
-    (receipt index -> row id).
-
-    Nothing names a legacy row, and its stamps are to the second, so a
-    receipt that merely started during its lifetime may be another request's
-    (one from before the ledger, another path, an overlapping request). A
-    receipt is the row's own only when the row settled at exactly what it
-    shows (``_legacy_settlements``), it started during the row's lifetime,
-    and neither has another partner that fits: it is the row's one candidate,
-    and the row is its one. Two receipts of the row's cost in its lifetime,
-    or a row settled at its estimate, are ambiguous: nothing is covered."""
-
-    candidates: dict[str, list[int]] = {}
-    rows_of: dict[int, list[str]] = {}
-    for row in legacy:
-        start, end = row["window"]
-        for index, receipt in enumerate(receipts):
-            started = receipt["started"]
-            if receipt["refs"] or receipt["billing"] != "metered" or started is None \
-                    or not start <= started < end:
-                continue
-            if any(math.isclose(value, row["charged"], rel_tol=1e-9, abs_tol=_EPSILON)
-                   for value in receipt["settlements"]):
-                candidates.setdefault(row["id"], []).append(index)
-                rows_of.setdefault(index, []).append(row["id"])
-    return {indexes[0]: handle for handle, indexes in candidates.items()
-            if len(indexes) == 1 and len(rows_of[indexes[0]]) == 1}
-
-
 def _second_floor(moment: datetime) -> str:
     """``moment``'s second as the receipt scan's lower bound (``receipt_time_floor``'s form)."""
 
@@ -1051,8 +1008,9 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
     ``estimated_only``, never capped. ``recovery`` lists what recovery would
     do to each orphan; the total already counts each orphan that way, so a
     report agrees with the admission that will recover it. ``legacy`` says
-    which receipts legacy rows cover and how much of the total may be a
-    legacy request counted twice (``uncertain_usd``).
+    how much of the total may be a legacy request counted twice
+    (``uncertain_usd``): a legacy row covers no receipt (``correlated`` and
+    ``covered_requests`` stay 0; the keys keep the report's shape).
     """
 
     stamp = ledger_stamp(now)
@@ -1103,7 +1061,6 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
             "refs": refs, "owner_kind": owner_kind, "started": _moment(started_at), "cost": cost,
             "tokens": tokens, "usage_json": usage_json, "recorded_rate": recorded,
             "billing": _receipt_billing(declared, provider, subscription_providers),
-            "settlements": _legacy_settlements(cost, tokens, (recorded, rate)),
         })
     named = _named_reservations(connection, envelope, refs_seen) if ledger and refs_seen else set()
     linked: dict[str, dict[str, float]] = {row["id"]: {"priced": 0.0, "unknown": 0, "unreported": 0, "receipts": 0}
@@ -1114,11 +1071,13 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
             window = _lifetime(row["created_at"], row["updated_at"]) if row["legacy"] else None
             if window is not None:
                 legacy.append({"id": row["id"], "charged": float(row["charged_usd"] or 0.0), "window": window})
-    own = _correlate_legacy(legacy, receipts) if legacy else {}
-    covering = set(own.values())
-    uncertain = [row["window"] for row in legacy if row["id"] not in covering]
-    out["legacy"].update(rows=len(legacy), correlated=len(covering), uncorrelated=len(legacy) - len(covering))
-    for index, receipt in enumerate(receipts):
+    # A legacy row covers no unlinked receipt: nothing durable ties one to it
+    # (a receipt naming it would have made it not legacy), and an amount or a
+    # second-resolution stamp is no identity. Every legacy lifetime is a
+    # window of possible double counting, reported, never suppressed.
+    uncertain = [row["window"] for row in legacy]
+    out["legacy"].update(rows=len(legacy), correlated=0, uncorrelated=len(legacy))
+    for receipt in receipts:
         refs, started, cost = receipt["refs"], receipt["started"], receipt["cost"]
         in_window = started is not None and started >= floor_at
         service = bool(refs) or owner_kinds is None or receipt["owner_kind"] in owner_kinds
@@ -1149,10 +1108,6 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
             continue
         if not service or not in_window:
             continue
-        if index in own:
-            out["metered"]["legacy_covered_requests"] += 1  # its legacy row counts it
-            out["legacy"]["covered_requests"] += 1
-            continue
         out["requests"] += 1
         out["metered"]["requests"] += 1
         out["requests_reporting_cost"] += int(cost is not None)
@@ -1162,7 +1117,7 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
         else:
             out["metered"]["usd"] += value
         if not refs and any(start <= started < end for start, end in uncertain):
-            # It may be an uncorrelated legacy row's own request, counted twice.
+            # It may be a legacy row's own request, counted twice.
             out["legacy"]["uncertain_requests"] += 1
             out["legacy"]["uncertain_usd"] += value or 0.0
     reserved_total = 0.0

@@ -16,13 +16,12 @@
 --
 -- Rows written before receipts named their reservation (migration 194's
 -- first code) cannot be matched with their receipts by name. They are marked
--- `legacy`: such a row keeps counting its own charge, and an unlinked receipt
--- is taken for its request's, and not counted again (F14), only when the two
--- are correlated beyond doubt: the receipt started during the row's lifetime,
--- the row settled at exactly what the receipt shows, and neither has another
--- such partner. Ambiguous ones count both, conservatively, and the report
--- says how much may be counted twice (the stage review's F1). A row is
--- legacy when no root receipt names it.
+-- `legacy`: such a row keeps counting its own charge and suppresses no
+-- receipt, since nothing durable ties one to it (an amount or a
+-- second-resolution stamp is no identity: the Codex verify of the stage
+-- review's F1, at the merge onto main). Both count, conservatively, and the
+-- report says how much may be counted twice. A row is legacy when no root
+-- receipt names it.
 --
 -- SQLite cannot widen a CHECK in place, so the WORKFLOW table is rebuilt with
 -- every row and its index; nothing references it. Two indexes let the
