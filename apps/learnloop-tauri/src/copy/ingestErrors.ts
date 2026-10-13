@@ -26,7 +26,7 @@ const LINES: Record<string, string> = {
 };
 
 // Codes whose backend message is already a plain sentence written for the learner.
-const OWN_WORDS = new Set(["library_folder_in_use", "chatgpt_models_unavailable"]);
+const OWN_WORDS = new Set(["library_folder_in_use", "chatgpt_models_unavailable", "text_recognition_unavailable"]);
 
 function asCommandError(error: unknown): CommandError | null {
   if (error && typeof error === "object" && "code" in error && "message" in error) {

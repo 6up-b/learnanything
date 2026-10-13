@@ -57,9 +57,11 @@ def test_one_ok_records_consent_for_the_connected_provider(tmp_path, monkeypatch
     assert before["canAuthor"] is True
     assert before["consented"] is False
     assert before["needs"] == "consent"
-    assert before["providerLabel"] == "ChatGPT"
+    # The AI this library is set up with, named as the learner knows it
+    # (usability round 2: a Codex user's OK said only "ChatGPT").
+    assert before["providerLabel"] == "Codex (your ChatGPT account)"
     assert before["whatLeaves"] == (
-        "LearnLoop sends passages of the books you add, and your answers, to ChatGPT "
+        "LearnLoop sends passages of the books you add, and your answers, to Codex (your ChatGPT account) "
         "to write questions and give feedback."
     )
 

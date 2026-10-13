@@ -948,6 +948,40 @@ export function App() {
     [onError, landOnLibraryIfEmpty, refreshAiConnection]
   );
 
+  // The Library place; with no book open, the Reader shows its shelf too
+  // (spec K5, usability round 2: one shelf, not a second list of books).
+  function libraryPlace(booksOnly = false) {
+    return (
+      <LibraryPlace
+        view={booksOnly ? "books" : libraryView}
+        onViewChange={setLibraryView}
+        booksOnly={booksOnly}
+        filesProps={{
+          onError,
+          focus: libraryFocus,
+          onFocusConsumed: () => setLibraryFocus(null),
+          focusFilePath: libraryFilePath,
+          onFileFocusConsumed: () => setLibraryFilePath(null),
+          onAsk: setAskTarget,
+          onNoteSelected: setLibraryNoteId,
+          onInspect: setInspectorId
+        }}
+        aiConnection={aiConnection}
+        onOpenBook={openBook}
+        onConnectAi={() => setConnectOpen(true)}
+        onOpenImports={() => gotoTab("ingest")}
+        onOpenChanges={() => gotoTab("proposals")}
+        onOpenSettings={() => gotoTab("settings")}
+        onAdd={(sources, options) => void addSources(sources, options)}
+        addBusy={adder.busy}
+        addMessage={adder.message}
+        dragging={fileDragging}
+        openWhenReady={openWhenReady}
+        onOpenedWhenReady={() => setOpenWhenReady(null)}
+      />
+    );
+  }
+
   function renderBody() {
     if (!snapshot) {
       if (startupError) {
@@ -1155,34 +1189,7 @@ export function App() {
       );
     }
     if (tab === "library") {
-      return (
-        <LibraryPlace
-          view={libraryView}
-          onViewChange={setLibraryView}
-          filesProps={{
-            onError,
-            focus: libraryFocus,
-            onFocusConsumed: () => setLibraryFocus(null),
-            focusFilePath: libraryFilePath,
-            onFileFocusConsumed: () => setLibraryFilePath(null),
-            onAsk: setAskTarget,
-            onNoteSelected: setLibraryNoteId,
-            onInspect: setInspectorId
-          }}
-          aiConnection={aiConnection}
-          onOpenBook={openBook}
-          onConnectAi={() => setConnectOpen(true)}
-          onOpenImports={() => gotoTab("ingest")}
-          onOpenChanges={() => gotoTab("proposals")}
-          onOpenSettings={() => gotoTab("settings")}
-          onAdd={(sources, options) => void addSources(sources, options)}
-          addBusy={adder.busy}
-          addMessage={adder.message}
-          dragging={fileDragging}
-          openWhenReady={openWhenReady}
-          onOpenedWhenReady={() => setOpenWhenReady(null)}
-        />
-      );
+      return libraryPlace();
     }
     if (tab === "proposals") {
       return (
@@ -1249,11 +1256,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} />;
     }
     if (tab === "maintain") {
       return (

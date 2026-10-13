@@ -106,7 +106,13 @@ export function BookShelf({
         ))}
         {sources.map((card) => (
           <li key={card.sourceId}>
-            <BookCard card={card} onContinue={onOpen} onAction={onAction} onOpenImports={onOpenImports} />
+            <BookCard
+              card={card}
+              onContinue={onOpen}
+              onAction={onAction}
+              onOpenImports={onOpenImports}
+              aiReady={aiConnection ? aiConnection.canAuthor : undefined}
+            />
           </li>
         ))}
       </ul>

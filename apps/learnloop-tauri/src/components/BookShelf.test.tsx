@@ -214,3 +214,55 @@ describe("BookShelf", () => {
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ sourceId: "src_2" }));
   });
 });
+
+// UX Phase 1 usability round 2 (docs/reviews/ux-phase1.md, "Usability round 2 fixes").
+describe("round 2", () => {
+  const done: SourceStatusLineDto = {
+    text: "Questions for Ch. 1–2 come up as you read",
+    tone: "quiet",
+    action: null,
+    details: null,
+    withoutAi: {
+      text: "Questions for Ch. 1–2 come up as you read once an AI is connected",
+      tone: "quiet",
+      action: { kind: "connect_ai", label: "Connect" },
+      details: null
+    }
+  };
+
+  it("offers text recognition only on a book where it can run", () => {
+    const { unmount } = render(<BookCard card={card(null, { textRecognitionAvailable: false })} onContinue={vi.fn()} onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    expect(screen.queryByRole("button", { name: "Read it again with text recognition" })).toBeNull();
+    unmount();
+
+    const onAction = vi.fn();
+    render(<BookCard card={card(null, { textRecognitionAvailable: true })} onContinue={vi.fn()} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read it again with text recognition" }));
+    expect(onAction).toHaveBeenCalledWith("text_recognition", expect.anything());
+  });
+
+  it("says what questions need when no AI is connected, instead of promising them", () => {
+    render(
+      <BookShelf sources={[card(done)]} pending={[]} aiConnection={NEEDS_AI} onOpen={vi.fn()} onAction={vi.fn()} onConnectAi={vi.fn()} onAdd={vi.fn()} />
+    );
+    expect(screen.queryByText("Questions for Ch. 1–2 come up as you read")).toBeNull();
+    expect(screen.getByText("Questions for Ch. 1–2 come up as you read once an AI is connected")).toBeTruthy();
+  });
+
+  it("keeps the as-you-read line when an AI can write questions", () => {
+    render(
+      <BookShelf
+        sources={[card(done)]}
+        pending={[]}
+        aiConnection={{ ...NEEDS_AI, canAuthor: true, needs: null }}
+        onOpen={vi.fn()}
+        onAction={vi.fn()}
+        onConnectAi={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Questions for Ch. 1–2 come up as you read")).toBeTruthy();
+  });
+});

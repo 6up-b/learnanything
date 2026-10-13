@@ -412,14 +412,16 @@ def test_f3_a_planner_that_dies_after_queuing_its_build_is_never_orphaned(tmp_pa
     assert planner["status"] == "running" and planner["result"] is None
     assert len(_build_batches(repo)) == 1
     # The book already knows its build is underway.
-    assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Questions for Ch. 1–2 in about")
+    # A first build has no past build to estimate from (usability round 2).
+    assert source_status_line(repo, load_vault(root), source_id)["text"] == "Writing questions for Ch. 1–2"
 
     # Restart: the dead lease is recovered, then the planner is resumed.
     runner = jobs._require_runner()
     runner.clock = FrozenClock(CLOCK.now() + timedelta(hours=1))
     runner.recover_stale_leases()
     assert repo.get_ingest_job(planner["id"])["status"] == "failed"
-    assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Questions for Ch. 1–2 in about")
+    # A first build has no past build to estimate from (usability round 2).
+    assert source_status_line(repo, load_vault(root), source_id)["text"] == "Writing questions for Ch. 1–2"
     jobs.resume_batch(planner["batch_id"])
     _drain(jobs)
     assert len(_build_batches(repo)) == 1  # never a second build
@@ -983,7 +985,7 @@ def test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found(t
 
     assert [job["id"] for job in core.auto_jobs(repo, source_id)] == [planner["id"]]
     assert core.latest_auto_outcome(repo, source_id)["build_batch_id"] == core.child_batch_id(planner["id"])
-    assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Questions for")
+    assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Writing questions for")
 
 
 def test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file_ok(tmp_path, monkeypatch):

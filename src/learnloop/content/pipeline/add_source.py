@@ -75,8 +75,15 @@ KEPT_LOCAL_BUILD_MESSAGE = "This book is kept on this computer, so no questions 
 AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
 # The learner's Undo as an owner verdict in judgment_ledger (review F12).
 UNDO_JUDGMENT_TASK = "auto_applied_content"
+# How to get text recognition, plainly (usability round 2: the details pasted
+# the extractor's raw "install marker-pdf for OCR support"). It comes with
+# LearnLoop's optional PDF tools; the command is the install's own.
+TEXT_RECOGNITION_HOW_TO = (
+    "To add it, run uv sync --extra pdf in LearnLoop's folder, then restart LearnLoop."
+)
 TEXT_RECOGNITION_UNAVAILABLE_MESSAGE = (
-    "Text recognition isn't installed on this computer, so this was added without it."
+    "Text recognition isn't installed on this computer, so this was added without it. "
+    + TEXT_RECOGNITION_HOW_TO
 )
 # A first build accumulates tiny units (page-per-unit extractions) up to this
 # much text, so it is never one page; never past the scope cap.
@@ -99,7 +106,9 @@ _ROLE_BY_CATEGORY = {
 }
 _CHAPTER_NUMBER = re.compile(r"^\s*(?:chapter|ch\.?|part|lecture|unit)?\s*(\d+)\b", re.IGNORECASE)
 _JUNK_PDF_TITLES = re.compile(r"^(?:untitled|microsoft word|document\d*|\s*)$|\.(?:docx?|tex|dvi|pdf)$", re.IGNORECASE)
-_CONSENT_LABEL = {"codex": "ChatGPT", "chatgpt": "ChatGPT", "openrouter": "OpenRouter"}
+# The AI the learner set up, named as they know it (usability round 2: a Codex
+# user's one-time OK said "ChatGPT" while everything else said Codex).
+_CONSENT_LABEL = {"codex": "Codex (your ChatGPT account)", "chatgpt": "ChatGPT", "openrouter": "OpenRouter"}
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +128,44 @@ class AddSourceOptions:
 
 def kind_noun(category: str | None) -> str:
     return _KIND_NOUN.get(category or "", "book")
+
+
+# A PDF is a paper when it opens with an abstract and is short (usability
+# round 2: an 11-page paper was called a "book").
+_ABSTRACT_LABEL = re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?\s*)?abstract\s*[.:]?\s*$", re.IGNORECASE)
+_PAPER_MAX_PAGES = 60
+
+
+def source_kind_noun(repo, source_id: str, category: str | None) -> str:
+    """What the learner calls this source: ``kind_noun``, except that a short
+    PDF whose text opens with an Abstract is a paper."""
+
+    noun = kind_noun(category)
+    if category != "pdf":
+        return noun
+    resolved = _completed_extraction(repo, source_id)
+    if resolved is None:
+        return noun
+    extraction_id = resolved[1]
+    with repo.connection() as connection:
+        labels = [
+            str(row["label"] or "")
+            for row in connection.execute(
+                "SELECT label FROM source_document_units WHERE extraction_id = ? ORDER BY ordinal LIMIT 4",
+                (extraction_id,),
+            ).fetchall()
+        ]
+        pages = connection.execute(
+            "SELECT MAX(COALESCE(page_end, page_start)) AS units_end FROM source_document_units WHERE extraction_id = ?",
+            (extraction_id,),
+        ).fetchone()["units_end"]
+        if pages is None:
+            pages = connection.execute(
+                "SELECT MAX(page) AS last FROM source_document_blocks WHERE extraction_id = ?", (extraction_id,)
+            ).fetchone()["last"]
+    if any(_ABSTRACT_LABEL.match(label) for label in labels) and (pages is None or int(pages) + 1 <= _PAPER_MAX_PAGES):
+        return "paper"
+    return noun
 
 
 def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None = None, *,
@@ -224,16 +271,27 @@ def local_display_title(path: Path, raw_bytes: bytes, category: str | None) -> s
     real one, else the file name in words (never a ``file://`` URI)."""
 
     if category == "pdf":
-        try:
-            from pypdf import PdfReader
-
-            metadata = PdfReader(io.BytesIO(raw_bytes)).metadata
-            title = str((metadata.title if metadata else None) or "").strip()
-        except Exception:  # noqa: BLE001 - a damaged PDF still gets a title
-            title = ""
-        if title and len(title) >= 3 and not _JUNK_PDF_TITLES.search(title):
+        title = pdf_metadata_title(raw_bytes)
+        if title:
             return title
     return title_from_file_name(path.name)
+
+
+def pdf_metadata_title(raw_bytes: bytes) -> str | None:
+    """The PDF's own title when it has a real one (not "Untitled", not a file
+    name), else ``None``. Add and the Ingest import both use it (usability
+    round 2: a book imported through Ingest was titled by its file name)."""
+
+    try:
+        from pypdf import PdfReader
+
+        metadata = PdfReader(io.BytesIO(raw_bytes)).metadata
+        title = str((metadata.title if metadata else None) or "").strip()
+    except Exception:  # noqa: BLE001 - a damaged PDF still gets a title
+        return None
+    if title and len(title) >= 3 and not _JUNK_PDF_TITLES.search(title):
+        return title
+    return None
 
 
 def title_from_file_name(name: str) -> str:
@@ -1674,8 +1732,9 @@ def _line(text: str, tone: str = "quiet", action: tuple[str, str] | None = None,
 
 
 _SCAN_DETAILS = (
-    "Reading the words of a scan needs text recognition, which isn't installed on this computer "
-    "(it comes with LearnLoop's PDF tools, marker-pdf). The pages still show in the Reader."
+    "Reading the words of a scan needs text recognition, which isn't installed on this computer. "
+    + TEXT_RECOGNITION_HOW_TO
+    + " The pages still show in the Reader meanwhile."
 )
 
 
@@ -1711,8 +1770,10 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
         if text_recognition_available(keep_local=keep_local):
             return _line("This PDF is a scan", "quiet", ("text_recognition", "Read it with text recognition"),
                          message or None)
+        # The extractor's own words ("install marker-pdf for OCR support") are
+        # not for the learner: the details say how to get it (usability round 2).
         return _line("This PDF is a scan — LearnLoop can show its pages but can't read them yet", "quiet",
-                     None, f"{_SCAN_DETAILS} ({message})" if message else _SCAN_DETAILS)
+                     None, _SCAN_DETAILS)
     if category in {"web", "arxiv", "youtube"} or any(
         marker in lowered for marker in ("http", "fetch", "connection", "timed out", "timeout", "network", "unreachable")
     ):
@@ -1759,8 +1820,40 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
     return None
 
 
-def _minutes(chapter_count: int) -> int:
-    return 3 + max(chapter_count, 1)
+def build_minutes_phrase(repo, *, chapter_count: int, sample: int = 5) -> str | None:
+    """How long questions for ``chapter_count`` chapters take, from this
+    library's own finished automatic builds ("in about 4 min", "in under a
+    minute"), or ``None`` when it has none to go on (usability round 2: "in
+    about 13 min" was a made-up formula for a build that took seconds)."""
+
+    from datetime import datetime
+
+    per_chapter: list[float] = []
+    # Planning jobs, newest first: each names the build it queued and its chapters.
+    for job in repo.ingest_jobs_by_types((AUTO_STUDY_MAP_JOB,), limit=sample * 4):
+        if len(per_chapter) >= sample:
+            break
+        if job.get("status") != "completed":
+            continue
+        outcome = planner_outcome(repo, job) or {}
+        build_id = outcome.get("build_batch_id")
+        build = repo.get_ingest_batch(str(build_id)) if build_id else None
+        if not build or build.get("status") != "completed" or not build.get("started_at") or not build.get("finished_at"):
+            continue
+        try:
+            seconds = (datetime.fromisoformat(str(build["finished_at"]).replace("Z", "+00:00"))
+                       - datetime.fromisoformat(str(build["started_at"]).replace("Z", "+00:00"))).total_seconds()
+        except ValueError:
+            continue
+        per_chapter.append(max(0.0, seconds) / max(1, len(outcome.get("chapters") or outcome.get("chapter_ids") or [])))
+    if not per_chapter:
+        return None
+    ordered = sorted(per_chapter)
+    middle = ordered[len(ordered) // 2]
+    minutes = middle * max(1, chapter_count) / 60.0
+    if minutes < 1:
+        return "in under a minute"
+    return f"in about {round(minutes)} min"
 
 
 def _budget_used_line(details: str | None = None) -> dict[str, Any]:
@@ -1789,7 +1882,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     if artifact is None:
         return None
     category = artifact.get("acquisition_kind")
-    noun = kind_noun(category)
+    noun = source_kind_noun(repo, source_id, category)
     has_text = _completed_extraction(repo, source_id) is not None
     if not has_text:
         imports = import_jobs(repo, source_id)
@@ -1802,7 +1895,16 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
 
     latest, outcome = latest_planner(repo, source_id)
     if latest is None:
-        return _health_line(repo, source_id)
+        health = _health_line(repo, source_id)
+        if health is not None or vault is None:
+            return health
+        # A book added another way (the Ingest screen) that no study map
+        # covers: one line and the one action, never silence (usability
+        # round 2: its card had no line at all).
+        if (artifact.get("reader_enabled", 1) and not artifact.get("keep_local")
+                and not _in_a_study_map(repo, vault, source_id)):
+            return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them"))
+        return None
     if outcome is None and _active(latest):
         # The text is ready; LearnLoop is choosing what to build (§6.3 states).
         return _line("Chapters found", "working")
@@ -1839,8 +1941,10 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     if state["undone"]:
         return _line(f"Questions for this {noun} were taken back out", "quiet", ("build_now", "Build them again"))
     if _active(state["batch"]):
-        return _line(f"Questions for {phrase} in about {_minutes(len(outcome.get('chapters') or []))} min",
-                     "working")
+        estimate = build_minutes_phrase(repo, chapter_count=len(outcome.get("chapters") or []))
+        if estimate is None:
+            return _line(f"Writing questions for {phrase}", "working")
+        return _line(f"Questions for {phrase} {estimate}", "working")
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
         if artifact.get("keep_local"):
             return _line("Kept on this computer — no questions are written for it", "quiet")
@@ -1865,7 +1969,39 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     # practice once a section is done), so the line says where they come from;
     # Undo lives in details (usability round 1, U8: "Questions ready · Undo"
     # sent learners looking for questions and wondering what Undo would undo).
-    return _line(f"Questions for {_built_phrase(repo, source_id, outcome, noun) or phrase} come up as you read", "quiet")
+    built = _built_phrase(repo, source_id, outcome, noun) or phrase
+    line = _line(f"Questions for {built} come up as you read", "quiet")
+    # The shelf shows this instead while no AI can write them (usability round
+    # 2: with no AI the card still promised questions as you read).
+    line["without_ai"] = _line(f"Questions for {built} come up as you read once an AI is connected", "quiet",
+                               ("connect_ai", "Connect"))
+    return line
+
+
+def _in_a_study_map(repo, vault, source_id: str) -> bool:
+    """Whether any study map covers this source: a source set names it, or a
+    completed study-map build read one of its extractions."""
+
+    if any(member.source_id == source_id for source_set in vault.source_sets for member in source_set.members):
+        return True
+    extraction_ids = [
+        run["id"]
+        for revision in repo.source_revisions_for(source_id)
+        for run in repo.extraction_runs_for_revision(revision["id"])
+    ]
+    if not extraction_ids:
+        return False
+    with repo.connection() as connection:
+        for extraction_id in extraction_ids:
+            row = connection.execute(
+                "SELECT 1 FROM synthesis_manifests m WHERE m.extraction_ids_json LIKE ? "
+                "AND EXISTS (SELECT 1 FROM synthesis_runs r WHERE r.manifest_id = m.id AND r.status = 'completed') "
+                "LIMIT 1",
+                (f'%"{extraction_id}"%',),
+            ).fetchone()
+            if row is not None:
+                return True
+    return False
 
 
 def _built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None:
@@ -2021,6 +2157,10 @@ __all__ = [
     "file_upload_allowed",
     "keep_on_this_computer",
     "kind_noun",
+    "source_kind_noun",
+    "build_minutes_phrase",
+    "pdf_metadata_title",
+    "TEXT_RECOGNITION_HOW_TO",
     "latest_auto_outcome",
     "latest_planner",
     "learner_title",

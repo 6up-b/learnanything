@@ -1896,6 +1896,12 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         _validate_page_selection(fetched.raw_bytes, page_selection)
 
     display_title = _compose_display_title(fetched.title, fetched.authors)
+    if display_title is None and is_pdf:
+        # A PDF's own title, as Add uses (UX Phase 1 usability round 2: a book
+        # imported through the Ingest screen was titled by its file name).
+        from learnloop.content.pipeline.add_source import pdf_metadata_title
+
+        display_title = pdf_metadata_title(fetched.raw_bytes)
     reader_enabled = payload.get("reader_enabled")
     registered = register_source_revision(
         ctx.repo,

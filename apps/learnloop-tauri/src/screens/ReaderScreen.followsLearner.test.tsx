@@ -474,3 +474,15 @@ it("opening a book shows that book opening, not a second list of books", async (
   await settle(2_000);
   expect(screen.getByTestId("pdf-pane")).toBeTruthy();
 });
+
+it("with no book open, the Reader shows the Library's own shelf, not a second list (spec K5)", async () => {
+  render(<ReaderScreen onError={() => undefined} shelf={<div data-testid="the-shelf">the one shelf</div>} />);
+  await settle(2_000);
+
+  expect(screen.getByTestId("the-shelf")).toBeTruthy();
+  expect(screen.queryByText(/READER · LIBRARY/)).toBeNull();
+  // Its own cards are gone; searching every book's text stays.
+  expect(screen.queryByText("Introduction to Probability")).toBeNull();
+  expect(screen.getByPlaceholderText("search all sources…")).toBeTruthy();
+  expect(screen.getByText("Pick a book to read, or search them all.")).toBeTruthy();
+});

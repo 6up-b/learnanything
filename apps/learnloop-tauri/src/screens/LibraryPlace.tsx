@@ -51,7 +51,8 @@ export function LibraryPlace({
   addMessage,
   dragging,
   openWhenReady,
-  onOpenedWhenReady
+  onOpenedWhenReady,
+  booksOnly = false
 }: {
   view: LibraryView;
   onViewChange: (view: LibraryView) => void;
@@ -69,6 +70,9 @@ export function LibraryPlace({
   /** A link just added: open it in the Reader as soon as its text is ready. */
   openWhenReady: string | null;
   onOpenedWhenReady: () => void;
+  /** The shelf alone, without Books | Notes & files: the Reader with no book
+   *  open shows it (spec K5). */
+  booksOnly?: boolean;
 }) {
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const [notice, setNotice] = useState<string | null>(null);
@@ -116,6 +120,7 @@ export function LibraryPlace({
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {booksOnly ? null : (
       <div role="tablist" aria-label="Library" style={{ flexShrink: 0, display: "flex", gap: 18, padding: "10px 32px 0", borderBottom: `1px solid ${COLOR.border}` }}>
         <button type="button" role="tab" aria-selected={view === "books"} style={tabStyle(view === "books")} onClick={() => onViewChange("books")}>
           Books
@@ -124,7 +129,8 @@ export function LibraryPlace({
           Notes & files
         </button>
       </div>
-      {view === "files" ? (
+      )}
+      {view === "files" && !booksOnly ? (
         <Suspense fallback={<div role="status">Loading…</div>}>
           <LibraryScreen {...filesProps} />
         </Suspense>

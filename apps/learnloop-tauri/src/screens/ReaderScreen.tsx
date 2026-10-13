@@ -14,7 +14,7 @@
 // reviewed TaskBlueprint placements appear as optional real-source quick checks;
 // the hard-coded demo question remains confined to the offline fixture.
 
-import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
@@ -245,7 +245,8 @@ export function ReaderScreen({
   onError,
   initialSource = null,
   onSourceChange,
-  onOpenLibrary
+  onOpenLibrary,
+  shelf
 }: {
   onError: (message: string) => void;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
@@ -254,6 +255,9 @@ export function ReaderScreen({
   /** "← Library" goes to the Library place, the one shelf (spec K5; usability
    *  round 1: the Reader's own list was a second "Library"). */
   onOpenLibrary?: () => void;
+  /** With no book open, the Library's own shelf (spec K5, usability round 2:
+   *  the Reader's own list read as a second Library). */
+  shelf?: ReactNode;
 }) {
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
@@ -2212,20 +2216,24 @@ export function ReaderScreen({
     // Every book is listed and openable; one still being prepared opens on its
     // original (UX Phase 1) instead of hiding behind "still getting ready".
     const readySources = library ?? [];
+    // The one shelf, when the shell provides it (spec K5): search stays here.
+    const useShelf = Boolean(shelf) && !sidecarDown;
     return (
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER · LIBRARY</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>
+              {useShelf ? "READER" : "READER · LIBRARY"}
+            </span>
             {sidecarDown ? <Pill color="amber">offline</Pill> : null}
           </div>
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.textDim }}>
-            Pick up where you left off, or open something new.
+            {useShelf ? "Pick a book to read, or search them all." : "Pick up where you left off, or open something new."}
           </span>
         </div>
-        <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 32px", display: "flex", flexDirection: "column", gap: 10, maxWidth: 720 }}>
+        <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: useShelf ? "18px 0 0" : "18px 32px", display: "flex", flexDirection: "column", gap: 10, maxWidth: useShelf ? undefined : 720 }}>
           {enabled && !sidecarDown ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: useShelf ? "0 32px" : undefined, maxWidth: 720 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   value={librarySearch}
@@ -2278,7 +2286,7 @@ export function ReaderScreen({
                   })}
                 </div>
               ) : searchResults && !searchBusy ? (
-                <Faint style={{ fontSize: 11 }}>no matches — this searches the extracted text of every ready source.</Faint>
+                <Faint style={{ fontSize: 11 }}>no matches — this searches the text of every book that is ready.</Faint>
               ) : null}
             </div>
           ) : null}
@@ -2290,7 +2298,9 @@ export function ReaderScreen({
               </Faint>
             </Card>
           ) : null}
-          {library === null ? (
+          {useShelf ? (
+            shelf
+          ) : library === null ? (
             <Faint style={{ fontSize: 12 }}>◐ loading source library…</Faint>
           ) : readySources.length === 0 ? (
             <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>

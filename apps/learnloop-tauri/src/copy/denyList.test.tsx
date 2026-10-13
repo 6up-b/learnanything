@@ -1,7 +1,7 @@
 // Plain words, enforced (docs/specs/ux_learnloop_v1.md §9, Phase 7.2 started
 // in Phase 1): every learner surface Phase 1 adds is rendered with fixture
 // data and must not show a term from the glossary's left column.
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AiConnectionDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
 import { AddSourceBox } from "../components/AddSource";
@@ -54,6 +54,27 @@ function card(statusLine: SourceStatusLineDto | null, overrides: Partial<SourceL
   };
 }
 
+// Backend sentences the shelf, the Add box and the Reader show as they are
+// (usability round 2), and the fixed strings this round adds to Today and the
+// Reader. Their surfaces have their own tests; here they meet the deny-list.
+const HOW_TO = "To add it, run uv sync --extra pdf in LearnLoop's folder, then restart LearnLoop.";
+const SCAN_DETAILS =
+  "Reading the words of a scan needs text recognition, which isn't installed on this computer. " +
+  HOW_TO +
+  " The pages still show in the Reader meanwhile.";
+const ROUND2_SENTENCES = [
+  "Text recognition isn't installed on this computer, so LearnLoop can't read the words of a scan yet. " + HOW_TO,
+  "Text recognition isn't installed on this computer, so this was added without it. " + HOW_TO,
+  "You answered this section's quick check: compare below, then keep reading.",
+  "quick check",
+  "◐ Opening Introduction to Probability…",
+  "answer directly",
+  "help me reason",
+  "ask me first",
+  "Begin today's plan on Start first.",
+  "Pick a book to read, or search them all."
+];
+
 // Every line the sidecar can put on a card (learnloop.content.pipeline.add_source).
 const LINES: SourceStatusLineDto[] = [
   { text: "Getting this book ready", tone: "working", action: null, details: null },
@@ -81,10 +102,20 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Questions for Ch. 3 would cost more than expected", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
   // Usability round 1 (U7): a scan, with and without text recognition installed.
   { text: "This PDF is a scan", tone: "quiet", action: { kind: "text_recognition", label: "Read it with text recognition" }, details: null },
-  { text: "This PDF is a scan — LearnLoop can show its pages but can't read them yet", tone: "quiet", action: null, details: null },
-  { text: "Some pages look scanned — their words can't be read here yet", tone: "quiet", action: null, details: null },
-  { text: "Text recognition isn't set up", tone: "problem", action: { kind: "open_settings", label: "Set it up" }, details: null }
+  { text: "This PDF is a scan — LearnLoop can show its pages but can't read them yet", tone: "quiet", action: null, details: SCAN_DETAILS },
+  { text: "Some pages look scanned — their words can't be read here yet", tone: "quiet", action: null, details: SCAN_DETAILS },
+  { text: "Text recognition isn't set up", tone: "problem", action: { kind: "open_settings", label: "Set it up" }, details: null },
+  // Usability round 2: no invented build time, a book with no questions yet,
+  // a paper, and what a built book says while no AI is connected.
+  { text: "Writing questions for Ch. 1–2", tone: "working", action: null, details: null },
+  { text: "Questions for Ch. 1–2 in under a minute", tone: "working", action: null, details: null },
+  { text: "Questions for this paper in about 2 min", tone: "working", action: null, details: null },
+  { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them" }, details: null },
+  { text: "Questions for Ch. 1–2 come up as you read once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" }
 ];
+
+
 
 const CONNECTION: AiConnectionDto = {
   canAuthor: false,
@@ -124,8 +155,19 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(LINES.map((line) => [line.text, line] as const))("a book card saying %s", (_text, line) => {
-    const { container } = render(<BookCard card={card(line)} onContinue={vi.fn()} onAction={vi.fn()} />);
+    const { container, getByRole } = render(
+      <BookCard card={card(line, { textRecognitionAvailable: true })} onContinue={vi.fn()} onAction={vi.fn()} />
+    );
     expectPlain(container.textContent ?? "");
+    // Details too: what is on demand is plain as well (usability round 2).
+    // The one OK's details name the AI it is for, as Settings does.
+    fireEvent.click(getByRole("button", { name: "details ▸" }));
+    const exemptions: Record<string, string> = line.details?.startsWith("Codex") ? { codex: "names the AI this OK is for, as Settings does" } : {};
+    expect(findJargon(container.textContent ?? "", exemptions)).toEqual([]);
+  });
+
+  it.each(ROUND2_SENTENCES)("the sentence: %s", (sentence) => {
+    expectPlain(sentence);
   });
 
   it("the empty shelf and a full one", () => {
@@ -157,6 +199,22 @@ describe("Phase 1 learner surfaces use plain words", () => {
     const { container, findByText } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
     await findByText("Get questions on what you read");
     expectPlain(container.textContent ?? "");
+  });
+
+  // Usability round 2: a library set up with Codex names it on its one OK, as
+  // Settings does; nothing else on the sheet is internal.
+  it("the connect sheet's one OK in a library set up with Codex", async () => {
+    const label = "Codex (your ChatGPT account)";
+    api.getAiConnection.mockResolvedValue({
+      ...CONNECTION,
+      canAuthor: true,
+      needs: "consent",
+      providerLabel: label,
+      whatLeaves: `LearnLoop sends passages of the books you add, and your answers, to ${label} to write questions and give feedback.`
+    });
+    const { container, findByText } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
+    await findByText(`LearnLoop is set up to use ${label}.`);
+    expect(findJargon(container.textContent ?? "", { codex: "names the AI this library is set up with, as Settings does" })).toEqual([]);
   });
 
   it("the Reader while a book is prepared", async () => {

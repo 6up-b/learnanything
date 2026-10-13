@@ -73,18 +73,22 @@ export function BookCard({
   card,
   onContinue,
   onAction,
-  onOpenImports
+  onOpenImports,
+  aiReady
 }: {
   card: SourceLibraryCard;
   onContinue: (card: SourceLibraryCard) => void;
   onAction: (kind: SourceActionKind, card: SourceLibraryCard) => void;
   /** Under the hood → Imports & builds (today's Ingest screen). */
   onOpenImports?: () => void;
+  /** Whether an AI can write questions now; false shows a line's no-AI
+   *  version (usability round 2). Unknown keeps the line as it is. */
+  aiReady?: boolean;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const ready = card.readiness === "ready";
   const readable = card.readerEnabled !== false;
-  const line = card.statusLine ?? null;
+  const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null;
   const noun = card.kindNoun ?? "book";
   return (
     <article
@@ -132,7 +136,9 @@ export function BookCard({
               Undo this book's questions
             </button>
           ) : null}
-          {ready && card.acquisitionKind === "pdf" ? (
+          {/* Only where it can run (usability round 2: offered everywhere, it
+              ended in "Something went wrong"). */}
+          {ready && card.acquisitionKind === "pdf" && card.textRecognitionAvailable === true ? (
             <button type="button" style={linkButton} onClick={() => onAction("text_recognition", card)}>
               Read it again with text recognition
             </button>

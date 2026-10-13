@@ -526,6 +526,10 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
         for source_set in vault.source_sets
         for member in source_set.members
     }
+    # Whether text recognition can run, per privacy setting (a book kept on
+    # this computer cannot use the hosted one): the shelf offers "Read it again
+    # with text recognition" only where it can (usability round 2).
+    recognition = {keep: auto.text_recognition_available(keep_local=keep) for keep in (False, True)}
     cards: list[dict[str, Any]] = []
     for artifact in repository.all_source_artifacts():
         revisions = repository.source_revisions_for(artifact["id"])
@@ -560,8 +564,9 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "suggested_role": None,
                 "reader_enabled": bool(artifact.get("reader_enabled", 1)),
                 "update_available": len(revisions) > 1 and current is not None and current["id"] != revisions[-1]["id"],
-                "kind_noun": auto.kind_noun(artifact.get("acquisition_kind")),
+                "kind_noun": auto.source_kind_noun(repository, artifact["id"], artifact.get("acquisition_kind")),
                 "keep_local": bool(artifact.get("keep_local", 0)),
+                "text_recognition_available": recognition[bool(artifact.get("keep_local", 0))],
                 "subject_id": subject_by_source.get(artifact["id"]),
                 # The learner reads the subject's title, never its id (usability round 1).
                 "subject_title": _subject_title(vault, subject_by_source.get(artifact["id"])),

@@ -2930,6 +2930,9 @@ export interface SourceLibraryCard {
   statusLine?: SourceStatusLineDto | null;
   /** "Keep this book on this computer": nothing of it is sent to an AI. */
   keepLocal?: boolean;
+  /** Whether text recognition can run for this book here: details offer
+   *  "Read it again with text recognition" only then (usability round 2). */
+  textRecognitionAvailable?: boolean;
 }
 
 // ── UX Phase 1: one Add, the book card's status line, connect AI once ──────
@@ -2958,6 +2961,9 @@ export interface SourceStatusLineDto {
   action: { kind: SourceActionKind; label: string } | null;
   /** The raw message behind the line, for details ▸ only. */
   details: string | null;
+  /** What the card says instead while no AI can write questions (usability
+   *  round 2: "come up as you read" under "Connect an AI"). */
+  withoutAi?: SourceStatusLineDto | null;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */
