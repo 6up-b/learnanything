@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 179
+schema_head: 180
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"

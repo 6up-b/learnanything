@@ -143,6 +143,23 @@ forbidden_modules = ["learnloop.projects"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "evidence-never-reaches-the-daily-plan"
+name = "Replay, evidence and serving internals never read the daily plan (DL1, L4/L5)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+]
+forbidden_modules = ["learnloop.daily_plan"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "primitives-have-no-internal-dependencies"
 name = "Primitive modules stay dependency free"
 type = "forbidden"
@@ -255,6 +272,7 @@ source_modules = [
     "learnloop.diagnosis.calibration_sessions",
     "learnloop.diagnosis.quick_check",
     "learnloop.placement",
+    "learnloop.daily_plan",
     "learnloop.scheduling.scheduler",
     "learnloop.substrate.state_sync",
 ]

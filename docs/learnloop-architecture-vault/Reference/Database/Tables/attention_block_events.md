@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 179
+schema_head: 180
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
+  - "src/learnloop/daily_plan/estimates.py"
+  - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
@@ -43,7 +45,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -79,10 +81,13 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/estimates.py`
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
 
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Upstream callers of the repository access surface
@@ -94,6 +99,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_replay.py`
+- `tests/test_daily_plan_review_regressions.py`
 - `tests/test_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

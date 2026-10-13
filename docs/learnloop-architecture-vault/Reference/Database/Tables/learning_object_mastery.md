@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 179
+schema_head: 180
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/daily_plan/headline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
+- `src/learnloop/daily_plan/headline.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
@@ -117,7 +119,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/placement/predictor.py`
-- `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -142,8 +143,8 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_contract_commissioning.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_plan_review_regressions.py`
 - `tests/test_deferred_regrade.py`
-- `tests/test_diagnostic_probe_freshness.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

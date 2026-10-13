@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_179/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_180/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_179" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_180" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 179
+SCHEMA_HEAD = 180
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -110,6 +110,7 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
     "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",
+    "daily_plans": "Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
     "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
     "decision_features": "Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names.",
@@ -228,7 +229,7 @@ def table_domain(table: str) -> str:
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism", "hypothesis_recurrence", "recurrence_")):
         return "diagnosis"
-    if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
+    if table.startswith(("scheduler_", "controller_", "attention_", "daily_plans", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
         return "scheduling"
     if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "angle_inventor", "p2_ladder", "lapse_episode", "family_evidence", "target_exemplar")):
         return "curriculum"
@@ -854,6 +855,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
+    "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
 }
 
 
@@ -981,6 +983,26 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "placement.known_probability": "Success probability whose logit is the known threshold theta_known (D6: logit(0.75)).",
     "placement.quick_check_k": "Most answers one optional quick check serves (D4).",
     "placement.quick_check_budget_minutes": "Time budget of one optional quick check (D4).",
+    "plan.enabled": "Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false.",
+    "plan.new_admission_enabled": "Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve).",
+    "plan.reading_blocks": "Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane.",
+    "plan.default_minutes": "Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward.",
+    "plan.minutes_presets": "The one-tap minute chips on Start and Today.",
+    "plan.repair_max_share": "Largest share of the budget the repair lane takes before new and push (D2).",
+    "plan.maintain_max_share": "Largest share of the budget due maintenance takes, so overdue reviews never take the whole day (D2, Q10).",
+    "plan.keep_going_minutes": "Minutes one keep-going extension adds after today's plan is done (D3).",
+    "plan.load_horizon_days": "Horizon of the projected daily review load new-material admission compares with the budget (Q11).",
+    "plan.load_ceiling": "Share of the budget the projected review load plus admitted new material may reach (Q11).",
+    "plan.new_item_reviews_14d": "Reviews assumed for a new item in its first two weeks when costing its admission (Q11).",
+    "plan.max_new_items_per_day": "Most new items planned a day across the day's plans; learner requests are exempt (Q11).",
+    "plan.min_new_items_per_day": "Fewest new items a day when new material exists and the plan is not re-entry (Q11).",
+    "plan.latency_cap_minutes": "Winsorizing cap on an answer latency in the duration estimate (Q12).",
+    "plan.read_words_per_minute": "Reading pace that turns a section's words left into a reading block's estimate.",
+    "plan.pre_questions": "Pre-questions a reading block may open with (DL4; DL1 serves none).",
+    "plan.reentry_minutes": "Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11).",
+    "plan.reentry_max_items": "Most items a re-entry plan serves after a break, whatever its minutes allow (D11).",
+    "plan.project_probes_max_per_day": "Most due project probes a day in the maintain lane (project M2); the rest stay in the full list.",
+    "plan.headline": "Shows the optional one-line Today headline (display only, D7).",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
         "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
@@ -1782,7 +1804,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_179/state.sqlite",
+                "fixtures/migration_head_180/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

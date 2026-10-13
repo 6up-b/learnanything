@@ -3,13 +3,13 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 179
+schema_head: 180
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"
@@ -28,6 +28,7 @@ source_paths:
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
+  - "src/learnloop/daily_plan/headline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -107,6 +108,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/trace_evidence.py`
 - `src/learnloop/content/synthesis/coverage_rollup.py`
+- `src/learnloop/daily_plan/headline.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/goals/certification_cold_probe.py`

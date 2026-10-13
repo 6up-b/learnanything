@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 179
+schema_head: 180
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -28,8 +28,8 @@ source_paths:
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_restoration.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/reader/reader_authoring.py"
-  - "src/learnloop/reader/reader_capture.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_dialogue.py`

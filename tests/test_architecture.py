@@ -71,6 +71,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/judgment_claims.py",
         # Slice 2 T6: the DERIVED source_block_fts rebuild (its replayer body).
         "src/learnloop/db/stores/source_block_fts.py",
+        # Daily-loop DL1: the finite plan's workflow rows and block receipts.
+        "src/learnloop/db/stores/daily_plans.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

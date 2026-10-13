@@ -86,8 +86,22 @@ RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 # historical ``dont_know`` rows keep their meaning, and the projection
 # namespace is unchanged. The branch built it as mvp-0.11 and it was relabelled
 # mvp-0.13 when it merged after placement (mvp-0.11) and recurrence groups
-# (mvp-0.12). Kill switch: ``stuck_prompt.enabled``.
+# (mvp-0.12). Kill switch: ``stuck_prompt.enabled``. New vaults started here
+# until mvp-0.14 merged.
 STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
+
+# mvp-0.14 (daily-loop DL1, ``daily_plan_v1`` in spec_daily_loop_v1.md §11): the
+# finite daily plan on top of mvp-0.13 (the chain stays linear: mvp-0.14 means
+# the mvp-0.10 split PLUS placement PLUS recurrence groups PLUS the stuck
+# prompt PLUS the plan). Today serves N remembered minutes split across
+# repair, maintain, new and push, chosen block by block, with goal-optional
+# re-entry and reading blocks. It changes what is SERVED, not the projection,
+# so it is another successor tag on the mvp-0.8 namespace. The branch built it
+# as mvp-0.12 and it was relabelled mvp-0.14 when it merged after recurrence
+# groups (mvp-0.12) and the stuck prompt (mvp-0.13). Kill switch:
+# ``plan.enabled`` (sub-switches ``plan.new_admission_enabled`` and
+# ``plan.reading_blocks``); off, Today is mvp-0.13's.
+DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -102,6 +116,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PLACEMENT_ALGORITHM_VERSION,
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     STUCK_PROMPT_ALGORITHM_VERSION,
+    DAILY_PLAN_ALGORITHM_VERSION,
 )
 
 
@@ -148,6 +163,11 @@ CANONICAL_STATE_VERSIONS: frozenset[str] = (
 # Every later successor keeps placement; gates must use this set, never
 # equality against PLACEMENT_ALGORITHM_VERSION.
 PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION)
+
+# Versions whose Today serves the finite daily plan (behind ``plan.enabled``).
+# Every later successor keeps the plan; gates must use this set, never
+# equality against DAILY_PLAN_ALGORITHM_VERSION.
+DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

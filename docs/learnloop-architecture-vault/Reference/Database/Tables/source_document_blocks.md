@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 179
+schema_head: 180
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -122,6 +122,7 @@ Database triggers:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -130,7 +131,6 @@ Database triggers:
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_review.py`
-- `src/learnloop/reader/source_search.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -140,6 +140,7 @@ Database triggers:
 - `tests/test_migrations.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
+- `tests/test_daily_plan_reading.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_primed_attempts.py`

@@ -5,7 +5,14 @@ import { clear } from "../api/queryCache";
 import { STREAK_KEEP_LABEL, StartScreen, minuteChoicesFor } from "./StartScreen";
 
 const { api } = vi.hoisted(() => ({
-  api: { getTodayQueue: vi.fn(), startSession: vi.fn(), getStartSummary: vi.fn() }
+  api: {
+    getTodayQueue: vi.fn(),
+    startSession: vi.fn(),
+    getStartSummary: vi.fn(),
+    getDailyPlan: vi.fn(),
+    setPlanMinutes: vi.fn(),
+    nextPlanItem: vi.fn()
+  }
 }));
 vi.mock("../api/client", () => ({ api }));
 
@@ -34,13 +41,16 @@ function summary(overrides: Partial<StartSummaryDto> = {}): StartSummaryDto {
 
 function showStart({
   startSummary = summary(),
-  streak = NO_STREAK
-}: { startSummary?: StartSummaryDto | Error; streak?: StreakSummary } = {}) {
+  streak = NO_STREAK,
+  plan = null
+}: { startSummary?: StartSummaryDto | Error; streak?: StreakSummary; plan?: unknown } = {}) {
   vi.stubGlobal("localStorage", { getItem: vi.fn(() => null), setItem: vi.fn() });
   // jsdom has no layout observer; the decorative backdrop only needs it to exist.
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   api.getTodayQueue.mockResolvedValue(EMPTY_QUEUE);
+  // Daily-loop DL1 is off unless a test passes a plan: Start is then DL0's (gate G1).
+  api.getDailyPlan.mockResolvedValue(plan ?? { version: 1, enabled: false, reason: "algorithm_version", plan: null });
   if (startSummary instanceof Error) api.getStartSummary.mockRejectedValue(startSummary);
   else api.getStartSummary.mockResolvedValue(startSummary);
   api.startSession.mockResolvedValue({ sessionId: "s1" });
@@ -160,4 +170,73 @@ it("marks today once a session has begun, reading the fresh streak over the stal
   });
   expect(await screen.findByText(/today ✓/)).toBeTruthy();
   expect(screen.queryByText(new RegExp(STREAK_KEEP_LABEL))).toBeNull();
+});
+
+// ── Daily-loop DL1: Start shows today's plan and Begin starts it (§6.7) ─────
+
+function planDto(overrides: Record<string, unknown> = {}) {
+  return {
+    version: 1,
+    enabled: true,
+    headlineEnabled: true,
+    plan: {
+      id: "plan_1",
+      localDate: "2026-10-12",
+      kind: "normal",
+      status: "open",
+      stopReason: null,
+      parentPlanId: null,
+      minutesBudget: 25,
+      rememberedMinutes: 25,
+      minutesSource: "carried",
+      minuteChoices: [10, 15, 25, 40, 60],
+      minutesLeft: 17,
+      split: {
+        rule: "split_v1",
+        line: "25 min · maintain 13 · repair 4 · new 4 · push 4",
+        lanesAllowed: ["repair", "maintain", "new", "push"],
+        requestedMinutes: 0,
+        lanes: []
+      },
+      admission: { admittedCount: 1, exemptRequests: 0, stoppedBy: null, floorApplied: false, reviewLoadPerDay: 0, ceilingMinutes: 20, override: null },
+      blocks: [],
+      currentBlockId: null,
+      projected: [],
+      blockCountEstimate: 3,
+      firstBlock: { title: "Conditional independence", lane: "maintain", itemCount: 4, estMinutes: 8.2, reading: false },
+      nextStep: null,
+      totals: {},
+      reentry: null,
+      source: "legacy_lanes_v1",
+      chooser: "lane_quota_v1",
+      ...overrides
+    }
+  };
+}
+
+it("shows today's plan instead of the queue preview, and Begin starts its first step", async () => {
+  const step = { kind: "item", practiceItemId: "pi_1", schedulerCandidateId: "cand_1", boundary: true };
+  api.nextPlanItem.mockResolvedValue({ version: 1, enabled: true, plan: null, step });
+  const props = showStart({ plan: planDto() });
+  expect((await screen.findByTestId("start-plan-first")).textContent).toBe("First: Conditional independence · 4 items · about 8 min");
+  expect(screen.getByTestId("plan-split-line").textContent).toBe("25 min · maintain 13 · repair 4 · new 4 · push 4");
+  expect(api.getTodayQueue).not.toHaveBeenCalled();
+  expect(screen.getByText(/begin today's plan · 25 min/)).toBeTruthy();
+  await pressEnter();
+  expect(api.startSession).toHaveBeenCalledWith({ availableMinutes: 25 });
+  await waitFor(() => expect(api.nextPlanItem).toHaveBeenCalledWith({ sessionId: "s1", serve: true }));
+  await waitFor(() => expect(props.onBegin).toHaveBeenCalledWith({ sessionId: "s1" }, step));
+});
+
+it("sets the remembered minutes through the plan with one tap", async () => {
+  api.setPlanMinutes.mockResolvedValue(planDto({ minutesBudget: 40, rememberedMinutes: 40 }));
+  showStart({ plan: planDto() });
+  await screen.findByTestId("start-plan");
+  fireEvent.click(chip(40));
+  await waitFor(() => expect(api.setPlanMinutes).toHaveBeenCalledWith(40));
+});
+
+it("labels the streak with today's plan while the plan serves", async () => {
+  showStart({ startSummary: summary({ streak: { current: 3, activeToday: false, longest: 3 } }), plan: planDto() });
+  expect(await screen.findByText(/begin today's plan to keep your streak/)).toBeTruthy();
 });

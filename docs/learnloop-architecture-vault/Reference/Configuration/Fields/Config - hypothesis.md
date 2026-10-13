@@ -3,8 +3,8 @@ title: "Config - hypothesis"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml hypothesis"
@@ -20,8 +20,8 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop_sidecar/handlers/claims.py"
   - "src/learnloop/learner/overconfidence.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/scheduling/reentry_summary.py"
-  - "src/learnloop_sidecar/handlers/goals.py"
   - "src/learnloop/scheduling/decay_pressure.py"
   - "tests/test_hypothesis_claim_dispatcher.py"
   - "tests/test_today_surfaces.py"
@@ -48,7 +48,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `hypothesis.session_card_budget` | `2` | integer | modeled default or validator seed | Controls session card budget in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:110`; `src/learnloop_sidecar/handlers/claims.py:58` |
 | `hypothesis.claim_cooldown_days` | `7` | integer | modeled default or validator seed | Sets the claim cooldown duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:111`; `src/learnloop_sidecar/handlers/claims.py:59` |
 | `hypothesis.overconfidence_min_evidence_mass` | `1.0` | number | modeled default or validator seed | Controls overconfidence min evidence mass in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:115`; `src/learnloop/learner/overconfidence.py:87` |
-| `hypothesis.reentry_gap_days` | `7` | integer | modeled default or validator seed | Sets the reentry gap duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:118`; `src/learnloop/scheduling/reentry_summary.py:108`; `src/learnloop_sidecar/handlers/goals.py:458` |
+| `hypothesis.reentry_gap_days` | `7` | integer | modeled default or validator seed | Sets the reentry gap duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:118`; `src/learnloop/daily_plan/engine.py:218`; `src/learnloop/scheduling/reentry_summary.py:108` |
 | `hypothesis.decay_pressure_target_recall` | `0.8` | number | modeled default or validator seed | Controls decay pressure target recall in learner-facing hypothesis cards and re-entry signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:121`; `src/learnloop/scheduling/decay_pressure.py:102` |
 | `hypothesis.decay_pressure_horizon_days` | `60` | integer | modeled default or validator seed | Sets the decay pressure horizon duration in days for learner-facing hypothesis cards and re-entry signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:122`; `src/learnloop/scheduling/decay_pressure.py:104` |
 

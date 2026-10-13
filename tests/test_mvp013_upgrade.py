@@ -51,14 +51,17 @@ from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.split_live_helpers import append_config, split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_179"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_180"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
-def test_stuck_version_is_the_latest_successor_and_keeps_every_predecessor():
+def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     assert STUCK_PROMPT_ALGORITHM_VERSION == "mvp-0.13"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == STUCK_PROMPT_ALGORITHM_VERSION
-    assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION}
+    # Daily-loop DL1's finite plan (mvp-0.14) followed it and keeps the stuck
+    # prompt; it is the latest successor (tests/test_mvp014_upgrade.py).
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.14"
+    assert SUCCESSOR_CHAIN[-2] == STUCK_PROMPT_ALGORITHM_VERSION
+    assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     # The chain is linear: mvp-0.13 means the split PLUS placement PLUS
@@ -144,10 +147,12 @@ def test_an_earlier_vault_goes_through_mvp012s_guard(tmp_path):
     assert rebuilds[-3:] == ["mvp-0.11", "mvp-0.12", "mvp-0.13"]
 
 
-def test_upgrade_command_defaults_to_the_stuck_target(tmp_path):
+def test_upgrade_command_reaches_the_stuck_target_explicitly(tmp_path):
+    # The default target moved on to mvp-0.14 (daily-loop DL1); mvp-0.13 is
+    # still reached explicitly.
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.12")
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.13"])
     assert result.exit_code == 0, result.output
     assert "mvp-0.12 -> mvp-0.13" in result.output
     explicit = create_basic_vault(tmp_path / "explicit")

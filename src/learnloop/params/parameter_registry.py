@@ -1038,6 +1038,23 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "Slice 2 T1 per-model blocking cutoff from B3's recall on confirmed matches; never "
         "hand-set in code, never merges or rejects by score (R4).",
     ),
+    # Daily-loop DL1 (mvp-0.14): the finite plan. The split caps and the
+    # new-material admission decide what Today serves (never evidence); they
+    # are a priori owner defaults (D2, Q11), versioned with daily_plan_v1.
+    _ConfigRule(_exact(
+        "plan.repair_max_share", "plan.maintain_max_share", "plan.load_ceiling",
+        "plan.max_new_items_per_day", "plan.min_new_items_per_day",
+        "plan.new_item_reviews_14d", "plan.load_horizon_days",
+        "plan.reentry_minutes", "plan.reentry_max_items", "plan.project_probes_max_per_day",
+    ), "decision", "constraint",
+        "daily-plan split cap, new-material admission or re-entry cap (spec_daily_loop_v1 "
+        "§6.2, §6.3, §7); a serving guardrail, never evidence; owner default, versioned."),
+    _ConfigRule(_exact(
+        "plan.default_minutes", "plan.keep_going_minutes", "plan.latency_cap_minutes",
+        "plan.read_words_per_minute", "plan.pre_questions", "plan.minutes_presets",
+    ), "structural", "operational",
+        "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
+        "plan and its labels, no measurement authority."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

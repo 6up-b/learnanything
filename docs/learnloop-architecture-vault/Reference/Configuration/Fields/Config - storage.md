@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/vault/paths.py"
   - "tests/conftest.py"
+  - "tests/daily_plan_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
   - "tests/pf_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_activity_substrate.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_agent_runs.py"
-  - "tests/test_answer_calibration_duel.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -62,6 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/conftest.py`
+- `tests/daily_plan_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
 - `tests/pf_fakes.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_activity_substrate.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_agent_runs.py`
-- `tests/test_answer_calibration_duel.py`
 
 ## Extension and modification guidance
 

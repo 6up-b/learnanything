@@ -468,3 +468,62 @@ def create_placement_vault(
         append_config_toml(paths.root, placement_toml)
     vault = load_vault(paths.root)
     return VaultPaths(vault.root, vault.config)
+
+
+def create_daily_plan_vault(
+    root: Path,
+    *,
+    learning_objects: dict[str, list[tuple[str, float | None]]] | None = None,
+    version: str = "mvp-0.14",
+    plan_toml: str | None = None,
+) -> VaultPaths:
+    """The placement vault plus extra LOs whose items carry ``expected_minutes``.
+
+    ``learning_objects`` maps an LO id to ``[(item_id, expected_minutes)]``. With
+    no latency history an item's daily-plan estimate (§6.4) is its expected
+    minutes (3.0 when None) plus the default 0.5 minutes of feedback, so tests
+    control block sizes exactly. Daily-loop DL1 plans are live at ``mvp-0.14``.
+    """
+
+    paths = create_placement_vault(root, version=version)
+    for lo_id, items in (learning_objects or {}).items():
+        concept = lo_id.removeprefix("lo_")
+        write_yaml(
+            paths.learning_object_path("linear-algebra", lo_id),
+            {
+                "schema_version": 1, "id": lo_id, "title": concept.replace("_", " ").title(),
+                "subjects": ["linear-algebra"], "concept": "singular_value_decomposition",
+                "knowledge_type": "definition", "status": "active", "contradicts": None,
+                "summary": f"About {concept}.", "prerequisites": [], "confusables": [],
+                "difficulty_prior": 0.5, "tags": [], "provenance": {"origin": "human", "source_refs": []},
+                "created_at": NOW_ISO, "updated_at": NOW_ISO,
+            },
+        )
+        for item_id, minutes in items:
+            payload = {
+                "schema_version": 1, "id": item_id, "learning_object_id": lo_id, "subjects": None,
+                "practice_mode": "short_answer",
+                "attempt_types_allowed": ["independent_attempt", "hinted_attempt", "dont_know"],
+                "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
+                "prompt": f"Question {item_id}.", "expected_answer": f"Answer {item_id}.",
+                "difficulty": 0.5, "tags": [], "hints": ["A hint."],
+                "hint_policy": {
+                    "max_useful_hints": 1,
+                    "fsrs_rating_cap_by_hint": {"1": "good"},
+                    "mastery_alpha_dampening_by_hint": {"1": 0.5},
+                },
+                "grading_rubric": {
+                    "max_points": 4,
+                    "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
+                    "fatal_errors": [],
+                },
+                "provenance": {"origin": "human", "source_refs": []},
+                "created_at": NOW_ISO, "updated_at": NOW_ISO,
+            }
+            if minutes is not None:
+                payload["expected_minutes"] = minutes
+            write_yaml(paths.practice_item_path("linear-algebra", item_id), payload)
+    if plan_toml:
+        append_config_toml(paths.root, plan_toml)
+    vault = load_vault(paths.root)
+    return VaultPaths(vault.root, vault.config)

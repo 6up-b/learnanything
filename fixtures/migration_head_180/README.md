@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-179. Migration 167 adds the learner-field F1 read model
+180. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -33,8 +33,14 @@ DERIVED, with its insert, delete and update triggers on
 as its rowid); migration 178 adds the stuck prompt's
 `practice_attempts.declared_stuck` flag; migration 179 rebuilds the
 append-only `reveal_events` (same columns, indexes and triggers) so its
-`source_kind` CHECK also accepts `answer_display`. Built as a backup-API copy
-of `migration_head_177` with only 178 and 179 applied. It pins
+`source_kind` CHECK also accepts `answer_display`; migration 180 adds
+daily-loop DL1's finite plan (`daily_plans`, WORKFLOW, and the
+`attention_blocks` plan columns `daily_plan_id`, `plan_ordinal`, `lane`,
+`chosen_by`, `decision_ref`, `reading_json` with the unique
+`idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge).
+Built as a backup-API copy of `migration_head_179` with only 180 applied
+(checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
+clean). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c65556d0416de254556729a74434c386c55903c"
-source_commit_timestamp: "2026-10-12T21:17:59-04:00"
+source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
+source_commit_timestamp: "2026-10-12T21:28:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 179
+schema_head: 180
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/trace_evidence.py"
+  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/collection.py"
-  - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
@@ -171,6 +171,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/attempts/stuck.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/db/stores/diagnoses.py`
@@ -223,15 +225,16 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/calibration_sessions.py`
-- `src/learnloop/diagnosis/causal_attribution.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/daily_plan_fakes.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_apply_write_ahead.py`
@@ -241,17 +244,16 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_contamination_report.py`
+- `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_dialogue_causal_join.py`
+- `tests/test_duration_estimates.py`
 - `tests/test_embedding_compare.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_seeding.py`
 - `tests/test_facet_outcome_view.py`
-- `tests/test_forecast_ledger.py`
-- `tests/test_gate_fit.py`
-- `tests/test_goal_pace.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

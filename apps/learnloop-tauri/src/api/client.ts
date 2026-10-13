@@ -100,6 +100,8 @@ import type {
   SessionEndSummary,
   SessionSnapshot,
   StartSummaryDto,
+  DailyPlanDto,
+  TodayHeadlineDto,
   SessionStartInput,
   SqliteExecResult,
   SqliteTableSnapshot,
@@ -942,6 +944,33 @@ export const api = {
     call<PlacementStateDto>("get_placement_state", { input: { learningObjectIds: learningObjectIds ?? null } }),
   startQuickCheck: (input: StartQuickCheckInput) =>
     mutating([TAG.queue], call<CalibrationSessionProgressDto>("start_quick_check", { input })),
+  // Daily-loop DL1: the finite daily plan. Building today's plan on first read
+  // and choosing a block at a boundary are workflow writes only, so the plan
+  // reads stay tagged with the queue and the plan mutations invalidate it.
+  getDailyPlan: (sessionId?: string | null) =>
+    call<DailyPlanDto>("get_daily_plan", { input: { sessionId: sessionId ?? null } }),
+  setPlanMinutes: (minutes: number, sessionId?: string | null) =>
+    mutating([TAG.queue], call<DailyPlanDto>("set_plan_minutes", { input: { minutes, sessionId: sessionId ?? null } })),
+  nextPlanItem: (input: { sessionId?: string | null; serve?: boolean; skipPracticeItemId?: string | null }) =>
+    input.serve || input.skipPracticeItemId
+      ? mutating([TAG.queue], call<DailyPlanDto>("next_plan_item", { input }))
+      : call<DailyPlanDto>("next_plan_item", { input }),
+  planReadingEnded: (outcome: "left_reader" | "skipped" | "section_completed", sessionId?: string | null) =>
+    mutating([TAG.queue], call<DailyPlanDto>("plan_reading_ended", { input: { outcome, sessionId: sessionId ?? null } })),
+  planKeepGoing: (input: { sessionId?: string | null; stop?: boolean }) =>
+    mutating([TAG.queue], call<DailyPlanDto>("plan_keep_going", { input })),
+  planMoreNew: (input: { sessionId?: string | null; confirm?: boolean }) =>
+    input.confirm
+      ? mutating([TAG.queue], call<DailyPlanDto>("plan_more_new", { input }))
+      : call<DailyPlanDto>("plan_more_new", { input }),
+  planLearnerPick: (practiceItemId: string, sessionId?: string | null, schedulerCandidateId?: string | null) =>
+    mutating(
+      [TAG.queue],
+      call<DailyPlanDto>("plan_learner_pick", {
+        input: { practiceItemId, sessionId: sessionId ?? null, schedulerCandidateId: schedulerCandidateId ?? null }
+      })
+    ),
+  getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
   nextProbeDialogueTurn: (dialogueState: string) =>

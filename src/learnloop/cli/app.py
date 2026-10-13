@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12 or mvp-0.13); default: the latest."
+                "mvp-0.12, mvp-0.13 or mvp-0.14); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -97,10 +97,13 @@ def upgrade(
     T1 recurrence groups over an mvp-0.11 vault (or an mvp-0.9/mvp-0.10 vault
     through the chain), refused while the same-answer/different-cause guard
     has a false merge or has not run (kill switch: ``recurrence.enabled =
-    false``); ``--to mvp-0.13`` (default, the latest successor) replaces "I
-    don't know" with "I'm stuck" (write what you can) over an mvp-0.12 vault
-    (or an mvp-0.9 to mvp-0.11 vault through the chain, under mvp-0.12's
-    guard; kill switch: ``stuck_prompt.enabled = false``)."""
+    false``); ``--to mvp-0.13`` replaces "I don't know" with "I'm stuck"
+    (write what you can) over an mvp-0.12 vault (or an mvp-0.9 to mvp-0.11
+    vault through the chain, under mvp-0.12's guard; kill switch:
+    ``stuck_prompt.enabled = false``); ``--to mvp-0.14`` (default, the latest
+    successor) adds the finite daily plan over an mvp-0.13 vault (or an
+    mvp-0.9 to mvp-0.12 vault through the chain, under mvp-0.12's guard; kill
+    switch: ``plan.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -128,10 +131,14 @@ def upgrade(
         from learnloop.stuck_prompt_upgrade import upgrade_to_mvp013
 
         result = upgrade_to_mvp013(_root(vault))
+    elif to == "mvp-0.14":
+        from learnloop.daily_plan_upgrade import upgrade_to_mvp014
+
+        result = upgrade_to_mvp014(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
-            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12 or mvp-0.13."
+            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13 or mvp-0.14."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
