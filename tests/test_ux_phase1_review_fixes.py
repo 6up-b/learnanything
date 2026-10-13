@@ -1066,3 +1066,43 @@ def test_f13_a_links_keep_local_is_applied_once_when_its_book_is_registered(tmp_
     _drain(jobs)
     assert repo.get_ingest_job(import_job["id"])["status"] == "completed"
     assert repo.source_kept_local(source_id) is False
+
+
+def test_f1_rereview_a_running_build_sends_nothing_more_once_the_book_is_kept_local(tmp_path):
+    """Keeping a book local while its build is mid-call: the call under way is
+    not recalled, but the build starts no further request (on the
+    subscription route too: privacy is not about money)."""
+
+    from learnloop.ai.execution import model_call
+
+    class Subscription:
+        provider_name = "codex_medium"
+        provider_type = "codex_sdk"
+        model = "test"
+
+    sent: list[str] = []
+    state: dict = {}
+
+    def keep_local_between_requests(_context):
+        with model_call(Subscription(), purpose="sdk_turn", prompt="first", budget=100):
+            sent.append("first")
+        core.keep_on_this_computer(state["jobs"], state["source_id"])
+        with model_call(Subscription(), purpose="sdk_turn", prompt="second", budget=100):
+            sent.append("second")
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    hook = {"on": None}
+    repo, jobs = _jobs(root, fake_services(on_append=lambda c: hook["on"] and hook["on"](c)))
+    state["jobs"] = jobs
+    item = _add(root, jobs, write_book(tmp_path))
+    source_id = state["source_id"] = item["source_id"]
+    labels = _labels(repo, source_id)
+    hook["on"] = keep_local_between_requests
+    advance_reading_build(jobs, resolve_extraction_id(repo, source_id), labels["2 Conditional probability"])
+    assert sent == ["first"]
+    ch3 = _build_batches(repo)[0]
+    synthesis = next(job for job in repo.ingest_jobs_for_batch(ch3["id"]) if job["job_type"] == "bootstrap_synthesis")
+    assert synthesis["status"] == "cancelled"
+    line = source_status_line(repo, load_vault(root), source_id)
+    assert line["text"] == "Kept on this computer — no questions are written for it"

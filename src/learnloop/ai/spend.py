@@ -285,6 +285,12 @@ class MeteredRequestGate:
     routes are never limited here (Slice A §5 rule 6); unknown prices fail
     closed. A refusal raises :class:`SpendLimitExceeded` before the request
     and is kept in :attr:`refusal` for the caller's report.
+
+    ``cancelled``, when given, is consulted before every request made on the
+    thread that created the gate, whatever the route: work that was stopped
+    (cancelled, a book kept on this computer) starts no further request, and
+    :class:`SpendCancelled` is raised instead. Worker threads skip it: they
+    keep SQL off their threads and are stopped by their owner's own poll.
     """
 
     def __init__(
@@ -295,6 +301,7 @@ class MeteredRequestGate:
         is_subscription: Callable[[Any], bool],
         default_output_tokens: int = 0,
         spent_before_usd: float = 0.0,
+        cancelled: Callable[[], bool] | None = None,
     ) -> None:
         _money("limit_usd", limit_usd)
         _money("spent_before_usd", spent_before_usd)
@@ -307,6 +314,8 @@ class MeteredRequestGate:
         self._spent = Decimal(str(spent_before_usd))
         self._in_flight: dict[int, Decimal] = {}
         self._next_key = 0
+        self._cancelled = cancelled
+        self._owner_thread = threading.get_ident()
         self.admitted = 0
         self.refusal: dict[str, Any] | None = None
 
@@ -344,6 +353,12 @@ class MeteredRequestGate:
         return self.estimate_tokens(client, prompt=prompt, budget=budget) * price
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None:
+        if (
+            self._cancelled is not None
+            and threading.get_ident() == self._owner_thread
+            and self._cancelled()
+        ):
+            raise SpendCancelled("Paid work cancelled")
         if self._is_subscription(client):
             return None
         provider = getattr(client, "provider_name", None)

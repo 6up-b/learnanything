@@ -706,7 +706,9 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
       follow-up call, parallel inventory workers) passes a
       :class:`~learnloop.ai.spend.MeteredRequestGate` over the same limit,
       settled with what each request reported. A refused request stops the
-      job as ``spend_paused`` before it is sent.
+      job as ``spend_paused`` before it is sent;
+    * once the build is cancelled (Undo, keeping the book on this computer)
+      it starts no further request, on any route.
     No-op for jobs that are not part of an automatic build."""
 
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
@@ -759,7 +761,8 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
             raise _spend_paused(reason, {**details, "estimate_usd": round(usd, 4), "spend_check": str(exc)}) from exc
     # Every request of the rest of this attempt, whatever route it really
     # takes (a subscription route is never limited; a metered fallback is).
-    gate = _request_gate(config, limit, _request_output_ceiling(config, str(ctx.job.get("job_type") or "")))
+    gate = _request_gate(config, limit, _request_output_ceiling(config, str(ctx.job.get("job_type") or "")),
+                         cancelled=ctx.cancelled)
     ctx.hold(_requests_admitted(gate, reason, details))
 
 
@@ -775,10 +778,11 @@ def _request_output_ceiling(config, job_type: str) -> int:
                int(budgets.append_output_tokens))
 
 
-def _request_gate(config, limit_usd: float, default_output_tokens: int):
+def _request_gate(config, limit_usd: float, default_output_tokens: int, *, cancelled=None):
     from learnloop.ai.spend import MeteredRequestGate, is_subscription_transport
 
     return MeteredRequestGate(
+        cancelled=cancelled,
         limit_usd=limit_usd,
         price_per_token=lambda provider: _price_per_million(config, provider) / 1_000_000,
         is_subscription=lambda client: (
