@@ -596,6 +596,23 @@ def _unresolved_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]
     ]
 
 
+def _joined_contribution(candidate: Mapping[str, Any]) -> facet_meaning.Contribution:
+    """What a retired candidate offers the survivor its meaning joins (in-run consolidation or attach).
+
+    Its validated citations and the ones that did not resolve (Codex review of
+    the reword confirm, F1): an unresolved citation supports nothing, but one
+    that names exam material by its span (under the wrong unit, say) must keep
+    the candidate's claim, conditions and examples out of the survivor, as a
+    resolved exam citation does. Without it the contribution would read as
+    "uncited", which a new survivor takes and a registered one takes as a
+    worked example.
+    """
+
+    return facet_meaning.Contribution(
+        str(candidate["fkey"]), (*candidate["support"], *candidate.get("unresolved", ())),
+    )
+
+
 def _support_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
     """The validated citations of a candidate, as a proposal's ``meaning_support`` carries them."""
 
@@ -811,9 +828,12 @@ def _normalize(
                 "gate_refs": gate_refs,
                 "support": support,
                 # Citations that did not resolve: they support nothing, but a
-                # reword of a registered facet is judged with them, so one that
-                # names exam material by its span is never "uncited" (and so
-                # never held for the owner's confirm; owner, 2026-10-13).
+                # reword of a registered facet, and a consolidation or attach
+                # that joins this candidate's meaning to a survivor, is judged
+                # with them, so one that names exam material by its span is
+                # never "uncited" (and so never held for the owner's confirm,
+                # nor joined as an uncited example; owner, 2026-10-13, and the
+                # Codex review of the reword confirm, F1).
                 "unresolved": _unresolved_citations(gate_refs),
                 # What supports the facet's meaning, one entry per source of it:
                 # the candidate itself, then each candidate whose meaning a
@@ -845,7 +865,7 @@ def _normalize(
                 if survivor is None or str(retirement.survivor_client) in retirements:
                     continue
                 pre_union.setdefault(str(survivor["fkey"]), copy.deepcopy(survivor["payload"]))
-                contribution = facet_meaning.Contribution(fkey, tuple(candidate["support"]))
+                contribution = _joined_contribution(candidate)
                 joined = facet_meaning.join_candidate(
                     survivor["payload"], candidate["payload"], survivor_id=str(survivor["fid"]),
                     action=retirement.action, absorb_as=retirement.absorb_as, contribution=contribution,
@@ -917,6 +937,7 @@ def _normalize(
             check = facet_meaning.check_meaning_write(
                 fid, before=before, after=facet_meaning.overlay(before, payload), registered=True,
                 contributions=candidate["contributions"], resolver=inputs.resolver,
+                policy=facet_meaning.meaning_policy(vault.config),
             )
             if check.confirmable:
                 dropped_diagnostics.append(check.diagnostic(entity_refs=[fid, fkey]))
@@ -996,7 +1017,7 @@ def _normalize(
         else:
             target = str(retirement.survivor_facet)
             attach_unions.setdefault(target, []).append(
-                (candidate["payload"], retirement, facet_meaning.Contribution(fkey, tuple(candidate["support"]))),
+                (candidate["payload"], retirement, _joined_contribution(candidate)),
             )
         if target in vault.evidence_facets:
             # A registered survivor gains the alias through its update row, so
@@ -1076,7 +1097,7 @@ def _normalize(
                     grown = {**unioned, "positive_examples": [*(unioned.get("positive_examples") or []), claim]}
                     check = facet_meaning.check_meaning_write(
                         target, before=unioned, after=grown, registered=True, contributions=[contribution],
-                        resolver=inputs.resolver,
+                        resolver=inputs.resolver, policy=facet_meaning.meaning_policy(vault.config),
                     )
                     if not check.allowed:
                         contract_notes.setdefault(target, []).append(

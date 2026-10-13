@@ -42,6 +42,12 @@ the owner's manual authority (an owner ``granted`` verdict, a save intent and
 an owner-edit write through the chokepoint; the row becomes the facet's
 ``reword`` with its undo); :func:`keep_current_wording` closes it with the
 owner's ``rejected`` verdict. An interrupted confirm returns to ``proposed``.
+A confirm writes only what the reword changed, merged three ways with what
+changed on the facet since (a conflict it cannot merge refuses it), and
+installs the reword's validated citations in ``entity_source_links``
+write-ahead, so recovery finishes them too (Codex review F2, F4). What the
+owner reads beside a reword (its sources' excerpts) is resolved when it is
+shown, with that moment's roles (F3).
 
 In-run and attach actions are recorded ``proposed`` with their proposal; they
 are undoable once the proposal is applied (the vault then shows exactly what
@@ -779,8 +785,52 @@ def _confirm_status(record: Mapping[str, Any]) -> str:
     return "confirmed"
 
 
-def confirm_view(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dict[str, Any]:
-    """What the owner sees of a reword confirm: the facet, the wording before and after, the sources."""
+#: Entry keys never listed as a reword's change (bookkeeping the write sets itself).
+_UNLISTED_KEYS = frozenset({"id", "version", "provenance", "semantic_fingerprint"})
+
+
+def _other_changes(
+    before: Mapping[str, Any], after: Mapping[str, Any], listed: Sequence[str],
+) -> list[dict[str, Any]]:
+    """What a reword changes beside its wording (aliases, error signatures, repairs...), as a confirm writes it."""
+
+    if not before or not after:
+        return []
+    old = normalized_entry(before) or {}
+    new = normalized_entry(after) or {}
+    return [
+        {"field": name, "before": old.get(name), "after": value}
+        for name, value in new.items()
+        if name not in _UNLISTED_KEYS and name not in listed and old.get(name) != value
+    ]
+
+
+def _lazy_resolver(repository: Repository | None, vault: LoadedVault | None) -> Any:
+    """One citation resolver for a listing, built on first use (``None`` without a repository and vault)."""
+
+    built: list[authority.CitationResolver | None] = []
+
+    def get() -> authority.CitationResolver | None:
+        if not built:
+            built.append(authority.CitationResolver.for_vault(repository, vault)
+                         if repository is not None and vault is not None else None)
+        return built[0]
+
+    return get
+
+
+def confirm_view(
+    record: Mapping[str, Any], vault: LoadedVault | None = None, *,
+    resolver: authority.CitationResolver | None = None,
+) -> dict[str, Any]:
+    """What the owner sees of a reword confirm: the facet, the wording before and after, the sources.
+
+    ``changes`` lists every field the confirm writes: the wording fields
+    first, then anything else the reword changes (an alias, an error
+    signature). ``sources`` are resolved again with ``resolver`` (today's
+    roles and held-out selections): a source that is exam material now shows
+    no text, and without a resolver none does (Codex review F3).
+    """
 
     detail = record.get("detail") or {}
     confirm = detail.get("confirm") or {}
@@ -798,8 +848,11 @@ def confirm_view(record: Mapping[str, Any], vault: LoadedVault | None = None) ->
         "facet_id": facet_id,
         "title": title,
         "fields": fields,
-        "changes": [{"field": name, "before": before.get(name), "after": after.get(name)} for name in fields],
-        "sources": [dict(source) for source in detail.get("sources") or []],
+        "changes": [
+            *({"field": name, "before": before.get(name), "after": after.get(name)} for name in fields),
+            *_other_changes(before, after, fields),
+        ],
+        "sources": authority.visible_sources(detail.get("sources") or [], resolver),
         "unresolved": list(confirm.get("unresolved") or []),
         "message": str(confirm.get("message") or ""),
         "proposal_id": record.get("proposal_id"),
@@ -816,13 +869,22 @@ def confirm_view(record: Mapping[str, Any], vault: LoadedVault | None = None) ->
 def pending_reword_confirms(
     repository: Repository, vault: LoadedVault | None = None, *, facet_ids: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Rewords waiting for the owner's confirm (newest first), optionally only for ``facet_ids``."""
+    """Rewords waiting for the owner's confirm (newest first), optionally only for ``facet_ids``.
+
+    Their sources are resolved with the vault's roles of now (``vault``
+    given), so a source re-marked as an exam, or a unit held out, since the
+    reword was held shows no text (Codex review F3).
+    """
 
     wanted = set(facet_ids) if facet_ids is not None else None
-    return [
-        confirm_view(record, vault)
-        for record in list_actions(repository, status="proposed", limit=None)
+    records = [
+        record for record in list_actions(repository, status="proposed", limit=None)
         if is_reword_confirm(record) and (wanted is None or record["survivor_facet_id"] in wanted)
+    ]
+    resolver = _lazy_resolver(repository, vault)
+    return [
+        confirm_view(record, vault, resolver=resolver() if (record.get("detail") or {}).get("sources") else None)
+        for record in records
     ]
 
 
@@ -837,24 +899,56 @@ def reword_confirms_by_item(repository: Repository) -> dict[str, str]:
     return out
 
 
+def _merged_list(old: Sequence[Any], new: Sequence[Any], mine: Sequence[Any]) -> list[Any]:
+    """A three-way merge of one list field: today's list, less what the reword removed, plus what it added."""
+
+    removed = [item for item in old if item not in new]
+    added = [item for item in new if item not in old]
+    merged = [copy.deepcopy(item) for item in mine if item not in removed]
+    merged.extend(copy.deepcopy(item) for item in added if item not in merged)
+    return merged
+
+
 def _confirmed_entry(
     current: Mapping[str, Any], held_before: Mapping[str, Any], held_after: Mapping[str, Any],
 ) -> dict[str, Any]:
     """The facet as the confirm writes it: today's entry with what the held reword changed.
 
-    Only what the reword changed is taken from it, so a change made to the
-    facet since that is not meaning (an alias, an error signature, a repair)
-    stays. Its provenance keeps today's refs and adds the ones the reword
-    recorded. ``version`` and the fingerprint are set by the caller.
+    Only what the reword changed is taken from it, merged three ways with
+    what changed on the facet since (Codex review F2): a field the facet
+    still holds as the reword found it takes the reword's value; a list both
+    changed (aliases, error signatures, repairs) keeps today's items, less
+    what the reword removed, plus what it added; any other field both changed
+    differently is a conflict, and the confirm is refused (``changed_since``)
+    rather than overwrite it. The wording fields cannot conflict: the caller
+    refuses a confirm whose wording changed since. Its provenance keeps
+    today's refs and adds the ones the reword recorded. ``version`` and the
+    fingerprint are set by the caller.
     """
 
     old = normalized_entry(held_before) or {}
     new = normalized_entry(held_after) or {}
     entry = copy.deepcopy(dict(normalized_entry(current) or {}))
+    conflicts: list[str] = []
     for name, value in new.items():
-        if name in {"id", "version", "provenance"} or old.get(name) == value:
+        if name in _UNLISTED_KEYS or old.get(name) == value:
             continue
-        entry[name] = copy.deepcopy(value)
+        mine = entry.get(name)
+        if mine == old.get(name):
+            entry[name] = copy.deepcopy(value)
+        elif mine == value:
+            continue
+        elif all(item is None or isinstance(item, list) for item in (old.get(name), value, mine)):
+            entry[name] = _merged_list(old.get(name) or [], value or [], mine or [])
+        else:
+            conflicts.append(name)
+    if conflicts:
+        facet_id = entry.get("id") or new.get("id")
+        raise FacetIdentityActionError(
+            "changed_since",
+            f"Facet {facet_id}'s {', '.join(conflicts)} changed after this reword was proposed, and the reword "
+            "changes it too; keep the current wording, or re-run the source update.",
+        )
     refs = list(((entry.get("provenance") or {}).get("source_refs")) or [])
     seen = {json.dumps(ref, sort_keys=True, default=str) for ref in refs}
     held_refs = ((new.get("provenance") or {}).get("source_refs")) or []
@@ -901,17 +995,27 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
 
     * the facet's meaning must still be the wording the reword replaces
       (``changed_since`` otherwise; keeping the current wording still works);
+    * what else the reword changes is merged three ways with what changed on
+      the facet since (:func:`_confirmed_entry`; a conflict it cannot merge is
+      ``changed_since``);
     * the reword's recorded support is judged again with the vault's source
       sets: exam-only support refuses the confirm (``exam_authority``), so an
       exam never reaches a facet through it (only the owner's own Library
-      edit can do that);
+      edit can do that). The owner's confirm is manual authority, so the
+      ``facet_identity.reword_confirm`` kill switch (which stops new holds)
+      does not refuse it;
+    * the citations it records are validated again, and the ones that resolve
+      become its ``entity_source_links`` rows (Codex review F4);
     * the owner's ``granted`` verdict (``judgment_ledger``, task
       :data:`MANUAL_AUTHORITY_TASK`, ``judge = 'owner'``, origin ``confirm``),
       the save intent (``facet_registry_saves``) and the row (now ``applying``,
-      judge ``owner``, with the entry it replaces and writes) commit together;
+      judge ``owner``, with the entry it replaces and writes and the source
+      links it installs) commit together;
     * facets.yaml is written through the chokepoint as an owner edit; then the
-      row and the intent become ``applied``. The row is the facet's ``reword``
-      history entry with the one-tap undo.
+      source links are installed and the row and the intent become
+      ``applied``, in one transaction (recovery does the same for a confirm
+      whose file write landed). The row is the facet's ``reword`` history
+      entry with the one-tap undo (which, like any reword's, leaves the links).
 
     A write that fails in process, or a process stopped before it, returns the
     reword to pending (its verdict withdrawn), so the owner can confirm again.
@@ -951,12 +1055,24 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
             contributed = authority.contributions_from_support(list(confirm.get("meaning_support") or []))
         except authority.FacetAuthorityError as exc:
             raise FacetAuthorityRefusal(exc.code, str(exc)) from exc
+        resolver = authority.CitationResolver.for_vault(repository, vault)
+        # The owner's confirm is manual authority whatever the vault's
+        # ``reword_confirm`` (its kill switch stops new holds, not the owner):
+        # only exam-only support refuses it.
         verdict = authority.check_meaning_write(
             facet_id, before=current, after=new_entry, registered=True, contributions=contributed,
-            resolver=authority.CitationResolver.for_vault(repository, vault),
+            resolver=resolver, policy=authority.REWORD_CONFIRM,
         )
         if not (verdict.allowed or verdict.confirmable):
             raise FacetAuthorityRefusal(verdict.code, verdict.message)
+        # The citations the reword records are validated again, now, and the
+        # ones that resolve become its source links (Codex review F4): the
+        # same rule a proposal apply follows (``authority.added_provenance``).
+        if new_entry.get("provenance") != current.get("provenance"):
+            new_entry["provenance"] = authority.written_provenance(
+                current, new_entry, verdict, resolver, record_support=False,
+            )
+        links = _confirm_source_links(facet_id, current, new_entry, record.get("proposal_id"))
         old_version = int(current.get("version") or 1)
         fields = meaning_changes(current, new_entry)
         new_entry["version"] = old_version + 1 if fields else old_version
@@ -979,7 +1095,8 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
                 before={"facets": {facet_id: copy.deepcopy(current)}, "order": {}},
                 after={"facets": {facet_id: json.loads(json.dumps(written, default=str))}},
                 detail={**detail, "fields": fields or changed, "authority_judgment_id": grant_id,
-                        "save_id": save_id, "confirm": {**confirm, "confirmed_at": now}},
+                        "save_id": save_id, "confirm": {**confirm, "confirmed_at": now},
+                        "source_links": links},
             )
             store.insert_registry_save(
                 connection, save_id=save_id, created_at=now,
@@ -998,6 +1115,7 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
         refresh_derived_state(vault.root, repository, [], clock=clock)
         with repository.atomic():
             connection = repository.connection()
+            _install_source_links(repository, links, created_at=now)
             store.set_status(connection, action_id, "applied", applied_at=utc_now_iso(clock))
             store.settle_registry_save(connection, save_id, "applied", at=utc_now_iso(clock))
     record = action_by_id(repository, action_id) or {}
@@ -1007,6 +1125,31 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
         "undo": f"learnloop facets undo {action_id}",
         "action": describe(record, load_vault(root)) if record else None,
     }
+
+
+def _confirm_source_links(
+    facet_id: str, current: Mapping[str, Any], written: Mapping[str, Any], proposal_id: str | None,
+) -> list[dict[str, Any]]:
+    """The ``entity_source_links`` rows a confirm installs: the validated refs its write adds (fixed ids)."""
+
+    from learnloop.content.proposals.apply_protocol import entity_source_link_rows
+
+    return entity_source_link_rows("facet", facet_id, authority.added_provenance(current, written),
+                                   str(proposal_id or ""))
+
+
+def _install_source_links(repository: Repository, links: Sequence[Mapping[str, Any]], *, created_at: str) -> None:
+    """Install a confirmed reword's source links (idempotent: ``INSERT OR IGNORE`` on fixed ids and the unique key)."""
+
+    for link in links:
+        repository.insert_entity_source_link(
+            link_id=str(link["id"]), entity_type=str(link["entity_type"]), entity_id=str(link["entity_id"]),
+            locator=str(link["locator"]), relation=str(link["relation"]), source_id=link.get("source_id"),
+            revision_id=link.get("revision_id"), locator_scheme=link.get("locator_scheme"),
+            extraction_id=link.get("extraction_id"), asset_hash=link.get("asset_hash"),
+            span_hash=link.get("span_hash"), patch_id=link.get("patch_id") or None,
+            status=str(link.get("status") or "current"), created_at=created_at,
+        )
 
 
 def _reopen_confirm(repository: Repository, action_id: str, *, reason: str, clock: Clock | None = None) -> None:
@@ -1413,7 +1556,9 @@ def facet_history(repository: Repository, facet_id: str, vault: LoadedVault | No
 
     with repository.connection() as connection:
         rows = store.list_actions(connection, survivor_facet_id=facet_id, limit=None)
-    return [describe(row, vault) for row in rows]
+    resolver = _lazy_resolver(repository, vault)
+    return [describe(row, vault, resolver=resolver() if (row.get("detail") or {}).get("sources") else None)
+            for row in rows]
 
 
 def _current_entries(paths: VaultPaths) -> dict[str, Any]:
@@ -1447,8 +1592,15 @@ def effective_status(record: Mapping[str, Any], vault: LoadedVault) -> str:
     return "applied" if retired <= aliases and not (retired & set(current)) else "proposed"
 
 
-def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dict[str, Any]:
-    """A compact view for results, the CLI and the desktop app."""
+def describe(
+    record: Mapping[str, Any], vault: LoadedVault | None = None, *,
+    resolver: authority.CitationResolver | None = None,
+) -> dict[str, Any]:
+    """A compact view for results, the CLI and the desktop app.
+
+    A reword's sources are resolved again with ``resolver`` before any text
+    of theirs is shown; without one they show none (Codex review F3).
+    """
 
     before = (record.get("before") or {}).get("facets") or {}
 
@@ -1495,11 +1647,11 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         # Retirees of the judged set a graded criterion kept registered (review F1).
         "held_back": [str(held.get("facet_id")) for held in detail.get("held_back") or []],
         # The validated sources a reword cited (its history; owner, 2026-10-13).
-        "sources": [dict(source) for source in detail.get("sources") or []],
+        "sources": authority.visible_sources(detail.get("sources") or [], resolver),
         # A title or worked-example change: on the history, not a version.
         "presentation": bool(detail.get("presentation")),
         # A reword held for the owner's confirm, and what became of it.
-        "confirm": confirm_view(record, vault) if is_reword_confirm(record) else None,
+        "confirm": confirm_view(record, vault, resolver=resolver) if is_reword_confirm(record) else None,
         # What an undo does not move back (review F9).
         "undo_limits": REWORD_UNDO_LIMITS if record["action"] == "reword" else UNDO_LIMITS,
         "judge": record["judge"],
@@ -1749,6 +1901,10 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
       ``applied`` when facets.yaml shows its edit, otherwise ``abandoned``
       with the owner's verdicts it recorded ``withdrawn``; rows with
       ``kind = "library_save"``.
+    * A reword confirm left ``applying``: when facets.yaml shows it, the
+      source links its intent recorded are installed and it is ``applied``
+      (Codex review of the reword confirm, F4); otherwise it waits for the
+      owner's confirm again (``proposed``).
 
     The caller holds the vault mutation lock (it is re-entrant). Returns what
     happened to each row.
@@ -1815,6 +1971,11 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                 affected = [] if reword else affected_learning_objects(vault, (survivor, *retired))
                 refresh_derived_state(root, repository, affected, clock=clock)
                 with repository.atomic():
+                    if is_reword_confirm(record):
+                        # The confirm's file write landed: its source links
+                        # were recorded with its intent (Codex review F4).
+                        _install_source_links(repository, (record.get("detail") or {}).get("source_links") or [],
+                                              created_at=utc_now_iso(clock))
                     store.set_status(repository.connection(), str(record["id"]), "applied",
                                      applied_at=utc_now_iso(clock))
                 out.append({"id": record["id"], "from": "applying", "to": "applied", "file": state})

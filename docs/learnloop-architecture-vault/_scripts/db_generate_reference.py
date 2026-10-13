@@ -980,6 +980,12 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Names an explicit offline question-classification profile. Empty disables the route; "
         "global chat overrides, active-provider and fallback-provider settings never apply."
     ),
+    "facet_identity.reword_confirm": (
+        "Kill switch of the owner's one-tap reword confirm (2026-10-13): on, a model-proposed change to a "
+        "registered facet's meaning without an explanatory span (not exam-only) waits for the owner's confirm and "
+        "a title or worked-example change needs no explanatory citation; off restores the predecessor rule "
+        "(refused at accept, dropped by the producers). Exam-only support is refused either way."
+    ),
     "field.enabled": "Allows explicitly requested paid field experiments; never changes serving or evidence.",
     "field.active_predictor": "Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor.",
     "field.legacy_fallback": "Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed.",

@@ -409,28 +409,34 @@ class AppendConflict(WireModel):
 
 
 class AppendFacetWording(WireModel):
-    """The new meaning of an existing facet, for a facet restructure (a reword).
+    """The new wording of an existing facet, for a facet restructure (a reword).
 
     Declared so a strict-schema provider can fill it: the restructure's bare
     ``payload`` dict sanitizes into an object it may not populate. A blank
     field (``""``, ``[]``, ``null``) keeps the facet's current value; a filled
-    one replaces it.
+    one replaces it (a list replaces the whole list). The title and the worked
+    examples travel too (Codex review of the reword confirm, F5): a change to
+    them only is not a new version of the facet.
 
     ``provenance`` cites the provided spans that support the new wording, as a
     new facet's does. A reword changes a canonical claim, so the §4.2
-    authority matrix applies (Codex re-review F6): an uncited reword is
-    dropped, each citation's role comes from its extraction run, and a reword
-    only exam material supports fails the ``exam_authority`` gate."""
+    authority matrix applies (Codex re-review F6): each citation's role comes
+    from its extraction run, a reword only exam material supports fails the
+    ``exam_authority`` gate, and one with no explanatory span behind it waits
+    for the learner's confirm (owner, 2026-10-13)."""
 
     kind: Literal[
         "definition", "proposition", "procedure_contract", "applicability_condition", "interpretation"
     ] | None = None
+    title: str = ""
     claim: str = ""
     description: str = ""
     preconditions: list[str] = Field(default_factory=list)
     postconditions: list[str] = Field(default_factory=list)
     applicability: list[str] = Field(default_factory=list)
     non_goals: list[str] = Field(default_factory=list)
+    positive_examples: list[str] = Field(default_factory=list)
+    negative_examples: list[str] = Field(default_factory=list)
     provenance: list[SynthSpanRef] = Field(default_factory=list)
 
 
@@ -912,11 +918,11 @@ overwrite. Accepting persists an open conflict; it never applies either side.
 6. RESTRUCTURE: only when a semantic replacement/removal is truly required, emit a
 `restructures` item (operation update/deactivate) with the `expected_target_hash`.
 It is review-required. To reword an existing facet from the neighborhood, emit
-`target_entity_type` "facet", operation "update", and its new meaning in
-`facet_wording` (leave a field blank to keep it), citing in
+`target_entity_type` "facet", operation "update", and its new meaning, title or
+worked examples in `facet_wording` (leave a field blank to keep it), citing in
 `facet_wording.provenance` the provided span(s) that support the new wording;
-an uncited reword is dropped. The old wording is kept as a prior version the
-learner can restore. Never deactivate a facet. A learning object or practice
+a reword no explanatory span supports waits for the learner's confirm. The old
+wording is kept as a prior version the learner can restore. Never deactivate a facet. A learning object or practice
 item that already has practice attempts cannot be restructured, so add to it
 instead. Leave `facet_wording` null otherwise.
 7. AUTHORITY (§4.2): exam/problem-set material shapes only assessment alignment; it

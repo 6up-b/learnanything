@@ -824,13 +824,17 @@ def _facet_reword(
     """Normalize a facet restructure: a reword of a registered facet.
 
     A facet restructure is a reword (Codex review F2): an ``update`` of a
-    registered facet whose new meaning arrives in ``facet_wording`` (declared,
+    registered facet whose new wording arrives in ``facet_wording`` (declared,
     so a strict-schema provider can fill it; the bare ``payload`` dict is read
-    too, for a provider that fills it). Only the meaning fields travel, and a
-    blank field keeps the facet's value. The apply writes a facet version
-    with an undo. ``expected_target_hash`` is stamped from the vault the
-    model saw: the neighborhood never shows the model a target hash, so its
-    own value can only be a guess, and a guess would refuse every accept.
+    too, for a provider that fills it). The meaning fields, the title and the
+    worked examples travel (``authority.AUTHORITY_FIELDS``; Codex review of
+    the reword confirm, F5), and a blank field keeps the facet's value. The
+    apply writes a facet version with an undo when the meaning changes; a
+    title or worked-example change only is not a version, but is on the
+    facet's history with its undo. ``expected_target_hash`` is stamped from
+    the vault the model saw: the neighborhood never shows the model a target
+    hash, so its own value can only be a guess, and a guess would refuse
+    every accept.
 
     A reword changes a canonical claim, so it obeys the §4.2 authority matrix
     like a new facet (Codex re-review F6). It cites the provided spans that
@@ -849,14 +853,16 @@ def _facet_reword(
       after and its sources (owner, 2026-10-13). It used to be dropped
       because exam units never reach the model as text, so an exam-driven
       reword arrives uncited; the confirm shows the owner that it cites
-      nothing, and only the owner writes it.
+      nothing, and only the owner writes it. A title or worked-example
+      change needs no explanatory citation;
+    * under the kill switch ``facet_identity.reword_confirm = false`` the
+      predecessor rule holds: a reword the chokepoint would refuse is dropped
+      here (``facet_restructure``), never kept to fail the accept.
 
     The citations are added to the facet's ``provenance`` snapshot (the apply
     links them in ``entity_source_links``). An exam citation is recorded as
     ``assessment_alignment``, never as semantic support (§9.3).
     """
-
-    from learnloop.content.facet_identity.actions import MEANING_FIELDS, meaning_changes
 
     if operation != "update":
         return _FacetReword(None, problem="a facet is retired by a merge, never a deactivate")
@@ -866,15 +872,16 @@ def _facet_reword(
     wording = dict(obj.get("facet_wording") or {})
     loose = dict(obj.get("payload") or {})
     payload: dict[str, Any] = {}
-    for name in MEANING_FIELDS:
+    for name in facet_meaning.AUTHORITY_FIELDS:
         value = wording.get(name)
         if value in (None, "", []):
             value = loose.get(name)
         if value not in (None, "", []):
             payload[name] = value
     current = facet.model_dump(mode="json", exclude_none=False)
-    if not meaning_changes(current, {**current, **payload}):
+    if not facet_meaning.authority_changes(current, {**current, **payload}):
         return _FacetReword(None, problem="it carries no new wording")
+    policy = facet_meaning.meaning_policy(vault.config)
 
     citations = wording.get("provenance") or loose.get("provenance")
     resolved: list[dict[str, Any]] = []
@@ -901,7 +908,7 @@ def _facet_reword(
         payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
         support = facet_meaning.contributions(exam_unresolved, label="reword")
         payload["meaning_support"] = facet_meaning.support_entries(support)
-        return _checked_reword(target_id, current, payload, [], support, unresolved, inputs)
+        return _checked_reword(target_id, current, payload, [], support, unresolved, inputs, policy)
     snapshot = dict(current.get("provenance") or {})
     source_refs = [dict(ref) for ref in snapshot.get("source_refs") or []]
     seen = {(ref.get("revision_id"), ref.get("locator"), ref.get("relation")) for ref in source_refs}
@@ -918,12 +925,13 @@ def _facet_reword(
     # What the apply judges again, at the facet-meaning chokepoint.
     support = facet_meaning.contributions([*_support_citations(gate_refs), *exam_unresolved], label="reword")
     payload["meaning_support"] = facet_meaning.support_entries(support)
-    return _checked_reword(target_id, current, payload, gate_refs, support, unresolved, inputs)
+    return _checked_reword(target_id, current, payload, gate_refs, support, unresolved, inputs, policy)
 
 
 def _checked_reword(
     target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef],
     support: Any, unresolved: list[str], inputs: Any,
+    policy: facet_meaning.MeaningPolicy = facet_meaning.REWORD_CONFIRM,
 ) -> _FacetReword:
     """A reword, judged in advance by the chokepoint the apply runs again.
 
@@ -932,16 +940,24 @@ def _checked_reword(
     its refs, the gates hard-fail it; when its only exam material is a
     citation that did not resolve (named under the wrong unit, say), the gates
     cannot see it, so the reword is dropped here (``exam_authority``, review).
+    Refused without being confirmable (the kill switch's predecessor rule):
+    dropped here (``facet_restructure``), as bootstrap normalization drops a
+    refused registered-id candidate.
     """
 
     check = facet_meaning.check_meaning_write(
         target_id, before=current, after=facet_meaning.overlay(current, payload), registered=True,
-        contributions=support, resolver=inputs.resolver,
+        contributions=support, resolver=inputs.resolver, policy=policy,
     )
     if check.code == "exam_authority" and not any(ref.role in ASSESSMENT_ONLY_ROLES for ref in gate_refs):
         return _FacetReword(None, unresolved=unresolved, gate="exam_authority", problem=(
             "it rests on exam material only (cited under a unit that does not hold it, or outside the selected "
             "units): an exam citation only ever aligns assessment (§4.2)"
+        ))
+    if check.code == "unsupported_reword" and not check.confirmable:
+        return _FacetReword(None, unresolved=unresolved, problem=(
+            "it cites no span from an explanatory source in the selected units, and "
+            "facet_identity.reword_confirm = false refuses it (§4.2)"
         ))
     return _FacetReword(payload, provenance=gate_refs, unresolved=unresolved,
                         confirm=check.diagnostic(entity_refs=[target_id]) if check.confirmable else None)

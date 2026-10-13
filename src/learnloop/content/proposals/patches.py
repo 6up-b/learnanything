@@ -522,7 +522,9 @@ def _compile_facet(
     accepted and the change is held as a pending "confirm this reword" for the
     owner (owner, 2026-10-13; :func:`_held_for_confirm`). A change to a
     registered facet's title or worked examples needs no explanatory citation
-    and is recorded on the facet's history with its sources.
+    and is recorded on the facet's history with its sources. Both follow the
+    vault's ``facet_identity.reword_confirm`` (``authority.meaning_policy``);
+    its kill switch restores the predecessor rule (refused, never held).
     """
 
     entity_id = _entity_id(item, payload)
@@ -552,6 +554,7 @@ def _compile_facet(
     verdict = authority.check_meaning_write(
         entity_id, before=before, after=after, registered=existing is not None,
         contributions=contributed, resolver=facet_authority.resolver,
+        policy=authority.meaning_policy(vault.config),
     )
     if verdict.confirmable:
         return _held_for_confirm(item, entity_id, before, data, payload, verdict, contributed, facet_authority)
@@ -593,10 +596,12 @@ def _held_for_confirm(
     Nothing is written to facets.yaml and no source link is added: the item is
     accepted, and the apply records a pending ``reword`` action (status
     ``proposed``) with the wording it would replace and write, the fields it
-    changes, its validated sources (an excerpt each, never exam text) and the
-    contributions the confirm judges again (``actions.confirm_reword``). Only
-    the owner's confirm, an audited owner edit, writes it; keeping the current
-    wording closes it. Later items of this acceptance see the facet as it is.
+    changes, its validated sources (no span text: an excerpt is read when the
+    confirm is shown, with that moment's roles, never for exam material) and
+    the contributions the confirm judges again (``actions.confirm_reword``).
+    Only the owner's confirm, an audited owner edit, writes it, and installs
+    its source links then; keeping the current wording closes it. Later items
+    of this acceptance see the facet as it is.
     """
 
     held = dict(data)

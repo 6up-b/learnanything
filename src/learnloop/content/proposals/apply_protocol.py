@@ -316,6 +316,19 @@ def _entity_source_link_rows(
     return rows
 
 
+def entity_source_link_rows(
+    entity_type: str, entity_id: str, payload: Any, patch_id: str
+) -> list[dict[str, Any]]:
+    """The entity_source_links rows a payload's ``provenance.source_refs`` record (fixed ids).
+
+    The rows a proposal apply installs for a written entity; a confirmed facet
+    reword (``facet_identity.actions.confirm_reword``) installs its validated
+    citations the same way, write-ahead.
+    """
+
+    return _entity_source_link_rows(entity_type, entity_id, payload, patch_id)
+
+
 # --- materialize: staged temp -> fsync -> atomic rename ----------------------
 
 

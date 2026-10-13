@@ -1901,6 +1901,8 @@ class FacetIdentityConfig(BaseModel):
     Embeddings only bound and shortlist neighbourhoods; the judge decides.
     ``enabled = false`` is the kill switch: today's lexical gate only, the
     pre-change synthesis prompts, no judge and no shortlist embedding.
+    ``reword_confirm = false`` is the kill switch of the owner's one-tap
+    reword confirm (2026-10-13; ``content.facet_identity.authority``).
     """
 
     enabled: bool = True
@@ -1917,6 +1919,15 @@ class FacetIdentityConfig(BaseModel):
     # graded criterion names with its survivor is still held back.) Kept so
     # the recorded effective-defaults snapshots do not move.
     merge_locked_facets: bool = True
+    # A model-proposed change to a registered facet's meaning with no textbook,
+    # lecture, paper, reference or alternate-explanation span behind it (not
+    # exam-only) waits for the owner's one-tap confirm, and a title or
+    # worked-example change needs no explanatory citation (owner, 2026-10-13).
+    # false is the kill switch: the predecessor rule, under which such a change
+    # is refused (the producers drop it) and titles and worked examples need
+    # explanatory support like the rest of the meaning. Exam-only support is
+    # refused either way; rewords already held can still be confirmed or kept.
+    reword_confirm: bool = True
     # Per ingest run (and the dedupe command's defaults). Codex runs on the
     # subscription: tokens and dollars are estimated only, never enforced.
     max_calls: int = Field(default=24, ge=0)

@@ -970,7 +970,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # with their defaults, unread, so no snapshot moves; the legacy before-image
     # drops [locks] (no snapshot moves either, since its values were the
     # defaults). All eight were recomputed at its merge and are unchanged.
-    "mvp-0.9": "7c54958de0749771c53b489def2967f59de0d0af7cf9300ad80e66f7ac8b2671",
+    # The facet reword confirm's review (F6; docs/reviews/
+    # facet-reword-confirm-codex-review.md) adds facet_identity.reword_confirm
+    # = true (modelled default, left out of the decision-only template), the
+    # kill switch of the owner's one-tap reword confirm: which facet writes
+    # are admitted, live at every version, never scoring, scheduling,
+    # projections, evidence or what is served, so no successor. Every snapshot
+    # moves only because the effective config gains the key; all eight were
+    # recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "9839dcc52943710afc20e2e2cc0e6b6b253e42a20ed2d2e7790f17f3cee652a4",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -990,7 +998,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "9525cb495a0cae1427dafecc7d596a1090ce700207d5391be88d0aecbd9833f5",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.10": "1cc9b5048e5ec53ad43334b412e4a2b9f3c60a4dc7d239974b05dc7923b40c6a",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1018,7 +1027,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "96f868c53e72ccbfa1ae4eaa8b75f793431196a54a74271842fbdca17cfc9f4d",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.11": "65fc31b391146d33dcdd57ce8e2ac902862947e1adca8e31a35981a06dd80073",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1040,7 +1050,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "7f02a2cf99719a3e723132dc9bc1fd0e8e3b775282e240a962dca159c1cea05e",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.12": "eafe64595c4d8c757f1ee83601b3c42744f0b1af0446f837d9c09d933d5cadc8",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1057,7 +1068,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "3706c9a4e280b68159dfd51d9e4483c7a0075297ce81081c371d0eff1edeedaa",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.13": "1d97d4bbaafcc7631c4ae606e9f2ea0796bcc4b558400c9a841429e131a4ce9d",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1073,7 +1085,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "879f0103f138b537f4e7f3ba4f458412aa2bb93121ef91034af1252419416e5c",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.14": "643e2e8b6c3a5d2c4e17f360bff429f4a9822bdc4fe0ea3995f47cd1312a5367",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1087,7 +1100,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "40ce994137088d5a5d46dc1a48a34d613869fe2da3424ec2c089d98e7abf3848",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.15": "22b35f071249ba3b79bcb5e8a8ed0c034ccfc865755ae1f7feef66ca014596f3",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1107,7 +1121,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "96cc56eecfacd308043fa25f91a638a7e0000eb76e3a20e7526899d469f9bf52",
+    # The reword confirm\'s facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.16": "a4932e4c5cf2c8bbe72b6902f90cde10fd403feeb820f835ef65667e0e70753d",
 }
 
 

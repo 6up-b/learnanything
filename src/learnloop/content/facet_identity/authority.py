@@ -40,6 +40,11 @@ that rule is enforced for a facet, whichever path writes it.
     its meaning for this rule: changing them needs no explanatory citation,
     though exam-only support is still refused (an exam's wording or worked
     item never reaches a facet through a model);
+  - both relaxations are the :data:`REWORD_CONFIRM` policy, the default.
+    ``facet_identity.reword_confirm = false`` is its kill switch
+    (:data:`EXPLANATORY_ONLY`, :func:`meaning_policy`): the predecessor rule,
+    under which such a change is refused outright and the title and worked
+    examples need explanatory support like the rest of the meaning;
   - a new facet may not carry a contribution only exam material supports (a
     notes or problem-set citation never corroborates one). An uncited new
     facet stays what it was: a proposal the ``adequate_provenance`` gate sends
@@ -83,7 +88,7 @@ import hashlib
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from learnloop.content.facet_identity.views import union_payload
 from learnloop.content.sources.role_authority import (
@@ -103,6 +108,9 @@ from learnloop.vault.models import EvidenceFacet
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, yaml_from_string
 
+if TYPE_CHECKING:
+    from learnloop.config.schema import LearnLoopConfig
+
 #: A facet's meaning, for the authority rule. ``MEANING_FIELDS`` (what a
 #: version records) is a subset; worked examples and a legacy facet's title
 #: are meaning too, though growing them is not a new version.
@@ -117,6 +125,39 @@ PRESENTATION_FIELDS = ("title", "positive_examples", "negative_examples")
 #: The verdict code of a change the owner may confirm (it is never written
 #: without the owner's confirm, an audited owner edit).
 CONFIRMABLE_CODES = frozenset({"unsupported_reword"})
+
+
+@dataclass(frozen=True)
+class MeaningPolicy:
+    """Which changes to a registered facet the chokepoint admits without explanatory support.
+
+    ``hold_unsupported``: a change to its meaning with no explanatory support
+    that is not exam-only is *confirmable* (held for the owner's one-tap
+    confirm) rather than refused outright. ``presentation_exempt``: a change
+    to its title or worked examples only (:data:`PRESENTATION_FIELDS`) needs no
+    explanatory citation. Exam-only support is refused under every policy.
+    """
+
+    name: str
+    hold_unsupported: bool
+    presentation_exempt: bool
+
+
+#: The rule since the owner's decision of 2026-10-13 ("a confirm this reword is
+#: better"): ``facet_identity.reword_confirm = true``, the default.
+REWORD_CONFIRM = MeaningPolicy("reword_confirm", hold_unsupported=True, presentation_exempt=True)
+#: The predecessor rule, restored by the kill switch
+#: ``facet_identity.reword_confirm = false``: every change to a registered
+#: facet's meaning, title and worked examples included, needs an explanatory
+#: citation in every contribution, and one without it is refused.
+EXPLANATORY_ONLY = MeaningPolicy("explanatory_only", hold_unsupported=False, presentation_exempt=False)
+
+
+def meaning_policy(config: LearnLoopConfig) -> MeaningPolicy:
+    """The admission policy a vault's config selects (``facet_identity.reword_confirm``)."""
+
+    return REWORD_CONFIRM if config.facet_identity.reword_confirm else EXPLANATORY_ONLY
+
 #: Proposal bookkeeping a facet payload may carry; never written to facets.yaml.
 PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash", "meaning_support"})
 #: The exam use mode of a protected, held-out evaluation unit (ingestion §4.2).
@@ -356,7 +397,9 @@ class CitationResolver:
 
         Never for exam material (assessment only): a held-out item's text must
         not reach the learner's screen, and an exam is never what a facet's
-        wording rests on.
+        wording rests on. ``citation`` must be resolved now (a stored view is
+        re-resolved first, :func:`visible_sources`), so the roles and held-out
+        selections of today decide.
         """
 
         if citation.role in ASSESSMENT_ONLY_ROLES:
@@ -625,17 +668,12 @@ class MeaningVerdict:
     resolved: tuple[ResolvedCitation, ...] = ()
     problems: tuple[str, ...] = ()
     message: str = ""
-
-    @property
-    def confirmable(self) -> bool:
-        """Not written as it stands, but the owner may confirm it (a pending "confirm this reword").
-
-        A change to a registered facet's meaning with no explanatory support
-        that is not exam-only (owner, 2026-10-13). Exam-only support is never
-        confirmable: only the owner's own Library edit overrides it.
-        """
-
-        return self.code in CONFIRMABLE_CODES
+    #: Not written as it stands, but the owner may confirm it (a pending
+    #: "confirm this reword"): a change to a registered facet's meaning with no
+    #: explanatory support that is not exam-only, under the
+    #: :data:`REWORD_CONFIRM` policy (owner, 2026-10-13). Exam-only support is
+    #: never confirmable: only the owner's own Library edit overrides it.
+    confirmable: bool = False
 
     def diagnostic(self, *, entity_refs: Sequence[str] | None = None, severity: str = "review",
                    suggested_action: str | None = None) -> dict[str, Any]:
@@ -678,6 +716,7 @@ def check_meaning_write(
     contributions: Sequence[Contribution],
     resolver: CitationResolver | None,
     require_resolved: bool = False,
+    policy: MeaningPolicy = REWORD_CONFIRM,
 ) -> MeaningVerdict:
     """Judge one write of a facet's meaning from validated citations (the §4.2 rule, once).
 
@@ -690,6 +729,13 @@ def check_meaning_write(
     exam-uncorroborated contribution is refused. Exam-only support is refused
     whatever the fields. Citations resolve through ``resolver``; without one
     none does.
+
+    ``policy``: :data:`REWORD_CONFIRM` (the default, as above) or the kill
+    switch's :data:`EXPLANATORY_ONLY` (the predecessor rule: a registered
+    facet's meaning, title and worked examples change only with explanatory
+    support, and a change without it is refused, never confirmable). A
+    producer or the compiler passes :func:`meaning_policy` of the vault's
+    config.
 
     ``require_resolved``: the citations were recorded (an undo restoring a
     candidate on its own citations), so one that no longer resolves refuses
@@ -743,8 +789,16 @@ def check_meaning_write(
         )
     explained = bool(verdicts) and all(verdict == EXPLANATORY for _label, verdict in verdicts)
     if registered:
-        core = [name for name in fields if name not in PRESENTATION_FIELDS]
+        core = [name for name in fields if not (policy.presentation_exempt and name in PRESENTATION_FIELDS)]
         if core and not explained:
+            if not policy.hold_unsupported:
+                # The kill switch: the predecessor rule and its message.
+                return _verdict(
+                    facet_id, False, "unsupported_reword",
+                    f"a change to registered facet {facet_id}'s meaning ({where}) cites no span from an "
+                    f"explanatory source in the selected units{detail}",
+                    **extra,
+                )
             cited = ", ".join(sorted({item.role or "unknown-role" for item in resolved_all}))
             support = (f"it cites only {cited} material" if cited
                        else "none of its citations resolves in the selected units" if problems
@@ -754,19 +808,23 @@ def check_meaning_write(
                 f"The proposed new wording of facet {facet_id} ({', '.join(core)}) has no textbook, lecture, "
                 f"paper, reference or alternate-explanation source behind it ({support}), so it waits for "
                 f"your confirm before it changes the facet{detail}",
-                **extra,
+                confirmable=True, **extra,
             )
         return _verdict(facet_id, True, "explanatory" if explained or core else "presentation", **extra)
     return _verdict(facet_id, True, "explanatory" if explained else "new_unsupported", **extra)
 
 
-def source_views(verdict: MeaningVerdict, resolver: CitationResolver | None) -> list[dict[str, Any]]:
-    """The validated citations of a write, as the owner sees them beside it.
+def source_views(verdict: MeaningVerdict, resolver: CitationResolver | None = None) -> list[dict[str, Any]]:
+    """The validated citations of a write, as its history records them.
 
-    Each names its source, unit, role and locator, with a short excerpt of the
-    span; exam material never shows its text (:meth:`CitationResolver.excerpt`).
+    Each names its source, unit, role and locator as resolved when the write
+    was judged. No span text is kept: what the owner reads beside a change is
+    built when it is shown (:func:`visible_sources`), from the roles and
+    held-out selections of that moment (Codex review F3). ``resolver`` is
+    accepted for the callers' symmetry and unused.
     """
 
+    del resolver
     out: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for citation in verdict.resolved:
@@ -779,8 +837,41 @@ def source_views(verdict: MeaningVerdict, resolver: CitationResolver | None) -> 
             "extraction_id": citation.extraction_id, "unit_id": citation.unit_id, "span_id": citation.span_id,
             "role": citation.role, "relation": citation.relation, "locator": citation.locator,
             "assessment_only": citation.role in ASSESSMENT_ONLY_ROLES,
-            "excerpt": resolver.excerpt(citation) if resolver is not None else None,
         })
+    return out
+
+
+def visible_sources(
+    sources: Iterable[Mapping[str, Any]], resolver: CitationResolver | None,
+) -> list[dict[str, Any]]:
+    """Recorded source views as the owner may see them now (Codex review F3).
+
+    Each is resolved again by its ids with today's roles and held-out
+    selections: its role, relation and ``assessment_only`` are today's, and its
+    excerpt is read from the span only when it resolves now to material that
+    is not assessment-only. A source that is exam material now (its member
+    re-marked as an exam, its unit held out for evaluation, or named under
+    the wrong unit) shows no text and is labelled exam; one that no longer
+    resolves for another reason (its unit deselected) shows no text. Without
+    a resolver nothing can be checked, so no text is shown (fail closed).
+    """
+
+    out: list[dict[str, Any]] = []
+    for source in sources:
+        view = {key: value for key, value in dict(source).items() if key != "excerpt"}
+        view["excerpt"] = None
+        if resolver is None:
+            out.append(view)
+            continue
+        citation = {key: view.get(key) for key in ("extraction_id", "unit_id", "span_id")}
+        result = resolver.resolve(citation)
+        if isinstance(result, ResolvedCitation):
+            assessment = result.role in ASSESSMENT_ONLY_ROLES
+            view.update(role=result.role, relation=result.relation, assessment_only=assessment,
+                        excerpt=None if assessment else resolver.excerpt(result))
+        elif resolver.exam_material(citation):
+            view.update(role="exam", relation="assessment_alignment", assessment_only=True)
+        out.append(view)
     return out
 
 
@@ -1161,8 +1252,10 @@ __all__ = [
     "ALLOWED_CODES",
     "AUTHORITY_FIELDS",
     "CONFIRMABLE_CODES",
+    "EXPLANATORY_ONLY",
     "HELD_OUT_EVALUATION",
     "PRESENTATION_FIELDS",
+    "REWORD_CONFIRM",
     "Basis",
     "Cited",
     "CitationProblem",
@@ -1170,6 +1263,7 @@ __all__ = [
     "Contribution",
     "FacetAuthorityError",
     "Join",
+    "MeaningPolicy",
     "MeaningVerdict",
     "OwnerEdit",
     "PROPOSAL_ONLY_KEYS",
@@ -1186,12 +1280,14 @@ __all__ = [
     "contributions",
     "contributions_from_support",
     "join_candidate",
+    "meaning_policy",
     "merged_survivor",
     "overlay",
     "registry_entries",
     "source_views",
     "support_entries",
     "verify_registry_transition",
+    "visible_sources",
     "write_contributions",
     "write_registry_text",
     "written_provenance",
