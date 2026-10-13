@@ -760,3 +760,141 @@ def test_guard_the_worlds_hold_the_grade(held_worlds):
         assert held_attempt_ids(repository) == {"att_held"}
         assert repository.fetch_practice_attempt("att_held")["error_type"] is None
         assert repository.error_events_for_attempt("att_held") == []
+
+
+# -- the Codex review of this stage (job 20261013-094441-F9GgvY): assessed -> held ------------------
+#
+# Every test above starts from a grade held on its first submission. These start
+# from an ASSESSED grade that a later regrade holds, the transition the review
+# found three readers missing.
+
+
+def _ledger_and_replay_held(vault, repository, attempt_id) -> tuple[bool, bool]:
+    """THE predicate's two evaluations of one persisted attempt: the ledger's
+    (``held_grades``) and the attempt step's, as replay evaluates it from the
+    attempt's current evidence and its latest blind record."""
+
+    from learnloop.attempts.proof_check import record_held_for_review
+    from learnloop.outcome_contract import grade_is_held
+
+    rows = repository.fetch_grading_evidence(attempt_id)
+    unassessed = {row.criterion_id for row in rows if unassessed_evidence_row(row.attribution_json)}
+    assessed = {row.criterion_id for row in rows} - unassessed
+    in_flight = grade_is_held(
+        record_held=record_held_for_review(repository.latest_blind_grade_record(attempt_id)),
+        anything_assessed=bool(assessed),
+    )
+    return attempt_grade_held(repository, attempt_id), in_flight
+
+
+def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replaces(tmp_path, checker):
+    """Review F1: an assessed (validated 4/4) attempt is regraded, and the new
+    grade is held (nothing assessed, nothing validated). The regrade must
+    supersede the assessed tier-3 rows it replaced, or the ledger reads the
+    attempt as not held while replay holds it, and the ledger's readers (the
+    failure streak, the FSRS fitter, the dataset) take its provisional 0/4.
+    A later validating regrade releases it everywhere."""
+
+    from learnloop.diagnosis.followups import current_same_item_failure_streak
+    from learnloop.scheduling.review_log import reconstruct_review_log
+    from learnloop.substrate.dataset import outcome_records
+
+    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    first = _first_scheduled_attempt(vault, repository, checker)
+    before = _schedule(repository)
+    checker(CheckerFake(verdicts=VALIDATING))
+    graded = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                    when=T + timedelta(days=3))
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assessed_schedule = _schedule(repository)
+    assert assessed_schedule != before
+    assert repository.fetch_practice_attempt(graded.attempt_id)["rubric_score"] == 4
+    assert not any(unassessed_evidence_row(row.attribution_json)
+                   for row in repository.fetch_grading_evidence(graded.attempt_id))
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (False, False)
+
+    def observation(attempt_id):
+        [row] = [o for o in reconstruct_review_log(vault, repository).sequences[ITEM]
+                 if o.attempt_id == attempt_id]
+        return row
+
+    def r_next():
+        connection = connect(paths.sqlite_path)
+        try:
+            return {row["source_attempt_id"]: row for row in outcome_records(connection)}[
+                first.attempt_id]["R_next"]
+        finally:
+            connection.close()
+
+    # The regrade holds it: the grader's own 0/4, nothing validated.
+    checker(CheckerFake(verdicts=HOLDING))
+    regrade_attempt(
+        vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
+        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        clock=FrozenClock(T + timedelta(days=4)),
+    )
+    assert repository.fetch_practice_attempt(graded.attempt_id)["rubric_score"] == 0
+    rows = repository.fetch_grading_evidence(graded.attempt_id)
+    assert sorted(row.criterion_id for row in rows) == ["result", "setup"]
+    assert all(unassessed_evidence_row(row.attribution_json) for row in rows)
+    # The two evaluations agree: held.
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)
+    # Replay applies no review; the fitter fits none; no failure; no observed R_next.
+    assert _schedule(repository) == before
+    assert observation(graded.attempt_id).applies_review is False
+    assert current_same_item_failure_streak(repository, ITEM) == 0
+    assert r_next()["outcome_attempt_id"] == graded.attempt_id
+    assert r_next()["status"] == GRADE_HELD_FOR_REVIEW and r_next()["value"] is None
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _schedule(repository) == before
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)
+
+    # A validating regrade releases it, in every reader.
+    checker(CheckerFake(verdicts=VALIDATING))
+    regrade_attempt(
+        vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
+        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        clock=FrozenClock(T + timedelta(days=5)),
+    )
+    assert repository.fetch_practice_attempt(graded.attempt_id)["rubric_score"] == 4
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (False, False)
+    assert _schedule(repository) == assessed_schedule
+    assert observation(graded.attempt_id).applies_review is True
+    assert current_same_item_failure_streak(repository, ITEM) == 0
+    assert r_next()["status"] != GRADE_HELD_FOR_REVIEW and r_next()["value"] is not None
+
+
+def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_path, checker):
+    """Review F1, the predicate's two evaluations: a regrade supersedes the
+    machine tiers only, so an owner's adjudication (tier 4) stays live beside
+    a later held regrade. Replay builds the criterion vector from every live
+    row and leaves out each criterion an unassessed row names: held. The
+    ledger reads the same rows the same way, never "some live row is
+    assessed"."""
+
+    from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository, checker)
+    before = _schedule(repository)
+    checker(CheckerFake(verdicts=VALIDATING))
+    graded = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                    when=T + timedelta(days=3))
+    revision = append_adjudication_evidence_revision(
+        repository, attempt_id=graded.attempt_id, resolved_fraction=1.0, adjudication_id="adj-review-f1",
+        adjudicator_source="human_owner", rationale="valid route", vault=vault,
+        clock=FrozenClock(T + timedelta(days=3, hours=1)),
+    )
+    assert revision["status"] == "revised"
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (False, False)
+    checker(CheckerFake(verdicts=HOLDING))
+    regrade_attempt(
+        vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
+        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        clock=FrozenClock(T + timedelta(days=4)),
+    )
+    tiers = sorted(row.grader_tier for row in repository.fetch_grading_evidence(graded.attempt_id))
+    assert tiers == [3, 3, 4, 4]  # the adjudication's rows stay live
+    assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _schedule(repository) == before

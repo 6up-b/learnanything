@@ -471,10 +471,14 @@ def regrade_attempt(
                 # held-grade-evidence F4: a regrade of a held grade (release
                 # or kept hold) supersedes its AI-graded rows too, so no
                 # stale unassessed row outlives the grade that replaced it in
-                # any projection.
+                # any projection. Review F1: so does a regrade INTO a hold:
+                # the assessed rows of the grade it replaces would otherwise
+                # stay live, the ledger would read the attempt as assessed
+                # (not held) while replay holds it, and the ledger's readers
+                # would take the held grade's provisional score.
                 supersede_tiers=(
                     (1, 3)
-                    if graded_criteria is not None or clarification_exchange or prior_held
+                    if graded_criteria is not None or clarification_exchange or prior_held or held
                     else (1,)
                 ),
                 new_score=new_score,

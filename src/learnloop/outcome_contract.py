@@ -128,7 +128,10 @@ def grade_is_held(*, record_held: bool, anything_assessed: bool) -> bool:
     held for review, and so unusable as evidence anywhere?
 
     Held = the latest blind record holds it (:func:`grade_held_for_review`)
-    AND nothing in the attempt's current evidence is assessed. A regrade
+    AND nothing in the attempt's current evidence is assessed: no criterion
+    that a live row grades and no live row marks unassessed (the criterion
+    vector the attempt step reads). A regrade into a hold supersedes the
+    machine-graded rows it replaces (review F1). A regrade
     releases a hold by writing a record without it; an owner adjudication
     (Ruling A's evidence revision) releases it by writing assessed evidence
     over it, so a hold never outlives the revision that settled it.

@@ -8,7 +8,9 @@ by ``outcome_contract.grade_is_held``:
 
     held = the attempt's LATEST blind grade record holds it
            (``outcome_contract.grade_held_for_review``)
-           AND no current (non-superseded) grading-evidence row is assessed.
+           AND no criterion of its current (non-superseded) grading evidence
+               is assessed (a criterion any live row marks unassessed is not,
+               exactly as the attempt step reads the criterion vector).
 
 A regrade that validates the route writes a record without the hold; an owner
 adjudication writes assessed evidence over it (Ruling A's evidence revision):
@@ -81,21 +83,31 @@ def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None 
                 record_held.add(str(attempt_id))
     if not record_held:
         return frozenset()
-    assessed: set[str] = set()
+    criteria: dict[str, set[str]] = {}
+    unassessed: dict[str, set[str]] = {}
     ids = sorted(record_held)
     for start in range(0, len(ids), 500):
         chunk = ids[start : start + 500]
-        for attempt_id, attribution in connection.execute(
-            "SELECT attempt_id, attribution_json FROM grading_evidence "
+        for attempt_id, criterion_id, attribution in connection.execute(
+            "SELECT attempt_id, criterion_id, attribution_json FROM grading_evidence "
             f"WHERE superseded_at IS NULL AND attempt_id IN ({','.join('?' for _ in chunk)})",
             chunk,
         ):
-            if not unassessed_evidence_row(attribution):
-                assessed.add(str(attempt_id))
+            criteria.setdefault(str(attempt_id), set()).add(str(criterion_id))
+            if unassessed_evidence_row(attribution):
+                unassessed.setdefault(str(attempt_id), set()).add(str(criterion_id))
+    # The evidence half exactly as the attempt step reads it: replay builds
+    # the criterion vector from the same live rows and leaves out every
+    # criterion an unassessed row names. A criterion is assessed when a live
+    # row grades it and no live row marks it unassessed, so the two
+    # evaluations agree whatever tiers stay live beside a hold (review F1).
     return frozenset(
         attempt_id
         for attempt_id in record_held
-        if grade_is_held(record_held=True, anything_assessed=attempt_id in assessed)
+        if grade_is_held(
+            record_held=True,
+            anything_assessed=bool(criteria.get(attempt_id, set()) - unassessed.get(attempt_id, set())),
+        )
     )
 
 
