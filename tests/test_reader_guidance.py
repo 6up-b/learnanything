@@ -344,3 +344,75 @@ def test_guide_plan_writes_nothing(tmp_path):
     before = _snapshot()
     build_guide_plan(vault, repository, extraction_id="ext1")
     assert _snapshot() == before
+
+
+# -- the plan names the diagnoses it waits on (Codex review F1) ---------------
+
+
+def test_split_guide_plan_names_the_pending_diagnosis_until_it_lands(tmp_path):
+    """The Reader refreshes a Guide whose reason waits on a diagnosis: the plan says which."""
+
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    client = _StatementFake()
+    result = submit(vault, repository, client)
+    _cite_extraction(vault)
+
+    pending = build_guide_plan(vault, repository, extraction_id="ext1")
+    assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING
+    assert pending["pending_diagnosis_attempt_ids"] == [result.attempt_id]
+    assert _DIAGNOSED not in _svd_passage(pending)["reason"]
+
+    drain_jobs(vault, repository, client)
+    landed = build_guide_plan(vault, repository, extraction_id="ext1")
+    assert diagnosis_status(repository, result.attempt_id)["status"] == DONE
+    assert landed["pending_diagnosis_attempt_ids"] == []
+    assert _DIAGNOSED in _svd_passage(landed)["reason"]
+
+
+def test_split_guide_plan_waits_on_nothing_once_the_diagnosis_failed(tmp_path):
+    """A failed diagnosis is final: the Reader must not poll for it."""
+
+    _paths, vault, repository = _graded_vault_with_extraction(
+        tmp_path, version="mvp-0.10", config="[diagnosis]\nmax_attempts = 1",
+    )
+    client = _StatementFake(fail_purposes=("diagnosis",))
+    result = submit(vault, repository, client)
+    drain_jobs(vault, repository, client)
+    assert diagnosis_status(repository, result.attempt_id)["status"] == FAILED
+
+    _cite_extraction(vault)
+    assert build_guide_plan(vault, repository, extraction_id="ext1")["pending_diagnosis_attempt_ids"] == []
+
+
+def test_split_guide_plan_waits_only_on_diagnoses_behind_its_passages(tmp_path):
+    """A pending diagnosis of an LO the source never cites changes nothing on this plan."""
+
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    client = _StatementFake()
+    result = submit(vault, repository, client)
+    assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING
+
+    plan = build_guide_plan(vault, repository, extraction_id="ext1")
+    assert not any(
+        passage["learning_object_id"] == "lo_svd_compute"
+        for section in plan["sections"]
+        for passage in section["suggested_passages"]
+    )
+    assert plan["pending_diagnosis_attempt_ids"] == []
+
+
+def test_joint_guide_plan_never_waits_on_a_shadow_diagnosis(tmp_path):
+    """A queued shadow diagnosis stores no overlay, so a joint plan waits on nothing."""
+
+    _paths, vault, repository = _graded_vault_with_extraction(
+        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true",
+    )
+    client = _StatementFake()
+    result = submit(vault, repository, client)
+    queued = repository.post_attempt_jobs(attempt_id=result.attempt_id, kind="diagnose", states=("queued",))
+    assert [job["payload"]["mode"] for job in queued] == ["shadow"]
+
+    _cite_extraction(vault)
+    plan = build_guide_plan(vault, repository, extraction_id="ext1")
+    assert _svd_passage(plan)["learner_signal"] == "recent_misunderstanding"
+    assert plan["pending_diagnosis_attempt_ids"] == []
