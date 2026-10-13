@@ -746,12 +746,9 @@ def outcomes(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
     return found
 
 
-def _receipt_billing(connection: sqlite3.Connection, receipt_id: str, parent_id: str | None,
-                     budget_json: str | None, provider: str | None, cache: dict[str, str | None],
-                     subscription_providers: Collection[str]) -> str:
-    """``subscription`` or ``metered``: the root receipt's declared budget says
-    which (``billing``, ``practice_index.billing``, ``pf.cost_basis``); a root
-    with no declared budget falls back to the provider's profile type."""
+def _root_budget(connection: sqlite3.Connection, parent_id: str | None, budget_json: str | None,
+                 cache: dict[str, str | None]) -> dict[str, Any]:
+    """The budget the receipt's root call declared (``budget_json``), or {}."""
 
     current, budget = parent_id, budget_json
     seen = 0
@@ -769,6 +766,14 @@ def _receipt_billing(connection: sqlite3.Connection, receipt_id: str, parent_id:
         declared = json.loads(budget or "{}") or {}
     except (TypeError, ValueError):
         declared = {}
+    return declared if isinstance(declared, dict) else {}
+
+
+def _receipt_billing(declared: Mapping[str, Any], provider: str | None, subscription_providers: Collection[str]) -> str:
+    """``subscription`` or ``metered``: the root receipt's declared budget says
+    which (``billing``, ``practice_index.billing``, ``pf.cost_basis``); a root
+    with no declared budget falls back to the provider's profile type."""
+
     if declared.get("billing") == "subscription" \
             or (declared.get("practice_index") or {}).get("billing") == "subscription" \
             or (declared.get("pf") or {}).get("cost_basis") == "estimated_only":
@@ -803,6 +808,11 @@ def receipt_time_floor(since: str) -> str:
 SERVICE_SPEND_TABLE = "source_service_spend"
 
 
+#: A root receipt's ``budget_json`` key naming the ledger reservations its
+#: request was admitted under (``SpendEnvelope.reservation_ref``).
+RESERVATIONS_KEY = "envelope_reservations"
+
+
 def service_spend_total(connection: sqlite3.Connection, envelope: str, day: str) -> float:
     """Dollars reserved or charged under ``envelope`` on ``day`` (every process)."""
 
@@ -814,15 +824,30 @@ def service_spend_total(connection: sqlite3.Connection, envelope: str, day: str)
     return float(row[0] or 0.0)
 
 
+def service_spend_ids(connection: sqlite3.Connection, envelope: str, day: str) -> frozenset[str]:
+    """The reservations recorded under ``envelope`` on ``day``: a receipt whose
+    request was admitted under one of them is already counted by the ledger."""
+
+    if not table_exists(connection, SERVICE_SPEND_TABLE):
+        return frozenset()
+    return frozenset(row[0] for row in connection.execute(
+        "SELECT id FROM source_service_spend WHERE envelope=? AND day=?", (envelope, day)))
+
+
 def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: str, day: str, usd: float,
-                          cap: float, process: str, now: str, floor_usd: float = 0.0) -> tuple[bool, float]:
+                          cap: float, process: str, now: str, unledgered_usd: float = 0.0) -> tuple[bool, float]:
     """Admit one request under the shared cap, inside the caller's IMMEDIATE transaction.
 
-    The day's total is the larger of the reservations recorded here and
-    ``floor_usd`` (the service's own receipts, which also count spend made
-    before this table existed). Returns (admitted, total before this request)."""
+    The day's total is the reservations recorded here (in flight: the
+    estimate; settled: the reported cost, else the estimate) PLUS
+    ``unledgered_usd``: the service's receipts that no reservation covers
+    (spend before this table existed, or by a path outside the envelope).
+    A finished request's receipt names its reservation, so it is counted once
+    (Codex third pass F2: the total was ``max(ledger, receipts)``, which
+    admitted two concurrent requests over prior spend). Returns (admitted,
+    total before this request)."""
 
-    total = max(service_spend_total(connection, envelope, day), float(floor_usd or 0.0))
+    total = service_spend_total(connection, envelope, day) + max(0.0, float(unledgered_usd or 0.0))
     if total + float(usd) > float(cap) + 1e-12:
         return False, total
     connection.execute(
@@ -859,7 +884,8 @@ def release_service_spend(connection: sqlite3.Connection, id: str) -> None:
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                 price_per_million: float | None = None,
-                subscription_providers: Collection[str] = ()) -> dict[str, Any]:
+                subscription_providers: Collection[str] = (),
+                ledgered: Collection[str] = ()) -> dict[str, Any]:
     """Spend of physical requests (leaf receipts) since ``since``.
 
     ``usd`` is METERED dollars, the basis of every money cap: the provider's
@@ -868,11 +894,14 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
     ``metered.unpriced_requests``. Subscription (Codex, ChatGPT plan) requests
     have no marginal cost: their tokens (reported, else the receipt's own
     estimate) and owner-priced dollars are reported as ``estimated_only``,
-    never capped. ``owner_kinds`` None counts every receipt.
+    never capped. ``owner_kinds`` None counts every receipt. A metered request
+    admitted under one of the ``ledgered`` reservations (its root budget's
+    ``envelope_reservations``) is left out of ``usd`` and counted in
+    ``metered.ledgered_requests``: the ledger already counts its dollars.
     """
 
     empty = {"usd": 0.0, "requests": 0, "requests_reporting_cost": 0,
-             "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0},
+             "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0, "ledgered_requests": 0},
              "estimated_only": {"requests": 0, "tokens": 0, "usd": 0.0 if price_per_million is not None else None}}
     if not table_exists(connection, "model_call_receipts"):
         return empty
@@ -894,8 +923,8 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
             connection.execute(sql, params).fetchall():
         out["requests"] += 1
         tokens = int(input_tokens or 0) + int(output_tokens or 0)
-        billing = _receipt_billing(connection, receipt_id, parent_id, budget_json, provider, cache,
-                                   subscription_providers)
+        declared = _root_budget(connection, parent_id, budget_json, cache)
+        billing = _receipt_billing(declared, provider, subscription_providers)
         if billing == "subscription":
             out["estimated_only"]["requests"] += 1
             try:
@@ -908,6 +937,9 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
                 out["estimated_only"]["usd"] += used * rate if rate is not None else 0.0
             continue
         out["metered"]["requests"] += 1
+        if ledgered and any(ref in ledgered for ref in (declared.get(RESERVATIONS_KEY) or ())):
+            out["metered"]["ledgered_requests"] += 1
+            continue
         if cost is not None:
             out["requests_reporting_cost"] += 1
             value = float(cost)
@@ -929,9 +961,11 @@ __all__ = [
     "insert_comparison",
     "SERVICE_OWNER_KINDS",
     "SERVICE_SPEND_TABLE",
+    "RESERVATIONS_KEY",
     "charge_service_spend",
     "release_service_spend",
     "reserve_service_spend",
+    "service_spend_ids",
     "service_spend_total",
     "settle_service_spend",
     "spend_since",

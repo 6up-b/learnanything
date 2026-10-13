@@ -62,6 +62,8 @@ SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "chatgpt_plan"})
 SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter", "chatgpt_plan"})
 SUBSCRIPTION_UNENFORCED_CAPS = ("max_total_tokens", "max_estimated_usd")
 ESTIMATED_ONLY = "estimated_only"
+#: ``budget_json`` key: the ledger reservations a request was admitted under.
+RESERVATIONS_KEY = "envelope_reservations"
 
 
 def is_subscription_transport(*, profile=None, client=None) -> bool:
@@ -223,8 +225,12 @@ class SpendBudget:
         else:
             self._usd += Decimal(str(estimate.estimated_usd))
         charge = SpendCharge(self, estimate, envelopes=reserved)
+        declared = self.declared()
+        refs = [ref for envelope, handle in reserved if (ref := envelope.reservation_ref(handle))]
+        if refs:
+            declared[RESERVATIONS_KEY] = refs
         try:
-            with declared_budgets(self.declared()):
+            with declared_budgets(declared):
                 yield charge
         finally:
             for envelope, handle in reserved:
@@ -344,6 +350,13 @@ class SpendEnvelope:
             else:
                 self._in_flight += usd
         return usd
+
+    def reservation_ref(self, handle: object) -> str | None:
+        """A durable name for the reservation, recorded on the request's root
+        receipt (``budget_json.envelope_reservations``) so a ledger that
+        counts the reservation never counts the receipt again. None here:
+        an in-memory envelope keeps no ledger."""
+        return None
 
     def unreserve(self, handle: object) -> None:
         """Undo a reservation whose request was never sent (another envelope refused it)."""

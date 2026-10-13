@@ -278,3 +278,86 @@ def test_the_daily_cap_is_shared_by_concurrent_processes(tmp_path):
         thread.start()
         thread.join()
     assert str(outcome["b"]).startswith("refused"), outcome
+
+
+# -- Codex third pass F2: receipts from before the ledger PLUS reservations, never max(...) ----------
+
+
+def _prior_receipt(repository, usd: float) -> None:
+    """Service spend recorded today before the ledger existed (no reservation)."""
+
+    from learnloop.clock import utc_now_iso
+
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO model_call_receipts(id, owner_kind, owner_id, purpose, provider, status, started_at, "
+            "input_tokens, output_tokens, cost, budget_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("r_prior", "source_exercise_import", "x", "p", "openrouter", "completed", utc_now_iso(), 0, 0, usd,
+             json.dumps({"billing": "metered"})))
+        connection.commit()
+
+
+def _two_processes(paths, repository):
+    from learnloop.source_retrieval import service_spend as SS
+
+    vault = loaded(paths)
+    SS._DAILY.clear()
+    first = SS.daily_envelope(vault, repository)
+    SS._DAILY.clear()  # the second process has its own envelope objects
+    return first, SS.daily_envelope(vault, repository)
+
+
+def test_prior_receipts_and_reservations_in_flight_add_up_under_the_cap(tmp_path):
+    """Third pass F2: with $0.80 of service receipts from before the ledger and
+    a $1 cap, two concurrent $0.15 reservations were both admitted ($1.10
+    committed) because the total was ``max(ledger, receipts)``."""
+
+    paths, repository, _spans = _metered_vault(tmp_path, max_daily_cost_usd=1.0)
+    _prior_receipt(repository, 0.80)
+    first, second = _two_processes(paths, repository)
+    outcome: dict[str, object] = {}
+
+    def process_b() -> None:
+        try:
+            with spend_envelopes(second), SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0)).request(
+                    SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.15)):
+                outcome["b"] = "admitted"
+        except SpendLimitExceeded as exc:
+            outcome["b"] = f"refused: {exc}"
+
+    budget = SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0))
+    with spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.15)):
+        thread = threading.Thread(target=process_b)
+        thread.start()
+        thread.join()
+    assert str(outcome["b"]).startswith("refused"), outcome
+
+
+def test_a_settled_request_is_counted_once_not_by_its_receipt_and_its_reservation(tmp_path):
+    """The fix must not double-count: a finished request's receipt and its
+    settled reservation are the same dollars."""
+
+    from learnloop.ai.execution import model_call, record_model_calls
+    from learnloop.source_retrieval import service_spend as SS
+
+    paths, repository, _spans = _metered_vault(tmp_path, max_daily_cost_usd=1.0)
+    _prior_receipt(repository, 0.80)
+    first, _second = _two_processes(paths, repository)
+    client = MeteredServiceLLM()
+    budget = SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0))
+    with record_model_calls(repository, owner_kind="source_exercise_import", owner_id="imp_1"), \
+            spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.15)) as charge:
+        with model_call(client, purpose="ExerciseAuthoring") as metadata:
+            metadata.update(cost=0.15, input_tokens=0, output_tokens=0)
+        charge.reconcile(estimated_usd=0.15)
+    spent = SS.service_spend_today(loaded(paths), repository)
+    assert spent["usd"] == pytest.approx(0.95), spent
+    assert spent["metered"]["ledgered_requests"] == 1 and spent["reserved_usd"] == pytest.approx(0.15)
+    from learnloop.ai import spend
+    from learnloop.db.stores import source_service
+    assert spend.RESERVATIONS_KEY == source_service.RESERVATIONS_KEY
+    with spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.04)):
+        pass  # $0.95 + $0.04 fits
+    with pytest.raises(SpendLimitExceeded):
+        with spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.02)):
+            pass  # $0.99 + $0.02 does not
