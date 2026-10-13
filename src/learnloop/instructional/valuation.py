@@ -208,7 +208,8 @@ def episode_problem(vault: LoadedVault, repository: Repository, episode_id: str,
         prior_basis=str(record.get("prior_basis") or "episode_posterior"),
         state_hash=_hash({"episode": episode_id, "posterior": prior}), refs=list(refs), excluded_mass=excluded,
         context={"learning_object_id": episode.learning_object_id, "hypothesis_set": hypothesis_set,
-                 "episode_id": episode_id}), []
+                 "episode_id": episode_id, "episode": episode,
+                 "live_posterior": {str(k): float(v) for k, v in posterior.posterior.items()}}), []
 
 
 def causal_problem(vault: LoadedVault, repository: Repository, hypothesis_set_id: str,
@@ -445,10 +446,92 @@ def _minutes(estimator: Callable[..., Any] | None, ref: str, mode: str | None,
     return minutes, provenance
 
 
+def episode_instruments(vault: LoadedVault, repository: Repository, problem: ValuationProblem) -> dict[str, Any]:
+    """The open episode's compiled instruments on its pinned channel, read once
+    per problem: ``{"channel", "by_item", "reason"}``.
+
+    Exactly what the robust probe path reads (``eligible_instruments`` under
+    the live posterior, the channel ``load_pinned_channel`` rehydrates from
+    the episode's ``calibration_model_hash``). Below the robust cutover, or
+    with no pinned channel, ``reason`` says why and instruments are valued as
+    ordinary items (§8.3.2)."""
+
+    cached = problem.context.get("_instruments")
+    if cached is not None:
+        return cached
+    from learnloop.diagnosis.probe_episodes import eligible_instruments
+    from learnloop.diagnosis.probe_robust import load_pinned_channel, use_robust_probe
+
+    found: dict[str, Any] = {"channel": None, "by_item": {}, "reason": None}
+    episode = problem.context.get("episode")
+    if not use_robust_probe(vault):
+        found["reason"] = "below_robust_cutover"
+    elif episode is None or episode.calibration_model_hash is None:
+        found["reason"] = "no_pinned_channel"
+    else:
+        channel = load_pinned_channel(repository, episode.calibration_model_hash)
+        if channel is None:
+            found["reason"] = "pinned_channel_missing"
+        else:
+            found["channel"] = channel
+            try:
+                eligible = eligible_instruments(vault, repository, episode,
+                                                hypothesis_set=problem.context.get("hypothesis_set"),
+                                                posterior=problem.context.get("live_posterior"))
+            except Exception as exc:  # noqa: BLE001 - a refusal (staged ownership) is a typed reason
+                eligible = []
+                found["reason"] = f"instruments_unavailable:{type(exc).__name__}"
+            found["by_item"] = {entry.item.id: entry for entry in eligible}
+    problem.context["_instruments"] = found
+    return found
+
+
+def _instrument_input(problem: ValuationProblem, item: PracticeItem, channel: Any, entry: Any) -> CandidateInput:
+    """A compiled probe instrument valued as ``probe_robust.robust_selection``
+    values it: ``instrument_ensemble`` on the episode's pinned channel, seeded
+    from the decision context of the posterior this selection values under
+    (the problem's prior: concrete slots, ``H_OTHER`` excluded and recorded,
+    §8.3.1), the instrument's own expected seconds, ``pinned_channel`` regime.
+    Given the same channel, instruments and posterior, the selection is
+    ``robust_selection``'s (the parity test)."""
+
+    from learnloop.diagnosis.probe_robust import instrument_ensemble
+
+    episode_id = str(problem.context.get("episode_id"))
+    ensemble, decision_context = instrument_ensemble(channel, entry.instrument, dict(entry.slot_map),
+                                                     problem.prior, episode_id=episode_id)
+    seconds = float(entry.instrument.expected_seconds)
+    candidate = CandidateInput(
+        ref=item.id, kind="item", expected_minutes=seconds / 60.0,
+        minutes_provenance={"prior_source": "compiled_instrument", "expected_seconds": seconds},
+        members=tuple(ensemble.members), outcome_alphabet=tuple(ensemble.emissions), regime="pinned_channel",
+        likelihood_basis="compiled_instrument", ensemble_hash=channel.model_hash,
+        construction=f"pinned:{channel.model_hash}:instrument")
+    candidate.minutes_provenance["decision_context_hash"] = decision_context
+    if getattr(channel, "fallback_reason", None):
+        candidate.minutes_provenance["channel_fallback_reason"] = channel.fallback_reason
+    return candidate
+
+
 def item_input(vault: LoadedVault, repository: Repository, problem: ValuationProblem, item: PracticeItem, *,
                estimator: Callable[..., Any] | None = None, channel: Any | None = None) -> CandidateInput:
+    if problem.space_kind == "episode":
+        instruments = episode_instruments(vault, repository, problem)
+        entry = instruments["by_item"].get(item.id)
+        if entry is not None and instruments["channel"] is not None:
+            try:
+                candidate = _instrument_input(problem, item, instruments["channel"], entry)
+                check_tables(problem, candidate.members)
+                return candidate
+            except EV.EVSIInputError as error:
+                return CandidateInput(ref=item.id, kind="item", regime="structural",
+                                      missing=[error.reason, *error.detail])
     minutes, provenance = _minutes(estimator, item.id, item.practice_mode, item.expected_minutes)
     candidate = CandidateInput(ref=item.id, kind="item", expected_minutes=minutes, minutes_provenance=provenance)
+    if problem.space_kind == "episode":
+        reason = episode_instruments(vault, repository, problem)["reason"]
+        if reason:
+            candidate.minutes_provenance["instrument_path"] = reason
     rubric = vault.rubric_for_item(item)
     try:
         if problem.space_kind in ("hypothesis_set", "episode"):
@@ -824,6 +907,7 @@ __all__ = [
     "causal_problem",
     "check_tables",
     "entropy_nats",
+    "episode_instruments",
     "episode_problem",
     "exercise_input",
     "facet_problem",

@@ -145,3 +145,70 @@ def test_decision_mode_ranks_by_evsi_and_names_the_action():
 def test_identical_inputs_give_identical_receipts():
     inputs = [_input("a", _separates("misconception:m1", sharpness=0.99)), _input("b", _separates("unfamiliar"))]
     assert value_problem(_problem(), inputs) == value_problem(_problem(), inputs)
+
+
+# -- Codex sources-build review F10: compiled instruments keep their licensing regime ------------
+
+
+@pytest.mark.parametrize("items", [("pi_svd_define_001",), ("pi_svd_define_001", "pi_svd_define_002")])
+def test_an_instrument_only_request_matches_robust_selection(tmp_path, items):
+    from learnloop.clock import FrozenClock
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, enter_episode
+    from learnloop.diagnosis.probe_robust import RobustCandidate, load_pinned_channel, robust_selection
+    from learnloop.instructional.valuation import episode_problem, item_input, value_problem
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault, set_algorithm_version
+    from tests.test_probe_predictive_eig import _add_item
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    set_algorithm_version(paths, "mvp-0.8")  # the robust probe cutover
+    _add_item(root, "pi_svd_define_002", "surface_two")
+    vault = load_vault(root)
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository, items=items)
+    episode = enter_episode(vault, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    problem, missing = episode_problem(vault, repository, episode.id)
+    assert missing == [] and problem.excluded_mass  # H_OTHER excluded explicitly, its mass recorded
+    entries = eligible_instruments(vault, repository, episode, posterior=problem.context["live_posterior"])
+    assert {entry.item.id for entry in entries} == set(items)
+    channel = load_pinned_channel(repository, episode.calibration_model_hash)
+    live = robust_selection(channel, [RobustCandidate(entry.item.id, entry.instrument, dict(entry.slot_map),
+                                                      float(entry.instrument.expected_seconds))
+                                      for entry in entries], problem.prior, episode_id=episode.id)
+    inputs = [item_input(vault, repository, problem, vault.practice_items[item_id]) for item_id in items]
+    assert all(candidate.regime == "pinned_channel" and candidate.likelihood_basis == "compiled_instrument"
+               for candidate in inputs)
+    for system_initiated in (True, False):
+        section = value_problem(problem, inputs, system_initiated=system_initiated)
+        assert section["selector"] == "evaluate_selection"
+        assert section.get("reason") != "regime_cannot_license"  # pinned_channel licenses a system check
+        if live.verdict == "act":
+            assert section["verdict"] == "act" and section["checks"][0]["ref"] == live.chosen_slot
+        else:
+            assert section["stop_at"]["verdict"] == live.verdict
+            assert section["stop_at"]["candidate"] == live.chosen_slot
+        stop = section.get("stop_at") or {}
+        if stop:
+            assert abs(stop["robust_eig_per_second"] - round(live.robust_eig_per_second, 8)) < 1e-12
+
+
+def test_below_the_robust_cutover_instruments_are_ordinary_items(tmp_path):
+    from learnloop.clock import FrozenClock
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.probe_episodes import enter_episode
+    from learnloop.instructional.valuation import episode_problem, item_input
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)  # mvp-0.6: the legacy point path
+    vault = load_vault(root)
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository)
+    episode = enter_episode(vault, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    problem, _missing = episode_problem(vault, repository, episode.id)
+    candidate = item_input(vault, repository, problem, vault.practice_items["pi_svd_define_001"])
+    assert candidate.regime == "item_point"
+    assert candidate.minutes_provenance["instrument_path"] in ("below_robust_cutover", "no_pinned_channel")
