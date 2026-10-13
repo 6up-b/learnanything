@@ -3,8 +3,8 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a4b8a16fecfe6c1982b60125325eef98dfc4df53"
-source_commit_timestamp: "2026-10-13T11:49:33-04:00"
+source_commit: "8382b83e2ae58efcafbbc2731078207b52a67c3d"
+source_commit_timestamp: "2026-10-13T12:33:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
@@ -35,7 +35,7 @@ tags:
 
 ## Why it exists
 
-Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that recovers orphaned rows and checks the day's total plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. One accounting function (service_spend_accounting) gives that total for admission, recovery and reports, counting each request once with the receipts naming its row (`budget_json.envelope_reservations`): while its owner's lease (`lease_expires_at`, renewed while the process lives) holds, a row counts the larger of its charge and its receipts; once reconciled (`settled`), its receipts (its reconciled cost bounding a lost finish); an orphan is reconciled with its receipts or `released` when it has none (`resolved_by` names the owner or recovery), and a receipt naming a released row cannot start, so its request is never sent. A `legacy` row, written before receipts named rows, counts its charge and the unlinked service receipts of its lifetime are not counted again; a receipt naming no row counts by its own cost. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit. ^table-purpose
+Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that recovers orphaned rows and checks the day's total plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. One accounting function (service_spend_accounting) gives that total for admission, recovery and reports, counting each request once with the receipts naming its row (`budget_json.envelope_reservations`): while its owner's lease (`lease_expires_at`, renewed while the process lives) holds, a row counts the larger of its charge and its receipts; once reconciled (`settled`), its receipts (its reconciled cost bounding a lost finish); an orphan is reconciled with its receipts or `released` when it has none (`resolved_by` names the owner or recovery), and a receipt naming a released row cannot start, so its request is never sent. A `legacy` row, written before receipts named rows, counts its charge, and an unlinked receipt is left out as that row's own only when the two are correlated beyond doubt (started in its lifetime, the row settled at exactly what it shows, no other partner fits; ambiguous ones count both, reported as `legacy.uncertain_usd`); a receipt naming no row counts by its own cost. A receipt's dollars are its reported cost, else its tokens at the rate its request recorded, else at the owner's service rate. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
