@@ -258,10 +258,14 @@ def test_a_background_check_lost_with_its_process_is_resumed_at_startup(textbook
     assert row["status"] == "written" and row["verification"]["pending_check"]["trigger"] == "background"
     # This process's own pending check is never taken over.
     assert SEI.pending_import_checks(repository) == []
-    # A new process starts: another token, the real ladder.
+    # A new process starts: another token, the real ladder. A different token
+    # alone is not a dead process: the old lease must have lapsed (F9).
     monkeypatch.setattr(SEI, "PROCESS_TOKEN", "proc_next")
     monkeypatch.setattr(SEI, "run_key_ladder", real_ladder)
     monkeypatch.setattr(SEI, "_finish_pending", real_finish)
+    assert SEI.pending_import_checks(repository) == []
+    assert SEI.pending_import_checks(repository, include_held=True) == [result["import_id"]]
+    _later_lease_clock(monkeypatch)
     assert SEI.pending_import_checks(repository) == [result["import_id"]]
     report = SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
     assert report["actions"] == {"resumed_check": 1}
@@ -283,6 +287,7 @@ def test_a_resumed_check_never_verifies_content_edited_since(textbook, monkeypat
     released.set()
     edit_item(paths.root, repository, practice_item_id=result["practice_item_id"], expected_answer="6")
     monkeypatch.setattr(SEI, "PROCESS_TOKEN", "proc_next")
+    _later_lease_clock(monkeypatch)
     calls = len(llm.calls)
     report = SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
     assert report["actions"] == {"superseded_by_edit": 1} and len(llm.calls) == calls
@@ -316,7 +321,7 @@ def test_the_sidecar_resumes_pending_checks_at_startup(textbook, monkeypatch):
     paths, repository, _spans = textbook
     seen: list[str] = []
     done = threading.Event()
-    monkeypatch.setattr(SEI, "pending_import_checks", lambda _repository: ["sei_dead"])
+    monkeypatch.setattr(SEI, "pending_import_checks", lambda _repository, **_kwargs: ["sei_dead"])
 
     def recover(root, _repository, **_kwargs):
         seen.append(str(root))
@@ -371,3 +376,111 @@ def test_recovery_never_binds_a_verdict_to_content_edited_before_the_commit(text
     assert row["content_hash"] == checked_hash
     # The verdict stays bound to the content it checked, and only to it.
     assert [check["content_hash"] for check in _checks(repository, item_id)] == [checked_hash]
+
+
+def _later_lease_clock(monkeypatch, hours=1):
+    """Leases are wall-clock process liveness: move their clock past every lease."""
+
+    from datetime import UTC, datetime, timedelta
+
+    later = (datetime.now(UTC) + timedelta(hours=hours)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    monkeypatch.setattr(SEI, "_lease_now", lambda: later, raising=False)
+
+
+def test_a_live_check_in_another_process_is_never_taken_over(textbook, monkeypatch):
+    """Codex re-review F9: one sidecar is still checking an import when another
+    process opens the vault. A different process token is not a dead process."""
+
+    paths, repository, spans = textbook
+    llm = FakeServiceLLM()
+    real_ladder = SEI.run_key_ladder
+    released = _kill_background_check(monkeypatch)
+    result = _import(paths, repository, spans["exercises"][1], llm, time_box_seconds=0.05)
+    try:
+        # Another process (another token, the real ladder) opens the vault
+        # while process A's check is still running.
+        monkeypatch.setattr(SEI, "PROCESS_TOKEN", "proc_other")
+        monkeypatch.setattr(SEI, "run_key_ladder", real_ladder)
+        calls = len(llm.calls)
+        report = SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
+        assert len(llm.calls) == calls, report
+        assert _checks(repository, result["practice_item_id"]) == []
+        assert "pending_check" in _row(repository, result["import_id"])["verification"]
+    finally:
+        released.set()
+
+
+def test_overlapping_recoveries_run_one_check(textbook, monkeypatch):
+    """Codex re-review F9: a recovery that runs while another recovery of the
+    same import is still checking never launches a second ladder."""
+
+    import threading
+
+    paths, repository, spans = textbook
+    llm = FakeServiceLLM()
+    real_ladder, real_finish = SEI.run_key_ladder, SEI._finish_pending
+    released = _kill_background_check(monkeypatch)
+    result = _import(paths, repository, spans["exercises"][1], llm, time_box_seconds=0.05)
+    released.set()
+    for thread in threading.enumerate():
+        if thread.name == "source-key-ladder":
+            thread.join(20)  # the dead process's thread is gone before the next one starts
+    # A new process; the dead process's lease (if any) has long expired.
+    monkeypatch.setattr(SEI, "PROCESS_TOKEN", "proc_next")
+    monkeypatch.setattr(SEI, "_finish_pending", real_finish)
+    _later_lease_clock(monkeypatch)
+    entered, gate, runs = threading.Event(), threading.Event(), []
+
+    def slow_ladder(*args, **kwargs):
+        runs.append(1)
+        entered.set()
+        gate.wait(20)
+        return real_ladder(*args, **kwargs)
+
+    monkeypatch.setattr(SEI, "run_key_ladder", slow_ladder)
+    first = threading.Thread(target=SEI.recover_import_checks, args=(paths.root, repository),
+                             kwargs={"clients": service_clients(llm)})
+    first.start()
+    assert entered.wait(20)
+    second = SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
+    gate.set()
+    first.join(30)
+    assert len(runs) == 1, second
+    assert len(_checks(repository, result["practice_item_id"])) == 1
+    assert "pending_check" not in _row(repository, result["import_id"])["verification"]
+
+
+def test_a_late_check_whose_lease_was_taken_over_records_nothing(textbook, monkeypatch):
+    """Codex re-review F9: a check whose lease expired (its process hung) and
+    was re-claimed by recovery is fenced out: one check row, the recovery's."""
+
+    import threading
+
+    paths, repository, spans = textbook
+    llm = FakeServiceLLM()
+    real_ladder = SEI.run_key_ladder
+    monkeypatch.setattr(SEI, "CHECK_HEARTBEAT_SECONDS", 3600, raising=False)  # the hung process stops renewing
+    hung, gate = threading.Event(), threading.Event()
+
+    def hangs(*args, **kwargs):
+        hung.set()
+        gate.wait(20)
+        return real_ladder(*args, **kwargs)
+
+    monkeypatch.setattr(SEI, "run_key_ladder", hangs)
+    result = _import(paths, repository, spans["exercises"][1], llm, time_box_seconds=0.05)
+    assert hung.wait(20) and result["key_status"] == "checking"
+    # Much later, another process recovers it (the hung lease has expired).
+    monkeypatch.setattr(SEI, "PROCESS_TOKEN", "proc_next")
+    monkeypatch.setattr(SEI, "run_key_ladder", real_ladder)
+    _later_lease_clock(monkeypatch)
+    report = SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
+    assert report["actions"] == {"resumed_check": 1}
+    # The hung check wakes up and finishes: fenced out.
+    gate.set()
+    deadline = time.time() + 20
+    while time.time() < deadline and len(_checks(repository, result["practice_item_id"])) < 2:
+        time.sleep(0.2)
+        if not any(thread.name == "source-key-ladder" and thread.is_alive() for thread in threading.enumerate()):
+            break
+    assert len(_checks(repository, result["practice_item_id"])) == 1

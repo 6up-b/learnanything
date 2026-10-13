@@ -123,15 +123,29 @@ class SidecarContext:
         service = self.vault.config.source_service
         if not (service.enabled and service.exercise_verification):
             return
-        from learnloop.content.authoring.source_exercise_import import pending_import_checks, recover_import_checks
+        from learnloop.content.authoring.source_exercise_import import (
+            CHECK_LEASE_SECONDS,
+            pending_import_checks,
+            recover_import_checks,
+        )
 
-        if not pending_import_checks(self.repository):
+        if not pending_import_checks(self.repository, include_held=True):
             return
         root, repository = self.vault_root, self.repository
 
         def run() -> None:
+            import time
+
             try:
-                recover_import_checks(root, repository)
+                # A check under a live lease is someone's running check; it is
+                # retried only once its lease lapses (a dead process's lease
+                # outlives it by at most CHECK_LEASE_SECONDS; Codex re-review F9).
+                while True:
+                    report = recover_import_checks(root, repository)
+                    wait = report.get("retry_after_seconds")
+                    if wait is None:
+                        break
+                    time.sleep(min(float(wait), float(CHECK_LEASE_SECONDS)) + 1.0)
             except Exception:  # noqa: BLE001 - the markers stay; the next start resumes them
                 import logging
 

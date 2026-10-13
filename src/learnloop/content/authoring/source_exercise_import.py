@@ -56,7 +56,7 @@ from learnloop.ai.spend import (
     is_subscription_transport,
 )
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, render_structured_prompt
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.authoring.exercise_authoring import (
     AuthoredDraft,
     ExerciseAuthoringError,
@@ -66,6 +66,17 @@ from learnloop.content.authoring.exercise_authoring import (
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.judgment_claims import (
+    CLAIMED,
+    DONE,
+    HELD,
+    claim_work,
+    complete_claim,
+    holds_claim,
+    live_lease,
+    release_claim,
+    renew_claim,
+)
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.source_block_fts import (
     MAX_REGION_BLOCKS,
@@ -115,10 +126,18 @@ MIN_QUOTE_WORDS = 4
 OWNER_KIND = "source_exercise_import"
 CALLERS = ("learner", "reader", "harvest", "need")
 TRIGGERS = ("import", "background", "edit", "verify")
-#: This process's token on a pending check (Codex review F5). A check pending
-#: under this token may still be running in this process's thread; startup
-#: recovery resumes only the work a dead process left.
+#: This process's token, recorded on a pending check (Codex review F5) and in
+#: the owner of every check lease this process takes.
 PROCESS_TOKEN = "proc_" + new_ulid()
+#: The key check's durable claim (Codex re-review F9), on the shared
+#: ``judgment_work_claims`` machinery: whoever runs an import's check holds a
+#: lease, acquired atomically before the ladder starts and renewed while it
+#: runs. Recovery takes over only an expired lease (a dead or hung process),
+#: never another live process's check, and a check whose lease was taken over
+#: is fenced out at completion. Process-liveness bounds, not learning decisions.
+CHECK_CLAIM_TASK = "source_key_check"
+CHECK_LEASE_SECONDS = 120
+CHECK_HEARTBEAT_SECONDS = 30
 PRICE_SETTING = "source_service.llm_price_per_million"
 #: The authoring request's output bound on a metered route (a compute bound
 #: that lets the request be priced before it is sent; one exercise's draft).
@@ -631,6 +650,132 @@ def _complete_check(connection: Any, *, import_id: str | None, item_id: str, con
     return check_id
 
 
+# -- the check's claim (Codex re-review F9) -----------------------------------
+
+
+def _lease_now() -> str:
+    """Wall-clock time for leases: process liveness, never the vault's clock."""
+
+    return utc_now_iso()
+
+
+@dataclass(frozen=True)
+class CheckClaim:
+    """A lease on one import's key check: its key, this worker and its epoch."""
+
+    key: str
+    owner: str
+    epoch: int
+
+
+def check_claim_key(import_id: str) -> str:
+    return f"{CHECK_CLAIM_TASK}:{import_id}"
+
+
+def claim_check(repository: Repository, import_id: str, content_hash: str | None) -> tuple[str, CheckClaim | None]:
+    """Atomically claim an import's check: (``claimed``, claim), (``held``, None)
+    while another worker's lease is live, or (``done``, None) once completed.
+
+    Every claim has its own owner (this process's token plus a fresh id), so
+    two recoveries in one process never share a lease."""
+
+    key = check_claim_key(import_id)
+    owner = f"{PROCESS_TOKEN}:{new_ulid()}"
+    with repository.atomic():
+        status, epoch = claim_work(
+            repository.connection(), claim_key=key, task=CHECK_CLAIM_TASK, producer=OWNER_KIND,
+            prompt_version=LADDER_VERSION, input_hash=str(content_hash or ""), owner=owner, now=_lease_now(),
+            lease_seconds=CHECK_LEASE_SECONDS,
+        )
+    if status == CLAIMED and epoch is not None:
+        return CLAIMED, CheckClaim(key, owner, int(epoch))
+    return status, None
+
+
+def release_check(repository: Repository, claim: CheckClaim | None) -> None:
+    """Give an unfinished claim back (the check ended without a row to fence)."""
+
+    if claim is None:
+        return
+    try:
+        with repository.atomic():
+            release_claim(repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                          now=_lease_now())
+    except Exception:  # noqa: BLE001 - an unreleased claim simply expires
+        pass
+
+
+@contextmanager
+def _heartbeat(repository: Repository, claim: CheckClaim | None) -> Iterator[None]:
+    """Renew the claim's lease while the ladder runs (stops when it is lost)."""
+
+    if claim is None:
+        yield
+        return
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(CHECK_HEARTBEAT_SECONDS):
+            try:
+                with repository.atomic():
+                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
+                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CHECK_LEASE_SECONDS)
+            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
+                continue
+            if not held:
+                return
+
+    thread = threading.Thread(target=beat, name="source-key-check-lease", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+
+
+def _fenced_complete(repository: Repository, claim: CheckClaim | None, *, import_id: str | None, item_id: str,
+                     content_hash: str, result: LadderResult, trigger: str, started_at: str,
+                     clock: Clock | None, edited: bool = False) -> str | None:
+    """The check row and the import's completion, only while the claim holds.
+
+    A worker whose lease was taken over (it hung past its lease and recovery
+    re-claimed the check) records nothing: the new holder's check counts, so
+    completion order never decides the effective status (re-review F9)."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
+                                                 epoch=claim.epoch):
+            return None
+        check_id = _complete_check(connection, import_id=import_id, item_id=item_id, content_hash=content_hash,
+                                   result=result, trigger=trigger, started_at=started_at, clock=clock,
+                                   edited=edited)
+        if claim is not None:
+            complete_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                           judgment_id=check_id, now=_lease_now())
+        return check_id
+
+
+def _clear_pending(repository: Repository, import_id: str, claim: CheckClaim | None, *, clock: Clock | None,
+                   **fields: Any) -> bool:
+    """Clear an import's pending marker (with ``fields``), only while the claim holds."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
+                                                 epoch=claim.epoch):
+            return False
+        current = import_row(connection, import_id)
+        if current is None:
+            return False
+        extra = fields.pop("verification_extra", {})
+        update_import(connection, import_id, updated_at=utc_now_iso(clock),
+                      verification=_without_pending(current["verification"], **extra), **fields)
+        if claim is not None:
+            release_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch, now=_lease_now())
+        return True
+
+
 # -- family attachment (§7.4) -------------------------------------------------
 
 
@@ -733,6 +878,7 @@ class _Pending:
     started_at: str = ""
     recorded: bool = False
     root: Path | None = None
+    claim: CheckClaim | None = None
 
 
 def _finish_pending(repository: Repository, pending: _Pending, clock: Clock | None) -> None:
@@ -748,12 +894,12 @@ def _finish_pending(repository: Repository, pending: _Pending, clock: Clock | No
         edited = latest is not None and reference_content_hash(latest) != pending.content_hash
     except Exception:  # noqa: BLE001 - the content binding below still holds
         edited = False
-    # The check row and the import's completion commit together (F5).
-    with repository.connection() as connection:
-        _complete_check(connection, import_id=pending.import_id, item_id=pending.item.id,
-                        content_hash=str(pending.content_hash or reference_content_hash(pending.item)),
-                        result=pending.result, trigger="background", started_at=pending.started_at, clock=clock,
-                        edited=edited)
+    # The check row and the import's completion commit together (F5), only
+    # while this check's lease holds (re-review F9).
+    _fenced_complete(repository, pending.claim, import_id=pending.import_id, item_id=pending.item.id,
+                     content_hash=str(pending.content_hash or reference_content_hash(pending.item)),
+                     result=pending.result, trigger="background", started_at=pending.started_at, clock=clock,
+                     edited=edited)
 
 
 def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
@@ -945,13 +1091,27 @@ def _import_source_exercise(
     ladder: LadderResult | None
     if service.exercise_verification:
         remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+        # The check is claimed before the ladder starts (re-review F9): a
+        # recovery elsewhere sees a live lease, never abandoned work.
+        claimed, pending.claim = claim_check(repository, str(import_id), checked_hash)
+        if claimed != CLAIMED:
+            with repository.connection() as connection:
+                row = import_row(connection, import_id) or {}
+            return {"import_id": import_id, "status": row.get("status"), "reason": "claimed_elsewhere",
+                    "practice_item_id": row.get("practice_item_id"), "key_status": row.get("key_status")}
+        claim = pending.claim
 
         def check() -> LadderResult:
-            return run_key_ladder(vault, repository, subject_id=import_id, stem=draft.statement,
-                                  reference=str(draft.payload["expected_answer"]), solution=solution,
-                                  cited_quote=draft.cited_quote, clients=clients, run_id=import_id)
+            with _heartbeat(repository, claim):
+                return run_key_ladder(vault, repository, subject_id=import_id, stem=draft.statement,
+                                      reference=str(draft.payload["expected_answer"]), solution=solution,
+                                      cited_quote=draft.cited_quote, clients=clients, run_id=import_id)
 
         ladder = _run_time_boxed(check, remaining, pending, lambda: _finish_pending(repository, pending, clock))
+        if ladder is not None:
+            # Finished inside the box: its result is persisted with the write
+            # (or the import ends here); no check is left running.
+            release_check(repository, claim)
     else:
         ladder = LadderResult("model_answer", "skipped", skip_reason="source_service.exercise_verification is off")
     key_status = ladder.key_status if ladder is not None else "checking"
@@ -1076,7 +1236,9 @@ def resume_import(root: Path, repository: Repository, import_id: str, *, clients
     with repository.connection() as connection:
         row = import_row(connection, import_id) or row
     pending = (row.get("verification") or {}).get("pending_check")
-    if run_pending and pending and pending.get("process") != PROCESS_TOKEN and row["status"] == "written":
+    # Whether the pending check is abandoned is the claim's lease, never the
+    # process token (re-review F9): a live check elsewhere is left alone.
+    if run_pending and pending and row["status"] == "written":
         action = _resume_pending(root, repository, vault, row, pending, clients=clients, clock=clock)
         with repository.connection() as connection:
             row = import_row(connection, import_id) or row
@@ -1087,38 +1249,46 @@ def _resume_pending(root: Path, repository: Repository, vault: LoadedVault, row:
                     pending: Mapping[str, Any], *, clients: Mapping[str, Any] | None,
                     clock: Clock | None) -> str:
     item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
-    now = utc_now_iso(clock)
+    checked_hash = pending.get("content_hash") or row.get("content_hash")
+    # Atomically claim the check first (re-review F9): a live lease is another
+    # worker's running check, never abandoned work, and is left alone.
+    status, claim = claim_check(repository, str(row["id"]), checked_hash)
+    if status == HELD:
+        return "claimed_elsewhere"
+    if status == DONE:
+        _clear_pending(repository, str(row["id"]), None, clock=clock)
+        return "already_checked"
     if item is None:
-        with repository.connection() as connection:
-            update_import(connection, row["id"], updated_at=now, key_status="model_answer", reason="item_missing",
-                          verification=_without_pending(row["verification"]))
+        _clear_pending(repository, str(row["id"]), claim, clock=clock, key_status="model_answer",
+                       reason="item_missing")
         return "item_missing"
-    if row.get("content_hash") and reference_content_hash(item) != row["content_hash"]:
+    if checked_hash and reference_content_hash(item) != checked_hash:
         # The content the check was for no longer exists: nothing is checked,
         # and the edited content stays unverified until its own check.
-        with repository.connection() as connection:
-            update_import(connection, row["id"], updated_at=now, key_status="model_answer",
-                          reason="superseded_by_edit",
-                          verification=_without_pending(row["verification"], interrupted_check=dict(pending)))
+        _clear_pending(repository, str(row["id"]), claim, clock=clock, key_status="model_answer",
+                       reason="superseded_by_edit", verification_extra={"interrupted_check": dict(pending)})
         return "superseded_by_edit"
     with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
-                       name="source_service.import_max_cost_usd", clock=clock):
+                       name="source_service.import_max_cost_usd", clock=clock), _heartbeat(repository, claim):
         result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
     if result.rung == "skipped":
-        with repository.connection() as connection:
-            update_import(connection, row["id"], updated_at=utc_now_iso(clock), key_status="model_answer",
-                          verification=_without_pending(row["verification"], interrupted_check=dict(pending),
-                                                        resume_skipped=result.skip_reason))
+        _clear_pending(repository, str(row["id"]), claim, clock=clock, key_status="model_answer",
+                       verification_extra={"interrupted_check": dict(pending), "resume_skipped": result.skip_reason})
         return "skipped"
-    with repository.connection() as connection:
-        _complete_check(connection, import_id=row["id"], item_id=item.id, content_hash=str(row["content_hash"]),
-                        result=result, trigger="background", started_at=started_at, clock=clock)
-    return "resumed_check"
+    check_id = _fenced_complete(repository, claim, import_id=str(row["id"]), item_id=item.id,
+                                content_hash=str(checked_hash or reference_content_hash(item)), result=result,
+                                trigger="background", started_at=started_at, clock=clock)
+    return "resumed_check" if check_id else "fenced"
 
 
-def pending_import_checks(repository: Repository) -> list[str]:
-    """Imports whose verification a dead process left incomplete (cheap SQL)."""
+def pending_import_checks(repository: Repository, *, include_held: bool = False) -> list[str]:
+    """Imports whose verification is incomplete (cheap SQL).
 
+    A pending check under a live lease is someone's running check, in this
+    process or another (re-review F9): it is listed only with
+    ``include_held`` (the startup waiter retries it once the lease lapses)."""
+
+    now = _lease_now()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
                               "AND name='source_exercise_imports'").fetchone() is None:
@@ -1129,14 +1299,33 @@ def pending_import_checks(repository: Repository) -> list[str]:
             "      OR (verification_json LIKE '%ladder_result%' AND NOT EXISTS ("
             "          SELECT 1 FROM reference_key_checks c WHERE c.import_id = source_exercise_imports.id))))"
             "   OR (status='checking' AND practice_item_id IS NOT NULL) ORDER BY created_at, id").fetchall()
-    found = []
-    for row in rows:
-        verification = json.loads(row[3] or "{}")
-        pending = verification.get("pending_check")
-        if pending and pending.get("process") == PROCESS_TOKEN:
-            continue  # this process's own check may still be running
-        found.append(str(row[0]))
+        claims = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                                    "AND name='judgment_work_claims'").fetchone() is not None
+        found = []
+        for row in rows:
+            verification = json.loads(row[3] or "{}")
+            if (not include_held and claims and verification.get("pending_check")
+                    and live_lease(connection, claim_key=check_claim_key(str(row[0])), now=now)):
+                continue  # a running check (here or elsewhere) is not abandoned
+            found.append(str(row[0]))
     return found
+
+
+def _lease_wait_seconds(repository: Repository, import_ids: Sequence[str]) -> float | None:
+    """Seconds until the earliest live lease among ``import_ids`` lapses, or None."""
+
+    now = parse_utc(_lease_now())
+    soonest = None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        for import_id in import_ids:
+            row = connection.execute("SELECT state, lease_expires_at FROM judgment_work_claims WHERE claim_key = ?",
+                                     (check_claim_key(import_id),)).fetchone()
+            if row is None or row[0] != "leased" or not row[1]:
+                continue
+            wait = max(0.0, (parse_utc(str(row[1])) - now).total_seconds())
+            if soonest is None or wait < soonest:
+                soonest = wait
+    return soonest
 
 
 def recover_import_checks(root: Path, repository: Repository, *, clients: Mapping[str, Any] | None = None,
@@ -1144,13 +1333,22 @@ def recover_import_checks(root: Path, repository: Repository, *, clients: Mappin
     """Startup recovery: resume every import a dead process left incomplete."""
 
     report: dict[str, Any] = {"imports": 0, "actions": {}}
+    held: list[str] = []
     for import_id in pending_import_checks(repository):
         report["imports"] += 1
         try:
             action = resume_import(root, repository, import_id, clients=clients, clock=clock)["action"]
         except Exception as exc:  # noqa: BLE001 - one import's failure never blocks the rest
             action = f"failed:{type(exc).__name__}"
+        if action == "claimed_elsewhere":
+            held.append(import_id)
         report["actions"][action] = report["actions"].get(action, 0) + 1
+    # Checks under a live lease are left to their holder; a waiter may retry
+    # them once the earliest lease lapses (a dead process's lease).
+    waiting = sorted(set(held) | set(pending_import_checks(repository, include_held=True))
+                     - set(pending_import_checks(repository)))
+    report["held"] = len(waiting)
+    report["retry_after_seconds"] = _lease_wait_seconds(repository, waiting) if waiting else None
     return report
 
 
@@ -1194,21 +1392,31 @@ def _verify_item_key(root: Path, repository: Repository, vault: LoadedVault, ite
                      import_id: str | None = None) -> dict[str, Any]:
     item = vault.practice_items[item_id]
     content_hash = reference_content_hash(item)
-    result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
+    claim = None
+    if import_id:
+        # An import's pending check is claimed before its ladder runs (F9).
+        status, claim = claim_check(repository, import_id, content_hash)
+        if status != CLAIMED:
+            reason = "claimed_elsewhere" if status == HELD else "already_checked"
+            return {"practice_item_id": item_id, "key_status": None, "rung": "skipped", "check_id": None,
+                    "skip_reason": reason, "content_hash": content_hash}
+    with _heartbeat(repository, claim):
+        result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
     check_id = None
     if result.rung != "skipped":
         # With an import, its completion (the pending marker cleared, the
-        # key's status) commits with the check row (F5).
-        with repository.connection() as connection:
-            check_id = _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=content_hash,
-                                       result=result, trigger=trigger, started_at=started_at, clock=clock)
+        # key's status) commits with the check row (F5), while the claim holds.
+        check_id = _fenced_complete(repository, claim, import_id=import_id, item_id=item.id,
+                                    content_hash=content_hash, result=result, trigger=trigger,
+                                    started_at=started_at, clock=clock)
     elif import_id:
         with repository.connection() as connection:
             current = import_row(connection, import_id)
-            if current is not None and current["verification"].get("pending_check"):
-                update_import(connection, import_id, updated_at=utc_now_iso(clock),
-                              verification=_without_pending(current["verification"],
-                                                            check_skipped=result.skip_reason))
+        if current is not None and current["verification"].get("pending_check"):
+            _clear_pending(repository, import_id, claim, clock=clock,
+                           verification_extra={"check_skipped": result.skip_reason})
+        else:
+            release_check(repository, claim)
     return {"practice_item_id": item_id, "key_status": result.key_status, "rung": result.rung,
             "check_id": check_id, "skip_reason": result.skip_reason, "content_hash": content_hash}
 
@@ -1265,6 +1473,12 @@ __all__ = [
     "AUTHORING_OUTPUT_TOKENS",
     "attach_to_matching_family",
     "authoring_admission",
+    "CHECK_CLAIM_TASK",
+    "CheckClaim",
+    "check_claim_key",
+    "claim_check",
+    "draft_content_hash",
+    "release_check",
     "find_book_solution",
     "import_caps",
     "import_source_exercise",
