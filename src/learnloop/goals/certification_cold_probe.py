@@ -1910,6 +1910,7 @@ __all__ = [
     "certification_cold_probe_report",
     "cold_outcome_labels",
     "current_certificate",
+    "effective_cold_probe_outcomes",
     "false_certification_rate",
     "probe_window",
     "record_certification_cold_probe_attempt",
