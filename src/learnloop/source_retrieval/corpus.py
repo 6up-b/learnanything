@@ -241,6 +241,84 @@ def _member_exclusions(connection, repository: Repository, member: Any,
                      for span_id in unit.span_ids)
 
 
+#: The exam use mode of a protected, held-out evaluation unit (spec_source_ingestion_v2 §4.2).
+HELD_OUT_EVALUATION = "held_out_evaluation"
+
+
+def _held_out_roots(unit_id: str, units: Mapping[str, UnitRow]) -> set[str] | None:
+    """The raw units a selection's held-out unit id covers, or None when one is unknown.
+
+    A raw id is itself; a merged unit (``a+b``) is its members; a split child
+    (``a#slug``) is its whole raw parent (fail closed: its siblings too).
+    """
+
+    roots: set[str] = set()
+    for part in unit_id.split("+"):
+        raw = part.split("#", 1)[0]
+        if raw not in units:
+            return None
+        roots.add(raw)
+    return roots
+
+
+def _held_out_exclusions(connection, repository: Repository, member: Any,
+                         whole: set[str], spans: set[tuple[str, str]]) -> None:
+    """Units marked ``held_out_evaluation`` in a unit selection of a member's source.
+
+    A held-out evaluation unit is exam material whatever role its member has
+    (owner, 2026-10-13; the rule of the facet authority resolver,
+    ``content.facet_identity.authority.CitationResolver``), so a textbook unit
+    held out for evaluation is withheld like an exam's. Resolved in every
+    extraction of the source: by id in the extraction whose selection marks
+    it, by its label elsewhere (unit ids are positional); a held-out id or
+    label that does not resolve excludes that whole extraction (fail closed).
+    """
+
+    extraction_ids = list(dict.fromkeys(
+        source_extraction_ids(connection, source_id=member.source_id)
+        + source_extraction_ids(connection, revision_id=member.revision_id)))
+    marked: dict[str, set[str]] = {}
+    unresolved: set[str] = set()
+    labels: set[str] = set()
+    units_of: dict[str, list[UnitRow]] = {}
+    for extraction_id in extraction_ids:
+        modes = (repository.get_unit_selection(extraction_id) or {}).get("exam_use_modes") or {}
+        held = sorted(str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION)
+        if not held:
+            continue
+        units_of[extraction_id] = extraction_units(connection, extraction_id)
+        by_id = {unit.unit_id: unit for unit in units_of[extraction_id]}
+        roots: set[str] = set()
+        for unit_id in held:
+            resolved = _held_out_roots(unit_id, by_id)
+            if resolved is None:
+                unresolved.add(extraction_id)
+                break
+            roots |= resolved
+        else:
+            marked[extraction_id] = roots
+            labels |= {by_id[unit_id].label for unit_id in roots}
+    whole.update(unresolved)
+    if not marked:
+        return
+    for extraction_id in extraction_ids:
+        if extraction_id in unresolved:
+            continue
+        units = units_of.get(extraction_id)
+        if units is None:
+            units = extraction_units(connection, extraction_id)
+        if extraction_id in marked:
+            roots = set(marked[extraction_id])
+        else:
+            roots = {unit.unit_id for unit in units if unit.label in labels}
+            if {unit.label for unit in units if unit.unit_id in roots} != labels:
+                whole.add(extraction_id)
+                continue
+        chosen = _descendants(units, roots)
+        spans.update((extraction_id, span_id) for unit in units if unit.unit_id in chosen
+                     for span_id in unit.span_ids)
+
+
 def _link_exclusions(connection, link: AssessmentLink,
                      whole: set[str], spans: set[tuple[str, str]]) -> None:
     """An ``exercise`` / ``assessment_alignment`` link's span, else its whole extraction.
@@ -273,9 +351,10 @@ def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusion
 
     Source-set material without teaching authority (exam, problem_set, notes and
     unknown roles, whole members or unit overrides, which covers held-out exam
-    questions and whole ``held_out_evaluation`` units), in every extraction of
-    its source, plus every span an ``exercise`` or ``assessment_alignment`` link
-    cites (or, for a locator that does not name a block, its whole extraction).
+    questions) and every ``held_out_evaluation`` unit whatever its member's role
+    (:func:`_held_out_exclusions`), in every extraction of its source, plus
+    every span an ``exercise`` or ``assessment_alignment`` link cites (or, for
+    a locator that does not name a block, its whole extraction).
     """
 
     whole: set[str] = set()
@@ -284,6 +363,7 @@ def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusion
         for source_set in vault.source_sets:
             for member in source_set.members:
                 _member_exclusions(connection, repository, member, whole, spans)
+                _held_out_exclusions(connection, repository, member, whole, spans)
         for link in assessment_link_locators(connection):
             _link_exclusions(connection, link, whole, spans)
     return Exclusions(frozenset(whole), frozenset(spans))
@@ -292,10 +372,13 @@ def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusion
 def exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
     """Exam material only: source-set members or unit overrides whose role is
     ``exam`` (assessment-only by role authority: no ``semantic_contract``), in
-    every extraction of their source, held-out units included. The narrow part
-    of :func:`teaching_exclusions` the canonical-sources paths that read the
-    whole library withhold from teaching (the sources merge onto main): notes,
-    problem sets and solutions keep the branch's own rules there."""
+    every extraction of their source, plus every ``held_out_evaluation`` unit
+    whatever its member's role (:func:`_held_out_exclusions`; the facet
+    authority resolver counts it as exam too, since facet locks landed on
+    main). The narrow part of :func:`teaching_exclusions` the canonical-sources
+    paths that read the whole library withhold from teaching (the sources
+    merge onto main): notes, problem sets and solutions keep the branch's own
+    rules there."""
 
     whole: set[str] = set()
     spans: set[tuple[str, str]] = set()
@@ -304,6 +387,7 @@ def exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
             for member in source_set.members:
                 _member_exclusions(connection, repository, member, whole, spans,
                                    teaches=lambda role: str(role or "") != "exam")
+                _held_out_exclusions(connection, repository, member, whole, spans)
     return Exclusions(frozenset(whole), frozenset(spans))
 
 
