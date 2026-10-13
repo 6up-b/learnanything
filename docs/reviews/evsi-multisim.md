@@ -1199,6 +1199,45 @@ run (read-only sandbox); see the review file.
    numbers? *Recommended: yes, as a follow-up.*
    *Done 2026-10-13* ([`evsi-single-family-unbounded.md`](evsi-single-family-unbounded.md)): the bound stopped 2 of 400 `eig_no_gate` episodes at Eedi's strength; no other number, claim, conclusion or rank moved, and §6 stands.
 
+## 13. Merge onto main (2026-10-13)
+
+Merged onto main at `dd262244` (`evsi/calibration` tip `31841a2d`), after
+sources, facet locks, UX Phase 1 (migrations 198-199) and the route-rules
+successor (mvp-0.20). Main already had the branch's first part (merged at
+`3192d0c9`). What landed: the four-family study and its ranked proposal
+(this report), both Codex reviews, the single-family rerun without the
+25-check bound ([`evsi-single-family-unbounded.md`](evsi-single-family-unbounded.md)),
+and `learnloop evsi multisim` and `learnloop evsi compare`.
+
+* **Offline only.** `git diff main...evsi/calibration --stat` lists 22 files,
+  all in `src/learnloop/evsi_calibration/`, `src/learnloop/cli/evsi.py` (the
+  two new subcommands and the offline study's default bound), `tests/` and
+  `docs/reviews/`. No serving module imports `evsi_calibration` (only the
+  CLI does). No config default, schema, migration or `apps/` change, so the
+  defaults snapshots did not move.
+* **Conflicts: none.** `tests/cli_help_snapshot.json` auto-merged, and
+  `--write` regenerated it unchanged. The references were regenerated: only
+  `source_commit` stamps and generator-derived citations moved (the
+  `probe.episode` consumer line numbers in `policies.py`, `family_fit.py`
+  among `forecasts`' source paths, `test_evsi_multisim.py` in
+  `misconceptions`' test list). No counts moved, so the prose in
+  `Configuration.md` and `Database.md` stands.
+* **The successor this proposal targets is not on main yet.**
+  `serving/voi-stopping` is still unmerged. Main has since used its label
+  `mvp-0.17` for the proofs route check, so the successor lands under the
+  next free tag. The study simulates the successor's rule offline, in
+  `evsi_calibration/policies.py`. The only file the two branches share is
+  `tests/cli_help_snapshot.json`; whichever lands second regenerates it.
+* **Gate** at `37f2a667` (`TMPDIR` = the worktree's `fixtures-local/tmp`;
+  `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`):
+  `lint-imports` 17 kept, 0 broken; full suite `-n auto` **10,247 passed**,
+  0 failed, 0 skipped (7 min 12 s, under heavy machine load); `-m durability`
+  **99 passed** (1 min 44 s); targeted EVSI and CLI snapshot tests 92 passed;
+  `db_validate_reference.py` `errors: []`. No frontend or `src-tauri` change,
+  so those steps were not run. No paid call. The stored study reports remain
+  under the `learnanything-evsi-cal` worktree's `fixtures-local/`
+  (gitignored).
+
 ## Appendix A. Every regime
 
 Mean minutes per episode (checks per episode; right-repair rate); best per
