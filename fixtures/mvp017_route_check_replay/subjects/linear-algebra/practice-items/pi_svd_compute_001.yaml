@@ -1,0 +1,43 @@
+schema_version: 1
+id: pi_svd_compute_001
+learning_object_id: lo_svd_compute
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+evidence_facets:
+  - recall
+  - compute
+evidence_weights:
+  recall: 1.0
+  compute: 1.0
+prompt: Write the SVD of A.
+expected_answer: U Sigma V^T
+difficulty: 0.5
+tags: []
+hints:
+  - Think about it.
+surface_family: svd_compute
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: setup
+      points: 2
+      description: setup is right.
+      targets:
+        - facet: compute
+          capability: procedure_execution
+    - id: result
+      points: 2
+      description: result is right.
+      targets:
+        - facet: recall
+          capability: retrieval
+  fatal_errors: []
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'

@@ -1,0 +1,13 @@
+schema_version: 2
+goals:
+  - id: goal_linear_algebra_ml
+    title: Linear algebra for ML
+    status: active
+    priority: 0.8
+    target_recall: 0.8
+    facet_scope:
+      concepts:
+        - singular_value_decomposition
+    due_at:
+    created_at: '2026-05-19T12:00:00Z'
+    updated_at: '2026-05-19T12:00:00Z'

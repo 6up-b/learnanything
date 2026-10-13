@@ -1,0 +1,40 @@
+schema_version: 1
+id: pi_svd_define_001
+learning_object_id: lo_svd_definition
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+evidence_facets:
+  - recall
+evidence_weights:
+  recall: 1.0
+prompt: Define SVD.
+expected_answer: A matrix factorization into U, Sigma, and V transpose.
+difficulty: 0.55
+tags: []
+hints:
+  - Name the three factors.
+hint_policy:
+  max_useful_hints: 1
+  fsrs_rating_cap_by_hint:
+    '1': good
+  mastery_alpha_dampening_by_hint:
+    '1': 0.5
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4
+      description: Correct definition.
+  fatal_errors:
+    - id: conceptual_slip
+      description: Confuses SVD with a different decomposition.
+      max_grade: 1
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'

@@ -1,0 +1,244 @@
+{
+  "algorithm_version": "mvp-0.17",
+  "attempts": {
+    "answer_differs": {
+      "attempt_id": "01M4V4HMWZN2RFXZKYMX31A0VR",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 0.0,
+      "held": false,
+      "manual_review_reason": null,
+      "proof_route_check": {
+        "applied": false,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [],
+        "held_for_review": false,
+        "restored_criterion_ids": [],
+        "status": "checked",
+        "unlocated_criterion_ids": [],
+        "unverified_criterion_ids": [],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 0
+    },
+    "checker_unavailable": {
+      "attempt_id": "01M4V4HMVBMV6M2CEQZRKNV7BR",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": null,
+      "proof_route_check": {
+        "applied": false,
+        "status": "unavailable",
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "clarification": {
+      "attempt_id": "01M4V4HMAPKN4CKTAKGRDR2YCV",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 0.0,
+      "held": false,
+      "manual_review_reason": "provisional_pending_clarification",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [
+          "result"
+        ],
+        "flagged_criterion_ids": [],
+        "held_for_review": false,
+        "restored_criterion_ids": [],
+        "status": "checked",
+        "unlocated_criterion_ids": [],
+        "unverified_criterion_ids": [
+          "result"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 0
+    },
+    "flagged": {
+      "attempt_id": "01M4V4HMCC1MKT0QY30S7DVHTP",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": "proof_route_check_flag",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [
+          "result"
+        ],
+        "held_for_review": false,
+        "restored_criterion_ids": [],
+        "status": "checked",
+        "unlocated_criterion_ids": [],
+        "unverified_criterion_ids": [],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "held": {
+      "attempt_id": "01M4V4HMGKADJKXWRVEZ0G2J8J",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 0.0,
+      "held": true,
+      "manual_review_reason": "proof_route_check_flag",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [],
+        "held_for_review": true,
+        "restored_criterion_ids": [],
+        "status": "checked",
+        "unlocated_criterion_ids": [
+          "setup",
+          "result"
+        ],
+        "unverified_criterion_ids": [
+          "result",
+          "setup"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 0
+    },
+    "held_kept_by_failed_regrade": {
+      "attempt_id": "01M4V4HMJ717XX61GDSSN1WSCW",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy",
+      "correctness": 0.0,
+      "held": true,
+      "manual_review_reason": "proof_route_check_flag",
+      "proof_route_check": {
+        "applied": true,
+        "held_for_review": true,
+        "hold_kept_from": "01M4V4HMJYXSS1WY3Z59ADVR24",
+        "status": "unavailable",
+        "unverified_criterion_ids": [
+          "result",
+          "setup"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 0
+    },
+    "held_then_adjudicated": {
+      "attempt_id": "01M4V4HMQJ0SN6545TXWTQPBSV",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": "proof_route_check_flag",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [],
+        "held_for_review": true,
+        "restored_criterion_ids": [],
+        "status": "checked",
+        "unlocated_criterion_ids": [
+          "setup",
+          "result"
+        ],
+        "unverified_criterion_ids": [
+          "result",
+          "setup"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "not_proof_like": {
+      "attempt_id": "01M4V4HMSMAY5325XJK8Q4N20K",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": null,
+      "proof_route_check": {
+        "applied": false,
+        "status": "not_proof_like",
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "restored_and_disputed": {
+      "attempt_id": "01M4V4HM8ZE0781NV6JK40FYEN",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": "valid_alternative_unverified",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [
+          "result"
+        ],
+        "flagged_criterion_ids": [],
+        "held_for_review": false,
+        "restored_criterion_ids": [
+          "setup"
+        ],
+        "status": "checked",
+        "unlocated_criterion_ids": [],
+        "unverified_criterion_ids": [
+          "result"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "restored_both": {
+      "attempt_id": "01M4V4HM3DXX7HSEJZT19619WT",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": null,
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [],
+        "held_for_review": false,
+        "restored_criterion_ids": [
+          "setup",
+          "result"
+        ],
+        "status": "checked",
+        "unlocated_criterion_ids": [],
+        "unverified_criterion_ids": [],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    },
+    "unlocated_partial": {
+      "attempt_id": "01M4V4HMEYHH4TWG2ZTP3AZXXQ",
+      "calibration_prompt_version": "grading_prompt_v2_1_blind_reference_policy+proof-route-check-v3:proof-route-check-v1@checker-model",
+      "correctness": 1.0,
+      "held": false,
+      "manual_review_reason": "valid_alternative_unverified",
+      "proof_route_check": {
+        "applied": true,
+        "disputed_criterion_ids": [],
+        "flagged_criterion_ids": [],
+        "held_for_review": false,
+        "restored_criterion_ids": [
+          "setup"
+        ],
+        "status": "checked",
+        "unlocated_criterion_ids": [
+          "result"
+        ],
+        "unverified_criterion_ids": [
+          "result"
+        ],
+        "version": "proof-route-check-v3"
+      },
+      "rubric_score": 4
+    }
+  },
+  "clarification_triggers": [
+    "route_check_disagreement"
+  ],
+  "generated_at_commit": "e238fa07a",
+  "judgment_tasks": {
+    "proof_like_item": 3,
+    "proof_route_check": 9
+  },
+  "rebuild_clock": "2026-11-01T12:00:00+00:00"
+}

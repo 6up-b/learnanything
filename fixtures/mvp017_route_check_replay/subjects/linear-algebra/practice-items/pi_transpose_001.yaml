@@ -1,0 +1,35 @@
+schema_version: 1
+id: pi_transpose_001
+learning_object_id: lo_transpose
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+evidence_facets:
+  - transpose
+evidence_weights:
+  transpose: 1.0
+prompt: Transpose the matrix M.
+expected_answer: M^T
+difficulty: 0.5
+tags: []
+hints:
+  - Think about it.
+surface_family: transpose
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4
+      description: correctness is right.
+      targets:
+        - facet: transpose
+          capability: retrieval
+  fatal_errors: []
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'

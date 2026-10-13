@@ -1,0 +1,79 @@
+schema_version = 2
+
+[storage]
+sqlite_path = "state.sqlite"
+
+[algorithms]
+algorithm_version = "mvp-0.17"
+
+# AI is optional; an unavailable provider keeps today's manual workflow.
+# Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
+# Exception: embeddings use only their own route, never env/active/fallback.
+[ai]
+active_provider = "codex"
+fallback_provider = ""
+
+[ai.providers.codex]
+type = "codex_sdk"
+model = "gpt-5.6-sol"
+reasoning_effort = "low"
+
+[ai.providers.openrouter]
+type = "openrouter"
+model = "deepseek/deepseek-chat"
+api_key_env = "OPENROUTER_API_KEY"
+response_format = "json_object"
+timeout_seconds = 180
+# input_modalities = ["audio", "pdf"]
+
+[ai.providers.openrouter_embedding]
+type = "openai_embedding"
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+# embedding.model and embedding.dimensions are authoritative for this route.
+timeout_seconds = 180
+
+[ai.routing]
+grading = "codex_low"
+canonical_ingest = "codex_medium"
+canonical_ingest_retry = "codex_medium"
+authoring = "codex_medium"
+tutor_qa = "codex_low"
+teach_back = "codex_low"
+rung_variant = "codex_low"
+animation = "codex_medium"
+transcription = ""
+video_generation = ""
+embedding = "openrouter_embedding"
+# project = ""  # project understanding: probe authoring + closed-book check (empty = the grading route)
+field_question_classifier = ""
+
+# Embeddings are opt-in: both switches stay off until you enable them.
+# Remote embeddings send learner-derived text to OpenRouter and its upstream
+# provider, with data_collection=deny. Vectors approximate plaintext: protect
+# them like practice attempts in backups/exports/sync; never share across vaults.
+[embedding]
+enabled = false
+backfill_enabled = false
+model = "qwen/qwen3-embedding-8b"
+dimensions = 4096
+
+[pf]
+generation_enabled = false # PF-b publishes only verified items, capped per day
+
+# F1 is offline analysis, not serving. Paid analysis is independently opt-in.
+[field]
+active_predictor = "mastery_ekf"
+legacy_fallback = "exclude"
+question_classification_enabled = false
+llm_probability_enabled = false
+
+[ingest.pdf]
+engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
+
+[animation]
+renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
+
+# All other policy uses modeled defaults. Inspect it with:
+#   learnloop config effective
+# Override any modeled key by adding it under the same TOML path.

@@ -1,0 +1,19 @@
+schema_version: 1
+id: lo_transpose
+title: Transpose a matrix
+subjects:
+  - linear-algebra
+concept: matrix_transpose
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Transpose a matrix
+prerequisites: []
+confusables: []
+difficulty_prior: 0.5
+tags: []
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'

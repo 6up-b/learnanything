@@ -1,0 +1,19 @@
+schema_version: 1
+id: lo_svd_compute
+title: Compute an SVD
+subjects:
+  - linear-algebra
+concept: singular_value_decomposition
+knowledge_type: procedural
+status: active
+contradicts:
+summary: Compute an SVD
+prerequisites: []
+confusables: []
+difficulty_prior: 0.5
+tags: []
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'
