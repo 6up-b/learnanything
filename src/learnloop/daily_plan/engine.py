@@ -129,8 +129,10 @@ def reading_from_furthest_active(vault: Any) -> bool:
 
 
 def _exam_material(vault: Any, repository: Any) -> Any:
-    """Main's exam predicate for the reading step (UX Phase 1's selection never
-    offers exam material, a ``held_out_evaluation`` unit included, as reading).
+    """The one exam predicate (``content.sources.exam_material``, through
+    ``source_retrieval.corpus.exam_exclusions``) for the reading step (UX Phase
+    1's selection never offers exam material, a ``held_out_evaluation`` unit
+    included, as reading).
     None when it cannot be read: the plan then offers no reading step (fail
     closed) rather than one that might be exam material."""
 

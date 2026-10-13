@@ -1185,8 +1185,9 @@ class BuildPlanChoice:
     stages: dict[str, int]
     totals: dict[str, Any]
     outline: Any
-    #: Units of the book that are exam material (main's exam predicate:
-    #: ``held_out_evaluation`` units, exam roles): never built as teaching.
+    #: Units of the book that are exam material (the one exam predicate,
+    #: ``content.sources.exam_material``: ``held_out_evaluation`` units, exam
+    #: roles): never built as teaching.
     withheld_unit_ids: frozenset[str] = frozenset()
 
     @property
@@ -1243,12 +1244,15 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
 
 def exam_material_units(vault, repo, source_id: str, revision_id: str | None,
                         extraction_id: str) -> frozenset[str] | None:
-    """The book's units that are exam material, by main's exam predicate
-    (``source_retrieval.corpus``: exam-role members and unit overrides, and
-    every ``held_out_evaluation`` unit whatever its member's role, including
-    the book's own before its first study map). ``None``: the whole extraction
-    is exam material. An automatic build never takes them as teaching (the
-    exam composition check at UX Phase 1's landing on main)."""
+    """The book's units that are exam material, by the one exam predicate
+    (``content.sources.exam_material``, read through
+    ``source_retrieval.corpus.source_exam_exclusions``: exam-role members and
+    unit overrides in every revision, outline role picks ``exam``, and every
+    ``held_out_evaluation`` unit whatever its member's role, the book's own
+    before its first study map included; unresolvable units fail closed).
+    ``None``: the whole extraction is exam material. An automatic build never
+    takes them as teaching (the exam composition checks at UX Phase 1's and
+    exam protection's landings on main)."""
 
     from learnloop.db.stores.source_block_fts import extraction_units
     from learnloop.source_retrieval.corpus import source_exam_exclusions

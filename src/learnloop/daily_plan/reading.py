@@ -70,8 +70,9 @@ def next_reading_target(
 
     ``from_furthest`` (``plan.reading_from_furthest``) is U4's selection; off,
     "next" is DL1's: the first unfinished section in book order, front matter
-    included. ``exam`` (main's exam predicate, ``source_retrieval.corpus.
-    exam_exclusions``: ``extractions`` and ``(extraction, span)`` ``spans``)
+    included. ``exam`` (the one exam predicate, ``content.sources.
+    exam_material``, as ``source_retrieval.corpus.exam_exclusions`` returns
+    it: ``extractions`` and ``(extraction, span)`` ``spans``)
     keeps U4's step off exam material: a section with an exam span (a
     ``held_out_evaluation`` unit) is never the step to read, and an exam
     extraction offers none. DL1's selection (the switch off) is unchanged."""
