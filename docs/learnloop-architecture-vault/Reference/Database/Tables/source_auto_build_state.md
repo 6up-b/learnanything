@@ -3,8 +3,8 @@ title: "source_auto_build_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ebb1743b4e775702a1287ec19496e2df51c3648a"
-source_commit_timestamp: "2026-10-13T18:58:12-04:00"
+source_commit: "e05eeaa6c2e4d3a56880a0e424848055629ab1a7"
+source_commit_timestamp: "2026-10-13T19:39:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_auto_build_state"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_rereview.py`
 - `tests/test_reading_hardening_review_fixes.py`
+- `tests/test_reading_hardening_verify_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
