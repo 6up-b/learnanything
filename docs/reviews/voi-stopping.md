@@ -14,7 +14,11 @@ stage).
 **Revised by the Codex review fixes** (`docs/reviews/voi-stopping-codex-review.md`,
 findings F1 to F9, and the re-review's F1, F2, F10 and F11): the sections
 below describe the stage as fixed; where the first build differed, the fix is
-named inline.
+named inline. **Then by voi-v2** (`docs/reviews/voi-v2.md`): the final
+verify's F2, F10 and F12, and the multi-family EVSI study's ranks 1-3 behind
+`voi_stopping.robust_gate_with_value`, `lookahead_max_checks` and
+`robust_quantile` (the "robust quantile 0.10" and "the gate" below are the
+switches' restore values).
 
 Both parts change what is served, so they ship as one algorithm successor,
 **`mvp-0.17` (a placeholder label: expect relabelling at the merge)**, with
