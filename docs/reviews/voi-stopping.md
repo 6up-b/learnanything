@@ -450,3 +450,221 @@ real `codex sandbox` under load (16 of 16 pass alone).
    field names), and should the sidecar/TUI commit door's value refusal be
    persisted (today only the scheduler's offer and the episode's completion
    record it)?
+
+## Landing onto main
+
+Branch `merge/voi-onto-main` (worktree `learnanything-merge2`), from main
+`9fd00e9fe` (the route rules, mvp-0.20 LATEST, with UX Phase 1; migration
+head 199, head fixture `fixtures/migration_head_199`). §1-§9 above, the
+Codex reviews and `voi-v2.md` describe the branch and keep its placeholders
+(`mvp-0.17`, migrations 187/188). No paid call.
+
+| Commit | What |
+|---|---|
+| `cbd26b3e7` | a real `--no-ff` merge of `serving/voi-stopping` (`88c933686`, unchanged), with the renumbering, the relabel and the composition below |
+| `2ad33b5a5` | regenerated references |
+| (this commit) | this section |
+
+### Renumbered and relabelled
+
+| On the branch | On main |
+|---|---|
+| migration `187_probe_value_of_information_stop` | `200_probe_value_of_information_stop` |
+| migration `188_followup_value_decisions` | `201_followup_value_decisions` |
+| `fixtures/migration_head_188` | `fixtures/migration_head_201` (main's `migration_head_199` renamed) |
+| `mvp-0.17` (`VOI_STOPPING_ALGORITHM_VERSION`) | **`mvp-0.21`**, after the route rules' `mvp-0.20` |
+| `voi_stopping_upgrade.upgrade_to_mvp017` | `upgrade_to_mvp021` |
+| `tests/test_mvp017_upgrade.py` (add/add with main's route-check file) | `tests/test_mvp021_upgrade.py`; main's file kept |
+
+- **Migrations.** `ls migrations` runs 1..201 with only main's historical
+  gaps. Main's 184-199 touch neither `probe_episodes` nor `decision_features`,
+  so 200's rebuild copies main's columns exactly (the table at 199 is the
+  branch's base table) and 201's backfill reads main's `decision_features`
+  unchanged. `tests/test_voi_v2.py::test_migration_201_backfills_a_legacy_follow_up_receipt_once`
+  builds a database at 200 from main's 1..200 with the real incremental
+  migrator and applies 201: the suppression and the manual queue are
+  backfilled once, the mvp-0.16 row is not, a later decision is ordinal 2. No
+  owner vault ever ran the branch's 188; the head fixture has no legacy row.
+  Each migration's comment names both numbers.
+- **Head fixture.** `git mv fixtures/migration_head_199 fixtures/migration_head_201`;
+  a backup-API copy (`learnloop.db.copies.backup_database`) of its database
+  had only 200-201 applied through `learnloop.db.migrate.apply_migrations`,
+  then `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check`
+  ok, `foreign_key_check` clean, no `-wal`/`-shm`, and was copied back with
+  the backup API. Its README says so. Every hard-coded head path moved:
+  the branch's own tests, main's `test_mvp017/018/020_upgrade.py`,
+  `test_reading_step_switch.py`, `test_route_rules_in_grader.py` (whose
+  max-migration assertion is now 201) and the two reference scripts with
+  their `SCHEMA_HEAD`.
+- **The successor.** `VOI_STOPPING_ALGORITHM_VERSION = "mvp-0.21"`, appended
+  to `SUCCESSOR_CHAIN` after `ROUTE_RULES_ALGORITHM_VERSION`; `LATEST` is
+  mvp-0.21 and new vaults start there. `upgrade_to_mvp021` accepts mvp-0.20,
+  or mvp-0.9 to mvp-0.19 through `route_rules_upgrade.upgrade_to_mvp020`,
+  passes the chained notes through (`chained_notes = list(chained.notes or [])`)
+  and passes an earlier step's refusal unprefixed (`_STEP_REFUSAL`), as the
+  route rules' upgrade does. T1's guard stays advisory; the refusal test sets
+  `config="[recurrence]\nrequire_guard = true"` and the vault stays at
+  mvp-0.10. `learnloop upgrade` defaults to mvp-0.21; `--to mvp-0.21` is new
+  and `--to mvp-0.10` to `--to mvp-0.20` still reach those tags.
+- **Every mention.** The branch's code, comments, receipts' docs, the
+  reference generator's section and table descriptions, the frontend's two
+  comments and its tests now say mvp-0.21 (a line-by-line pass over every
+  line the branch added). Main's own mvp-0.17 (the route check) is untouched.
+  Tests that pinned the predecessor as mvp-0.16 (the kill-switch equivalence
+  and "below the successor" cases) now use mvp-0.20, the immediate
+  predecessor, and the lists of earlier versions include mvp-0.17 to
+  mvp-0.20. Main's tests that pinned mvp-0.20 as the latest
+  (`test_mvp011/013/014/015/016/017/018/020_upgrade.py`,
+  `test_recurrence_commands.py`, `test_route_rules_in_grader.py`,
+  `test_reading_step_switch.py`) now pin mvp-0.21.
+- **Defaults.** All thirteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9
+  to mvp-0.21) were recomputed with `defaults_fingerprint_for_version` from
+  the composed defaults; the template `.pyc` was cleared before and after and
+  the file touched. Each moves only because the effective config gains
+  `[voi_stopping]` and the two `diagnosis.probe_lane_*` keys (dormant below
+  mvp-0.21). The CLI help snapshot was rewritten (`misconceptions`,
+  `upgrade`). `Version Registry.md` and `Algorithm Versions and
+  Reproducibility.md` read mvp-0.21 and head 201.
+
+### Composition
+
+- **Rank 4, the measured unresolved cost** (`evsi-multisim.md` §6.1, Part C on
+  main). `VoiContext.loss_table` passes
+  `unresolved_minutes=unresolved_minutes_for_hypotheses(repository, labels,
+  pseudo_count=config.evsi.unresolved_cost_prior_pseudo_count)[0]` to
+  `action_loss.build_loss_table` when `evsi.measured_loss_enabled` (default
+  **off**, unchanged), and keys its cache on the regime and the charged
+  minutes. Every decision at stake names its regime: `context.loss_regime`
+  and the `loss_model` parameter are `triage_route_wasted_minutes` or
+  `route_plus_measured_unresolved_minutes_v1` (the causal shadow selector's
+  name for the same regime), and with the measured regime the receipt adds the
+  estimate (`context.unresolved_cost`, parameter `unresolved_minutes` with its
+  provenance). Off, the table is built exactly as before (same hash, the
+  unresolved cost never read) and the restore golden reproduces; on, every
+  off-diagonal cell charges the estimate and EVSI rises
+  (`tests/test_voi_merge_composition.py`). One thing for the owner before
+  turning it on: the value rule's hypotheses are probe labels, not
+  `causal_hypotheses` rows, so `unresolved_minutes_for_hypotheses` reads each
+  label's scope as `unknown`, which it treats as persistent: every label
+  (`mastered` and `unfamiliar` included) is charged the estimate on its
+  off-diagonal cells.
+- **EVSI calibration's forecast log.** Every value decision the successor
+  takes is now also a `voi_forecasts` row (behind `evsi.forecast_logging`),
+  logged once, where it acts, at four new sites in `VOI_SITES`
+  (`diagnosis.voi_forecasting.record_value_decision_forecast`):
+
+  | Site | Logged when | Receipt key |
+  |---|---|---|
+  | `probe_episode_value_decision` | a continue, at the committed presentation (every commit door: the scheduler, the sidecar, the TUI, all through `record_presentation_forecast`) | `…:<presentation>` |
+  | | a stop that ends the episode, at its completion | `…:<episode>:value_of_information_stop` |
+  | | a stop that withholds the episode's probes from a Today offer (before the first answer the episode stays open, §9 Q5) | `…:<slate>:<episode>` |
+  | `followup_value_decision` | each `followup_value_decisions` receipt with a valuation (a need with nothing to value is not one) | `…:<receipt id>` |
+  | `teach_back_value_decision` | each teach-back an offer kept or dropped, per offer (router R1's grain) | `…:<slate>:<item>` |
+  | `project_probe_value_decision` | each due project probe a plan-block decision (or the chooser's stop) admitted or held back, after the block commits, with R1's `plan_block` row as `decision_ref` | `…:<block>:<item>` |
+
+  The body describes one check (`forecast_of`: `committed`, the administered
+  observation; `subject`, the check a per-check receipt is about; or
+  `nominal_best`, value's best where nothing was administered) with its
+  predicted outcomes, likelihood rows, EIG, P(action change) and EVSI point
+  and robust; the whole decision rides as `value_decision`, a lookahead's
+  batches as `lookahead` (the described check's value is the batch's, method
+  `robust_evsi_lookahead_<k>`), and `selection` carries the serving path's
+  `served_by` and router R1's `scheduler_exploration` marker verbatim (the
+  committed probe's, and a teach-back's the draw moved forward), as main's
+  `probe_selection` forecast does. Parameters keep `voi_forecasts`' coarse
+  provenance vocabulary: the study's `evsi_multisim` values read `heuristic`
+  with `fine_provenance` kept. A check the plan already holds, a learner
+  request and a check a refresh cannot take are not value decisions and log
+  nothing.
+
+  **No double record.** Each decision has one key, so a rebuild of the
+  same offer, a second pass over a presentation or a replay adds nothing;
+  the successor's own receipts (the presentation's components, the
+  completion detail, `followup_value_decisions`, R1's offer and plan-block
+  details) stay where they were and are the same bodies. Main's own sites
+  stay their own decisions: `probe_selection` (which instrument), beside
+  `probe_episode_value_decision` (whether to ask again) on the same
+  presentation; `followup_selection` (the queued item's target facet), beside
+  `followup_value_decision`. One composition fix: rank 1 evaluates the
+  robust gate only as a counterfactual while value decides, and main's gate
+  logs a `probe_robust_selection` forecast whenever it is evaluated. The
+  counterfactual evaluations (`robust_gate_counterfactual` and the value
+  stop's) now pass `record_forecast=False`, so `voi_forecasts` never holds a
+  gate decision that was not taken; where the gate decides (rank 1's switch
+  on, the site off, below the successor, a calibration session) it logs as on
+  main. (The branch's refactor also left main's logging call reading an
+  undefined `posterior`; it reads the gate's own belief now.) The live
+  calibration report counts and joins the new sites; it has no realized-
+  emission mapping for them yet (`site_without_outcome_mapping`), so nothing
+  is scored twice.
+- **The restore golden.** It reproduces exactly with the switches at their
+  restore values, unchanged, with `evsi.forecast_logging = false` in its
+  integration scenarios (`voi_restore_scenarios.PINNED_ID_STREAM_TOML`). The
+  pinned channel's credible sets are seeded by ids, and each `voi_forecasts`
+  receipt draws an id from the test's seeded stream, so with logging on the
+  episodes', calibration schema's and models' ids shift and the ensembles are
+  other (equally valid) draws: in the gate scenario the robust EIG of the
+  first decision moved by about 1% (0.2609 to 0.2637 nats) and the ranking
+  among equally valued checks changed. With logging off every decision,
+  reason, method and value matches to 9 decimals; the 150 pure scenarios
+  match with logging on (they draw no id). Not re-pinned: the golden still
+  pins the branch's own pre-study decisions.
+- **The daily plan.** The admission against the minutes left composes with
+  UX Phase 1 without a change: the reading step changes which section a
+  reading block offers (`plan.reading_from_furthest`), not the plan's minutes
+  or lanes, and Today's begin calls the same `start_session` /
+  `next_plan_item` / `plan_learner_pick` RPCs whose builds value the probes.
+  R1's plan-block logging carries the probes' receipts as before
+  (`voi_decisions`) and its row id is now each probe forecast's
+  `decision_ref`. The sources' proposal pick (`plan_learner_pick` with
+  `proposal_id`) goes through `learner_pick`, a one-item learner-pick block
+  whose `decision_ref` the S5 intervention reads; the branch changes only the
+  refresh's probe valuation inside it (`_live_context`, against the minutes
+  left), not the pick's block or its decision, and
+  `test_learner_pick_proposal.py` passes.
+- **Held grades.** The successor reads no grade of its own: episode evidence
+  comes through main's effective view (`probe_observations_for_episode`,
+  `qualifying_probe_observation_count_for_session`, `episode_posterior`, all
+  on `learnloop.held_grades`), and a held grade writes no error event, so the
+  probe lane and the overlay never see one. The one direct read, the cap
+  report's per-session qualifying count (`scripts/voi_cap_report.py`), now
+  leaves held attempts out through `held_grades.held_for_review_attempts`.
+  The minutes estimate reads attempt latencies, which are time, not an
+  outcome; main's own latency readers (`median_attempt_latency_seconds`,
+  `unresolved_cost`) read them the same way.
+- **Import contracts.** No new edge: the scheduler and the plan reach the
+  forecast log through `diagnosis.voi_stopping`
+  (`record_offer_value_forecasts`, `record_plan_value_forecasts`), which
+  imports `diagnosis.voi_forecasting` lazily.
+
+### Tests (phase 1, before main moved)
+
+Targeted selection of 79 files (`-n 8`, `TMPDIR` = the worktree's
+`fixtures-local/tmp`, under another worktree's full suite): the branch's
+`test_voi_stopping.py`, `test_voi_v2.py`, `test_mvp021_upgrade.py`; the new
+`test_voi_merge_composition.py` (11: rank 4 off and on, each forecast site,
+the gate counterfactual, logging off); the upgrade chain
+`test_mvp09/010/011/013/014/015/016/017/018/020_upgrade.py`,
+`test_mvp017_route_check_replay.py`, `test_recurrence_commands.py`,
+`test_route_rules_in_grader.py`, `test_reading_step_switch.py`; the daily plan
+(`test_daily_plan_*.py`, `test_learner_pick_proposal.py`), Today
+(`test_today_headline.py`, `test_today_surfaces.py`, `test_tui_today.py`);
+EVSI calibration (`test_evsi*.py`, `test_voi_forecasts.py`,
+`test_action_loss.py`, `test_staged_policy_evsi.py`); router R1
+(`test_router_*.py`, `test_diagnosis_async_router.py`); follow-ups, probes,
+teach-backs, held grades, sources composition, migrations, table roles,
+rebuild, replay, the architecture ratchet, the CLI help snapshot, config and
+template, the registry audit, the tracked-fixture and copy guards.
+
+| Run | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| targeted selection | **1,074 passed, 1 failed** (8 min 14 s). The failure was the architecture ratchet: the rank-4 wiring added a function-local edge `diagnosis.voi_stopping -> scheduling.unresolved_cost`; it is now a module-level import beside `action_loss` and `evsi` (no new contract edge) |
+| after the fix: `test_architecture.py`, `test_voi_merge_composition.py` | 25 passed |
+| after the fix: `test_voi_stopping.py`, `test_voi_v2.py`, `test_mvp021_upgrade.py` | 123 passed |
+| `db_generate_reference.py`, `db_validate_reference.py` | head 201, 319 table notes, 804 leaves in 48 sections, **0 errors** |
+| `validate_vault.py` | passed |
+
+Main moved to `1def803a1` (the EVSI multi-family study, merged after
+`9fd00e9fe`) while this phase ran; the full gate, the durability lane and
+parity follow once that main is merged in.

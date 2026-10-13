@@ -424,3 +424,9 @@ tests were added with their fixes.
 5. The study's own §12 questions stand (shipping rule, the gate, the flip
    abstention, the nat scale, rank 3, Part C, the single-family bound); this
    stage built its recommended answers.
+
+## Landing onto main
+
+Landed as mvp-0.21 (migrations 200/201), with the study's rank 4 wired behind
+`evsi.measured_loss_enabled` and every value decision logged to
+`voi_forecasts`: see `voi-stopping.md`, "Landing onto main".
