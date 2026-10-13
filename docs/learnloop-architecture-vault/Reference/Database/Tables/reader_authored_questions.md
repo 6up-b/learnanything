@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40aa971e14f928864f2c770e3a9da9baa2ca0ecd"
-source_commit_timestamp: "2026-10-13T03:58:34-04:00"
+source_commit: "b7e04b0bb90ec4caafa5c278c5366c315aa5f274"
+source_commit_timestamp: "2026-10-13T04:23:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -25,7 +25,6 @@ source_paths:
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -89,7 +88,7 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 
 Indexes and uniqueness:
 
-- `idx_reader_authored_questions_inquiry` on `inquiry_root_event_id`, `prompt_version`.
+- `idx_reader_authored_questions_inquiry` on `inquiry_root_event_id`, `prompt_version` (unique).
 - `idx_reader_authored_questions_section` on `extraction_id`, `section_id`, `status`.
 - `sqlite_autoindex_reader_authored_questions_1` on `id` (unique).
 
@@ -119,6 +118,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop_sidecar/handlers/reader.py`
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
 - `tests/test_reader_quick_check.py`
 

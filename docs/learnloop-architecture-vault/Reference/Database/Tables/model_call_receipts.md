@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "40aa971e14f928864f2c770e3a9da9baa2ca0ecd"
-source_commit_timestamp: "2026-10-13T03:58:34-04:00"
+source_commit: "b7e04b0bb90ec4caafa5c278c5366c315aa5f274"
+source_commit_timestamp: "2026-10-13T04:23:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -115,6 +115,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/learner_gaps.py`
+- `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
