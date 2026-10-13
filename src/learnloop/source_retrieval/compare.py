@@ -229,9 +229,10 @@ def _compare_sources(
     pin_exam = exam_withheld(vault, repository, pins)
     for key in sorted(pins):
         block = pin_blocks.get(key)
-        why = "no such passage" if block is None else _pin_reason(scope, key, policy=derived, item=item)
-        if why is None and key in pin_exam:
-            why = "it is exam material"
+        # The exam label first: a scope that leaves exam material out (the
+        # teaching scope, post_attempt's) would otherwise give a vaguer reason.
+        why = "no such passage" if block is None else "it is exam material" if key in pin_exam \
+            else _pin_reason(scope, key, policy=derived, item=item)
         if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
                 block.text, item.expected_answer):
             why = "it reproduces the answer to the item you are practising"

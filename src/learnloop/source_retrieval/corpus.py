@@ -3,10 +3,11 @@
 A *scope* names the extractions a search reads and the spans it must never
 return. The library scope is today's (every reader-enabled source, nothing
 excluded). The teaching scope, used for the tutor's grounding, is the subject's
-sources minus everything without teaching authority: source-set material whose
-role lacks ``semantic_contract`` authority (exam, problem set, notes, unknown;
-whole members or unit overrides, in every extraction of the source) and spans
-linked by ``exercise`` or ``assessment_alignment`` provenance. Assessment lanes
+sources minus everything without teaching authority: exam and held-out
+material by the one predicate (``content.sources.exam_material``), source-set
+material whose role lacks ``semantic_contract`` authority (problem set, notes,
+unknown; whole members or unit overrides, in every extraction of the source)
+and spans linked by ``exercise`` or ``assessment_alignment`` provenance. Assessment lanes
 never enter a teaching context (ING M8 §9.1). A source with no role (in no
 source set, cited by no teaching link) fails closed like an unknown role. In an
 item-bound context (practice, feedback) the item's own linked passages, and
@@ -14,12 +15,14 @@ exercise and solution blocks, are dropped as well.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
 from typing import Any
 
+from learnloop.content.sources import exam_material as EM
+from learnloop.content.sources.exam_material import is_exam_role
 from learnloop.content.sources.role_authority import role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
@@ -28,13 +31,11 @@ from learnloop.db.stores.source_block_fts import (
     REGION_BODY_HINTS,
     AssessmentLink,
     HintRow,
-    UnitRow,
     assessment_link_locators,
     block_content_hashes,
     entity_link_locators,
     extraction_hint_rows,
     extraction_source_ids,
-    extraction_units,
     hinted_extraction_ids,
     lead_regions,
     revision_source_ids,
@@ -183,140 +184,15 @@ def _teaches(role: str | None) -> bool:
     return role_authority(role).semantic_contract
 
 
-def _descendants(units: Sequence[UnitRow], roots: set[str]) -> set[str]:
-    """``roots`` and every unit nested below them (a chapter's sections)."""
+def _withheld_besides_exams(role: str | None) -> bool:
+    """A role without teaching authority that is not ``exam``: problem sets,
+    notes and unknown roles (exams are the shared predicate's)."""
 
-    chosen = set(roots)
-    changed = True
-    while changed:
-        changed = False
-        for unit in units:
-            if unit.unit_id not in chosen and unit.parent_unit_id in chosen:
-                chosen.add(unit.unit_id)
-                changed = True
-    return chosen
-
-
-def _member_exclusions(connection, repository: Repository, member: Any,
-                       whole: set[str], spans: set[tuple[str, str]], *,
-                       teaches: Callable[[str | None], bool] | None = None) -> None:
-    """A source-set member's non-teaching material, in EVERY extraction of its source.
-
-    Resolved by ``source_id`` (all revisions, all runs), so a re-import whose
-    set still pins the old revision is excluded too. A member whose default role
-    does not teach is excluded whole. A unit override that does not teach is
-    resolved per extraction: by unit id in the pinned extraction, by the pinned
-    unit's label elsewhere (unit ids are positional); an override that cannot be
-    resolved in some extraction excludes that whole extraction (fail closed).
-    """
-
-    teaches = teaches or _teaches
-    narrowing = {scope.unit_id for scope in member.scope
-                 if scope.role_override and not teaches(scope.role_override)}
-    default_teaches = teaches(member.default_role)
-    if default_teaches and not narrowing:
-        return
-    extraction_ids = list(dict.fromkeys(
-        source_extraction_ids(connection, source_id=member.source_id)
-        + source_extraction_ids(connection, revision_id=member.revision_id)))
-    if not default_teaches:
-        whole.update(extraction_ids)
-        return
-    pinned = resolve_extraction_id(repository, member.revision_id)
-    pinned_units = {unit.unit_id: unit for unit in extraction_units(connection, pinned)} if pinned else {}
-    labels = {pinned_units[unit_id].label for unit_id in narrowing if unit_id in pinned_units}
-    for extraction_id in extraction_ids:
-        units = extraction_units(connection, extraction_id)
-        if extraction_id == pinned:
-            roots = {unit.unit_id for unit in units if unit.unit_id in narrowing}
-            resolved = roots == narrowing
-        else:
-            roots = {unit.unit_id for unit in units if unit.label in labels}
-            resolved = len(labels) == len(narrowing) and {unit.label for unit in units if unit.unit_id in roots} == labels
-        if not resolved:
-            whole.add(extraction_id)
-            continue
-        chosen = _descendants(units, roots)
-        spans.update((extraction_id, span_id) for unit in units if unit.unit_id in chosen
-                     for span_id in unit.span_ids)
+    return not _teaches(role) and not is_exam_role(role)
 
 
 #: The exam use mode of a protected, held-out evaluation unit (spec_source_ingestion_v2 §4.2).
-HELD_OUT_EVALUATION = "held_out_evaluation"
-
-
-def _held_out_roots(unit_id: str, units: Mapping[str, UnitRow]) -> set[str] | None:
-    """The raw units a selection's held-out unit id covers, or None when one is unknown.
-
-    A raw id is itself; a merged unit (``a+b``) is its members; a split child
-    (``a#slug``) is its whole raw parent (fail closed: its siblings too).
-    """
-
-    roots: set[str] = set()
-    for part in unit_id.split("+"):
-        raw = part.split("#", 1)[0]
-        if raw not in units:
-            return None
-        roots.add(raw)
-    return roots
-
-
-def _held_out_exclusions(connection, repository: Repository, member: Any,
-                         whole: set[str], spans: set[tuple[str, str]]) -> None:
-    """Units marked ``held_out_evaluation`` in a unit selection of a member's source.
-
-    A held-out evaluation unit is exam material whatever role its member has
-    (owner, 2026-10-13; the rule of the facet authority resolver,
-    ``content.facet_identity.authority.CitationResolver``), so a textbook unit
-    held out for evaluation is withheld like an exam's. Resolved in every
-    extraction of the source: by id in the extraction whose selection marks
-    it, by its label elsewhere (unit ids are positional); a held-out id or
-    label that does not resolve excludes that whole extraction (fail closed).
-    """
-
-    extraction_ids = list(dict.fromkeys(
-        source_extraction_ids(connection, source_id=member.source_id)
-        + source_extraction_ids(connection, revision_id=member.revision_id)))
-    marked: dict[str, set[str]] = {}
-    unresolved: set[str] = set()
-    labels: set[str] = set()
-    units_of: dict[str, list[UnitRow]] = {}
-    for extraction_id in extraction_ids:
-        modes = (repository.get_unit_selection(extraction_id) or {}).get("exam_use_modes") or {}
-        held = sorted(str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION)
-        if not held:
-            continue
-        units_of[extraction_id] = extraction_units(connection, extraction_id)
-        by_id = {unit.unit_id: unit for unit in units_of[extraction_id]}
-        roots: set[str] = set()
-        for unit_id in held:
-            resolved = _held_out_roots(unit_id, by_id)
-            if resolved is None:
-                unresolved.add(extraction_id)
-                break
-            roots |= resolved
-        else:
-            marked[extraction_id] = roots
-            labels |= {by_id[unit_id].label for unit_id in roots}
-    whole.update(unresolved)
-    if not marked:
-        return
-    for extraction_id in extraction_ids:
-        if extraction_id in unresolved:
-            continue
-        units = units_of.get(extraction_id)
-        if units is None:
-            units = extraction_units(connection, extraction_id)
-        if extraction_id in marked:
-            roots = set(marked[extraction_id])
-        else:
-            roots = {unit.unit_id for unit in units if unit.label in labels}
-            if {unit.label for unit in units if unit.unit_id in roots} != labels:
-                whole.add(extraction_id)
-                continue
-        chosen = _descendants(units, roots)
-        spans.update((extraction_id, span_id) for unit in units if unit.unit_id in chosen
-                     for span_id in unit.span_ids)
+HELD_OUT_EVALUATION = EM.HELD_OUT_EVALUATION
 
 
 def _link_exclusions(connection, link: AssessmentLink,
@@ -349,57 +225,41 @@ def _link_exclusions(connection, link: AssessmentLink,
 def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
     """Everything a teaching context never reads, vault-wide.
 
-    Source-set material without teaching authority (exam, problem_set, notes and
-    unknown roles, whole members or unit overrides, which covers held-out exam
-    questions) and every ``held_out_evaluation`` unit whatever its member's role
-    (:func:`_held_out_exclusions`), in every extraction of its source, plus
-    every span an ``exercise`` or ``assessment_alignment`` link cites (or, for
-    a locator that does not name a block, its whole extraction).
+    Exam and held-out material, by the one predicate
+    (``content.sources.exam_material``: exam members and exam units in every
+    revision of their source, every ``held_out_evaluation`` unit whatever its
+    role, unresolvable units failing closed); source-set material of the
+    other roles without teaching authority (problem_set, notes and unknown
+    roles, whole members or unit overrides, resolved the same way); and every
+    span an ``exercise`` or ``assessment_alignment`` link cites (or, for a
+    locator that does not name a block, its whole extraction).
     """
 
-    whole: set[str] = set()
-    spans: set[tuple[str, str]] = set()
+    exam = EM.exam_material(vault, repository).material
+    others = EM.role_material(vault, repository, _withheld_besides_exams)
+    whole: set[str] = set(exam.extractions | others.extractions)
+    spans: set[tuple[str, str]] = set(exam.spans | others.spans)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        for source_set in vault.source_sets:
-            for member in source_set.members:
-                _member_exclusions(connection, repository, member, whole, spans)
-                _held_out_exclusions(connection, repository, member, whole, spans)
         for link in assessment_link_locators(connection):
             _link_exclusions(connection, link, whole, spans)
     return Exclusions(frozenset(whole), frozenset(spans))
 
 
 def exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
-    """Exam material only: source-set members or unit overrides whose role is
-    ``exam`` (assessment-only by role authority: no ``semantic_contract``), in
-    every extraction of their source, plus every ``held_out_evaluation`` unit
-    whatever its member's role (:func:`_held_out_exclusions`; the facet
-    authority resolver counts it as exam too, since facet locks landed on
-    main). The narrow part of :func:`teaching_exclusions` the canonical-sources
-    paths that read the whole library withhold from teaching (the sources
-    merge onto main): notes, problem sets and solutions keep the branch's own
-    rules there."""
+    """Exam material only, by the one predicate (``content.sources.exam_material``):
+    the narrow part of :func:`teaching_exclusions` the canonical-sources paths
+    that read the whole library withhold (tutor pins, ``find_sources`` pools,
+    comparisons); notes, problem sets and solutions keep those paths' own rules."""
 
-    whole: set[str] = set()
-    spans: set[tuple[str, str]] = set()
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        for source_set in vault.source_sets:
-            for member in source_set.members:
-                _member_exclusions(connection, repository, member, whole, spans,
-                                   teaches=lambda role: str(role or "") != "exam")
-                _held_out_exclusions(connection, repository, member, whole, spans)
-    return Exclusions(frozenset(whole), frozenset(spans))
+    exam = EM.exam_material(vault, repository).material
+    return Exclusions(exam.extractions, exam.spans)
 
 
 def exam_withheld(vault: LoadedVault, repository: Repository,
                   keys: Iterable[tuple[str, str]]) -> frozenset[tuple[str, str]]:
-    """The keys among ``keys`` that are exam material (:func:`exam_exclusions`)."""
+    """The keys among ``keys`` that are exam material (the one predicate)."""
 
-    wanted = {(str(key[0]), str(key[1])) for key in keys}
-    if not wanted:
-        return frozenset()
-    exam = exam_exclusions(vault, repository)
-    return frozenset(key for key in wanted if key in exam.spans or key[0] in exam.extractions)
+    return EM.exam_withheld(vault, repository, keys)
 
 
 def assessment_spans(vault: LoadedVault, repository: Repository) -> frozenset[tuple[str, str]]:
