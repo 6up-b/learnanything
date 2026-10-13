@@ -162,6 +162,7 @@ export function PracticeScreen({
     openedAtMs: number;
     attemptProgress: AttemptProgress;
     proactiveOpen?: boolean;
+    draftMd?: string;
   }) => void;
   onError: (message: string) => void;
 }) {
@@ -268,6 +269,9 @@ export function PracticeScreen({
       // "No work yet" is logged explicitly: nothing typed in the answer or the
       // why-line when the learner asks (hints revealed are help, not work).
       attemptProgress: answer.trim() || whyLine.trim() ? "draft_started" : "no_draft",
+      // Canonical sources S4: "Explain this with my work" grounds the tutor in
+      // a chosen passage and this draft.
+      ...(answer.trim() ? { draftMd: answer } : {}),
       ...options
     });
   // The editor grows with its content but is capped so the answer card never
@@ -942,6 +946,17 @@ export function PracticeScreen({
               renderer both practice and exams mount so a surface cannot carry
               one and forget the other. */}
           <ItemPresentation presentation={item.presentation} />
+          {item.canonicalExercise ? (
+            // Canonical sources S1: where this exercise comes from and how far
+            // its answer key has been checked, said plainly.
+            <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
+              <Faint>
+                From {item.canonicalExercise.sourceTitle ?? "your book"}: {item.canonicalExercise.label}
+                {item.canonicalExercise.relation === "variant_of" ? " (a variant)" : ""}
+                {item.canonicalExercise.keyLabel ? ` · ${item.canonicalExercise.keyLabel}` : ""}
+              </Faint>
+            </div>
+          ) : null}
           {!probeActive ? (
             <CardControls
               key={`${item.id}:${item.prompt}`}

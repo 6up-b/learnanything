@@ -3,6 +3,11 @@ import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryC
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
   AppSnapshot,
+  FindPracticeResultDto,
+  PracticeCallerDto,
+  PracticeRequestDto,
+  SourceExerciseImportDto,
+  SourceToolRunDto,
   AnswerCalibrationReportDto,
   CreateVaultInput,
   CreateVaultResult,
@@ -973,13 +978,46 @@ export const api = {
     input.confirm
       ? mutating([TAG.queue], call<DailyPlanDto>("plan_more_new", { input }))
       : call<DailyPlanDto>("plan_more_new", { input }),
-  planLearnerPick: (practiceItemId: string, sessionId?: string | null, schedulerCandidateId?: string | null) =>
+  planLearnerPick: (
+    practiceItemId: string,
+    sessionId?: string | null,
+    schedulerCandidateId?: string | null,
+    proposalId?: string | null
+  ) =>
     mutating(
       [TAG.queue],
       call<DailyPlanDto>("plan_learner_pick", {
-        input: { practiceItemId, sessionId: sessionId ?? null, schedulerCandidateId: schedulerCandidateId ?? null }
+        input: {
+          practiceItemId,
+          sessionId: sessionId ?? null,
+          schedulerCandidateId: schedulerCandidateId ?? null,
+          ...(proposalId ? { proposalId } : {})
+        }
       })
     ),
+  // ── Canonical sources: proposals, passages, comparisons and tool runs.
+  // Tools propose; the plan's pick path serves (spec SC1).
+  findPractice: (input: PracticeRequestDto["request"] & { caller: PracticeCallerDto }) =>
+    call<FindPracticeResultDto>("find_practice", { input }),
+  recordPracticeUsage: (input: { proposalId: string; practiceItemId: string; signal: string; text?: string }) =>
+    call<{ judgmentId: string }>("record_practice_usage", { input }),
+  recordProposalImpressions: (input: {
+    proposalId: string;
+    surface: "tutor_strip" | "plan" | "dl3_box" | "reader" | "other";
+    keys: Array<{ kind: "item" | "source_exercise"; practiceItemId?: string; extractionId?: string; spanIds?: string[] }>;
+    sessionId?: string | null;
+  }) => call<{ recorded: number }>("record_proposal_impressions", { input }),
+  importSourceExercise: (input: { proposalId: string; extractionId: string; spanIds: string[]; sessionId?: string | null }) =>
+    call<{ status: string; importId: string; batchId: string }>("import_source_exercise", { input }),
+  getSourceExerciseImport: (importId: string) =>
+    call<SourceExerciseImportDto>("get_source_exercise_import", { input: { importId } }),
+  runSourceTool: (toolCallId: string) => call<SourceToolRunDto>("run_source_tool", { input: { toolCallId } }),
+  recordSourceOfferShown: (input: { toolCallId: string; spanKeys?: string[]; sessionId?: string | null }) =>
+    call<{ interventionId: string | null; recorded: boolean }>("record_source_offer_shown", { input }),
+  findSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
+    call<Record<string, unknown>>("find_sources", { input }),
+  compareSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
+    call<Record<string, unknown>>("compare_sources", { input }),
   getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),

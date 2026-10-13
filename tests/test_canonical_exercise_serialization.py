@@ -59,3 +59,22 @@ def test_a_pf_variant_of_a_textbook_exercise_points_at_it(tmp_path):
                                now_iso="2026-10-12T00:00:00Z")
     assert "canonical_exercise" not in plain
     PracticeItem.model_validate(payload)
+
+
+def test_the_practice_item_detail_names_the_book_and_the_key_label(tmp_path):
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+    from tests.source_service_fakes import build_textbook_vault, call
+
+    paths, _repository, spans = build_textbook_vault(tmp_path / "vault")
+    path = paths.practice_item_path("linear-algebra", "pi_eigen_1")
+    payload = read_yaml(path)
+    payload["canonical_exercise"] = {"source_id": "src_text", "revision_id": "rev_text", "extraction_id": "ext_text",
+                                     "span_ids": [spans["exercises"][1]], "label": "Exercise 1, p. 9",
+                                     "relation": "verbatim"}
+    write_yaml(path, payload)
+    detail = call(paths.root, "get_practice_item", {"practiceItemId": "pi_eigen_1"})["result"]
+    canonical = detail["canonicalExercise"]
+    assert canonical["sourceTitle"] == "Matrix Theory" and canonical["label"] == "Exercise 1, p. 9"
+    assert canonical["keyStatus"] and canonical["keyLabel"]
+    plain = call(paths.root, "get_practice_item", {"practiceItemId": "pi_eigen_2"})["result"]
+    assert "canonicalExercise" not in plain

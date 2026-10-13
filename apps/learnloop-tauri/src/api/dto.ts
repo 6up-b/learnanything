@@ -948,6 +948,9 @@ export interface PracticeItemDetail {
    *  hinted/primed attempts, so the practice surface warns near the hint
    *  button. Optional: older sidecars omit it. */
   activeFollowupKind?: string | null;
+  /** Canonical sources S1: a textbook exercise's provenance and its key's
+   *  honest label (absent for every other item). */
+  canonicalExercise?: CanonicalExerciseDto;
 }
 
 // ── Meas §3.A6 opportunistic trace evidence ─────────────────────────────────
@@ -1969,6 +1972,10 @@ export interface AskTutorQuestionInput {
   sessionId?: string;
   secondsIntoAttempt?: number;
   attemptProgress?: AttemptProgress;
+  /** Canonical sources S4, "Explain this with my work": passages the learner
+   *  chose ("<extraction>:<span>") and their current draft. */
+  pinnedSpanKeys?: string[];
+  learnerDraftMd?: string;
 }
 
 /** ING M8 (§9.2): one source-span citation on a tutor answer; the chip opens
@@ -1991,6 +1998,168 @@ export interface TutorAnswerDto {
   leakSuspected: boolean;
   citations: TutorCitationDto[];
   remaining: number;
+  /** Canonical sources S0: a deterministic "Practice this" request, run once
+   *  the answer is on screen (null when the offer is off or the tutor wrote
+   *  its own find_practice request). */
+  practiceRequest?: PracticeRequestDto | null;
+  /** Canonical sources S4: the tutor's typed tool requests, validated
+   *  server-side (answer-leak checked, unknown ids dropped). */
+  toolRequests?: SourceToolRequestDto[];
+}
+
+// ── Canonical sources (spec_source_practice_and_probes_v1) ─────────────────
+
+export interface PracticeCallerDto {
+  kind: string;
+  ref?: string | null;
+}
+
+export interface PracticeRequestDto {
+  request: {
+    query: string;
+    learningObjectIds: string[];
+    facetIds: string[];
+    excludeItemIds: string[];
+    intent: string;
+    kinds?: string;
+  };
+  caller: PracticeCallerDto;
+  version: string;
+}
+
+export interface SourceToolRequestDto {
+  toolCallId: string;
+  tool: "find_practice" | "find_sources" | "compare_sources" | "find_facets" | "practice_availability";
+  reason: string | null;
+  /** "eager": run when the offer is shown; "lazy": run when tapped. */
+  run: "eager" | "lazy";
+  dropped: Array<Record<string, unknown>>;
+  arguments: Record<string, unknown>;
+}
+
+export interface ProposedItemDto {
+  rank: number;
+  practiceItemId: string;
+  learningObjectId: string;
+  learningObjectTitle: string | null;
+  practiceMode: string;
+  prompt: string;
+  facetIds: string[];
+  rationale: string | null;
+  unranked?: string;
+}
+
+export interface ProposedExerciseDto {
+  kind: "source_exercise";
+  key: string;
+  extractionId: string;
+  spanIds: string[];
+  sourceTitle: string | null;
+  label: string | null;
+  page: number | null;
+  statement: string;
+  rationale: string | null;
+  labelLine: string;
+}
+
+export interface FindPracticeResultDto {
+  version: number;
+  status: string;
+  proposalId?: string;
+  intent?: string;
+  items: ProposedItemDto[];
+  sourceExercises?: ProposedExerciseDto[];
+  sourceExercisesStatus?: string;
+  note?: string;
+}
+
+/** A model-reader view of a tool result (spec §5.3): no answers, rubrics or solutions. */
+export interface SourcePassageDto {
+  spanKey: string;
+  sourceTitle: string | null;
+  section: string | null;
+  page: number | null;
+  revisionId: string | null;
+  text: string;
+  label: string;
+}
+
+export interface ToolPracticeItemDto {
+  practiceItemId: string;
+  learningObjectId: string;
+  facetIds: string[];
+  practiceMode: string;
+  prompt: string;
+  difficulty: number | null;
+  expectedMinutes: number | null;
+  sourceLabel: string | null;
+  rationale: string | null;
+}
+
+export interface ToolExerciseDto {
+  key: string;
+  spanKeys: string[];
+  sourceLabel: string | null;
+  page: number | null;
+  statement: string;
+  rationale: string | null;
+}
+
+export interface ComparisonSourceDto {
+  ref: string;
+  sourceId: string;
+  sourceTitle: string | null;
+  extractionId: string;
+  spanId: string;
+  page: number | null;
+  passage: string;
+  label: string;
+  contributions?: Array<{ contribution: string; perspective: string | null; quote: string }>;
+}
+
+export interface SourceToolRunDto {
+  version: number;
+  tool: SourceToolRequestDto["tool"];
+  policy: string;
+  toolCallId: string;
+  runId: string;
+  result: {
+    proposalId?: string;
+    items?: ToolPracticeItemDto[];
+    sourceExercises?: ToolExerciseDto[];
+    passages?: SourcePassageDto[];
+    comparisonId?: string | null;
+    status?: string;
+    sources?: ComparisonSourceDto[];
+    relations?: Array<Record<string, unknown>>;
+    missingPerspectives?: string[];
+    unverifiedSources?: Array<Record<string, unknown>>;
+    labels?: Record<string, string>;
+    withheldAnswerOverlap?: number;
+  };
+}
+
+export interface SourceExerciseImportDto {
+  version: number;
+  importId: string;
+  status: string;
+  practiceItemId?: string | null;
+  keyStatus?: string | null;
+  keyLabel?: string;
+  reason?: string | null;
+}
+
+export interface CanonicalExerciseDto {
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  spanIds: string[];
+  label: string;
+  relation: "verbatim" | "variant_of";
+  sourceTitle: string | null;
+  keyStatus: string;
+  keyLabel: string;
+  authorship: string;
 }
 
 /** §12.1 proactive handoff: a tutor opening generated with no learner

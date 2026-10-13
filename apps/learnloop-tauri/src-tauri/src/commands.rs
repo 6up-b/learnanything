@@ -950,6 +950,18 @@ sidecar_passthrough!(plan_more_new, "plan_more_new");
 
 sidecar_passthrough!(plan_learner_pick, "plan_learner_pick");
 
+// Canonical sources (spec_source_practice_and_probes_v1): proposals, passages,
+// comparisons, textbook-exercise imports and the tutor's tool runs. Desktop only.
+sidecar_passthrough!(find_practice, "find_practice");
+sidecar_passthrough!(record_practice_usage, "record_practice_usage");
+sidecar_passthrough!(record_proposal_impressions, "record_proposal_impressions");
+sidecar_passthrough!(import_source_exercise, "import_source_exercise");
+sidecar_passthrough!(get_source_exercise_import, "get_source_exercise_import");
+sidecar_passthrough!(run_source_tool, "run_source_tool");
+sidecar_passthrough!(record_source_offer_shown, "record_source_offer_shown");
+sidecar_passthrough!(find_sources, "find_sources");
+sidecar_passthrough!(compare_sources, "compare_sources");
+
 sidecar_passthrough!(get_today_headline, "get_today_headline");
 
 #[tauri::command]
