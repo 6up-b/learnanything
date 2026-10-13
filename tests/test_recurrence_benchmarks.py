@@ -389,7 +389,7 @@ class _Caller:
         self.calls_by_role: dict[str, int] = {}
 
     def call(self, entry, *, prompt, prompt_version, result_model, output_tokens, candidates=0, pairs=0,
-             retry_truncated=True):
+             retry_invalid_output=True):
         from learnloop.ai.transport import execute_structured_operation
 
         self.calls_by_role[entry.role] = self.calls_by_role.get(entry.role, 0) + 1
@@ -497,12 +497,14 @@ class _NamedWriter:
 
     provider_name = "fake"
 
-    def __init__(self, model="writer-a", *, effort=None, provider_type="codex_sdk", fail_on=()):
+    def __init__(self, model="writer-a", *, effort=None, provider_type="codex_sdk", fail_on=(), errors=None):
         self.model = model
         self.provider_type = provider_type
         self.profile = types.SimpleNamespace(type=provider_type, model=model, reasoning_effort=effort,
                                              base_url=None, thinking=None, response_format=None, max_tokens=None)
         self.fail_on = set(fail_on)
+        # Call number -> the exception that call raises.
+        self.errors = dict(errors or {})
         self.calls = 0
 
     def supports(self, capability):
@@ -510,20 +512,22 @@ class _NamedWriter:
 
     def complete(self, request):
         self.calls += 1
+        if self.calls in self.errors:
+            raise self.errors[self.calls]
         if self.calls in self.fail_on:
             raise AIOutputTruncated("fake exhausted its output budget")
         return MisconceptionHypothesis(misconception=f"{self.model} says: adds the numerators and the denominators")
 
 
 def _harness(vault, tmp_path, *, out="o1", writer=None, views=("raw", "hypothesis"), dry_run=False,
-             writer_output_tokens=None, embedder=None, **kwargs):
+             writer_output_tokens=None, embedder=None, caps=None, **kwargs):
     register_suites(compare.SUITES, role_tasks=pf_calls.ROLE_TASKS)
     request = compare.CompareRequest(
         suite="b1", output_dir=tmp_path / out, benchmark_dir=tmp_path / "eedi", models=(QWEN,), dims=(16,),
         views=views, dry_run=dry_run, writer_output_tokens=writer_output_tokens,
     )
-    caps = SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=200, max_total_tokens=2_000_000,
-                     max_estimated_usd=1.0)
+    caps = caps or SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=200,
+                             max_total_tokens=2_000_000, max_estimated_usd=1.0)
     clients = {B1_WRITER_ROLE: writer} if writer is not None else None
     return compare.run_compare(vault, request=request, caps=caps, clients=clients,
                                embedding_clients={QWEN: embedder or FakeEmbeddingClient(dims=16)}, **kwargs)
@@ -725,6 +729,119 @@ def test_a_length_finish_from_openrouter_is_one_failed_case(tmp_path, monkeypatc
     # The truncated response was still paid for: it is in the bill.
     assert report["usage"]["billed"]["metered"]["usd"] == pytest.approx(4 * 0.0002)
     assert report["pricing"]["basis"] == "single_rate_upper_bound"
+
+
+def _writer_checkpoints(repository):
+    with repository.connection() as connection:
+        return [tuple(row) for row in connection.execute(
+            "SELECT cache_key, result_json FROM model_work_checkpoints WHERE purpose=? ORDER BY cache_key",
+            (f"pf_{B1_WRITER_ROLE}",),
+        )]
+
+
+def test_a_blank_hypothesis_is_never_checkpointed_and_a_fresh_run_asks_again(tmp_path, monkeypatch):
+    """Codex review F1: a schema-valid but blank hypothesis is one failed case
+    and is never checkpointed, so a fresh caller (a new run into a new output
+    directory, the same vault's checkpoint store) asks the writer again for that
+    case only."""
+
+    paths, _vault, repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths, effort=None)
+    _eedi(tmp_path / "eedi")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    responses = [_completion(_hypothesis_json()) for _ in range(4)]
+    responses[1] = _completion(_hypothesis_json("   "))
+    first_fake = install_fake_openai(monkeypatch, *responses)
+    first = _harness(vault, tmp_path, price_per_million=1.6)
+    assert first["status"] == "complete", first
+    assert len(first_fake.instances[0].requests) == 4, "the blank answer is not retried"
+    assert first["results"]["writer"]["failed_cases"] == 1 and first["results"]["writer"]["written"] == 3
+    checkpoints = _writer_checkpoints(repository)
+    assert len(checkpoints) == 3
+    assert all(json.loads(result)["misconception"].strip() for _key, result in checkpoints)
+    second_fake = install_fake_openai(monkeypatch, _completion(_hypothesis_json("Believes 2/3 + 1/3 = 3/6.")))
+    second = _harness(vault, tmp_path, out="o2", price_per_million=1.6)
+    assert second["status"] == "complete", second
+    assert len(second_fake.instances[0].requests) == 1, "only the failed case is asked again"
+    assert second["usage"]["cached_by_role"] == {B1_WRITER_ROLE: 3}
+    assert second["results"]["writer"]["failed_cases"] == 0 and second["results"]["writer"]["written"] == 4
+
+
+def test_a_blank_checkpoint_from_earlier_code_is_discarded_and_asked_again(tmp_path, monkeypatch):
+    """Codex review F1: a blank hypothesis checkpointed before the fix no
+    longer validates, so it is discarded and the case is asked again."""
+
+    paths, _vault, repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths, effort=None)
+    _eedi(tmp_path / "eedi")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    install_fake_openai(monkeypatch, *[_completion(_hypothesis_json()) for _ in range(4)])
+    assert _harness(vault, tmp_path, price_per_million=1.6)["status"] == "complete"
+    key = _writer_checkpoints(repository)[0][0]
+    with repository.connection() as connection:
+        connection.execute("UPDATE model_work_checkpoints SET result_json=? WHERE cache_key=?",
+                           (json.dumps({"misconception": "   "}), key))
+    fake = install_fake_openai(monkeypatch, _completion(_hypothesis_json("Believes 2/3 + 1/3 = 3/6.")))
+    report = _harness(vault, tmp_path, out="o2", price_per_million=1.6)
+    assert report["status"] == "complete", report
+    assert len(fake.instances[0].requests) == 1
+    assert report["results"]["writer"]["failed_cases"] == 0
+    assert repository.model_checkpoint(key)["result"]["misconception"] == "Believes 2/3 + 1/3 = 3/6."
+
+
+@pytest.mark.parametrize("cap", ["calls", "dollars"])
+def test_malformed_writer_json_is_one_failed_case_under_tight_caps(tmp_path, monkeypatch, cap):
+    """Codex review F2: malformed JSON with finish_reason "stop" is one failed
+    case. It is not retried, so it spends no reservation the plan did not
+    admit, the cases after it are still written and the run completes."""
+
+    from learnloop.diagnosis.recurrence.benchmarks import b1_prompt, writer_tokens
+
+    paths, _vault, _repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths, effort=None)
+    _eedi(tmp_path / "eedi")
+    _manifest, _misconceptions, cases = load_eedi(tmp_path / "eedi")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    plan = _harness(vault, tmp_path, dry_run=True, price_per_million=1.6)
+    metered = plan["estimate"]["metered"]
+    smallest_call_usd = min(writer_tokens(b1_prompt(case), MisconceptionHypothesis) for case in cases) * 1.6 / 1e6
+    if cap == "calls":
+        caps = SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=metered["calls"],
+                         max_total_tokens=2_000_000, max_estimated_usd=1.0)
+    else:
+        caps = SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=200,
+                         max_total_tokens=2_000_000,
+                         max_estimated_usd=metered["estimated_usd"] + smallest_call_usd / 2)
+    # One spare valid response: a retry of the malformed case would consume it.
+    responses = [_completion(_hypothesis_json()) for _ in range(5)]
+    responses[1] = _completion('{"misconception": "Adds the numerators', finish_reason="stop")
+    fake = install_fake_openai(monkeypatch, *responses)
+    report = _harness(vault, tmp_path, caps=caps, price_per_million=1.6)
+    assert report["status"] == "complete", report
+    assert len(fake.instances[0].requests) == 4, "the malformed case is not retried"
+    writer = report["results"]["writer"]
+    assert writer["failed_by_error"] == {"AIInvalidOutput": 1}
+    assert writer["written"] == 3, "the cases after the failed one are still written"
+    assert report["results"]["bm25"]["hypothesis"]["n"] == 4
+    assert report["usage"]["charged"]["metered"]["retries"] == 0
+    # The malformed response was still paid for: it is in the bill.
+    assert report["usage"]["billed"]["metered"]["usd"] == pytest.approx(4 * 0.0002)
+
+
+def test_a_transport_failure_of_the_writer_is_still_retried(tmp_path):
+    """Codex review F2: only invalid output skips the retry; a provider outage
+    on one request is retried under the retry cap."""
+
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    writer = _NamedWriter("writer-a", errors={2: AIProviderUnavailable("connection reset")})
+    report = _harness(vault, tmp_path, writer=writer)
+    assert report["status"] == "complete", report
+    assert writer.calls == 5
+    assert report["results"]["writer"]["failed_cases"] == 0 and report["results"]["writer"]["written"] == 4
+    assert report["usage"]["charged"]["subscription"]["retries"] == 1
 
 
 def test_split_pricing_admits_less_than_a_single_upper_bound_rate(tmp_path, monkeypatch):
