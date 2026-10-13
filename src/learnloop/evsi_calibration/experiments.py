@@ -52,7 +52,13 @@ from learnloop.evsi_calibration.world import (
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
-EXPERIMENTS_VERSION = "evsi_calibration_experiments_v2"
+#: v3 (stage evsi-single-family-unbounded): no count bound on any episode by
+#: default, and every simulated cell records its bound stops (``count_bound``).
+EXPERIMENTS_VERSION = "evsi_calibration_experiments_v3"
+#: The count bound every single-family run before v3 applied
+#: (``PolicySettings.safety_bound`` was 25): an unbounded run counts the
+#: episodes it would have stopped (:func:`bound_counts`).
+REFERENCE_BOUND = 25
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,12 @@ class ExperimentSettings:
     sweeps: tuple[str, ...] | None = None
     #: Ensemble draws per check (simulation default 32; --quick uses fewer).
     draw_count: int = 32
+    #: A count bound on every episode (``None``: none, the default). Runs before
+    #: v3 used 25; pass it explicitly to reproduce them.
+    safety_bound: int | None = None
+    #: The bound whose stops each cell counts (``count_bound``): the stored
+    #: runs' 25, so an unbounded run says which episodes that bound censored.
+    reference_bound: int = REFERENCE_BOUND
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -199,6 +211,36 @@ def _first_rankings(run: Any, policy: str) -> dict[int, tuple[str, ...]]:
     return {e.learner: e.first_ranking for e in run.episodes if e.policy == policy and e.first_ranking}
 
 
+def bound_counts(episodes: Sequence[Any], *, reference_bound: int = REFERENCE_BOUND) -> dict[str, int]:
+    """How a count bound bears on one arm's episodes (``count_bound_stops``-style).
+
+    * ``count_bound_stops``: episodes this run's own bound stopped.
+    * ``reference_bound_stops``: episodes a bound of ``reference_bound`` checks
+      stops: those that reach it with a question left (``policies.decide``
+      checks for a remaining question before the bound). An episode runs
+      identically up to the bound (common random numbers), so on an unbounded
+      run, or one bounded at ``reference_bound``, this is exactly how many
+      episodes that bound stopped.
+    * ``reference_bound_censored`` (meaningful on an unbounded run): those of
+      them that run past it, the only episodes whose checks, action or minutes
+      the bound changes (one that stops by its own rule at exactly
+      ``reference_bound`` checks is stopped by the bound in name only).
+    * ``ran_out_of_questions``: episodes the subject's bank, not the rule, ended.
+    """
+
+    return {
+        "episodes": len(episodes),
+        "max_checks": max((e.checks for e in episodes), default=0),
+        "ran_out_of_questions": sum(1 for e in episodes if e.stop_reason == "no_question_left"),
+        "count_bound_stops": sum(1 for e in episodes if e.stop_reason == "safety_bound"),
+        "reference_bound_stops": sum(
+            1 for e in episodes
+            if e.checks > reference_bound or (e.checks == reference_bound and e.stop_reason != "no_question_left")
+        ),
+        "reference_bound_censored": sum(1 for e in episodes if e.checks > reference_bound),
+    }
+
+
 def run_experiments(
     bank: EediBank,
     fit: ResponseFit,
@@ -213,8 +255,17 @@ def run_experiments(
         raise ValueError("no simulation scenario: the 2024 bank and the fit share no usable subject")
     base = SimulationSettings(
         learners=settings.learners, seed=settings.seed, workers=settings.workers,
-        policy=P.PolicySettings(draw_count=settings.draw_count),
+        policy=P.PolicySettings(draw_count=settings.draw_count, safety_bound=settings.safety_bound),
     )
+    # Every simulated cell's bound stops, per arm, in the study's order.
+    bound_cells: list[dict[str, Any]] = []
+
+    def count_bounds(run: Any, **cell: Any) -> None:
+        for policy in run.settings.policies:
+            episodes = [e for e in run.episodes if e.policy == policy]
+            bound_cells.append({**cell, "policy": policy,
+                                **bound_counts(episodes, reference_bound=settings.reference_bound)})
+
     # Review F2: every response world draws its OWN pre-episode histories (the
     # answers that opened the episode and fed the starting belief), with the same
     # per-learner seeds, so a learner's truth, subject and question order (and the
@@ -270,6 +321,7 @@ def run_experiments(
     for model in ("hand_set", "eedi_fitted"):
         run = run_simulation(scenarios, replace(base, system_model=model), learners=learners)
         main[model] = _policy_rows(run, seed=settings.seed, draws=settings.bootstrap)
+        count_bounds(run, section="main", system_model=model)
     report["main"] = main
 
     # 3. regimes
@@ -284,6 +336,8 @@ def run_experiments(
                 learners=learners_for(consistency),
             )
             summary = M.summarize(run.checks, run.episodes, seed=settings.seed, draws=settings.bootstrap)
+            count_bounds(run, section="regimes", consistency="fitted" if consistency is None else consistency,
+                         repair_minutes=repair)
             regimes.append({
                 "consistency": "fitted" if consistency is None else consistency,
                 "repair_minutes": repair,
@@ -328,6 +382,7 @@ def run_experiments(
             runs[value] = run_simulation(world, arm, learners=sens_learners)
         rows = []
         for value, run in sorted(runs.items()):
+            count_bounds(run, section="sensitivity", parameter=name, value=value)
             row: dict[str, Any] = {"value": value, "current": value == current, "policies": {}}
             for policy in policies:
                 episodes = [e for e in run.episodes if e.policy == policy]
@@ -377,6 +432,9 @@ def run_experiments(
                         unresolved_minutes=system_u,
                     )
                     arms[label] = run_simulation(world_c, arm, learners=learners_for(consistency))
+                    count_bounds(arms[label], section="part_c",
+                                 consistency="fitted" if consistency is None else consistency,
+                                 encounters=encounters, loss=label)
                 for policy in ("evsi_lcb_only", "evsi_lookahead"):
                     left = [e for e in arms["minutes_only"].episodes if e.policy == policy]
                     right = [e for e in arms["measured_unresolved"].episodes if e.policy == policy]
@@ -392,6 +450,11 @@ def run_experiments(
                         "difference": M.paired_difference(left, right, seed=settings.seed, draws=settings.bootstrap),
                     })
     report["part_c"] = part_c
+    report["count_bound"] = {
+        "applied_bound": settings.safety_bound,
+        "reference_bound": settings.reference_bound,
+        "cells": bound_cells,
+    }
     report["flagged_learners_by_world"] = {
         "fitted" if c is None else str(c): len(specs) for c, specs in learners_by_world.items()
     }
@@ -468,4 +531,4 @@ def recommendations(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-__all__ = ["ExperimentSettings", "run_experiments", "recommendations", "SWEEPS"]
+__all__ = ["ExperimentSettings", "REFERENCE_BOUND", "SWEEPS", "bound_counts", "recommendations", "run_experiments"]
