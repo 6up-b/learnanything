@@ -2203,6 +2203,7 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     section_id = str(payload.get("section_id") or "")
     if not extraction_id or not section_id:
         raise IngestRunnerError("reader_quick_check needs extraction_id and section_id.")
+    _refuse_held_out_reader_material(ctx, extraction_id, _section_span_ids(ctx.repo, extraction_id, section_id))
     existing = ctx.repo.latest_reader_authored_question(
         extraction_id=extraction_id, section_id=section_id
     )
@@ -2214,6 +2215,41 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
         ctx.repo, client, extraction_id=extraction_id, section_id=section_id, clock=ctx.clock
     )
     return {"question_id": row["id"], "deduplicated": False}
+
+
+def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None:
+    """Exam protection (2026-10-13): a Reader check over held-out material (the
+    one exam predicate's rule 3) is refused before any model call, and before
+    a check authored before the mark is handed back (code ``exam_material``)."""
+
+    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+
+    held = held_out_among(held_out_material(ctx.repo), extraction_id, span_ids)
+    if held:
+        raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
+                                details={"extraction_id": extraction_id, "span_ids": held})
+
+
+def _section_span_ids(repository: Repository, extraction_id: str, section_id: str) -> list[str]:
+    """Every block of one guide section (the quick check's own derivation), or []."""
+
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return []
+    from learnloop.reader.reader_guidance import extraction_sections
+
+    section_rows, _block_by_span, _span_to_section = extraction_sections(ir)
+    return next((list(row["span_ids"]) for row in section_rows if row["id"] == section_id), [])
+
+
+def _passage_span_ids(repository: Repository, extraction_id: str, anchors: Sequence[str]) -> list[str]:
+    """The anchors and every block of the passage check's view of them."""
+
+    try:
+        view = RQC.passage_view(repository, extraction_id=extraction_id, anchor_span_ids=list(anchors))
+    except RQC.ReaderQuickCheckError:
+        return list(anchors)
+    return [*anchors, *(str(block["span_id"]) for block in view["blocks"])]
 
 
 def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
@@ -2271,6 +2307,7 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError(
             "an inquiry quick check needs extraction_id, inquiry_root_event_id and anchor_span_ids."
         )
+    _refuse_held_out_reader_material(ctx, extraction_id, _passage_span_ids(ctx.repo, extraction_id, anchors))
     existing = ctx.repo.inquiry_reader_authored_question(
         inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
     )

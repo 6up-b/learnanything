@@ -368,7 +368,19 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
         repository: Repository, request: Mapping[str, Any], clock: Clock | None
     ) -> dict[str, Any]:
         window = json.loads(request.get("window_json") or "{}")
-        span_ids = [str(s) for s in window.get("span_ids") or []]
+        # Exam protection (2026-10-13): held-out material (the one exam
+        # predicate's rule 3) is never shown to a model as explanation. Checked
+        # here, when the request is sent (a mark may postdate the capture): a
+        # request on a held-out passage fails with the reason, before any call;
+        # a held-out neighbour is left out of the window.
+        from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+
+        held_out = held_out_material(repository)
+        focus = [request.get("span_id"), *(window.get("selected_span_ids") or [])]
+        if held_out_among(held_out, request["extraction_id"], focus):
+            raise ReaderRequestError(HELD_OUT_REFUSAL)
+        withheld = set(held_out_among(held_out, request["extraction_id"], window.get("span_ids") or []))
+        span_ids = [str(s) for s in window.get("span_ids") or [] if str(s) not in withheld]
         ir = repository.load_document_ir(request["extraction_id"])
         if ir is None:
             raise ReaderRequestError(f"extraction has no IR: {request['extraction_id']!r}")

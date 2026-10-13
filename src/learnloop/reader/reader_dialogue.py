@@ -585,6 +585,14 @@ def ask(
         ]
         manifest["omitted_ancestor_count"] = max(0, len(ancestors) - len(thread or []))
 
+    # Exam protection (2026-10-13): a question about held-out material is
+    # refused before any signal lands (the tutor refuses it too, before any
+    # call: ``tutor_qa.HeldOutMaterialRefused``).
+    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+
+    if held_out_among(held_out_material(repository), extraction_id, [span_id, *selection_span_ids]):
+        raise tutor_qa.HeldOutMaterialRefused(HELD_OUT_REFUSAL)
+
     # Signal ordering: mode + asked land before the (possibly failing) provider call.
     set_answer_mode(repository, extraction_id=extraction_id, span_id=span_id,
                     answer_mode=answer_mode, clock=clock)

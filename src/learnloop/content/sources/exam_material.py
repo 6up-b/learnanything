@@ -57,7 +57,9 @@ exercise region, its block-level source refs) is.
 
 What a caller does with the answer is its own: teaching contexts and model
 readers withhold exam material under every policy, the leakage gate
-fingerprints the held-out partition, an import refuses exam material, and the
+fingerprints the held-out partition, an import refuses exam material, the
+Reader's model contexts (Ask and its dialogue, preset synthesis, quick and
+passage checks) refuse held-out material (:func:`held_out_material`), and the
 facet-meaning chokepoint resolves a citation of exam material to the role
 ``exam`` (assessment alignment only) while an explanatory citation beside it
 may still support a facet's meaning (support, not leakage:
@@ -455,6 +457,13 @@ def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | N
                       HELD_OUT_UNIT, None)
 
 
+def _add_held_out(connection: Any, reader: _Reader, held: _Acc) -> None:
+    """Rule 3 into ``held``: every held-out unit of every source, from the database alone."""
+
+    for source_id, revision_id, marking in _held_out_sources(connection).values():
+        _held_out_units(reader, source_id, revision_id, marking, held)
+
+
 def _runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str | None, str | None]]:
     ids = sorted({str(value) for value in extraction_ids if value})
     found: dict[str, tuple[str | None, str | None]] = {}
@@ -488,8 +497,7 @@ def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
         for source_id, revision_id, picked in _outline_exam_sources(connection):
             for extraction_id in dict.fromkeys([*reader.source_extractions(source_id, revision_id), picked]):
                 acc.add_whole(extraction_id, EXAM_SOURCE, None)
-        for source_id, revision_id, marking in _held_out_sources(connection).values():
-            _held_out_units(reader, source_id, revision_id, marking, held)
+        _add_held_out(connection, reader, held)
         held_material = Material.from_acc(held)
         material = Material.from_acc(acc).union(held_material)
         runs = _runs(connection, set(material.extractions) | {key[0] for key in material.spans})
@@ -520,6 +528,34 @@ def exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[s
     if not wanted:
         return frozenset()
     return exam_material(vault_or_sets, repository).withheld(wanted)
+
+
+# --- the Reader's model contexts ---------------------------------------------------------
+
+#: What a learner is told when a Reader request would show held-out material to a model.
+HELD_OUT_REFUSAL = ("This passage is held out for evaluation (an exam you'll sit later), so LearnLoop won't "
+                    "explain it or make questions from it: that keeps the exam a fair test.")
+
+
+def held_out_material(repository: Any) -> Material:
+    """The held-out units alone (rule 3), from the database's unit selections:
+    no vault needed, so a Reader surface that holds only a repository asks it.
+    The same material as :attr:`ExamMaterial.held_out`."""
+
+    held = _Acc()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        _add_held_out(connection, _Reader(connection, repository), held)
+    return Material.from_acc(held)
+
+
+def held_out_among(material: Material, extraction_id: str | None, span_ids: Iterable[str | None]) -> list[str]:
+    """The span ids among ``span_ids`` (in order, each once) that ``material`` covers."""
+
+    extraction = str(extraction_id or "")
+    if not extraction:
+        return []
+    wanted = dict.fromkeys(str(span) for span in span_ids if span)
+    return [span for span in wanted if material.covers(extraction, span)]
 
 
 # --- the held-out partition --------------------------------------------------------------
@@ -560,8 +596,7 @@ def held_out_partition(vault_or_sets: Any, repository: Any, *,
     held = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reader = _Reader(connection, repository)
-        for source_id, revision_id, marking in _held_out_sources(connection).values():
-            _held_out_units(reader, source_id, revision_id, marking, held)
+        _add_held_out(connection, reader, held)
         for source_set in _source_sets(vault_or_sets):
             if subjects is not None and source_set.subject_id not in subjects:
                 continue
@@ -720,6 +755,7 @@ __all__ = [
     "ExamMaterial",
     "ExamVerdict",
     "HELD_OUT_EVALUATION",
+    "HELD_OUT_REFUSAL",
     "HELD_OUT_SIGNAL",
     "HELD_OUT_UNIT",
     "HeldOutSpan",
@@ -730,6 +766,8 @@ __all__ = [
     "exam_material",
     "exam_reserved",
     "exam_withheld",
+    "held_out_among",
+    "held_out_material",
     "held_out_partition",
     "held_out_spans",
     "is_exam_role",

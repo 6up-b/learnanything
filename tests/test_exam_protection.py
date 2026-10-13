@@ -509,3 +509,157 @@ def test_a_repair_never_teaches_from_an_exam_passage(textbook):
     shown = [(entry["span_view"]["extraction_id"], entry["span_view"]["span_id"])
              for entry in prescribed["passages_shown"]]
     assert shown == [taught]
+
+
+# --- the Reader's model contexts (held-out material is never explained) -----------------------
+
+
+class _RecordingReaderTutor:
+    """A reader tutor that records every request's manifest spans."""
+
+    provider_name = "fake_tutor"
+    provider_type = "fake"
+    model = "fake-tutor"
+
+    def __init__(self) -> None:
+        self.contexts: list = []
+        self._fake = None
+
+    def supports(self, capability: str) -> bool:
+        from tests.structured_ai import StructuredClientFake
+
+        return StructuredClientFake().supports(capability)
+
+    def complete(self, request):
+        from tests.structured_ai import StructuredClientFake
+        from learnloop.tutor.ai_contracts import TutorAnswer
+
+        owner = self
+
+        class _Answer(StructuredClientFake):
+            def run_tutor_qa(self, context):
+                owner.contexts.append(context)
+                return TutorAnswer(answer_md="Read the worked example again.", question_type="clarification",
+                                   facets=[])
+
+        return _Answer().complete(request)
+
+    def consume_usage(self):
+        from tests.structured_ai import StructuredClientFake
+
+        return StructuredClientFake().consume_usage()
+
+
+def _held_out_exercises(textbook):
+    paths, repository, spans = textbook
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
+    return paths, repository, spans
+
+
+def test_a_reader_question_about_held_out_material_is_refused_before_anything_is_sent(textbook):
+    """Reader Ask (and RW1a's dialogue, which asks through it): a question
+    about a held-out passage is refused with the reason before anything is
+    written or sent; a question beside it never carries a held-out neighbour."""
+
+    from learnloop.tutor.tutor_qa import HeldOutMaterialRefused, TutorQAError, ask_question
+
+    paths, repository, spans = textbook
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"worked": "held_out_evaluation"})
+    vault = loaded(paths)
+    tutor = _RecordingReaderTutor()
+    clock = FrozenClock(datetime(2026, 10, 13, tzinfo=UTC))
+    with pytest.raises(HeldOutMaterialRefused, match="held out for evaluation") as refused:
+        ask_question(vault, repository, tutor, context="reader", question_md="How is this one solved?",
+                     extraction_id="ext_text", span_id=spans["worked"][1], clock=clock)
+    assert isinstance(refused.value, TutorQAError)
+    with pytest.raises(HeldOutMaterialRefused):
+        ask_question(vault, repository, tutor, context="reader", question_md="And these two?",
+                     extraction_id="ext_text", span_id=spans["exercises"][1],
+                     selection_span_ids=[spans["exercises"][1], spans["worked"][1]], clock=clock)
+    assert tutor.contexts == [] and repository.question_events(context="reader") == []
+    # RW1a's dialogue refuses it before any signal (answer mode, "asked") lands.
+    from learnloop.reader import reader_dialogue as RD
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        before = connection.execute("SELECT COUNT(*) FROM interaction_events").fetchone()[0]
+    with pytest.raises(HeldOutMaterialRefused):
+        RD.ask(vault, repository, tutor, extraction_id="ext_text", span_id=spans["worked"][1],
+               question_md="Explain this example", clock=clock)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM interaction_events").fetchone()[0] == before
+    assert tutor.contexts == []
+
+    # The exercise right after the held-out worked example: its manifest's
+    # neighbours (the example's blocks on the base) leave the example out.
+    beside = ask_question(vault, repository, tutor, context="reader", question_md="Where do I start?",
+                          extraction_id="ext_text", span_id=spans["exercises"][1], clock=clock)
+    assert beside["event_id"] and len(tutor.contexts) == 1
+    manifest = {span["span_id"] for span in tutor.contexts[0].source_spans}
+    assert spans["exercises"][1] in manifest and not manifest & set(spans["worked"])
+
+
+def test_a_reader_preset_on_held_out_material_fails_before_any_model_call(textbook):
+    """A demand-paged preset (worked example, another explanation, ...) on a
+    held-out passage fails with the reason when it is sent, with no call."""
+
+    from learnloop.reader import reader_requests as RR
+
+    paths, repository, spans = _held_out_exercises(textbook)
+
+    class _NoCalls:
+        provider_name = "fake"
+        provider_type = "fake"
+        model = "fake"
+        calls: list = []
+
+        def supports(self, capability: str) -> bool:
+            return True
+
+        def complete(self, request):
+            self.calls.append(request.purpose)
+            raise AssertionError("no model call for held-out material")
+
+    client = _NoCalls()
+    queued = RR.enqueue_request(repository, source_id="src_text", revision_id="rev_text", extraction_id="ext_text",
+                                span_id=spans["exercises"][1], preset="alt_explanation")
+    drained = RR.drain_requests(repository, synthesize=RR.model_synthesis(client))
+    assert drained["failed"] == [queued["request_id"]] and client.calls == []
+    request = RR.request_status(repository, request_id=queued["request_id"])
+    assert "held out for evaluation" in json_text(request)
+
+
+def json_text(value) -> str:
+    import json
+
+    return json.dumps(value, default=str)
+
+
+def test_a_reader_check_over_held_out_material_is_refused_before_any_model_call(textbook):
+    """A section quick check or an inquiry's passage check over held-out
+    material is refused (``exam_material``) before a client is even built."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from learnloop.reader.reader_guidance import extraction_sections
+
+    paths, repository, spans = _held_out_exercises(textbook)
+    built: list[str] = []
+    section_rows, _blocks, _sections = extraction_sections(repository.load_document_ir("ext_text"))
+    section = next(row["id"] for row in section_rows if spans["exercises"][1] in row["span_ids"])
+    payloads = [
+        {"extraction_id": "ext_text", "section_id": section},
+        {"extraction_id": "ext_text", "scope_kind": "inquiry", "inquiry_root_event_id": "evt_root",
+         "anchor_span_ids": [spans["exercises"][1]]},
+    ]
+    for payload in payloads:
+        ctx = SimpleNamespace(
+            payload=payload, repo=repository, clock=FrozenClock(datetime(2026, 10, 13, tzinfo=UTC)),
+            report=lambda *a, **k: None, vault_root=paths.root, job={"id": "job_1", "attempt_count": 1},
+            cancelled=lambda: False, bind_interruptible=lambda client: None,
+            services=SimpleNamespace(quick_check_client=lambda ctx: built.append("client") or object()))
+        with pytest.raises(IngestRunnerError) as refused:
+            jobs.handle_reader_quick_check(ctx)
+        assert refused.value.code == "exam_material", payload
+    assert built == []
