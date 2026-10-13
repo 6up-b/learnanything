@@ -3,13 +3,13 @@ title: "family_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite family_proposals"
   - "table family_proposals"
-schema_head: 180
+schema_head: 190
 table_name: "family_proposals"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/168_activity_family_membership.sql"
   - "src/learnloop/cli/families.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/ops/family_proposals.py"
   - "src/learnloop/substrate/families.py"
@@ -95,6 +96,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/source_service_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_family_proposals.py`
 - `tests/test_integration_daily_loop_field.py`

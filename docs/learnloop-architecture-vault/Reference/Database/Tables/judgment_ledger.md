@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 180
+schema_head: 190
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -124,6 +125,7 @@ None found by exact static reference scan.
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/substrate/families.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers
 
@@ -141,6 +143,7 @@ None found by exact static reference scan.
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_assumed_known.py`
+- `tests/test_attach_to_family.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
@@ -150,14 +153,13 @@ None found by exact static reference scan.
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
+- `tests/test_learner_pick_proposal.py`
 - `tests/test_matching.py`
 - `tests/test_pf_generation.py`
 - `tests/test_pf_reports.py`
-- `tests/test_practice_index_evaluation.py`
-- `tests/test_practice_index_find.py`
-- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

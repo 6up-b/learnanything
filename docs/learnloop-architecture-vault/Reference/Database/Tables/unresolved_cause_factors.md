@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 180
+schema_head: 190
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -127,12 +127,12 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/instructional/needs.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/measurement.py`
-- `src/learnloop_sidecar/handlers/serializers.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -914,7 +914,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
+    # Canonical sources (spec_source_practice_and_probes_v1) adds
+    # [source_service] (modelled defaults only, left out of the decision-only
+    # template: one master switch, a kill switch per phase, time, prompt-size
+    # and money bounds) and four unset routes (source_solution_match,
+    # source_compare, exercise_discrimination, worked_example_equivalence).
+    # Below mvp-0.15 the switches propose and record only (tools propose,
+    # serving paths serve), so mvp-0.9 to mvp-0.14 serving is unchanged; every
+    # snapshot moves only because the effective config gains the section and
+    # routes, and all were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "049ce2a917bcac9e84ef5502699eea01aeb923d55d27f0ab81a9cf5d993fca48",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -929,7 +938,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
+    "mvp-0.10": "af9e32db5b72be464014d41cd8ae2f4bdd3f01b2d2ff1f9122ade7ddbc94bcfb",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -952,7 +961,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
+    "mvp-0.11": "0558d7f8533154c40c3fc651cf01d89eb2579e2574291a98749c57f192b51df0",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -969,7 +978,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
+    "mvp-0.12": "9098f0e0ac7d5f11b4bbe91c1f2fea14a3c3b5fd3743d50611054e8bf85bfb3a",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -983,7 +992,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
     # change).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    "mvp-0.13": "1a752aa0e693f62a320e659abcfc7019ac4016503c6b0870b2ad17ea577abba0",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -994,7 +1003,26 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
-    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
+    "mvp-0.14": "b7dd6e3d8dfeea0ea940e55c5fa6c1bb784c8dcc3a7878e4f6308f86279b5004",
+    # mvp-0.15 (canonical sources S1, the certification gate C3): mvp-0.14 plus
+    # practice_attempts.reference_status. An attempt on an imported textbook
+    # exercise whose answer key is not verified (book_solution, checked or
+    # panel_agrees, bound to the stem, key and rubric checked) records
+    # reference_status = unverified: FSRS updates, certification credit does
+    # not (exam pools and certification cold probes skip unverified imports).
+    # No switch turns the gate off; it is versioned by this tag. Existing
+    # vaults reach it by `learnloop upgrade --to mvp-0.15`; never retroactive.
+    # Built as mvp-0.15; expect relabelling at merge.
+    "mvp-0.15": "1fb1ff5e0e50732b8b44602426803ff98426fa88e6ce9974319acee978cae8be",
+    # mvp-0.16 (canonical sources S2b): mvp-0.15 plus source-first fulfilment
+    # of intervention needs: the primed-retry handler and `learnloop
+    # generate-diagnostics` try the learner's textbook exercises (key-checked,
+    # validated and, for discriminate, through the follow-up chooser's own
+    # gate) before generating. Kill switch source_service.source_first_needs
+    # (off: the generation lane is byte-identical). New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION). Built as mvp-0.16; expect
+    # relabelling at merge.
+    "mvp-0.16": "893ae2ffa7ab3a8fc08ab921acb8f673ce583b548a31a24338ea3c5e774730b1",
 }
 
 

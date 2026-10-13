@@ -3,13 +3,13 @@ title: "placement_quick_check_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite placement_quick_check_items"
   - "table placement_quick_check_items"
-schema_head: 180
+schema_head: 190
 table_name: "placement_quick_check_items"
 table_role: "workflow"
 functionality_status: "active"

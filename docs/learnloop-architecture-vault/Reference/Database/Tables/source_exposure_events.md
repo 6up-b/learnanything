@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 180
+schema_head: 190
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reader/span_view.py"
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/instructional/exposure.py`
 
 ### Direct SQL writers
 
@@ -119,6 +121,7 @@ Indexes and uniqueness:
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
+- `tests/test_discriminating_search.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

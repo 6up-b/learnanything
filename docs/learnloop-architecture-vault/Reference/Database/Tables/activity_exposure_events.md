@@ -3,13 +3,13 @@ title: "activity_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_exposure_events"
   - "table activity_exposure_events"
-schema_head: 180
+schema_head: 190
 table_name: "activity_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -55,7 +55,7 @@ It belongs to the **activity substrate** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/065_activity_lineage_substrate.sql`.
-- **Schema touched by:** `065_activity_lineage_substrate.sql`, `077_familiarity_namespace.sql`.
+- **Schema touched by:** `065_activity_lineage_substrate.sql`, `077_familiarity_namespace.sql`, `184_source_service_callers.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_contamination_report.py`
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_progression.py`
+- `tests/test_proposal_impressions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`
 - `tests/test_familiarity.py`

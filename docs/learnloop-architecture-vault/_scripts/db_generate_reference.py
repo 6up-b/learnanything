@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_180/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_190/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_180" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_190" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 180
+SCHEMA_HEAD = 190
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -110,6 +110,13 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
     "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",
+    "instructional_impressions": "Records which find_practice proposal candidates a surface actually rendered (canonical sources S0): retrieved, displayed and served stay three records. Read only by the exposure rule (an earlier impression of a prompt excludes it from the independent intents within the cold retrieval delay) and by S5's intervention records; deliberately not activity_exposure_events, whose rendered rows burn a surface. Append-only.",
+    "source_exercise_imports": "Tracks each textbook exercise imported as practice (canonical sources S1): the caller and proposal, the exercise's extraction, spans and revision, the authored item, the answer-key ladder's status and label, any family attachment and the intervention need it fulfilled. Workflow state for the interactive import's time box and background check; certification reads the key through reference_key_checks.",
+    "reference_key_checks": "Appends one row per answer-key check of an imported exercise (canonical sources S1): the rung (book solution, panel and symbolic check), the label it earned, its evidence refs and the reference_content_hash of the stem, key and rubric it verified, so an edit leaves the current content unverified. Read by the certification gate (practice_attempts.reference_status) and the key label shown to the learner.",
+    "source_comparisons": "Holds compare_sources results (canonical sources S3): each source's quote-verified contributions and pairwise relations under the caller's policy, the dropped lines and pins, the uncompared and unverified sources, and the manifest. No consensus field; reused for an identical query, policy and source set.",
+    "source_tool_calls": "Receipts for the typed source tools (canonical sources S4): a request row per validated request from the tutor, the router or an external agent (its stored caller context, derived policy, validated arguments and dropped ids, refused when it leaked the answer or arrived during a cold administration) and a run row per execution naming the request (result refs, keys, source versions, model, latency). Append-only.",
+    "retrieval_interventions": "Appends one row when a retrieved asset is shown or served (canonical sources S5): a cited or opened passage, a comparison shown, ranked remediation passages delivered, a proposal picked, a need fulfilled from the sources and served. References only (assets with revisions, targets, the valuation's state hashes, the valued candidate's predicted outcome distribution and minutes, impressions, the independence verdict at valuation and serving time); reports read it, nothing serves from it.",
+    "retrieval_intervention_outcomes": "Materializes the outcome join for retrieval_interventions (canonical sources S5): R_next within the session or day, R_cold as the decision-value outcome states (pending stays right-censored), the observed bucket beside the predicted one, actual beside predicted minutes and the learner's taps. Rebuilt by its one replayer from persisted rows with no model call; associations, not causes.",
     "daily_plans": "Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
     "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
@@ -855,6 +862,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
+    "source_service": "canonical sources as a shared instructional service (mvp-0.15/0.16): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
 }
 
@@ -1804,7 +1812,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_180/state.sqlite",
+                "fixtures/migration_head_190/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

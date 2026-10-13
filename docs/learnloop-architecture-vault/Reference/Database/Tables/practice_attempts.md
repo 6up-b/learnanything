@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 180
+schema_head: 190
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/trace_evidence.py"
+  - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
@@ -53,7 +53,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`.
+- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`, `185_source_exercise_imports.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -95,6 +95,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `entry_surface` | `TEXT` | yes | `'unknown'` | — | Stored value |
 | `evidence_origin` | `TEXT` | yes | `'unknown'` | — | Stored value |
 | `declared_stuck` | `INTEGER` | yes | `0` | — | Stored value |
+| `reference_status` | `TEXT` | yes | `'not_applicable'` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -193,13 +194,18 @@ Indexes and uniqueness:
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/field/signals.py`
 - `src/learnloop/goals/goal_series.py`
+- `src/learnloop/instructional/exposure.py`
+- `src/learnloop/instructional/interventions.py`
+- `src/learnloop/instructional/policy.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/practice_index/retrieval.py`
 - `src/learnloop/substrate/data_quality.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 - `src/learnloop_sidecar/handlers/goals.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
@@ -236,6 +242,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/daily_plan_fakes.py`
+- `tests/source_service_fakes.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_apply_write_ahead.py`
@@ -251,10 +258,9 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_dialogue_causal_join.py`
+- `tests/test_discriminating_search.py`
 - `tests/test_duration_estimates.py`
 - `tests/test_embedding_compare.py`
-- `tests/test_exam_calibration.py`
-- `tests/test_exam_seeding.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -319,7 +325,8 @@ CREATE TABLE "practice_attempts" (
   submission_id TEXT,
   declared_dont_know INTEGER NOT NULL DEFAULT 0
 , collection_version TEXT NOT NULL DEFAULT 'legacy-unversioned', entry_surface TEXT NOT NULL DEFAULT 'unknown', evidence_origin TEXT NOT NULL DEFAULT 'unknown', declared_stuck INTEGER NOT NULL DEFAULT 0
-  CHECK (declared_stuck IN (0, 1)));
+  CHECK (declared_stuck IN (0, 1)), reference_status TEXT NOT NULL DEFAULT 'not_applicable'
+  CHECK (reference_status IN ('not_applicable', 'verified', 'unverified')));
 ```
 
 ## Related notes

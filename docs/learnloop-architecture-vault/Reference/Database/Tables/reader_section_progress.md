@@ -3,13 +3,13 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
   - "table reader_section_progress"
-schema_head: 180
+schema_head: 190
 table_name: "reader_section_progress"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/106_reader_section_progress.sql"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/reader/reader_progression.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/instructional/exposure.py`
 
 ### Direct SQL writers
 

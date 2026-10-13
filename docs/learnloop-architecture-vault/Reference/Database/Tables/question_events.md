@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 180
+schema_head: 190
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,8 @@ source_paths:
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/field/signals.py"
   - "src/learnloop/learner/facet_diagnostics.py"
-  - "src/learnloop/ops/contamination/recipes.py"
+  - "src/learnloop/instructional/interventions.py"
+  - "src/learnloop/instructional/policy.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -136,6 +137,8 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/instructional/interventions.py`
+- `src/learnloop/instructional/policy.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
@@ -166,13 +169,13 @@ Indexes and uniqueness:
 - `tests/test_reveal_ledger.py`
 - `tests/test_source_retrieval_tutor.py`
 - `tests/test_tutor_qa.py`
+- `tests/source_service_fakes.py`
 - `tests/test_contamination_report.py`
 - `tests/test_family_memory_projection.py`
+- `tests/test_pinned_span_bridge.py`
 - `tests/test_placement_signals.py`
 - `tests/test_question_context.py`
 - `tests/test_question_promotion_jobs.py`
-- `tests/test_question_queue.py`
-- `tests/test_scheduler_requested_floor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

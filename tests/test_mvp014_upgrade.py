@@ -57,14 +57,15 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_180"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_190"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
 def test_the_plan_successor_is_the_latest_and_keeps_every_predecessor():
     assert DAILY_PLAN_ALGORITHM_VERSION == "mvp-0.14"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == DAILY_PLAN_ALGORITHM_VERSION
-    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14"})
+    # Canonical sources' mvp-0.15 and mvp-0.16 follow it; each keeps the plan.
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.16"
+    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15", "mvp-0.16"})
     # The chain is linear: mvp-0.14 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan.
     for versions in (
@@ -171,7 +172,7 @@ def test_upgrade_command_defaults_to_mvp014(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.13")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.13 -> mvp-0.14" in result.output
+    assert "mvp-0.13 -> mvp-0.16" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.13")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.14"])
     assert result.exit_code == 0, result.output
@@ -186,7 +187,7 @@ def test_new_vaults_start_at_the_plan_successor(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.14"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.16"
     assert plan_active(fresh)
 
 

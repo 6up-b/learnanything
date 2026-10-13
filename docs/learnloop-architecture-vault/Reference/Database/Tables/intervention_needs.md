@@ -3,13 +3,13 @@ title: "intervention_needs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite intervention_needs"
   - "table intervention_needs"
-schema_head: 180
+schema_head: 190
 table_name: "intervention_needs"
 table_role: "workflow"
 functionality_status: "active"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/instructional/needs.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -143,7 +144,7 @@ Indexes and uniqueness:
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_show.py`
 - `tests/test_sidecar_contract.py`
-- `tests/test_source_ingestion.py`
+- `tests/test_source_first_needs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

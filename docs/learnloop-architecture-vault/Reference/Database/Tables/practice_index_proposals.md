@@ -3,13 +3,13 @@ title: "practice_index_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_index_proposals"
   - "table practice_index_proposals"
-schema_head: 180
+schema_head: 190
 table_name: "practice_index_proposals"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/169_practice_index.sql"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/instructional/interventions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -46,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/169_practice_index.sql`.
-- **Schema touched by:** `169_practice_index.sql`.
+- **Schema touched by:** `169_practice_index.sql`, `184_source_service_callers.sql`, `187_source_valuations.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -71,6 +72,11 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `exclusions_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `manifest_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `algorithm_version` | `TEXT` | yes | — | — | Stored value |
+| `caller` | `TEXT` | no | — | — | Stored value |
+| `caller_ref` | `TEXT` | no | — | — | Stored value |
+| `intent` | `TEXT` | no | — | — | Stored value |
+| `valuation_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `provisional_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -90,6 +96,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/instructional/interventions.py`
 
 ### Direct SQL writers
 
@@ -104,7 +111,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_discriminating_search.py`
+- `tests/test_exercise_arm.py`
+- `tests/test_practice_availability.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_practice_proposal_caller_columns.py`
+- `tests/test_tutor_practice_request.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -138,7 +150,7 @@ CREATE TABLE practice_index_proposals (
     exclusions_json TEXT NOT NULL,
     manifest_json TEXT NOT NULL,
     algorithm_version TEXT NOT NULL
-);
+, caller TEXT, caller_ref TEXT, intent TEXT, valuation_json TEXT, provisional_json TEXT);
 ```
 
 ## Related notes

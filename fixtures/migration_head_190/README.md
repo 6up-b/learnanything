@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-180. Migration 167 adds the learner-field F1 read model
+190. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -40,8 +40,19 @@ daily-loop DL1's finite plan (`daily_plans`, WORKFLOW, and the
 `idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge)
 and rebuilds the learner field's DERIVED `facet_outcome_observations` (same
 columns, key and index) so its `serving_origin` CHECK also accepts
-`daily_plan` (owner decision 2026-10-12).
-Built as a backup-API copy of `migration_head_179` with only 180 applied
+`daily_plan` (owner decision 2026-10-12). Migrations 184-190 add the
+canonical-sources service (spec_source_practice_and_probes_v1; numbered from
+184 and expected to be renumbered at merge): 184 the proposal callers
+(`practice_index_proposals.caller`, `caller_ref`, `intent`) and the append-only
+`instructional_impressions`; 185 textbook-exercise imports
+(`source_exercise_imports`, WORKFLOW), the append-only `reference_key_checks`
+and `practice_attempts.reference_status` (the certification gate, C3); 186
+`source_comparisons` (WORKFLOW); 187 `practice_index_proposals.valuation_json`
+and `provisional_json`; 188 `source_exercise_imports.need_id`; 189 the
+append-only tool receipts `source_tool_calls` (RECEIPT); 190 the append-only
+`retrieval_interventions` (RAW_LEDGER) and their DERIVED outcome join
+`retrieval_intervention_outcomes` (one replayer).
+Built as a backup-API copy of `migration_head_180` with only 184-190 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

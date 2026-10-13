@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 180
+schema_head: 190
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -99,6 +99,8 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/instructional/exposure.py`
+- `src/learnloop/practice_index/retrieval.py`
 
 ### Direct SQL writers
 
@@ -120,6 +122,7 @@ Database triggers:
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
+- `tests/test_find_sources_intents.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_source_retrieval_guards.py`

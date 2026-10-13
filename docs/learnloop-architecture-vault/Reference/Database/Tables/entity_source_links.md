@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 180
+schema_head: 190
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -146,6 +146,9 @@ Indexes and uniqueness:
 - `tests/test_source_sets.py`
 - `tests/test_tutor_citations.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_compare_sources.py`
+- `tests/test_find_sources_intents.py`
+- `tests/test_prescription_passages.py`
 - `tests/test_provenance_service.py`
 - `tests/test_revision_refresh.py`
 - `tests/test_source_deletion.py`

@@ -22,7 +22,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_180"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_190"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
@@ -330,6 +330,12 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "text": "stale orphan block",
             "extraction_id": "stale_extraction",
             "span_id": "stale_span",
+        },
+        # Canonical sources S5: an outcome row whose intervention does not exist.
+        "retrieval_intervention_outcomes": {
+            "intervention_id": "stale_intervention",
+            "cold_outcome_state": "right_censored_pending",
+            "outcome_version": "stale",
         },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))

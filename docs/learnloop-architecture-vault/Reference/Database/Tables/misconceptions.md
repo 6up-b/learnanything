@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
+source_commit_timestamp: "2026-10-13T02:36:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 180
+schema_head: 190
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -141,17 +141,18 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/scoreboard.py`
-- `src/learnloop/learner/independence_audit.py`
-- `src/learnloop/learner/learner_review_feed.py`
-- `src/learnloop/learner/surfaced_beliefs.py`
-- `src/learnloop/tutor/durable_promotion.py`
-- `src/learnloop/tutor/promotions.py`
+- `src/learnloop/instructional/needs.py`
+- `src/learnloop/instructional/screen.py`
+- `src/learnloop/instructional/sources.py`
+- `src/learnloop/instructional/tools.py`
+- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/source_service_fakes.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_cli_commands.py`
@@ -159,6 +160,7 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_gate.py`
 - `tests/test_durable_promotion_arms.py`
+- `tests/test_find_sources_intents.py`
 - `tests/test_guided_redo.py`
 - `tests/test_hypothesis_sets.py`
 - `tests/test_independent_group_counting.py`
@@ -167,11 +169,9 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_misconception_registry.py`
 - `tests/test_p2_acceptance.py`
+- `tests/test_prescription_passages.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_probability_prep.py`
-- `tests/test_recurrence_benchmarks.py`
-- `tests/test_recurrence_live.py`
-- `tests/test_scoreboard.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
