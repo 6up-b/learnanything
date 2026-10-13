@@ -386,6 +386,69 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 | D9 | Which LLM for `router_llm` | The configured frontier route; Codex on the owner's subscription is allowed (owner, 2026-10-12). Pin the model id per receipt |
 | D10 | Which T8 outcomes meet §13 condition 3 | The primary verdict's lower bound above m: `embeddings_add_value`, or `kill` / `real_gain_below_delta`. T8's δ (0.005 nats per attempt) is the bar for building the *success head*, not for a learned action scorer, which conditions 2 and 4 gate on their own. Before T8 v4 every interval with its lower bound above m was `embeddings_add_value`, so this keeps condition 3's meaning. The owner may narrow it to `embeddings_add_value` only (recorded 2026-10-12, T8 v4 review F1) |
 
+
+---
+
+## 15. Owner direction (2026-10-12, after R0/R1)
+
+### 15.1 Teach-back is an information-rich probe
+
+Keep teach-back items in R1's probe tie-break. Don't exclude them.
+
+A learner's teach-back dialogue is among the most informative evidence LearnLoop collects, especially once the learner has some domain knowledge. The pathway:
+- the blind grader grades the dialogue;
+- an LLM summarizer condenses it (what was explained correctly, what was missing or wrong, in the learner's own words);
+- the summary enters `LearnerStateCardV1` (§4) as typed evidence with its source attempt.
+
+That makes teach-back a first-class probe for the router. Its cost (one long task, one paid grading call) belongs in the candidate's cost term (§7), not in an exclusion rule.
+
+### 15.2 Coldness is learned, not hard-coded
+
+R1's `router_outcomes` defines `R_cold` provisionally as "≥ 1 day since any attempt or reveal on the LO". The owner's direction: cold retrieval is the point at which we'd expect the learner to have forgotten. That can come after a few other questions, after a day or after a week, and FSRS models it. So:
+- **Log the covariates, not just the flag.** For each outcome, `router_outcomes` (or a sibling view) records:
+  - time since the last exposure to the item, its facets and its LO (attempt, reveal, reading, tutor);
+  - the number of intervening attempts;
+  - the FSRS-predicted retrievability at attempt time;
+  - the reveal-ledger amount since the last attempt.
+
+  The 1-day flag stays as a provisional label.
+- **Fit coldness in R3.** Score outcomes by how much they tell us about long-term retention: weight success by `1 − R_pred` (a correct answer when forgetting was likely is the signal) instead of a binary cold/warm cut. Validate against certified cold measurements (`coldness_receipts`) where they exist.
+- **Flag the data problem.** Cold outcomes arrive days to weeks after the decision, and cold retrieval is part of what the router optimizes. So:
+  - the router needs **surrogate outcomes** to learn at a useful speed: `R_next` plus the FSRS-predicted retention gain;
+  - each surrogate is checked against the true delayed outcomes as they mature;
+  - pending outcomes stay right-censored, never failures (R1).
+
+### 15.3 Canonical sources as a retrieval tool for the router (deferred)
+
+The owner's proposal: let the router's LLM query the canonical source vault in natural language for questions and explanations that match what the learner needs, in place of choosing only among items that already exist.
+
+Design sketch (orchestrator additions in *italics*):
+- **One retrieval surface:**
+  - `search_sources(query)`: Slice 2 T6's hybrid retrieval plus verification over source blocks;
+  - `find_practice(query)`: Phase 5b's practice index over items and dossiers;
+  - *`facet_lookup(query)`, so a gap named in learner text resolves to the registry.*
+
+  Each returns typed hits with provenance. The router LLM (and the tutor) call these as tools.
+- **Uses:**
+  - *probe choice: "items that discriminate misconception X from Y";*
+  - explanation blocks: the canonical passage for a repair, under T6's exclusion of the item being practised;
+  - *reading blocks in the daily plan: the next section, ranked against open gaps;*
+  - *the tutor's "Practice this": offer a retrieved item that targets the question just asked (DL3's "Practice on…").*
+- **When nothing fits,** *the router asks Phase 5a's source-anchored generation path for a verified item grounded in the retrieved spans. Nothing unverified is served.*
+- **Guardrails:**
+  - retrieval results are context only, and the choice still passes the staged frame and the constraint engine (§7);
+  - *retrieved candidates join the logged candidate set, so propensities stay exact and off-policy evaluation still works (R1/R3);*
+  - retrieved spans keep T6's answer-leak exclusions.
+- **Trigger:** after R2 is live and T6's re-evaluation (2026-10-12, stronger model) settles hybrid vs dense. *Start with the tutor's "Practice this", which has the shortest path to value; it needs only `find_practice` and T6.*
+
+### 15.4 Decisions recorded
+
+| # | Decision | Owner, 2026-10-12 |
+|---|---|---|
+| D11 | Teach-back in the probe tie-break | Keep it. It is an information-rich probe, and its dialogue summary feeds the card (§15.1) |
+| D12 | `R_cold` | Learned from logged covariates in R3. The 1-day rule is provisional (§15.2) |
+| D13 | Staged P2 bridge wiring | Deferred to R2's cutover (R1 open question) |
+
 ---
 
 *Related: `spec_p4_controller_and_scale.md` (§4, §7.1 revised here, §9.3 extended here) · `spec_learner_field_v1.md` §7.2 · `daily_loop_frictionless_defaults.md` · Pipeline Augmentation Plan §B · Bitter Lesson Research Sweep §4*

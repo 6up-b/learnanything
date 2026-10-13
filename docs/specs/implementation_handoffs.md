@@ -125,6 +125,8 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 | **After router R0 and Slice 2 T1 merge** (owner-directed, 2026-10-12) | Learner-text gaps: prerequisites and misconceptions (§4) | R0 (the Decider client); T1 (the shared matcher) |
 | **After Slice 1 M2 merges** (owner-directed, 2026-10-12) | "Write what you can" replaces "I don't know" (§4) | Slice 1 M2 (the blind grader and the diagnoser) |
 | **After Slice 2 T5 merges** (owner-directed, 2026-10-12) | Facet identity at mint time, and a dedupe command (§4) | T5 (nominations, ingest-time embedding); T1's shared matcher if merged |
+| **Now** (owner-directed, 2026-10-12) | ChatGPT-plan provider; owner batch (T1 guard advisory, B1 fixes) (§4) | — |
+| **After facet identity merges** (owner-directed, 2026-10-12) | Facet locks no longer block merges (§4) | Facet identity |
 
 **Keeping merges manageable.** Keep at most three or four branches open at once. Merge one at a time, newest last; the later branch renumbers its migration.
 
@@ -1140,6 +1142,141 @@ Done also means:
 - the review file gives the owner the dedupe commands (dry run first) for
   linear_algebra, probability and arxiv_v2, plus what to check after;
 - the live regression result.
+```
+
+### ChatGPT-plan provider ("Continue with ChatGPT")
+
+```text
+Add a LearnLoop provider that calls OpenAI models billed to the owner's ChatGPT plan
+through "Sign in with ChatGPT" token sharing for open-source apps, as a faster,
+inherently tool-free alternative to spawning Codex for structured calls. Follow the
+standard rules in docs/specs/implementation_handoffs.md §0. Review file:
+docs/reviews/chatgpt-plan-provider.md.
+
+Owner decision (2026-10-12): route short structured calls (T6's query rewrite and
+verification first) to a fast, capable model on a subscription, and investigate
+Sign in with ChatGPT as faster than spawning a Codex instance.
+
+Read first (developer docs; markdown versions by appending .md):
+- https://developers.openai.com/siwc
+- /siwc/token-sharing-open-source/sign-in, models-and-inference,
+  preview-limitations, token-reference, errors-and-recovery
+- /siwc/ui-ux-guidelines
+
+Facts checked 2026-10-12, to re-verify:
+- Self-serve. First registration uses client_id=dynamic_agent_client with
+  ext_agent_host_id and agent_name_hint; the issued oaiapp_… client_id is saved
+  and reused. No client secret.
+- OAuth 2.0 authorization code with PKCE S256:
+  - redirect: loopback http://127.0.0.1:<port>/auth/callback (never localhost);
+  - authorize: https://auth.openai.com/api/accounts/authorize;
+  - token: https://auth.openai.com/api/accounts/oauth/token;
+  - scopes: "openid profile email offline_access resource.invoke
+    chatgpt.tokens.use.direct";
+  - resource: https://api.openai.com/v1;
+  - plan usage is enabled only if chatgpt.tokens.use.direct is granted.
+- Access tokens last about 1 h. Refresh tokens rotate: replace all of them
+  together.
+- Inference: POST https://api.openai.com/v1/responses with the bearer token.
+  - store=false and stream=true are required, with no system message items
+    (use instructions).
+  - These fields are not allowed: max_output_tokens, temperature, top_p,
+    metadata, previous_response_id and others.
+  - No hosted tools. Models come from /v1/models (visibility "list").
+  - Usage-limit errors arrive as response.failed with
+    subscription_sharing_usage_limit_exceeded or
+    subscription_sharing_usage_unavailable.
+
+Must hold:
+- Provider type chatgpt_plan with a profile per model (model ids picked from
+  /v1/models). Structured output through the Responses text format (JSON schema)
+  if the endpoint accepts it; verify with one live call. Otherwise use JSON mode
+  plus the existing repair path.
+- Sign-in:
+  - `learnloop ai signin chatgpt` and a desktop "Continue with ChatGPT" button
+    (branding per the guidelines);
+  - a loopback listener on 127.0.0.1, PKCE, state and nonce checks;
+  - tokens stored machine-locally outside every vault and the repo, in the OS
+    keyring if available, else a 0600 file under the LearnLoop config dir.
+    Agents and tests never read the real store;
+  - refresh with rotation; invalid_grant restarts sign-in.
+- Billing class "subscription" (Slice A plan §5 rule 6): cost estimated from
+  reported usage, call caps kept. Receipts name the provider and model.
+  Usage-limit errors map to a clear "plan usage exhausted" state, with fallback
+  to the next configured route where the route allows fallback.
+- Every request is an isolated turn by construction (no tools, no files).
+  Mark the transport as isolated, so blind grading and the other isolated-turn
+  routes can use it.
+- Readiness and doctor checks. A kill switch: unconfigured means nothing
+  changes.
+- Tests use a fake auth server and a fake Responses SSE stream. One live
+  sign-in is the owner's to perform: give the command. Agents make no live
+  calls.
+
+Done also means: the review file gives the owner the sign-in command, how to point
+routes (T6's source_query_rewrite and source_rerank first) at the new profile, and
+a latency comparison with Codex measured with fakes plus the owner's first real
+call.
+```
+
+### Owner batch: T1 guard advisory, B1 fixes
+
+```text
+Two small owner-directed changes. Follow docs/specs/implementation_handoffs.md §0.
+Review file: docs/reviews/owner-batch-2.md.
+
+1. T1's upgrade guard becomes advisory (owner, 2026-10-12). The guard was meant
+   to check whether same-cause grouping is worth pursuing, the owner considers
+   that validated, and new vaults already start at the latest version without
+   it.
+   - `learnloop upgrade` to the recurrence version no longer refuses when the
+     guard hasn't passed. It prints the guard's status and what an M1 run with
+     planted cases would add.
+   - A config switch `recurrence.require_guard` (default false) restores the
+     refusal.
+   - Tests for both settings.
+2. B1 benchmark fixes (found in the owner's real run, 2026-10-12):
+   a. Hypothesis cache keys include the writer model and its settings, so a
+      rerun with a new writer never reuses old text. Old cache entries without
+      a model are ignored, not reused.
+   b. The B1 Markdown report renders the results table (recall@25 / MAP@25 per
+      method and query view). Today the .md shows an empty table.
+   c. Spend reports show the provider-reported billed amount as the headline,
+      with the reservation-based "charged" figure as the cap-accounting line.
+      `--price-per-million` gets input/output pricing, or a clearly labelled
+      upper bound. In the real run, "charged" overstated the bill about 17x.
+Tests fail first. No migration expected.
+```
+
+### Facet locks no longer block merges (after facet identity merges)
+
+```text
+Owner decision (2026-10-12): remove facet identity locks as a barrier to merges.
+In the new architecture a merge cannot change what past evidence means:
+- the retired id becomes an alias of the survivor;
+- evidence moves with it;
+- undo is exact;
+- the one counting hazard (a graded criterion targeting both facets) is held
+  back automatically.
+
+Follow docs/specs/implementation_handoffs.md §0. Review file:
+docs/reviews/facet-locks.md.
+
+Must hold:
+- Merges, absorbs and dedupe never refuse or demote to proposals because a
+  facet is locked. Remove `merge_locked_facets`, or keep it with default true
+  only as a compatibility key.
+- What locks still protected is in-place rewording of an evidenced facet's
+  meaning, which would reinterpret past evidence. Replace the refusal with
+  history: an edit that changes an evidenced facet's claim or definition
+  writes a facet version (the knowledge model's "restructure with history"
+  path), keeps the old text, and is shown with undo. It is never silently
+  overwritten.
+- Update docs/specs/spec_knowledge_model.md (§3.4, §12.1) to match, and the
+  synthesis and append gates that treat locks as blockers.
+- Tests: a locked facet merges and undoes exactly; an evidenced facet's
+  rewording records a version; the held-back shared-criterion case is still
+  held back.
 ```
 
 ---
