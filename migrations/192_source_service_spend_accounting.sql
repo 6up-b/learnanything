@@ -15,11 +15,14 @@
 --   counts once by its own cost.
 --
 -- Rows written before receipts named their reservation (migration 191's
--- first code) cannot be matched with their receipts. They are marked
--- `legacy`: such a row keeps counting its own charge, and the unlinked
--- service receipts that started during its lifetime are its own request's,
--- so they are not counted again (F14). A row is legacy when no root receipt
--- names it.
+-- first code) cannot be matched with their receipts by name. They are marked
+-- `legacy`: such a row keeps counting its own charge, and an unlinked receipt
+-- is taken for its request's, and not counted again (F14), only when the two
+-- are correlated beyond doubt: the receipt started during the row's lifetime,
+-- the row settled at exactly what the receipt shows, and neither has another
+-- such partner. Ambiguous ones count both, conservatively, and the report
+-- says how much may be counted twice (the stage review's F1). A row is
+-- legacy when no root receipt names it.
 --
 -- SQLite cannot widen a CHECK in place, so the WORKFLOW table is rebuilt with
 -- every row and its index; nothing references it. Two indexes let the

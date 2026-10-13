@@ -27,7 +27,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.ai.execution import model_call, record_model_calls
+from learnloop.ai.execution import model_call, observe_model_calls, record_model_calls
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded, spend_envelopes
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, default_migrations_dir
@@ -500,3 +500,208 @@ def test_an_upgrade_counts_each_request_recorded_before_reservation_links_once(t
     envelope = _process(vault, repository)
     assert not _admits(envelope, 0.36)
     assert _admits(envelope, 0.35)
+
+
+# -- Codex review of this stage, F1: a legacy row covers only a receipt it can be correlated with ----------
+
+
+def _database_at_191(tmp_path):
+    """A vault database at migration 191 (before migration 192 marked rows legacy)."""
+
+    before = tmp_path / "migrations_191"
+    before.mkdir()
+    for path in sorted(default_migrations_dir().glob("*.sql")):
+        if int(path.name.split("_", 1)[0]) <= 191:
+            (before / path.name).write_bytes(path.read_bytes())
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path, migrations_dir=before)
+    return sqlite_path
+
+
+def _today() -> tuple[str, datetime]:
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return day, datetime.fromisoformat(day + "T00:00:00+00:00")
+
+
+def _legacy_era(sqlite_path, rows, receipts) -> None:
+    """Ledger rows written before receipts named their reservation (id, reserved,
+    charged, created and updated as the ledger stamps them: to the second, ``Z``),
+    and receipts (id, owner kind, cost, started, tokens, root budget)."""
+
+    day, _midnight = _today()
+    with connect(sqlite_path) as connection:
+        for handle, reserved, charged, created, updated in rows:
+            connection.execute(
+                "INSERT INTO source_service_spend (id, envelope, day, reserved_usd, charged_usd, state, process, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,'settled','proc_old',?,?)",
+                (handle, SS.DAILY_ENVELOPE, day, reserved, charged, created, updated))
+        for receipt_id, owner_kind, cost, started, tokens, budget in receipts:
+            connection.execute(
+                "INSERT INTO model_call_receipts(id, owner_kind, owner_id, purpose, provider, status, started_at, "
+                "input_tokens, output_tokens, cost, budget_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (receipt_id, owner_kind, "x", "p", "openrouter", "completed", started, tokens, 0, cost,
+                 json.dumps(budget)))
+        connection.commit()
+
+
+def _unmigrated_and_upgraded(sqlite_path) -> tuple[dict, dict, Repository]:
+    """The day's accounting read before migrating, then after the upgrade."""
+
+    from learnloop.db.stores.source_service import service_spend_accounting
+
+    day, _midnight = _today()
+    with connect(sqlite_path, read_only=True) as connection:
+        unmigrated = service_spend_accounting(connection, envelope=SS.DAILY_ENVELOPE, day=day,
+                                              since=day + "T00:00:00", now=SS.utc_now_iso(), price_per_million=PRICE)
+    SS._DAILY.clear()
+    repository = Repository(sqlite_path)  # the upgrade
+    return unmigrated, SS.service_spend_today(_vault(1.0), repository), repository
+
+
+def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path):
+    """Codex's reproduction: a pre-ledger $0.80 receipt starts at …50.100; a
+    $0.10 reservation is made later that second (stamped …50Z, to the second)
+    and its own receipt starts at …50.600. Migration 192 marks the reservation
+    legacy. Before the fix both receipts fell in its lifetime window and were
+    taken for its own: the day counted $0.10, not $0.90, and admitted $0.20
+    more under a $1 cap."""
+
+    sqlite_path = _database_at_191(tmp_path)
+    _day, midnight = _today()
+    _legacy_era(sqlite_path, rows=[("ssp_legacy", 0.15, 0.10, _stamp(midnight, 50), _stamp(midnight, 51))],
+                receipts=[
+                    ("r_pre", "source_exercise_import", 0.80, _at(midnight, 50.1), 0, {"billing": "metered"}),
+                    ("r_own", "source_exercise_import", 0.10, _at(midnight, 50.6), 0, {"billing": "metered"}),
+                ])
+    unmigrated, spent, repository = _unmigrated_and_upgraded(sqlite_path)
+    for accounting in (unmigrated, spent):
+        assert accounting["usd"] == pytest.approx(0.90), accounting
+        assert accounting["legacy"]["covered_requests"] == 1 and accounting["legacy"]["uncertain_requests"] == 0
+    envelope = _process(_vault(1.0), repository)
+    assert not _admits(envelope, 0.20)
+    assert _admits(envelope, 0.10)
+
+
+def test_overlapping_legacy_requests_cover_only_their_own_receipts(tmp_path):
+    """Two legacy requests overlap in time, and a receipt from another path
+    starts while both are in flight. Each legacy row covers the one receipt
+    whose cost it settled at (the second settled at its receipt's tokens at
+    the request's recorded rate, above the reported cost); the other path's
+    receipt counts. Before the fix all three were covered: $0.50, not $0.65."""
+
+    sqlite_path = _database_at_191(tmp_path)
+    _day, midnight = _today()
+    priced = {"billing": "metered", "practice_index": {"billing": "metered", "price_per_million": PRICE}}
+    _legacy_era(sqlite_path, rows=[("ssp_first", 0.25, 0.20, _stamp(midnight, 10), _stamp(midnight, 15)),
+                                   ("ssp_second", 0.35, 0.30, _stamp(midnight, 12), _stamp(midnight, 14))],
+                receipts=[
+                    ("r_first", "source_exercise_import", 0.20, _at(midnight, 11.2), 0, {"billing": "metered"}),
+                    ("r_second", "source_compare", 0.25, _at(midnight, 12.5), 30_000, priced),
+                    ("r_other", "source_solution_match", 0.15, _at(midnight, 13.1), 0, {"billing": "metered"}),
+                ])
+    unmigrated, spent, _repository = _unmigrated_and_upgraded(sqlite_path)
+    for accounting in (unmigrated, spent):
+        assert accounting["usd"] == pytest.approx(0.65), accounting
+        legacy = accounting["legacy"]
+        assert (legacy["correlated"], legacy["covered_requests"], legacy["uncertain_requests"]) == (2, 2, 0)
+
+
+def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path):
+    """Two receipts of the same cost start during one legacy request: either
+    could be its own, or neither. Nothing is covered (the day may count up to
+    $0.20 twice, never less than it spent), and the report says how much is
+    uncertain."""
+
+    sqlite_path = _database_at_191(tmp_path)
+    _day, midnight = _today()
+    _legacy_era(sqlite_path, rows=[("ssp_legacy", 0.15, 0.10, _stamp(midnight, 40), _stamp(midnight, 45))],
+                receipts=[
+                    ("r_a", "source_exercise_import", 0.10, _at(midnight, 41), 0, {"billing": "metered"}),
+                    ("r_b", "source_compare", 0.10, _at(midnight, 43), 0, {"billing": "metered"}),
+                ])
+    unmigrated, spent, _repository = _unmigrated_and_upgraded(sqlite_path)
+    for accounting in (unmigrated, spent):
+        assert accounting["usd"] == pytest.approx(0.30), accounting
+        legacy = accounting["legacy"]
+        assert (legacy["correlated"], legacy["uncorrelated"], legacy["covered_requests"]) == (0, 1, 0)
+        assert legacy["uncertain_requests"] == 2 and legacy["uncertain_usd"] == pytest.approx(0.20)
+
+
+# -- Codex review of this stage, F2: a reported cost is never repriced ---------------------------------
+
+
+def _embedding_request(repository, envelope, *, cost: float | None, tokens: int, recorded_price: float) -> None:
+    """A query embedding as ``embed_queries`` sends it: the root receipt records
+    the request's own rate, and the reservation settles without a reconciled
+    cost (the embedding path does not reconcile)."""
+
+    def observe(action: str, event: dict) -> None:
+        if action == "start" and event.get("parent_call_id") is None:
+            declared = json.loads(event.get("budget_json") or "{}")
+            declared["practice_index"] = {"task": "embedding", "billing": "metered",
+                                          "price_per_million": recorded_price}
+            event = {**event, "budget_json": json.dumps(declared)}
+        repository.record_model_event(action, event, owner_kind="practice_query_embedding", owner_id="q")
+
+    client = SimpleNamespace(provider_name="openrouter_embedding", model="embedding-fake-model")
+    budget = SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0))
+    estimate = SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=tokens * recorded_price / 1_000_000)
+    with observe_model_calls(observe), spend_envelopes(envelope), budget.request(estimate):
+        with model_call(client, purpose="QueryEmbedding") as metadata:
+            metadata.update(cost=cost, input_tokens=tokens, output_tokens=0)
+
+
+def test_a_settled_embedding_counts_its_reported_cost_not_its_tokens_at_the_service_rate(tmp_path):
+    """Codex's reproduction: a settled embedding reports 10,000 tokens and
+    $0.001. Before the fix the day took the larger of that and the tokens at
+    the service's generic $10 per million ($0.10), and refused a $0.95 request
+    under a $1 cap."""
+
+    vault, repository = _database(tmp_path)
+    _embedding_request(repository, _process(vault, repository), cost=0.001, tokens=10_000, recorded_price=0.02)
+    spent = SS.service_spend_today(vault, repository)
+    assert spent["usd"] == pytest.approx(0.001), spent
+    assert spent["pricing"]["reported"] == 1
+    assert _admits(_process(vault, repository), 0.95)
+
+
+def test_a_receipt_without_a_cost_is_priced_at_its_requests_recorded_rate(tmp_path):
+    """No reported cost: a request's tokens are priced at the rate it recorded
+    when it was admitted (here an embedding's $0.02 per million), not at the
+    service's generic rate; only a receipt that recorded none falls back to
+    the service's rate, and the report says which basis each used. A reported
+    cost alongside nonzero tokens counts as reported."""
+
+    vault, repository = _database(tmp_path)
+    _embedding_request(repository, _process(vault, repository), cost=None, tokens=10_000, recorded_price=0.02)
+    _receipt(repository, "r_reported", cost=0.004, owner_kind="source_compare")
+    _receipt(repository, "r_recorded", cost=None, owner_kind="source_compare")
+    _receipt(repository, "r_fallback", cost=None, owner_kind="source_compare")
+    with connect(repository.sqlite_path) as connection:
+        connection.execute("UPDATE model_call_receipts SET input_tokens=1000 WHERE id IN ('r_reported', 'r_recorded', "
+                           "'r_fallback')")
+        connection.execute("UPDATE model_call_receipts SET budget_json=? WHERE id='r_recorded'",
+                           (json.dumps({"billing": "metered", "pf": {"price_per_million": 2.0}}),))
+        connection.commit()
+    spent = SS.service_spend_today(vault, repository)
+    expected = 10_000 * 0.02 / 1e6 + 0.004 + 1000 * 2.0 / 1e6 + 1000 * PRICE / 1e6
+    assert spent["usd"] == pytest.approx(expected), spent
+    assert spent["pricing"] == {"reported": 1, "recorded_rate": 2, "owner_rate": 1, "unpriced": 0}
+    # The service's rate changing later reprices only the request that recorded none.
+    cheaper = _vault(1.0)
+    cheaper.config.source_service.llm_price_per_million = 1.0
+    assert SS.service_spend_today(cheaper, repository)["usd"] == pytest.approx(expected - 1000 * (PRICE - 1.0) / 1e6)
+
+
+def test_spend_since_counts_a_reported_cost_alongside_tokens(tmp_path):
+    """A batch's receipts-only report uses the same rule."""
+
+    from learnloop.db.stores.source_service import spend_since
+
+    _vault_, repository = _database(tmp_path)
+    _receipt(repository, "r_cheap", cost=0.001, owner_kind="source_compare")
+    with connect(repository.sqlite_path) as connection:
+        connection.execute("UPDATE model_call_receipts SET input_tokens=10000 WHERE id='r_cheap'")
+        connection.commit()
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        assert spend_since(connection, "2000-01-01", price_per_million=PRICE)["usd"] == pytest.approx(0.001)
