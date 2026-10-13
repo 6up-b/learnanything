@@ -229,3 +229,67 @@ At `eba905b61`, `TMPDIR` under `fixtures-local/tmp`, `uv sync --extra dev
   errors). No new sidecar RPC (the mobile allowlist is unchanged).
 - `git diff --check` clean. The tracked fixtures were only read through
   backup-API copies under `fixtures-local/`.
+
+## 6. Adversarial review of `e8d261405..356784102` and its fixes
+
+The review's verdict was FINDINGS: 0 High, 6 Medium, 4 Low. Each finding was
+reproduced by a test that failed on `356784102` before it was fixed; none was
+rejected. Fakes only; no paid or network call.
+
+| # | Finding | Reproduced by (failed first) | Fix | Commit |
+|---|---|---|---|---|
+| F1 (M) | The span-support check's Decider request (30 s timeout) ran while holding the vault mutation lock, which other writers wait on for 10 s | `test_the_span_check_is_asked_before_the_vault_lock_is_taken`: the Decider saw the `proposal_accept` holder | `apply_accepted_items` stages the acceptance once before the lock (`_ask_span_support`; nothing written but the checks' ledger rows) and keeps each verdict by input hash; under the lock the check only looks verdicts up (`with_span_support(asked=...)`), and one whose input changed meanwhile is `unchecked` and held for the confirm | `397a2bb40` |
+| F2 (M) | With `facet_identity.reword_confirm = false` the check refused a cited reword (and the acceptance's closure) the old rule applied, a Decider outage included | `test_reword_confirm_off_applies_a_cited_reword_whatever_the_decider` (unavailable / does not support): `PatchApplicationError` | The check runs only under the reword-confirm policy; the kill switch restores the predecessor rule | `97a994360` |
+| F3 (M) | The same-question label fallback scored one reword's span check against another reword's label (endpoints are `facet:<id>`) | `test_span_support_labels_never_leak_to_another_rewords_check`: 2 labels, accuracy 0.5 | For `facet_span_support` and `misconception_match` (`UNNAMED_CONTENT_TASKS`) a label binds only explicitly or on the same input hash | `7b2100493` |
+| F4 (M) | `--review-run` double-counted failures and fallbacks: the scratch ledger is a backup copy of the vault's | `test_agreement_counts_each_ledger_row_once_across_a_review_runs_vault_copy` (backup-API scratch copies): `fallbacks 2` | `agreement_report` counts each row once by id | `7b2100493` |
+| F5 (M) | Learner text reached the Decider at mvp-0.20 on routes Settings did not disclose; `learner_text_gaps.decider_enabled = false` was ignored | `test_settings_and_eval_judges_disclose_the_tier1_routes` (`KeyError`), `test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_decider` (the Decider was asked) | `JUDGE_ROUTES` gains `tier1_decider` and `learner_gap_decider` with what is sent and when (Settings, `eval judges` with consumer status); `decider_enabled = false` makes the text-gap switches act as off at every version | `22264ea62` |
+| F6 (M) | Contamination with one switch on and the other off: every request's checkpoint changed (paid reveal verdicts bought again), the up-front over-budget check was skipped, the LLM row's `input_hash` changed at every version | `test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger`: wrong `input_hash` at mvp-0.19, `cached 0` at mvp-0.20 | `decider_profiles` keys only a Decider-first task's requests on the Decider's profile (`judge_settings` is the base's again); the up-front check covers every LLM-first request under the budget it had before; an LLM row keeps the checkpoint hash unless it is a Decider fallback | `1ec841297` |
+| F7 (L) | The review run's dry-run estimate, admission and resume binding ignored the Decider; a pass whose LLM fallback failed discarded the links the Decider had answered | `test_a_review_dry_run_plans_and_prices_the_deciders_link_calls` (`KeyError`), `test_a_review_resume_refuses_a_changed_decider_profile` (`complete`), `test_links_the_decider_answered_are_never_paid_for_again_when_the_fallback_failed` (4 calls, not 3) | The plan allows one Decider call per link per pass (the history's error limit per pass) at the listed input price; the dry run and the run register and bind `tier1_decider` from config; `decide(reuse=True)` returns an answer already ledgered for the same input, so an answered link is never asked again (no partial pass is written, so nothing is duplicated) | `79f048335` |
+| F8 (L) | A tie for the top probability went to the first option (`supports`, `same`) | `test_a_tied_top_option_is_no_answer_and_hands_over`, `test_a_tied_batch_question_has_no_choice`, `test_a_tied_gap_pair_goes_to_the_llm`, `test_a_tie_between_supports_and_another_option_holds_the_reword` | `decider_judgments.argmax` returns None on a tie; the check is ledgered `tied` (a `FAILURE_VERDICTS` status) and goes where a failure goes (held, or the LLM); a unique top still decides, no cutoff | `ab54325c5` |
+| F9 (L) | A pair's mvp-0.19 Decider second opinion (its choice field) was reused as the deciding mvp-0.20 verdict | `test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict`: `same`, not the argmax `unsure` | The Tier-1 pair executor's producer is the model marked `#argmax`; such a pair is asked once more, then reused | `f66d057cc` |
+| F10 (L) | A confirm finished by recovery was never labelled; a keep that only closed a stale card was labelled `does not support` | `test_a_confirm_finished_by_recovery_labels_the_check`, `test_keeping_a_card_that_went_stale_is_no_label` | Recovery labels the confirm; a keep labels only when the facet's meaning is still the one the card was held on | `3e1ae05c1` |
+
+Claims in §§1–4 that did not hold, now corrected (code where it was the code,
+`docs/decider-tier1-migration.md`, the agreement module and CLI help where it
+was the record):
+
+- **T1's same-cause pairs.** T1's same-cause judge (live, backlog, guard,
+  `embeddings adjudicate`) asks only the LLM and writes no Decider row, so it
+  adds no pair to the agreement report; the only `same_cause` Decider rows are
+  a review run's Tier-1 links. §1.3's "its existing Decider/LLM pairs are read
+  by the agreement report" and §1.4's "T1's same-cause pairs ... are included"
+  are withdrawn.
+- **"false restores that judgment's mvp-0.19 path."** Now true for
+  contamination with mixed switches and for the LLM row's `input_hash` (F6),
+  and for `reword_confirm = false` beside the span check (F2: §1.2's "refused
+  (fail closed)" is withdrawn; the check is not asked).
+- **"A cancellation propagates; it is never a fallback."** It propagates out
+  of the decision and never reaches an LLM fallback; misconception matching
+  catches it as it always caught its LLM's cancellation (grading never stops
+  on it) and takes the deterministic text match, now pinned by
+  `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`.
+- **The read-only CLI with a review run.** Now tested with backup-API scratch
+  copies (F4).
+- **Calibration where a label exists.** Labels no longer cross between checks
+  of different wordings (F3).
+
+`docs/decider-tier1-migration.md` records the new behaviour (ties,
+cancellations, disclosures, the text gaps' Decider switch, the `#argmax`
+producer, reused review links and the run's Decider plan and binding,
+contamination's per-task keys, the span check before the lock, labels).
+
+### 6.1 Gate after the fixes
+
+At `36823fcdb` (the fixes, the docs and the regenerated references), `TMPDIR`
+under `fixtures-local/tmp`:
+
+- `uv run lint-imports --no-cache`: 17 contracts kept, 0 broken.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: 10078 passed.
+- `uv run pytest -m durability`: 99 passed.
+- Regenerated: `tests/cli_help_snapshot.json` (the agreement command's help);
+  the DB/config references (`db_generate_reference.py`, then
+  `db_validate_reference.py` with no errors). No migration, no new table, no
+  new sidecar RPC, no `apps/learnloop-tauri` change (so no frontend or cargo
+  run): Settings renders the two new disclosures from the existing
+  `judges` list.
+- `git diff --check` clean. No tracked fixture was opened.
