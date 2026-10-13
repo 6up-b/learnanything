@@ -3,8 +3,8 @@ title: "source_exercise_imports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exercise_imports"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
 
@@ -113,6 +114,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_learner_pick_proposal.py`
 - `tests/test_source_exercise_rpcs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

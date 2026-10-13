@@ -3,8 +3,8 @@ title: "practice_index_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_index_proposals"
@@ -113,9 +113,11 @@ None found by exact static reference scan.
 
 - `tests/test_discriminating_search.py`
 - `tests/test_exercise_arm.py`
+- `tests/test_hypothesis_reference_contract.py`
 - `tests/test_practice_availability.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_practice_proposal_caller_columns.py`
+- `tests/test_source_first_needs.py`
 - `tests/test_tutor_practice_request.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

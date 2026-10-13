@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -113,12 +113,12 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/goals/goal_projection.py`
-- `src/learnloop/instructional/valuation.py`
 - `src/learnloop/learner/capability_grid.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/learner/mastery.py`
 - `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/placement/predictor.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

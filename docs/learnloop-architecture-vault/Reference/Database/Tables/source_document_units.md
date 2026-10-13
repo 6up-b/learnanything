@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/db/stores/source_service.py`
 
 ### Direct SQL writers
 

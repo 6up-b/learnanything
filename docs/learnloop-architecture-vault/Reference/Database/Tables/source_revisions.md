@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/instructional/interventions.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -126,7 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
-- `src/learnloop/reader/span_view.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

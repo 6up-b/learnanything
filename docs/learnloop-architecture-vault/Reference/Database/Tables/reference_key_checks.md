@@ -3,8 +3,8 @@ title: "reference_key_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reference_key_checks"
@@ -19,8 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/185_source_exercise_imports.sql"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/harvest.py"
+  - "src/learnloop/ops/pf_publish.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,7 +92,9 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/ops/pf_publish.py`
 
 ### Direct SQL writers
 

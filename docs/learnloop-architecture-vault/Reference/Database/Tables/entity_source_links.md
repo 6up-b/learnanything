@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/maintenance_feed.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/source_retrieval/corpus.py`
+- `src/learnloop/source_retrieval/find_sources.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

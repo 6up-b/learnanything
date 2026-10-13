@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "98990c3dfdaeee830b34ec211fbb7fc284ec6770"
-source_commit_timestamp: "2026-10-13T02:36:26-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -180,6 +180,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/offline_review/spot_check.py`
@@ -197,6 +198,7 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/instructional/valuation.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -212,6 +214,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_service.py`
 
 ### Upstream callers of the repository access surface
 
