@@ -380,12 +380,16 @@
     "sha256": "09034d78b908e4dd8fee4435c93588f147db0105befce75f3f69c87c106d0644"
   },
   "evsi": {
-    "bytes": 1842,
-    "sha256": "3a34b03fcc18e2b819c15b9e733df16649d1b89588559717e7f2ff369643f5b6"
+    "bytes": 2012,
+    "sha256": "5a9d6f9c34d64e4f81a6e881cadc0e3eaac4afc25bd8f2b714ffacbf68c70dc9"
   },
   "evsi calibration": {
     "bytes": 1210,
     "sha256": "cfe13184d9b19f6d2736a5dc7a89a6d14bc12dfe13e81b25f4fd9ada0cb8d80b"
+  },
+  "evsi compare": {
+    "bytes": 1801,
+    "sha256": "c540dbe7fa7b1715720f48458d1202cf2b4497b8f047cd2442f8d90aafc74e3d"
   },
   "evsi multisim": {
     "bytes": 5630,

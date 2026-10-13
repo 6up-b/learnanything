@@ -10,6 +10,10 @@ simulator families to the same Eedi answers and reruns the study in each, so a
 conclusion counts only when every family agrees (RankCert). Offline, no paid
 call.
 
+``compare`` lines two ``simulate`` reports up (stage
+``evsi-single-family-unbounded``): every cell and headline claim, old against
+new, and the episodes a count bound stopped. Read-only.
+
 ``calibration`` is the live Part B report: read-only over a vault's
 ``voi_forecasts`` receipts, joined to realized outcomes and later truth.
 """
@@ -105,6 +109,48 @@ def evsi_simulate_command(
             "elapsed_seconds": report["elapsed_seconds"],
         }
         _emit(headline, json_output)
+    except (ValueError, OSError, KeyError) as exc:
+        _emit({"status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1) from exc
+
+
+@evsi_app.command("compare")
+def evsi_compare_command(
+    old: Annotated[Path, typer.Option("--old", help="The stored simulation_report.json (the reference run).")],
+    new: Annotated[Path, typer.Option("--new", help="The rerun's simulation_report.json.")],
+    output: Annotated[Path | None, typer.Option("--output", help="Write the full comparison (JSON) here, atomically.")] = None,
+    markdown: Annotated[Path | None, typer.Option("--markdown", help="Write the comparison's tables (Markdown) here, atomically.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Compare two `evsi simulate` reports: every cell, every headline claim, the count bound's stops (read-only)."""
+
+    from learnloop.evsi_calibration.artifacts import write_text_atomic
+    from learnloop.evsi_calibration.compare import compare_reports, render_markdown
+
+    try:
+        inputs = {old.resolve(), new.resolve()}
+        for target in (output, markdown):
+            if target is not None and target.resolve() in inputs:
+                raise ValueError(f"refusing to overwrite an input report: {target}")
+        comparison = compare_reports(json.loads(old.read_text(encoding="utf-8")),
+                                     json.loads(new.read_text(encoding="utf-8")))
+        if output is not None:
+            write_text_atomic(output, json.dumps(comparison, sort_keys=True, indent=1, default=str))
+        if markdown is not None:
+            write_text_atomic(markdown, render_markdown(comparison))
+        bound = comparison["bound"]
+        _emit({
+            "status": "ok",
+            "old": {"report": str(old), "applied_bound": comparison["old"]["applied_bound"]},
+            "new": {"report": str(new), "applied_bound": comparison["new"]["applied_bound"]},
+            "bound": {k: bound[k] for k in ("reference_bound", "total_stops", "total_censored", "checks")},
+            "attribution": comparison["attribution"],
+            "summary": comparison["summary"],
+            "claims": {c["id"]: {"status": c["status"], "holds_old": c["holds_old"], "holds_new": c["holds_new"]}
+                       for c in comparison["claims"]},
+            "output": str(output) if output is not None else None,
+            "markdown": str(markdown) if markdown is not None else None,
+        }, json_output)
     except (ValueError, OSError, KeyError) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc
