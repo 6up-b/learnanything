@@ -799,20 +799,25 @@ def test_the_value_gate_reads_the_configured_robust_quantile():
 
 
 def test_rank_feasible_values_the_episode_at_the_configured_quantile():
+    """The robust EVSI rank_feasible decides with is the credible set's 25th
+    percentile at the default (0.90 minutes here), its 10th at the restore
+    value (0.48): with a 0.6-minute check the default measures, 0.10 stops."""
+
     from learnloop.diagnosis.robust_composition import robust_quantile
     from learnloop.scheduling import evsi as EV
     from tests import voi_restore_scenarios as S
 
-    prior = {"unfamiliar": 0.6, "robust_initial_grasp": 0.4}
-    candidate = _ensemble("q", _SPREAD, 0.05)
-    decision = _decide([candidate], prior=prior)
+    prior = {"unfamiliar": 0.5, "robust_initial_grasp": 0.5}
+    candidate = _ensemble("q", _SPREAD, 0.6)
     ctx = S.context()
     table = ctx.loss_table(ctx.label_actions(prior))
     evsis = [EV.evsi_for_conditionals(member, prior, table).evsi for member in candidate.members]
-    if decision.best.method == voi.METHOD_ROBUST_EVSI:
-        assert decision.best.value_robust_minutes == pytest.approx(robust_quantile(evsis, 0.25))
-    else:  # an abstention: the EIG fallback, at the same quantile
-        assert decision.best.value_uncertain
+    default = _decide([candidate], prior=prior)
+    restored = _decide([candidate], prior=prior, config=_restore_config())
+    assert default.best.method == restored.best.method == voi.METHOD_ROBUST_EVSI
+    assert default.best.value_robust_minutes == pytest.approx(robust_quantile(evsis, 0.25)) == pytest.approx(0.9)
+    assert restored.best.value_robust_minutes == pytest.approx(robust_quantile(evsis, 0.10)) == pytest.approx(0.48)
+    assert default.decision == voi.CONTINUE and restored.decision == voi.STOP
 
 
 # ── no count cap reappears ──────────────────────────────────────────────────
