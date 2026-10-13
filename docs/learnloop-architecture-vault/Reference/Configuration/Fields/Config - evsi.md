@@ -3,8 +3,8 @@ title: "Config - evsi"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "118fba8a89256015a4a65336742998e3ff284be0"
-source_commit_timestamp: "2026-10-13T16:47:23-04:00"
+source_commit: "1c7b70f25d611bf447a429f94fcd65546c5d66ef"
+source_commit_timestamp: "2026-10-13T17:53:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml evsi"
@@ -40,9 +40,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1796`; `src/learnloop/evsi_calibration/live_report.py:712` |
-| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1797`; `src/learnloop/evsi_calibration/live_report.py:713` |
-| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1798`; `src/learnloop/evsi_calibration/live_report.py:719` |
+| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1806`; `src/learnloop/evsi_calibration/live_report.py:712` |
+| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1807`; `src/learnloop/evsi_calibration/live_report.py:713` |
+| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1808`; `src/learnloop/evsi_calibration/live_report.py:719` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
