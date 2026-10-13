@@ -123,6 +123,8 @@ class LedgerOutcomeAdapter:
             return (str(row["id"]), "taken") if row is not None else (None, "pending")
         if forecast.get("site") == "followup_selection":
             return self._followup_attempt(forecast)
+        if forecast.get("site") == "staged_diagnostic_selection":
+            return self._staged_attempt(forecast)
         item = forecast.get("chosen_practice_item_id")
         if not item:
             return None, "no_chosen_item"
@@ -153,6 +155,33 @@ class LedgerOutcomeAdapter:
             if any(_queues_item(action, item) for action in _loads(row["triggered_actions_json"], [])):
                 return True
         return False
+
+    def _staged_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
+        """The attempt that administered a staged diagnostic decision (review F3).
+
+        Only a ``committed`` forecast was administered at all
+        (``not_administered`` otherwise: a stop, an abstention). A shadow-mode
+        decision composes no work (``shadow_not_administered``), so no later
+        attempt is its outcome. A live decision needs an explicit
+        decision-to-attempt receipt; the staged controller writes none today,
+        so it stays right-censored as ``no_attempt_binding`` rather than being
+        guessed from the next attempt on the item (the error review F6 fixed
+        for follow-ups). R1's router adapter, which runs first, joins any
+        forecast that carries a scheduler candidate.
+        """
+
+        body = forecast.get("forecast") or {}
+        if body.get("forecast_of") != "committed" or not forecast.get("chosen_ref"):
+            return None, "not_administered"
+        mode = (body.get("extra") or {}).get("decision_mode")
+        if mode is None and forecast.get("decision_ref") and _has(self.connection, "controller_decisions"):
+            row = self.connection.execute(
+                "SELECT mode FROM controller_decisions WHERE id = ?", (forecast["decision_ref"],)
+            ).fetchone()
+            mode = row["mode"] if row is not None else None
+        if mode != "live":
+            return None, "shadow_not_administered"
+        return None, "no_attempt_binding"
 
     def _followup_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
         """The attempt that took a queued follow-up decision (review F6).
@@ -317,6 +346,13 @@ def realized_emission(
         emission, why = _target_facet_emission(connection, body, attempt_id)
         if emission is None:
             return None, why
+    elif site == "staged_diagnostic_selection":
+        # A staged diagnostic check is a probe administration: its realized
+        # emission is the graded probe outcome, inside the declared alphabet.
+        observation = _observation(connection, attempt_id)
+        if observation is None:
+            return None, "no_probe_observation"
+        emission = observation["grader_channel"].get("observed_outcome")
     elif site == "causal_shadow_selection":
         if not _has(connection, "causal_discriminating_observations"):
             return None, "no_discriminating_observation"

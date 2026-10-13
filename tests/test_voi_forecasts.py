@@ -182,6 +182,115 @@ def test_followup_forecast_uses_the_facet_model(tmp_path):
     assert "low|conceptual_slip" in body["emission_alphabet"]
 
 
+def _staged_world(tmp_path, *, logging: bool = True):
+    from learnloop.scheduling.scheduler import SchedulerSession
+    from learnloop.substrate.state_sync import sync_vault_state
+
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    if not logging:
+        append_config_toml(paths.root, "\n[evsi]\nforecast_logging = false\n")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    return vault, repository, SchedulerSession(session_id="s1", available_minutes=15)
+
+
+_STAGED_PRIOR = {"memory_lapse": 0.5, "false_belief_or_confusion": 0.5}
+
+
+def _staged_loss():
+    return AL.build_loss_table(
+        routes=[{"reason": "memory_lapse", "first_intervention": "reveal"},
+                {"reason": "false_belief_or_confusion", "first_intervention": "contrast"}],
+        duration_overrides={"reveal": 2.0, "contrast": 4.0},
+    )
+
+
+def _separating(prefix: str) -> dict:
+    return {"memory_lapse": {f"{prefix}1": 0.9, f"{prefix}2": 0.1},
+            "false_belief_or_confusion": {f"{prefix}1": 0.1, f"{prefix}2": 0.9}}
+
+
+def _staged_decide(vault, repository, session, refs, *, randomize=False, seed=None):
+    from learnloop.scheduling import controller_snapshot as cs
+    from learnloop.scheduling import staged_policy as sp
+
+    diagnostic = sp.DiagnosticSelector(
+        loss_table=_staged_loss(),
+        candidates={ref: {"members": [_separating(f"{ref}_e")], "prior": _STAGED_PRIOR, "expected_minutes": 0.5}
+                    for ref in refs},
+        randomize=randomize, seed=seed,
+    )
+    candidates = [cs.Candidate(candidate_ref=ref, learning_object_id=LO_ID, active=True, purpose="diagnostic",
+                               surface_hash=f"S_{ref}") for ref in refs]
+    return sp.decide(vault, repository, session, signals=sp.StateSignals(decision_relevant_robust_value=0.9),
+                     candidates=candidates, diagnostic=diagnostic, clock=CLOCK)
+
+
+def _staged_rows(repository):
+    return [r for r in _forecasts(repository) if r["site"] == "staged_diagnostic_selection"]
+
+
+def test_staged_forecast_is_the_committed_selection_with_its_decision(tmp_path):
+    # Review F3: the receipt describes what was administered AFTER the
+    # near-tie randomization, names the decision, the practice item and the
+    # assignment, and keeps the nominal ranking's forecast identifiable.
+    vault, repository, session = _staged_world(tmp_path)
+    for index in range(40):
+        result = _staged_decide(vault, repository, session, ["cand_a", "cand_b"], randomize=True,
+                                seed=f"pinned_{index}")
+        evsi = result.trace["ranking_inputs"]["evsi"]
+        if result.chosen_candidate_ref and result.chosen_candidate_ref != evsi["best_ref"]:
+            break
+    else:
+        pytest.fail("the tie-break never chose the runner-up")
+    assignment = result.trace["ranking_inputs"]["evsi_assignment"]
+    rows = [r for r in _staged_rows(repository) if r["decision_ref"] == result.decision_id]
+    assert len(rows) == 1
+    row = rows[0]
+    committed = result.chosen_candidate_ref
+    assert row["chosen_ref"] == committed and row["receipt_key"] == f"staged_diagnostic_selection:{result.decision_id}"
+    body = row["forecast"]
+    assert body["forecast_of"] == "committed" and body["chosen_ref"] == committed
+    assert set(body["emission_alphabet"]) == {f"{committed}_e1", f"{committed}_e2"}
+    assert body["nominal_best_ref"] == evsi["best_ref"]
+    assert set(body["nominal"]["emission_alphabet"]) == {f"{evsi['best_ref']}_e1", f"{evsi['best_ref']}_e2"}
+    assert body["extra"]["assignment"]["propensity"] == assignment["propensity"]
+    assert body["extra"]["assignment"]["assignment_id"] == assignment["assignment_id"]
+    assert row["algorithm_version"] == vault.config.algorithms.algorithm_version
+
+    # A real practice item is recorded as the chosen item (outcome linkage).
+    single = _staged_decide(vault, repository, session, ["pi_svd_define_001"])
+    row = [r for r in _staged_rows(repository) if r["decision_ref"] == single.decision_id][0]
+    assert row["chosen_practice_item_id"] == "pi_svd_define_001" and row["learning_object_id"] == LO_ID
+    # The staged outcome adapter: a shadow decision composes no work.
+    with repository.connection() as connection:
+        adapter = LR.LedgerOutcomeAdapter(connection)
+        assert adapter.attempt_for(row) == (None, "shadow_not_administered")
+        live = {**row, "forecast": {**row["forecast"], "extra": {**row["forecast"]["extra"], "decision_mode": "live"}}}
+        assert adapter.attempt_for(live) == (None, "no_attempt_binding")
+        nominal = {**row, "forecast": {**row["forecast"], "forecast_of": "nominal_best"}}
+        assert adapter.attempt_for(nominal) == (None, "not_administered")
+
+
+def test_staged_forecast_obeys_the_kill_switch(tmp_path):
+    # Review F4: the staged caller threads the vault, so `forecast_logging = false`
+    # stops it like every other site.
+    vault, repository, session = _staged_world(tmp_path, logging=False)
+    result = _staged_decide(vault, repository, session, ["pi_svd_define_001"])
+    assert result.chosen_candidate_ref == "pi_svd_define_001"
+    assert _staged_rows(repository) == []
+
+
+def test_staged_emission_reads_the_administered_probe_outcome(tmp_path):
+    vault, repository, session = _staged_world(tmp_path)
+    forecast = {"site": "staged_diagnostic_selection", "forecast": {"emission_alphabet": ["e_hit", "e_miss"]}}
+    with repository.connection() as connection:
+        assert LR.realized_emission(connection, vault, forecast, "att_none") == (None, "no_probe_observation")
+
+
 def _arm_b_shadow(tmp_path, *, measured: bool):
     vault, repository = _vault(tmp_path, probe_item=True)
     if measured:

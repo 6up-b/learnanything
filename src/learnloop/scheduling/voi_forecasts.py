@@ -254,18 +254,47 @@ def evsi_parameters(
     ]
 
 
+def _candidate_forecast(
+    candidate: EV.DiagnosticCandidate, loss_table: AL.LossTable
+) -> dict[str, Any]:
+    return forecast_block(
+        candidate.members[0],
+        candidate.prior,
+        action_of=lambda belief: loss_table.argmin_action(
+            {h: belief.get(h, 0.0) for h in loss_table.hypotheses}
+        ),
+        action_proxy="loss_table_argmin",
+    )
+
+
 def rank_forecast(
     result: EV.RankResult,
     candidates: Sequence[EV.DiagnosticCandidate],
     loss_table: AL.LossTable,
+    *,
+    chosen_ref: str | None = None,
+    committed: bool = False,
 ) -> dict[str, Any]:
-    """The forecast body of one ``rank_feasible`` decision (its best candidate)."""
+    """The forecast body of one ``rank_feasible`` decision.
+
+    It describes ``chosen_ref`` when given (the candidate actually committed,
+    after any near-tie randomization), else the ranking's best. ``forecast_of``
+    says which: ``committed`` (administered) or ``nominal_best`` (what the
+    ranking preferred; nothing administered, e.g. a stop, an abstention or a
+    shadow comparison). When the committed candidate is not the ranking's best,
+    the best one's forecast is kept beside it under ``nominal`` so the two stay
+    separately identifiable.
+    """
 
     by_ref = {c.ref: c for c in candidates}
-    best = by_ref.get(result.best_ref) if result.best_ref is not None else None
+    target = chosen_ref if chosen_ref is not None else result.best_ref
+    chosen = by_ref.get(target) if target is not None else None
     body: dict[str, Any] = {
         "verdict": result.verdict,
         "reason": result.reason,
+        "forecast_of": "committed" if committed and chosen is not None else "nominal_best",
+        "chosen_ref": target,
+        "nominal_best_ref": result.best_ref,
         "excluded": [dict(entry) for entry in result.excluded],
         "candidates": [
             {"ref": r.ref, "rank_value": round(r.rank_value, 6), "evsi_point": round(r.evsi.point, 6),
@@ -276,22 +305,20 @@ def rank_forecast(
         ],
         "loss": loss_summary(loss_table),
     }
-    if best is not None and best.members:
-        body.update(forecast_block(
-            best.members[0],
-            best.prior,
-            action_of=lambda belief: loss_table.argmin_action(
-                {h: belief.get(h, 0.0) for h in loss_table.hypotheses}
-            ),
-            action_proxy="loss_table_argmin",
-        ))
-        body["expected_minutes"] = best.expected_minutes
-        body["burden_minutes"] = best.burden_minutes
-        body["prior_basis"] = best.prior_basis
+    if chosen is not None and chosen.members:
+        body.update(_candidate_forecast(chosen, loss_table))
+        body["expected_minutes"] = chosen.expected_minutes
+        body["burden_minutes"] = chosen.burden_minutes
+        body["prior_basis"] = chosen.prior_basis
+    nominal = by_ref.get(result.best_ref) if result.best_ref is not None else None
+    if nominal is not None and nominal is not chosen and nominal.members:
+        body["nominal"] = {"chosen_ref": nominal.ref, **_candidate_forecast(nominal, loss_table)}
     return body
 
 
-def _forecast_enabled(vault: Any) -> bool:
+def forecast_enabled(vault: Any) -> bool:
+    """The ``evsi.forecast_logging`` kill switch (on without a vault config)."""
+
     config = getattr(getattr(vault, "config", None), "evsi", None)
     return bool(getattr(config, "forecast_logging", True)) if config is not None else True
 
@@ -314,7 +341,7 @@ def record_forecast(
 
     if repository is None or getattr(repository, "_read_only", False):
         return None
-    if vault is not None and not _forecast_enabled(vault):
+    if vault is not None and not forecast_enabled(vault):
         return None
     try:
         if site not in VOI_SITES:
@@ -379,16 +406,25 @@ def record_rank_feasible_forecast(
     extra_parameters: Sequence[Mapping[str, Any]] = (),
     duration_estimates: Mapping[str, Mapping[str, Any]] | None = None,
     extra: Mapping[str, Any] | None = None,
+    chosen_ref: str | None = None,
+    committed: bool = False,
     clock: Clock | None = None,
     **columns: Any,
 ) -> str | None:
-    """Record one ``rank_feasible`` decision (EVSI point/robust, P(change), loss)."""
+    """Record one ``rank_feasible`` decision (EVSI point/robust, P(change), loss).
 
+    ``chosen_ref``/``committed``: see :func:`rank_forecast`. The EVSI columns
+    are the described candidate's.
+    """
+
+    if vault is not None and not forecast_enabled(vault):
+        return None
     try:
-        body = rank_forecast(result, candidates, loss_table)
+        body = rank_forecast(result, candidates, loss_table, chosen_ref=chosen_ref, committed=committed)
         if extra:
             body["extra"] = dict(extra)
-        best = result.ranked[0] if result.ranked and result.ranked[0].ref == result.best_ref else None
+        target = body.get("chosen_ref")
+        best = next((r for r in result.ranked if r.ref == target), None) if target is not None else None
         parameters = [
             *evsi_parameters(),
             *loss_table_parameters(loss_table, duration_estimates=duration_estimates),
@@ -408,7 +444,7 @@ def record_rank_feasible_forecast(
         versions={"loss_table_hash": loss_table.table_hash},
         candidate_count=len(candidates),
         clock=clock,
-        chosen_ref=result.best_ref,
+        chosen_ref=body.get("chosen_ref"),
         evsi_point_minutes=best.evsi.point if best is not None else None,
         evsi_lcb_minutes=best.evsi.lcb if best is not None else None,
         **columns,
