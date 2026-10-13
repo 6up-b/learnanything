@@ -38,7 +38,9 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import (
     VERIFIED_STATUSES,
     effective_key_status,
+    imports_for_item,
     is_exercise_import,
+    reference_content_hash,
     spend_since,
 )
 from learnloop.instructional.validation import draft_validator
@@ -211,7 +213,15 @@ def verification_targets(vault: LoadedVault, repository: Repository,
                 continue
             status = effective_key_status(connection, item)
             if status not in VERIFIED_STATUSES:
-                rows.append({"practice_item_id": item.id, "key_status": status})
+                row: dict[str, Any] = {"practice_item_id": item.id, "key_status": status}
+                # A check an import left pending on this same content: this
+                # check completes it (its marker cleared with the check row).
+                pending = [entry for entry in imports_for_item(connection, item.id)
+                           if (entry.get("verification") or {}).get("pending_check")
+                           and entry.get("content_hash") == reference_content_hash(item)]
+                if pending:
+                    row["pending_import_id"] = pending[-1]["id"]
+                rows.append(row)
     return rows
 
 
@@ -256,7 +266,8 @@ def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cos
                 report["status"] = "over_budget"
                 break
             report["checks"].append(verify_item_key(vault.root, repository, target["practice_item_id"],
-                                                    trigger="verify", clients=clients, clock=clock))
+                                                    trigger="verify", clients=clients, clock=clock,
+                                                    import_id=target.get("pending_import_id")))
     report["budget"] = envelope.report()
     if report.get("status") == "over_budget" or envelope.report()["refused_requests"]:
         report["status"] = "over_budget"

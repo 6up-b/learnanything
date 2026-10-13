@@ -2274,27 +2274,31 @@ def _record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extra
         if not service.enabled:
             return
         span_ids = [str(node.get("span_id") or node.get("spanId") or "") for node in raw_selection.get("nodes") or []]
+        checking = bool(service.exercise_verification and ctx.services.background_key_checks)
+        # The rows keep a durable pending-check marker until each check
+        # commits, so startup recovery resumes one a dead process lost (F5).
         rows = SEI.record_reader_import(ctx.vault_root, ctx.repo, result, extraction_id=extraction_id,
                                         span_ids=[span for span in span_ids if span], source_id=source_id,
-                                        revision_id=revision_id, clock=ctx.clock)
-        if service.exercise_verification and rows and ctx.services.background_key_checks:
-            item_ids = [row["practice_item_id"] for row in rows]
+                                        revision_id=revision_id, clock=ctx.clock, pending_check=checking)
+        if checking and rows:
             threading.Thread(
-                target=_verify_quietly, args=(ctx.vault_root, ctx.repo, item_ids, "background"),
+                target=_verify_quietly, args=(ctx.vault_root, ctx.repo, rows, "background"),
                 name="reader-import-key-check", daemon=True,
             ).start()
     except Exception:  # noqa: BLE001 - the import itself already succeeded
         logging.getLogger(__name__).warning("recording the Reader import's key status failed", exc_info=True)
 
 
-def _verify_quietly(root: Path, repository: Repository, item_ids: list[str], trigger: str) -> None:
+def _verify_quietly(root: Path, repository: Repository, rows: list[dict[str, str]], trigger: str) -> None:
     from learnloop.content.authoring import source_exercise_import as SEI
 
-    for item_id in item_ids:
+    for row in rows:
         try:
-            SEI.verify_item_key(root, repository, item_id, trigger=trigger)
-        except Exception:  # noqa: BLE001 - recorded as unchecked; `sources exercises verify` covers it
-            logging.getLogger(__name__).warning("background key check failed for %s", item_id, exc_info=True)
+            SEI.verify_item_key(root, repository, row["practice_item_id"], trigger=trigger,
+                                import_id=row.get("import_id"))
+        except Exception:  # noqa: BLE001 - the pending marker stays; startup recovery resumes it
+            logging.getLogger(__name__).warning("background key check failed for %s", row.get("practice_item_id"),
+                                                exc_info=True)
 
 
 def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:

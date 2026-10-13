@@ -114,6 +114,10 @@ MIN_QUOTE_WORDS = 4
 OWNER_KIND = "source_exercise_import"
 CALLERS = ("learner", "reader", "harvest", "need")
 TRIGGERS = ("import", "background", "edit", "verify")
+#: This process's token on a pending check (Codex review F5). A check pending
+#: under this token may still be running in this process's thread; startup
+#: recovery resumes only the work a dead process left.
+PROCESS_TOKEN = "proc_" + new_ulid()
 PRICE_SETTING = "source_service.llm_price_per_million"
 #: The authoring request's output bound on a metered route (a compute bound
 #: that lets the request be priced before it is sent; one exercise's draft).
@@ -552,19 +556,61 @@ def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: st
     return LadderResult(status, "panel", verification, caller.ledger_ids, usage=caller.report())
 
 
+def _insert_check(connection: Any, *, item_id: str, content_hash: str, result: LadderResult, trigger: str,
+                  started_at: str, import_id: str | None, clock: Clock | None) -> str:
+    check_id = "rkc_" + new_ulid()
+    insert_key_check(
+        connection, id=check_id, practice_item_id=item_id, import_id=import_id, content_hash=content_hash,
+        key_status=result.key_status, rung=result.rung, trigger=trigger, started_at=started_at,
+        created_at=utc_now_iso(clock), verification={**result.verification, "skip_reason": result.skip_reason},
+        ledger_ids=result.ledger_ids,
+    )
+    return check_id
+
+
 def record_key_check(repository: Repository, *, item: PracticeItem, result: LadderResult, trigger: str,
                      started_at: str, import_id: str | None = None, content_hash: str | None = None,
                      clock: Clock | None = None) -> str:
     """One append-only check row bound to the content that was checked."""
 
-    check_id = "rkc_" + new_ulid()
     with repository.connection() as connection:
-        insert_key_check(
-            connection, id=check_id, practice_item_id=item.id, import_id=import_id,
-            content_hash=content_hash or reference_content_hash(item), key_status=result.key_status,
-            rung=result.rung, trigger=trigger, started_at=started_at, created_at=utc_now_iso(clock),
-            verification={**result.verification, "skip_reason": result.skip_reason}, ledger_ids=result.ledger_ids,
-        )
+        return _insert_check(connection, item_id=item.id, content_hash=content_hash or reference_content_hash(item),
+                             result=result, trigger=trigger, started_at=started_at, import_id=import_id,
+                             clock=clock)
+
+
+def _ladder_record(result: LadderResult, started_at: str) -> dict[str, Any]:
+    """A ladder's result as the import row keeps it (durable before the write, F5)."""
+
+    return {"key_status": result.key_status, "rung": result.rung, "verification": dict(result.verification),
+            "ledger_ids": list(result.ledger_ids), "skip_reason": result.skip_reason, "started_at": started_at}
+
+
+def _ladder_from_record(record: Mapping[str, Any]) -> LadderResult:
+    return LadderResult(str(record["key_status"]), str(record["rung"]), dict(record.get("verification") or {}),
+                        list(record.get("ledger_ids") or []), record.get("skip_reason"))
+
+
+def _without_pending(verification: Mapping[str, Any], **extra: Any) -> dict[str, Any]:
+    return {**{key: value for key, value in verification.items() if key != "pending_check"}, **extra}
+
+
+def _complete_check(connection: Any, *, import_id: str | None, item_id: str, content_hash: str,
+                    result: LadderResult, trigger: str, started_at: str, clock: Clock | None,
+                    edited: bool = False) -> str:
+    """The check row and the import's completion, in the caller's ONE transaction (F5)."""
+
+    check_id = _insert_check(connection, item_id=item_id, content_hash=content_hash, result=result, trigger=trigger,
+                             started_at=started_at, import_id=import_id, clock=clock)
+    current = import_row(connection, import_id) if import_id else None
+    if current is not None:
+        fields: dict[str, Any] = {"verification": _without_pending(current["verification"],
+                                                                   **{f"{trigger}_check_id": check_id})}
+        if edited:
+            fields["reason"] = "superseded_by_edit"
+        else:
+            fields["key_status"] = result.key_status
+        update_import(connection, import_id, updated_at=utc_now_iso(clock), **fields)
     return check_id
 
 
@@ -677,26 +723,20 @@ def _finish_pending(repository: Repository, pending: _Pending, clock: Clock | No
         if pending.recorded or pending.result is None or pending.item is None:
             return
         pending.recorded = True
-    check_id = record_key_check(repository, item=pending.item, result=pending.result, trigger="background",
-                                started_at=pending.started_at, import_id=pending.import_id,
-                                content_hash=pending.content_hash, clock=clock)
     # A check that finished after an edit verified only the content it was
     # given: the import says so, and the edited content stays unverified.
     edited = False
     try:
         latest = load_vault(pending.root).practice_items.get(pending.item.id) if pending.root else None
         edited = latest is not None and reference_content_hash(latest) != pending.content_hash
-    except Exception:  # noqa: BLE001 - the check row is already recorded
+    except Exception:  # noqa: BLE001 - the content binding below still holds
         edited = False
+    # The check row and the import's completion commit together (F5).
     with repository.connection() as connection:
-        current = import_row(connection, pending.import_id) if pending.import_id else None
-        if current is not None:
-            fields: dict[str, Any] = {"verification": {**current["verification"], "background_check_id": check_id}}
-            if edited:
-                fields["reason"] = "superseded_by_edit"
-            else:
-                fields["key_status"] = pending.result.key_status
-            update_import(connection, pending.import_id, updated_at=utc_now_iso(clock), **fields)
+        _complete_check(connection, import_id=pending.import_id, item_id=pending.item.id,
+                        content_hash=str(pending.content_hash or reference_content_hash(pending.item)),
+                        result=pending.result, trigger="background", started_at=pending.started_at, clock=clock,
+                        edited=edited)
 
 
 def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
@@ -793,6 +833,7 @@ def _import_source_exercise(
     revision = repository.get_source_revision(str(revision_id or "")) or {}
     source_id = revision.get("source_id")
     now = utc_now_iso(clock)
+    resumed: bool | None = False
     with repository.connection() as connection:
         existing = import_row(connection, import_id) if import_id else None
         if existing is None:
@@ -800,10 +841,18 @@ def _import_source_exercise(
             insert_import(connection, id=import_id, created_at=now, caller=caller, extraction_id=extraction_id,
                           span_ids=list(span_ids), status="authoring", proposal_id=proposal_id,
                           source_id=source_id, revision_id=revision_id, label=label, need_id=need_id)
-        elif existing["status"] == "written":
-            # A retried job never imports twice.
-            return {"import_id": import_id, "status": "written", "practice_item_id": existing["practice_item_id"],
-                    "key_status": existing["key_status"], "label": existing["label"], "resumed": True}
+        elif existing["status"] == "written" or (
+                existing["status"] == "checking" and existing.get("practice_item_id")
+                and existing["practice_item_id"] in vault.practice_items):
+            resumed = None
+    if existing is not None and resumed is None:
+        # A retried job never imports twice: it completes what a dead process
+        # left (the write's commit, the check row, a pending check) (F5).
+        outcome = resume_import(root, repository, str(import_id), clients=clients, clock=clock)
+        row = outcome.get("row") or existing
+        return {"import_id": import_id, "status": row["status"], "practice_item_id": row.get("practice_item_id"),
+                "key_status": row.get("key_status"), "label": row.get("label"), "resumed": True,
+                "recovery": outcome.get("action")}
 
     def fail(status: str, reason: str, **fields: Any) -> dict[str, Any]:
         with repository.connection() as connection:
@@ -897,20 +946,23 @@ def _import_source_exercise(
     canonical = {"source_id": source_id or extraction_id, "revision_id": revision_id,
                  "extraction_id": extraction_id, "span_ids": [str(span) for span in span_ids],
                  "label": label or draft.label, "relation": "verbatim"}
+    # Write-ahead (Codex review F5): before the vault write, the import names
+    # its item and keeps the ladder's result, or the pending check, durably,
+    # so a process that dies anywhere after this point is resumed from it.
+    if ladder is not None and ladder.rung != "skipped":
+        verification["ladder_result"] = _ladder_record(ladder, started_at)
+    elif ladder is None:
+        verification["pending_check"] = {"trigger": "background", "started_at": started_at,
+                                         "process": PROCESS_TOKEN}
+    with repository.connection() as connection:
+        update_import(connection, import_id, updated_at=utc_now_iso(clock), practice_item_id=str(draft.payload["id"]),
+                      key_status=key_status, verification=verification)
     item_id = write_draft(root, repository, draft, extraction_id=extraction_id, clock=clock,
                           mechanism="source_exercise_import", extra_payload={"canonical_exercise": canonical})
     written = load_vault(root).practice_items[item_id]
     content_hash = reference_content_hash(written)
-    with repository.connection() as connection:
-        update_import(connection, import_id, updated_at=utc_now_iso(clock), status="written",
-                      practice_item_id=item_id, content_hash=content_hash, key_status=key_status,
-                      verification=verification)
-    check_id = None
-    if ladder is not None and ladder.rung != "skipped":
-        check_id = record_key_check(repository, item=written, result=ladder, trigger="import",
-                                    started_at=started_at, import_id=import_id, content_hash=content_hash,
-                                    clock=clock)
-    elif ladder is None:
+    check_id = _commit_written(repository, import_id, written, content_hash, clock=clock)
+    if ladder is None:
         # The check finishes in the background, against the content it was given.
         with pending.lock:
             pending.item = written
@@ -929,8 +981,142 @@ def _import_source_exercise(
             "elapsed_ms": int(round((time.monotonic() - started) * 1000))}
 
 
+def _commit_written(repository: Repository, import_id: str, item: PracticeItem, content_hash: str, *,
+                    clock: Clock | None) -> str | None:
+    """The written status and, when the ladder finished, its check row: one
+    transaction, so neither exists without the other (F5)."""
+
+    with repository.connection() as connection:
+        row = import_row(connection, import_id) or {}
+        verification = dict(row.get("verification") or {})
+        record = verification.get("ladder_result")
+        update_import(connection, import_id, updated_at=utc_now_iso(clock), status="written",
+                      practice_item_id=item.id, content_hash=content_hash)
+        if not record:
+            return None
+        existing = connection.execute(
+            "SELECT id FROM reference_key_checks WHERE import_id=? AND content_hash=? AND trigger='import'",
+            (import_id, content_hash)).fetchone()
+        if existing is not None:
+            return str(existing[0])
+        return _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=content_hash,
+                               result=_ladder_from_record(record), trigger="import",
+                               started_at=str(record.get("started_at") or utc_now_iso(clock)), clock=clock)
+
+
+def resume_import(root: Path, repository: Repository, import_id: str, *, clients: Mapping[str, Any] | None = None,
+                  clock: Clock | None = None, run_pending: bool = True) -> dict[str, Any]:
+    """Complete what a dead process left of one import, from durable state (F5).
+
+    * The vault write happened but its commit did not (``checking`` with an
+      item that exists): commit ``written`` with the persisted ladder result's
+      check row, in one transaction (no model call).
+    * Written, with a persisted ladder result and no check row: record it.
+    * A pending check another process started (``pending_check``): run the
+      ladder now against the content the import was written with, and commit
+      the check with the import's completion; an item edited since gets no
+      check (``superseded_by_edit``), never one of the new content.
+    """
+
+    vault = load_vault(root)
+    with repository.connection() as connection:
+        row = import_row(connection, import_id)
+    if row is None:
+        return {"action": "unknown_import"}
+    item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+    action = "nothing_to_do"
+    if row["status"] == "checking" and item is not None:
+        _commit_written(repository, import_id, item, row.get("content_hash") or reference_content_hash(item),
+                        clock=clock)
+        action = "committed_write"
+    elif row["status"] == "written" and item is not None and (row.get("verification") or {}).get("ladder_result"):
+        if _commit_written(repository, import_id, item, str(row.get("content_hash") or reference_content_hash(item)),
+                           clock=clock):
+            action = "restored_check"
+    with repository.connection() as connection:
+        row = import_row(connection, import_id) or row
+    pending = (row.get("verification") or {}).get("pending_check")
+    if run_pending and pending and pending.get("process") != PROCESS_TOKEN and row["status"] == "written":
+        action = _resume_pending(root, repository, vault, row, pending, clients=clients, clock=clock)
+        with repository.connection() as connection:
+            row = import_row(connection, import_id) or row
+    return {"action": action, "row": row}
+
+
+def _resume_pending(root: Path, repository: Repository, vault: LoadedVault, row: Mapping[str, Any],
+                    pending: Mapping[str, Any], *, clients: Mapping[str, Any] | None,
+                    clock: Clock | None) -> str:
+    item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+    now = utc_now_iso(clock)
+    if item is None:
+        with repository.connection() as connection:
+            update_import(connection, row["id"], updated_at=now, key_status="model_answer", reason="item_missing",
+                          verification=_without_pending(row["verification"]))
+        return "item_missing"
+    if row.get("content_hash") and reference_content_hash(item) != row["content_hash"]:
+        # The content the check was for no longer exists: nothing is checked,
+        # and the edited content stays unverified until its own check.
+        with repository.connection() as connection:
+            update_import(connection, row["id"], updated_at=now, key_status="model_answer",
+                          reason="superseded_by_edit",
+                          verification=_without_pending(row["verification"], interrupted_check=dict(pending)))
+        return "superseded_by_edit"
+    with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
+                       name="source_service.import_max_cost_usd", clock=clock):
+        result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
+    if result.rung == "skipped":
+        with repository.connection() as connection:
+            update_import(connection, row["id"], updated_at=utc_now_iso(clock), key_status="model_answer",
+                          verification=_without_pending(row["verification"], interrupted_check=dict(pending),
+                                                        resume_skipped=result.skip_reason))
+        return "skipped"
+    with repository.connection() as connection:
+        _complete_check(connection, import_id=row["id"], item_id=item.id, content_hash=str(row["content_hash"]),
+                        result=result, trigger="background", started_at=started_at, clock=clock)
+    return "resumed_check"
+
+
+def pending_import_checks(repository: Repository) -> list[str]:
+    """Imports whose verification a dead process left incomplete (cheap SQL)."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                              "AND name='source_exercise_imports'").fetchone() is None:
+            return []
+        rows = connection.execute(
+            "SELECT id, status, practice_item_id, verification_json FROM source_exercise_imports "
+            "WHERE (status='written' AND (verification_json LIKE '%pending_check%' "
+            "      OR (verification_json LIKE '%ladder_result%' AND NOT EXISTS ("
+            "          SELECT 1 FROM reference_key_checks c WHERE c.import_id = source_exercise_imports.id))))"
+            "   OR (status='checking' AND practice_item_id IS NOT NULL) ORDER BY created_at, id").fetchall()
+    found = []
+    for row in rows:
+        verification = json.loads(row[3] or "{}")
+        pending = verification.get("pending_check")
+        if pending and pending.get("process") == PROCESS_TOKEN:
+            continue  # this process's own check may still be running
+        found.append(str(row[0]))
+    return found
+
+
+def recover_import_checks(root: Path, repository: Repository, *, clients: Mapping[str, Any] | None = None,
+                          clock: Clock | None = None) -> dict[str, Any]:
+    """Startup recovery: resume every import a dead process left incomplete."""
+
+    report: dict[str, Any] = {"imports": 0, "actions": {}}
+    for import_id in pending_import_checks(repository):
+        report["imports"] += 1
+        try:
+            action = resume_import(root, repository, import_id, clients=clients, clock=clock)["action"]
+        except Exception as exc:  # noqa: BLE001 - one import's failure never blocks the rest
+            action = f"failed:{type(exc).__name__}"
+        report["actions"][action] = report["actions"].get(action, 0) + 1
+    return report
+
+
 def verify_item_key(root: Path, repository: Repository, item_id: str, *, trigger: str,
-                    clients: Mapping[str, Any] | None = None, clock: Clock | None = None) -> dict[str, Any]:
+                    clients: Mapping[str, Any] | None = None, clock: Clock | None = None,
+                    import_id: str | None = None) -> dict[str, Any]:
     """Run the ladder over an existing exercise import's CURRENT content (§7.3a).
 
     Used by ``learnloop sources exercises verify``, the edit re-check and the
@@ -943,28 +1129,46 @@ def verify_item_key(root: Path, repository: Repository, item_id: str, *, trigger
     vault = load_vault(root)
     with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
                        name="source_service.import_max_cost_usd", clock=clock):
-        return _verify_item_key(root, repository, vault, item_id, trigger=trigger, clients=clients, clock=clock)
+        return _verify_item_key(root, repository, vault, item_id, trigger=trigger, clients=clients, clock=clock,
+                                import_id=import_id)
 
 
-def _verify_item_key(root: Path, repository: Repository, vault: LoadedVault, item_id: str, *, trigger: str,
-                     clients: Mapping[str, Any] | None, clock: Clock | None) -> dict[str, Any]:
-    item = vault.practice_items[item_id]
-    content_hash = reference_content_hash(item)
+def _ladder_for_item(vault: LoadedVault, repository: Repository, item: PracticeItem, *,
+                     clients: Mapping[str, Any] | None, clock: Clock | None) -> tuple[LadderResult, str]:
     canonical = getattr(item, "canonical_exercise", None)
     solution: dict[str, Any] = {"status": "none", "reason": "no canonical exercise to search"}
     if canonical is not None:
         solution = find_book_solution(vault, repository, extraction_id=canonical.extraction_id,
                                       label=canonical.label or "", statement=item.prompt,
-                                      client=(clients or {}).get("solution_match"), owner_id=item_id)
+                                      client=(clients or {}).get("solution_match"), owner_id=item.id)
     started_at = utc_now_iso(clock)
     expected = item.expected_answer if isinstance(item.expected_answer, str) else json.dumps(item.expected_answer)
-    result = run_key_ladder(vault, repository, subject_id=item_id, stem=item.prompt, reference=expected,
+    result = run_key_ladder(vault, repository, subject_id=item.id, stem=item.prompt, reference=expected,
                             solution=solution, cited_quote=_cited_quote(expected, solution),
                             clients=clients, run_id="sev_" + new_ulid())
+    return result, started_at
+
+
+def _verify_item_key(root: Path, repository: Repository, vault: LoadedVault, item_id: str, *, trigger: str,
+                     clients: Mapping[str, Any] | None, clock: Clock | None,
+                     import_id: str | None = None) -> dict[str, Any]:
+    item = vault.practice_items[item_id]
+    content_hash = reference_content_hash(item)
+    result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
     check_id = None
     if result.rung != "skipped":
-        check_id = record_key_check(repository, item=item, result=result, trigger=trigger, started_at=started_at,
-                                    content_hash=content_hash, clock=clock)
+        # With an import, its completion (the pending marker cleared, the
+        # key's status) commits with the check row (F5).
+        with repository.connection() as connection:
+            check_id = _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=content_hash,
+                                       result=result, trigger=trigger, started_at=started_at, clock=clock)
+    elif import_id:
+        with repository.connection() as connection:
+            current = import_row(connection, import_id)
+            if current is not None and current["verification"].get("pending_check"):
+                update_import(connection, import_id, updated_at=utc_now_iso(clock),
+                              verification=_without_pending(current["verification"],
+                                                            check_skipped=result.skip_reason))
     return {"practice_item_id": item_id, "key_status": result.key_status, "rung": result.rung,
             "check_id": check_id, "skip_reason": result.skip_reason, "content_hash": content_hash}
 
@@ -984,9 +1188,13 @@ def _cited_quote(expected: str, solution: Mapping[str, Any]) -> str:
 
 def record_reader_import(root: Path, repository: Repository, result: Mapping[str, Any], *, extraction_id: str,
                          span_ids: Sequence[str], source_id: str | None, revision_id: str | None,
-                         clock: Clock | None = None) -> list[dict[str, str]]:
+                         clock: Clock | None = None, pending_check: bool = False) -> list[dict[str, str]]:
     """The Reader's import gets a ``source_exercise_imports`` row per written item
-    (``caller = reader``, ``key_status = model_answer``); the item is unchanged (G5)."""
+    (``caller = reader``, ``key_status = model_answer``); the item is unchanged (G5).
+
+    ``pending_check``: a background check will run; the row keeps the durable
+    marker until the check commits, so startup recovery resumes it if the
+    process dies first (F5)."""
 
     rows = []
     vault = load_vault(root)
@@ -1000,6 +1208,9 @@ def record_reader_import(root: Path, repository: Repository, result: Mapping[str
                           revision_id=revision_id, label=summary.get("title") or None,
                           practice_item_id=summary["practice_item_id"], key_status="model_answer",
                           content_hash=reference_content_hash(item) if item is not None else None)
+            if pending_check:
+                update_import(connection, import_id, updated_at=now, verification={"pending_check": {
+                    "trigger": "background", "started_at": now, "process": PROCESS_TOKEN}})
             rows.append({"import_id": import_id, "practice_item_id": summary["practice_item_id"]})
     return rows
 
@@ -1018,8 +1229,11 @@ __all__ = [
     "import_caps",
     "import_source_exercise",
     "plan_import_cost",
+    "pending_import_checks",
     "record_key_check",
     "record_reader_import",
+    "recover_import_checks",
+    "resume_import",
     "run_key_ladder",
     "selection_for_region",
     "solution_regions",
