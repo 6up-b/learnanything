@@ -9,7 +9,7 @@ is cleared and rebuilt only by its replayer.
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
 from typing import Any
@@ -802,7 +802,32 @@ def receipt_time_floor(since: str) -> str:
     return moment.replace(microsecond=0).isoformat(timespec="seconds")
 
 
-# -- the daily cap's shared reservations (migration 191; Codex re-review F2) ----------
+# -- the daily cap's shared reservations (migrations 191-192) ---------------------------------------
+#
+# One accounting function (``service_spend_accounting``) is the daily cap's
+# total for admission, recovery and every report (sources-spend-accounting:
+# Codex F2 reopened, F14). Each request counts exactly once:
+#
+# * a reservation whose owner is alive (its lease unexpired) counts the larger
+#   of its own charge (the estimate, reconciled upward) and what the receipts
+#   naming it show: a worker that dies after its receipt is written but before
+#   it reconciles leaves both, and the receipt is the durable one;
+# * a reconciled (``settled``) reservation counts what its receipts show, its
+#   reconciled cost bounding a receipt whose finish was lost;
+# * an orphan (in flight, its owner's lease run out) is what recovery makes
+#   of it: reconciled with its receipts, or released (nothing) when it has
+#   none, since every request writes its receipt before it is sent;
+# * a released reservation counts what its receipts show (an owner presumed
+#   dead that sent anyway);
+# * a legacy row (written before receipts named reservations, migration 192)
+#   counts its own charge, and the unlinked service receipts that started
+#   during its lifetime are its request's and are not counted again;
+# * a receipt naming no reservation of the envelope (spend before the ledger,
+#   or another path) counts once by its own cost.
+#
+# "What its receipts show": each linked leaf receipt's reported cost (its
+# tokens at the owner's price when it reports none); an unfinished or
+# unpriced one is bounded by the reservation's admitted estimate, never free.
 
 
 SERVICE_SPEND_TABLE = "source_service_spend"
@@ -812,96 +837,410 @@ SERVICE_SPEND_TABLE = "source_service_spend"
 #: request was admitted under (``SpendEnvelope.reservation_ref``).
 RESERVATIONS_KEY = "envelope_reservations"
 
+#: Money comparisons tolerate float summation noise, never a real amount.
+_EPSILON = 1e-12
 
-def service_spend_total(connection: sqlite3.Connection, envelope: str, day: str) -> float:
-    """Dollars reserved or charged under ``envelope`` on ``day`` (every process)."""
-
-    if not table_exists(connection, SERVICE_SPEND_TABLE):
-        return 0.0
-    row = connection.execute(
-        "SELECT COALESCE(SUM(charged_usd), 0) FROM source_service_spend WHERE envelope=? AND day=?",
-        (envelope, day)).fetchone()
-    return float(row[0] or 0.0)
+_LEDGER_COLUMNS = ("id", "day", "reserved_usd", "charged_usd", "state", "legacy", "process", "lease_expires_at",
+                   "resolved_by", "created_at", "updated_at")
 
 
-def service_spend_ids(connection: sqlite3.Connection, envelope: str, day: str) -> frozenset[str]:
-    """The reservations recorded under ``envelope`` on ``day``: a receipt whose
-    request was admitted under one of them is already counted by the ledger."""
+def _moment(value: Any) -> datetime | None:
+    """An ISO stamp (``Z``, an offset, or naive UTC) as an aware UTC datetime; None if unreadable."""
 
-    if not table_exists(connection, SERVICE_SPEND_TABLE):
-        return frozenset()
-    return frozenset(row[0] for row in connection.execute(
-        "SELECT id FROM source_service_spend WHERE envelope=? AND day=?", (envelope, day)))
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        moment = value
+    else:
+        try:
+            moment = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc)
 
 
-def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: str, day: str, usd: float,
-                          cap: float, process: str, now: str, unledgered_usd: float = 0.0) -> tuple[bool, float]:
-    """Admit one request under the shared cap, inside the caller's IMMEDIATE transaction.
+def ledger_stamp(moment: datetime | str) -> str:
+    """The ledger's stamp: UTC to the second with ``Z`` (``utc_now_iso``'s
+    form), so stored leases compare with it as strings."""
 
-    The day's total is the reservations recorded here (in flight: the
-    estimate; settled: the reported cost, else the estimate) PLUS
-    ``unledgered_usd``: the service's receipts that no reservation covers
-    (spend before this table existed, or by a path outside the envelope).
-    A finished request's receipt names its reservation, so it is counted once
-    (Codex third pass F2: the total was ``max(ledger, receipts)``, which
-    admitted two concurrent requests over prior spend). Returns (admitted,
-    total before this request)."""
+    parsed = _moment(moment)
+    if parsed is None:
+        raise ValueError(f"not a timestamp: {moment!r}")
+    return parsed.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-    total = service_spend_total(connection, envelope, day) + max(0.0, float(unledgered_usd or 0.0))
-    if total + float(usd) > float(cap) + 1e-12:
+
+def _metered_cost(cost: Any, tokens: int, rate: float | None) -> float | None:
+    """A metered leaf receipt's dollars: the reported cost (never below its
+    tokens at the owner's rate), else its tokens at that rate; None when it is
+    unknown (unfinished, or no cost and no priced tokens)."""
+
+    if cost is not None:
+        value = float(cost)
+        return max(value, tokens * rate) if rate is not None and tokens else value
+    if rate is not None and tokens:
+        return tokens * rate
+    return None
+
+
+def _estimated_tokens(tokens: int, usage_json: Any) -> int:
+    """A subscription receipt's tokens: reported, else its own estimate."""
+
+    if tokens:
+        return tokens
+    try:
+        estimate = json.loads(usage_json or "{}") or {}
+    except (TypeError, ValueError):
+        estimate = {}
+    return int(estimate.get("estimated_total_tokens") or 0) if isinstance(estimate, dict) else 0
+
+
+def _ledger_rows(connection: sqlite3.Connection, envelope: str, day: str) -> tuple[list[dict[str, Any]], bool]:
+    """The envelope's reservations on ``day``, and whether the table has
+    migration 192's columns (a database read without migrating has not)."""
+
+    present = {row[1] for row in connection.execute(f'PRAGMA table_info("{SERVICE_SPEND_TABLE}")')}
+    select = ", ".join(column if column in present else f"NULL AS {column}" for column in _LEDGER_COLUMNS)
+    rows = [dict(zip(_LEDGER_COLUMNS, tuple(row))) for row in connection.execute(
+        f"SELECT {select} FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND day=? ORDER BY created_at, id",
+        (envelope, day))]
+    return rows, "legacy" in present
+
+
+def _named_reservations(connection: sqlite3.Connection, envelope: str, refs: Collection[str]) -> set[str]:
+    """Which of ``refs`` are reservations of ``envelope`` (on any day)."""
+
+    found: set[str] = set()
+    ordered = sorted(refs)
+    for start in range(0, len(ordered), 500):
+        chunk = ordered[start:start + 500]
+        found.update(row[0] for row in connection.execute(
+            f"SELECT id FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND id IN ({','.join('?' for _ in chunk)})",
+            (envelope, *chunk)))
+    return found
+
+
+def _legacy_windows(connection: sqlite3.Connection, envelope: str, since: datetime) -> list[tuple[datetime, datetime]]:
+    """When each legacy request of ``envelope`` could have started its receipt:
+    from its reservation to the end of the second it settled in."""
+
+    windows = []
+    for created_at, updated_at in connection.execute(
+            f"SELECT created_at, updated_at FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND legacy=1", (envelope,)):
+        start, end = _moment(created_at), _moment(updated_at)
+        if start is None or end is None:
+            continue
+        end = end.replace(microsecond=0) + timedelta(seconds=1)
+        if end > since:
+            windows.append((start.replace(microsecond=0), end))
+    return windows
+
+
+def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, day: str, since: str,
+                             now: datetime | str, price_per_million: float | None = None,
+                             subscription_providers: Collection[str] = (),
+                             owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> dict[str, Any]:
+    """The daily cap's total for ``envelope`` on ``day`` (receipts since ``since``),
+    as of ``now``: the one function admission, recovery and every report read.
+
+    ``usd`` is every reservation of that day counted once (see the rules
+    above) plus the service's receipts that name no reservation of the
+    envelope, counted by their own cost (``owner_kinds``: the service's
+    receipts; a receipt naming a reservation that no longer exists counts
+    too). Subscription receipts are reported as ``estimated_only``, never
+    capped. ``recovery`` lists what recovery would do to each orphan; the
+    total already counts each orphan that way, so a report agrees with the
+    admission that will recover it.
+    """
+
+    stamp = ledger_stamp(now)
+    current = _moment(stamp)
+    floor = receipt_time_floor(since)
+    floor_at = _moment(floor) or current
+    rate = None if price_per_million is None else float(price_per_million) / 1_000_000
+    out: dict[str, Any] = {
+        "envelope": envelope, "day": day, "since": since, "as_of": stamp,
+        "usd": 0.0, "reservations_usd": 0.0, "unlinked_receipts_usd": 0.0,
+        "requests": 0, "requests_reporting_cost": 0,
+        "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0, "linked_requests": 0,
+                    "legacy_covered_requests": 0},
+        "estimated_only": {"requests": 0, "tokens": 0, "usd": 0.0 if rate is not None else None},
+        "reservations": {"rows": 0, "in_flight": 0, "orphaned": 0, "settled": 0, "released": 0, "legacy": 0},
+        "recovery": [],
+    }
+    ledger = table_exists(connection, SERVICE_SPEND_TABLE)
+    rows, upgraded = _ledger_rows(connection, envelope, day) if ledger else ([], True)
+    leaves: list[tuple[Any, ...]] = []
+    if table_exists(connection, "model_call_receipts"):
+        # A receipt starts after its reservation was made: reading from the
+        # earliest of today's reservations finds every receipt naming one.
+        scan_from = min([floor] + [receipt_time_floor(row["created_at"]) for row in rows if row["created_at"]])
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
+        usage = "r.usage_json" if "usage_json" in columns else "NULL"
+        budget = "r.budget_json" if "budget_json" in columns else "NULL"
+        leaves = connection.execute(
+            f"SELECT r.parent_call_id, r.owner_kind, r.provider, r.started_at, r.cost, r.input_tokens, "
+            f"r.output_tokens, {usage}, {budget} FROM model_call_receipts r WHERE r.started_at >= ? AND NOT EXISTS "
+            "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)", (scan_from,)).fetchall()
+    cache: dict[str, str | None] = {}
+    parsed = []
+    refs_seen: set[str] = set()
+    for parent_id, owner_kind, provider, started_at, cost, input_tokens, output_tokens, usage_json, budget_json in leaves:
+        declared = _root_budget(connection, parent_id, budget_json, cache)
+        refs = [str(ref) for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)]
+        refs_seen.update(refs)
+        parsed.append((declared, refs, owner_kind, provider, started_at, cost,
+                       int(input_tokens or 0) + int(output_tokens or 0), usage_json))
+    named = _named_reservations(connection, envelope, refs_seen) if ledger and refs_seen else set()
+    linked: dict[str, dict[str, float]] = {row["id"]: {"priced": 0.0, "unknown": 0, "receipts": 0} for row in rows}
+    if upgraded:
+        windows = _legacy_windows(connection, envelope, floor_at) if ledger else []
+    else:  # migration 192's rule, read without migrating: a row no receipt names is legacy
+        windows = []
+        for row in rows:
+            row["legacy"] = 0 if row["id"] in named else 1
+            start, end = _moment(row["created_at"]), _moment(row["updated_at"])
+            if row["legacy"] and start is not None and end is not None:
+                windows.append((start.replace(microsecond=0), end.replace(microsecond=0) + timedelta(seconds=1)))
+    for declared, refs, owner_kind, provider, started_at, cost, tokens, usage_json in parsed:
+        started = _moment(started_at)
+        in_window = started is not None and started >= floor_at
+        service = bool(refs) or owner_kinds is None or owner_kind in owner_kinds
+        if _receipt_billing(declared, provider, subscription_providers) == "subscription":
+            if service and in_window:
+                used = _estimated_tokens(tokens, usage_json)
+                out["requests"] += 1
+                out["estimated_only"]["requests"] += 1
+                out["estimated_only"]["tokens"] += used
+                if rate is not None:
+                    out["estimated_only"]["usd"] += used * rate
+            continue
+        value = _metered_cost(cost, tokens, rate)
+        owner = next((ref for ref in refs if ref in named), None)
+        if owner is not None:
+            # Its reservation counts it, on the reservation's own day.
+            if owner in linked:
+                linked[owner]["receipts"] += 1
+                if value is None:
+                    linked[owner]["unknown"] += 1
+                else:
+                    linked[owner]["priced"] += value
+                out["requests"] += 1
+                out["metered"]["linked_requests"] += 1
+                out["requests_reporting_cost"] += int(cost is not None)
+            continue
+        if not service or not in_window:
+            continue
+        if not refs and any(start <= started < end for start, end in windows):
+            out["metered"]["legacy_covered_requests"] += 1  # its legacy row counts it
+            continue
+        out["requests"] += 1
+        out["metered"]["requests"] += 1
+        out["requests_reporting_cost"] += int(cost is not None)
+        if value is None:
+            out["metered"]["unpriced_requests"] += 1
+        else:
+            out["metered"]["usd"] += value
+    reserved_total = 0.0
+    for row in rows:
+        view = linked[row["id"]]
+        charged = float(row["charged_usd"] or 0.0)
+        reserved = float(row["reserved_usd"] or 0.0)
+        priced = float(view["priced"])
+        shown = max(priced, reserved) if view["unknown"] else priced  # what its receipts show
+        if row["legacy"]:
+            kind, cost = "legacy", max(charged, priced)
+        elif row["state"] == "in_flight":
+            lease = _moment(row["lease_expires_at"])
+            if lease is not None and lease > current:
+                kind, cost = "in_flight", max(charged, priced)
+            else:  # an orphan: its owner is terminal
+                kind = "orphaned"
+                # An upward charge is the owner's own reconciled cost: durable too.
+                upward = charged if charged > reserved + _EPSILON else 0.0
+                action, cost = ("reconcile", max(shown, upward)) if view["receipts"] else ("release", 0.0)
+                out["recovery"].append({"id": row["id"], "action": action, "charged_usd": cost})
+        elif row["state"] == "settled":
+            kind, cost = "settled", max(charged, priced)
+        else:
+            kind, cost = "released", shown
+        out["reservations"]["rows"] += 1
+        out["reservations"][kind] += 1
+        reserved_total += cost
+    out["reservations_usd"] = reserved_total
+    out["unlinked_receipts_usd"] = out["metered"]["usd"]
+    out["usd"] = reserved_total + out["metered"]["usd"]
+    return out
+
+
+def recover_service_spend(connection: sqlite3.Connection, accounting: Mapping[str, Any], *,
+                          now: datetime | str) -> dict[str, int]:
+    """Write what ``service_spend_accounting`` found for each orphan, inside the
+    caller's BEGIN IMMEDIATE transaction (the one that computed it, so no
+    receipt was written between): reconcile it with its receipts, or release
+    one with none. Each write is compare-and-set on a still-expired lease, so
+    a renewal or the owner's own settlement wins."""
+
+    stamp = ledger_stamp(now)
+    expired = "state='in_flight' AND legacy=0 AND (lease_expires_at IS NULL OR lease_expires_at <= ?)"
+    done = {"reconciled": 0, "released": 0}
+    for entry in accounting.get("recovery") or ():
+        if entry["action"] == "reconcile":
+            cursor = connection.execute(
+                f"UPDATE {SERVICE_SPEND_TABLE} SET state='settled', charged_usd=?, resolved_by='recovery', "
+                f"lease_expires_at=NULL, updated_at=? WHERE id=? AND {expired}",
+                (max(0.0, float(entry["charged_usd"])), stamp, entry["id"], stamp))
+            done["reconciled"] += max(0, cursor.rowcount)
+        else:
+            cursor = connection.execute(
+                f"UPDATE {SERVICE_SPEND_TABLE} SET state='released', charged_usd=0, resolved_by='recovery', "
+                f"lease_expires_at=NULL, updated_at=? WHERE id=? AND {expired}",
+                (stamp, entry["id"], stamp))
+            done["released"] += max(0, cursor.rowcount)
+    return done
+
+
+def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: str, day: str, since: str,
+                          usd: float, cap: float, process: str, now: datetime | str, lease_seconds: float,
+                          price_per_million: float | None = None, subscription_providers: Collection[str] = (),
+                          owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> tuple[bool, float]:
+    """Admit one request under the shared cap, inside the caller's BEGIN IMMEDIATE transaction.
+
+    The day's total is ``service_spend_accounting``'s; orphans are recovered
+    in the same transaction, and the request is admitted only when the total
+    plus its estimate fits the cap. The reservation's lease runs
+    ``lease_seconds`` (its owner renews it while it lives). Returns
+    (admitted, the total before this request)."""
+
+    accounting = service_spend_accounting(
+        connection, envelope=envelope, day=day, since=since, now=now, price_per_million=price_per_million,
+        subscription_providers=subscription_providers, owner_kinds=owner_kinds)
+    recover_service_spend(connection, accounting, now=now)
+    total = float(accounting["usd"])
+    if total + float(usd) > float(cap) + _EPSILON:
         return False, total
+    stamp = ledger_stamp(now)
+    lease = ledger_stamp(_moment(stamp) + timedelta(seconds=float(lease_seconds)))
     connection.execute(
-        "INSERT INTO source_service_spend (id, envelope, day, reserved_usd, charged_usd, state, process, "
-        "created_at, updated_at) VALUES (?,?,?,?,?,'in_flight',?,?,?)",
-        (id, envelope, day, float(usd), float(usd), process, now, now))
+        f"INSERT INTO {SERVICE_SPEND_TABLE} (id, envelope, day, reserved_usd, charged_usd, state, legacy, process, "
+        "lease_expires_at, resolved_by, created_at, updated_at) VALUES (?,?,?,?,?,'in_flight',0,?,?,NULL,?,?)",
+        (id, envelope, day, float(usd), float(usd), process, lease, stamp, stamp))
     return True, total
 
 
-def charge_service_spend(connection: sqlite3.Connection, id: str, usd: float, now: str) -> None:
-    """Reconcile a reservation upward (usage above the estimate); never a refund."""
+def renew_service_spend_leases(connection: sqlite3.Connection, ids: Collection[str], *, process: str,
+                               until: datetime | str) -> int:
+    """The owner's heartbeat: extend its in-flight reservations' leases. A
+    reservation recovery has resolved stays resolved."""
+
+    stamp = ledger_stamp(until)
+    renewed = 0
+    ordered = sorted(ids)
+    for start in range(0, len(ordered), 500):
+        chunk = ordered[start:start + 500]
+        cursor = connection.execute(
+            f"UPDATE {SERVICE_SPEND_TABLE} SET lease_expires_at=? WHERE process=? AND state='in_flight' "
+            f"AND id IN ({','.join('?' for _ in chunk)})", (stamp, process, *chunk))
+        renewed += max(0, cursor.rowcount)
+    return renewed
+
+
+def _owned(process: str | None) -> tuple[str, tuple[str, ...]]:
+    return (" AND process=?", (process,)) if process is not None else ("", ())
+
+
+def charge_service_spend(connection: sqlite3.Connection, id: str, usd: float, now: datetime | str, *,
+                         process: str | None = None) -> None:
+    """Reconcile an in-flight reservation upward (usage above the estimate); never a refund."""
 
     if usd > 0:
-        connection.execute("UPDATE source_service_spend SET charged_usd = charged_usd + ?, updated_at=? WHERE id=?",
-                           (float(usd), now, id))
+        owned, params = _owned(process)
+        connection.execute(
+            f"UPDATE {SERVICE_SPEND_TABLE} SET charged_usd = charged_usd + ?, updated_at=? "
+            f"WHERE id=? AND state='in_flight'{owned}", (float(usd), ledger_stamp(now), id, *params))
 
 
-def settle_service_spend(connection: sqlite3.Connection, id: str, now: str, actual_usd: float | None = None) -> None:
-    """The request finished: it counts its reported cost from now on, else its reservation."""
+def settle_service_spend(connection: sqlite3.Connection, id: str, now: datetime | str,
+                         actual_usd: float | None = None, *, process: str | None = None) -> None:
+    """The owner's reconciliation: the request finished and counts its
+    reported cost from now on, else its charge (at least its estimate).
 
+    A reported cost applies to a reservation recovery already resolved too
+    (an owner presumed dead that was only stalled): what the owner paid is
+    the truth. Without one, a resolved reservation keeps recovery's
+    resolution: its receipts already bound it, and a released one whose
+    request was fenced out (``ReservationReleased``) was never sent."""
+
+    owned, params = _owned(process)
+    stamp = ledger_stamp(now)
     if actual_usd is None:
-        connection.execute("UPDATE source_service_spend SET state='settled', updated_at=? WHERE id=?", (now, id))
+        connection.execute(
+            f"UPDATE {SERVICE_SPEND_TABLE} SET state='settled', resolved_by='owner', lease_expires_at=NULL, "
+            f"charged_usd=MAX(charged_usd, reserved_usd), updated_at=? WHERE id=? AND legacy=0 "
+            f"AND state='in_flight'{owned}", (stamp, id, *params))
     else:
-        connection.execute("UPDATE source_service_spend SET state='settled', charged_usd=?, updated_at=? WHERE id=?",
-                           (max(0.0, float(actual_usd)), now, id))
+        connection.execute(
+            f"UPDATE {SERVICE_SPEND_TABLE} SET state='settled', resolved_by='owner', lease_expires_at=NULL, "
+            f"charged_usd=?, updated_at=? WHERE id=? AND legacy=0{owned}",
+            (max(0.0, float(actual_usd)), stamp, id, *params))
 
 
-def release_service_spend(connection: sqlite3.Connection, id: str) -> None:
+class ReservationReleased(RuntimeError):
+    """A request's shared reservation was released by recovery (its owner was
+    presumed terminal): its receipt cannot start, so the request is never sent.
+
+    The fence for recovery's release: the receipt's start and this check
+    commit in one transaction, and recovery releases only a reservation no
+    receipt names, so either the receipt started first (and recovery
+    reconciles instead) or the release did (and the request is refused)."""
+
+    #: A spend refusal raised below the AI layer, which ``SpendBudget.request``
+    #: re-raises as ``SpendLimitExceeded`` (this layer cannot import it).
+    spend_refused = True
+
+
+def released_reservations(connection: sqlite3.Connection, budget_json: Any) -> list[str]:
+    """The reservations a root receipt's declared budget names that recovery released."""
+
+    try:
+        declared = json.loads(budget_json or "{}") or {}
+    except (TypeError, ValueError):
+        return []
+    refs = [str(ref) for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)] \
+        if isinstance(declared, dict) else []
+    if not refs or not column_exists(connection, SERVICE_SPEND_TABLE, "resolved_by"):
+        return []
+    return [row[0] for row in connection.execute(
+        f"SELECT id FROM {SERVICE_SPEND_TABLE} WHERE state='released' AND id IN ({','.join('?' for _ in refs)})",
+        refs)]
+
+
+def release_service_spend(connection: sqlite3.Connection, id: str, *, process: str | None = None) -> None:
     """Remove a reservation whose request was never sent (another cap refused it)."""
 
-    connection.execute("DELETE FROM source_service_spend WHERE id=? AND state='in_flight'", (id,))
+    owned, params = _owned(process)
+    connection.execute(f"DELETE FROM {SERVICE_SPEND_TABLE} WHERE id=? AND state='in_flight'{owned}", (id, *params))
 
 
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                 price_per_million: float | None = None,
-                subscription_providers: Collection[str] = (),
-                ledgered: Collection[str] = ()) -> dict[str, Any]:
-    """Spend of physical requests (leaf receipts) since ``since``.
+                subscription_providers: Collection[str] = ()) -> dict[str, Any]:
+    """Spend of physical requests (leaf receipts) since ``since``, by their receipts alone.
 
-    ``usd`` is METERED dollars, the basis of every money cap: the provider's
-    reported cost, else reported tokens at ``price_per_million`` (the owner's
-    single upper-bound rate); a metered request with neither is counted in
-    ``metered.unpriced_requests``. Subscription (Codex, ChatGPT plan) requests
-    have no marginal cost: their tokens (reported, else the receipt's own
-    estimate) and owner-priced dollars are reported as ``estimated_only``,
-    never capped. ``owner_kinds`` None counts every receipt. A metered request
-    admitted under one of the ``ledgered`` reservations (its root budget's
-    ``envelope_reservations``) is left out of ``usd`` and counted in
-    ``metered.ledgered_requests``: the ledger already counts its dollars.
+    ``usd`` is METERED dollars: the provider's reported cost, else reported
+    tokens at ``price_per_million`` (the owner's single upper-bound rate); a
+    metered request with neither is counted in ``metered.unpriced_requests``.
+    Subscription (Codex, ChatGPT plan) requests have no marginal cost: their
+    tokens (reported, else the receipt's own estimate) and owner-priced
+    dollars are reported as ``estimated_only``, never capped. ``owner_kinds``
+    None counts every receipt. A batch's report reads this; the daily cap
+    reads ``service_spend_accounting``, which adds its reservations.
     """
 
     empty = {"usd": 0.0, "requests": 0, "requests_reporting_cost": 0,
-             "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0, "ledgered_requests": 0},
+             "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0},
              "estimated_only": {"requests": 0, "tokens": 0, "usd": 0.0 if price_per_million is not None else None}}
     if not table_exists(connection, "model_call_receipts"):
         return empty
@@ -919,35 +1258,22 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
     out = json.loads(json.dumps(empty))
     cache: dict[str, str | None] = {}
     rate = None if price_per_million is None else float(price_per_million) / 1_000_000
-    for receipt_id, parent_id, provider, cost, input_tokens, output_tokens, usage_json, budget_json in \
+    for _receipt_id, parent_id, provider, cost, input_tokens, output_tokens, usage_json, budget_json in \
             connection.execute(sql, params).fetchall():
         out["requests"] += 1
         tokens = int(input_tokens or 0) + int(output_tokens or 0)
         declared = _root_budget(connection, parent_id, budget_json, cache)
-        billing = _receipt_billing(declared, provider, subscription_providers)
-        if billing == "subscription":
+        if _receipt_billing(declared, provider, subscription_providers) == "subscription":
+            used = _estimated_tokens(tokens, usage_json)
             out["estimated_only"]["requests"] += 1
-            try:
-                estimate = json.loads(usage_json or "{}") or {}
-            except (TypeError, ValueError):
-                estimate = {}
-            used = tokens or int(estimate.get("estimated_total_tokens") or 0)
             out["estimated_only"]["tokens"] += used
             if out["estimated_only"]["usd"] is not None:
                 out["estimated_only"]["usd"] += used * rate if rate is not None else 0.0
             continue
         out["metered"]["requests"] += 1
-        if ledgered and any(ref in ledgered for ref in (declared.get(RESERVATIONS_KEY) or ())):
-            out["metered"]["ledgered_requests"] += 1
-            continue
-        if cost is not None:
-            out["requests_reporting_cost"] += 1
-            value = float(cost)
-            if rate is not None and tokens:
-                value = max(value, tokens * rate)
-        elif rate is not None and tokens:
-            value = tokens * rate
-        else:
+        out["requests_reporting_cost"] += int(cost is not None)
+        value = _metered_cost(cost, tokens, rate)
+        if value is None:
             out["metered"]["unpriced_requests"] += 1
             value = 0.0
         out["metered"]["usd"] += value
@@ -962,11 +1288,15 @@ __all__ = [
     "SERVICE_OWNER_KINDS",
     "SERVICE_SPEND_TABLE",
     "RESERVATIONS_KEY",
+    "ReservationReleased",
     "charge_service_spend",
+    "ledger_stamp",
+    "recover_service_spend",
     "release_service_spend",
+    "released_reservations",
+    "renew_service_spend_leases",
     "reserve_service_spend",
-    "service_spend_ids",
-    "service_spend_total",
+    "service_spend_accounting",
     "settle_service_spend",
     "spend_since",
     "receipt_time_floor",

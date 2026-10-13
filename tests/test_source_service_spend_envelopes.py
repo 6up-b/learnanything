@@ -352,7 +352,8 @@ def test_a_settled_request_is_counted_once_not_by_its_receipt_and_its_reservatio
         charge.reconcile(estimated_usd=0.15)
     spent = SS.service_spend_today(loaded(paths), repository)
     assert spent["usd"] == pytest.approx(0.95), spent
-    assert spent["metered"]["ledgered_requests"] == 1 and spent["reserved_usd"] == pytest.approx(0.15)
+    assert spent["metered"]["linked_requests"] == 1 and spent["reservations_usd"] == pytest.approx(0.15)
+    assert spent["unlinked_receipts_usd"] == pytest.approx(0.80)
     from learnloop.ai import spend
     from learnloop.db.stores import source_service
     assert spend.RESERVATIONS_KEY == source_service.RESERVATIONS_KEY

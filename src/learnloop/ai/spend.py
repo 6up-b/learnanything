@@ -232,6 +232,12 @@ class SpendBudget:
         try:
             with declared_budgets(declared):
                 yield charge
+        except Exception as exc:
+            # A refusal raised below this layer (a released reservation's
+            # fence at the receipt's start) is a refusal like any other.
+            if getattr(exc, "spend_refused", False) and not isinstance(exc, SpendLimitExceeded):
+                raise SpendLimitExceeded(str(exc)) from exc
+            raise
         finally:
             for envelope, handle in reserved:
                 envelope.settle(handle, actual=charge.actual_usd)

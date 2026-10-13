@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-191. Migration 167 adds the learner-field F1 read model
+192. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -40,7 +40,7 @@ daily-loop DL1's finite plan (`daily_plans`, WORKFLOW, and the
 `idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge)
 and rebuilds the learner field's DERIVED `facet_outcome_observations` (same
 columns, key and index) so its `serving_origin` CHECK also accepts
-`daily_plan` (owner decision 2026-10-12). Migrations 184-191 add the
+`daily_plan` (owner decision 2026-10-12). Migrations 184-192 add the
 canonical-sources service (spec_source_practice_and_probes_v1; numbered from
 184 and expected to be renumbered at merge): 184 the proposal callers
 (`practice_index_proposals.caller`, `caller_ref`, `intent`) and the append-only
@@ -52,11 +52,13 @@ and `provisional_json`; 188 `source_exercise_imports.need_id`; 189 the
 append-only tool receipts `source_tool_calls` (RECEIPT); 190 the append-only
 `retrieval_interventions` (RAW_LEDGER) and their DERIVED outcome join
 `retrieval_intervention_outcomes` (one replayer); 191 the daily cap's shared
-reservations `source_service_spend` (WORKFLOW).
+reservations `source_service_spend` (WORKFLOW); 192 rebuilds it for the
+spend accounting (`legacy`, `lease_expires_at`, `resolved_by`, the `released`
+state) and indexes `model_call_receipts` by `started_at` and `parent_call_id`.
 Built as a backup-API copy of `migration_head_180` with only 184-190 applied,
-then renamed from `migration_head_190` with 191 applied in place
-(checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
-clean). It pins
+then renamed from `migration_head_190` with 191 applied in place, and from
+`migration_head_191` with 192 applied in place (each checkpointed, rollback
+journal, `integrity_check` ok, `foreign_key_check` clean). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

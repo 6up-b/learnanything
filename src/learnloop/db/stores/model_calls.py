@@ -8,6 +8,7 @@ from contextlib import closing
 
 from learnloop.db.connection import connect
 from learnloop.db.scopes import allow_late_model_records
+from learnloop.db.stores.source_service import ReservationReleased, released_reservations
 
 #: Optional receipt labels (``learnloop.ai.execution.call_labels``).
 LABEL_FIELDS = ("judge", "question_set_version", "state_hash")
@@ -38,6 +39,16 @@ class ModelCallStoreMixin:
                     f"INSERT INTO model_call_receipts ({','.join(fields)},owner_kind,owner_id,status) VALUES ({','.join('?' for _ in fields)},?,?,'started')",
                     (*(event.get(field) for field in fields), owner_kind, owner_id),
                 )
+                # Fenced by the daily cap's recovery (sources spend accounting):
+                # a root receipt naming a reservation recovery released does
+                # not start, so its request is never sent. Checked after the
+                # insert, in its transaction, so the release cannot interleave.
+                if event.get("parent_call_id") is None and event.get("budget_json"):
+                    released = released_reservations(connection, event.get("budget_json"))
+                    if released:
+                        raise ReservationReleased(
+                            f"reservation {', '.join(released)} was released by recovery (its owner was presumed "
+                            "terminal): the request is not sent")
             else:
                 raise ValueError(f"Unknown model receipt action: {action}")
 
