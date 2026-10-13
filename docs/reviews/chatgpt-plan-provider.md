@@ -173,7 +173,10 @@ sets `file`.
 **Session.** `access_token()` refreshes 5 minutes before expiry under
 `refresh.lock` (an `fcntl` lock across processes plus a thread lock), re-reading
 the store first, so concurrent callers send one refresh (tested with four
-threads). Access token, expiry, scopes and refresh token are replaced together.
+threads). Access token, expiry, scopes and refresh token are committed as one
+numbered generation (the token snapshot with its grant first, then
+`account.json`), and sign-in, refresh and sign-out all commit under the same
+lock (see `chatgpt-plan-provider-codex-review.md`, F1 and F6).
 `invalid_grant`, `invalid_refresh_token`, `token_expired`,
 `refresh_token_expired`, `refresh_token_invalidated` and `refresh_token_reused`
 clear the tokens, keep the registration and raise "sign in again";
@@ -228,7 +231,8 @@ never fall back, by design, because their checkpoints key on the model; T6's
 rewrite and verification therefore report "unavailable" and the tutor answers
 without them. The pause ends by itself after `usage_limit_pause_minutes`, on
 `learnloop ai resume chatgpt` / the desktop's "try again now", or on a new
-sign-in; the first completed response after it clears the stale record.
+sign-in; the first completed response sent after the pause expired clears
+that record (only that one: a newer pause stays).
 
 **Billing.** `chatgpt_plan` joins the subscription types in `ai/spend.py` and
 in the four local copies (`practice_index/paid.py`,
