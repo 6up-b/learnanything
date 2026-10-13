@@ -312,3 +312,82 @@ def test_presentation_order_applies_dominance_inside_the_valued_group():
         "bounded": [{"ref": "b"}], "unvalued": [{"ref": "u"}]}}]}
     eligibility = {"labelled": {"label": "you read a worked example like this one", "eligible": True}}
     assert presentation_order(receipt, eligibility) == ["c", "plain", "labelled", "b", "u"]
+
+
+# -- Codex sources-build review F7, F8 ---------------------------------------------------------
+
+
+def test_final_assembly_never_restores_a_hard_exclusion():
+    """F7: the learner-initiated tail appended every relevant candidate in
+    relevance order, putting an exposure-rejected one back into the result."""
+
+    from learnloop.practice_index.retrieval import _valued_order
+
+    valuation = {"problems": [], "order": [], "excluded": {"exposed": ["seen_in_proposal"]},
+                 "eligibility": {"exposed": {"eligible": False, "reasons": ["seen_in_proposal"]}}}
+    assert _valued_order(valuation, ["exposed", "fresh"]) == ["fresh"]
+    # Eligibility alone (an older receipt shape) is enforced too.
+    assert _valued_order({"problems": [], "eligibility": valuation["eligibility"]}, ["exposed"]) == []
+
+
+@pytest.mark.parametrize("intent", ["discriminate", "retention"])
+def test_an_exposed_item_is_not_proposed_for_a_value_intent(textbook, intent):
+    from learnloop.instructional.practice import record_proposal_impressions
+
+    paths, repository, _spans, misconception = textbook
+    vault = loaded(paths)
+    llm = FakeServiceLLM()
+    earlier = find_practice(vault, repository, "determinant rows swapped", {}, rerank_client=llm,
+                            caller={"kind": "tutor", "ref": "q"})
+    shown = earlier["items"][0]["practice_item_id"]
+    record_proposal_impressions(vault, repository, proposal_id=earlier["proposal_id"], surface="tutor_strip",
+                                keys=[{"practice_item_id": shown}])
+    result = find_practice(loaded(paths), repository, "determinant rows swapped sign", {
+        "intent": intent, "learning_object_ids": ["lo_matrices"],
+        "target_hypotheses": [{"kind": "misconception", "id": misconception}] if intent == "discriminate" else []},
+        exercise_arm=exercise_candidates, valuer=_valuer(llm), rerank_client=llm,
+        caller={"kind": "tutor", "ref": "q2"})
+    assert result["valuation"]["eligibility"][shown]["eligible"] is False
+    assert shown in result["valuation"]["excluded"]
+    assert shown not in {item["practice_item_id"] for item in result["items"]}
+
+
+@pytest.mark.parametrize("status", ["model_answer", "disputed", "changed_since_check"])
+def test_an_unverified_import_is_excluded_from_value_intents_but_not_practice(textbook, status):
+    """F8 (G6): only verified keys qualify for the value intents; the item stays
+    available for ordinary practice, with its honest label."""
+
+    from learnloop.content.authoring.source_exercise_import import import_source_exercise
+    from learnloop.db.stores.source_service import effective_key_status, insert_key_check
+    from learnloop.ids import new_ulid
+    from learnloop.db.stores.source_service import reference_content_hash
+
+    paths, repository, spans, misconception = textbook
+    llm = FakeServiceLLM()
+    from tests.source_service_fakes import service_clients, set_item_answer
+
+    outcome = import_source_exercise(paths.root, repository, extraction_id="ext_text",
+                                     span_ids=[spans["exercises"][3]], caller="learner",
+                                     clients=service_clients(llm))
+    item_id = outcome["practice_item_id"]
+    item = loaded(paths).practice_items[item_id]
+    if status == "changed_since_check":
+        set_item_answer(paths, item_id, "an edited key nobody has checked")
+        item = loaded(paths).practice_items[item_id]
+    with repository.connection() as connection:
+        if status != "changed_since_check":
+            insert_key_check(connection, id="rkc_" + new_ulid(), practice_item_id=item_id,
+                             import_id=outcome["import_id"], content_hash=reference_content_hash(item),
+                             key_status=status, rung="test", verification={}, ledger_ids=[], trigger="verify",
+                             started_at="2099-01-01T00:00:00Z", created_at="2099-01-01T00:00:00Z")
+            connection.commit()
+        assert effective_key_status(connection, item) == status
+    valuer = _valuer(llm)
+    receipt = valuer(loaded(paths), repository, PracticeConstraints(
+        intent="discriminate", learning_object_ids=("lo_matrices",),
+        target_hypotheses=({"kind": "misconception", "id": misconception},)), items=[item_id], exercises=[])
+    assert receipt["eligibility"][item_id]["eligible"] is False
+    assert receipt["eligibility"][item_id]["key_status"] == status
+    assert "unverified_key" in receipt["excluded"][item_id]
+    practice = find_practice(loaded(paths), repository, "eigenvalues diagonal matrix", {}, rerank_client=llm)
+    assert practice["admission"]["excluded"].get("unverified_key") is None

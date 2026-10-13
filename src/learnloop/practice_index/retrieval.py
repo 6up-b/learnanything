@@ -1393,18 +1393,22 @@ def _valued_order(valuation: Mapping[str, Any], relevant: Sequence[str]) -> list
     valuer's presentation order, then the rest of the relevant candidates in
     relevance order: learner-initiated results list every group; nothing falls
     back to an entropy order."""
+    # Hard exclusions (the exposure rule, an unverified key) are not
+    # "unvalued": no group, and no tail, ever restores them (F7).
+    excluded = set(valuation.get("excluded") or ()) | {
+        ref for ref, verdict in (valuation.get("eligibility") or {}).items() if verdict.get("eligible") is False}
     ordered: list[str] = []
     for section in valuation.get("problems") or ():
         for check in section.get("checks") or ():
-            if check["ref"] not in ordered:
+            if check["ref"] not in ordered and check["ref"] not in excluded:
                 ordered.append(check["ref"])
     if valuation.get("system_initiated"):
         return ordered
     # The valuer's presentation order (valued in value order under the
     # dominance rule, then bounded, then unvalued), restricted to the relevant.
-    relevant_set = set(relevant)
+    relevant_set = set(relevant) - excluded
     ordered += [key for key in valuation.get("order") or () if key in relevant_set and key not in ordered]
-    return ordered + [key for key in relevant if key not in ordered]
+    return ordered + [key for key in relevant if key in relevant_set and key not in ordered]
 
 
 def _remediation_corpus(vault: LoadedVault, repository: Repository, constraints: PracticeConstraints,

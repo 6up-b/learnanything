@@ -13,9 +13,12 @@ spec's §6.5 translates it.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import closing
 from typing import Any
 
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_service import VERIFIED_STATUSES, effective_key_status, exercise_import_ids
 from learnloop.instructional.exposure import apply_dominance, independent_check_eligibility
 from learnloop.instructional.screen import screen_exercises
 from learnloop.instructional.valuation import (
@@ -70,9 +73,19 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
     kept_items, kept_exercises = list(items), list(exercises)
     if intent in ("discriminate", "retention"):
         kept_items, kept_exercises = [], []
+        key_status = _key_statuses(vault, repository, items)
         for item_id in items:
             verdict = independent_check_eligibility(vault, repository, {"practice_item_id": item_id},
                                                     intent=intent, judge_client=judge_client)
+            status = key_status.get(item_id, "not_applicable")
+            if status != "not_applicable":
+                verdict["key_status"] = status
+                if status not in VERIFIED_STATUSES:
+                    # G6: only a verified key, bound to the item's current
+                    # content, qualifies for the value intents; ordinary
+                    # practice keeps it, labelled.
+                    verdict["reasons"] = [*verdict["reasons"], "unverified_key"]
+                    verdict["eligible"] = False
             eligibility[item_id] = verdict
             if verdict["eligible"]:
                 kept_items.append(item_id)
@@ -111,6 +124,10 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                                unavailable=unavailable)
     receipt["intent"] = intent
     receipt["eligibility"] = eligibility
+    # Hard exclusions, kept apart from the unvalued: final assembly never
+    # restores them, on either arm (F7).
+    receipt["excluded"] = {ref: list(verdict["reasons"]) for ref, verdict in eligibility.items()
+                           if not verdict["eligible"]}
     receipt["order"] = presentation_order(receipt, eligibility)
     receipt["screens"] = screens
     receipt["translation"] = {section["problem"]["key"]: TRANSLATION.get(section.get("verdict"), section.get("reason"))
@@ -118,6 +135,17 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
     if not problems:
         receipt["verdict"] = "no_open_hypotheses"
     return receipt
+
+
+def _key_statuses(vault: LoadedVault, repository: Repository, item_ids: Sequence[str]) -> dict[str, str]:
+    """Each imported item's effective key status for its CURRENT content (§7.3a)."""
+
+    items = [vault.practice_items[item_id] for item_id in item_ids if item_id in vault.practice_items]
+    if not items:
+        return {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        imports = exercise_import_ids(connection, items)
+        return {item.id: effective_key_status(connection, item) for item in items if item.id in imports}
 
 
 def presentation_order(receipt: Mapping[str, Any], eligibility: Mapping[str, Mapping[str, Any]]) -> list[str]:
