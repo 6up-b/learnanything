@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 
 import pytest
 
@@ -473,3 +474,39 @@ def test_a_pick_with_an_unjudged_worked_example_is_served_as_labelled_practice(t
     assert selection["served_as"] == "practice"
     assert "worked_example_unjudged" in verdict["reasons"]
     assert selection["label"] != "you've seen this question since it was suggested"
+
+
+class _MeteredLLM(FakeServiceLLM):
+    provider_type = "openai"
+
+
+@pytest.mark.parametrize("refusal", ["over_budget", "failed"])
+def test_a_refused_rerank_leaves_its_page_pending_and_a_resume_judges_it(textbook, refusal):
+    """Codex re-review F6: a rerank refused before any judgment (its budget, or
+    a failed call) marked its whole pool judged, so resuming skipped those
+    candidates for good. Only persisted judgments advance the cursor."""
+
+    paths, repository, _spans, _m = textbook
+    vault = loaded(paths)
+    vault.config.practice_index.candidate_pool = 3
+    if refusal == "over_budget":
+        vault.config.practice_index.rerank_price_per_million = 1.0
+        vault.config.practice_index.rerank_max_cost_usd = 0.0
+        refused_client = _MeteredLLM()
+    else:
+        refused_client = FakeServiceLLM(fail_purposes={"PracticeRerank"})
+    query = "matrix determinant eigen vector"
+    first = find_practice(vault, repository, query, {"limit": 2}, rerank_client=refused_client)
+    assert first["rerank_status"].startswith(refusal), first["rerank_status"]
+    paging = first["paging"]
+    assert paging["outcome"] in ("budget", "judge_unavailable") and paging["cursor"]
+    # Nothing was judged, so nothing is skipped on resume.
+    assert paging["cursor"]["judged_items"] == [] and paging["cursor"]["judged_exercises"] == []
+    vault.config.practice_index.rerank_max_cost_usd = 1.0
+    second = find_practice(vault, repository, query, {"limit": 2}, rerank_client=FakeServiceLLM(),
+                           cursor=paging["cursor"])
+    assert second["rerank_status"] == "reranked"
+    with repository.connection() as connection:
+        pools = [json.loads(row[0])["pool"] for row in connection.execute(
+            "SELECT exclusions_json FROM practice_index_proposals ORDER BY created_at, id")]
+    assert pools[-1] == pools[0] and pools[0] > 0  # the refused page is judged on resume

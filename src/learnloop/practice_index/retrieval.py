@@ -1441,16 +1441,32 @@ def _paging(constraints: PracticeConstraints, *, corpus: Sequence[str], ranked: 
             exercise_pool: Any, exercises: Sequence[Mapping[str, Any]], valuation: Mapping[str, Any] | None,
             outcome: RerankOutcome, cursor: Mapping[str, Any] | None, estimator: Any | None,
             vault: LoadedVault) -> dict[str, Any]:
-    """Why paging stopped, and the cursor that resumes it (§8.3.4)."""
-    judged_items = sorted(set((cursor or {}).get("judged_items") or ()) | set(pool))
-    judged_exercises = sorted(set((cursor or {}).get("judged_exercises") or ()) | {e["key"] for e in exercises})
+    """Why paging stopped, and the cursor that resumes it (§8.3.4).
+
+    Only candidates with a completed, persisted judgment advance the cursor
+    (Codex re-review F6): a page whose rerank was refused (its budget), failed
+    or had no judge stays pending, so a resumed call judges it. With the judge
+    switched off by configuration (``disabled``) the page is a display page,
+    and what it showed advances the cursor."""
+    advanced_items = set(outcome.judgments) & set(pool)
+    advanced_exercises = set(outcome.judgments) & {e["key"] for e in exercises}
+    if outcome.status == "disabled":
+        advanced_items = set(pool)
+    judged_items = sorted(set((cursor or {}).get("judged_items") or ()) | advanced_items)
+    judged_exercises = sorted(set((cursor or {}).get("judged_exercises") or ()) | advanced_exercises)
+    pending_exercises = {e["key"] for e in exercises} - advanced_exercises
     unjudged_items = [item_id for item_id in ranked if item_id not in set(judged_items)]
     lists_open = {name: depth * 2 for name, depth in ((exercise_pool.list_depths if exercise_pool else {}) or {}).items()
                   if not (exercise_pool.list_ends or {}).get(name, True)} if exercise_pool else {}
-    unjudged_exercises = (exercise_pool.unjudged if exercise_pool else 0)
+    if pending_exercises and exercise_pool is not None:
+        # The refused page's exercises are re-retrieved at the same depths.
+        lists_open = {name: depth for name, depth in (exercise_pool.list_depths or {}).items()} or lists_open
+    unjudged_exercises = (exercise_pool.unjudged if exercise_pool else 0) + len(pending_exercises)
     remaining = len(unjudged_items) + unjudged_exercises + (1 if lists_open else 0)
-    if outcome.status.startswith(("over_budget", "cancelled")) or outcome.status == "failed":
+    if outcome.status.startswith(("over_budget", "cancelled")):
         reason = "budget"
+    elif outcome.status.startswith(("failed", "unavailable", "skipped")):
+        reason = "judge_unavailable"
     elif remaining == 0:
         reason = "exhausted"
     elif valuation is not None and _below_perfect_information(valuation, unjudged_items, vault, estimator):
@@ -1459,7 +1475,9 @@ def _paging(constraints: PracticeConstraints, *, corpus: Sequence[str], ranked: 
         reason = "page" if constraints.intent == "practice" else "unjudged_remain"
     page: dict[str, Any] = {"outcome": reason, "unjudged_items": len(unjudged_items),
                             "unjudged_exercises": unjudged_exercises}
-    if reason in ("page", "unjudged_remain", "budget"):
+    if reason in ("budget", "judge_unavailable"):
+        page["judge_status"] = outcome.status
+    if reason in ("page", "unjudged_remain", "budget", "judge_unavailable"):
         page["cursor"] = {"judged_items": judged_items, "judged_exercises": judged_exercises,
                           "exercise_list_depths": lists_open}
     return page
