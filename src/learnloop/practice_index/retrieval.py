@@ -1390,8 +1390,9 @@ def exercise_filter(constraints: PracticeConstraints, metadata: Mapping[str, Any
 
 def _valued_order(valuation: Mapping[str, Any], relevant: Sequence[str]) -> list[str]:
     """Checks that clear the stop first (in check order, per problem), then the
-    rest of the relevant candidates in relevance order: learner-initiated
-    results list every group; nothing falls back to an entropy order."""
+    valuer's presentation order, then the rest of the relevant candidates in
+    relevance order: learner-initiated results list every group; nothing falls
+    back to an entropy order."""
     ordered: list[str] = []
     for section in valuation.get("problems") or ():
         for check in section.get("checks") or ():
@@ -1399,6 +1400,10 @@ def _valued_order(valuation: Mapping[str, Any], relevant: Sequence[str]) -> list
                 ordered.append(check["ref"])
     if valuation.get("system_initiated"):
         return ordered
+    # The valuer's presentation order (valued in value order under the
+    # dominance rule, then bounded, then unvalued), restricted to the relevant.
+    relevant_set = set(relevant)
+    ordered += [key for key in valuation.get("order") or () if key in relevant_set and key not in ordered]
     return ordered + [key for key in relevant if key not in ordered]
 
 

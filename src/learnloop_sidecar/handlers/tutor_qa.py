@@ -260,6 +260,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
             retryable=True,
         ) from exc
+    _record_citations(vault, repository, result["event_id"])
     return finish_route(
         ctx, repository, params.capture_id, "ask_tutor",
         {"question_event_id": result["event_id"], "note_id": note_id},
@@ -282,6 +283,19 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             **({"tool_requests": result["tool_requests"]} if "tool_requests" in result else {}),
         }
     )
+
+
+def _record_citations(vault: Any, repository: Any, event_id: str) -> None:
+    """S5: a tutor answer citing retrieved spans is an intervention (best effort)."""
+
+    from learnloop.instructional.interventions import record_tutor_citations
+
+    try:
+        record_tutor_citations(vault, repository, event_id)
+    except Exception:  # noqa: BLE001 - telemetry never fails the answer
+        import logging
+
+        logging.getLogger(__name__).warning("intervention record failed for %s", event_id, exc_info=True)
 
 
 def _span_provider(vault: Any, repository: Any, params: AskTutorQuestionInput) -> Any:

@@ -162,7 +162,8 @@ def record_proposal_impressions(vault: LoadedVault, repository: Repository, *, p
 
 
 def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_item_id: str,
-                         clock: Clock | None = None, vault: LoadedVault | None = None) -> dict[str, Any]:
+                         clock: Clock | None = None, vault: LoadedVault | None = None,
+                         session_id: str | None = None) -> dict[str, Any]:
     """The ``practised`` usage signal at the pick (idempotent).
 
     A pick of a ``discriminate`` or ``retention`` proposal re-checks
@@ -184,6 +185,14 @@ def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_i
         result["served_as"] = "independent_check" if verdict["eligible"] else "practice"
         if not verdict["eligible"]:
             result["label"] = "you've seen this question since it was suggested"
+    if vault is not None:
+        # S5: a picked proposal is an intervention (shown and served).
+        from learnloop.instructional.interventions import record_pick
+
+        result["intervention_id"] = record_pick(vault, repository, proposal_id=proposal_id,
+                                                practice_item_id=practice_item_id,
+                                                serve_verdict=result.get("independence"), session_id=session_id,
+                                                clock=clock)
     return result
 
 
@@ -203,7 +212,8 @@ def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: s
 
 
 def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Mapping[str, Any],
-                         clock: Clock | None = None) -> str:
+                         clock: Clock | None = None, vault: LoadedVault | None = None,
+                         session_id: str | None = None) -> str:
     """The ``practised`` usage verdict for a picked textbook exercise (idempotent).
 
     The exercise is not an item until imported, so the verdict names its stable
@@ -219,6 +229,10 @@ def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Map
                 input_hash=content_key([proposal_id, key]), verdict="practised",
                 rationale="learner pick of a textbook exercise proposal", created_at=utc_now_iso(clock),
             )
+    if vault is not None:
+        from learnloop.instructional.interventions import record_pick
+
+        record_pick(vault, repository, proposal_id=proposal_id, exercise=entry, session_id=session_id, clock=clock)
     return judgment_id
 
 

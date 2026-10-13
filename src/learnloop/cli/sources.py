@@ -179,6 +179,36 @@ def exercises_verify(
     _exit_for(report, {"dry_run", "complete", "over_budget"})
 
 
+@sources_app.command("outcomes")
+def sources_outcomes(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """What retrieval showed or served, and what followed (associations, not causes; no model call)."""
+    from learnloop.instructional.interventions import outcomes_report
+
+    root = _root(vault)
+    report = outcomes_report(load_vault(root), _repository(root))
+    if json_output:
+        _emit(report, True)
+        return
+    typer.echo(report["label"])
+    typer.echo(f"interventions: {report['interventions']} (recording {report['recording']})")
+    overall = report["overall"]
+    typer.echo(f"R_next: {overall['R_next']['successes']}/{overall['R_next']['n']} "
+               f"interval {overall['R_next']['interval_95']}")
+    typer.echo(f"R_cold: {overall['R_cold']['successes']}/{overall['R_cold']['n']} "
+               f"interval {overall['R_cold']['interval_95']}; states {overall['R_cold']['states']}")
+    for name, groups in report["by"].items():
+        for value, rates in groups.items():
+            typer.echo(f"  {name}={value}: n={rates['n']} R_next={rates['R_next']['successes']}/"
+                       f"{rates['R_next']['n']} R_cold={rates['R_cold']['successes']}/{rates['R_cold']['n']}")
+    typer.echo(f"key labels: {report['key_labels']}")
+    typer.echo(f"certification gate: {report['certification_gate']['unverified_attempts']} unverified attempt(s)")
+    typer.echo(f"exposure exclusions: {report['exposure_exclusions']}")
+    typer.echo(f"valuation: {report['valuation']['by_group_and_regime']} ({report['valuation']['scale']})")
+
+
 @sources_app.command("tools")
 def sources_tools(json_output: Annotated[bool, typer.Option("--json")] = False) -> None:
     """Every source tool's declaration (name, description, JSON schema, model call)."""

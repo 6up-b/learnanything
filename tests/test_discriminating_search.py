@@ -300,3 +300,15 @@ def test_paging_resumes_with_a_cursor(textbook):
     second = find_practice(vault, repository, "matrix determinant eigen vector", {"limit": 2},
                            rerank_client=FakeServiceLLM(), cursor=first["paging"]["cursor"])
     assert not set(first["paging"]["cursor"]["judged_items"]) & {item["practice_item_id"] for item in second["items"]}
+
+
+def test_presentation_order_applies_dominance_inside_the_valued_group():
+    from learnloop.instructional.discriminating import presentation_order
+
+    receipt = {"problems": [{"checks": [{"ref": "c"}], "groups": {
+        "valued": [{"ref": "c", "value_minutes_lcb": 9.0, "value_minutes_ucb": 12.0},
+                   {"ref": "labelled", "value_minutes_lcb": 5.0, "value_minutes_ucb": 9.0},
+                   {"ref": "plain", "value_minutes_lcb": 4.0, "value_minutes_ucb": 8.0}],
+        "bounded": [{"ref": "b"}], "unvalued": [{"ref": "u"}]}}]}
+    eligibility = {"labelled": {"label": "you read a worked example like this one", "eligible": True}}
+    assert presentation_order(receipt, eligibility) == ["c", "plain", "labelled", "b", "u"]

@@ -334,6 +334,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reference_key_checks", TableRole.RAW_LEDGER),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
+    # Canonical sources S5: what retrieval showed or served (append-only facts)
+    # and its outcome join (one replayer: retrieval_intervention_outcomes).
+    ("retrieval_intervention_outcomes", TableRole.DERIVED),
+    ("retrieval_interventions", TableRole.RAW_LEDGER),
     ("reveal_events", TableRole.RAW_LEDGER),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),

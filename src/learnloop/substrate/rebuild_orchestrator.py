@@ -171,6 +171,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # Slice 2 T6: the FTS5 keyword index over source blocks, recomputed from the
     # block ledger alone (no model, no embedding, no learner state).
     DerivedStateReplayer("source_block_fts", frozenset({"source_block_fts"})),
+    # Canonical sources S5: what retrieval showed or served, joined to the
+    # attempts that followed (persisted rows only; no model call).
+    DerivedStateReplayer(
+        "retrieval_intervention_outcomes", frozenset({"retrieval_intervention_outcomes"}), ("learning_state",),
+    ),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -486,6 +491,16 @@ def _run_source_block_fts(
                           rows_processed=report["written"], details=report)
 
 
+def _run_retrieval_intervention_outcomes(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.substrate.intervention_outcomes import rebuild_intervention_outcomes
+
+    report = rebuild_intervention_outcomes(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -496,6 +511,7 @@ _RUNNERS = {
     "family_memory": _run_family_memory,
     "item_fingerprints": _run_item_fingerprints,
     "source_block_fts": _run_source_block_fts,
+    "retrieval_intervention_outcomes": _run_retrieval_intervention_outcomes,
 }
 
 

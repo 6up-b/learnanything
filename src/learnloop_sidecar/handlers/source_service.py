@@ -24,6 +24,7 @@ SOURCE_SERVICE_RPCS: tuple[str, ...] = (
     "find_sources",
     "compare_sources",
     "run_source_tool",
+    "record_source_offer_shown",
 )
 
 
@@ -61,6 +62,7 @@ class ImportSourceExerciseInput(ParamsModel):
     proposal_id: str
     extraction_id: str
     span_ids: list[str] = Field(min_length=1, max_length=40)
+    session_id: str | None = None
 
 
 class GetSourceExerciseImportInput(ParamsModel):
@@ -94,7 +96,8 @@ def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExercise
                       extraction_id=params.extraction_id, span_ids=list(params.span_ids), status="authoring",
                       proposal_id=params.proposal_id, source_id=entry.get("source_id"),
                       revision_id=entry.get("revision_id"), label=entry.get("label"))
-    record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry)
+    record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry, vault=vault,
+                         session_id=params.session_id)
     batch_id = ctx.ingest_jobs.enqueue_source_exercise_import(
         import_id=import_id, extraction_id=params.extraction_id, span_ids=list(params.span_ids),
         proposal_id=params.proposal_id, label=entry.get("label"),
@@ -258,6 +261,27 @@ def run_source_tool_rpc(ctx: SidecarContext, params: RunSourceToolInput) -> dict
     except (PolicyRefused, IntentUnavailable) as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     return versioned(result)
+
+
+class RecordSourceOfferShownInput(ParamsModel):
+    tool_call_id: str
+    span_keys: list[str] = Field(default_factory=list, max_length=40)
+    session_id: str | None = None
+
+
+@method("record_source_offer_shown", RecordSourceOfferShownInput)
+def record_source_offer_shown_rpc(ctx: SidecarContext, params: RecordSourceOfferShownInput) -> dict[str, Any]:
+    """Fire-and-forget when a passage offer is opened or a comparison is shown (S5, §11.1)."""
+
+    from learnloop.instructional.interventions import record_offer_shown
+
+    vault, repository = ctx.require_vault()
+    try:
+        intervention_id = record_offer_shown(vault, repository, params.tool_call_id, span_keys=params.span_keys,
+                                             session_id=params.session_id)
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned({"intervention_id": intervention_id, "recorded": intervention_id is not None})
 
 
 __all__ = ["SOURCE_SERVICE_RPCS", "server_caller"]

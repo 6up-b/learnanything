@@ -289,7 +289,8 @@ def _record_proposal_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> 
     vault, repository = ctx.require_vault()
     try:
         return record_proposal_pick(repository, proposal_id=str(params.proposal_id),
-                                    practice_item_id=params.practice_item_id, vault=vault)
+                                    practice_item_id=params.practice_item_id, vault=vault,
+                                    session_id=params.session_id)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
 

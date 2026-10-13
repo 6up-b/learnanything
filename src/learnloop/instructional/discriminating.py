@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from learnloop.db.repositories import Repository
-from learnloop.instructional.exposure import independent_check_eligibility
+from learnloop.instructional.exposure import apply_dominance, independent_check_eligibility
 from learnloop.instructional.screen import screen_exercises
 from learnloop.instructional.valuation import (
     exercise_input,
@@ -111,6 +111,7 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
                                unavailable=unavailable)
     receipt["intent"] = intent
     receipt["eligibility"] = eligibility
+    receipt["order"] = presentation_order(receipt, eligibility)
     receipt["screens"] = screens
     receipt["translation"] = {section["problem"]["key"]: TRANSLATION.get(section.get("verdict"), section.get("reason"))
                               for section in receipt["problems"]}
@@ -119,4 +120,30 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
     return receipt
 
 
-__all__ = ["TRANSLATION", "make_valuer", "value_request"]
+def presentation_order(receipt: Mapping[str, Any], eligibility: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """Checks that clear the stop (check order), then each problem's valued group
+    in value order under the reading-exposure dominance rule (§5.4), then the
+    bounded and the unvalued. Nothing is ordered by entropy."""
+
+    order: list[str] = []
+
+    def add(ref: str) -> None:
+        if ref not in order:
+            order.append(ref)
+
+    sections = list(receipt.get("problems") or ())
+    for section in sections:
+        for check in section.get("checks") or ():
+            add(check["ref"])
+    labelled = {ref: verdict for ref, verdict in eligibility.items() if verdict.get("label")}
+    for section in sections:
+        for entry in apply_dominance(list((section.get("groups") or {}).get("valued") or ()), labelled):
+            add(entry["ref"])
+    for group in ("bounded", "unvalued"):
+        for section in sections:
+            for entry in (section.get("groups") or {}).get(group) or ():
+                add(entry["ref"])
+    return order
+
+
+__all__ = ["TRANSLATION", "make_valuer", "presentation_order", "value_request"]

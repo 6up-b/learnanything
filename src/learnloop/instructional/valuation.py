@@ -576,8 +576,21 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             groups["bounded"].append(entry)
         else:
             groups["valued"].append(entry)
-    report["groups"] = groups
     by_ref = {candidate.ref: candidate for candidate in inputs}
+    # Each valued candidate's own robust value interval (its members' EIG at the
+    # lower and upper ROBUST_QUANTILE), in minutes, and P(E) under the prior:
+    # the valued group is listed in value order (per minute) with the stop marked.
+    for entry in groups["valued"]:
+        candidate = by_ref[entry["ref"]]
+        series = [RC.expected_information_gain(member, problem.prior) for member in candidate.members]
+        low, high = RC.robust_quantile(series), RC.robust_quantile(series, 1.0 - RC.ROBUST_QUANTILE)
+        entry.update(point_eig_nats=round(series[0], 6), robust_eig_nats=round(low, 6),
+                     value_minutes_lcb=round(RC.VALUE_PER_NAT_MINUTES * low, 4),
+                     value_minutes_ucb=round(RC.VALUE_PER_NAT_MINUTES * high, 4),
+                     predicted_outcomes=_predicted(candidate, problem.prior))
+    groups["valued"].sort(key=lambda entry: (-entry["value_minutes_lcb"] / max(entry["expected_minutes"], 1e-6),
+                                             entry["ref"]))
+    report["groups"] = groups
     if problem.decision is not None:
         return _decision_mode(problem, inputs, report, by_ref, system_initiated=system_initiated)
     report["mode"] = "information"

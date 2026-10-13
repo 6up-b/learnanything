@@ -486,6 +486,115 @@ def tool_calls(connection: sqlite3.Connection, *, caller_kind: str | None = None
     return [_tool_call(row) for row in rows]
 
 
+# -- S5: retrieval_interventions (RAW_LEDGER) and their outcome join (DERIVED) ----------
+
+INTERVENTION_KINDS = ("source_passage", "source_exercise", "practice_pick", "comparison", "remediation_passage")
+_INTERVENTION_JSON = {"assets_json": ("assets", {}), "targets_json": ("targets", {}),
+                      "state_ref_json": ("state_ref", {}), "valuation_json": ("valuation", None),
+                      "exposure_event_ids_json": ("exposure_event_ids", []),
+                      "impression_ids_json": ("impression_ids", []), "eligibility_json": ("eligibility", None)}
+
+
+def insert_intervention(connection: sqlite3.Connection, *, id: str, created_at: str, kind: str,
+                        caller_kind: str | None = None, caller_ref: str | None = None, intent: str | None = None,
+                        policy: str | None = None, tool_call_id: str | None = None,
+                        proposal_id: str | None = None, question_event_id: str | None = None,
+                        remediation_episode_id: str | None = None, router_decision_id: str | None = None,
+                        assets: Mapping[str, Any] | None = None, targets: Mapping[str, Any] | None = None,
+                        state_ref: Mapping[str, Any] | None = None, valuation: Mapping[str, Any] | None = None,
+                        exposure_event_ids: Sequence[Any] = (), impression_ids: Sequence[Any] = (),
+                        reading_exposure_label: str | None = None, eligibility: Mapping[str, Any] | None = None,
+                        seconds_since_related_exposure: float | None = None, session_id: str | None = None,
+                        attempt_id: str | None = None, algorithm_version: str | None = None) -> str:
+    if kind not in INTERVENTION_KINDS:
+        raise ValueError(f"kind must be one of {', '.join(INTERVENTION_KINDS)}")
+    connection.execute(
+        "INSERT INTO retrieval_interventions (id, created_at, kind, caller_kind, caller_ref, intent, policy, "
+        "tool_call_id, proposal_id, question_event_id, remediation_episode_id, router_decision_id, assets_json, "
+        "targets_json, state_ref_json, valuation_json, exposure_event_ids_json, impression_ids_json, "
+        "reading_exposure_label, eligibility_json, seconds_since_related_exposure, session_id, attempt_id, "
+        "algorithm_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (id, created_at, kind, caller_kind, caller_ref, intent, policy, tool_call_id, proposal_id,
+         question_event_id, remediation_episode_id, router_decision_id, _dumps(dict(assets or {})),
+         _dumps(dict(targets or {})), _dumps(dict(state_ref or {})),
+         None if valuation is None else _dumps(dict(valuation)), _dumps(list(exposure_event_ids)),
+         _dumps(list(impression_ids)), reading_exposure_label, None if eligibility is None else _dumps(dict(eligibility)),
+         seconds_since_related_exposure, session_id, attempt_id, algorithm_version),
+    )
+    return id
+
+
+def _intervention(row: sqlite3.Row) -> dict[str, Any]:
+    value = dict(row)
+    for column, (key, default) in _INTERVENTION_JSON.items():
+        value[key] = _loads(value.pop(column), default)
+    return value
+
+
+def interventions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    if not table_exists(connection, "retrieval_interventions"):
+        return []
+    rows = connection.execute("SELECT * FROM retrieval_interventions ORDER BY created_at, id").fetchall()
+    return [_intervention(row) for row in rows]
+
+
+def router_pick_decision(connection: sqlite3.Connection, *, practice_item_id: str,
+                         session_id: str | None) -> str | None:
+    """R1's ``learner_pick`` row for a pick, feature-detected (the table may not exist yet)."""
+
+    if not column_exists(connection, "router_decisions", "chosen_practice_item_id"):
+        return None
+    clauses, parameters = ["decision_kind='learner_pick'", "chosen_practice_item_id=?"], [practice_item_id]
+    if session_id is not None:
+        clauses.append("session_id=?")
+        parameters.append(session_id)
+    row = connection.execute(
+        f"SELECT id FROM router_decisions WHERE {' AND '.join(clauses)} ORDER BY rowid DESC LIMIT 1",
+        parameters).fetchone()
+    return None if row is None else str(row[0])
+
+
+OUTCOME_COLUMNS = ("intervention_id", "as_of", "next_attempt_id", "next_correctness", "next_assisted",
+                   "next_window", "cold_attempt_id", "cold_outcome_state", "cold_correctness", "observed_bucket",
+                   "predicted_outcomes_json", "predicted_minutes", "actual_minutes", "hypothesis_movement_json",
+                   "learner_signals_json", "action_before", "action_after", "action_flipped", "outcome_version")
+
+
+def insert_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int:
+    count = 0
+    for row in rows:
+        values = []
+        for column in OUTCOME_COLUMNS:
+            value = row.get(column.removesuffix("_json")) if column.endswith("_json") else row.get(column)
+            if column.endswith("_json"):
+                value = None if value is None and column == "predicted_outcomes_json" else _dumps(
+                    value if value is not None else ({} if column == "hypothesis_movement_json" else []))
+            values.append(value)
+        connection.execute(f"INSERT INTO retrieval_intervention_outcomes ({', '.join(OUTCOME_COLUMNS)}) "
+                           f"VALUES ({', '.join('?' for _ in OUTCOME_COLUMNS)})", values)
+        count += 1
+    return count
+
+
+def replace_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> tuple[int, int]:
+    """The replayer's write: clear and refill inside the caller's transaction."""
+
+    cleared = connection.execute("DELETE FROM retrieval_intervention_outcomes").rowcount
+    return cleared, insert_outcomes(connection, rows)
+
+
+def outcomes(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    if not table_exists(connection, "retrieval_intervention_outcomes"):
+        return {}
+    found = {}
+    for row in connection.execute("SELECT * FROM retrieval_intervention_outcomes ORDER BY intervention_id"):
+        value = dict(row)
+        for column in ("predicted_outcomes_json", "hypothesis_movement_json", "learner_signals_json"):
+            value[column.removesuffix("_json")] = _loads(value.pop(column), None)
+        found[value["intervention_id"]] = value
+    return found
+
+
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> dict[str, Any]:
     """Provider-reported cost and count of physical requests (leaf receipts) since ``since``.

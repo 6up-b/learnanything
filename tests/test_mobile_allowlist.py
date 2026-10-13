@@ -136,6 +136,7 @@ SOURCE_SERVICE_RPCS = (
     "find_sources",
     "compare_sources",
     "run_source_tool",
+    "record_source_offer_shown",
 )
 SOURCE_SERVICE_EXTENDED_RPCS = (
     "prescribe_remediation",

@@ -258,6 +258,10 @@ def prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> 
         raise SidecarError("invalid_request", str(exc)) from exc
     try:
         record_prescription_delivery(repository, episode)
+        # Canonical sources S5: ranked passages delivered are an intervention.
+        from learnloop.instructional.interventions import record_remediation_delivery
+
+        record_remediation_delivery(vault, repository, episode)
     except Exception:  # pragma: no cover - serve must not fail on telemetry
         import logging
 
