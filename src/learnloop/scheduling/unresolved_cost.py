@@ -13,7 +13,9 @@ it on every off-diagonal cell (:func:`action_loss.build_loss_table`).
   history: the attempts after its first are repeated errors, and their logged
   minutes (``practice_attempts.latency_seconds``) are what it cost. A class
   first seen recently is right-censored (it may still recur); the count is
-  reported, not hidden.
+  reported, not hidden. An untimed repeat is never a measured zero: it is
+  imputed from the learner's own pooled latency (labelled), or, with nothing
+  timed to impute from, its class is left out as unmeasurable (counted).
 * **Population prior (Eedi).** The NeurIPS 2020 answers show that after a
   misconception-consistent error, a later item testing the same misconception
   repeats it at an excess rate of ``EEDI_EXCESS_REPEAT_RATE`` per encounter
@@ -148,6 +150,8 @@ def _personal_history(repository: Repository) -> tuple[list[float], int, dict[st
     minutes: list[float] = []
     censored = 0
     untimed = 0
+    unmeasurable = 0
+    imputed_classes = 0
     for attempts in attempts_by_class.values():
         ordered = sorted(attempts.values(), key=lambda pair: (pair[0] or 0.0))
         first_time = ordered[0][0]
@@ -155,17 +159,25 @@ def _personal_history(repository: Repository) -> tuple[list[float], int, dict[st
         if not repeats and now is not None and first_time is not None and (now - first_time) < CENSOR_DAYS * 86400:
             censored += 1
             continue
-        total = 0.0
-        for _when, latency in repeats:
-            if latency is None:
-                untimed += 1
-                latency = fallback_seconds
-            total += (latency or 0.0) / 60.0
-        minutes.append(total)
+        missing = sum(1 for _when, latency in repeats if latency is None)
+        untimed += missing
+        if missing and fallback_seconds is None:
+            # Missing observed time is not zero (decision-value invariant 7):
+            # with nothing measured to impute from, this class's cost is
+            # unknown, so it leaves the estimate and its sample count.
+            unmeasurable += 1
+            continue
+        if missing:
+            # A labelled imputation from the learner's own pooled latency.
+            imputed_classes += 1
+        minutes.append(sum((fallback_seconds if latency is None else latency) / 60.0 for _when, latency in repeats))
     detail = {
         "classes_seen": len(attempts_by_class),
         "recurrence_groups_used": has_groups and bool(group_of),
         "untimed_repeat_attempts": untimed,
+        "unmeasurable_classes": unmeasurable,
+        "imputed_classes": imputed_classes,
+        "imputation": "pooled_personal_median_latency" if imputed_classes else None,
     }
     return minutes, censored, detail
 

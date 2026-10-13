@@ -500,6 +500,49 @@ def test_unresolved_cost_shrinks_the_eedi_prior_toward_personal_history(tmp_path
     assert per_hypothesis[slip["id"]]["source"] == "not_a_persistent_cause"
 
 
+def test_untimed_recurrence_is_not_a_measured_zero(tmp_path):
+    # Review F7 (decision-value invariant 7: missing observed time is not zero).
+    # A misconception recurs, but none of its attempts was timed and there is no
+    # pooled latency to impute from: its cost is unmeasurable, so it must neither
+    # count as a measured 0 minutes nor shrink the prior toward 0.
+    _vault_obj, repository = _vault(tmp_path)
+    common = {"learning_object_id": LO_ID, "cause_scope": "learner_state", "status": "candidate", "clock": CLOCK}
+    with repository.connection() as connection:
+        for index, when in enumerate(["2026-01-01T10:00:00Z", "2026-01-05T10:00:00Z", "2026-01-09T10:00:00Z"]):
+            _attempt(connection, f"att_untimed_{index}", when, None)
+        connection.commit()
+    for index in range(3):
+        repository.append_causal_hypothesis(
+            episode_key=f"untimed:{index}", attempt_id=f"att_untimed_{index}", statement="Drops the sign.",
+            statement_normalized="drops the sign", **common,
+        )
+    estimate = UC.estimate_unresolved_cost(repository, pseudo_count=2.0)
+    assert estimate.personal_classes == 0
+    assert estimate.provenance == "population_prior"
+    assert estimate.minutes == pytest.approx(estimate.prior_minutes)
+    assert estimate.detail["unmeasurable_classes"] == 1
+    assert estimate.detail["untimed_repeat_attempts"] == 2
+
+    # Once another persistent class is timed, the untimed repeats are imputed
+    # from the learner's own pooled latency, and the imputation is labelled.
+    with repository.connection() as connection:
+        _attempt(connection, "att_timed_a", "2026-02-01T10:00:00Z", 120)
+        _attempt(connection, "att_timed_b", "2026-02-05T10:00:00Z", 120)
+        connection.commit()
+    for index, attempt_id in enumerate(("att_timed_a", "att_timed_b")):
+        repository.append_causal_hypothesis(
+            episode_key=f"timed:{index}", attempt_id=attempt_id, statement="Adds before multiplying.",
+            statement_normalized="adds before multiplying", **common,
+        )
+    imputed = UC.estimate_unresolved_cost(repository, pseudo_count=2.0)
+    assert imputed.personal_classes == 2 and imputed.provenance == "measured"
+    assert imputed.detail["unmeasurable_classes"] == 0
+    assert imputed.detail["imputed_classes"] == 1
+    assert imputed.detail["imputation"] == "pooled_personal_median_latency"
+    # Two imputed repeats at the pooled 2-minute median, one timed 2-minute repeat.
+    assert imputed.personal_mean_minutes == pytest.approx((4.0 + 2.0) / 2)
+
+
 def test_followup_outcome_maps_into_the_forecasts_alphabet(tmp_path):
     vault, repository = _vault(tmp_path)
     with repository.connection() as connection:
