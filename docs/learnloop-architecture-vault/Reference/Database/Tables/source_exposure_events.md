@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
-source_commit_timestamp: "2026-10-12T22:43:38-04:00"
+source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
+source_commit_timestamp: "2026-10-12T23:24:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/router/outcomes.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reader/span_view.py"
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 
@@ -116,6 +118,7 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_restoration.py`
+- `tests/test_router_coldness_covariates.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`

@@ -38,8 +38,8 @@ tags:
 | outcome labels | `learnloop-outcomes-v1` | `LABEL_VERSION` of the exported R_next/R_cold/Q/B/F labels and of adjudications |
 | selection policy | `composed_offer_v2` | `selection_policy` on every persisted slate; candidates carry `propensity_kind = unavailable_composed_offer` |
 | selection feature schema | `selection_features_v1` | shape of `decision_features` selection rows |
-| router decision log | `router_decisions_v1` | shape of a `router_decisions` row (router R1): Today offers, staged P2 decisions and learner picks with their candidate sets and true propensities |
-| router outcomes | `router_outcomes_v1` | derivation of `router_outcomes` (R_next, R_cold, S = 0.75 R_cold + 0.25 R_next, right-censored) |
+| router decision log | `router_decisions_v1` | shape of a `router_decisions` row (router R1): Today offers, staged P2 decisions, learner picks and daily-plan block decisions (`plan_block`) with their candidate sets and true propensities |
+| router outcomes | `router_outcomes_v1` | derivation of `router_outcomes` (R_next, R_cold, S = 0.75 R_cold + 0.25 R_next, right-censored; the one-day R_cold rule is provisional and each outcome records its coldness covariates, owner decision D12) |
 | dataset export | `2` | `dataset_version` in an export's `manifest.json`; version 2 records `split_policy`, and a manifest without it split by content family |
 | data-quality report | `1` | `report_version` of `learnloop data-quality` output |
 | documentation | `1.0.0` | initial architecture-vault release |

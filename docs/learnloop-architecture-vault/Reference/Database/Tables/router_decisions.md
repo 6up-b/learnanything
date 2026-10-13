@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
-source_commit_timestamp: "2026-10-12T22:43:38-04:00"
+source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
+source_commit_timestamp: "2026-10-12T23:24:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -43,7 +43,7 @@ tags:
 Gives router decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `parent_decision_id`, `scheduler_slate_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> Router R1 (spec_action_router_v1 §9, §11; mvp-0.15): decision logging on today's paths (built as migration 176 at mvp-0.12; renumbered 181 and relabelled mvp-0.15 when it merged after main's 176-180, none of which touches these tables). One append-only row per Today offer, staged P2 decision and learner pick, with the full candidate set, the chosen candidate and its true propensity (or an explicit 'deterministic'). A list the learner picks from with no system-served head is logged with propensity_kind 'not_served'. The outcome table is a derived cache with one replayer; nothing here is evidence, mastery or certification.
+> Router R1 (spec_action_router_v1 §9, §11; mvp-0.15): decision logging on today's paths (built as migration 176 at mvp-0.12; renumbered 181 and relabelled mvp-0.15 when it merged after main's 176-180, none of which touches these tables). One append-only row per Today offer, staged P2 decision, learner pick and daily-plan block decision (plan_block, through DL1's register_plan_decision_logger hook; owner decision 2026-10-12), with the full candidate set, the chosen candidate and its true propensity (or an explicit 'deterministic'). A list the learner picks from with no system-served head is logged with propensity_kind 'not_served'. The outcome table is a derived cache with one replayer; nothing here is evidence, mastery or certification.
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 
@@ -146,10 +146,13 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_daily_plan_owner_decisions.py`
+- `tests/test_daily_plan_replay.py`
+- `tests/test_daily_plan_review_regressions.py`
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_router_offer_log.py`
 - `tests/test_router_outcomes.py`
 - `tests/test_router_probe_ties.py`
+- `tests/test_router_r1_composition.py`
 - `tests/test_router_staged_p2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -170,15 +173,19 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE router_decisions (
   id TEXT PRIMARY KEY,
   -- Idempotency: today_offer:<slate>, staged_p2:<controller decision>,
-  -- learner_pick:<scheduler candidate>.
+  -- learner_pick:<scheduler candidate>, plan_block:<attention block>.
   receipt_key TEXT NOT NULL UNIQUE,
-  decision_kind TEXT NOT NULL CHECK (decision_kind IN ('today_offer', 'staged_p2', 'learner_pick')),
-  -- Where the decision was served: desktop_queue | skip_requeue | p2_bridge |
-  -- the bind's entry surface for a learner pick.
+  decision_kind TEXT NOT NULL CHECK (
+    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block')
+  ),
+  -- Where the decision was served: desktop_queue | full_list | skip_requeue |
+  -- p2_bridge | daily_plan | the bind's entry surface for a learner pick.
   surface TEXT NOT NULL,
-  -- Who composed the choice: legacy_queue | staged (R2 adds mixture).
+  -- Who composed the choice: legacy_queue | staged | daily_plan (R2 adds
+  -- mixture).
   mode TEXT NOT NULL,
-  -- The policy that chose: composed_offer_v2 | staged_policy_v1 | learner.
+  -- The policy that chose: composed_offer_v2 | staged_policy_v1 | learner |
+  -- the plan chooser (lane_quota_v1).
   policy TEXT NOT NULL,
   algorithm_version TEXT NOT NULL,
   log_version TEXT NOT NULL,

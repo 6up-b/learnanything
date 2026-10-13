@@ -173,7 +173,10 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     DerivedStateReplayer("source_block_fts", frozenset({"source_block_fts"})),
     # Router R1: R_next / R_cold / S per logged decision, from router_decisions,
     # the attempt and reveal ledgers, PF-c states, session ends and the vault's
-    # servable items per learning object (raw inputs and content only).
+    # servable items per learning object (raw inputs and content only), with
+    # each outcome's coldness covariates (owner decision D12: exposures from
+    # the attempt, reveal, tutor-question and source-exposure ledgers, and the
+    # FSRS fold of the attempt ledger under the fitted weights).
     DerivedStateReplayer("router_outcomes", frozenset({"router_outcomes"})),
 )
 
@@ -493,6 +496,7 @@ def _run_source_block_fts(
 def _run_router_outcomes(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
+    from learnloop.field.outcomes import fsrs_predicted_retrievability
     from learnloop.router.outcomes import (
         rebuild_router_outcomes,
         servable_items_by_learning_object,
@@ -508,10 +512,17 @@ def _run_router_outcomes(
             if logged
             else []
         )
+        # Owner decision D12: each outcome attempt's FSRS-predicted
+        # retrievability, the fitting job's chain of the attempt ledger under
+        # the vault's current FSRS weights (ungraded answers skipped).
+        retrievability = (
+            fsrs_predicted_retrievability(connection, context.vault, context.repository) if logged else {}
+        )
         written = rebuild_router_outcomes(
             connection,
             pfc_states=pfc_assessments(connection, attempt_ids),
             servable_items_by_lo=servable_items_by_learning_object(context.vault),
+            retrievability_by_attempt=retrievability,
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 

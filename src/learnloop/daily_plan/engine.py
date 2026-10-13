@@ -93,6 +93,7 @@ from learnloop.daily_plan.types import (
 )
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
+from learnloop.router.plan_log import log_plan_block_decision
 
 _EPS = 1e-6
 ENGINE_VERSION = "daily_plan_v1"
@@ -313,6 +314,14 @@ class PlanBlockDecision:
     chooser, ``chosen_by``, propensity, why, fallback, the state the chooser
     saw, the redistribution and forced items. ``block_id`` is the block the
     decision made, or the stop receipt's id for a chooser's stop.
+
+    Added when R1 merged (its logger reads them): ``chosen_by`` is the block
+    row's own (``learner_pick`` for a block of requested items only, where the
+    chooser's own choice was no block), ``items`` the block's planned
+    ``(practice_item_id, learning_object_id)`` in serving order, ``decided_at``
+    the plan clock's time of the decision and ``config`` the vault
+    configuration it was made under (the router's kill switch and the
+    algorithm version).
     """
 
     plan_id: str
@@ -323,6 +332,10 @@ class PlanBlockDecision:
     detail: Mapping[str, Any]
     stop: bool = False
     kind: str = "plan_block"
+    chosen_by: str | None = None
+    items: tuple[tuple[str, str], ...] = ()
+    decided_at: str | None = None
+    config: Any = field(default=None, repr=False, compare=False)
 
 
 #: ``(connection, decision) -> router_decisions id or None``. The logger runs on
@@ -349,8 +362,9 @@ def unregister_plan_decision_logger(logger: PlanDecisionLogger) -> None:
 def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | None:
     """Hand one decision to the registered loggers; the first id written wins.
 
-    With no logger registered (DL1 alone) this is a no-op. A logger that
-    fails never blocks the plan: its decision goes unlogged and is reported.
+    Router R1 registers its ``plan_block`` logger below. With no logger
+    registered this is a no-op. A logger that fails never blocks the plan: its
+    decision goes unlogged and is reported.
     """
 
     ref: str | None = None
@@ -365,6 +379,15 @@ def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | No
         if ref is None and written:
             ref = str(written)
     return ref
+
+
+# Router R1 (merged after DL1; owner decision 2026-10-12): every block decision
+# and chooser stop is a ``plan_block`` router decision, so plan decisions get
+# router decision ids. Registered at import so every entry point that builds a
+# plan (the sidecar, the CLI, the reader's plan hook) logs it; the logger
+# honours ``router.log_decisions`` and leaves a chooser's own decision (R2) to
+# that chooser.
+register_plan_decision_logger(log_plan_block_decision)
 
 
 def _event(connection: Any, block_id: str, kind: str, detail: Mapping[str, Any], at: str) -> None:
@@ -1307,6 +1330,10 @@ def _boundary(
                 block_id=block_id,
                 session_id=env.session_id,
                 detail=detail,
+                chosen_by=chosen_by,
+                items=tuple((item.practice_item_id, item.learning_object_id) for item, _origin in items),
+                decided_at=env.now_iso(),
+                config=env.vault.config,
             ),
         )
         if decision_ref is None and logged is not None:
@@ -1410,6 +1437,9 @@ def _close(
                         session_id=env.session_id,
                         detail=detail,
                         stop=True,
+                        chosen_by=str(stop_detail.get("chosen_by") or "lane_quota"),
+                        decided_at=now,
+                        config=env.vault.config,
                     ),
                 )
                 if decision_ref is None and logged is not None:

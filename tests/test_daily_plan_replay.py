@@ -79,11 +79,24 @@ def test_rebuild_ignores_the_plan_and_calls_no_model(tmp_path, monkeypatch):
     plan_rows = _plan_rows(paths.sqlite_path)
     assert plan_rows["daily_plans"] and plan_rows["blocks"] and plan_rows["events"]
 
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        decisions = sorted(tuple(r) for r in connection.execute("SELECT * FROM router_decisions"))
     for _ in range(2):
         rebuild_all_derived_state(load_vault(paths.root), env.repository)
-    # Rebuild never touches the plan, and the plan never reaches derived state.
+    # Rebuild never touches the plan, and the plan never reaches evidence or
+    # any other derived state. Router R1 (owner decision 2026-10-12) logs each
+    # block decision in its own RAW_LEDGER, whose DERIVED outcome cache follows
+    # those decisions only (never evidence, mastery or certification); replay
+    # never rewrites the decisions.
     assert _plan_rows(paths.sqlite_path) == plan_rows
-    assert _rows(paths.sqlite_path, derived) == before_derived
+    after = _rows(paths.sqlite_path, derived)
+    router_outcomes = after.pop("router_outcomes")
+    assert before_derived.pop("router_outcomes") == []
+    assert after == before_derived
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert sorted(tuple(r) for r in connection.execute("SELECT * FROM router_decisions")) == decisions
+        logged = {row[0] for row in connection.execute("SELECT id FROM router_decisions WHERE decision_kind = 'plan_block'")}
+    assert logged and {row[0] for row in router_outcomes} == logged
 
 
 @pytest.mark.durability

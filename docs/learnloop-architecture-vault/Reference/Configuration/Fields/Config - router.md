@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
-source_commit_timestamp: "2026-10-12T22:43:38-04:00"
+source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
+source_commit_timestamp: "2026-10-12T23:24:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/scheduling/scheduler.py"
   - "tests/test_mvp015_upgrade.py"
   - "tests/test_router_probe_ties.py"
+  - "tests/test_router_r1_composition.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -41,7 +42,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision and learner pick; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1863` |
+| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1863` |
 | `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1864`; `src/learnloop/scheduling/scheduler.py:901` |
 
 > [!warning] Omitted does not mean frozen in the file
@@ -53,6 +54,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_router_probe_ties.py`
+- `tests/test_router_r1_composition.py`
 
 ## Extension and modification guidance
 

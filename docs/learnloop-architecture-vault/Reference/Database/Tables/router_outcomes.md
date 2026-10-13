@@ -3,8 +3,8 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
-source_commit_timestamp: "2026-10-12T22:43:38-04:00"
+source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
+source_commit_timestamp: "2026-10-12T23:24:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
@@ -40,9 +40,6 @@ tags:
 
 Records the measured outcome and lineage for router so queue and controller decisions can resume safely and explain why an activity was selected. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `decision_id`, `target_practice_item_id`, `target_learning_object_id`, making the operational relationship explicit. ^table-purpose
 
-> [!quote] Migration design note
-> R_next and R_cold per decision under the Pipeline plan's S definition (S = alpha R_cold + (1 - alpha) R_next, alpha = 0.75). A pending outcome is right-censored at observed_through (the newest attempt in the ledger), never a failure. Rebuilt whole by its one replayer from router_decisions, practice_attempts, grading evidence and reveal_events.
-
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Derived]].
 
 ## Persistence and lifecycle contract
@@ -75,6 +72,19 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `r_cold_attempt_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `r_cold_gap_seconds` | `INTEGER` | no | — | — | Stored value |
 | `r_cold_skipped` | `INTEGER` | yes | `0` | — | Stored value |
+| `r_next_since_item_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_next_since_facet_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_next_since_lo_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_next_intervening_attempts` | `INTEGER` | no | — | — | Stored value |
+| `r_next_predicted_retrievability` | `REAL` | no | — | — | Stored value |
+| `r_next_reveal_amount` | `REAL` | no | — | — | Stored value |
+| `r_cold_since_item_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_cold_since_facet_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_cold_since_lo_seconds` | `INTEGER` | no | — | — | Stored value |
+| `r_cold_intervening_attempts` | `INTEGER` | no | — | — | Stored value |
+| `r_cold_predicted_retrievability` | `REAL` | no | — | — | Stored value |
+| `r_cold_reveal_amount` | `REAL` | no | — | — | Stored value |
+| `coldness_candidates_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `s_status` | `TEXT` | yes | — | — | Stored value |
 | `s_value` | `REAL` | no | — | — | Stored value |
 | `s_alpha` | `REAL` | yes | — | — | Stored value |
@@ -113,9 +123,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_replay.py`
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_router_coldness_covariates.py`
 - `tests/test_router_outcomes.py`
+- `tests/test_router_r1_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -153,6 +166,26 @@ CREATE TABLE router_outcomes (
   r_cold_attempt_id TEXT,
   r_cold_gap_seconds INTEGER,
   r_cold_skipped INTEGER NOT NULL DEFAULT 0,
+  -- Coldness covariates of the R_next and R_cold attempts (NULL while the
+  -- outcome is not observed, or when the input does not exist: no earlier
+  -- exposure, no FSRS memory before the attempt).
+  r_next_since_item_seconds INTEGER,
+  r_next_since_facet_seconds INTEGER,
+  r_next_since_lo_seconds INTEGER,
+  r_next_intervening_attempts INTEGER CHECK (r_next_intervening_attempts IS NULL OR r_next_intervening_attempts >= 0),
+  r_next_predicted_retrievability REAL CHECK (
+    r_next_predicted_retrievability IS NULL OR (r_next_predicted_retrievability >= 0 AND r_next_predicted_retrievability <= 1)
+  ),
+  r_next_reveal_amount REAL CHECK (r_next_reveal_amount IS NULL OR r_next_reveal_amount >= 0),
+  r_cold_since_item_seconds INTEGER,
+  r_cold_since_facet_seconds INTEGER,
+  r_cold_since_lo_seconds INTEGER,
+  r_cold_intervening_attempts INTEGER CHECK (r_cold_intervening_attempts IS NULL OR r_cold_intervening_attempts >= 0),
+  r_cold_predicted_retrievability REAL CHECK (
+    r_cold_predicted_retrievability IS NULL OR (r_cold_predicted_retrievability >= 0 AND r_cold_predicted_retrievability <= 1)
+  ),
+  r_cold_reveal_amount REAL CHECK (r_cold_reveal_amount IS NULL OR r_cold_reveal_amount >= 0),
+  coldness_candidates_json TEXT NOT NULL DEFAULT '[]',
   s_status TEXT NOT NULL CHECK (s_status IN ('final', 'provisional', 'pending', 'not_applicable')),
   s_value REAL CHECK (s_value IS NULL OR (s_value >= 0 AND s_value <= 1)),
   s_alpha REAL NOT NULL,

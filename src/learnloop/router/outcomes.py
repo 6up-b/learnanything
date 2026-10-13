@@ -36,15 +36,29 @@ So a final ``S`` never moves. R_next is also ``not_applicable`` when the
 learning object has no other servable item (``no_other_servable_item``): it
 could never be observed, so it is not reported as pending forever.
 
+**Coldness is learned, not hard-coded** (owner decision D12, spec §15.2). The
+one-day R_cold rule above stays as a provisional label. Each outcome also
+records, for its R_next and R_cold attempts, the covariates a learned coldness
+is fitted from (R3): the time since the last exposure to the attempt's item,
+its facets and its learning object (an attempt, a reveal, a tutor question or a
+reading of the source), the attempts in between (since the last exposure to
+the learning object), the FSRS-predicted retrievability at the attempt (the
+caller's ``retrievability_by_attempt``) and the reveal-ledger amount since the
+last attempt on the learning object. ``coldness_candidates_json`` lists the
+same covariates, the answer and the rule's verdict for every later attempt the
+rule considered (at most ``COLDNESS_CANDIDATE_CAP``), so a learned coldness is
+not limited to the rule's own pick.
+
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
-``sessions.ended_at``) and the caller's map of servable items per learning
-object (vault content): no clock, no model call. It imports no scheduler or
+``question_events``, ``source_exposure_events``, ``sessions.ended_at``) and the
+caller's maps (servable items per learning object from vault content; the FSRS
+prediction per attempt): no clock, no model call. It imports no scheduler or
 substrate code.
 """
 from __future__ import annotations
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from collections.abc import Mapping
 import json
@@ -71,8 +85,52 @@ _DELAY_REASONS = frozenset({"insufficient_delay", "same_session", "intervening_p
 _ATTEMPT_COLUMNS = (
     "id, practice_item_id, learning_object_id, session_id, created_at, "
     "scheduler_candidate_id, attempt_type, hints_used, primed, correctness, "
-    "manual_review, manual_review_reason, evidence_origin"
+    "manual_review, manual_review_reason, evidence_origin, evidence_facets_json"
 )
+
+#: The provisional R_cold rule's name (D12: a label until R3 fits coldness).
+R_COLD_RULE = "provisional_one_day"
+#: Later attempts listed per outcome in ``coldness_candidates_json``.
+COLDNESS_CANDIDATE_CAP = 20
+#: The covariates recorded per outcome attempt (column suffixes).
+COVARIATE_NAMES: tuple[str, ...] = (
+    "since_item_seconds",
+    "since_facet_seconds",
+    "since_lo_seconds",
+    "intervening_attempts",
+    "predicted_retrievability",
+    "reveal_amount",
+)
+
+#: An exposure: (created_at, tie-break, kind, linked attempt id). Attempts sort
+#: by (created_at, id); other events sort before an attempt at the same instant.
+_Exposure = tuple[str, str, str, "str | None"]
+
+
+def _facet_ids(raw: Any) -> tuple[str, ...]:
+    """Facet ids from an ``evidence_facets_json`` / ``facets_json`` value."""
+
+    if not raw:
+        return ()
+    try:
+        value = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return ()
+    if isinstance(value, Mapping):
+        value = list(value)
+    ids: list[str] = []
+    for entry in value if isinstance(value, list) else ():
+        if isinstance(entry, str):
+            ids.append(entry)
+        elif isinstance(entry, Mapping) and isinstance(entry.get("id") or entry.get("facet_id"), str):
+            ids.append(entry.get("id") or entry.get("facet_id"))
+    return tuple(dict.fromkeys(ids))
+
+
+def _table_present(connection: sqlite3.Connection, name: str) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone() is not None
 
 
 def _seconds(later: str, earlier: str) -> int | None:
@@ -111,9 +169,15 @@ def _exclusions(
 
 
 class _Ledger:
-    """The attempt and reveal ledgers, indexed once for every decision."""
+    """The attempt, reveal and exposure ledgers, indexed once for every decision."""
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        item_learning_objects: Mapping[str, str] | None = None,
+        retrievability_by_attempt: Mapping[str, float] | None = None,
+    ) -> None:
         attempts = [
             dict(row)
             for row in connection.execute(
@@ -147,6 +211,134 @@ class _Ledger:
                 if row["learning_object_id"]:
                     reveals[("lo", row["learning_object_id"])].append(row["created_at"])
         self.reveals = reveals
+        self._index_exposures(
+            connection, attempts, has_reveals=bool(has_reveals), item_learning_objects=item_learning_objects or {}
+        )
+        self.retrievability = dict(retrievability_by_attempt or {})
+
+    def _index_exposures(
+        self,
+        connection: sqlite3.Connection,
+        attempts: list[dict[str, Any]],
+        *,
+        has_reveals: bool,
+        item_learning_objects: Mapping[str, str],
+    ) -> None:
+        """Every exposure to an item, a facet or a learning object (D12)."""
+
+        item_lo: dict[str, str] = dict(item_learning_objects)
+        for row in attempts:
+            item_lo.setdefault(row["practice_item_id"], row["learning_object_id"])
+        items: dict[str, list[_Exposure]] = defaultdict(list)
+        los: dict[str, list[_Exposure]] = defaultdict(list)
+        facets: dict[str, list[_Exposure]] = defaultdict(list)
+        lo_reveals: dict[str, list[tuple[str, float, str | None]]] = defaultdict(list)
+        self.attempt_facets: dict[str, tuple[str, ...]] = {}
+        self.attempt_keys = [(row["created_at"], row["id"]) for row in attempts]
+        for row in attempts:
+            exposure: _Exposure = (row["created_at"], row["id"], "attempt", row["id"])
+            items[row["practice_item_id"]].append(exposure)
+            los[row["learning_object_id"]].append(exposure)
+            row_facets = _facet_ids(row.get("evidence_facets_json"))
+            self.attempt_facets[row["id"]] = row_facets
+            for facet in row_facets:
+                facets[facet].append(exposure)
+        if has_reveals:
+            for row in connection.execute(
+                "SELECT practice_item_id, learning_object_id, amount, attempt_id, created_at "
+                "FROM reveal_events ORDER BY created_at, id"
+            ):
+                lo = row["learning_object_id"] or item_lo.get(row["practice_item_id"])
+                exposure = (row["created_at"], "", "reveal", row["attempt_id"])
+                items[row["practice_item_id"]].append(exposure)
+                if lo:
+                    los[lo].append(exposure)
+                    lo_reveals[lo].append((row["created_at"], float(row["amount"] or 0.0), row["attempt_id"]))
+        if _table_present(connection, "question_events"):
+            for row in connection.execute(
+                "SELECT practice_item_id, attempt_id, facets_json, created_at FROM question_events "
+                "WHERE practice_item_id IS NOT NULL ORDER BY created_at, id"
+            ):
+                exposure = (row["created_at"], "", "tutor", row["attempt_id"])
+                items[row["practice_item_id"]].append(exposure)
+                lo = item_lo.get(row["practice_item_id"])
+                if lo:
+                    los[lo].append(exposure)
+                for facet in _facet_ids(row["facets_json"]):
+                    facets[facet].append(exposure)
+        if _table_present(connection, "source_exposure_events"):
+            for row in connection.execute(
+                "SELECT entity_type, entity_id, created_at FROM source_exposure_events "
+                "WHERE entity_type IN ('learning_object', 'practice_item') AND entity_id IS NOT NULL "
+                "ORDER BY created_at, id"
+            ):
+                exposure = (row["created_at"], "", "reading", None)
+                if row["entity_type"] == "learning_object":
+                    los[row["entity_id"]].append(exposure)
+                else:
+                    items[row["entity_id"]].append(exposure)
+                    lo = item_lo.get(row["entity_id"])
+                    if lo:
+                        los[lo].append(exposure)
+        for table in (items, los, facets):
+            for entries in table.values():
+                entries.sort(key=lambda entry: (entry[0], entry[1]))
+        for entries in lo_reveals.values():
+            entries.sort(key=lambda entry: entry[0])
+        self.item_exposures, self.lo_exposures, self.facet_exposures = items, los, facets
+        self.lo_reveals = lo_reveals
+
+    @staticmethod
+    def _last_before(entries: list[_Exposure], attempt: Mapping[str, Any]) -> _Exposure | None:
+        """The newest exposure before ``attempt``, never one the attempt caused."""
+
+        index = bisect_left(entries, (attempt["created_at"], attempt["id"]))
+        while index > 0:
+            index -= 1
+            entry = entries[index]
+            if entry[3] != attempt["id"]:
+                return entry
+        return None
+
+    def covariates(self, attempt: Mapping[str, Any]) -> dict[str, Any]:
+        """The D12 coldness covariates of one attempt (its learning object's view)."""
+
+        def since(entry: _Exposure | None) -> int | None:
+            return None if entry is None else _seconds(attempt["created_at"], entry[0])
+
+        item_last = self._last_before(self.item_exposures.get(attempt["practice_item_id"], []), attempt)
+        facet_last: _Exposure | None = None
+        for facet in self.attempt_facets.get(attempt["id"], ()):
+            entry = self._last_before(self.facet_exposures.get(facet, []), attempt)
+            if entry is not None and (facet_last is None or (entry[0], entry[1]) > (facet_last[0], facet_last[1])):
+                facet_last = entry
+        lo_last = self._last_before(self.lo_exposures.get(attempt["learning_object_id"], []), attempt)
+        intervening = None
+        if lo_last is not None:
+            end = bisect_left(self.attempt_keys, (attempt["created_at"], attempt["id"]))
+            start = bisect_right(self.attempt_keys, (lo_last[0], lo_last[1]))
+            intervening = max(end - start, 0)
+        rows = self.by_lo[attempt["learning_object_id"]]
+        position = self.position.get(attempt["id"])
+        previous = rows[position - 1]["created_at"] if position else None
+        reveal_amount = 0.0
+        for created_at, amount, linked in self.lo_reveals.get(attempt["learning_object_id"], []):
+            if created_at > attempt["created_at"]:
+                break
+            if linked == attempt["id"] or (previous is not None and created_at <= previous):
+                continue
+            reveal_amount += amount
+        return {
+            "since_item_seconds": since(item_last),
+            "since_facet_seconds": since(facet_last),
+            "since_lo_seconds": since(lo_last),
+            "intervening_attempts": intervening,
+            "predicted_retrievability": self.retrievability.get(attempt["id"]),
+            "reveal_amount": round(reveal_amount, 12),
+            "last_item_exposure_kind": item_last[2] if item_last else None,
+            "last_facet_exposure_kind": facet_last[2] if facet_last else None,
+            "last_lo_exposure_kind": lo_last[2] if lo_last else None,
+        }
 
     def last_reveal(self, item_id: str, learning_object_id: str, until: str) -> str | None:
         """The newest reveal on the item or its learning object at or before ``until``."""
@@ -228,10 +420,14 @@ def _r_next(
             "status": "observed",
             "value": float(row["correctness"]),
             "attempt_id": row["id"],
+            "row": row,
             "elapsed_seconds": _seconds(row["created_at"], action["created_at"]),
             "skipped": skipped,
         }
-    return {"status": "pending", "value": None, "attempt_id": None, "elapsed_seconds": None, "skipped": skipped}
+    return {
+        "status": "pending", "value": None, "attempt_id": None, "row": None, "elapsed_seconds": None,
+        "skipped": skipped,
+    }
 
 
 def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
@@ -239,6 +435,7 @@ def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str,
     rows = ledger.by_lo[learning_object_id]
     start = ledger.position[action["id"]]
     skipped: dict[str, int] = defaultdict(int)
+    considered: list[tuple[dict[str, Any], list[str]]] = []
     for index in range(start + 1, len(rows)):
         row = rows[index]
         previous = rows[index - 1]
@@ -253,6 +450,7 @@ def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str,
             source_session_id=previous["session_id"],
             pfc_states=pfc_states,
         )
+        considered.append((row, list(reasons)))
         if reasons:
             for reason in reasons:
                 skipped[reason] += 1
@@ -261,13 +459,15 @@ def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str,
             "status": "observed",
             "value": float(row["correctness"]),
             "attempt_id": row["id"],
+            "row": row,
             "gap_seconds": gap,
             "position": index,
             "skipped": skipped,
+            "considered": considered,
         }
     return {
-        "status": "pending", "value": None, "attempt_id": None, "gap_seconds": None, "position": None,
-        "skipped": skipped,
+        "status": "pending", "value": None, "attempt_id": None, "row": None, "gap_seconds": None, "position": None,
+        "skipped": skipped, "considered": considered,
     }
 
 
@@ -294,8 +494,43 @@ def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: 
         "s_value": None,
         "s_alpha": S_ALPHA,
         "observed_through": observed_through,
-        "detail_json": json.dumps({"basis": OUTCOME_VERSION}, sort_keys=True),
+        **_covariate_columns("r_next", None),
+        **_covariate_columns("r_cold", None),
+        "coldness_candidates_json": "[]",
+        "detail_json": json.dumps({"basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_RULE}, sort_keys=True),
     }
+
+
+def _covariate_columns(prefix: str, covariates: Mapping[str, Any] | None) -> dict[str, Any]:
+    return {f"{prefix}_{name}": (covariates or {}).get(name) for name in COVARIATE_NAMES}
+
+
+def _coldness_candidates(
+    action: Mapping[str, Any],
+    considered: list[tuple[dict[str, Any], list[str]]],
+    ledger: _Ledger,
+    *,
+    r_next_id: str | None,
+    r_cold_id: str | None,
+) -> tuple[list[dict[str, Any]], int]:
+    """Every later attempt the R_cold rule considered, with its covariates."""
+
+    entries: list[dict[str, Any]] = []
+    for row, reasons in considered[:COLDNESS_CANDIDATE_CAP]:
+        role = "r_cold" if row["id"] == r_cold_id else "r_next" if row["id"] == r_next_id else None
+        entries.append(
+            {
+                "attempt_id": row["id"],
+                "practice_item_id": row["practice_item_id"],
+                "created_at": row["created_at"],
+                "correctness": None if row["correctness"] is None else float(row["correctness"]),
+                "since_action_seconds": _seconds(row["created_at"], action["created_at"]),
+                "role": role,
+                "exclusions": sorted(reasons),
+                **ledger.covariates(row),
+            }
+        )
+    return entries, max(len(considered) - COLDNESS_CANDIDATE_CAP, 0)
 
 
 def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]:
@@ -320,6 +555,7 @@ def derive_router_outcomes(
     *,
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
+    retrievability_by_attempt: Mapping[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """One outcome row per logged decision, from the ledgers alone (read-only).
 
@@ -328,11 +564,23 @@ def derive_router_outcomes(
     answer is never an outcome. ``servable_items_by_lo``
     (:func:`servable_items_by_learning_object`) lets R_next be
     ``not_applicable`` where the learning object has no other item; without it
-    an unobserved R_next stays ``pending``.
+    an unobserved R_next stays ``pending``. ``retrievability_by_attempt`` maps
+    attempt id to its FSRS-predicted retrievability (D12; the replayer's fold,
+    ``scheduling.review_log.predicted_retrievability_by_attempt``); without it
+    that covariate is NULL.
     """
 
     pfc_states = pfc_states or {}
-    ledger = _Ledger(connection)
+    item_learning_objects = {
+        item: learning_object
+        for learning_object, items in (servable_items_by_lo or {}).items()
+        for item in items
+    }
+    ledger = _Ledger(
+        connection,
+        item_learning_objects=item_learning_objects,
+        retrievability_by_attempt=retrievability_by_attempt,
+    )
     decisions = [
         dict(row)
         for row in connection.execute(
@@ -385,6 +633,11 @@ def derive_router_outcomes(
                 r_next_not_applicable = "closed_by_r_cold"
             if r_next_not_applicable is not None:
                 r_next = {**r_next, "status": "not_applicable"}
+        candidates, truncated = _coldness_candidates(
+            action, r_cold["considered"], ledger,
+            r_next_id=r_next["attempt_id"] if r_next["status"] == "observed" else None,
+            r_cold_id=r_cold["attempt_id"],
+        )
         if r_cold["status"] == "observed":
             s_status = "final"
             s_value = (
@@ -419,9 +672,18 @@ def derive_router_outcomes(
                 "s_value": s_value,
                 "s_alpha": S_ALPHA,
                 "observed_through": ledger.observed_through,
+                **_covariate_columns(
+                    "r_next", ledger.covariates(r_next["row"]) if r_next["status"] == "observed" else None
+                ),
+                **_covariate_columns(
+                    "r_cold", ledger.covariates(r_cold["row"]) if r_cold["status"] == "observed" else None
+                ),
+                "coldness_candidates_json": json.dumps(candidates, sort_keys=True),
                 "detail_json": json.dumps(
                     {
                         "basis": OUTCOME_VERSION,
+                        "r_cold_rule": R_COLD_RULE,
+                        "coldness_candidates_truncated": truncated,
                         "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
                         "r_next_skip_reasons": dict(sorted(r_next["skipped"].items())),
                         "r_cold_skip_reasons": dict(sorted(r_cold["skipped"].items())),
@@ -447,19 +709,26 @@ def rebuild_router_outcomes(
     *,
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
+    retrievability_by_attempt: Mapping[str, float] | None = None,
 ) -> int:
     """Replace the derived cache; the caller owns the transaction."""
 
     return replace_router_outcomes(
         connection,
         derive_router_outcomes(
-            connection, pfc_states=pfc_states, servable_items_by_lo=servable_items_by_lo
+            connection,
+            pfc_states=pfc_states,
+            servable_items_by_lo=servable_items_by_lo,
+            retrievability_by_attempt=retrievability_by_attempt,
         ),
     )
 
 
 __all__ = [
+    "COLDNESS_CANDIDATE_CAP",
+    "COVARIATE_NAMES",
     "INDEPENDENT_ATTEMPT_TYPES",
+    "R_COLD_RULE",
     "OUTCOME_VERSION",
     "S_ALPHA",
     "derive_router_outcomes",

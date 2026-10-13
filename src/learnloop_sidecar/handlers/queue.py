@@ -347,17 +347,16 @@ def offer_trace_for(vault: Any, session_id: str | None) -> OfferTrace | None:
 def today_head_served(vault: Any) -> bool:
     """Whether Today serves the queue's head (router R1's chosen candidate).
 
-    True on this branch: the legacy queue is Today, and Today focuses (and
-    "Next" opens) the first item of its first non-empty section. Daily-loop
-    DL1 merge: return ``not plan_active(vault)``. While the finite plan serves
-    Today, this list is the full list one key away from the plan (picks from it
-    go through ``plan_learner_pick``), so its builds are logged with no chosen
-    candidate (``not_served``) and every bind from it is a learner pick.
-    ``test_the_full_list_seam_follows_dl1s_plan_once_it_lands`` fails until
-    this reads the plan.
+    While the legacy queue is Today (below mvp-0.14, or ``plan.enabled =
+    false``), Today focuses (and "Next" opens) the first item of its first
+    non-empty section: that head is served. While daily-loop DL1's finite plan
+    serves Today, this list is the full list one key away from the plan (picks
+    from it go through ``plan_learner_pick``), so its builds are logged with no
+    chosen candidate (``not_served``) and every bind from it is a learner pick
+    (R1 review F3, wired when R1 merged after DL1).
     """
 
-    return True
+    return not plan_active(vault)
 
 
 class _TeachBackReadiness:

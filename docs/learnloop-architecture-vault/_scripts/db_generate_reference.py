@@ -1004,7 +1004,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.reentry_max_items": "Most items a re-entry plan serves after a break, whatever its minutes allow (D11).",
     "plan.project_probes_max_per_day": "Most due project probes a day in the maintain lane (project M2); the rest stay in the full list.",
     "plan.headline": "Shows the optional one-line Today headline (display only, D7).",
-    "router.log_decisions": "Writes one router_decisions row per Today offer, staged P2 decision and learner pick; not a serving change, acts at every version.",
+    "router.log_decisions": "Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version.",
     "router.probe_tie_admission": "Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14.",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "

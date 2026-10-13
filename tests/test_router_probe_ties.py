@@ -265,3 +265,68 @@ def test_a_greedy_probe_presentation_carries_no_exploration_mark(tmp_path, monke
     build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert presentation is not None and "scheduler_exploration" not in presentation.selection_components
+
+
+# ── owner decision D11 (2026-10-12): teach-back stays in the probe tie-break ──
+
+
+_TEACH_BACK = {
+    "id": "pi_svd_teach_back",
+    "learning_object_id": "lo_svd_definition",
+    "subjects": None,
+    "practice_mode": "teach_back",
+    "attempt_types_allowed": ["teach_back"],
+    "evidence_facets": ["recall"],
+    "evidence_weights": {"recall": 1.0},
+    "criterion_facet_weights": {"core_definition": {"recall": 1.0}},
+    "prompt": "Teach the singular value decomposition to a curious student.",
+    "expected_answer": "U, Sigma and V transpose.",
+    "grading_rubric": {
+        "max_points": 1,
+        "criteria": [{"id": "core_definition", "points": 1.0, "tier": "core", "description": "States U, Sigma, V."}],
+        "fatal_errors": [],
+    },
+    "created_at": "2026-05-19T12:00:00Z",
+    "updated_at": "2026-05-19T12:00:00Z",
+}
+
+
+@pytest.mark.parametrize(
+    "version,toml,admitted",
+    [
+        ("mvp-0.15", "", True),
+        ("mvp-0.15", "[router]\nprobe_tie_admission = false\n", False),
+        ("mvp-0.14", "", False),
+    ],
+)
+def test_teach_back_items_are_probe_near_ties_at_the_successor(tmp_path, version, toml, admitted):
+    """D11: a teach-back dialogue is a high-value probe, so a teach-back item is
+    a PROBE-intent near-tie the seeded exploration may draw (its cost belongs in
+    the router's cost term, not in an exclusion). The predecessor and the kill
+    switch keep the exclusion."""
+
+    from learnloop.scheduling.scheduler import OfferTrace
+    from learnloop.vault.writer import upsert_practice_item
+
+    from tests.helpers import seed_due_item
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    upsert_practice_item(paths.root, _TEACH_BACK, clock=FrozenClock(NOW))
+    set_algorithm_version(paths, version)
+    append_config_toml(
+        paths.root,
+        "[scheduler]\nselection_exploration_rate = 0.2\nselection_exploration_reward_window = 5.0\n" + toml,
+    )
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    trace = OfferTrace()
+    queue = build_due_queue(
+        vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s"),
+        persist_explanations=False, offer_trace=trace,
+    )
+    teach_back = next(item for item in trace.considered if item.practice_item_id == "pi_svd_teach_back")
+    assert (teach_back.reward_debug or {}).get("intent") == PROBE
+    assert trace.exploration["probe_ties_admitted"] is admitted
+    assert (trace.base_propensity["pi_svd_teach_back"] > 0.0) is admitted
+    assert queue

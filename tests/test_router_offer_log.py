@@ -628,16 +628,16 @@ def test_while_the_plan_serves_the_full_list_logs_no_system_choice_and_every_bin
 
 
 def test_the_full_list_seam_follows_dl1s_plan_once_it_lands(monkeypatch):
-    """F3 tripwire: after the DL1 merge the seam must read ``plan_active``."""
+    """F3 tripwire, wired when R1 merged after DL1: the seam reads ``plan_active``
+    (real vaults: tests/test_router_r1_composition.py)."""
 
     from types import SimpleNamespace
 
     from learnloop_sidecar.handlers import queue as queue_handler
 
+    monkeypatch.setattr(queue_handler, "plan_active", lambda _vault: False)
     assert queue_handler.today_head_served(SimpleNamespace(config=None)) is True
-    engine = pytest.importorskip("learnloop.daily_plan.engine")
-    monkeypatch.setattr(engine, "plan_active", lambda _vault: True)
-    monkeypatch.setattr(queue_handler, "plan_active", lambda _vault: True, raising=False)
+    monkeypatch.setattr(queue_handler, "plan_active", lambda _vault: True)
     assert queue_handler.today_head_served(SimpleNamespace(config=None)) is False
 
 

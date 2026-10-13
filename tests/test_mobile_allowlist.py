@@ -114,7 +114,8 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
 # Router R1 (mvp-0.15) adds no RPC. It extends these: a published Today offer
 # (and a skip's requeue) writes a router decision, and a first bind of a
 # submission to an offered candidate other than the head writes a learner
-# pick. Desktop only.
+# pick. Every daily-plan block decision and chooser stop (DAILY_PLAN_RPCS,
+# pinned above) is also a plan_block router decision. Desktop only.
 ROUTER_R1_LOGGING_RPCS = (
     "get_today_queue",
     "skip_practice_item",

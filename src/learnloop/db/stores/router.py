@@ -60,7 +60,14 @@ OUTCOME_COLUMNS: tuple[str, ...] = (
     "r_next_status", "r_next_value", "r_next_attempt_id", "r_next_elapsed_seconds",
     "r_next_skipped", "r_cold_status", "r_cold_value", "r_cold_attempt_id",
     "r_cold_gap_seconds", "r_cold_skipped", "s_status", "s_value", "s_alpha",
-    "observed_through", "detail_json",
+    "observed_through",
+    # Owner decision D12: the coldness covariates of the R_next and R_cold
+    # attempts, and of every later attempt the one-day rule considered.
+    "r_next_since_item_seconds", "r_next_since_facet_seconds", "r_next_since_lo_seconds",
+    "r_next_intervening_attempts", "r_next_predicted_retrievability", "r_next_reveal_amount",
+    "r_cold_since_item_seconds", "r_cold_since_facet_seconds", "r_cold_since_lo_seconds",
+    "r_cold_intervening_attempts", "r_cold_predicted_retrievability", "r_cold_reveal_amount",
+    "coldness_candidates_json", "detail_json",
 )
 
 

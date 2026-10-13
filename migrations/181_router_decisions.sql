@@ -2,25 +2,30 @@
 -- today's paths (built as migration 176 at mvp-0.12; renumbered 181 and
 -- relabelled mvp-0.15 when it merged after main's 176-180, none of which
 -- touches these tables). One append-only row per Today offer, staged P2
--- decision and learner pick, with the full candidate set, the chosen candidate
--- and its true propensity (or an explicit 'deterministic'). A list the learner
--- picks from with no system-served head is logged with propensity_kind
--- 'not_served'.
+-- decision, learner pick and daily-plan block decision (plan_block, through
+-- DL1's register_plan_decision_logger hook; owner decision 2026-10-12), with
+-- the full candidate set, the chosen candidate and its true propensity (or an
+-- explicit 'deterministic'). A list the learner picks from with no
+-- system-served head is logged with propensity_kind 'not_served'.
 -- The outcome table is a derived cache with one replayer; nothing here is
 -- evidence, mastery or certification.
 
 CREATE TABLE router_decisions (
   id TEXT PRIMARY KEY,
   -- Idempotency: today_offer:<slate>, staged_p2:<controller decision>,
-  -- learner_pick:<scheduler candidate>.
+  -- learner_pick:<scheduler candidate>, plan_block:<attention block>.
   receipt_key TEXT NOT NULL UNIQUE,
-  decision_kind TEXT NOT NULL CHECK (decision_kind IN ('today_offer', 'staged_p2', 'learner_pick')),
-  -- Where the decision was served: desktop_queue | skip_requeue | p2_bridge |
-  -- the bind's entry surface for a learner pick.
+  decision_kind TEXT NOT NULL CHECK (
+    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block')
+  ),
+  -- Where the decision was served: desktop_queue | full_list | skip_requeue |
+  -- p2_bridge | daily_plan | the bind's entry surface for a learner pick.
   surface TEXT NOT NULL,
-  -- Who composed the choice: legacy_queue | staged (R2 adds mixture).
+  -- Who composed the choice: legacy_queue | staged | daily_plan (R2 adds
+  -- mixture).
   mode TEXT NOT NULL,
-  -- The policy that chose: composed_offer_v2 | staged_policy_v1 | learner.
+  -- The policy that chose: composed_offer_v2 | staged_policy_v1 | learner |
+  -- the plan chooser (lane_quota_v1).
   policy TEXT NOT NULL,
   algorithm_version TEXT NOT NULL,
   log_version TEXT NOT NULL,
@@ -93,7 +98,15 @@ END;
 -- (S = alpha R_cold + (1 - alpha) R_next, alpha = 0.75). A pending outcome is
 -- right-censored at observed_through (the newest attempt in the ledger), never
 -- a failure. Rebuilt whole by its one replayer from router_decisions,
--- practice_attempts, grading evidence and reveal_events.
+-- practice_attempts, grading evidence, reveal_events, tutor questions and
+-- source exposures. R_cold's one-day rule is provisional (spec §15.2, owner
+-- decision D12): each outcome also records its attempt's coldness covariates
+-- (time since the last exposure to the item, its facets and its learning
+-- object; attempts in between; the FSRS-predicted retrievability at the
+-- attempt; the reveal amount since the last attempt on the learning object),
+-- and coldness_candidates_json lists the same covariates for every later
+-- attempt on the learning object the rule considered, so coldness can be
+-- learned (R3) instead of hard-coded.
 CREATE TABLE router_outcomes (
   decision_id TEXT PRIMARY KEY,
   outcome_version TEXT NOT NULL,
@@ -114,6 +127,26 @@ CREATE TABLE router_outcomes (
   r_cold_attempt_id TEXT,
   r_cold_gap_seconds INTEGER,
   r_cold_skipped INTEGER NOT NULL DEFAULT 0,
+  -- Coldness covariates of the R_next and R_cold attempts (NULL while the
+  -- outcome is not observed, or when the input does not exist: no earlier
+  -- exposure, no FSRS memory before the attempt).
+  r_next_since_item_seconds INTEGER,
+  r_next_since_facet_seconds INTEGER,
+  r_next_since_lo_seconds INTEGER,
+  r_next_intervening_attempts INTEGER CHECK (r_next_intervening_attempts IS NULL OR r_next_intervening_attempts >= 0),
+  r_next_predicted_retrievability REAL CHECK (
+    r_next_predicted_retrievability IS NULL OR (r_next_predicted_retrievability >= 0 AND r_next_predicted_retrievability <= 1)
+  ),
+  r_next_reveal_amount REAL CHECK (r_next_reveal_amount IS NULL OR r_next_reveal_amount >= 0),
+  r_cold_since_item_seconds INTEGER,
+  r_cold_since_facet_seconds INTEGER,
+  r_cold_since_lo_seconds INTEGER,
+  r_cold_intervening_attempts INTEGER CHECK (r_cold_intervening_attempts IS NULL OR r_cold_intervening_attempts >= 0),
+  r_cold_predicted_retrievability REAL CHECK (
+    r_cold_predicted_retrievability IS NULL OR (r_cold_predicted_retrievability >= 0 AND r_cold_predicted_retrievability <= 1)
+  ),
+  r_cold_reveal_amount REAL CHECK (r_cold_reveal_amount IS NULL OR r_cold_reveal_amount >= 0),
+  coldness_candidates_json TEXT NOT NULL DEFAULT '[]',
   s_status TEXT NOT NULL CHECK (s_status IN ('final', 'provisional', 'pending', 'not_applicable')),
   s_value REAL CHECK (s_value IS NULL OR (s_value >= 0 AND s_value <= 1)),
   s_alpha REAL NOT NULL,
