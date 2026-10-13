@@ -31,6 +31,36 @@ PFC_PARTIALLY_ASSESSED = "partially_assessed"
 #: No criterion was assessed: correct for scheduling, but no measurement.
 PFC_NOTHING_ASSESSED = "nothing_assessed"
 
+# The proofs route check (mvp-0.17, re-review F9). A grade with nothing
+# assessed and nothing validated is HELD FOR REVIEW: the grader's own grade,
+# provisional, no evidence, no FSRS review, no prediction error, until a
+# regrade or an adjudication settles it. Unlike PF-c's nothing-assessed answer
+# (verified, so correct for scheduling) a held grade is no outcome at all:
+# outcome readers exclude it with this reason, and its score is never read as
+# the answer's. The hold is one recorded fact, the attempt's latest blind
+# record (``grading_support.proof_route_check``); ``attempts.proof_check``
+# writes it and re-exports the predicate below.
+GRADE_HELD_FOR_REVIEW = "grade_held_for_review"
+#: Route-check gate versions whose records predate the hold: v2 scheduled a
+#: held grade as correct, so such a record replays as it was written.
+PRE_HOLD_ROUTE_CHECK_VERSIONS = frozenset({"proof-route-check-v1", "proof-route-check-v2"})
+
+
+def grade_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:
+    """Did the proofs route check leave this grade held for review?
+
+    Read from a blind run's ``grading_support`` or the blind record that
+    persists it, never from today's config.
+    """
+
+    proof = (grading_support or {}).get("proof_route_check") or {}
+    return (
+        isinstance(proof, Mapping)
+        and proof.get("status") == "checked"
+        and bool(proof.get("held_for_review"))
+        and proof.get("version") not in PRE_HOLD_ROUTE_CHECK_VERSIONS
+    )
+
 
 def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
     metadata = row.get("metadata") or {}
@@ -58,6 +88,9 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
         reasons.append("same_session")
     if pfc_assessment == PFC_NOTHING_ASSESSED:
         reasons.append("outcome_unassessed")
+    if row.get("outcome_grade_held_for_review"):
+        # mvp-0.17: nothing validated the grade; it is no outcome yet.
+        reasons.append(GRADE_HELD_FOR_REVIEW)
     review_reason = row.get("outcome_manual_review_reason", outcome.get("manual_review_reason"))
     pfc_sole_concern = review_reason == PFC_REVIEW_REASON and pfc_assessment in (
         PFC_PARTIALLY_ASSESSED,

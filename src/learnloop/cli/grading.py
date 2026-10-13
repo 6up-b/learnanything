@@ -142,7 +142,7 @@ def grading_hardcases(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls, tokens and cost; build no client and send nothing.")] = False,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend (reservations: each request reserves its full output budget).")] = 3.0,
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 200,
-    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Cap on metered tokens (input plus reserved output).")] = 2_000_000,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Cap on metered tokens (input plus reserved output; each request reserves its route's policy output budget, 16,384 by default).")] = 4_000_000,
     max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Counted retries of a failed transport request.")] = 4,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="One USD rate for input and output tokens (an upper bound). Metered routes need a price.")] = None,
     input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0)] = None,

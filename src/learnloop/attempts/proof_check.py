@@ -75,6 +75,7 @@ fails a grade.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 import hashlib
 import json
@@ -85,11 +86,18 @@ from typing import Any, Callable, Literal, Mapping, Sequence
 from pydantic import Field
 
 from learnloop.ai.errors import AIInterrupted
+from learnloop.ai.execution import generation_limit, requested_reasoning_effort, truncation_retry_allowed
+from learnloop.ai.output_budget import output_budget, reasoning_effort
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
 from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
 from learnloop.attempts.grading_admission import admit_grading_call, estimated_prompt_tokens
+from learnloop.outcome_contract import (
+    GRADE_HELD_FOR_REVIEW,
+    PRE_HOLD_ROUTE_CHECK_VERSIONS,
+    grade_held_for_review,
+)
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
     UNVERIFIED_INTERPRETATION_KEY,
@@ -104,8 +112,9 @@ LOGGER = logging.getLogger(__name__)
 #: overrides a mark-down, and a grade held for review keeps the grader's own
 #: score (not the verified-answer full marks) and applies no FSRS review.
 PROOF_CHECK_VERSION = "proof-route-check-v3"
-#: Gate versions whose records predate the hold (re-review F9).
-_PRE_HOLD_VERSIONS = frozenset({"proof-route-check-v1", "proof-route-check-v2"})
+#: Gate versions whose records predate the hold (re-review F9). The outcome
+#: contract owns the predicate, so every outcome reader shares it.
+_PRE_HOLD_VERSIONS = PRE_HOLD_ROUTE_CHECK_VERSIONS
 ITEM_KIND_PROMPT_VERSION = "proof-like-item-v1"
 ROUTE_CHECK_PROMPT_VERSION = "proof-route-check-v1"
 #: ``judgment_ledger.task`` of the item classification (left = the item, the
@@ -124,8 +133,9 @@ RESTORED_CRITERION_LABEL = "restored: an independent check found your route vali
 #: Support key on the blind record.
 SUPPORT_KEY = "proof_route_check"
 #: The typed suppression the post-attempt pipeline records when a grade held
-#: for review would otherwise insert follow-up work (re-review F9).
-HELD_FOR_REVIEW_SUPPRESSION = "grade_held_for_review"
+#: for review would otherwise insert follow-up work (re-review F9); the
+#: outcome contract's exclusion reason for the same fact.
+HELD_FOR_REVIEW_SUPPRESSION = GRADE_HELD_FOR_REVIEW
 #: The spend route a command admits the reading and the check on (review F3):
 #: the checker's own client, which may bill differently from the grader's.
 SPEND_ROUTE = "proof_check"
@@ -151,6 +161,42 @@ def proof_check_active(vault: Any) -> bool:
         return False
     section = getattr(config, "proof_check", None)
     return bool(getattr(section, "enabled", True))
+
+
+@dataclass(frozen=True)
+class CallPolicy:
+    """What one proof-check call asks of its transport, under the shared
+    output-budget policy (``learnloop.ai.output_budget``, owner 2026-10-12).
+
+    ``output_tokens`` is the ``proof_check`` route's budget for the serving
+    profile (``ai.route_output_tokens.proof_check``, else the profile's
+    ``max_tokens``, else ``ai.output_tokens``): no hand-set allowance, since a
+    reasoning model spends its thinking from the same budget. A truncated
+    answer is never accepted: the transport retries it once at double the
+    budget. ``reasoning_effort`` is ``ai.route_reasoning_effort.proof_check``
+    (None keeps the profile's).
+    """
+
+    output_tokens: int | None = None
+    reasoning_effort: str | None = None
+
+    @classmethod
+    def for_route(cls, vault: Any, provider: str | None) -> "CallPolicy":
+        config = getattr(vault, "config", None)
+        return cls(output_budget(config, SPEND_ROUTE, provider=provider or None),
+                   reasoning_effort(config, SPEND_ROUTE))
+
+    @contextmanager
+    def applied(self):
+        """Send the call at the budget, with the transport's truncation retry.
+
+        Inside a command's admission (``admit_grading_call``) the admitted
+        limit is the same policy budget, so the two agree.
+        """
+
+        with generation_limit(self.output_tokens), truncation_retry_allowed(), \
+                requested_reasoning_effort(self.reasoning_effort):
+            yield
 
 
 # -- wire models -------------------------------------------------------------------------
@@ -733,8 +779,13 @@ def classify_item(
     client: OperationClient | None,
     *,
     created_at: str,
+    policy: CallPolicy | None = None,
 ) -> tuple[ItemKindReading | None, dict[str, Any]]:
-    """The item's cached kind, or one classification call recorded in the ledger."""
+    """The item's cached kind, or one classification call recorded in the ledger.
+
+    ``policy`` is the call's output budget and effort (:class:`CallPolicy`);
+    None sends it under the code-default policy budget.
+    """
 
     from learnloop.db.stores.judgments import append_judgment
 
@@ -748,7 +799,8 @@ def classify_item(
     prompt = item_kind_prompt(item, rubric)
     # Admitted on the check's spend route when a command installed a guard
     # (review F3); a no-op on every other door.
-    with admit_grading_call("proof_item_classification", prompt, route=SPEND_ROUTE, client=client):
+    with admit_grading_call("proof_item_classification", prompt, route=SPEND_ROUTE, client=client), \
+            (policy or CallPolicy.for_route(None, None)).applied():
         reading = execute_structured_operation(
             client, purpose="proof_item_classification", prompt=prompt,
             result_model=ItemKindReading, isolated=True,
@@ -812,7 +864,11 @@ def run_proof_route_check(
             if resolved_model:
                 support["checker"]["model"] = resolved_model
                 support["checker"]["independent"] = bool(grader_model and resolved_model != grader_model)
-        reading, provenance = classify_item(repository, item, rubric, client, created_at=created_at)
+        # The shared output-budget policy for the checker's own route.
+        policy = CallPolicy.for_route(vault, route.provider)
+        reading, provenance = classify_item(
+            repository, item, rubric, client, created_at=created_at, policy=policy,
+        )
         if reading is None:
             support["error"] = provenance.get("error", "item kind unavailable")
             return ProofCheckResult(support)
@@ -831,7 +887,8 @@ def run_proof_route_check(
         prompt = route_check_prompt(
             item, rubric, learner_answer_md, clarification_exchange=clarification_exchange,
         )
-        with admit_grading_call("proof_route_check", prompt, route=SPEND_ROUTE, client=client):
+        with admit_grading_call("proof_route_check", prompt, route=SPEND_ROUTE, client=client), \
+                policy.applied():
             check = execute_structured_operation(
                 client, purpose="proof_route_check", prompt=prompt, result_model=ProofRouteCheck,
                 isolated=True,
@@ -1008,14 +1065,9 @@ def is_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:
     every door reads one recorded fact, never today's config.
     """
 
-    proof = (grading_support or {}).get(SUPPORT_KEY) or {}
-    return (
-        proof.get("status") == "checked"
-        and bool(proof.get("held_for_review"))
-        # A record written before the hold (v2 scheduled it as correct, with
-        # PF-c's full marks) replays as it was written.
-        and proof.get("version") not in _PRE_HOLD_VERSIONS
-    )
+    # A record written before the hold (v2 scheduled it as correct, with
+    # PF-c's full marks) replays as it was written.
+    return grade_held_for_review(grading_support)
 
 
 def record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool:
@@ -1100,6 +1152,7 @@ def checked_run(
 
 __all__ = [
     "CLARIFICATION_TRIGGER",
+    "CallPolicy",
     "CheckerRoute",
     "CriterionRouteVerdict",
     "HELD_FOR_REVIEW_SUPPRESSION",

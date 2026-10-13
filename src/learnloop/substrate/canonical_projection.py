@@ -154,6 +154,55 @@ def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, st
         if (state := pfc_assessment(rows)) is not None
     }
 
+def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None = None) -> frozenset[str]:
+    """Attempts whose current grade the proofs route check holds for review.
+
+    mvp-0.17 (re-review F9): read from each attempt's LATEST blind grade
+    record, the one recorded fact every door reads
+    (``outcome_contract.grade_held_for_review``): a regrade that validates
+    the route writes a record without the hold and releases it. ``None``
+    reads every blind-graded attempt. A database without blind records (a
+    pre-170 copy) holds nothing.
+
+    This is the one ledger-level answer to "is this attempt's grade usable
+    as an outcome?" for the readers composed at the merge (router R1's
+    outcomes and coldness covariate, the learner-text gaps' diagnosis source,
+    the EVSI calibration report): route any further reader through it.
+    """
+
+    from learnloop.outcome_contract import grade_held_for_review
+
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+    ).fetchone() is None:
+        return frozenset()
+    if attempt_ids is None:
+        chunks: list[list[str] | None] = [None]
+    else:
+        ids = sorted({str(value) for value in attempt_ids if value})
+        chunks = [ids[start : start + 500] for start in range(0, len(ids), 500)]
+    latest: dict[str, Any] = {}
+    for chunk in chunks:
+        if chunk is not None and not chunk:
+            continue
+        where = "" if chunk is None else f"WHERE attempt_id IN ({','.join('?' for _ in chunk)}) "
+        for attempt_id, record_json in connection.execute(
+            f"SELECT attempt_id, record_json FROM blind_grade_records {where}"
+            "ORDER BY attempt_id, created_at, id",
+            chunk or (),
+        ):
+            latest[str(attempt_id)] = record_json
+    held: set[str] = set()
+    for attempt_id, record_json in latest.items():
+        try:
+            record = json.loads(record_json) if isinstance(record_json, str) else (record_json or {})
+        except ValueError:
+            continue
+        if isinstance(record, dict) and grade_held_for_review(record.get("grading_support")):
+            held.add(attempt_id)
+    return frozenset(held)
+
+
 # Assistance channels that certify nothing (§5.4/§6).
 #
 # DEPRECATED as a decision point: the attempt-type set alone cannot see

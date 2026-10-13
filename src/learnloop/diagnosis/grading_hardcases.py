@@ -69,6 +69,7 @@ from math import sqrt
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from learnloop.ai.output_budget import output_budget
 from learnloop.ai.spend import SpendCaps, is_subscription_transport
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN
 from learnloop.attempts.answer_check import final_answer_check
@@ -120,12 +121,15 @@ PRODUCTION_ARM = "reference_shown+check_shown"
 ALL_ARMS = tuple(f"{reference}+{check}" for reference in REFERENCE_ARMS for check in CHECK_ARMS)
 #: What a withheld check reads as in the grader's reference policy.
 WITHHELD_CHECK = {"status": "withheld_from_grader", "method": None}
-#: Output budgets per role (each request reserves its full budget). The
-#: reading's budget leaves room for a route that spends output on reasoning:
-#: at 600 Haiku 5.5 truncated one reading the live door would have completed
-#: (it bounds the reading only by the proof_check allowance), which would
-#: score the gate as unclassified off the production path (review F6).
-OUTPUT_TOKENS = {"grader": 6000, "checker": 3000, "item_kind": 2000}
+#: The production route each role's output budget follows. Every request asks
+#: for (and reserves) that route's budget under the shared output-budget
+#: policy (``learnloop.ai.output_budget``: ``ai.route_output_tokens.<route>``,
+#: else the profile's ``max_tokens``, else ``ai.output_tokens``), as the live
+#: door's grader and route check do. A truncated answer is never accepted: it
+#: is logged and retried once at double the budget (admitted as a retry). The
+#: hand-set budgets (grader 6,000, checker 3,000, and the item reading's 2,000
+#: after Haiku 5.5 truncated one at 600, review F6) are retired.
+HARDCASE_ROUTES = {"grader": "grading", "checker": "proof_check", "item_kind": "proof_check"}
 #: ``judgment_ledger`` task per role, and the left kind of a case.
 LEDGER_TASKS = {role: f"grading_hardcase_{role}" for role in ROLES}
 CASE_KIND = "grading_hardcase"
@@ -310,6 +314,14 @@ def _requests(vault: LoadedVault, case: HardCase, arms: Sequence[str]) -> dict[t
     )
     requests[("item_kind", None)] = (item_kind_prompt(case.item, case.rubric), ITEM_KIND_PROMPT_VERSION, ItemKindReading)
     return requests
+
+
+def role_output_tokens(vault: LoadedVault, route: str) -> dict[str, int]:
+    """Each role's output budget on ``route`` (a profile name): the policy
+    budget of the production route the role stands for (:data:`HARDCASE_ROUTES`),
+    held to that profile's ``max_tokens``."""
+
+    return {role: output_budget(vault.config, task, provider=route) for role, task in HARDCASE_ROUTES.items()}
 
 
 # -- routes and clients --------------------------------------------------------------------
@@ -587,19 +599,21 @@ def run_hardcases(
     totals = {False: [0, 0, 0], True: [0, 0, 0]}  # subscription -> [calls, tokens, output tokens]
     for route in routes:
         roles: dict[str, Any] = {}
+        budgets = role_output_tokens(vault, route)
         for role, arm in keys:
             label = role if arm is None else f"{role}:{arm}"
             calls = len(cases) * repeats
             tokens = repeats * sum(
                 estimate_tokens(requests[case.id][(role, arm)][0], requests[case.id][(role, arm)][2],
-                                OUTPUT_TOKENS[role])
+                                budgets[role])
                 for case in cases
             )
-            roles[label] = {"calls": calls, "tokens": tokens, "output_tokens": OUTPUT_TOKENS[role] * calls}
+            roles[label] = {"calls": calls, "tokens": tokens, "output_tokens": budgets[role] * calls,
+                            "output_route": HARDCASE_ROUTES[role]}
             bucket = totals[planned[route].subscription]
             bucket[0] += calls
             bucket[1] += tokens
-            bucket[2] += OUTPUT_TOKENS[role] * calls
+            bucket[2] += budgets[role] * calls
         plan[route] = {"model": planned[route].model, "billing": (
             "subscription (estimated only)" if planned[route].subscription else "metered"), "roles": roles}
     metered = caller.estimate(totals[False][1], subscription=False, calls=totals[False][0],
@@ -653,14 +667,19 @@ def run_hardcases(
     models: dict[str, str | None] = {}
     for route in routes:
         entries = {role: _resolved_entry(vault, route, role, injected.get(route)) for role in ROLES}
+        budgets = role_output_tokens(vault, route)
         for repetition in range(repeats):
             for case in cases:
                 for role, arm in keys:
                     prompt, prompt_version, model = requests[case.id][(role, arm)]
                     try:
+                        # An invalid output is one failed case (never retried),
+                        # but a truncation is retried once at double the
+                        # budget under the shared policy.
                         call = caller.call(_repetition_entry(entries[role], repetition), prompt=prompt,
                                            prompt_version=prompt_version, result_model=model,
-                                           output_tokens=OUTPUT_TOKENS[role], retry_invalid_output=False)
+                                           output_tokens=budgets[role], retry_invalid_output=False,
+                                           retry_truncation=True)
                     except PFUnavailable:
                         raise
                     except Exception as exc:  # one failed case is counted, never a crashed run

@@ -29,6 +29,7 @@ from learnloop.attempts import stuck as stuck_module
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
+from learnloop.substrate.canonical_projection import held_for_review_attempts
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 
 #: Diagnoses whose causes this pipeline reads (live, applied).
@@ -182,14 +183,32 @@ def reading_from_diagnosis(
     )
 
 
+def attempt_grade_held(repository: Repository, attempt_id: str) -> bool:
+    """Is the attempt's current grade held for review (mvp-0.17)?
+
+    Read through the one ledger helper every reader shares
+    (``substrate.canonical_projection.held_for_review_attempts``).
+    """
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return bool(held_for_review_attempts(connection, (attempt_id,)))
+
+
 def diagnosis_text(vault: LoadedVault, repository: Repository, diagnosis_id: str) -> LearnerText | None:
-    """A completed live diagnosis of a wrong answer; None otherwise."""
+    """A completed live diagnosis of a wrong answer; None otherwise.
+
+    A grade the proofs route check holds for review (mvp-0.17) is no wrong
+    answer: nothing validated it, so its diagnosis is not read (whenever the
+    hold began).
+    """
 
     row = _diagnosis_row(repository, diagnosis_id)
     if row is None or row.get("mode") != "live" or row.get("status") not in _READABLE_DIAGNOSIS:
         return None
     attempt = repository.fetch_practice_attempt(str(row["attempt_id"]))
     if attempt is None:
+        return None
+    if attempt_grade_held(repository, str(attempt["id"])):
         return None
     try:
         proposal = json.loads(row.get("proposal_json") or "{}")

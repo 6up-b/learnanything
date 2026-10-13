@@ -49,7 +49,8 @@ from learnloop.evsi_calibration.metrics import reliability
 from learnloop.learner.facet_diagnostics import facet_outcome_bucket
 from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
 from learnloop.scheduling.voi_forecasts import FORECAST_VERSION, entropy, posterior
-from learnloop.substrate.canonical_projection import unassessed_evidence_row
+from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+from learnloop.substrate.canonical_projection import held_for_review_attempts, unassessed_evidence_row
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -415,8 +416,15 @@ def realized_emission(
     forecast: Mapping[str, Any],
     attempt_id: str,
 ) -> tuple[str | None, str]:
-    """The realized emission in the forecast's alphabet, or (None, why not)."""
+    """The realized emission in the forecast's alphabet, or (None, why not).
 
+    A grade the proofs route check holds for review (mvp-0.17, re-review F9)
+    realizes nothing at any site: nothing validated it, so its score (and the
+    probe outcome or facet reading drawn from it) is no outcome yet.
+    """
+
+    if held_for_review_attempts(connection, (attempt_id,)):
+        return None, GRADE_HELD_FOR_REVIEW
     body = forecast.get("forecast") or {}
     alphabet = set(body.get("emission_alphabet") or [])
     site = forecast.get("site")

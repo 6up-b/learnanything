@@ -33,7 +33,13 @@ from learnloop.db.stores import learner_gaps as store
 from learnloop.diagnosis.text_gaps.contract import LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDeferred, failed_row, process_learner_text
-from learnloop.diagnosis.text_gaps.sources import StuckTextSource, learner_text, stuck_text_for, stuck_texts
+from learnloop.diagnosis.text_gaps.sources import (
+    StuckTextSource,
+    attempt_grade_held,
+    learner_text,
+    stuck_text_for,
+    stuck_texts,
+)
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -88,10 +94,14 @@ def enqueue_after_diagnosis(
     """After a live diagnosis is applied: queue it.
 
     A stuck answer is queued when it is recorded (:func:`enqueue_stuck_answer`),
-    whether or not it is ever diagnosed (Codex review F8).
+    whether or not it is ever diagnosed (Codex review F8). A diagnosis of a
+    grade the proofs route check holds for review (mvp-0.17) is not queued: it
+    would be read as a wrong answer, and nothing validated the grade.
     """
 
     if not pipeline_enabled(vault):
+        return []
+    if attempt_grade_held(repository, attempt_id):
         return []
     queued: list[str] = []
     if diagnosis.get("mode", "live") == "live" and diagnosis.get("id") and diagnosis.get("status", "completed") == "completed":

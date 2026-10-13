@@ -504,3 +504,62 @@ uv run learnloop field data-check --vault <copy> --json   # answer_signals cover
    are 5), so it cannot tell yet. Hedging looks informative but shares the
    grader's call. Keep both offline, and reread once there are more
    confidence-present rows with failures.
+
+## Merge onto main (2026-10-13)
+
+Merged onto main at `3192d0c9`, after router R1 (`mvp-0.15`, migration 181),
+learner-text gaps (`mvp-0.16`, 182), facet identity (183), the T6 follow-up's
+output-budget policy and EVSI calibration (184).
+
+- **Relabel.** The placeholder `mvp-0.15` is **`mvp-0.17`**, the latest
+  successor: new vaults start there, and `learnloop upgrade` (default target)
+  runs `proof_check_upgrade.upgrade_to_mvp017`, chaining through
+  `upgrade_to_mvp016` and passing on the chain's advisory-guard notes. The
+  owner commands above read `mvp-0.17` wherever they say `mvp-0.15`; the kill
+  switch `[proof_check] enabled = false` grades exactly as `mvp-0.16`.
+- **Migration 185** kept its number; `fixtures/migration_head_185` was rebuilt
+  from main's head 184 with only 185 applied.
+- **Output budgets.** The item reading and the route check follow the shared
+  policy (`learnloop.ai.output_budget`): each call asks for the `proof_check`
+  route's budget (`ai.route_output_tokens.proof_check`, else the serving
+  profile's `max_tokens`, else `ai.output_tokens` = 16,384) with the
+  transport's one truncation retry at double, and the route's reasoning effort
+  (`ai.route_reasoning_effort.proof_check`). `learnloop attempt` admits both on
+  the `proof_check` spend route at that budget. The hard-case harness plans
+  every role at its production route's policy budget (grader: `grading`;
+  checker and item reading: `proof_check`) and retries a truncation once at
+  double (an invalid output is still one failed case). The hand-set budgets
+  (6,000 / 3,000 / 2,000) are retired, so a dry run's reservations grow: the
+  two-route run above reserves 2.78M tokens ($0.91), so `--max-tokens` now
+  defaults to 4,000,000 (was 2,000,000), and the `--ablations --repeats 2`
+  command reserves 14.4M tokens and $3.96, so it needs `--max-tokens
+  16000000 --max-cost-usd 5` (the v2 run was billed $0.51).
+- **Composition** (a grade held for review, re-review F9, is read from the
+  latest blind record everywhere: `outcome_contract.grade_held_for_review`,
+  `canonical_projection.held_for_review_attempts`):
+  - router R1: a held attempt is never R_next or R_cold (it was already
+    excluded as `outcome_unassessed` and `unresolved_grade`; it now also says
+    `grade_held_for_review`), it is listed in `coldness_candidates_json` with
+    no score, and the `predicted_retrievability` covariate folds the ledger as
+    the live schedule does: a held grade applies no review;
+  - EVSI calibration: a held attempt realizes no outcome at any site
+    (`grade_held_for_review` in the join status);
+  - learner-text gaps: a diagnosis of a held grade (one completed before a
+    regrade put the attempt on hold, or a grade a gate defect left with a
+    standing shortfall) is neither queued nor read: the diagnosis source's
+    surface is "wrong answer". A held grade gets no live diagnosis of its own
+    today, and its stuck text (if any) is read as a stuck answer, never as a
+    wrong one;
+  - the stuck prompt, placement and the learner field needed no change
+    (pinned by tests): an empty stuck answer never reaches the check;
+    placement reads a held attempt as unassessed (kept, never a miss); the
+    field drops it with no facet outcome.
+  - One helper answers "is this grade held" for every reader composed here:
+    `canonical_projection.held_for_review_attempts` over
+    `outcome_contract.grade_held_for_review` (which
+    `proof_check.is_held_for_review` delegates to).
+- **Not composed here (open).** A probe answer whose grade is held still
+  records its probe observation from the grader's own score, so the probe
+  episode's posterior moves on it (the EVSI report no longer counts it). The
+  readers in the re-review's open question 1 (failure streak, FSRS fitter,
+  retention cross-check, feedback screen, item quality) are unchanged.

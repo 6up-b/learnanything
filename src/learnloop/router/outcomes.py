@@ -9,7 +9,8 @@ Plan.md``, "Outcome and cost contract"):
   item on the decision's learning object after the action. Fresh = a different
   item from the action's; unassisted = no hints, not primed; independent = an
   independent attempt type, human origin, a scorable resolved grade (PF-c
-  nothing-assessed answers excluded), the outcome contract's own rules
+  nothing-assessed answers and grades the proofs route check holds for review
+  excluded), the outcome contract's own rules
   (``outcome_contract.retention_exclusions``) minus its delay rules.
 * ``R_cold``: success on the next eligible delayed cold retrieval on that
   learning object under the reveal ledger: an attempt at least one day after
@@ -156,6 +157,7 @@ def _exclusions(
             "outcome_manual_review": attempt["manual_review"],
             "outcome_manual_review_reason": attempt["manual_review_reason"],
             "outcome_pfc_assessment": pfc_states.get(attempt["id"]),
+            "outcome_grade_held_for_review": attempt.get("grade_held_for_review", False),
             "source_session_id": source_session_id,
             "outcome_session_id": attempt["session_id"],
             "intervening_attempt_count": 0,
@@ -177,6 +179,7 @@ class _Ledger:
         *,
         item_learning_objects: Mapping[str, str] | None = None,
         retrievability_by_attempt: Mapping[str, float] | None = None,
+        held_attempt_ids: frozenset[str] = frozenset(),
     ) -> None:
         attempts = [
             dict(row)
@@ -184,6 +187,10 @@ class _Ledger:
                 f"SELECT {_ATTEMPT_COLUMNS} FROM practice_attempts ORDER BY created_at, id"
             )
         ]
+        for row in attempts:
+            # mvp-0.17: a grade held for review is no scored outcome (still an
+            # exposure: the learner saw the item and answered it).
+            row["grade_held_for_review"] = row["id"] in held_attempt_ids
         self.by_id = {row["id"]: row for row in attempts}
         self.by_lo: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.position: dict[str, int] = {}
@@ -523,7 +530,11 @@ def _coldness_candidates(
                 "attempt_id": row["id"],
                 "practice_item_id": row["practice_item_id"],
                 "created_at": row["created_at"],
-                "correctness": None if row["correctness"] is None else float(row["correctness"]),
+                # A held grade is no answer yet: its score is never the label.
+                "correctness": (
+                    None if row["correctness"] is None or row.get("grade_held_for_review")
+                    else float(row["correctness"])
+                ),
                 "since_action_seconds": _seconds(row["created_at"], action["created_at"]),
                 "role": role,
                 "exclusions": sorted(reasons),
@@ -556,12 +567,16 @@ def derive_router_outcomes(
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
+    held_attempt_ids: frozenset[str] | set[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     """One outcome row per logged decision, from the ledgers alone (read-only).
 
     ``pfc_states`` maps attempt id to its PF-c assessment
     (``substrate.canonical_projection.pfc_assessments``); a nothing-assessed
-    answer is never an outcome. ``servable_items_by_lo``
+    answer is never an outcome. ``held_attempt_ids``
+    (``substrate.canonical_projection.held_for_review_attempts``) names the
+    grades the proofs route check holds for review (mvp-0.17): never an
+    outcome, and listed in ``coldness_candidates_json`` with no score. ``servable_items_by_lo``
     (:func:`servable_items_by_learning_object`) lets R_next be
     ``not_applicable`` where the learning object has no other item; without it
     an unobserved R_next stays ``pending``. ``retrievability_by_attempt`` maps
@@ -580,6 +595,7 @@ def derive_router_outcomes(
         connection,
         item_learning_objects=item_learning_objects,
         retrievability_by_attempt=retrievability_by_attempt,
+        held_attempt_ids=frozenset(held_attempt_ids),
     )
     decisions = [
         dict(row)
@@ -710,6 +726,7 @@ def rebuild_router_outcomes(
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
+    held_attempt_ids: frozenset[str] | set[str] = frozenset(),
 ) -> int:
     """Replace the derived cache; the caller owns the transaction."""
 
@@ -720,6 +737,7 @@ def rebuild_router_outcomes(
             pfc_states=pfc_states,
             servable_items_by_lo=servable_items_by_lo,
             retrievability_by_attempt=retrievability_by_attempt,
+            held_attempt_ids=held_attempt_ids,
         ),
     )
 

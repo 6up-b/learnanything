@@ -3,8 +3,8 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "bdbf3af3754a9444ddc056f6faa7b36c47b04951"
+source_commit_timestamp: "2026-10-13T05:40:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/split/reports.py"
   - "src/learnloop/placement/state.py"
+  - "src/learnloop/substrate/canonical_projection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +101,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/substrate/canonical_projection.py`
 
 ### Direct SQL writers
 

@@ -501,7 +501,7 @@ def _run_router_outcomes(
         rebuild_router_outcomes,
         servable_items_by_learning_object,
     )
-    from learnloop.substrate.canonical_projection import pfc_assessments
+    from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
 
     # Whole-vault: a decision's outcome can come from any later attempt on its
     # learning object, so the requested LO subset never narrows it.
@@ -512,17 +512,23 @@ def _run_router_outcomes(
             if logged
             else []
         )
+        # mvp-0.17: grades the proofs route check holds for review are no
+        # outcome, and apply no review in the covariate's fold (as live).
+        held = held_for_review_attempts(connection) if logged else frozenset()
         # Owner decision D12: each outcome attempt's FSRS-predicted
         # retrievability, the fitting job's chain of the attempt ledger under
         # the vault's current FSRS weights (ungraded answers skipped).
         retrievability = (
-            fsrs_predicted_retrievability(connection, context.vault, context.repository) if logged else {}
+            fsrs_predicted_retrievability(connection, context.vault, context.repository, held_attempt_ids=held)
+            if logged
+            else {}
         )
         written = rebuild_router_outcomes(
             connection,
             pfc_states=pfc_assessments(connection, attempt_ids),
             servable_items_by_lo=servable_items_by_learning_object(context.vault),
             retrievability_by_attempt=retrievability,
+            held_attempt_ids=held,
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 

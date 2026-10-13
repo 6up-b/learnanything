@@ -532,8 +532,8 @@
     "sha256": "695631b22e196d510f29fd48f776341dacb0c2113fb11139064015e5fa268bac"
   },
   "grading hardcases": {
-    "bytes": 6958,
-    "sha256": "c8239d7c29dc5e055f199c2d85cb4b3df86dc647a33a50062f06c82ff000c09f"
+    "bytes": 7213,
+    "sha256": "016a5d1b29335787b3b8e4f3ac5007559e8b90859257c8b2b7833cbaae12191d"
   },
   "grading receipt": {
     "bytes": 1752,

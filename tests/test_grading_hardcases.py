@@ -143,8 +143,10 @@ def test_a_dry_run_plans_every_role_and_builds_no_client(tmp_path, monkeypatch):
                         lambda *a, **k: pytest.fail("a dry run builds no client"))
     unpriced = run_hardcases(vault, routes=["haiku"], caps=CAPS, dry_run=True)
     assert unpriced["status"] == "refused" and "price" in unpriced["reason"]
+    # Each request reserves its route's policy budget (16,384 output tokens
+    # by default; the hand-set 6,000 / 3,000 / 2,000 are retired at the merge).
     report = run_hardcases(vault, routes=["haiku"], caps=CAPS, dry_run=True,
-                           input_price_per_million=1.0, output_price_per_million=5.0)
+                           input_price_per_million=1.0, output_price_per_million=2.0)
     assert report["status"] == "dry_run"
     assert set(report["plan"]["haiku"]["roles"]) == {f"grader:{PRODUCTION_ARM}", "checker", "item_kind"}
     assert report["estimate"]["metered"]["calls"] == 3 * 16
@@ -368,7 +370,7 @@ def test_the_cli_dry_run(tmp_path):
     vault = _vault(tmp_path)
     result = CliRunner().invoke(app, [
         "grading", "hardcases", "--vault", str(vault.root), "--route", "haiku", "--dry-run", "--json",
-        "--input-price-per-million", "1", "--output-price-per-million", "5",
+        "--input-price-per-million", "1", "--output-price-per-million", "2",
     ])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)

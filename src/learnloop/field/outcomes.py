@@ -666,17 +666,22 @@ def load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
     return _load(connection, vault, legacy_fallback=legacy_fallback, retrieval=True)
 
 
-def fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository) -> dict[str, float]:
+def fsrs_predicted_retrievability(
+    connection, vault: LoadedVault, repository: Repository, *, held_attempt_ids=frozenset(),
+) -> dict[str, float]:
     """FSRS-predicted retrievability at each graded attempt, from the ledger.
 
     The fitting job's chain (``scheduling.review_log``): each item's graded
     attempts in order through ``apply_review`` under the vault's current FSRS
     weights; an attempt's value is the forgetting curve of the memory its
     earlier reviews left, after the elapsed days (an item's first review has
-    none). Answers still waiting for a grade are skipped. Router R1's outcome
-    replayer records it as a coldness covariate (owner decision D12); it is
-    the historical retrievability the field's ``ItemFeatures.retrievability``
-    has been missing. Read-only, no model call.
+    none). Answers still waiting for a grade are skipped. A grade the proofs
+    route check holds for review (``held_attempt_ids``, mvp-0.17) applies no
+    review, as on the live schedule, while its time still counts as the item's
+    last attempt. Router R1's outcome replayer records it as a coldness
+    covariate (owner decision D12); it is the historical retrievability the
+    field's ``ItemFeatures.retrievability`` has been missing. Read-only, no
+    model call.
     """
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
@@ -692,7 +697,8 @@ def fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Re
         )
     ]
     return predicted_retrievability_by_attempt(
-        review_log_from_attempts(vault, rows, skip_ungraded=True), resolve_fsrs_weights(repository)
+        review_log_from_attempts(vault, rows, skip_ungraded=True, held_attempt_ids=held_attempt_ids),
+        resolve_fsrs_weights(repository),
     )
 
 
