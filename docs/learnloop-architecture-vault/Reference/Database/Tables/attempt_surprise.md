@@ -3,8 +3,8 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
@@ -22,14 +22,15 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/scheduling/evaluation.py"
-  - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
+  - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers
@@ -146,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_gate_fit.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_signal_quantiles.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempt_completion.py`
@@ -162,7 +165,6 @@ Indexes and uniqueness:
 - `tests/test_item_parameters.py`
 - `tests/test_misconception_routing.py`
 - `tests/test_post_attempt_pipeline.py`
-- `tests/test_probe_orchestration_remainder.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 
@@ -158,6 +159,7 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_scheduler.py`
 - `tests/test_sidecar_teach_back.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

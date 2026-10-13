@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/substrate/canonical_projection.py`
@@ -176,9 +177,9 @@ Indexes and uniqueness:
 - `tests/test_projection_evidence_polarity.py`
 - `tests/test_show.py`
 - `tests/test_teach_back.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_agent_runs.py`
 - `tests/test_assessment_contracts.py`
-- `tests/test_attempt_ai_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

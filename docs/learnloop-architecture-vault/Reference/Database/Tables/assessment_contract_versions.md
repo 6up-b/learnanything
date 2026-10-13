@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/034_assessment_contract_snapshots.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/diagnosis/voi_forecasting.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/placement/state.py"
-  - "src/learnloop/substrate/activities.py"
-  - "src/learnloop/substrate/compat/activity_backfill.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/placement/state.py`
@@ -119,6 +120,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`
 - `tests/test_sidecar_contract.py`

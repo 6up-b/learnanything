@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/058_remediation_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop_sidecar/handlers/knowledge_map.py"
@@ -117,6 +118,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers
@@ -146,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_remediation_cold_retry.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`

@@ -3,8 +3,8 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
-source_commit_timestamp: "2026-10-13T00:42:23-04:00"
+source_commit: "0c8c8500a1b83f7d95ebdccb123d0b17e2254195"
+source_commit_timestamp: "2026-10-13T02:30:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
@@ -165,6 +165,7 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_dual_authority_administration.py`
+- `tests/test_evsi_calibration_sim.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_independent_group_counting.py`
@@ -173,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_p2_leakage_suite.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
-- `tests/test_probe_audit.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
