@@ -812,8 +812,9 @@ def receipt_time_floor(since: str) -> str:
 #   of its own charge (the estimate, reconciled upward) and what the receipts
 #   naming it show: a worker that dies after its receipt is written but before
 #   it reconciles leaves both, and the receipt is the durable one;
-# * a reconciled (``settled``) reservation counts what its receipts show, its
-#   reconciled cost bounding a receipt whose finish was lost;
+# * a reconciled (``settled``) reservation counts what its receipts show: their
+#   reported cost when every one reports it, else the larger of that and its
+#   reconciled charge (which bounds a receipt whose finish was lost);
 # * an orphan (in flight, its owner's lease run out) is what recovery makes
 #   of it: reconciled with its receipts, or released (nothing) when it has
 #   none, since every request writes its receipt before it is sent;
@@ -993,7 +994,8 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
         parsed.append((declared, refs, owner_kind, provider, started_at, cost,
                        int(input_tokens or 0) + int(output_tokens or 0), usage_json))
     named = _named_reservations(connection, envelope, refs_seen) if ledger and refs_seen else set()
-    linked: dict[str, dict[str, float]] = {row["id"]: {"priced": 0.0, "unknown": 0, "receipts": 0} for row in rows}
+    linked: dict[str, dict[str, float]] = {row["id"]: {"priced": 0.0, "unknown": 0, "unreported": 0, "receipts": 0}
+                                           for row in rows}
     if upgraded:
         windows = _legacy_windows(connection, envelope, floor_at) if ledger else []
     else:  # migration 192's rule, read without migrating: a row no receipt names is legacy
@@ -1022,6 +1024,7 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
             # Its reservation counts it, on the reservation's own day.
             if owner in linked:
                 linked[owner]["receipts"] += 1
+                linked[owner]["unreported"] += int(cost is None)
                 if value is None:
                     linked[owner]["unknown"] += 1
                 else:
@@ -1062,7 +1065,11 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
                 action, cost = ("reconcile", max(shown, upward)) if view["receipts"] else ("release", 0.0)
                 out["recovery"].append({"id": row["id"], "action": action, "charged_usd": cost})
         elif row["state"] == "settled":
-            kind, cost = "settled", max(charged, priced)
+            # Reconciled: its receipts' reported cost when every one reports
+            # it (the durable truth, even when the owner settled without it);
+            # else its reconciled charge bounds what the receipts leave open.
+            exact = view["receipts"] and not view["unreported"]
+            kind, cost = "settled", (priced if exact else max(charged, priced))
         else:
             kind, cost = "released", shown
         out["reservations"]["rows"] += 1

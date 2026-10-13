@@ -175,6 +175,23 @@ def test_a_finished_request_counts_its_reported_cost_once(tmp_path):
     assert _admits(_process(vault, repository), 0.95)
 
 
+
+def test_a_request_settled_without_its_cost_counts_a_lower_reported_cost(tmp_path):
+    """Reconciled with its receipt: a request whose receipt reported $0.05
+    counts $0.05, not its $0.30 estimate, even when its owner settled without
+    the cost (reconciliation skipped)."""
+
+    vault, repository = _database(tmp_path)
+    worker = _process(vault, repository)
+    client = SimpleNamespace(provider_name="openrouter", model="metered-fake-model")
+    budget = SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0))
+    with record_model_calls(repository, owner_kind="source_compare", owner_id="cmp_1"), spend_envelopes(worker), \
+            budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.30)):
+        with model_call(client, purpose="SourceComparison") as metadata:
+            metadata.update(cost=0.05, input_tokens=0, output_tokens=0)
+    assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(0.05)
+    assert _admits(_process(vault, repository), 0.95)
+
 # -- recovery: orphaned reservations are reconciled with their receipts, or released -------------
 
 
