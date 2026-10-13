@@ -14,7 +14,7 @@ exercise and solution blocks, are dropped as well.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
@@ -198,7 +198,8 @@ def _descendants(units: Sequence[UnitRow], roots: set[str]) -> set[str]:
 
 
 def _member_exclusions(connection, repository: Repository, member: Any,
-                       whole: set[str], spans: set[tuple[str, str]]) -> None:
+                       whole: set[str], spans: set[tuple[str, str]], *,
+                       teaches: Callable[[str | None], bool] | None = None) -> None:
     """A source-set member's non-teaching material, in EVERY extraction of its source.
 
     Resolved by ``source_id`` (all revisions, all runs), so a re-import whose
@@ -209,9 +210,10 @@ def _member_exclusions(connection, repository: Repository, member: Any,
     resolved in some extraction excludes that whole extraction (fail closed).
     """
 
+    teaches = teaches or _teaches
     narrowing = {scope.unit_id for scope in member.scope
-                 if scope.role_override and not _teaches(scope.role_override)}
-    default_teaches = _teaches(member.default_role)
+                 if scope.role_override and not teaches(scope.role_override)}
+    default_teaches = teaches(member.default_role)
     if default_teaches and not narrowing:
         return
     extraction_ids = list(dict.fromkeys(
@@ -285,6 +287,35 @@ def teaching_exclusions(vault: LoadedVault, repository: Repository) -> Exclusion
         for link in assessment_link_locators(connection):
             _link_exclusions(connection, link, whole, spans)
     return Exclusions(frozenset(whole), frozenset(spans))
+
+
+def exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
+    """Exam material only: source-set members or unit overrides whose role is
+    ``exam`` (assessment-only by role authority: no ``semantic_contract``), in
+    every extraction of their source, held-out units included. The narrow part
+    of :func:`teaching_exclusions` the canonical-sources paths that read the
+    whole library withhold from teaching (the sources merge onto main): notes,
+    problem sets and solutions keep the branch's own rules there."""
+
+    whole: set[str] = set()
+    spans: set[tuple[str, str]] = set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        for source_set in vault.source_sets:
+            for member in source_set.members:
+                _member_exclusions(connection, repository, member, whole, spans,
+                                   teaches=lambda role: str(role or "") != "exam")
+    return Exclusions(frozenset(whole), frozenset(spans))
+
+
+def exam_withheld(vault: LoadedVault, repository: Repository,
+                  keys: Iterable[tuple[str, str]]) -> frozenset[tuple[str, str]]:
+    """The keys among ``keys`` that are exam material (:func:`exam_exclusions`)."""
+
+    wanted = {(str(key[0]), str(key[1])) for key in keys}
+    if not wanted:
+        return frozenset()
+    exam = exam_exclusions(vault, repository)
+    return frozenset(key for key in wanted if key in exam.spans or key[0] in exam.extractions)
 
 
 def assessment_spans(vault: LoadedVault, repository: Repository) -> frozenset[tuple[str, str]]:
@@ -656,6 +687,8 @@ __all__ = [
     "extraction_scope",
     "item_exclusions",
     "library_scope",
+    "exam_exclusions",
+    "exam_withheld",
     "model_reader_withheld",
     "role_keys",
     "role_proposal_keys",

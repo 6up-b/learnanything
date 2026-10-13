@@ -51,7 +51,7 @@ from learnloop.db.stores.source_service import find_comparison, insert_compariso
 from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.listwise import route_skip
-from learnloop.source_retrieval.corpus import Scope, item_exclusions, model_reader_withheld
+from learnloop.source_retrieval.corpus import Scope, exam_withheld, item_exclusions
 from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, _span_keys, _verify, facet_lists, scope_for
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import embed_query_texts
@@ -223,15 +223,15 @@ def _compare_sources(
     pins = _span_keys(list(pinned_span_ids) + list(pinned_span_keys))
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         pin_blocks = blocks_by_key(connection, sorted(pins))
-    # Exam and held-out material is assessment-only (role authority; the
-    # sources merge): it never reaches the verification or comparison model,
-    # whatever the policy (``model_reader_withheld``'s assessment lane).
-    pin_withheld = model_reader_withheld(vault, repository, pins)
+    # Exam material is assessment-only (role authority; the sources merge):
+    # it never reaches the verification or comparison model, whatever the
+    # policy.
+    pin_exam = exam_withheld(vault, repository, pins)
     for key in sorted(pins):
         block = pin_blocks.get(key)
         why = "no such passage" if block is None else _pin_reason(scope, key, policy=derived, item=item)
-        if why is None and pin_withheld.get(key) == "assessment_lane":
-            why = "it is exam or held-out material"
+        if why is None and key in pin_exam:
+            why = "it is exam material"
         if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
                 block.text, item.expected_answer):
             why = "it reproduces the answer to the item you are practising"
@@ -287,13 +287,11 @@ def _compare_sources(
 
     # What retrieval found passes the same rule before the verification and
     # comparison models read it.
-    lane = {key for key, why in model_reader_withheld(
-        vault, repository, [hit.key for hits in per_source.values() for hit in hits]).items()
-        if why == "assessment_lane"}
-    if lane:
+    exam = exam_withheld(vault, repository, [hit.key for hits in per_source.values() for hit in hits])
+    if exam:
         per_source = {source_id: kept for source_id, hits in per_source.items()
-                      if (kept := [hit for hit in hits if hit.key not in lane])}
-        result.manifest["assessment_lane_withheld"] = len(lane)
+                      if (kept := [hit for hit in hits if hit.key not in exam])}
+        result.manifest["exam_withheld"] = len(exam)
     # Verify each source's best keys in pages, best-ranked sources first.
     ordered_sources = sorted(per_source, key=lambda sid: min(min(hit.ranks.values() or [999]) for hit in per_source[sid]))
     verified: dict[str, SpanHit] = {}

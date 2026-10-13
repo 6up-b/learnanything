@@ -102,7 +102,7 @@ def test_a_pinned_exam_passage_never_grounds_the_tutor(tmp_path):
         vault, repository, context="library", question_md="q", learning_object_ids=[], item=None)
     assert [span["span_id"] for span in pinned] == [definition]
     assert {entry["span_id"]: entry["reason"] for entry in manifest["dropped_pins"]} == {
-        exam: "it is exam or held-out material"}
+        exam: "it is exam material"}
 
 
 def test_find_sources_and_compare_never_hand_exam_material_to_a_model(tmp_path):
@@ -116,14 +116,14 @@ def test_find_sources_and_compare_never_hand_exam_material_to_a_model(tmp_path):
     exam = _exam_span(repository)
     hits = find_sources_for_caller(vault, repository, EXAM_QUESTION, caller=CallerContext(kind="reader"))
     assert all(hit["extraction_id"] != "ext_exam" for hit in hits.hits)
-    assert hits.manifest["assessment_lane_withheld"] >= 1  # found, then withheld
+    assert hits.manifest["exam_withheld"] >= 1  # found, then withheld
     llm = FakeServiceLLM()
     result = compare_sources(vault, repository, EXAM_QUESTION, caller=CallerContext(kind="reader"),
                              client=llm, verify_client=llm, pinned_span_keys=[f"ext_exam:{exam}"])
     assert {entry["span_id"]: entry["reason"] for entry in result.dropped_pins} == {
-        exam: "it is exam or held-out material"}
+        exam: "it is exam material"}
     assert all(source.get("extraction_id") != "ext_exam" for source in result.sources)
-    assert result.manifest["assessment_lane_withheld"] >= 1
+    assert result.manifest["exam_withheld"] >= 1
 
 
 # -- main's output-budget policy on the import's authoring request ------------------------------

@@ -52,7 +52,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
-from learnloop.source_retrieval.corpus import Scope, model_reader_withheld, teaching_scope
+from learnloop.source_retrieval.corpus import Scope, exam_withheld, teaching_scope
 from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
@@ -371,11 +371,10 @@ class PinnedSpanProvider:
         keys = sorted(span_keys(self.span_keys))
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             blocks = blocks_by_key(connection, keys)
-        # Exam and held-out material is assessment-only (role authority; the
-        # sources merge): it never grounds the tutor, whatever the policy
-        # (``model_reader_withheld``'s assessment lane). The learner still
-        # reads it in the Reader; solutions keep the branch's rule above.
-        withheld = model_reader_withheld(vault, repository, keys)
+        # Exam material is assessment-only (role authority; the sources
+        # merge): it never grounds the tutor, whatever the policy. The learner
+        # still reads it in the Reader; solutions keep the branch's rule above.
+        exam = exam_withheld(vault, repository, keys)
         spans: list[dict[str, Any]] = []
         dropped: list[dict[str, Any]] = []
         for key in keys:
@@ -383,8 +382,8 @@ class PinnedSpanProvider:
             why = None
             if block is None:
                 why = "no such passage"
-            elif withheld.get(key) == "assessment_lane":
-                why = "it is exam or held-out material"
+            elif key in exam:
+                why = "it is exam material"
             elif not scope.allows(*key):
                 why = "not available while you're practising this item" if item_bound else "not in your sources"
             elif item_bound and span_leaks_expected(block.text, item.expected_answer):

@@ -49,7 +49,7 @@ from learnloop.source_retrieval.corpus import (
     extraction_scope,
     item_exclusions,
     library_scope,
-    model_reader_withheld,
+    exam_withheld,
     teaching_scope,
 )
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
@@ -496,16 +496,15 @@ def find_sources(
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]
-    # Exam and held-out material is assessment-only (role authority; the
-    # sources merge): never judged by the verification model nor offered as a
-    # passage for an intent. A learner still reads it in the Reader. Under
-    # post_attempt the item's own passages stay (the reveal this policy is for).
+    # Exam material is assessment-only (role authority; the sources merge):
+    # never judged by the verification model nor offered as a passage for an
+    # intent. A learner still reads it in the Reader. Under post_attempt the
+    # item's own passages stay (the reveal this policy is for).
     own_spans = item_exclusions(repository, item).spans if policy == "post_attempt" and item is not None else set()
-    lane = {key for key, why in model_reader_withheld(vault, repository, [hit.key for hit in pool]).items()
-            if why == "assessment_lane" and key not in own_spans}
-    if lane:
-        pool = [hit for hit in pool if hit.key not in lane]
-        result.manifest["assessment_lane_withheld"] = len(lane)
+    exam = exam_withheld(vault, repository, [hit.key for hit in pool]) - set(own_spans)
+    if exam:
+        pool = [hit for hit in pool if hit.key not in exam]
+        result.manifest["exam_withheld"] = len(exam)
     withheld: list[str] = []
     if intent == "alternative":
         shown = set(personal.get("shown_sources") or ())
