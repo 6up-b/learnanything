@@ -2,8 +2,13 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
-import type { AppSnapshot, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
+import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
+import { ConnectAISheet } from "../components/ConnectAI";
+import { pickSourceFiles, useSourceFileDrop } from "../components/useSourceFileDrop";
+import { LibraryPlace, type LibraryView } from "../screens/LibraryPlace";
+import { useGlobalAdd } from "./useGlobalAdd";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
@@ -55,7 +60,6 @@ const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) 
 const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
 const IngestScreen = lazy(() => import("../screens/IngestScreen").then((module) => ({ default: module.IngestScreen })));
 const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => ({ default: module.ExamScreen })));
-const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
 const ProposalsScreen = lazy(() => import("../screens/ProposalsScreen").then((module) => ({ default: module.ProposalsScreen })));
 const RegistryReviewScreen = lazy(() => import("../screens/RegistryReviewScreen").then((module) => ({ default: module.RegistryReviewScreen })));
 const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((module) => ({ default: module.GoldenPathScreen })));
@@ -84,6 +88,16 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
+  // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
+  // so a Reader already showing another book remounts on the new one.
+  const [readerOpenSeq, setReaderOpenSeq] = useState(0);
+  // UX Phase 1 (docs/specs/ux_learnloop_v1.md §6): Add, the shelf, connect once.
+  const [libraryView, setLibraryView] = useState<LibraryView>("books");
+  const [addOpen, setAddOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [aiConnection, setAiConnection] = useState<AiConnectionDto | null>(null);
+  // A link just added opens in the Reader once its text is ready.
+  const [openWhenReady, setOpenWhenReady] = useState<string | null>(null);
   // Daily-loop DL1 (§6.10): the reader opened by a plan's reading block.
   const [planReading, setPlanReading] = useState<{ reading: PlanReadingDto; estMinutes: number | null } | null>(null);
   const [openSource, setOpenSource] = useState<OpenSourceTarget | null>(null);
@@ -205,25 +219,46 @@ export function App() {
     setPalettePracticeItemIds(ids.practiceItemIds);
   }, []);
 
+  const refreshAiConnection = useCallback(() => {
+    api.getAiConnection().then(setAiConnection, () => setAiConnection(null));
+  }, []);
+
+  // First run (§6.1): a library with nothing in it opens on the Library's
+  // welcome — one place to drop a book — instead of an empty Start screen.
+  const landOnLibraryIfEmpty = useCallback(async (appSnapshot: AppSnapshot) => {
+    if ((appSnapshot.vault?.counts.learningObjects ?? 0) > 0) return;
+    try {
+      const library = await api.getSourceLibrary();
+      if (library.sources.length === 0 && (library.pending?.length ?? 0) === 0) {
+        setLibraryView("books");
+        setTab("library");
+      }
+    } catch {
+      /* The shelf says so itself if the library cannot be read. */
+    }
+  }, []);
+
   const loadInitialVault = useCallback(async () => {
     setStartupError(null);
     try {
       const appSnapshot = await api.loadVault();
       setAlgoConfig(appSnapshot.config);
       setSnapshot(appSnapshot);
+      refreshAiConnection();
+      const checkpoint = appSnapshot.activeSession?.checkpoint;
       if (appSnapshot.activeSession) {
         setSession(appSnapshot.activeSession);
-        const checkpoint = appSnapshot.activeSession.checkpoint;
         if (checkpoint?.currentPracticeItemId) {
           setPracticeItemId(checkpoint.currentPracticeItemId);
           setTab("today");
           setTodayStage("practice");
         }
       }
+      if (!checkpoint?.currentPracticeItemId) void landOnLibraryIfEmpty(appSnapshot);
     } catch (error) {
       setStartupError(errorMessage(error, "Could not load the LearnLoop vault."));
     }
-  }, []);
+  }, [landOnLibraryIfEmpty, refreshAiConnection]);
 
   useEffect(() => {
     if (startupStartedRef.current) return;
@@ -598,6 +633,7 @@ export function App() {
   // "View in Library" from the feedback source panel: open that vault file.
   function openLibraryFile(path: string) {
     setLibraryFilePath(path);
+    setLibraryView("files");
     setTab("library");
   }
 
@@ -732,8 +768,75 @@ export function App() {
   // Handoff from the Proposals screen: open the proposal's payload in the Library editor.
   function gotoLibraryProposal(patchId: string, itemId: string) {
     setLibraryFocus({ patchId, itemId });
+    setLibraryView("files");
     setTab("library");
   }
+
+  // Open a book in the Reader on purpose (the shelf's Continue, an Add).
+  const openBook = useCallback((card: SourceLibraryCard) => {
+    setPlanReading(null);
+    setReaderSource({ card, spanId: null });
+    setReaderOpenSeq((seq) => seq + 1);
+    setTab("reader");
+  }, []);
+
+  // Add (§6.2): a file opens in the Reader at once; a link opens when ready.
+  const openAddedItem = useCallback(
+    async (item: AddSourceItemDto) => {
+      setAddOpen(false);
+      if (item.status === "queued" || !item.sourceId) {
+        setOpenWhenReady(item.canonical ?? item.source);
+        setLibraryView("books");
+        setTab("library");
+        return;
+      }
+      let card: SourceLibraryCard | undefined;
+      try {
+        card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);
+      } catch {
+        card = undefined;
+      }
+      openBook(
+        card ?? {
+          sourceId: item.sourceId,
+          title: item.title,
+          acquisitionKind: item.kind,
+          canonicalUri: item.canonical ?? item.source,
+          workId: null,
+          currentRevisionId: item.revisionId,
+          revisionCount: 1,
+          readiness: item.preparing ? "processing" : "ready",
+          unitCount: 0,
+          blockCount: 0,
+          extractionStatus: null,
+          suggestedRole: null,
+          readerEnabled: true,
+          updateAvailable: false,
+          kindNoun: item.kindNoun ?? "book",
+          statusLine: null
+        }
+      );
+    },
+    [openBook]
+  );
+  const adder = useAddSource({ onOpened: (item) => void openAddedItem(item) });
+  const addSources = adder.add;
+  const fileDragging = useSourceFileDrop({
+    enabled: snapshot !== null,
+    priority: -10,
+    onDrop: (paths) => void addSources(paths)
+  });
+  useGlobalAdd({
+    enabled: snapshot !== null && !settingsOpen && !newVaultOpen && !quickAddOpen && !connectOpen,
+    onPickFiles: () => {
+      pickSourceFiles()
+        .then((files) => {
+          if (files.length > 0) void addSources(files);
+        })
+        .catch(() => setAddOpen(true));
+    },
+    onLink: (link) => void addSources([link])
+  });
 
   function gotoProposalBatch(patchId: string) {
     setProposalFocusPatchId(patchId);
@@ -771,6 +874,10 @@ export function App() {
     setIngestJobId(null);
     setProposalFocusPatchId(null);
     setReaderSource(null);
+    setAddOpen(false);
+    setConnectOpen(false);
+    setOpenWhenReady(null);
+    setLibraryView("books");
     setTodayStage("queue");
     setTab("start");
   }
@@ -806,6 +913,8 @@ export function App() {
         setSnapshot(next);
         setStartupError(null);
         setSession(next.activeSession ?? null);
+        refreshAiConnection();
+        void landOnLibraryIfEmpty(next);
       } catch (error) {
         const message = errorMessage(error, "Could not open that vault.");
         if (selected) {
@@ -822,7 +931,7 @@ export function App() {
         throw error;
       }
     },
-    [onError]
+    [onError, landOnLibraryIfEmpty, refreshAiConnection]
   );
 
   function renderBody() {
@@ -1032,15 +1141,31 @@ export function App() {
     }
     if (tab === "library") {
       return (
-        <LibraryScreen
-          onError={onError}
-          focus={libraryFocus}
-          onFocusConsumed={() => setLibraryFocus(null)}
-          focusFilePath={libraryFilePath}
-          onFileFocusConsumed={() => setLibraryFilePath(null)}
-          onAsk={setAskTarget}
-          onNoteSelected={setLibraryNoteId}
-          onInspect={setInspectorId}
+        <LibraryPlace
+          view={libraryView}
+          onViewChange={setLibraryView}
+          filesProps={{
+            onError,
+            focus: libraryFocus,
+            onFocusConsumed: () => setLibraryFocus(null),
+            focusFilePath: libraryFilePath,
+            onFileFocusConsumed: () => setLibraryFilePath(null),
+            onAsk: setAskTarget,
+            onNoteSelected: setLibraryNoteId,
+            onInspect: setInspectorId
+          }}
+          aiConnection={aiConnection}
+          onOpenBook={openBook}
+          onConnectAi={() => setConnectOpen(true)}
+          onOpenImports={() => gotoTab("ingest")}
+          onOpenChanges={() => gotoTab("proposals")}
+          onOpenSettings={() => gotoTab("settings")}
+          onAdd={(sources, options) => void addSources(sources, options)}
+          addBusy={adder.busy}
+          addMessage={adder.message}
+          dragging={fileDragging}
+          openWhenReady={openWhenReady}
+          onOpenedWhenReady={() => setOpenWhenReady(null)}
         />
       );
     }
@@ -1109,11 +1234,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />
           </div>
         );
       }
-      return <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
     }
     if (tab === "maintain") {
       return (
@@ -1139,6 +1264,7 @@ export function App() {
         onSelectVault={(path) => void changeVault(path).catch(() => undefined)}
         settingsOpen={settingsOpen}
         badges={navBadges}
+        onAdd={snapshot ? () => setAddOpen(true) : undefined}
       >
         {toast && !settingsOpen ? (
           <div className="toast" role="status" aria-live="polite" aria-atomic="true" onClick={() => setToast(null)}>
@@ -1159,6 +1285,7 @@ export function App() {
           onClose={() => {
             setSettingsOpen(false);
             setToast(null);
+            refreshAiConnection();
           }}
           notification={toast}
           onDismissNotification={() => setToast(null)}
@@ -1274,6 +1401,31 @@ export function App() {
       {adjudicateOpen ? (
         <AdjudicationOverlay onClose={() => setAdjudicateOpen(false)} onError={onError} />
       ) : null}
+      {addOpen ? (
+        <AddPopover
+          onClose={() => setAddOpen(false)}
+          onAdd={(sources, options) => void addSources(sources, options)}
+          busy={adder.busy}
+          message={adder.message}
+        />
+      ) : null}
+      {connectOpen ? (
+        <ConnectAISheet
+          onClose={() => {
+            setConnectOpen(false);
+            refreshAiConnection();
+          }}
+          onConnected={(connection) => {
+            setAiConnection(connection);
+            invalidateAllQueries();
+          }}
+          onOpenSettings={() => {
+            setConnectOpen(false);
+            gotoTab("settings");
+          }}
+        />
+      ) : null}
+      {fileDragging ? <DropOverlay /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
         open={paletteOpen}

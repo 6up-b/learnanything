@@ -58,8 +58,8 @@ describe("ConnectAISheet", () => {
     api.getAiConnection.mockResolvedValue({ ...BASE, chatgptSignedIn: true });
     api.connectAi.mockResolvedValue(CONNECTED);
     const { onConnected } = open();
-    const buttons = await screen.findAllByRole("button");
-    expect(buttons[0].textContent).toBe("Continue with ChatGPT");
+    await screen.findByRole("button", { name: "Continue with ChatGPT" });
+    expect(screen.getAllByRole("button")[0].textContent).toBe("Continue with ChatGPT");
     expect(screen.getByText(/What leaves this computer/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Continue with ChatGPT" }));
     await waitFor(() => expect(api.connectAi).toHaveBeenCalledWith({ provider: "chatgpt" }));

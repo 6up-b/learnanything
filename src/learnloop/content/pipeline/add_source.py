@@ -118,6 +118,9 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     raw = (source or "").strip()
     item: dict[str, Any] = {
         "source": raw,
+        # The library's own spelling of the source (its card's canonical_uri),
+        # so the shell can open a fetched link once it is ready.
+        "canonical": None,
         "kind": None,
         "kind_noun": None,
         "status": "unsupported",
@@ -134,7 +137,7 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
         return item
     repo = ingest_jobs.repository
     category = resolved.category
-    item.update(kind=category, kind_noun=kind_noun(category), message=None)
+    item.update(canonical=resolved.source, kind=category, kind_noun=kind_noun(category), message=None)
 
     artifact = repo.source_artifact_by_uri(category, resolved.source)
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):

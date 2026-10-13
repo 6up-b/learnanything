@@ -16,7 +16,7 @@ vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: st
 
 const SOURCE_ID = readerRenderViewFixture.sourceId;
 const EXTRACTION_ID = readerRenderViewFixture.extractionId;
-const SPAN_IDS = readerRenderViewFixture.blocks.map((block) => block.spanId);
+const SPAN_IDS = readerRenderViewFixture.blocks.map((block) => block.spanId as string);
 
 const CARD: SourceLibraryCard = {
   sourceId: SOURCE_ID,

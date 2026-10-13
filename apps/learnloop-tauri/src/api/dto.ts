@@ -2962,6 +2962,8 @@ export type AddSourceStatus = "added" | "queued" | "existing" | "unsupported";
 
 export interface AddSourceItemDto {
   source: string;
+  /** The library's spelling of the source (a card's canonicalUri). */
+  canonical?: string | null;
   kind: string | null;
   kindNoun: string | null;
   status: AddSourceStatus;

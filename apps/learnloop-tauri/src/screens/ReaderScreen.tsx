@@ -47,6 +47,7 @@ import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/a
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
+import { PreparingView } from "./reader/PreparingView";
 import {
   parseRequestError,
   parseRequestResult,
@@ -339,6 +340,14 @@ export function ReaderScreen({
   // plan polls until the question lands), and a per-source once-only guard.
   const [authoringSections, setAuthoringSections] = useState<string[]>([]);
   const authorRequestedRef = useRef<Set<string>>(new Set());
+  // UX Phase 1 (§10 item 1.10): sections whose check took too long to write.
+  // They say so, with Try again, instead of the line silently disappearing.
+  const [timedOutSections, setTimedOutSections] = useState<string[]>([]);
+  const authoringRef = useRef<string[]>([]);
+  authoringRef.current = authoringSections;
+  // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
+  // original PDF in PreparingView; the full Reader takes over when it is ready.
+  const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
@@ -496,6 +505,7 @@ export function ReaderScreen({
     setSurface("pdf");
     setTagMenu(null);
     setAuthoringSections([]);
+    setTimedOutSections([]);
     authorRequestedRef.current = new Set();
     setStickyQuestionSections([]);
     setEditingAnnotationId(null);
@@ -504,6 +514,15 @@ export function ReaderScreen({
 
   const openSource = useCallback(
     async (card: SourceLibraryCard, jumpSpan?: string) => {
+      if (card.readiness !== "ready") {
+        // Nothing to render yet: show the original while LearnLoop prepares it.
+        resetSourceState();
+        setRender(null);
+        setPreparingCard(card);
+        onSourceChange?.({ card, spanId: null });
+        return;
+      }
+      setPreparingCard(null);
       setOpening(card.sourceId);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
@@ -587,6 +606,7 @@ export function ReaderScreen({
 
   const backToLibrary = useCallback(() => {
     resetSourceState();
+    setPreparingCard(null);
     setRender(null);
     setOffline(false);
     setSourceTitle(null);
@@ -603,7 +623,10 @@ export function ReaderScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const enabled = contract?.readerEnabled ?? false;
+  // While the contract loads the Reader reads as enabled (new libraries have it
+  // on); the "disabled" notice shows only once the config really says so
+  // (UX Phase 1, §10 item 1.10: no flash of a config instruction on every open).
+  const enabled = contract?.readerEnabled ?? true;
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
 
   // Reader Ask answers already live durably in interaction_events. Rehydrate
@@ -774,6 +797,22 @@ export function ReaderScreen({
     })();
   }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections]);
 
+  // "Try again" on a section whose check took too long (UX Phase 1, 1.10).
+  const retryQuickCheck = useCallback(
+    (sectionId: string) => {
+      if (!render || offline) return;
+      setTimedOutSections((ids) => ids.filter((id) => id !== sectionId));
+      authorRequestedRef.current.add(sectionId);
+      const extractionId = render.extractionId;
+      setAuthoringSections((ids) => [...new Set([...ids, sectionId])]);
+      void api.readerAuthorSectionQuestion({ extractionId, sectionId }).catch(() => {
+        setAuthoringSections((ids) => ids.filter((id) => id !== sectionId));
+        setTimedOutSections((ids) => [...new Set([...ids, sectionId])]);
+      });
+    },
+    [render, offline],
+  );
+
   // While authoring is in flight, re-fetch the guide plan (a cheap local read)
   // until the section gains its question or a bounded number of polls passes.
   useEffect(() => {
@@ -783,6 +822,8 @@ export function ReaderScreen({
     const timer = window.setInterval(() => {
       attempts += 1;
       if (attempts > 45) {
+        const stalled = authoringRef.current;
+        setTimedOutSections((timedOut) => [...new Set([...timedOut, ...stalled])]);
         setAuthoringSections([]);
         return;
       }
@@ -1852,10 +1893,24 @@ export function ReaderScreen({
     return () => window.removeEventListener("keydown", onFind, { capture: true });
   }, [railTab, askFindOpen]);
 
+  // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
+  if (!render && preparingCard) {
+    return (
+      <PreparingView
+        key={preparingCard.sourceId}
+        card={preparingCard}
+        onBack={backToLibrary}
+        onReady={(next) => void openSource(next)}
+        onError={onError}
+      />
+    );
+  }
+
   // ── Source picker: the Reader's front door is the real library ──
   if (!render) {
-    const readySources = (library ?? []).filter((c) => c.readiness === "ready");
-    const pendingCount = (library ?? []).length - readySources.length;
+    // Every book is listed and openable; one still being prepared opens on its
+    // original (UX Phase 1) instead of hiding behind "still getting ready".
+    const readySources = library ?? [];
     return (
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1926,7 +1981,7 @@ export function ReaderScreen({
               ) : null}
             </div>
           ) : null}
-          {!enabled && !sidecarDown ? (
+          {contract !== null && !enabled && !sidecarDown ? (
             <Card style={{ borderStyle: "dashed", display: "flex", flexDirection: "column", gap: 6 }}>
               <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
                 the reader is disabled in this vault's config (new vaults have it on by default). Set <Dim>tutor_qa.reader_enabled = true</Dim>
@@ -1940,7 +1995,7 @@ export function ReaderScreen({
             <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
               {sidecarDown
                 ? "the sidecar is unreachable — only the offline demo chapter is available."
-                : "no ready sources yet — ingest a source in the Ingest tab, then return here to read it."}
+                : "Nothing to read yet. Add a book, paper or video from the Library."}
             </Faint>
           ) : (
             readySources.map((card) => {
@@ -1966,14 +2021,13 @@ export function ReaderScreen({
                       </span>
                     )}
                   </div>
-                  <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>{card.unitCount} sections</Faint>
+                  <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>
+                    {card.readiness === "ready" ? `${card.unitCount} sections` : card.statusLine?.text ?? "Getting this ready"}
+                  </Faint>
                 </Card>
               );
             })
           )}
-          {pendingCount > 0 ? (
-            <Faint style={{ fontSize: 11 }}>{pendingCount} source{pendingCount === 1 ? " is" : "s are"} still getting ready.</Faint>
-          ) : null}
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
             <SecondaryButton onClick={openFixture}>open demo chapter (fixture)</SecondaryButton>
             <Faint style={{ fontSize: 11 }}>offline demo — captures are not persisted.</Faint>
@@ -2298,6 +2352,19 @@ export function ReaderScreen({
                           : "You’re near the section break. Take a quick check or keep reading."
                     : authoringSections.includes(currentGuideSection.id)
                       ? "◐ writing a quick check for this section…"
+                      : timedOutSections.includes(currentGuideSection.id)
+                        ? (
+                          <>
+                            Couldn't write a check for this section ·{" "}
+                            <button
+                              type="button"
+                              onClick={() => retryQuickCheck(currentGuideSection.id)}
+                              style={{ background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer", textDecoration: "underline", fontFamily: FONT_MONO, fontSize: 10 }}
+                            >
+                              Try again
+                            </button>
+                          </>
+                        )
                       : currentSectionProgress >= 0.7
                         ? "You’re near the section break. Keep going, or revisit a useful passage."
                         : "Keep reading at your own pace."}
