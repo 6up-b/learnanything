@@ -28,7 +28,8 @@ that successor. No paid call was made.
 | `17819ec0` | The study's ranks 1-3 behind `voi_stopping.robust_gate_with_value`, `lookahead_max_checks`, `robust_quantile`; registry, defaults snapshots; the plan's chip-tap re-plan also values probes against the new minutes left (F10) |
 | `76de2206` | The rank 3 `rank_feasible` test pins a non-abstaining case |
 | `f71ece3b` | Rank 1's counterfactual also on a committed value-continue receipt |
-| `1cd941f7` and the commit adding this file | DB and config references regenerated (759 leaves); this review |
+| `1cd941f7`, `af9b35c9` | DB and config references regenerated (759 leaves), the second time at the final code commit |
+| `9864e9c1` and the next | This review (and a pointer from `voi-stopping.md`) |
 
 | Site of change | Default | Restores the branch exactly |
 |---|---|---|
@@ -39,15 +40,16 @@ that successor. No paid call was made.
 ## 2. Part A: the final verify's findings
 
 Each was reproduced first with a test against the unchanged code (the
-failures are recorded below), then fixed. All three tests live in
+failures are recorded below), then fixed. The tests live in
 `tests/test_voi_v2.py`.
 
 ### F2 [High, reopened]: the predictive objective is recomputed on each posterior branch
 
 **Reproduction** (the reviewer's): four equally likely hypotheses `(X, Y)`;
 held-out targets depend only on `X`; A reveals `X` (1 minute), B reveals
-`(X, Y)` (2 minutes); each alone removes all of the targets' predictive
-uncertainty (normalized term 1). At `1b094b73` B's conditional term after A
+`(X, Y)` (2 minutes); each alone is worth the same normalized predictive
+term (1; the test uses one exact and one 80%-accurate target on `X`). At
+`1b094b73` B's conditional term after A
 was **0.5** (the hypothesis information `ln 2` over `ln 4`, scaled), worth 30
 minutes, and the plan admitted both
 (`assert 0.5 == 0.0 ± 1.0e-12`; through the plan's admission B took the
