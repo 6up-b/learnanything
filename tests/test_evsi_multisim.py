@@ -321,9 +321,11 @@ def test_the_successor_arms_lift_the_episode_maximum_onto_value(eedi):
     for policy in P.SUCCESSOR_POLICIES:
         assert P.decide(policy, at_maximum(), settings).reason != "observation_budget_exhausted"
     lifted = at_maximum()
-    lifted.observations = settings.safety_bound
-    assert P.decide("voi_successor", lifted, settings).reason == "safety_bound"
-    unbounded = replace(settings, safety_bound=None)
+    bounded = replace(settings, safety_bound=25)  # an explicit bound still stops
+    lifted.observations = bounded.safety_bound
+    assert P.decide("voi_successor", lifted, bounded).reason == "safety_bound"
+    unbounded = settings  # no bound by default
+    assert unbounded.safety_bound is None
     lifted.observations = 10_000
     assert P.decide("eig_no_gate", lifted, replace(unbounded, value_per_nat_minutes=1.0e6)).action == "measure"
 
@@ -459,7 +461,7 @@ def test_the_multi_family_study_runs_every_episode_without_a_count_bound(eedi, t
     base = MF.study_base(MF.MultiFamilySettings())
     assert base.policy.safety_bound is None
     assert MS.MultiSimSettings().policy.safety_bound is None
-    assert P.PolicySettings().safety_bound == 25  # the single-family study keeps its own
+    assert P.PolicySettings().safety_bound is None  # the single-family study too (evsi-single-family-unbounded)
     bank = load_eedi_2024(_write_long_bank(tmp_path / "long-bank", 40))
     scenarios = tuple(build_scenarios(bank, eedi["fits"].lca))
     assert len(scenarios[0].questions) == 40

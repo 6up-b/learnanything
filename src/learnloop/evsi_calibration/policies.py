@@ -120,11 +120,14 @@ class PolicySettings:
     #: minutes-only loss.
     unresolved_minutes: float = 0.0
     max_candidates: int = 12
-    #: A count bound on any policy's episode (``None``: none). The single-family
-    #: study keeps 25; the multi-family study runs without one (review F4: the
-    #: bank is finite, so an episode always ends by its rule or when the
-    #: subject's questions run out, and a bound censored value rules' costs).
-    safety_bound: int | None = 25
+    #: A count bound on any policy's episode (``None``: none, the default of
+    #: both studies). The bank is finite, so an episode always ends by its rule
+    #: or when the subject's questions run out, and a bound censors exactly the
+    #: episodes whose cost a value rule is judged on (multi-family review F4).
+    #: The single-family study ran with 25 until stage
+    #: ``evsi-single-family-unbounded`` (2026-10-13); a bound stays available as
+    #: an explicit option (``learnloop evsi simulate --safety-bound N``).
+    safety_bound: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)

@@ -41,6 +41,7 @@ def evsi_simulate_command(
     workers: Annotated[int, typer.Option("--workers", min=1, help="Worker processes.")] = 4,
     seed: Annotated[int, typer.Option("--seed")] = 20261012,
     quick: Annotated[bool, typer.Option("--quick", help="A small smoke run (few learners, one regime row, short sweeps).")] = False,
+    safety_bound: Annotated[int | None, typer.Option("--safety-bound", min=1, help="Stop every episode after this many checks (default: no bound; runs before 2026-10-13 used 25).")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Fit the response model to Eedi, simulate, and score EIG/EVSI against baselines."""
@@ -69,13 +70,14 @@ def evsi_simulate_command(
             fit = fit_response_model(responses, settings=FitSettings(seed=seed))
             write_text_atomic(output / "response_fit.json", json.dumps(fit.as_dict(), sort_keys=True, indent=1))
         settings = ExperimentSettings(
-            learners=learners, sensitivity_learners=min(sensitivity_learners, learners), seed=seed, workers=workers
+            learners=learners, sensitivity_learners=min(sensitivity_learners, learners), seed=seed, workers=workers,
+            safety_bound=safety_bound,
         )
         if quick:
             settings = ExperimentSettings(
                 learners=min(learners, 60), sensitivity_learners=min(sensitivity_learners, 40), seed=seed,
                 workers=workers, regime_consistencies=(None,), regime_repairs=(3.0,), unresolved_encounters=(6.0,),
-                bootstrap=50, sweeps=tuple(list(SWEEPS)[:2]), draw_count=8,
+                bootstrap=50, sweeps=tuple(list(SWEEPS)[:2]), draw_count=8, safety_bound=safety_bound,
             )
         report = run_experiments(bank, fit, settings, progress=say)
         report["sweeps"] = {name: {"field": f, "current": c, "grid": list(g)} for name, (f, c, g) in SWEEPS.items()}
@@ -97,6 +99,9 @@ def evsi_simulate_command(
                 }
                 for model, rows in report["main"].items()
             },
+            "safety_bound": report["count_bound"]["applied_bound"],
+            # Episodes the old 25-check bound would have stopped, summed over every cell.
+            "reference_bound_stops": sum(cell["reference_bound_stops"] for cell in report["count_bound"]["cells"]),
             "elapsed_seconds": report["elapsed_seconds"],
         }
         _emit(headline, json_output)
