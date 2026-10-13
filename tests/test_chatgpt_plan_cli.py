@@ -171,3 +171,110 @@ def test_doctor_ignores_an_unrouted_plan_profile(server, tmp_path):
     vault = _vault(tmp_path, server, {})
     codes = {issue.code for issue in run_doctor(vault).issues}
     assert not {code for code in codes if code.startswith("ai:chatgpt_plan")}
+
+
+# -- Codex review (2026-10-12): one dollar cap across every metered provider --
+
+
+class _MeteredProbe:
+    """A metered stand-in that answers the latency probe and reports the planned usage."""
+
+    provider_type = "openrouter"
+
+    def __init__(self, name: str) -> None:
+        from learnloop.ai.usage import TokenUsage
+
+        self.provider_name = name
+        self.model = "metered-test"
+        self._usage = TokenUsage()
+        self.calls = 0
+
+    def supports(self, capability: str) -> bool:
+        from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, STRUCTURED_COMPLETION
+
+        return capability in {STRUCTURED_COMPLETION, BOUNDED_STRUCTURED_COMPLETION}
+
+    def complete(self, request):
+        import re
+
+        from learnloop.ai.usage import TokenUsage
+
+        self.calls += 1
+        self._usage = TokenUsage(input_tokens=400, output_tokens=64)
+        index = int(re.search(r"probe (\d+)", request.prompt).group(1))
+        return request.result_model.model_validate({"ok": True, "n": index})
+
+    def consume_usage(self):
+        from learnloop.ai.usage import TokenUsage
+
+        usage, self._usage = self._usage, TokenUsage()
+        return usage
+
+
+def _two_metered(tmp_path, server, monkeypatch):
+    import types
+
+    vault = _vault(tmp_path, server, {})
+    path = vault / "learnloop.toml"
+    document = tomlkit.parse(path.read_text(encoding="utf-8"))
+    second = tomlkit.table()
+    for key, value in {"type": "openrouter", "model": "metered/second", "api_key_env": "OPENROUTER_API_KEY"}.items():
+        second[key] = value
+    document["ai"]["providers"]["openrouter_b"] = second
+    path.write_text(tomlkit.dumps(document), encoding="utf-8")
+    clients: dict[str, _MeteredProbe] = {}
+
+    def client_for(_root, _config, name, **_kwargs):
+        return clients.setdefault(name, _MeteredProbe(name))
+
+    monkeypatch.setattr("learnloop.ai.routing.client_for_provider", client_for)
+    monkeypatch.setattr("learnloop.ai.routing.runtime_for_provider",
+                        lambda _root, _config, _name, **_kwargs: types.SimpleNamespace(ready=True, message="ready"))
+    return vault, clients
+
+
+def test_latency_keeps_every_metered_provider_inside_one_dollar_cap(server, tmp_path, monkeypatch):
+    vault, clients = _two_metered(tmp_path, server, monkeypatch)
+    # 464 tokens at $100/M is $0.0464 per call: one provider fits $0.05, two do not.
+    args = ["ai", "latency", "--vault", str(vault), "--provider", "openrouter", "--provider", "openrouter_b",
+            "--runs", "1", "--price-per-million", "100", "--max-cost-usd", "0.05", "--json"]
+    dry = runner.invoke(app, [*args, "--dry-run"])
+    assert dry.exit_code == 1, dry.output
+    report = json.loads(dry.stdout)
+    assert report["admissible"] is False and report["metered_estimated_usd"] == pytest.approx(0.0928)
+    run = runner.invoke(app, args)
+    assert run.exit_code == 1, run.output
+    assert json.loads(run.stdout)["error"] == "over_budget"
+    assert sum(client.calls for client in clients.values()) == 0  # refused before any call
+
+    within = runner.invoke(app, [*args[:-5], "--price-per-million", "100", "--max-cost-usd", "0.1", "--json"])
+    assert within.exit_code == 0, within.output
+    rows = json.loads(within.stdout)["results"]
+    assert [row["ok_calls"] for row in rows] == [1, 1]
+    charged = sum(row["charged"]["estimated_usd"] for row in rows)
+    assert charged == pytest.approx(0.0928) and charged <= 0.1
+
+
+def test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent(server, tmp_path, monkeypatch):
+    vault, clients = _two_metered(tmp_path, server, monkeypatch)
+    answer = _MeteredProbe.complete
+
+    def overspend(self, request):
+        from learnloop.ai.usage import TokenUsage
+
+        result = answer(self, request)
+        self._usage = TokenUsage(input_tokens=600, output_tokens=64)  # more than estimated
+        return result
+
+    monkeypatch.setattr(_MeteredProbe, "complete", overspend)
+    # The plan fits ($0.0928 <= $0.095); the first provider's actual use leaves too little for the second.
+    run = runner.invoke(app, ["ai", "latency", "--vault", str(vault), "--provider", "openrouter",
+                              "--provider", "openrouter_b", "--runs", "1", "--price-per-million", "100",
+                              "--max-cost-usd", "0.095", "--json"])
+    assert run.exit_code == 0, run.output
+    first, second = json.loads(run.stdout)["results"]
+    assert first["ok_calls"] == 1
+    assert second["ok_calls"] == 0 and "spend caps" in second["error"]
+    assert clients["openrouter_b"].calls == 0
+    total = first["charged"]["estimated_usd"] + (second["charged"]["estimated_usd"] or 0)
+    assert total <= 0.095

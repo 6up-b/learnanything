@@ -125,9 +125,11 @@ def ai_signout(
 
     result = PlanSession().sign_out()
     if json_output:
-        typer.echo(_dump({"version": 1, "ok": True, **result}))
+        typer.echo(_dump({"version": 1, "ok": bool(result["signed_out"]), **result}))
     else:
-        typer.echo(result["message"])
+        typer.echo(result["message"], err=not result["signed_out"])
+    if not result["signed_out"]:
+        raise typer.Exit(code=1)
 
 
 @ai_app.command("resume")
@@ -240,8 +242,9 @@ def ai_latency(
 
     The prompt carries no vault or learner text. Subscription profiles (Codex,
     chatgpt_plan) estimate cost from reported usage; a metered profile needs
-    --price-per-million and stays inside --max-cost-usd. Every call leaves a
-    receipt in the vault.
+    --price-per-million, and all metered profiles together stay inside one
+    --max-cost-usd (a plan whose combined estimate exceeds it is refused before
+    any call). Every call leaves a receipt in the vault.
     """
 
     from learnloop.ai.errors import AIProviderUnavailable
@@ -280,15 +283,41 @@ def ai_latency(
             "estimated_tokens": runs * tokens_per_call,
             "estimated_usd": (runs * tokens_per_call * price_per_million / 1_000_000) if price_per_million is not None else None,
         })
+    # One dollar cap for every metered provider together; subscription
+    # profiles keep their own (estimate-only) accounting per provider.
+    metered = [entry for entry in plan if entry["billing"] == "metered"]
+    metered_usd = sum(entry["estimated_usd"] for entry in metered)
+    metered_budget = SpendBudget(SpendCaps(
+        max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs * len(metered),
+        max_total_tokens=runs * tokens_per_call * 4 * len(metered), max_estimated_usd=max_cost_usd,
+    )) if metered else None
+    reason = None
+    if metered_budget is not None:
+        try:
+            metered_budget.check(SpendEstimate(calls=runs * len(metered), total_tokens=runs * tokens_per_call * len(metered),
+                                               estimated_usd=metered_usd))
+        except SpendLimitExceeded as exc:
+            reason = (f"The metered providers together estimate ${metered_usd:.4f}, over --max-cost-usd "
+                      f"${max_cost_usd:g} ({exc}). Lower --runs, drop a provider or raise the cap.")
     if dry_run:
-        payload = {"version": 1, "dry_run": True, "plan": plan}
+        payload = {"version": 1, "dry_run": True, "plan": plan, "admissible": reason is None, "reason": reason,
+                   "metered_estimated_usd": metered_usd, "max_cost_usd": max_cost_usd}
         if json_output:
             typer.echo(_dump(payload))
         else:
             for entry in plan:
                 typer.echo(f"{entry['provider']} ({entry['type']}, {entry['model']}, {entry['billing']}): "
                            f"{entry['calls']} calls, ~{entry['estimated_tokens']} tokens")
+            if metered:
+                typer.echo(f"metered total: ~${metered_usd:.4f} of ${max_cost_usd:g}")
+            if reason:
+                typer.echo(reason, err=True)
+        if reason:
+            raise typer.Exit(code=1)
         return
+    if reason:
+        _fail(reason, json_output=json_output, code="over_budget", metered_estimated_usd=metered_usd,
+              max_cost_usd=max_cost_usd)
 
     results = []
     for entry in plan:
@@ -305,9 +334,13 @@ def ai_latency(
         except AIProviderUnavailable as exc:
             row["error"] = str(exc)
             continue
-        budget = SpendBudget(SpendCaps(max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs,
-                                       max_total_tokens=runs * tokens_per_call * 4, max_estimated_usd=max_cost_usd),
-                             subscription=subscription)
+        if subscription or metered_budget is None:
+            budget = SpendBudget(SpendCaps(max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs,
+                                           max_total_tokens=runs * tokens_per_call * 4, max_estimated_usd=max_cost_usd),
+                                 subscription=subscription)
+        else:
+            budget = metered_budget  # shared: every metered provider draws on one --max-cost-usd
+        before = budget.used
         for index in range(1, runs + 1):
             prompt = (f"LearnLoop latency probe {index}. Return the JSON object "
                       f'{{"ok": true, "n": {index}}} and nothing else.')
@@ -345,9 +378,16 @@ def ai_latency(
         row["ok_calls"] = len(times)
         row["seconds"] = ({"min": min(times), "median": round(statistics.median(times), 3), "max": max(times)}
                           if times else None)
-        row["charged"] = {"calls": budget.used.calls, "total_tokens": budget.used.total_tokens,
-                          "estimated_usd": budget.used.estimated_usd}
+        after = budget.used
+        row["charged"] = {
+            "calls": after.calls - before.calls, "total_tokens": after.total_tokens - before.total_tokens,
+            "estimated_usd": (after.estimated_usd - before.estimated_usd
+                              if after.estimated_usd is not None and before.estimated_usd is not None else None),
+        }
     payload = {"version": 1, "dry_run": False, "results": results}
+    if metered_budget is not None:
+        payload["metered_charged_usd"] = metered_budget.used.estimated_usd
+        payload["max_cost_usd"] = max_cost_usd
     if json_output:
         typer.echo(_dump(payload))
         return
