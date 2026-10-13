@@ -6,10 +6,12 @@ from dataclasses import dataclass, replace
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
+from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_service import bind_replacement_grade
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
 from learnloop.attempts.attempts import (
@@ -501,6 +503,18 @@ def _publish_regrade(
         manual_review_reason=_manual_review_reason(validated.manual_review_reason, attempt),
         error_type=primary_error_type,
         clock=clock,
+    )
+    # C3 (canonical sources §7.3a): the new grade was read against the item as
+    # it is now. If that content's key is not verified, the grade certifies
+    # nothing; the attempt's status is lowered (never raised) before the replay
+    # below reads it.
+    bind_replacement_grade(
+        repository.connection(),
+        attempt_id=attempt["id"],
+        item=item,
+        gated=vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS,
+        grading="regrade",
+        created_at=utc_now_iso(clock),
     )
     if content_events:
         repository.record_content_events(content_events)

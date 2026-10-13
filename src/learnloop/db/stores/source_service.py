@@ -369,6 +369,49 @@ def reference_status_for_item(connection: sqlite3.Connection, item: Any) -> str:
     return "verified" if status in VERIFIED_STATUSES else "unverified"
 
 
+#: ``judgment_ledger`` task recording that a replacement grade was read against
+#: content whose key is not verified (§7.3a, "Replacement grades").
+REFERENCE_BINDING_TASK = "attempt_reference_binding"
+
+
+def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
+                           grading: str, created_at: str) -> str | None:
+    """C3 for a grade that replaces an attempt's grade (§7.3a, "Replacement grades").
+
+    A regrade, or an adjudication against the key, reads the item as it is
+    now, so the grade it writes is bound to that content exactly as an
+    attempt's first grade is. When the vault is at the gate's tag (``gated``)
+    and that content's key is not verified, the attempt's
+    ``reference_status`` is lowered to ``unverified`` in the caller's
+    transaction, before its replay, so every reader of the column (the
+    projection, the evidence timeline, the learner field, rebuilds) gates the
+    grade now in force. A ``judgment_ledger`` row keeps the attempt-time status,
+    the content's key status and its hash. The status is never raised: a key
+    that verifies later does not make an earlier grade certify. Returns
+    ``"unverified"`` when it lowered the status, else None.
+    """
+
+    if not gated or not column_exists(connection, "practice_attempts", "reference_status"):
+        return None
+    if reference_status_for_item(connection, item) != "unverified":
+        return None
+    row = connection.execute("SELECT reference_status FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
+    if row is None or row[0] == "unverified":
+        return None
+    from learnloop.db.stores.judgments import append_judgment
+
+    content = reference_content_hash(item)
+    connection.execute("UPDATE practice_attempts SET reference_status='unverified' WHERE id=?", (attempt_id,))
+    append_judgment(
+        connection, task=REFERENCE_BINDING_TASK, left_kind="practice_attempt", left_id=attempt_id,
+        right_kind="reference_content", right_id=content, judge="verifier", input_hash=content,
+        verdict="unverified", created_at=created_at,
+        rationale=(f"grading={grading}; attempt_time_status={row[0]}; "
+                   f"key_status={effective_key_status(connection, item)}"),
+    )
+    return "unverified"
+
+
 # -- S2b: serve-time independence of a need's source import (§5.4, §8.5 item 4) -------
 
 
@@ -822,6 +865,8 @@ __all__ = [
     "serve_time_exposure",
     "key_checks_for_item",
     "reference_status_for_item",
+    "REFERENCE_BINDING_TASK",
+    "bind_replacement_grade",
     "update_import",
     "IMPRESSION_SURFACES",
     "column_exists",

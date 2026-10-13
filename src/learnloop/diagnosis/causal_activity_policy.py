@@ -201,7 +201,9 @@ def attempt_counts_as_assisted(
 
 #: ``practice_attempts.reference_status`` values (canonical sources S1, DL3
 #: §4.4): whether the served item's answer key was verified when the attempt
-#: was made. Recorded once by the attempt transaction, never updated.
+#: was made. Recorded by the attempt transaction; afterwards only a
+#: replacement grade read against unverified content lowers it, never raises
+#: it (``db/stores/source_service.bind_replacement_grade``).
 REFERENCE_STATUSES = ("not_applicable", "verified", "unverified")
 
 
@@ -235,7 +237,7 @@ def resolve_attempt_activity_policy(
     reference_status: str | None = None,
 ) -> CausalActivityPolicy:
     """See :func:`_resolve_attempt_activity_policy`; ``reference_status`` is the
-    attempt's immutable answer-key signal (C3): ``unverified`` forces
+    attempt's answer-key signal for the grade in force (C3): ``unverified`` forces
     ``eligible_for_certification`` off and changes nothing else."""
 
     return gate_unverified_reference(
