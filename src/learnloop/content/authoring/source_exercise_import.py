@@ -28,8 +28,9 @@ the attempt-time gate (mvp-0.15) reads the recorded check.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
-from contextlib import closing
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager, nullcontext
+import contextvars
 from dataclasses import dataclass, field
 import json
 import threading
@@ -38,11 +39,23 @@ from pathlib import Path
 from typing import Any, Literal
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
-from learnloop.ai.execution import content_key, record_model_calls
+from learnloop.ai.execution import (
+    content_key,
+    generation_limit,
+    observe_model_calls,
+    record_model_calls,
+    single_request,
+)
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
-from learnloop.ai.transport import render_structured_prompt
+from learnloop.ai.spend import (
+    SpendBudget,
+    SpendCaps,
+    SpendEstimate,
+    SpendLimitExceeded,
+    is_subscription_transport,
+)
+from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.exercise_authoring import (
     AuthoredDraft,
@@ -63,7 +76,6 @@ from learnloop.db.stores.source_block_fts import (
 )
 from learnloop.db.stores.source_service import (
     VERIFIED_STATUSES,
-    spend_since,
     import_row,
     insert_import,
     insert_key_check,
@@ -71,10 +83,18 @@ from learnloop.db.stores.source_service import (
 )
 from learnloop.ids import new_ulid
 from learnloop.ops import pf_verify
-from learnloop.ops.pf_calls import PFCaller, PFUnavailable, RoleClient, resolve_role_clients
+from learnloop.ops.pf_calls import (
+    PFCaller,
+    PFUnavailable,
+    RoleClient,
+    planned_role_clients,
+    resolve_role_clients,
+)
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
+from learnloop.practice_index.paid import FRAMING_TOKENS, estimated_call_tokens
 from learnloop.source_retrieval.corpus import effective_hint, extraction_scope
 from learnloop.source_retrieval.search import search_spans
+from learnloop.source_retrieval.service_spend import service_spend, service_spend_today
 from learnloop.ops.family_proposals import OUTPUT_TOKENS as FAMILY_OUTPUT_TOKENS
 from learnloop.ops.family_proposals import FamilyVerdict, pair_passes
 from learnloop.substrate.families import attach_to_family, family_item_input
@@ -95,6 +115,9 @@ OWNER_KIND = "source_exercise_import"
 CALLERS = ("learner", "reader", "harvest", "need")
 TRIGGERS = ("import", "background", "edit", "verify")
 PRICE_SETTING = "source_service.llm_price_per_million"
+#: The authoring request's output bound on a metered route (a compute bound
+#: that lets the request be priced before it is sent; one exercise's draft).
+AUTHORING_OUTPUT_TOKENS = 8000
 
 _SOLUTION_INSTRUCTIONS = (
     "Below is a textbook exercise and candidate passages from the same book that are labelled "
@@ -318,12 +341,105 @@ def daily_cap_reason(vault: LoadedVault, repository: Repository, clock: Clock | 
     never refused by it (``estimated_only``)."""
 
     cap = vault.config.source_service.max_daily_cost_usd
-    today = utc_now_iso(clock)[:10] + "T00:00:00"
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        spent = spend_since(connection, today)
+    spent = service_spend_today(vault, repository, clock)
     if spent["usd"] >= cap:
         return f"over_budget: the service's daily cap (${cap:.2f}) is spent (${spent['usd']:.4f} today)"
     return None
+
+
+def authoring_admission(vault: LoadedVault, repository: Repository, client: Any, *,
+                        owner_id: str) -> Callable[[str, type], Any]:
+    """Admit the authoring request under the import's caps before it is sent.
+
+    It is priced from its own prompt plus ``AUTHORING_OUTPUT_TOKENS``, so the
+    active envelopes (the import's cap, the daily cap, a batch's cap) refuse
+    it instead of noticing the overrun after. A metered route needs the
+    owner's price and a transport bounded to one physical request; a
+    subscription route is never refused by money (``estimated_only``).
+    """
+
+    subscription = is_subscription_transport(client=client)
+    price = vault.config.source_service.llm_price_per_million
+    budget = SpendBudget(import_caps(vault), subscription=subscription)
+
+    @contextmanager
+    def admit(prompt: str, result_model: type) -> Iterator[None]:
+        tokens = estimated_call_tokens(prompt, result_model, AUTHORING_OUTPUT_TOKENS)
+        if not subscription:
+            if price is None:
+                raise SpendLimitExceeded(f"skipped: metered authoring route without {PRICE_SETTING}")
+            if not client.supports(BOUNDED_STRUCTURED_COMPLETION):
+                raise SpendLimitExceeded("the metered authoring route cannot bound its physical requests")
+        usd = None if price is None else tokens * float(price) / 1_000_000
+        events: list[dict[str, Any]] = []
+
+        def observe(action: str, event: dict[str, Any]) -> None:
+            if action == "finish":
+                events.append(event)
+            repository.record_model_event(action, event, owner_kind=OWNER_KIND, owner_id=owner_id)
+
+        with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd)) as charge:
+            bound = nullcontext() if subscription else single_request()
+            limit = nullcontext() if subscription else generation_limit(AUTHORING_OUTPUT_TOKENS)
+            try:
+                with observe_model_calls(observe), bound, limit:
+                    yield
+            finally:
+                reported_tokens = sum(int(event.get("input_tokens") or 0) + int(event.get("output_tokens") or 0)
+                                      for event in events)
+                costs = [float(event["cost"]) for event in events if event.get("cost") is not None]
+                used = reported_tokens or tokens
+                priced = None if price is None else used * float(price) / 1_000_000
+                if subscription:
+                    charge.reconcile(total_tokens=used, estimated_usd=priced)
+                else:
+                    charge.reconcile(total_tokens=reported_tokens or None,
+                                     estimated_usd=max([*costs, priced or 0.0]) if (costs or reported_tokens)
+                                     else None)
+
+    return admit
+
+
+def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int = 1) -> dict[str, Any]:
+    """A numerical upper-bound estimate of ``imports`` imports, for dry runs.
+
+    Per import: one solution match, one authoring request, the solver panel
+    (each model ``pf.panel_solves_per_model`` times), one equivalence judge and
+    one span-support check, each priced at its output bound plus an input
+    approximated from the statement and the role's fixed context. Family
+    passes depend on the family found and are listed, not priced.
+    """
+
+    service = vault.config.source_service
+    price = service.llm_price_per_million
+    panel = planned_role_clients(vault, "panel")
+    panel_models = max(1, len(panel))
+    solves = panel_models * int(vault.config.pf.panel_solves_per_model)
+    statement = max(0, int(statement_chars))
+    roles = [
+        ("source_solution_match", 1, statement + SOLUTION_CANDIDATES * SOLUTION_PASSAGE_CHARS, SOLUTION_MATCH_OUTPUT_TOKENS),
+        ("exercise_authoring", 1, statement * 3 + 4000 + 4000, AUTHORING_OUTPUT_TOKENS),
+        ("pf_solver_panel", solves, statement, pf_verify.PANEL_OUTPUT_TOKENS),
+        ("pf_reference_verifier", 1, statement * 2, pf_verify.EQUIVALENCE_OUTPUT_TOKENS),
+        ("pf_span_support", 1, statement + 4000, pf_verify.SPAN_SUPPORT_OUTPUT_TOKENS),
+    ]
+    rows = []
+    calls = tokens = 0
+    for role, count, input_chars, output in roles:
+        role_tokens = count * (input_chars + FRAMING_TOKENS + output)
+        rows.append({"role": role, "calls": count * imports, "tokens": role_tokens * imports})
+        calls += count * imports
+        tokens += role_tokens * imports
+    subscription_panel = all(entry.subscription for entry in panel) if panel else False
+    return {
+        "imports": imports, "calls": calls, "tokens": tokens,
+        "usd": None if price is None else round(tokens * float(price) / 1_000_000, 6),
+        "price_per_million": price, "panel_models": panel_models, "by_role": rows,
+        "basis": "upper bound: input approximated from the statement and each role's fixed context, output at "
+                 "each role's bound; subscription routes are estimated_only (never capped)",
+        "panel_billing": "subscription" if subscription_panel else "metered",
+        "not_priced": ["pf_family_judge (two passes per member of a matching family)"],
+    }
 
 
 def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: str, stem: str,
@@ -598,7 +714,10 @@ def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
             pending.result = box["result"]
         on_done()
 
-    thread = threading.Thread(target=runner, name="source-key-ladder", daemon=True)
+    # The background check runs under the import's spend envelopes (a copy of
+    # this context), so its requests count against the same caps.
+    context = contextvars.copy_context()
+    thread = threading.Thread(target=context.run, args=(runner,), name="source-key-ladder", daemon=True)
     thread.start()
     thread.join(timeout=seconds)
     if thread.is_alive():
@@ -630,12 +749,44 @@ def import_source_exercise(
     whatever it says (learner authority, the claim corrected on screen); a
     need's fulfilment or a harvest is not written when it fails. Only a
     verified key may fulfil a need (the caller checks ``key_status``).
+
+    Every paid request of the import (the solution match, authoring, the
+    ladder, the family judge, and a background check) is admitted under one
+    shared envelope for ``source_service.import_max_cost_usd`` and the daily
+    envelope, before it is sent (Codex review F2).
     """
 
     if caller not in CALLERS:
         raise ValueError(f"caller must be one of {', '.join(CALLERS)}")
-    clients = dict(clients or {})
     vault = load_vault(root)
+    with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
+                       name="source_service.import_max_cost_usd", clock=clock):
+        return _import_source_exercise(
+            root, repository, vault=vault, extraction_id=extraction_id, span_ids=span_ids, caller=caller,
+            proposal_id=proposal_id, clients=clients, time_box_seconds=time_box_seconds, validate=validate,
+            need_id=need_id, learning_object_hint=learning_object_hint, label=label, import_id=import_id,
+            clock=clock)
+
+
+def _import_source_exercise(
+    root: Path,
+    repository: Repository,
+    *,
+    vault: LoadedVault,
+    extraction_id: str,
+    span_ids: Sequence[str],
+    caller: str,
+    proposal_id: str | None,
+    clients: Mapping[str, Any] | None,
+    time_box_seconds: float | None,
+    validate: Callable[[AuthoredDraft], Mapping[str, Any]] | None,
+    need_id: str | None,
+    learning_object_hint: str | None,
+    label: str | None,
+    import_id: str | None,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    clients = dict(clients or {})
     service = vault.config.source_service
     run = repository.get_extraction_run(extraction_id) or {}
     revision_id = run.get("revision_id")
@@ -685,16 +836,20 @@ def import_source_exercise(
             return fail("failed", f"no authoring route is ready: {getattr(resolved.runtime, 'message', '')}")
         author_client = resolved.client
     try:
-        # The authoring call is receipted under the import (as the ladder's
-        # calls are), so the daily cap and the receipts see it.
+        # The authoring call is admitted and receipted under the import (as
+        # the ladder's calls are), so every cap sees it before it is sent.
         with record_model_calls(repository, owner_kind=OWNER_KIND, owner_id=import_id):
             batch = author_exercises(
                 root, repository, author_client, extraction_id=extraction_id, raw_selection=selection,
                 source_id=source_id, revision_id=revision_id, learning_object_hint=learning_object_hint,
                 clock=clock, book_solution=book_solution,
+                admit=authoring_admission(vault, repository, author_client, owner_id=import_id),
             )
     except ExerciseAuthoringError as exc:
         return fail("failed", str(exc))
+    except SpendLimitExceeded as exc:
+        reason = str(exc)
+        return fail("failed", reason if reason.startswith("skipped:") else f"over_budget: {reason}")
     except (AIInvalidOutput, AIProviderUnavailable, AIInterrupted, TimeoutError) as exc:
         # A model failure ends this import as failed (never left "authoring").
         return fail("failed", f"authoring failed: {type(exc).__name__}: {exc}")
@@ -786,6 +941,13 @@ def verify_item_key(root: Path, repository: Repository, item_id: str, *, trigger
     if trigger not in TRIGGERS:
         raise ValueError(f"trigger must be one of {', '.join(TRIGGERS)}")
     vault = load_vault(root)
+    with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
+                       name="source_service.import_max_cost_usd", clock=clock):
+        return _verify_item_key(root, repository, vault, item_id, trigger=trigger, clients=clients, clock=clock)
+
+
+def _verify_item_key(root: Path, repository: Repository, vault: LoadedVault, item_id: str, *, trigger: str,
+                     clients: Mapping[str, Any] | None, clock: Clock | None) -> dict[str, Any]:
     item = vault.practice_items[item_id]
     content_hash = reference_content_hash(item)
     canonical = getattr(item, "canonical_exercise", None)
@@ -849,10 +1011,13 @@ __all__ = [
     "SOLUTION_MATCH_PROMPT_VERSION",
     "SOLUTION_MATCH_TASK",
     "SolutionMatch",
+    "AUTHORING_OUTPUT_TOKENS",
     "attach_to_matching_family",
+    "authoring_admission",
     "find_book_solution",
     "import_caps",
     "import_source_exercise",
+    "plan_import_cost",
     "record_key_check",
     "record_reader_import",
     "run_key_ladder",

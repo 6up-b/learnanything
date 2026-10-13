@@ -24,6 +24,8 @@ rung (``select_rung`` owns that).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 import json
 import re
@@ -78,16 +80,24 @@ class ExerciseAuthoringError(ValueError):
 
 
 def request_exercise_authoring(
-    client: StructuredTransport, context: ExerciseAuthoringContext
+    client: StructuredTransport, context: ExerciseAuthoringContext, *,
+    admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
 ) -> ExerciseAuthoring:
-    """Author selected exercises through the shared transport."""
+    """Author selected exercises through the shared transport.
 
-    return execute_structured_operation(
-        client,
-        purpose="exercise_authoring",
-        prompt=exercise_authoring_prompt(context),
-        result_model=ExerciseAuthoring,
-    )
+    ``admit(prompt, result_model)``, when given, admits the request under the
+    caller's spend caps before it is sent (canonical sources' imports); None
+    keeps the Reader's import unchanged.
+    """
+
+    prompt = exercise_authoring_prompt(context)
+    with admit(prompt, ExerciseAuthoring) if admit is not None else nullcontext():
+        return execute_structured_operation(
+            client,
+            purpose="exercise_authoring",
+            prompt=prompt,
+            result_model=ExerciseAuthoring,
+        )
 
 
 def _normalize(text: str) -> str:
@@ -279,6 +289,7 @@ def author_exercises(
     learning_object_hint: str | None = None,
     clock: Clock | None = None,
     book_solution: Mapping[str, Any] | None = None,
+    admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
 ) -> AuthoredBatch:
     """Author the selected exercise(s) into validated drafts. Writes nothing.
 
@@ -381,7 +392,7 @@ def author_exercises(
         task_feature_schema=schema_dims,
         book_solution=dict(book_solution or {}),
     )
-    result = request_exercise_authoring(client, context)
+    result = request_exercise_authoring(client, context, admit=admit)
 
     warnings = [str(warning) for warning in result.warnings if str(warning).strip()]
     if transliterated:

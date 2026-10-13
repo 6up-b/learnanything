@@ -56,6 +56,7 @@ from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, _span_keys,
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import embed_query_texts
 from learnloop.source_retrieval.search import SpanHit, search_spans
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault
 
@@ -345,11 +346,13 @@ def compare_sources(
     calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=config.llm_price_per_million,
                       repository=repository, owner_kind="source_compare", owner_id=owner_id)
     try:
-        answer: SourceComparison = calls.call(
-            client, purpose="source_compare", prompt=prompt, result_model=SourceComparison,
-            output_tokens=COMPARE_OUTPUT_TOKENS, metadata={"prompt_version": COMPARE_PROMPT_VERSION},
-            candidates=len(refs), pairs=len(refs), deadline=deadline,
-        )
+        # The service's daily cap is shared by every S-phase (spec §9.6, F2).
+        with service_spend(vault, repository, clock=clock):
+            answer: SourceComparison = calls.call(
+                client, purpose="source_compare", prompt=prompt, result_model=SourceComparison,
+                output_tokens=COMPARE_OUTPUT_TOKENS, metadata={"prompt_version": COMPARE_PROMPT_VERSION},
+                candidates=len(refs), pairs=len(refs), deadline=deadline,
+            )
     except AIInterrupted:
         result.status = "cancelled"
         return result

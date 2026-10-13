@@ -32,6 +32,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import judgments_by_ids
 from learnloop.practice_index.listwise import route_skip
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
 
 SCREEN_PROMPT_VERSION = "exercise_discrimination.v1"
@@ -156,10 +157,12 @@ def screen_exercises(vault: LoadedVault, repository: Repository, problem: Any,
         return value
 
     try:
-        result: ExerciseScreens = calls.call(
-            client, purpose="exercise_discrimination", prompt=prompt, result_model=ExerciseScreens,
-            output_tokens=SCREEN_OUTPUT_TOKENS, metadata={"prompt_version": SCREEN_PROMPT_VERSION},
-            candidates=len(exercises), validate=validate)
+        # The service's daily cap is shared by every S-phase (F2).
+        with service_spend(vault, repository):
+            result: ExerciseScreens = calls.call(
+                client, purpose="exercise_discrimination", prompt=prompt, result_model=ExerciseScreens,
+                output_tokens=SCREEN_OUTPUT_TOKENS, metadata={"prompt_version": SCREEN_PROMPT_VERSION},
+                candidates=len(exercises), validate=validate)
     except AIInterrupted:
         return {"status": "cancelled", "screens": {}}
     except SpendLimitExceeded as exc:

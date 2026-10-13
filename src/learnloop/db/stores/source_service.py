@@ -8,7 +8,7 @@ is cleared and rebuilt only by its replayer.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 import json
 import sqlite3
 from typing import Any
@@ -595,26 +595,102 @@ def outcomes(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
     return found
 
 
-def spend_since(connection: sqlite3.Connection, since: str, *,
-                owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> dict[str, Any]:
-    """Provider-reported cost and count of physical requests (leaf receipts) since ``since``.
+def _receipt_billing(connection: sqlite3.Connection, receipt_id: str, parent_id: str | None,
+                     budget_json: str | None, provider: str | None, cache: dict[str, str | None],
+                     subscription_providers: Collection[str]) -> str:
+    """``subscription`` or ``metered``: the root receipt's declared budget says
+    which (``billing``, ``practice_index.billing``, ``pf.cost_basis``); a root
+    with no declared budget falls back to the provider's profile type."""
 
-    ``owner_kinds`` None counts every receipt (an owner-run batch that runs
-    alone). Subscription (Codex) requests report no marginal cost: they are
-    counted, never priced (``estimated_only``).
+    current, budget = parent_id, budget_json
+    seen = 0
+    while current is not None and seen < 16:
+        seen += 1
+        if current not in cache:
+            row = connection.execute(
+                "SELECT parent_call_id, budget_json FROM model_call_receipts WHERE id = ?", (current,)).fetchone()
+            cache[current] = None if row is None else json.dumps([row[0], row[1]])
+        cached = cache[current]
+        if cached is None:
+            break
+        current, budget = json.loads(cached)
+    try:
+        declared = json.loads(budget or "{}") or {}
+    except (TypeError, ValueError):
+        declared = {}
+    if declared.get("billing") == "subscription" \
+            or (declared.get("practice_index") or {}).get("billing") == "subscription" \
+            or (declared.get("pf") or {}).get("cost_basis") == "estimated_only":
+        return "subscription"
+    if declared:
+        return "metered"
+    return "subscription" if provider and provider in subscription_providers else "metered"
+
+
+def spend_since(connection: sqlite3.Connection, since: str, *,
+                owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
+                price_per_million: float | None = None,
+                subscription_providers: Collection[str] = ()) -> dict[str, Any]:
+    """Spend of physical requests (leaf receipts) since ``since``.
+
+    ``usd`` is METERED dollars, the basis of every money cap: the provider's
+    reported cost, else reported tokens at ``price_per_million`` (the owner's
+    single upper-bound rate); a metered request with neither is counted in
+    ``metered.unpriced_requests``. Subscription (Codex, ChatGPT plan) requests
+    have no marginal cost: their tokens (reported, else the receipt's own
+    estimate) and owner-priced dollars are reported as ``estimated_only``,
+    never capped. ``owner_kinds`` None counts every receipt.
     """
 
+    empty = {"usd": 0.0, "requests": 0, "requests_reporting_cost": 0,
+             "metered": {"requests": 0, "usd": 0.0, "unpriced_requests": 0},
+             "estimated_only": {"requests": 0, "tokens": 0, "usd": 0.0 if price_per_million is not None else None}}
     if not table_exists(connection, "model_call_receipts"):
-        return {"usd": 0.0, "requests": 0, "requests_reporting_cost": 0}
-    sql = ("SELECT COUNT(*), COUNT(r.cost), COALESCE(SUM(r.cost), 0) FROM model_call_receipts r "
-           "WHERE r.started_at >= ? AND NOT EXISTS "
+        return empty
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
+    usage = "r.usage_json" if "usage_json" in columns else "NULL"
+    budget = "r.budget_json" if "budget_json" in columns else "NULL"
+    sql = (f"SELECT r.id, r.parent_call_id, r.provider, r.cost, r.input_tokens, r.output_tokens, {usage}, {budget} "
+           "FROM model_call_receipts r WHERE r.started_at >= ? AND NOT EXISTS "
            "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)")
     params: list[Any] = [since]
     if owner_kinds is not None:
         sql += f" AND r.owner_kind IN ({','.join('?' for _ in owner_kinds)})"
         params.extend(owner_kinds)
-    requests, reporting, usd = connection.execute(sql, params).fetchone()
-    return {"usd": float(usd or 0.0), "requests": int(requests or 0), "requests_reporting_cost": int(reporting or 0)}
+    out = json.loads(json.dumps(empty))
+    cache: dict[str, str | None] = {}
+    rate = None if price_per_million is None else float(price_per_million) / 1_000_000
+    for receipt_id, parent_id, provider, cost, input_tokens, output_tokens, usage_json, budget_json in \
+            connection.execute(sql, params).fetchall():
+        out["requests"] += 1
+        tokens = int(input_tokens or 0) + int(output_tokens or 0)
+        billing = _receipt_billing(connection, receipt_id, parent_id, budget_json, provider, cache,
+                                   subscription_providers)
+        if billing == "subscription":
+            out["estimated_only"]["requests"] += 1
+            try:
+                estimate = json.loads(usage_json or "{}") or {}
+            except (TypeError, ValueError):
+                estimate = {}
+            used = tokens or int(estimate.get("estimated_total_tokens") or 0)
+            out["estimated_only"]["tokens"] += used
+            if out["estimated_only"]["usd"] is not None:
+                out["estimated_only"]["usd"] += used * rate if rate is not None else 0.0
+            continue
+        out["metered"]["requests"] += 1
+        if cost is not None:
+            out["requests_reporting_cost"] += 1
+            value = float(cost)
+            if rate is not None and tokens:
+                value = max(value, tokens * rate)
+        elif rate is not None and tokens:
+            value = tokens * rate
+        else:
+            out["metered"]["unpriced_requests"] += 1
+            value = 0.0
+        out["metered"]["usd"] += value
+    out["usd"] = out["metered"]["usd"]
+    return out
 
 
 __all__ = [

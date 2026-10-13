@@ -10,8 +10,15 @@
   included), each result a ``reference_key_checks`` row bound to the content
   it checked.
 
-Both have ``--dry-run`` (no client is built, nothing is sent or written) and
-stop at the money cap. Codex routes are ``estimated_only``.
+Both have ``--dry-run`` (no client is built, nothing is sent or written; the
+plan carries numerical estimates of calls, tokens and dollars) and a money cap
+that is ENFORCED, not just checked between targets: one envelope for
+``--max-cost-usd`` is shared by every paid request the command makes (the
+rerank, each import's solution match, authoring, ladder and family judge),
+and each request reserves its estimate before it is sent (Codex review F2).
+The service's daily cap applies inside it. Codex routes are
+``estimated_only``: never refused by money, their estimated tokens and
+dollars reported.
 """
 from __future__ import annotations
 
@@ -19,8 +26,13 @@ from collections.abc import Callable, Mapping
 from contextlib import closing
 from typing import Any
 
+from learnloop.ai.spend import spend_envelopes
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.content.authoring.source_exercise_import import import_source_exercise, verify_item_key
+from learnloop.content.authoring.source_exercise_import import (
+    import_source_exercise,
+    plan_import_cost,
+    verify_item_key,
+)
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import (
@@ -33,7 +45,13 @@ from learnloop.instructional.exercises import exercise_candidates
 from learnloop.instructional.validation import draft_validator
 from learnloop.practice_index.catalog import facet_label, registered_facets
 from learnloop.practice_index.coverage import coverage_targets
-from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
+from learnloop.practice_index.paid import FRAMING_TOKENS
+from learnloop.practice_index.retrieval import (
+    MIXED_RERANK_OUTPUT_TOKENS,
+    PracticeConstraints,
+    find_practice,
+)
+from learnloop.source_retrieval.service_spend import batch_envelope, subscription_providers
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -80,6 +98,19 @@ def _query(vault: LoadedVault, facet_id: str) -> str:
     return " ".join(parts)[:1500]
 
 
+def _spend(vault: LoadedVault, repository: Repository, started: str) -> dict[str, Any]:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return spend_since(connection, started, owner_kinds=None,
+                           price_per_million=vault.config.source_service.llm_price_per_million,
+                           subscription_providers=subscription_providers(vault))
+
+
+def _sum_plans(plans: list[dict[str, Any]]) -> dict[str, Any]:
+    usd = [plan.get("usd") for plan in plans]
+    return {"calls": sum(plan["calls"] for plan in plans), "tokens": sum(plan["tokens"] for plan in plans),
+            "usd": None if any(value is None for value in usd) else round(sum(usd), 6)}
+
+
 def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cost_usd: float | None,
             learning_object_ids: tuple[str, ...] = (), facet_ids: tuple[str, ...] = (),
             clients: Mapping[str, Any] | None = None, rerank_client: Any | None = None,
@@ -89,12 +120,27 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
                               facet_ids=facet_ids, clock=clock)
     report: dict[str, Any] = {"dry_run": dry_run, "targets": targets, "imports": [], "skipped": []}
     if dry_run:
+        price = vault.config.source_service.llm_price_per_million
+        plans = []
         for target in targets:
             constraints = PracticeConstraints(facet_ids=(target["facet_id"],),
                                               learning_object_ids=tuple(target["learning_object_ids"]))
             pool = exercise_candidates(vault, repository, _query(vault, target["facet_id"]), constraints,
                                        pool_size=vault.config.practice_index.candidate_pool, embedder=None)
             target["exercise_candidates"] = len(pool.candidates)
+            statements = [len(str(candidate.get("statement") or "")) for candidate in pool.candidates]
+            rerank_tokens = sum(statements) + len(_query(vault, target["facet_id"])) + FRAMING_TOKENS \
+                + MIXED_RERANK_OUTPUT_TOKENS
+            rerank = {"calls": 1, "tokens": rerank_tokens,
+                      "usd": None if price is None else round(rerank_tokens * float(price) / 1_000_000, 6)}
+            imports = plan_import_cost(vault, statement_chars=max(statements, default=0),
+                                       imports=len(pool.candidates))
+            target["estimate"] = {"rerank": rerank, "imports": imports, "total": _sum_plans([rerank, imports])}
+            plans.append(target["estimate"]["total"])
+        report["estimate"] = {**_sum_plans(plans), "price_per_million": price,
+                              "basis": "upper bound: every candidate the arm finds is picked and imported; "
+                                       "metered dollars at source_service.llm_price_per_million (None: unpriced, "
+                                       "metered routes are skipped); subscription routes are estimated_only"}
         report["status"] = "dry_run"
         report["note"] = ("Dry run: no client constructed, nothing sent or written. Each target costs one "
                           "rerank call, and each picked exercise one authoring call, one solution match and "
@@ -104,37 +150,45 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
     if max_cost_usd is None:
         raise ValueError("A live harvest needs --max-cost-usd (or --dry-run)")
     started = utc_now_iso(clock)
-    for target in targets:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            spent = spend_since(connection, started, owner_kinds=None)
-        if spent["usd"] >= max_cost_usd:
-            report["status"] = "over_budget"
-            report["reason"] = f"spent ${spent['usd']:.4f} of ${max_cost_usd:.4f}"
-            break
-        constraints = PracticeConstraints(facet_ids=(target["facet_id"],),
-                                          learning_object_ids=tuple(target["learning_object_ids"]),
-                                          kinds="source_exercises")
-        result = find_practice(load_vault(vault.root), repository, _query(vault, target["facet_id"]), constraints,
-                               origin="cli", caller={"kind": "harvest", "ref": target["facet_id"]},
-                               exercise_arm=exercise_candidates, rerank_client=rerank_client, embedder=embedder,
-                               clock=clock)
-        for entry in result.get("source_exercises") or []:
-            if on_progress is not None:
-                on_progress(f"importing {entry.get('label')} for {target['facet_id']}")
-            validate = draft_validator(load_vault(vault.root), constraints, intent="practice", independent=True)
-            outcome = import_source_exercise(
-                vault.root, repository, extraction_id=entry["extraction_id"], span_ids=entry["span_ids"],
-                caller="harvest", proposal_id=result["proposal_id"], clients=clients, validate=validate,
-                label=entry.get("label"), learning_object_hint=(target["learning_object_ids"] or [None])[0],
-                clock=clock,
-            )
-            report["imports"].append({key: outcome.get(key) for key in (
-                "import_id", "status", "practice_item_id", "key_status", "reason", "label")})
-        if not result.get("source_exercises"):
-            report["skipped"].append({"facet_id": target["facet_id"],
-                                      "reason": result.get("source_exercises_status") or "no exercise picked"})
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        report["spend"] = spend_since(connection, started, owner_kinds=None)
+    envelope = batch_envelope("--max-cost-usd", max_cost_usd)
+    with spend_envelopes(envelope):
+        for target in targets:
+            if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
+                report["status"] = "over_budget"
+                break
+            constraints = PracticeConstraints(facet_ids=(target["facet_id"],),
+                                              learning_object_ids=tuple(target["learning_object_ids"]),
+                                              kinds="source_exercises")
+            result = find_practice(load_vault(vault.root), repository, _query(vault, target["facet_id"]),
+                                   constraints, origin="cli", caller={"kind": "harvest", "ref": target["facet_id"]},
+                                   exercise_arm=exercise_candidates, rerank_client=rerank_client,
+                                   embedder=embedder, clock=clock)
+            for entry in result.get("source_exercises") or []:
+                if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
+                    report["status"] = "over_budget"
+                    break
+                if on_progress is not None:
+                    on_progress(f"importing {entry.get('label')} for {target['facet_id']}")
+                validate = draft_validator(load_vault(vault.root), constraints, intent="practice", independent=True)
+                outcome = import_source_exercise(
+                    vault.root, repository, extraction_id=entry["extraction_id"], span_ids=entry["span_ids"],
+                    caller="harvest", proposal_id=result["proposal_id"], clients=clients, validate=validate,
+                    label=entry.get("label"), learning_object_hint=(target["learning_object_ids"] or [None])[0],
+                    clock=clock,
+                )
+                report["imports"].append({key: outcome.get(key) for key in (
+                    "import_id", "status", "practice_item_id", "key_status", "reason", "label")})
+            if report.get("status") == "over_budget":
+                break
+            if not result.get("source_exercises"):
+                report["skipped"].append({"facet_id": target["facet_id"],
+                                          "reason": result.get("source_exercises_status") or "no exercise picked"})
+    report["budget"] = envelope.report()
+    if report.get("status") == "over_budget" or envelope.report()["refused_requests"]:
+        report["status"] = "over_budget"
+        report["reason"] = (f"the --max-cost-usd envelope (${max_cost_usd:.4f}) refused the next request: "
+                            f"${report['budget']['metered_usd']:.4f} reserved or spent")
+    report["spend"] = _spend(vault, repository, started)
     report.setdefault("status", "complete")
     return report
 
@@ -162,6 +216,23 @@ def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cos
     targets = verification_targets(vault, repository, item_ids)
     report: dict[str, Any] = {"dry_run": dry_run, "targets": targets, "checks": []}
     if dry_run:
+        plans = []
+        for target in targets:
+            item = vault.practice_items[target["practice_item_id"]]
+            plan = plan_import_cost(vault, statement_chars=len(item.prompt))
+            # A check has no authoring request.
+            authoring = next(row for row in plan["by_role"] if row["role"] == "exercise_authoring")
+            plan["by_role"] = [row for row in plan["by_role"] if row["role"] != "exercise_authoring"]
+            plan["calls"] -= authoring["calls"]
+            plan["tokens"] -= authoring["tokens"]
+            if plan["usd"] is not None:
+                plan["usd"] = round(plan["tokens"] * float(plan["price_per_million"]) / 1_000_000, 6)
+            target["estimate"] = plan
+            plans.append(plan)
+        report["estimate"] = {**_sum_plans(plans),
+                              "price_per_million": vault.config.source_service.llm_price_per_million,
+                              "basis": "upper bound per check: the solution match, the panel, the equivalence "
+                                       "judge and a span-support check; subscription routes are estimated_only"}
         report["status"] = "dry_run"
         report["note"] = ("Dry run: no client constructed, nothing sent or written. Each target costs a "
                           "solution match, the panel solves and one equivalence judge (plus a span-support "
@@ -170,17 +241,20 @@ def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cos
     if max_cost_usd is None:
         raise ValueError("A live verify needs --max-cost-usd (or --dry-run)")
     started = utc_now_iso(clock)
-    for target in targets:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            spent = spend_since(connection, started, owner_kinds=None)
-        if spent["usd"] >= max_cost_usd:
-            report["status"] = "over_budget"
-            report["reason"] = f"spent ${spent['usd']:.4f} of ${max_cost_usd:.4f}"
-            break
-        report["checks"].append(verify_item_key(vault.root, repository, target["practice_item_id"],
-                                                trigger="verify", clients=clients, clock=clock))
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        report["spend"] = spend_since(connection, started, owner_kinds=None)
+    envelope = batch_envelope("--max-cost-usd", max_cost_usd)
+    with spend_envelopes(envelope):
+        for target in targets:
+            if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
+                report["status"] = "over_budget"
+                break
+            report["checks"].append(verify_item_key(vault.root, repository, target["practice_item_id"],
+                                                    trigger="verify", clients=clients, clock=clock))
+    report["budget"] = envelope.report()
+    if report.get("status") == "over_budget" or envelope.report()["refused_requests"]:
+        report["status"] = "over_budget"
+        report["reason"] = (f"the --max-cost-usd envelope (${max_cost_usd:.4f}) refused the next request: "
+                            f"${report['budget']['metered_usd']:.4f} reserved or spent")
+    report["spend"] = _spend(vault, repository, started)
     report.setdefault("status", "complete")
     return report
 

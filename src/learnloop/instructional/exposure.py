@@ -41,6 +41,7 @@ from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 from learnloop.instructional.exercises import exercise_regions
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
 from learnloop.source_retrieval.corpus import role_keys
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
 
 EXPOSURE_RULE_VERSION = "reading_exposure_v1"
@@ -257,7 +258,13 @@ def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: 
             raise AIInvalidOutput("The equivalence judge did not judge every example")
         return value
 
-    outcome = judge_listwise(
+    with service_spend(vault, repository):  # the service's daily cap (F2)
+        outcome = _judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate)
+    return _equivalence_result(refs, outcome)
+
+
+def _judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate):
+    return judge_listwise(
         vault, repository, EQUIVALENCE_TASK, prompt=prompt, refs=refs,
         left_id=str(candidate.get("practice_item_id") or candidate.get("key") or content_key(text)[:32]),
         right_id=lambda key: f"{key[0]}:{key[1]}", id_parts=lambda key: list(key), pick_at_most=0,
@@ -266,6 +273,9 @@ def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: 
         price=vault.config.source_service.llm_price_per_million, owner_id="worked_example_equivalence",
         client=judge_client, validate=validate,
     )
+
+
+def _equivalence_result(refs, outcome) -> dict[str, Any]:
     base = {"shortlist": len(refs), "studied_span_keys": [list(key) for key in refs.values()]}
     if not outcome.judged:
         # Studied examples nobody could judge: never assumed unrelated.
