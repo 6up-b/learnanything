@@ -589,3 +589,14 @@ def test_migration_185_widens_the_trigger_and_keeps_every_clarification(tmp_path
             "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'grading_clarifications'")}
         assert triggers == {"grading_clarifications_no_update"}
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_pf_c_outcomes_alone_are_not_this_gates():
+    """A criterion PF-c already recorded unverified, which the check neither
+    validates nor disputes, stays unverified, and this gate did not apply."""
+
+    gate = apply_proof_route_gate(
+        _proposal({"setup": 2.0, "result": 0.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(result={"verdict": "not_established"}), unverified_before=["result"],
+    )
+    assert gate.unverified == ("result",) and gate.disputed == () and not gate.applied

@@ -319,7 +319,10 @@ class ProofGateOutcome:
     proposal: Any
     outcomes: dict[str, str]
     restored: tuple[str, ...] = ()
+    #: Every unverified criterion after both gates (PF-c's that stayed, plus
+    #: ``disputed``, the ones this gate added).
     unverified: tuple[str, ...] = ()
+    disputed: tuple[str, ...] = ()
     flagged: tuple[str, ...] = ()
     disputed_fatal: bool = False
     clarification: dict[str, Any] | None = None
@@ -328,7 +331,8 @@ class ProofGateOutcome:
 
     @property
     def applied(self) -> bool:
-        return bool(self.restored or self.unverified or self.flagged or self.disputed_fatal or self.clarification)
+        """Did this gate change anything (PF-c's own outcome alone is not this gate's)."""
+        return bool(self.restored or self.disputed or self.flagged or self.disputed_fatal or self.clarification)
 
 
 def apply_proof_route_gate(
@@ -481,6 +485,7 @@ def apply_proof_route_gate(
         outcomes=outcomes,
         restored=tuple(restored),
         unverified=tuple(sorted(unverified)),
+        disputed=tuple(disputed),
         flagged=tuple(flagged),
         disputed_fatal=disputed_fatal,
         clarification=clarification,
@@ -727,6 +732,7 @@ def run_proof_route_check(
         outcomes=dict(gate.outcomes),
         agreement=agreement,
         restored_criterion_ids=list(gate.restored),
+        disputed_criterion_ids=list(gate.disputed),
         unverified_criterion_ids=list(gate.unverified),
         flagged_criterion_ids=list(gate.flagged),
         disputed_fatal=gate.disputed_fatal,
