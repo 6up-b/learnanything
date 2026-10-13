@@ -276,6 +276,52 @@ it("a late poll for an earlier batch never settles the retry's wait", async () =
   expect(done.map((e) => [e.payload.job_id, e.payload.status])).toEqual([["batch_q", "failed"], ["batch_b", "completed"]]);
 });
 
+// Final verification F14: the retry gets the same live batch back (the enqueue
+// reuses it), so batch identity alone can't tell the waits apart.
+it("a stale timed-out poll never fails a retry that got the same live batch back", async () => {
+  await openQuickCheckFromReconnect();
+  const running = { question: null, job: { status: "running", errorCode: null, message: null, refusal: null } };
+  api.readerInquiryQuestion.mockResolvedValue(running);
+  for (let i = 0; i < 200; i += 1) await poll(); // the wait reaches its polling limit
+  expect(screen.getByText(/writing a quick check on this passage/)).toBeTruthy();
+  // Two polls go out past the limit and stay outstanding.
+  const outstanding: Array<(value: unknown) => void> = [];
+  api.readerInquiryQuestion.mockImplementation(() => new Promise((resolve) => { outstanding.push(resolve); }));
+  const tick = polls[polls.length - 1];
+  await act(async () => {
+    tick();
+    tick();
+    await Promise.resolve();
+  });
+  expect(outstanding).toHaveLength(2);
+  // The first answers "running": this wait times out.
+  await act(async () => {
+    outstanding[0](running);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(await screen.findByRole("button", { name: "try again ↵" })).toBeTruthy();
+  // Try again: the backend hands back the same live batch_q, and a fresh wait starts.
+  api.readerInquiryQuestion.mockResolvedValue(running);
+  fireEvent.click(screen.getByRole("button", { name: "try again ↵" }));
+  await screen.findByText(/writing a quick check on this passage/);
+  // The older outstanding poll answers "running" with its exhausted counter.
+  await act(async () => {
+    outstanding[1](running);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(screen.getByText(/writing a quick check on this passage/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "try again ↵" })).toBeNull();
+  const settled = () => loggedEvents()
+    .filter((e) => e.kind === "reader_job_completed" && e.payload.job_kind === "quick_check")
+    .map((e) => [e.payload.job_id, e.payload.status, e.payload.failure_reason]);
+  expect(settled()).toEqual([["batch_q", "failed", "timeout"]]);
+  // The retry's own wait still polls and settles once when the check lands.
+  api.readerInquiryQuestion.mockResolvedValueOnce({ question: check, job: { status: "completed", errorCode: null, message: null, refusal: null } });
+  await poll();
+  expect(await screen.findByText("Why is the eigenbasis orthonormal?")).toBeTruthy();
+  expect(settled()).toEqual([["batch_q", "failed", "timeout"], ["batch_q", "completed", null]]);
+});
+
 it("a check over its per-check spending limit says so, and a missing price says that", async () => {
   await openQuickCheckFromReconnect();
   api.readerInquiryQuestion.mockResolvedValueOnce({

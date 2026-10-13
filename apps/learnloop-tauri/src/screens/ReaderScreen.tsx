@@ -315,6 +315,9 @@ export function ReaderScreen({
     escalated?: boolean;
     /** The durable job writing it (reader.reconnect_answer's batch). */
     batchId?: string | null;
+    /** This client wait's generation: a retry can get the same live batch
+     *  back, so a poll settles or updates only its own wait (F14). */
+    waitId?: string | null;
     /** Polls so far, and rejected polls in a row (the sidecar unreachable). */
     attempts?: number;
     pollErrors?: number;
@@ -322,9 +325,11 @@ export function ReaderScreen({
     failure?: string | null;
   }>>({});
   // The funnel record of each queued quick check (F8): its batch, the visit
-  // that asked, when, and the learner's activity snapshot for the wait.
+  // that asked, when, and the learner's activity snapshot for the wait; and
+  // the client wait now watching it (only that wait may settle it).
   const inquiryJobsRef = useRef<Record<string, {
     batchId: string;
+    waitId: string;
     startedAt: number;
     activity: ReturnType<typeof learnerActivitySnapshot>;
     visit: { visit_id: string | null; extraction_id: string | null };
@@ -2373,13 +2378,15 @@ export function ReaderScreen({
 
   /** End a quick check's wait in the funnel, once (F8): its status, the
    *  route it came from, and what the learner did while it was written.
-   *  Only the wait for ``batchId`` is settled: a late answer for an earlier
-   *  batch never records or ends a retry's wait (re-review F14). */
-  const settleInquiryJob = useCallback((rootId: string, batchId: string | null, status: "completed" | "failed" | "cancelled", extra: {
+   *  Only the wait for ``batchId`` *and* ``waitId`` is settled: a late answer
+   *  for an earlier batch, or for an earlier wait on the same live batch (a
+   *  retry the enqueue handed the same batch), never records or ends the
+   *  retry's wait (F14). */
+  const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra: {
     failureReason?: string | null; model?: string | null; promptVersion?: string | null;
   } = {}) => {
     const job = inquiryJobsRef.current[rootId];
-    if (!job || !batchId || job.batchId !== batchId) return;
+    if (!job || !batchId || !waitId || job.batchId !== batchId || job.waitId !== waitId) return;
     delete inquiryJobsRef.current[rootId];
     const waited = Date.now() - job.startedAt;
     logReaderActivity({
@@ -2409,6 +2416,9 @@ export function ReaderScreen({
   const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail") => {
     if (!render || offline) return;
     setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId: null } }));
+    // This wait's own generation (F14): the enqueue may hand a retry the same
+    // live batch, so polls are told apart by the wait, not only the batch.
+    const waitId = newKey();
     const visit = visitPayload();
     const startedAt = Date.now();
     const activity = learnerActivitySnapshot();
@@ -2419,11 +2429,16 @@ export function ReaderScreen({
         setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "landed", question: result.question } }));
       } else if (result.status === "queued" && result.batchId) {
         const batchId = result.batchId;
-        if (!inquiryJobsRef.current[rootId] || inquiryJobsRef.current[rootId].batchId !== batchId) {
-          inquiryJobsRef.current[rootId] = { batchId, startedAt, activity, visit };
+        const tracked = inquiryJobsRef.current[rootId];
+        if (!tracked || tracked.batchId !== batchId) {
+          inquiryJobsRef.current[rootId] = { batchId, waitId, startedAt, activity, visit };
           logReaderActivity({ kind: "reader_job_queued", payload: { ...visit, job_id: batchId, job_kind: "quick_check" } });
+        } else {
+          // The batch already being waited on: its funnel record carries on,
+          // now settled only by this wait (an older wait's polls go stale).
+          tracked.waitId = waitId;
         }
-        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId } }));
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId, waitId } }));
       } else if (result.status === "provider_unavailable") {
         recordUnqueuedCheck("unreachable");
         setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "unreachable", question: null } }));
@@ -2441,8 +2456,12 @@ export function ReaderScreen({
   /** Cancel a pending quick check: its job is cancelled (best effort) and the
    *  wait ends, recorded as cancelled. */
   const cancelQuickCheck = useCallback((rootId: string) => {
-    const batchId = inquiryChecks[rootId]?.batchId ?? inquiryJobsRef.current[rootId]?.batchId ?? null;
-    settleInquiryJob(rootId, batchId, "cancelled");
+    const current = inquiryChecks[rootId];
+    const wait = current?.batchId
+      ? { batchId: current.batchId, waitId: current.waitId ?? null }
+      : inquiryJobsRef.current[rootId] ?? null;
+    const batchId = wait?.batchId ?? null;
+    settleInquiryJob(rootId, batchId, wait?.waitId ?? null, "cancelled");
     setInquiryChecks((checks) => {
       const { [rootId]: _dropped, ...rest } = checks;
       return rest;
@@ -2486,17 +2505,20 @@ export function ReaderScreen({
   useEffect(() => {
     if (!render || offline) return;
     const watching = Object.entries(inquiryChecks).filter(
-      ([, check]) => check.batchId && (check.phase === "pending" || check.phase === "offline"),
+      ([, check]) => check.batchId && check.waitId && (check.phase === "pending" || check.phase === "offline"),
     );
     if (watching.length === 0) return;
     const extractionId = render.extractionId;
     const timer = window.setInterval(() => {
       for (const [rootId, check] of watching) {
         const batchId = check.batchId as string;
+        const waitId = check.waitId as string;
         const attempts = (check.attempts ?? 0) + 1;
-        const same = (checks: typeof inquiryChecks) => checks[rootId]?.batchId === batchId;
+        // Settle or update only this wait: the same batch *and* the same
+        // client wait (a retry may be handed the same live batch; F14).
+        const same = (checks: typeof inquiryChecks) => checks[rootId]?.batchId === batchId && checks[rootId]?.waitId === waitId;
         const timedOut = () => {
-          settleInquiryJob(rootId, batchId, "failed", { failureReason: "timeout" });
+          settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: "timeout" });
           setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "failed", question: null, batchId: null } } : checks));
         };
         void api.readerInquiryQuestion({ extractionId, exchangeId: rootId, batchId })
@@ -2504,10 +2526,10 @@ export function ReaderScreen({
             const job = result.job ?? null;
             if (result.question) {
               const question = result.question;
-              settleInquiryJob(rootId, batchId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
+              settleInquiryJob(rootId, batchId, waitId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "landed", question } } : checks));
             } else if (job?.status === "cancelled") {
-              settleInquiryJob(rootId, batchId, "cancelled");
+              settleInquiryJob(rootId, batchId, waitId, "cancelled");
               setInquiryChecks((checks) => {
                 if (!same(checks)) return checks;
                 const { [rootId]: _dropped, ...rest } = checks;
@@ -2515,7 +2537,7 @@ export function ReaderScreen({
               });
             } else if (job?.status === "failed") {
               const code = job.errorCode ?? "error";
-              settleInquiryJob(rootId, batchId, "failed", { failureReason: code });
+              settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: code });
               const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed";
               const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null;
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null, failure } } : checks));
@@ -2531,7 +2553,7 @@ export function ReaderScreen({
             const phase = phaseForError(error);
             if (phase !== "offline") {
               // The read itself was refused (switched off, an unknown inquiry).
-              settleInquiryJob(rootId, batchId, "failed", { failureReason: phase === "failed" ? "error" : phase });
+              settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: phase === "failed" ? "error" : phase });
               setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null } } : checks));
             } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
               timedOut();

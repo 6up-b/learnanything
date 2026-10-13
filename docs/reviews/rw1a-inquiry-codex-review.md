@@ -393,3 +393,65 @@ claim store, the quick-check producer or the ingest runner: **210 passed**.
 No paid call was made in this step (no model, Decider or embedding request;
 $0). No vault database was opened. `fixtures/linear_algebra`,
 `fixtures/probability` and `fixtures/arxiv_v2` were not touched.
+
+## Final verification (Codex job `20261013-085022-sCM6K6`)
+
+The final verification confirmed F1, F2, F13 and F15 fixed and reopened
+F14. It is now fixed in one commit on top of `d911f018`. Nothing was
+rejected. No model, Decider or embedding call was made and no money was
+spent: every test uses fakes.
+
+| ID | Severity | Title | Verdict | Test |
+|---|---|---|---|---|
+| F14 | Medium | A stale poll fails a retry that the enqueue handed the same live batch (reopened) | Fixed | `ReaderScreen.review.test.tsx`: "a stale timed-out poll never fails a retry that got the same live batch back" |
+
+**Reproduction on `d911f018`.** The re-review fix fenced settlement by
+batch only. The enqueue reuses a live batch for the same inquiry
+(`DurableIngestJobs.enqueue_reader_inquiry_check` in
+`content/pipeline/jobs.py`), so a retry can get the
+same batch back. The new test drives the real screen:
+
+1. Batch `batch_q` polls `running` 200 times, reaching the polling limit.
+2. Two more polls go out and stay outstanding.
+3. The first answers `running`. The wait times out and its funnel record is
+   settled `failed` / `timeout`.
+4. The learner clicks "try again". The backend returns the same `batch_q`
+   and a fresh wait starts with its counter at 0.
+5. The older poll answers `running`. Its captured counter is still past the
+   limit, and both batch guards pass.
+
+That older poll **failed the replacement wait at once**: "try again" came
+back and the writing line went. It also deleted the new wait's funnel record.
+The test failed at that point (`ReaderScreen.review.test.tsx:312`,
+"Unable to find an element with the text: /writing a quick check on this
+passage/").
+
+**Fix.** Each client wait has its own generation id. `startQuickCheck`
+makes a `waitId` (`newKey()`) for every request and stores it both in the
+check's state and in the funnel record. When the enqueue returns the batch
+already tracked, the record is kept but `waitId` passes to the new wait,
+so the funnel still sees one job and the older wait's polls go stale.
+`settleInquiryJob(rootId, batchId, waitId, …)` records and ends a wait
+only when both the batch and the wait match. In the poll effect, every
+state update (landed, cancelled, failed, timed out, pending, offline)
+needs both to match too. `cancelQuickCheck` settles the wait shown on
+screen, with its batch and wait id together. Nothing else changed: no
+backend, schema, config, RPC or Tauri command.
+
+### Final verification gate (exact results)
+
+Run in this worktree. This step changes only
+`apps/learnloop-tauri/src/screens/ReaderScreen.tsx` and its review test, so
+the Python suite was not rerun here; the merge gate runs it.
+
+| Step | Result |
+|---|---|
+| The new test on `d911f018` (before the fix) | **failed** at line 312, as reproduced above |
+| `npx vitest run src/screens/ReaderScreen*` after the fix | **37 passed** in 7 files (13 in the review file) |
+| `npm run typecheck` | exit 0 |
+| `npm test` (vitest) | **271 passed** in 51 files (the previous 270 plus the new case) |
+| `npm run frontend:build` | built (Vite's existing large-chunk warning only) |
+
+No paid call was made in this step ($0). No vault database was opened.
+`fixtures/linear_algebra`, `fixtures/probability` and `fixtures/arxiv_v2`
+were not touched.
