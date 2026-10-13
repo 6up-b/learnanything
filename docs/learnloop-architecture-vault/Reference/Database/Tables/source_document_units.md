@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
-source_commit_timestamp: "2026-10-13T01:47:28-04:00"
+source_commit: "6e0756b224e33f293c87a48c55b0a1ded4fcf7ac"
+source_commit_timestamp: "2026-10-13T11:48:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
@@ -91,6 +92,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 
@@ -139,6 +141,9 @@ Indexes and uniqueness:
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`
+- `tests/test_ux_phase1_review_fixes.py`
+- `tests/test_ux_phase1_round2_review.py`
+- `tests/test_ux_phase1_usability_round1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

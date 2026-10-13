@@ -17,7 +17,6 @@ from __future__ import annotations
 import pytest
 
 from learnloop.content.sources.source_outline import resolve_extraction_id
-from learnloop.vault.loader import load_vault
 
 from tests.test_ux_phase1_add_source import _draining_ctx, call
 from tests.ux_phase1_support import fresh_library, grant_consent, set_config, write_book

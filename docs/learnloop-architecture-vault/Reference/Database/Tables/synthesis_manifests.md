@@ -3,8 +3,8 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "be3ad518decd5e95f10e855fc4f7b90c99238db6"
-source_commit_timestamp: "2026-10-13T01:47:28-04:00"
+source_commit: "6e0756b224e33f293c87a48c55b0a1ded4fcf7ac"
+source_commit_timestamp: "2026-10-13T11:48:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/daily_plan/reading.py"
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 
@@ -133,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_synthesis_runs_repo.py`
+- `tests/test_ux_phase1_round2_review.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
 

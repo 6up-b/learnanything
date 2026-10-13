@@ -257,7 +257,7 @@ Python: `tests/test_ux_phase1_usability_round1.py`. Vitest: `screens/ReaderScree
   Re-run: Contents moved to Chapter 1 (`u1-01`). Scrolling through §1.1 wrote the check about 3 s after passing 60% of the section (`u1-02`).
 - **U3. Places and ticks.**
   - Contents ticks a section only when it was read through or its check was done; a jump never ticks the sections it passes.
-  - The Reader saves how far into each section the learner has read (`reader.mark_section_progress` `spans_seen`/`span_count`). The new `readerNoteReadingProgress` call gathers those writes for 1.5 s and sends them again when the Reader closes. The Reader reads them back on open, so the ticks survive a restart.
+  - The Reader saves how far into each section the learner has read (`reader.mark_section_progress` `spans_seen`/`span_count`). The new `readerNoteReadingProgress` call gathers those writes for 1.5 s and sends them again when the Reader closes. The Reader reads them back on open, so the ticks survive a restart. *Round-2 Codex review (F3): a write that failed was counted as sent and never retried; a count is now settled only when the backend acknowledges it, a failed write is retried (three timed tries, then again on leaving the book or the Reader).*
   - Opening a book, a jump and a resume hold their position for a moment (1.5 s), so the first layout pass no longer overwrites a restored place. Before, that pass overwrote the saved place with the top of the book.
 
   Re-run: after a restart, Library → Continue opened at §1.2 with only §1.1 ticked (`u1-04`).
@@ -293,7 +293,7 @@ Python: `tests/test_ux_phase1_usability_round1.py`. Vitest: `screens/ReaderScree
 
 **Deviations this round adds:**
 - **D12.** The done line differs from §6.3's "Questions ready for Ch. 1" (U8).
-- **D13.** The daily plan's reading step now means "from where the learner left off" and skips front matter (U4). This is a workflow suggestion, not scoring or scheduling, so it gets no algorithm successor. A plan already composed keeps its row.
+- **D13.** The daily plan's reading step now means "from where the learner left off" and skips front matter (U4). This is a workflow suggestion, not scoring or scheduling, so it gets no algorithm successor. A plan already composed keeps its row. *Corrected by the round-2 Codex review (F2): it changes what the plan's reading block serves; it is now a live change behind `plan.reading_from_furthest` (off restores DL1's selection), and whether it should also mint a successor tag at merge is open (`ux-phase1-round2-codex-review.md`).*
 - **D14.** `snapshot.vault.subjects` changes order: it was alphabetical. `subjectTitles` and `reader.pdf_view.pageSpans` are additive.
 
 No migration. No change under `src-tauri`.
@@ -363,7 +363,7 @@ Every finding below was on Phase 1's path, and every one is **fixed**, each with
 | m-k | An unexplained "?" after a finished section's ✓ | minor | Contents says "quick check" in words, and only while the check is still to do. | `ReaderScreen.followsLearner.test.tsx` |
 | m-l | A visible "opening…" list on the way to reading | minor | The preparing view (the original PDF) stays on screen through the hand-over until the full Reader is ready. Opening a book otherwise names it ("◐ Opening …") instead of showing a list of books. The hand-over never lands on a later page while earlier pages are unmeasured (R8). | `ReaderScreen.followsLearner.test.tsx`; `readingPosition.test.ts` |
 | R5 | Re-walk: with a 630-page book, every library read took 6–8 s. It is polled every 3 s while a book is prepared, so the sidecar stalled (13–24 s per call). | major (found here; from round 1's U8) | The card's chapter phrase reads the extraction's unit tree, not the full outline, which loaded the book's text once per unit. 6.1 s → 0.07 s. | `test_a_built_books_line_reads_its_text_at_most_once` |
-| R6 | Re-walk: a book with block geometry (Axler) restored its place in the header, but the PDF stayed on the chapter title | major (found here) | A passage with boxes is reached through the pane's own wait for layout (`scrollToPage`), then centred. | `ReaderScreen.followsLearner.test.tsx` R3 geometry |
+| R6 | Re-walk: a book with block geometry (Axler) restored its place in the header, but the PDF stayed on the chapter title | major (found here) | A passage with boxes is reached through the pane's own wait for layout (`scrollToPage`), then centred. *The round-2 Codex review (F4) found only the page-top scroll survived a cold resume; the pane now keeps the passage until its page is drawn (`PdfReaderPane.scroll.test.tsx`).* | `ReaderScreen.followsLearner.test.tsx` R3 geometry |
 | R7 | Re-walk: the Guide tab still said "1 quick check ready" after the learner compared | minor | An answered check is not counted as waiting. | (with m-j) |
 | R8 | Re-walk: one textbook hand-over landed on the Contents page instead of the title page | minor | Not reproduced in two later drops. The hand-over's reading position is unknown while a page before the top is not laid out yet, so a later page can no longer stand in for it. | `readingPosition.test.ts` |
 | R9 | Self-check of m-i's fix: a video's position moves by playback, not scrolling, so the reading gate would have silenced its quick checks | regression guard | Playback that moves past the cue a video resumed at counts as reading. | `ReaderScreen.followsLearner.test.tsx` (video) |
@@ -371,14 +371,14 @@ Every finding below was on Phase 1's path, and every one is **fixed**, each with
 ### Deviations this round adds
 
 - **D15.** The build estimate is measured, not predicted: it is the median seconds per section of this library's last five finished automatic builds, applied to the new build's sections. A first build has no number. (Spec §6.3 shows "in about 5 min".)
-- **D16.** A book that came in another way and that no study map covers gets a line and an action, "No questions for this book yet · Build them" (the action plans the ordinary first build). Round 1's m7 rejected this; the re-test asked for it again, so it is fixed here.
-- **D17.** "Reading" means the learner's own input moved the page, or, for a video, that playback moved on. A resume, a jump, a hand-over or a re-layout no longer count as reading toward ticks or quick checks.
+- **D16.** A book that came in another way and that no study map covers gets a line and an action, "No questions for this book yet · Build them" (the action plans the ordinary first build). Round 1's m7 rejected this; the re-test asked for it again, so it is fixed here. *Round-2 Codex review (F6): "covers" means a finished build whose questions were applied; filing the book in a collection, a failed build or one turned down counts for nothing, and a finished build still waiting for a look says "Questions for this book need a look · Review".*
+- **D17.** "Reading" means the learner's own input moved the page, or, for a video, that playback moved on. A resume, a jump, a hand-over or a re-layout no longer count as reading toward ticks or quick checks. *Round-2 Codex review (F5): a seek in a paused video counted; now only playing on counts (a seek sets the cue playback starts from).*
 - **D18.** A book's kind ("paper") comes from a cheap heuristic on its first units and page count. Phase 7's detector can replace it.
 - **D19.** A Codex library names Codex on the one-time OK and in that line's details, as Settings does. The deny-list test allows "codex" there through a named exemption; everywhere else it stays denied.
 - **D20.** The empty Reader shows the shelf and keeps "search all sources" above it (K5 says only "the same shelf").
 - `get_source_library` cards gain `textRecognitionAvailable`, and a status line may carry `withoutAi`. Both are additive.
 
-No migration. No change under `src-tauri`. No scoring, scheduling or projection change, so no algorithm successor.
+No migration. No change under `src-tauri`. No scoring, scheduling or projection change, so no algorithm successor. *(Round-2 Codex review, F2: round 1's U4 changed what the plan's reading block serves; see D13.)*
 
 ### Re-walk (the author, on the fixed build)
 
