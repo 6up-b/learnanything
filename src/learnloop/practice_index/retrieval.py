@@ -127,7 +127,11 @@ def canonical_intent(value: str | None) -> str:
 
 #: Constraint fields added by the canonical-sources track, with the defaults
 #: that leave a request exactly as Phase 5b handled it.
-_LATER_FIELD_DEFAULTS: dict[str, Any] = {"intent": "practice", "kinds": None}
+_LATER_FIELD_DEFAULTS: dict[str, Any] = {
+    "intent": "practice", "kinds": None, "target_hypotheses": [], "unattempted_only": False,
+    "exclude_family_ids": [], "exclude_revealed_families": False, "facet_match": "any",
+    "allow_generated": True, "max_estimated_minutes": None,
+}
 
 
 class IntentUnavailable(ValueError):
@@ -157,11 +161,35 @@ class PracticeConstraints:
     rerank: bool | None = None
     intent: str = "practice"
     kinds: str | None = None
+    #: The rival hypotheses a value intent targets: ``{"kind", "id"}`` refs.
+    target_hypotheses: tuple[Any, ...] = ()
+    #: Exact filters (§8.1): never attempted; families excluded by id or because
+    #: a member's answer was revealed within the cold delay; every listed facet
+    #: (an integrative problem) or any; source-authored and owner-authored only;
+    #: at most this many estimated minutes (needs an injected estimator).
+    unattempted_only: bool = False
+    exclude_family_ids: tuple[str, ...] = ()
+    exclude_revealed_families: bool = False
+    facet_match: str = "any"
+    allow_generated: bool = True
+    max_estimated_minutes: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "intent", canonical_intent(self.intent))
         if self.kinds is not None and self.kinds not in KINDS:
             raise ValueError(f"kinds must be one of {', '.join(KINDS)}")
+        if self.facet_match not in ("any", "all"):
+            raise ValueError("facet_match must be any or all")
+        if self.max_estimated_minutes is not None and not self.max_estimated_minutes > 0:
+            raise ValueError("max_estimated_minutes must be positive")
+        refs = []
+        for ref in self.target_hypotheses:
+            value = dict(ref) if isinstance(ref, Mapping) else {"kind": getattr(ref, "kind", None),
+                                                               "id": getattr(ref, "id", None)}
+            if not value.get("kind") or not value.get("id"):
+                raise ValueError("target_hypotheses entries need a kind and an id")
+            refs.append({"kind": str(value["kind"]), "id": str(value["id"])})
+        object.__setattr__(self, "target_hypotheses", tuple(refs))
         if self.limit is not None and not 1 <= self.limit <= 20:
             raise ValueError("limit must be between 1 and 20")
         for name in ("min_difficulty", "max_difficulty"):
@@ -175,7 +203,14 @@ class PracticeConstraints:
     @classmethod
     def from_mapping(cls, values: Mapping[str, Any] | None) -> PracticeConstraints:
         values = dict(values or {})
-        tuples = {"learning_object_ids", "subjects", "facet_ids", "practice_modes", "exclude_item_ids"}
+        tuples = {"learning_object_ids", "subjects", "facet_ids", "practice_modes", "exclude_item_ids",
+                  "target_hypotheses", "exclude_family_ids"}
+        # The Reader spec's names for the same filters (its §9.3).
+        for alias, name in (("unseen_required", "unattempted_only"),
+                            ("exclude_exposed_families", "exclude_revealed_families"),
+                            ("allow_generated_variants", "allow_generated")):
+            if alias in values:
+                values.setdefault(name, values.pop(alias))
         unknown = set(values) - set(cls.__dataclass_fields__)
         if unknown:
             raise ValueError(f"Unknown constraints: {', '.join(sorted(unknown))}")
@@ -193,16 +228,48 @@ class PracticeConstraints:
                 values.pop(key, None)
         return values
 
-    def matches(self, vault: LoadedVault, item_id: str) -> bool:
+    def matches(self, vault: LoadedVault, item_id: str, context: "FilterContext | None" = None) -> bool:
+        return self.failed_filter(vault, item_id, context) is None
+
+    def failed_filter(self, vault: LoadedVault, item_id: str, context: "FilterContext | None" = None) -> str | None:
+        """The first exact filter the item fails, or None (an unknown value fails a set filter)."""
         item = vault.practice_items[item_id]
+        if not self._base_matches(vault, item):
+            return "constraints"
+        context = context or FilterContext()
+        if self.unattempted_only and item_id in context.attempted:
+            return "attempted"
+        if self.exclude_family_ids and item.family_id in set(self.exclude_family_ids):
+            return "excluded_family"
+        if self.exclude_revealed_families and item.family_id and item.family_id in context.revealed_families:
+            return "revealed_family"
+        if self.exclude_revealed_families and item_id in context.revealed_items:
+            return "revealed_family"
+        if not self.allow_generated and item.provenance.origin not in ("canonical_extract", "human"):
+            return "generated"
+        if self.max_estimated_minutes is not None:
+            if context.estimator is None:
+                raise IntentUnavailable("estimator_required",
+                                        "max_estimated_minutes needs a minutes estimator, which was not given")
+            minutes = float(getattr(context.estimator(item_id, item.practice_mode, item.expected_minutes),
+                                    "minutes", 0.0))
+            if minutes > self.max_estimated_minutes:
+                return "too_long"
+        return None
+
+    def _base_matches(self, vault: LoadedVault, item: Any) -> bool:
+        item_id = item.id
         if self.learning_object_ids and item.learning_object_id not in self.learning_object_ids:
             return False
         if self.subjects and not set(vault.subjects_for_item(item)) & set(self.subjects):
             return False
-        if self.facet_ids and not item_facets(vault, item) & {
-            vault.canonical_facet_id(f) for f in self.facet_ids
-        }:
-            return False
+        wanted_facets = {vault.canonical_facet_id(f) for f in self.facet_ids}
+        if wanted_facets:
+            facets = item_facets(vault, item)
+            if self.facet_match == "all" and not wanted_facets <= facets:
+                return False
+            if self.facet_match != "all" and not facets & wanted_facets:
+                return False
         if self.practice_modes and item.practice_mode not in self.practice_modes:
             return False
         if item_id in self.exclude_item_ids:
@@ -212,6 +279,39 @@ class PracticeConstraints:
         if self.max_difficulty is not None and (item.difficulty is None or item.difficulty > self.max_difficulty):
             return False
         return True
+
+
+@dataclass
+class FilterContext:
+    """What the exact filters read besides the item: attempts, reveals, minutes."""
+
+    attempted: frozenset[str] = frozenset()
+    revealed_items: frozenset[str] = frozenset()
+    revealed_families: frozenset[str] = frozenset()
+    estimator: Any | None = None
+
+
+def filter_context(vault: LoadedVault, repository: Repository, constraints: "PracticeConstraints", *,
+                   estimator: Any | None = None, clock: Clock | None = None) -> FilterContext:
+    """Read the sets the exact filters need, once."""
+    attempted: frozenset[str] = frozenset()
+    revealed: frozenset[str] = frozenset()
+    if constraints.unattempted_only or constraints.exclude_revealed_families:
+        from learnloop.clock import SystemClock
+        from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+
+        now = (clock or SystemClock()).now()
+        since = (now - COLD_RETRIEVAL_DELAY).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if constraints.unattempted_only:
+                attempted = frozenset(str(row[0]) for row in connection.execute(
+                    "SELECT DISTINCT practice_item_id FROM practice_attempts"))
+            if constraints.exclude_revealed_families:
+                revealed = frozenset(str(row[0]) for row in connection.execute(
+                    "SELECT DISTINCT practice_item_id FROM reveal_events WHERE created_at >= ?", (since,)))
+    families = frozenset(vault.practice_items[item_id].family_id for item_id in revealed
+                         if item_id in vault.practice_items and vault.practice_items[item_id].family_id)
+    return FilterContext(attempted, revealed, families, estimator)
 
 
 @dataclass
@@ -591,15 +691,25 @@ def rerank_pool(
 
 def admissible_corpus(vault: LoadedVault, repository: Repository,
                       constraints: PracticeConstraints, *,
-                      clock: Clock | None = None) -> tuple[list[str], dict[str, int]]:
+                      clock: Clock | None = None,
+                      estimator: Any | None = None) -> tuple[list[str], dict[str, int]]:
     """Item ids that pass admission and the constraints, plus exclusion counts."""
     admission = PracticeAdmission.load(vault, repository, clock=clock)
     candidates = sorted(item_id for item_id, item in vault.practice_items.items()
                         if item.status != "retired")
     admitted, excluded = admission.admit(vault, candidates)
     counts = Counter(excluded.values())
-    corpus = [item_id for item_id in admitted if constraints.matches(vault, item_id)]
-    counts["constraints"] = len(admitted) - len(corpus)
+    context = filter_context(vault, repository, constraints, estimator=estimator, clock=clock)
+    corpus = []
+    failed: Counter[str] = Counter()
+    for item_id in admitted:
+        reason = constraints.failed_filter(vault, item_id, context)
+        if reason is None:
+            corpus.append(item_id)
+        else:
+            failed[reason] += 1
+    counts["constraints"] = failed.pop("constraints", 0)
+    counts.update(failed)
     return corpus, dict(sorted(counts.items()))
 
 
@@ -991,6 +1101,11 @@ def find_practice(
     clock: Clock | None = None,
     caller: Mapping[str, Any] | None = None,
     exercise_arm: Any | None = None,
+    valuer: Any | None = None,
+    estimator: Any | None = None,
+    cursor: Mapping[str, Any] | None = None,
+    system_initiated: bool = False,
+    pending_decision: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Propose practice items for a natural-language request. Never serves.
 
@@ -1013,20 +1128,26 @@ def find_practice(
         raise ValueError(f"query must be at most {MAX_QUERY_CHARS} characters")
     if not isinstance(constraints, PracticeConstraints):
         constraints = PracticeConstraints.from_mapping(constraints)
-    if constraints.intent != "practice":
+    if constraints.intent in VALUE_INTENTS and valuer is None:
         raise IntentUnavailable(
             "intent_unavailable",
             f"intent {constraints.intent!r} is valued by value of information and needs the "
             "valuation, which this call was not given",
         )
+    estimator = estimator or getattr(valuer, "estimator", None)
     kinds = constraints.kinds or ("both" if exercise_arm is not None else "items")
     want_items = kinds in ("items", "both")
     want_exercises = kinds in ("source_exercises", "both")
     limit = constraints.limit or config.proposals
     proposal_id = "pp_" + new_ulid()
-    corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock)
+    corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock, estimator=estimator)
+    judged_before = set((cursor or {}).get("judged_items") or ())
+    corpus = [item_id for item_id in corpus if item_id not in judged_before]
     if not want_items:
         corpus = []
+    remediation_note = None
+    if constraints.intent == "remediate":
+        corpus, remediation_note = _remediation_corpus(vault, repository, constraints, corpus)
     snapshot = load_snapshot(vault, repository, embedder=embedder)
     path, path_reason = choose_path(vault, repository, snapshot)
     needs_vectors = snapshot.uses_vectors and (
@@ -1046,30 +1167,64 @@ def find_practice(
     ranking = (rank_dossier if path == "dossier" else rank_direct)(
         snapshot, repository, text, query_vector, corpus,
     )
-    pool = ranking.order[: config.candidate_pool]
+    ranked_order = list(ranking.order)
+    if constraints.intent in VALUE_INTENTS:
+        # Every admissible item is offered before exhaustion is declared: the
+        # ones no list ranked come last, labelled (§8.3.4).
+        ranked_order += [item_id for item_id in corpus if item_id not in set(ranked_order)]
+    pool = ranked_order[: config.candidate_pool]
+    unranked = set(ranked_order) - set(ranking.order)
     exercise_pool = None
     exercises: list[dict[str, Any]] = []
     if want_exercises and exercise_arm is not None:
-        exercise_pool = exercise_arm(vault, repository, text, constraints, pool_size=config.candidate_pool,
-                                     embedder=embedder, owner_id=proposal_id)
-        exercises = list(exercise_pool.candidates)
+        exercise_pool = exercise_arm(
+            vault, repository, text, constraints, pool_size=config.candidate_pool, embedder=embedder,
+            owner_id=proposal_id,
+            **({"list_depth": cursor["exercise_list_depths"]} if cursor and cursor.get("exercise_list_depths") else {}),
+        )
+        judged_exercises = set((cursor or {}).get("judged_exercises") or ())
+        exercises = [exercise for exercise in exercise_pool.candidates if exercise["key"] not in judged_exercises]
     use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
+    if constraints.intent in VALUE_INTENTS:
+        use_rerank = True  # relevance comes first: the judge keeps what bears on the request
     mixed: MixedOutcome | None = None
+    pick_at_most = limit if constraints.intent not in VALUE_INTENTS else max(len(pool) + len(exercises), 1)
     if exercises and use_rerank:
         mixed = rerank_mixed_pool(vault, repository, query_text=text, items=pool, exercises=exercises,
-                                  pick_at_most=limit, owner_id=proposal_id, constraints=constraints,
+                                  pick_at_most=pick_at_most, owner_id=proposal_id, constraints=constraints,
                                   client=rerank_client)
         outcome = RerankOutcome(mixed.status, mixed.picks, mixed.judgments, mixed.model, mixed.usage)
     elif use_rerank:
         outcome = rerank_pool(vault, repository, query_text=text, pool=pool,
-                              pick_at_most=limit, owner_id=proposal_id, client=rerank_client)
+                              pick_at_most=pick_at_most, owner_id=proposal_id, client=rerank_client)
     else:
         outcome = RerankOutcome("disabled")
     reranked = outcome.status in {"reranked", "cached"}
-    # Unjudged textbook exercises are never proposed: every learner-visible
-    # pick passes a judge (SC7). Items keep Phase 5b's unreranked fallback.
-    chosen = outcome.picks if reranked else pool[:limit]
     by_key = {exercise["key"]: exercise for exercise in exercises}
+    metadata = mixed.metadata if mixed else {}
+    # Exact filters on raw exercises read their provisional, quote-verified
+    # metadata; an unknown value fails a set filter and is counted (§8.1).
+    exercise_failures: Counter[str] = Counter()
+    for key in list(by_key):
+        reason = exercise_filter(constraints, metadata.get(key), estimator)
+        if reason is not None:
+            exercise_failures[reason] += 1
+            by_key.pop(key)
+    valuation: dict[str, Any] | None = None
+    if constraints.intent in VALUE_INTENTS:
+        relevant = [key for key in pool + list(by_key)
+                    if outcome.judgments.get(key, {}).get("relevance") in ("relevant", "partial")]
+        valuation = valuer(vault, repository, constraints,
+                           items=[key for key in relevant if key in vault.practice_items],
+                           exercises=[by_key[key] for key in relevant if key in by_key],
+                           caller_kind=(caller or {}).get("kind") or origin, system_initiated=system_initiated,
+                           pending_decision=pending_decision) if reranked else None
+        chosen = _valued_order(valuation, relevant) if valuation is not None else []
+    else:
+        # Unjudged textbook exercises are never proposed: every learner-visible
+        # pick passes a judge (SC7). Items keep Phase 5b's unreranked fallback.
+        chosen = outcome.picks if reranked else pool[:limit]
+        chosen = [key for key in chosen if key in by_key or key in vault.practice_items]
     items = []
     proposed_exercises = []
     for rank, key in enumerate(chosen, start=1):
@@ -1077,12 +1232,16 @@ def find_practice(
         if key in by_key:
             entry = _exercise_entry(by_key[key], judgment, (mixed.metadata if mixed else {}).get(key))
             entry["rank"] = rank
+            if valuation is not None:
+                entry["valuation"] = valuation["candidates"].get(key, [])
             proposed_exercises.append(entry)
+            continue
+        if key not in vault.practice_items:
             continue
         item_id = key
         item = vault.practice_items[item_id]
         learning_object = vault.learning_objects.get(item.learning_object_id)
-        items.append({
+        entry = {
             "rank": rank, "practice_item_id": item_id,
             "learning_object_id": item.learning_object_id,
             "learning_object_title": learning_object.title if learning_object else None,
@@ -1090,11 +1249,25 @@ def find_practice(
             "facet_ids": sorted(snapshot.item_facets.get(item_id, set())),
             "relevance": judgment.get("relevance"), "rationale": judgment.get("rationale"),
             "retrieval_ranks": ranking.ranks.get(item_id, {}),
-        })
+        }
+        if item_id in unranked:
+            entry["unranked"] = "didn't match your words; still on these facets"
+        if valuation is not None:
+            entry["valuation"] = valuation["candidates"].get(item_id, [])
+            if item_id in valuation.get("eligibility", {}):
+                entry["eligibility"] = valuation["eligibility"][item_id]
+        items.append(entry)
     signals = {"item": ranking.signals, "facet": ranking.facet_signals,
                "query_embedding": vector_status}
     if exercise_pool is not None:
         signals["exercises"] = exercise_pool.describe()
+        if exercise_failures:
+            signals["exercises"]["failed_filters"] = dict(exercise_failures)
+    if remediation_note:
+        signals["remediation"] = remediation_note
+    paging = _paging(constraints, corpus=corpus, ranked=ranked_order, pool=pool, exercise_pool=exercise_pool,
+                     exercises=exercises, valuation=valuation, outcome=outcome, cursor=cursor, estimator=estimator,
+                     vault=vault)
     manifest = {**snapshot.manifest(), "manifest_hash": snapshot.manifest_hash(),
                 "algorithm_version": vault.config.algorithms.algorithm_version}
     if mixed is not None:
@@ -1116,7 +1289,10 @@ def find_practice(
                         **({"exercise_pool": len(exercises)} if exercise_pool is not None else {})},
             manifest=manifest, algorithm_version=vault.config.algorithms.algorithm_version,
             caller=(caller or {}).get("kind"), caller_ref=(caller or {}).get("ref"),
-            intent=constraints.intent if caller is not None else None,
+            intent=constraints.intent if caller is not None or constraints.intent != "practice" else None,
+            valuation=None if valuation is None else {**valuation, "paging": paging},
+            provisional=({"exercises": {key: metadata[key] for key in metadata}, "prompt_version":
+                          MIXED_RERANK_PROMPT_VERSION} if metadata else None),
         )
     result = {
         "status": "ok", "proposal_id": proposal_id, "query_id": query_id(text),
@@ -1136,7 +1312,120 @@ def find_practice(
             result["source_exercises_status"] = (
                 f"not proposed: textbook exercises are proposed only after a judge reads them "
                 f"({outcome.status})")
+    if valuation is not None:
+        result["valuation"] = valuation
+    elif constraints.intent in VALUE_INTENTS:
+        result["valuation"] = {"status": "not_valued", "reason": f"the relevance judge did not run ({outcome.status})"}
+    result["paging"] = paging
     return result
+
+
+def exercise_filter(constraints: PracticeConstraints, metadata: Mapping[str, Any] | None,
+                    estimator: Any | None) -> str | None:
+    """A raw exercise's exact-filter verdict from its provisional metadata (§8.1)."""
+    facets = set((metadata or {}).get("facets") or ())
+    if constraints.facet_ids:
+        if not facets:
+            return "failed_unknown"
+        wanted = set(constraints.facet_ids)
+        if constraints.facet_match == "all" and not wanted <= facets:
+            return "facet_match_all"
+        if constraints.facet_match != "all" and not facets & wanted:
+            return "facets"
+    if constraints.max_estimated_minutes is not None:
+        mode = (metadata or {}).get("practice_mode")
+        if mode is None:
+            return "failed_unknown"
+        if estimator is None:
+            raise IntentUnavailable("estimator_required",
+                                    "max_estimated_minutes needs a minutes estimator, which was not given")
+        minutes = float(getattr(estimator("source_exercise", mode, None), "minutes", 0.0))
+        if minutes > constraints.max_estimated_minutes:
+            return "too_long"
+    return None
+
+
+def _valued_order(valuation: Mapping[str, Any], relevant: Sequence[str]) -> list[str]:
+    """Checks that clear the stop first (in check order, per problem), then the
+    rest of the relevant candidates in relevance order: learner-initiated
+    results list every group; nothing falls back to an entropy order."""
+    ordered: list[str] = []
+    for section in valuation.get("problems") or ():
+        for check in section.get("checks") or ():
+            if check["ref"] not in ordered:
+                ordered.append(check["ref"])
+    if valuation.get("system_initiated"):
+        return ordered
+    return ordered + [key for key in relevant if key not in ordered]
+
+
+def _remediation_corpus(vault: LoadedVault, repository: Repository, constraints: PracticeConstraints,
+                        corpus: list[str]) -> tuple[list[str], dict[str, Any] | None]:
+    """Remediate: practice keyed to the named misconception (a fatal error or a
+    profile naming it, or its target facet); relevance ranks, no EVSI."""
+    ids = [ref["id"] for ref in constraints.target_hypotheses if ref.get("kind") == "misconception"]
+    if not ids:
+        return corpus, None
+    targets: set[str] = set()
+    for misconception_id in ids:
+        record = repository.misconception(misconception_id)
+        if record is not None and record.target_facet:
+            targets.add(vault.canonical_facet_id(record.target_facet))
+    keyed = []
+    for item_id in corpus:
+        item = vault.practice_items[item_id]
+        rubric = vault.rubric_for_item(item)
+        linked = {getattr(error, "misconception_id", None) for error in (rubric.fatal_errors if rubric else [])}
+        profiled = {getattr(profile, "misconception_id", None) for profile in item.discrimination_profiles}
+        if (linked | profiled) & set(ids) or item_facets(vault, item) & targets:
+            keyed.append(item_id)
+    return keyed, {"misconception_ids": ids, "keyed_items": len(keyed), "target_facets": sorted(targets)}
+
+
+def _paging(constraints: PracticeConstraints, *, corpus: Sequence[str], ranked: Sequence[str], pool: Sequence[str],
+            exercise_pool: Any, exercises: Sequence[Mapping[str, Any]], valuation: Mapping[str, Any] | None,
+            outcome: RerankOutcome, cursor: Mapping[str, Any] | None, estimator: Any | None,
+            vault: LoadedVault) -> dict[str, Any]:
+    """Why paging stopped, and the cursor that resumes it (§8.3.4)."""
+    judged_items = sorted(set((cursor or {}).get("judged_items") or ()) | set(pool))
+    judged_exercises = sorted(set((cursor or {}).get("judged_exercises") or ()) | {e["key"] for e in exercises})
+    unjudged_items = [item_id for item_id in ranked if item_id not in set(judged_items)]
+    lists_open = {name: depth * 2 for name, depth in ((exercise_pool.list_depths if exercise_pool else {}) or {}).items()
+                  if not (exercise_pool.list_ends or {}).get(name, True)} if exercise_pool else {}
+    unjudged_exercises = (exercise_pool.unjudged if exercise_pool else 0)
+    remaining = len(unjudged_items) + unjudged_exercises + (1 if lists_open else 0)
+    if outcome.status.startswith(("over_budget", "cancelled")) or outcome.status == "failed":
+        reason = "budget"
+    elif remaining == 0:
+        reason = "exhausted"
+    elif valuation is not None and _below_perfect_information(valuation, unjudged_items, vault, estimator):
+        reason = "perfect_information_bound"
+    else:
+        reason = "page" if constraints.intent == "practice" else "unjudged_remain"
+    page: dict[str, Any] = {"outcome": reason, "unjudged_items": len(unjudged_items),
+                            "unjudged_exercises": unjudged_exercises}
+    if reason in ("page", "unjudged_remain", "budget"):
+        page["cursor"] = {"judged_items": judged_items, "judged_exercises": judged_exercises,
+                          "exercise_list_depths": lists_open}
+    return page
+
+
+def _below_perfect_information(valuation: Mapping[str, Any], unjudged: Sequence[str], vault: LoadedVault,
+                               estimator: Any | None) -> bool:
+    """No unjudged candidate can be worth more than perfect information (§6.2 C)."""
+    from learnloop.diagnosis.robust_composition import BURDEN_COST, LAMBDA_TIME
+
+    bounds = [float(section.get("perfect_information_minutes") or 0.0) for section in valuation.get("problems") or ()]
+    if not bounds or not unjudged:
+        return False
+    minutes = []
+    for item_id in unjudged:
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            continue
+        minutes.append(float(getattr(estimator(item_id, item.practice_mode, item.expected_minutes), "minutes", 3.0))
+                       if estimator is not None else 3.0)
+    return bool(minutes) and max(bounds) <= LAMBDA_TIME * min(minutes) + BURDEN_COST
 
 
 __all__ = [
@@ -1148,6 +1437,7 @@ __all__ = [
     "KINDS",
     "MIXED_RERANK_PROMPT_VERSION",
     "MIXED_RERANK_TASK",
+    "exercise_filter",
     "practice_modes",
     "provisional_metadata",
     "rerank_mixed_pool",

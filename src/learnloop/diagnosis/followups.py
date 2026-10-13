@@ -1529,6 +1529,12 @@ def _misconception_discrimination(
     return True, best_j_lb, mc_eig
 
 
+#: The follow-up chooser's own diagnostic-eligibility gate, public so the
+#: canonical-sources need step (S2b) can apply the chooser's rule to a draft
+#: instead of inventing an authority of its own.
+misconception_discrimination = _misconception_discrimination
+
+
 def _choose_intervention_item(
     vault: LoadedVault,
     repository: Repository,

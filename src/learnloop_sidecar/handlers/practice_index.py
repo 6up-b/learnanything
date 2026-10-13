@@ -28,9 +28,17 @@ class FindPracticeInput(ParamsModel):
     min_difficulty: float | None = Field(default=None, ge=0, le=1)
     max_difficulty: float | None = Field(default=None, ge=0, le=1)
     rerank: bool | None = None
-    # Canonical sources S0: what the request is for, and which arms answer it.
+    # Canonical sources S0-S2a: what the request is for, which arms answer it,
+    # the rival hypotheses it targets and the exact filters (§8.1).
     intent: str | None = None
     kinds: str | None = None
+    target_hypotheses: list[dict[str, str]] = Field(default_factory=list)
+    unattempted_only: bool = False
+    exclude_family_ids: list[str] = Field(default_factory=list)
+    exclude_revealed_families: bool = False
+    facet_match: str = "any"
+    allow_generated: bool = True
+    max_estimated_minutes: float | None = Field(default=None, gt=0)
 
 
 class CallerInput(ParamsModel):
@@ -43,6 +51,7 @@ class CallerInput(ParamsModel):
 
 class FindPracticeRpcInput(FindPracticeInput):
     caller: CallerInput | None = None
+    cursor: dict[str, Any] | None = None
 
 
 class PracticeUsageInput(ParamsModel):
@@ -69,7 +78,7 @@ def find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict
     Reader), the server rebuilds the caller's context from its own records,
     so a request can narrow but never widen what that context allows."""
     vault, repository = ctx.require_vault()
-    values = params.model_dump(exclude={"query", "caller"})
+    values = params.model_dump(exclude={"query", "caller", "cursor"})
     for key in ("intent", "kinds"):
         if values.get(key) is None:
             values.pop(key, None)
@@ -87,7 +96,7 @@ def find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict
             else:
                 caller = caller_for(repository, params.caller.kind, params.caller.ref)
             result = propose_practice(vault, repository, params.query, constraints, caller=caller,
-                                      origin="rpc", **_injected(vault))
+                                      origin="rpc", cursor=params.cursor, **_injected(vault, repository))
     except PolicyRefused as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     except IntentUnavailable as exc:
@@ -97,12 +106,20 @@ def find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict
     return versioned(result)
 
 
-def _injected(vault: Any) -> dict[str, Any]:
-    """The service's arms and valuer, injected (practice_index never imports them)."""
+def _injected(vault: Any, repository: Any = None) -> dict[str, Any]:
+    """The service's arms and valuer, injected (practice_index never imports them),
+    with the daily plan's minutes estimator built here (the service never imports
+    the plan)."""
 
     from learnloop.instructional.wiring import find_practice_injections
 
-    return find_practice_injections(vault)
+    estimator = None
+    if repository is not None:
+        from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+
+        evidence = load_duration_evidence(repository, latency_cap_minutes=vault.config.plan.latency_cap_minutes)
+        estimator = Estimator(evidence, read_words_per_minute=vault.config.plan.read_words_per_minute).estimate
+    return find_practice_injections(vault, estimator=estimator)
 
 
 @method("record_practice_usage", PracticeUsageInput)

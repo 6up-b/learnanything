@@ -229,8 +229,11 @@ class FakeServiceLLM:
                  family_verdict: str = "different", family_relation: str = "isomorph",
                  drop_cited_quote: bool = False, sympy_check: str | None = None,
                  learning_object_id: str = "lo_matrices", fail_purposes: set[str] | None = None,
-                 bad_comparison_quote: bool = False) -> None:
+                 bad_comparison_quote: bool = False, screen_complete: bool = True,
+                 equivalence_verdict: str | None = None) -> None:
         self.bad_comparison_quote = bad_comparison_quote
+        self.screen_complete = screen_complete
+        self.equivalence_verdict = equivalence_verdict
         self.panel_answers = dict(panel_answers or {})
         self.key_override = key_override
         self.family_verdict = family_verdict
@@ -456,6 +459,34 @@ class FakeServiceLLM:
                                           right_quote=quote(right["passage"], 5)))
         return SourceComparison(contributions=contributions, relations=relations,
                                 missing_perspectives=requested[1:])
+
+    # S2a: the exercise screen and the worked-example equivalence judge
+    def _ExerciseScreens(self, request, context):
+        from learnloop.instructional.screen import ExerciseScreen, ExerciseScreens, HypothesisSignature
+
+        screens = []
+        for exercise in context["exercises"]:
+            signatures = []
+            for index, hypothesis in enumerate(context["hypotheses"]):
+                key = f"k{index}" if self.screen_complete else "same"
+                signatures.append(HypothesisSignature(hypothesis_ref=hypothesis["ref"],
+                                                      observable_signature=f"writes {key}", signature_key=key))
+            screens.append(ExerciseScreen(exercise_ref=exercise["ref"], signatures=signatures,
+                                          other_cause_signature="something else",
+                                          differ_observably=self.screen_complete))
+        return ExerciseScreens(screens=screens)
+
+    def _EquivalenceVerdicts(self, request, context):
+        from learnloop.instructional.exposure import EquivalenceJudgment, EquivalenceVerdicts
+
+        question = context["question"]
+        judged = []
+        for example in context["worked_examples"]:
+            overlap = len(_words(question) & _words(example["text"]))
+            verdict = self.equivalence_verdict or (
+                "equivalent" if overlap >= 6 else "related" if overlap >= 2 else "unrelated")
+            judged.append(EquivalenceJudgment(ref=example["ref"], verdict=verdict, rationale="overlap"))
+        return EquivalenceVerdicts(judgments=judged, picks=[])
 
     def _FamilyVerdict(self, request, context):
         from learnloop.ops.family_proposals import FamilyVerdict

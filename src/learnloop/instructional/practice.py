@@ -32,7 +32,7 @@ from learnloop.db.stores.practice_index import judgments_by_ids
 from learnloop.db.stores.practice_index import proposal as stored_proposal
 from learnloop.db.stores.source_service import IMPRESSION_SURFACES, insert_impression
 from learnloop.ids import new_ulid
-from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
+from learnloop.practice_index.retrieval import IntentUnavailable, PracticeConstraints, find_practice
 from learnloop.practice_index.usage import USAGE_TASK, record_practice_usage
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.vault.models import LoadedVault
@@ -75,6 +75,9 @@ def propose_practice(vault: LoadedVault, repository: Repository, query: str,
 
     if not isinstance(constraints, PracticeConstraints):
         constraints = PracticeConstraints.from_mapping(constraints)
+    if constraints.intent != "practice" and not vault.config.source_service.discriminating_search:
+        raise IntentUnavailable("discriminating_search_off",
+                                "source_service.discriminating_search is off: only the practice intent is served")
     constraints = constrain_for_caller(constraints, caller)
     caller_block = None if caller is None else {"kind": caller.kind, "ref": caller.ref}
     result = find_practice(vault, repository, query, constraints, origin=origin, embedder=embedder,
@@ -159,11 +162,29 @@ def record_proposal_impressions(vault: LoadedVault, repository: Repository, *, p
 
 
 def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_item_id: str,
-                         clock: Clock | None = None) -> dict[str, Any]:
-    """The ``practised`` usage signal at the pick (idempotent)."""
+                         clock: Clock | None = None, vault: LoadedVault | None = None) -> dict[str, Any]:
+    """The ``practised`` usage signal at the pick (idempotent).
 
-    return record_practice_usage(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
-                                 signal="practised", clock=clock)
+    A pick of a ``discriminate`` or ``retention`` proposal re-checks
+    independence first (§5.4): if the candidate was exposed since it was
+    valued, the pick still proceeds, as practice, with the independent label
+    dropped and the reason shown."""
+
+    result = dict(record_practice_usage(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
+                                        signal="practised", clock=clock))
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = stored_proposal(connection, proposal_id)
+    intent = (found or {}).get("intent")
+    if vault is not None and intent in ("discriminate", "retention"):
+        from learnloop.instructional.exposure import independent_check_eligibility
+
+        verdict = independent_check_eligibility(vault, repository, {"practice_item_id": practice_item_id},
+                                                intent=intent, picked_proposal_id=proposal_id, clock=clock)
+        result["independence"] = verdict
+        result["served_as"] = "independent_check" if verdict["eligible"] else "practice"
+        if not verdict["eligible"]:
+            result["label"] = "you've seen this question since it was suggested"
+    return result
 
 
 def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: str,
