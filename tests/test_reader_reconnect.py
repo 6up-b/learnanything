@@ -345,3 +345,29 @@ def test_reconnect_and_its_check_on_every_source_kind(tmp_path, source):
                                  exchange_id=root["reader_answer_event_id"], answer="yes", via="inline",
                                  clock=_CLOCK)
     assert result["resolution"] == "resolved"
+
+
+@pytest.mark.durability
+def test_migration_189_and_the_inquiry_check_under_production_sqlite(tmp_path):
+    """Durability lane: a fresh vault under WAL + synchronous=FULL applies
+    migration 189, and a scoped row lands beside its section's row without
+    shadowing it; the reconnect status flip commits."""
+
+    vault, repo = _setup(tmp_path)
+    with repo.connection() as connection:
+        mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+        assert {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")} >= {
+            "scope_kind", "question_style", "anchor_span_ids_json", "inquiry_root_event_id", "self_check",
+        }
+    assert str(mode).lower() == "wal"
+    section = RQC.author_quick_check(repo, FakeClient(), extraction_id="ext1", section_id="u1")
+    root = _ask(vault, repo, "Root")
+    inquiry = RQC.author_inquiry_quick_check(
+        repo, FakeClient(), extraction_id="ext1", inquiry_root_event_id=root["reader_answer_event_id"],
+        anchor_span_ids=["s1"], clock=_CLOCK,
+    )
+    assert repo.latest_reader_authored_question(extraction_id="ext1", section_id="u1")["id"] == section["id"]
+    assert inquiry["scope_kind"] == "inquiry"
+    RI.answer_reconnect(repo, extraction_id="ext1", exchange_id=root["reader_answer_event_id"],
+                        answer="yes", via="rail", clock=_CLOCK)
+    assert repo.question_event(root["event_id"])["resolution"] == "resolved"
