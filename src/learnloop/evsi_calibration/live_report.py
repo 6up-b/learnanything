@@ -13,6 +13,16 @@ Reads ``voi_forecasts`` (EVSI calibration Part B) and joins, at read time:
    produced, with ``superseded`` / ``answered_earlier_offer`` / ``not_taken`` /
    ``unbound_attempt`` / ``pending`` kept apart; else the first later attempt
    on the chosen item).
+   The value-of-information successor's four sites (mvp-0.21) bind only by
+   exact receipts (:data:`VALUE_DECISION_SITES`): a probe continue by its
+   committed presentation; a follow-up by its own ``followup_value_decisions``
+   receipt and the queue and offer it produced; a teach-back by the offer's
+   scheduler candidate the answer was bound to; a project probe by router R1's
+   ``plan_block`` row (``decision_ref``) -> its block -> the item served from
+   that block -> the attempt bound to that serving's candidate. A decision
+   nothing was administered for (a stop) is ``not_administered``, and one with
+   no exact binding stays right-censored with its reason, never joined by a
+   session rule or "the next attempt on the item".
    The realized emission is mapped into the forecast's own alphabet; one that
    cannot be mapped is counted as ``unmapped``, never guessed.
 2. **Later truth**, through truth adapters that need explicit hypothesis
@@ -44,6 +54,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis.causal_attribution import SUPPORT_BASIS_AUTHORITY
+from learnloop.diagnosis.probes import score_bucket
 from learnloop.diagnosis.voi_forecasting import facet_contract_criteria_hash
 from learnloop.evsi_calibration.metrics import reliability
 from learnloop.learner.facet_diagnostics import facet_outcome_bucket
@@ -63,7 +74,10 @@ from learnloop.vault.paths import VaultPaths
 #: v4 (merge onto main, R1's live tables): the router adapter joins only an
 #: offer R1 says was ``taken``; a superseded, open or stale offer defers to
 #: the ledgers instead of hiding the presentation's own answer.
-REPORT_VERSION = "voi_calibration_report_v4"
+#: v5 (merge of value-of-information stopping, mvp-0.21): the successor's four
+#: value-decision sites are joined by exact receipts and scored in their own
+#: alphabets.
+REPORT_VERSION = "voi_calibration_report_v5"
 
 
 def _has(connection: sqlite3.Connection, table: str) -> bool:
@@ -79,6 +93,30 @@ def _loads(value: Any, default: Any) -> Any:
         return json.loads(value)
     except (TypeError, ValueError):
         return default
+
+
+#: The value-of-information successor's ``voi_forecasts`` sites
+#: (``diagnosis.voi_forecasting.VALUE_DECISION_SITES``).
+PROBE_VALUE_SITE = "probe_episode_value_decision"
+FOLLOWUP_VALUE_SITE = "followup_value_decision"
+TEACH_BACK_VALUE_SITE = "teach_back_value_decision"
+PROJECT_PROBE_VALUE_SITE = "project_probe_value_decision"
+VALUE_DECISION_SITES = (PROBE_VALUE_SITE, FOLLOWUP_VALUE_SITE, TEACH_BACK_VALUE_SITE, PROJECT_PROBE_VALUE_SITE)
+
+#: A teach-back's and a project probe's forecast is the selection reward's
+#: predicted correctness as ``{correct, incorrect}``; an answer is ``correct``
+#: when its correctness (rubric score / max points) reaches this, the
+#: Bernoulli mean's decision boundary.
+BINARY_CORRECTNESS_CUT = 0.5
+
+
+def _administered(forecast: Mapping[str, Any]) -> bool:
+    """A value decision whose described check was administered or admitted
+    (``forecast_of`` committed, or a per-check receipt that kept its check)."""
+
+    body = forecast.get("forecast") or {}
+    of = body.get("forecast_of")
+    return of == "committed" or (of == "subject" and body.get("decision") == "continue")
 
 
 # -- outcome adapters ---------------------------------------------------------------------------
@@ -106,6 +144,8 @@ class RouterOutcomeAdapter:
 
         if not self.available or not forecast.get("scheduler_candidate_id"):
             return None
+        if forecast.get("site") in VALUE_DECISION_SITES and not _administered(forecast):
+            return None  # a stop administered nothing: the ledger adapter says so
         row = self.connection.execute(
             "SELECT o.action_attempt_id FROM router_decisions d "
             "JOIN router_outcomes o ON o.decision_id = d.id "
@@ -136,6 +176,8 @@ class LedgerOutcomeAdapter:
         self.connection = connection
 
     def attempt_for(self, forecast: Mapping[str, Any]) -> tuple[str | None, str] | None:
+        if forecast.get("site") in VALUE_DECISION_SITES:
+            return self._value_decision_attempt(forecast)
         if forecast.get("presentation_id"):
             row = self.connection.execute(
                 "SELECT id FROM practice_attempts WHERE probe_presentation_id = ?",
@@ -176,6 +218,111 @@ class LedgerOutcomeAdapter:
             if any(_queues_item(action, item) for action in _loads(row["triggered_actions_json"], [])):
                 return True
         return False
+
+    def _value_decision_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
+        """The attempt a value-of-information decision's check was answered by,
+        through that site's own receipts only (module docstring)."""
+
+        if not _administered(forecast):
+            return None, "not_administered"
+        site = forecast.get("site")
+        if site == PROBE_VALUE_SITE:
+            if not forecast.get("presentation_id"):
+                return None, "no_attempt_binding"
+            row = self.connection.execute(
+                "SELECT id FROM practice_attempts WHERE probe_presentation_id = ?",
+                (forecast["presentation_id"],),
+            ).fetchone()
+            return (str(row["id"]), "taken") if row is not None else (None, "pending")
+        if site == FOLLOWUP_VALUE_SITE:
+            return self._followup_value_attempt(forecast)
+        if site == TEACH_BACK_VALUE_SITE:
+            return self._candidate_attempt(forecast.get("scheduler_candidate_id"), forecast.get("chosen_practice_item_id"))
+        return self._plan_probe_attempt(forecast)
+
+    def _candidate_attempt(self, candidate_id: Any, item: Any) -> tuple[str | None, str]:
+        """The attempt bound to one scheduler candidate (the offer it answered)."""
+
+        if not candidate_id or not item:
+            return None, "no_attempt_binding"
+        row = self.connection.execute(
+            "SELECT id FROM practice_attempts WHERE scheduler_candidate_id = ? AND practice_item_id = ? "
+            "ORDER BY created_at, id LIMIT 1",
+            (str(candidate_id), str(item)),
+        ).fetchone()
+        return (str(row["id"]), "taken") if row is not None else (None, "pending")
+
+    def _followup_value_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
+        """A queued follow-up value decision: its own receipt
+        (``followup_value_decisions``, ``decision_ref``) must be the decision
+        in force on its source attempt (any later decision there, a queue
+        again or a suppression, rewrote the attempt's queue and supersedes
+        it), then the queue and the offer it produced bind the answer
+        (:meth:`_followup_attempt`)."""
+
+        receipt_id = forecast.get("decision_ref")
+        if not receipt_id or not _has(self.connection, "followup_value_decisions"):
+            return None, "no_decision_receipt"
+        receipt = self.connection.execute(
+            "SELECT source_attempt_id, decision_ordinal, served_ref FROM followup_value_decisions WHERE id = ?",
+            (str(receipt_id),),
+        ).fetchone()
+        if receipt is None:
+            return None, "no_decision_receipt"
+        if not receipt["served_ref"] or str(receipt["served_ref"]) != str(forecast.get("chosen_practice_item_id")):
+            return None, "no_decision_receipt"
+        later = self.connection.execute(
+            "SELECT 1 FROM followup_value_decisions WHERE source_attempt_id = ? AND decision_ordinal > ? LIMIT 1",
+            (receipt["source_attempt_id"], receipt["decision_ordinal"]),
+        ).fetchone()
+        if later is not None:
+            return None, "superseded"
+        return self._followup_attempt(
+            {**dict(forecast), "source_attempt_id": receipt["source_attempt_id"],
+             "chosen_practice_item_id": receipt["served_ref"]}
+        )
+
+    def _plan_probe_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
+        """An admitted project probe: router R1's ``plan_block`` row
+        (``decision_ref``, or the block itself when R1 logged nothing) -> the
+        block that decision persisted -> the probe planned in it -> its
+        serving's scheduler candidate -> the attempt bound to it. A probe the
+        decision admitted but planned in no block of its own is
+        ``not_planned_in_this_block`` (a later decision's forecast holds it)."""
+
+        ref = forecast.get("decision_ref")
+        item = forecast.get("chosen_practice_item_id")
+        if not ref or not item or not _has(self.connection, "attention_block_events"):
+            return None, "no_attempt_binding"
+        block_id = ((forecast.get("forecast") or {}).get("extra") or {}).get("plan_block_id")
+        if block_id:
+            # The block the forecast was logged with, which R1's row names.
+            block = self.connection.execute(
+                "SELECT id FROM attention_blocks WHERE id = ? AND (decision_ref = ? OR id = ?)",
+                (str(block_id), str(ref), str(ref)),
+            ).fetchone()
+        else:
+            block = self.connection.execute(
+                "SELECT id FROM attention_blocks WHERE decision_ref = ? OR id = ? ORDER BY created_at, id LIMIT 1",
+                (str(ref), str(ref)),
+            ).fetchone()
+        if block is None:
+            return None, "no_plan_block"
+        events = [
+            (row["kind"], _loads(row["detail_json"], {}) or {})
+            for row in self.connection.execute(
+                "SELECT kind, detail_json FROM attention_block_events WHERE block_id = ? ORDER BY event_ordinal",
+                (block["id"],),
+            )
+        ]
+        if not any(kind == "item_planned" and detail.get("practice_item_id") == item for kind, detail in events):
+            return None, "not_planned_in_this_block"
+        served = [
+            detail for kind, detail in events if kind == "item_served" and detail.get("practice_item_id") == item
+        ]
+        if not served:
+            return None, "pending"
+        return self._candidate_attempt(served[0].get("scheduler_candidate_id"), item)
 
     def _staged_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
         """The attempt that administered a staged diagnostic decision (review F3).
@@ -410,6 +557,68 @@ def _target_facet_emission(
     return emission, "realized"
 
 
+def _value_decision_emission(
+    connection: sqlite3.Connection,
+    vault: LoadedVault,
+    forecast: Mapping[str, Any],
+    attempt_id: str,
+) -> tuple[str | None, str]:
+    """A value decision's realized emission, in the alphabet its described
+    check was valued in.
+
+    * probe episode: the episode's pinned credible set (``credible_set``
+      ``pinned_channel_ensemble``) values the coarse robust emission the
+      observation recorded; point conditionals value the graded probe outcome;
+    * follow-up: ``probes.hypothesis_conditionals``' outcome, the answer's
+      score bucket and its error channel (a discriminating item's fired
+      registry misconception, else the error type when the alphabet has it,
+      else no error), as the probe-phase posterior reads an answer;
+    * teach-back, project probe: ``correct`` when the answer's correctness
+      reaches :data:`BINARY_CORRECTNESS_CUT`, else ``incorrect``.
+    """
+
+    body = forecast.get("forecast") or {}
+    site = forecast.get("site")
+    if site == PROBE_VALUE_SITE:
+        observation = _observation(connection, attempt_id)
+        if observation is None:
+            return None, "no_probe_observation"
+        decision = body.get("value_decision") or {}
+        described = decision.get("served") or decision.get("best") or {}
+        credible_set = (described.get("detail") or {}).get("credible_set")
+        if credible_set == "pinned_channel_ensemble":
+            return ((observation["features"] or {}).get("robust") or {}).get("observed_emission"), "realized"
+        return observation["grader_channel"].get("observed_outcome"), "realized"
+    attempt = connection.execute(
+        "SELECT practice_item_id, rubric_score, correctness, error_type FROM practice_attempts WHERE id = ?",
+        (attempt_id,),
+    ).fetchone()
+    if attempt is None:
+        return None, "no_attempt"
+    if site == FOLLOWUP_VALUE_SITE:
+        item = vault.practice_items.get(str(attempt["practice_item_id"]))
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        bucket = score_bucket(int(attempt["rubric_score"] or 0), rubric.max_points if rubric is not None else 4)
+        alphabet = set(body.get("emission_alphabet") or [])
+        fired = sorted(
+            str(row["misconception_id"])
+            for row in connection.execute(
+                "SELECT misconception_id FROM error_events WHERE attempt_id = ? AND misconception_id IS NOT NULL",
+                (attempt_id,),
+            )
+        ) if _has(connection, "error_events") else []
+        for channel in fired:
+            if f"{bucket}|{channel}" in alphabet:
+                return f"{bucket}|{channel}", "realized"
+        error = str(attempt["error_type"] or "")
+        if error and f"{bucket}|{error}" in alphabet:
+            return f"{bucket}|{error}", "realized"
+        return f"{bucket}|", "realized"
+    if attempt["correctness"] is None:
+        return None, "ungraded"
+    return ("correct" if float(attempt["correctness"]) >= BINARY_CORRECTNESS_CUT else "incorrect"), "realized"
+
+
 def realized_emission(
     connection: sqlite3.Connection,
     vault: LoadedVault,
@@ -449,6 +658,11 @@ def realized_emission(
         if observation is None:
             return None, "no_probe_observation"
         emission = observation["grader_channel"].get("observed_outcome")
+    elif site in (PROBE_VALUE_SITE, FOLLOWUP_VALUE_SITE, TEACH_BACK_VALUE_SITE, PROJECT_PROBE_VALUE_SITE):
+        emission, why = _value_decision_emission(connection, vault, forecast, attempt_id)
+        if emission is None:
+            return None, why
+        alphabet = alphabet or set((body.get("predicted_outcomes") or {}).keys())
     elif site == "causal_shadow_selection":
         if not _has(connection, "causal_discriminating_observations"):
             return None, "no_discriminating_observation"

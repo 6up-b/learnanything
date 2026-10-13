@@ -486,6 +486,7 @@ def record_value_decision_forecast(
     *,
     receipt_key: str,
     scheduler_exploration: Mapping[str, Any] | None = None,
+    extra: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
     **columns: Any,
 ) -> str | None:
@@ -535,6 +536,12 @@ def record_value_decision_forecast(
             "cap_comparison": body.get("cap_comparison"),
             "value_decision": dict(body),
         }
+        if not forecast.get("emission_alphabet") and forecast.get("predicted_outcomes"):
+            # A check valued through an adapter's EIG (a teach-back, a project
+            # probe): its outcomes are the reward's predicted correctness.
+            forecast["emission_alphabet"] = sorted(forecast["predicted_outcomes"])
+        if extra:
+            forecast["extra"] = dict(extra)
         if body.get("lookahead") is not None:
             forecast["lookahead"] = body["lookahead"]
         selection: dict[str, Any] = {}

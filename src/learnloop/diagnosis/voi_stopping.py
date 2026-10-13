@@ -332,6 +332,59 @@ class MinutesEstimate:
         }
 
 
+#: Rank 4's scopes: which of the value rule's hypothesis labels leave a cause
+#: whose later cost EVSI calibration Part C prices (``scheduling.unresolved_cost``:
+#: a persistent cause, ``learner_state`` or ``unknown``, keeps producing the
+#: same error until something else catches it). The labels are the probe
+#: hypotheses (``probes.build_hypothesis_set``, ``probe_hypotheses``), not
+#: ``causal_hypotheses`` rows, so each is read explicitly:
+#:
+#: * **no problem** (``mastered``; ``robust_initial_grasp``, whose triage reason
+#:   is a memory lapse that spaced review already repairs): nothing is left
+#:   unresolved, so never charged;
+#: * **a gap the next teaching resolves** (``unfamiliar`` and the partial-schema
+#:   templates): Part C's prior is Eedi's excess repeat rate of a
+#:   misconception-consistent error over learners taught in between, and its
+#:   personal measurement is the recurrence of one misconception's class. A
+#:   gap is an absence, not a belief that keeps producing the same wrong
+#:   answer: the LO stays in teaching and practice until it is known, so a
+#:   wrong first action only delays the right one, a cost the minutes-only
+#:   cell already charges (the delay of the effective repair). Not charged;
+#: * **a misconception or a confusion** (``misconception:<id>``,
+#:   ``confuses_with:<concept>``, triage ``false_belief_or_confusion``): Part
+#:   C's own case, a ``learner_state`` cause charged the learner's
+#:   recurrence-measured estimate;
+#: * **the open set** (``other_or_unknown``) and any label this map does not
+#:   know: an ``unknown`` cause, which Part C charges as persistent.
+UNRESOLVED_NO_PROBLEM_LABELS = frozenset({"mastered", "robust_initial_grasp"})
+UNRESOLVED_GAP_LABELS = frozenset(
+    {
+        "unfamiliar",
+        "surface_only",
+        "recall_without_mechanism",
+        "procedure_without_selection",
+        "schema_without_transfer",
+    }
+)
+SCOPE_NO_PROBLEM = "no_problem"
+SCOPE_KNOWLEDGE_GAP = "knowledge_gap"
+
+
+def unresolved_scope_for_label(label: str) -> tuple[str, str]:
+    """``(scope, reason)`` of one hypothesis label for rank 4's loss: a
+    persistent scope (``learner_state``, ``unknown``) is charged Part C's
+    estimate; ``no_problem`` and ``knowledge_gap`` are not (the reason names
+    why on the cell)."""
+
+    if label in UNRESOLVED_NO_PROBLEM_LABELS:
+        return SCOPE_NO_PROBLEM, "no_problem_left_unresolved"
+    if label in UNRESOLVED_GAP_LABELS:
+        return SCOPE_KNOWLEDGE_GAP, "gap_resolved_by_next_teaching"
+    if label.startswith(("misconception:", "confuses_with:")):
+        return "learner_state", "persistent_misconception"
+    return "unknown", "unknown_cause"
+
+
 class VoiContext:
     """What one serving decision reads once: latencies, routes, loss tables.
 
@@ -348,6 +401,7 @@ class VoiContext:
         self._loss_tables: dict[tuple[Any, ...], AL.LossTable] = {}
         self._settings: VoiSettings | None = None
         self._unresolved: dict[tuple[str, ...], tuple[dict[str, dict[str, Any]], dict[str, Any]]] = {}
+        self._unresolved_estimate: UC.UnresolvedCost | None = None
 
     @property
     def settings(self) -> VoiSettings:
@@ -466,18 +520,30 @@ class VoiContext:
         return LOSS_REGIME_MEASURED if self.measured_loss else LOSS_REGIME_MINUTES
 
     def unresolved_minutes(self, labels: Iterable[str]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
-        """``unresolved_cost.unresolved_minutes_for_hypotheses`` over the
-        decision's hypothesis labels, read once per label set: the per-label
-        cell entries and the full estimate (for the receipt)."""
+        """The decision's per-label unresolved-cost cell entries and the full
+        estimate (for the receipt), read once per label set.
+
+        Part C's estimate (``unresolved_cost.estimate_unresolved_cost``: the
+        learner's recurrence-measured cost of a persistent cause, shrunk toward
+        Eedi's prior) is charged by each label's explicit scope
+        (:func:`unresolved_scope_for_label`), never by a ``causal_hypotheses``
+        lookup a probe label would miss: a misconception or a confusion is
+        charged, a label that means no problem or a gap the next teaching
+        resolves is not, and only the open-set label is an unknown cause."""
 
         key = tuple(sorted(set(labels)))
         if key not in self._unresolved:
-            evsi = getattr(self.vault.config, "evsi", None)
-            pseudo_count = float(getattr(evsi, "unresolved_cost_prior_pseudo_count", 5.0))
-            per_label, estimate = UC.unresolved_minutes_for_hypotheses(
-                self.repository, list(key), pseudo_count=pseudo_count
+            if self._unresolved_estimate is None:
+                evsi = getattr(self.vault.config, "evsi", None)
+                pseudo_count = float(getattr(evsi, "unresolved_cost_prior_pseudo_count", 5.0))
+                self._unresolved_estimate = UC.estimate_unresolved_cost(self.repository, pseudo_count=pseudo_count)
+            scopes = {label: unresolved_scope_for_label(label) for label in key}
+            per_label = UC.unresolved_minutes_for_scopes(
+                self._unresolved_estimate,
+                {label: scope for label, (scope, _reason) in scopes.items()},
+                reasons={label: reason for label, (_scope, reason) in scopes.items()},
             )
-            self._unresolved[key] = (per_label, estimate.as_dict())
+            self._unresolved[key] = (per_label, self._unresolved_estimate.as_dict())
         return self._unresolved[key]
 
     def unresolved_estimate(self, labels: Iterable[str]) -> dict[str, Any] | None:
@@ -662,7 +728,8 @@ def heuristic_parameters(
                  "provenance": str(unresolved_cost.get("provenance") or "heuristic"),
                  "source": str(unresolved_cost.get("source") or "unresolved_cost"),
                  "note": "scheduling.unresolved_cost (multi-family study rank 4); charged on every off-diagonal "
-                         "cell of a persistent or unknown cause",
+                         "cell of a misconception, a confusion or an unknown cause, never of a label that means "
+                         "no problem or a gap the next teaching resolves (voi_stopping.unresolved_scope_for_label)",
                  "estimate": dict(unresolved_cost)}
             )
         if lookahead_site:
@@ -1098,6 +1165,9 @@ def value_candidates(
         site_context["loss_regime"] = ctx.loss_regime
         if unresolved_cost is not None:
             site_context["unresolved_cost"] = unresolved_cost
+            site_context["unresolved_scopes"] = {
+                label: unresolved_scope_for_label(label)[0] for label in sorted(label_actions or {})
+            }
     return SiteDecision(
         site=site,
         learning_object_id=learning_object_id,
@@ -2314,6 +2384,7 @@ def record_plan_value_forecasts(
             repository,
             body,
             receipt_key=f"project_probe_value_decision:{block_id}:{ref}",
+            extra={"plan_block_id": block_id},
             clock=clock,
             decision_ref=decision_ref or block_id,
         )
@@ -2350,6 +2421,9 @@ __all__ = [
     "LOOKAHEAD_SITES",
     "LOSS_REGIME_MEASURED",
     "LOSS_REGIME_MINUTES",
+    "UNRESOLVED_GAP_LABELS",
+    "UNRESOLVED_NO_PROBLEM_LABELS",
+    "unresolved_scope_for_label",
     "METHOD_LOOKAHEAD_PREFIX",
     "REASON_EVSI_BATCH_CLEARS",
     "REASON_LEARNER_REQUEST",

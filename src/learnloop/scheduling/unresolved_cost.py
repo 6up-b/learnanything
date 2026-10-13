@@ -218,6 +218,48 @@ def estimate_unresolved_cost(repository: Repository, *, pseudo_count: float) -> 
     )
 
 
+def unresolved_minutes_for_scopes(
+    estimate: UnresolvedCost,
+    scopes: Mapping[str, str],
+    *,
+    reasons: Mapping[str, str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Per-hypothesis cell entries for hypotheses whose cause scope the caller
+    names: a persistent scope (:data:`PERSISTENT_SCOPES`) is charged
+    ``estimate``; any other scope costs nothing later once the moment passes
+    (0 minutes, ``structural``), with ``reasons[hypothesis]`` as its source
+    (default ``not_a_persistent_cause``).
+
+    For a caller whose hypotheses are not ``causal_hypotheses`` rows (the
+    value-of-information successor's probe labels), so the scope is the
+    caller's explicit reading of each hypothesis, never a missing row read as
+    ``unknown``."""
+
+    full = estimate.as_dict()
+    out: dict[str, dict[str, Any]] = {}
+    for hypothesis_id, scope in scopes.items():
+        scope = str(scope or "unknown")
+        if scope in PERSISTENT_SCOPES:
+            out[str(hypothesis_id)] = {
+                "minutes": estimate.minutes,
+                "provenance": estimate.provenance,
+                "source": full["source"],
+                "prior_weight": full["prior_weight"],
+                "personal_classes": estimate.personal_classes,
+                "version": UNRESOLVED_COST_VERSION,
+                "cause_scope": scope,
+            }
+        else:
+            out[str(hypothesis_id)] = {
+                "minutes": 0.0,
+                "provenance": "structural",
+                "source": str((reasons or {}).get(str(hypothesis_id)) or "not_a_persistent_cause"),
+                "version": UNRESOLVED_COST_VERSION,
+                "cause_scope": scope,
+            }
+    return out
+
+
 def unresolved_minutes_for_hypotheses(
     repository: Repository,
     hypothesis_ids: Sequence[str],
@@ -233,27 +275,8 @@ def unresolved_minutes_for_hypotheses(
     """
 
     estimate = estimate_unresolved_cost(repository, pseudo_count=pseudo_count)
-    full = estimate.as_dict()
-    out: dict[str, dict[str, Any]] = {}
+    scopes: dict[str, str] = {}
     for hypothesis_id in hypothesis_ids:
         row = repository.causal_hypothesis(str(hypothesis_id))
-        scope = str((row or {}).get("cause_scope") or "unknown")
-        if scope in PERSISTENT_SCOPES:
-            out[str(hypothesis_id)] = {
-                "minutes": estimate.minutes,
-                "provenance": estimate.provenance,
-                "source": full["source"],
-                "prior_weight": full["prior_weight"],
-                "personal_classes": estimate.personal_classes,
-                "version": UNRESOLVED_COST_VERSION,
-                "cause_scope": scope,
-            }
-        else:
-            out[str(hypothesis_id)] = {
-                "minutes": 0.0,
-                "provenance": "structural",
-                "source": "not_a_persistent_cause",
-                "version": UNRESOLVED_COST_VERSION,
-                "cause_scope": scope,
-            }
-    return out, estimate
+        scopes[str(hypothesis_id)] = str((row or {}).get("cause_scope") or "unknown")
+    return unresolved_minutes_for_scopes(estimate, scopes), estimate
