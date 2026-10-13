@@ -361,6 +361,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   | `idea_hier` | §4.3, after PF-a creates families |
   | `family_memory` (per item / family / LO) | The practice-family idea-identity replay |
   | `llm_probability` V1–V3 | **Optional, off by default** (D8). Three input variants of one sensor, run together as one offline comparison (revised 2026-10-11, owner). Details are below the table |
+  | `answer_confidence`, `answer_hedging`, `<base>+answer_*` and their `:control` twins | **Offline only** (owner, 2026-10-13; no successor, never active). The pre-answer confidence tap and the grader-read hedging of the learner's own text, alone and stacked on `mastery_ekf` and `lo_general+composite`; each abstains where its signal is absent, and each stack's control (a constant covariate) separates the signal from recalibration. Every metric block reports Murphy's reliability/resolution split. Record: `docs/reviews/proof-alternatives-and-confidence-arm.md` |
 
 - **`llm_probability` variants** (added 2026-10-11, owner). They test whether the model predicts better from the learner's rich history than from the item alone. JevKT (2610.11135) fed only a 25-item right/wrong window and found more marks added nothing, but never tested answer text, error traces or diagnoses.
   - **Models: two, each running every variant** (owner, 2026-10-12: see which works best). That makes six arms.
