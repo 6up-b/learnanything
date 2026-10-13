@@ -3,13 +3,13 @@ title: "probe_calibration_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97137de4cafbf23903c35561e73564cd90175768"
-source_commit_timestamp: "2026-10-13T09:35:37-04:00"
+source_commit: "cc30ebb8283b078cced45cfad309beeb6940bc76"
+source_commit_timestamp: "2026-10-13T10:22:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_calibration_sessions"
   - "table probe_calibration_sessions"
-schema_head: 185
+schema_head: 186
 table_name: "probe_calibration_sessions"
 table_role: "workflow"
 functionality_status: "active"
