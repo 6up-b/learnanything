@@ -10,47 +10,65 @@ decisions so the rest gets measured from the owner's own data.
 
 ## Summary
 
+Revised after the Codex review
+([`evsi-calibration-codex-review.md`](evsi-calibration-codex-review.md)): the
+study was rerun with each response world's own pre-episode histories (F2) and
+with an `incumbent` arm that includes today's robust completion gate (F8); the
+old `caps` arm is kept as `caps_only`, a simplified comparator. The live
+report's truth, follow-up and staged joins and Part C's missing-time handling
+were corrected (F1, F3–F7).
+
 1. **The hand-set response model is badly overconfident, and it is what EIG and
    EVSI run on.** Fitted to 15.9M real Eedi answers, a learner who holds a
    misconception picks the distractor that diagnoses it **41%** of the time
    (95% CI 40–43%), not the **83%** today's contrast card implies (80% in
    `probe.irt.err_low_frac`, 60% in the bridge default). Learners who know the
-   material slip **12%** of the time, not 3–5%. In the simulation, checks chosen
-   under the hand-set vocabulary are forecast to be worth 0.38 minutes and
-   0.32 nats each; they realize **−0.02 minutes and −0.04 nats**: on average
-   they move belief *away* from the truth. Under the Eedi-fitted model the same
-   forecasts are calibrated (expected calibration error 0.01, predicted EIG
-   0.097 nats vs 0.097 realized about the truth).
+   material slip **12%** of the time, not 3–5%. In the simulation, the checks
+   today's incumbent policy chooses under the hand-set vocabulary are forecast
+   to be worth 0.38 minutes and 0.33 nats each; they realize **−0.02 minutes
+   and −0.06 nats** about the truth: on average they move belief *away* from
+   it. Under the Eedi-fitted model the same forecasts are calibrated (expected
+   calibration error 0.01, predicted EIG 0.110 nats vs 0.103 realized about the
+   truth).
 2. **At Eedi's measured signal strength, one more multiple-choice check is
    almost never worth a minute.** Every value-based rule stops after the error
-   that opened the episode; today's caps spend 3.4 checks per episode for a
-   marginally better outcome (right repair 46% vs 40%, wrong-action minutes
-   1.79 vs 1.81): **5.18 vs 1.81 minutes per episode** (repair 3 min). This
-   holds at repair costs of 10 and 30 minutes too.
-3. **When checks *are* valuable, EVSI as built under-probes.** With a strong
-   instrument (consistency 0.9) and 30-minute repairs, today's `rank_feasible`
-   costs **18.8 minutes per episode vs 11.9 for the caps**: it abstains
-   whenever any ensemble member or the ±0.15 stress changes the action after
-   *any* answer (even an improbable one), and its one-step value misses checks
-   that only pay off in pairs. Ignoring the flip abstention (14.8) and valuing
-   the best 2–3 checks jointly (13.0) close most of that gap; the lookahead is
-   the best rule at moderate value (5.63 vs caps 5.92 at repair 10). **Lifting
-   the caps onto today's EVSI would stop diagnosis exactly where it matters.**
-4. **The EIG path's `VALUE_PER_NAT_MINUTES = 60` is 5–500× too high**
-   (measured: about 0.43 × the repair minutes per nat at consistency 0.9,
+   that opened the episode. Today's incumbent (the probe-episode caps plus the
+   mvp-0.8 robust completion gate, which ends 74% of episodes as soon as the
+   minimum two checks are in) spends 2.0 checks per episode for a marginally better
+   outcome (right repair 44% vs 40%): **3.77 vs 1.81 minutes per episode**
+   (repair 3 min). This holds at repair costs of 10 and 30 minutes too (7.98 vs
+   6.03, 20.03 vs 18.08).
+3. **When checks *are* valuable, EVSI as built under-probes, and so does
+   today's robust completion gate.** With a strong instrument (consistency 0.9)
+   and 30-minute repairs, today's `rank_feasible` costs **17.9 minutes per
+   episode vs 13.3 for the incumbent** (and 9.6 for the same caps without the
+   gate): it abstains whenever any ensemble member or the ±0.15 stress changes
+   the action after *any* answer (even an improbable one), and its one-step
+   value misses checks that only pay off in pairs. Ignoring the flip abstention
+   (12.5) and valuing the best 2–3 checks jointly (10.8, 2.6 below the
+   incumbent) close most of that gap; the lookahead is the best rule at
+   moderate value (4.99 vs incumbent 5.82 and caps-only 5.13 at repair 10;
+   means, per-policy CIs in §4.3). The incumbent's gate (the EIG path's 90%
+   agreement abstention) costs 3.7 minutes per episode at 0.9/30 against the
+   same caps without it (95% CIs 11.7–15.0 vs 8.1–11.3). **Lifting the caps onto today's
+   EVSI would stop diagnosis exactly where it matters.**
+4. **The EIG path's `VALUE_PER_NAT_MINUTES = 60` is 4–500× too high**
+   (measured: about 0.4–0.5 × the repair minutes per nat at consistency 0.9,
    0.04 × at Eedi's), and its 90% agreement gate abstains in 89% of episodes,
    so the gate, not value, is what stops it.
 5. **The robustness knobs barely matter; the stakes and the model do.**
    `PERTURBATION_DELTA`, `INSTRUMENT_PERTURBATION_CONCENTRATION`,
    `ROBUST_DRAW_COUNT` and `BURDEN_COST` change rankings but not minutes
    (all paired 95% CIs include 0, or a positive burden only hurts). Knowing the
-   true repair minutes is worth 0.7 minutes per episode; a quantile of 0.25
-   instead of 0.10 matches realized value better.
+   true repair minutes is worth 0.7–1.1 minutes per episode. The 10th-percentile
+   ensemble member under-predicts realized value in every regime with value; a
+   quantile of 0.25 or higher matches it better (minutes effect within noise).
 6. **Part B is live (logging only):** every value-of-information decision now
    writes a `voi_forecasts` receipt, and `learnloop evsi calibration` scores
-   them against realized answers and later truth. **Part C is built and off:**
-   the cost of leaving a misconception unresolved, measured from the owner's
-   recurrence history and shrunk toward an Eedi prior.
+   them against realized answers and later independent diagnostic truth.
+   **Part C is built and off:** the cost of leaving a misconception unresolved,
+   measured from the owner's recurrence history and shrunk toward an Eedi
+   prior; in simulation charging it pays off once it reaches about 3.6 minutes.
 
 No paid calls. No serving default changed.
 
@@ -151,31 +169,46 @@ not). Read 0.41 as "well under one half", not as a precise constant.
   question's consistency drawn around the subject mean (κ = 3.7). The episode
   opens at the first wrong answer (as a live episode opens after an error); the
   system's belief starts from **everything it saw** (3.05 answers on average,
-  the correct ones included). 400 flagged learners: 160 know it, 159 hold a
-  labelled misconception, 81 something else.
+  the correct ones included). 400 flagged learners per world: 160 know it, 159
+  hold a labelled misconception, 81 something else.
+* **Each response world draws its own histories.** A stronger instrument
+  (§4.3–4.5) changes how learners answered before the episode too, so each
+  world draws its learners with the same per-learner seeds (common truths,
+  subjects, question orders and uniforms) and shares them across its policies.
+  Holders' mean starting probability on their true misconception is 0.128 at
+  Eedi's consistency, 0.152 at 0.7 and 0.194 at 0.9 (it would be 0.125 at 0.9
+  had the fitted world's histories been reused, the Codex review's F2).
 * **The system** believes either `hand_set` (today's contrast-card rows read
   from `probe_families`, mapped onto four options) or `eedi_fitted` (the
   subject means, without knowing each question's own consistency).
 * **The real selectors** choose: `evsi` is `scheduling.evsi.rank_feasible`;
   `eig` is `robust_composition.evaluate_selection`, both over ensembles built by
   `robust_composition.build_ensemble` with an identity grading channel (a
-  multiple-choice answer is read exactly). Baselines: `caps` (today's
-  probe-episode rules, thresholds read from `ProbeEpisodeConfig`), `random`,
-  `max_entropy`. What-if readings of the same outputs: `evsi_lcb_only`
-  (measure whenever the robust value clears the cost, ignoring flips),
-  `evsi_lookahead` (also value the top 2–3 checks jointly, the
+  multiple-choice answer is read exactly). Baselines: **`incumbent`** (today's
+  serving probe episode: the highest hypothesis-EIG question, stopped as
+  `probe_episodes._evaluate_completion` stops it, in its order, including the
+  mvp-0.8 robust completion gate that ends an unstable episode after the
+  minimum observations when the robust selector abstains; thresholds read from
+  `ProbeEpisodeConfig`), `caps_only` (the same without the gate: a simplified
+  comparator, what a legacy unpinned episode does, not today's serving),
+  `random` and `max_entropy` (cap-only rules). What-if readings of the same
+  outputs: `evsi_lcb_only` (measure whenever the robust value clears the cost,
+  ignoring flips), `evsi_lookahead` (also value the top 2–3 checks jointly, the
   knowledge-gradient* idea) and `eig_no_gate` (ignore the agreement gate).
 * **Costs:** a check 1 minute, a repair `DEFAULT_INTERVENTION_MINUTES` = 3
-  (continue = 0), wrong action = the true loss table's minutes. All arms see the
-  same learners and the same answer to the same question (common random
-  numbers), so differences are paired. Ensembles use 32 draws (live 128; the
-  sweep shows no minutes effect).
-* Two design defects were found and fixed during the stage; the first full run
-  was discarded: the starting belief conditioned on the error alone (biasing it
-  against `knows`), and a stronger-instrument override left a holder zero
-  probability of the other distractors (log-score blow-ups). The numbers below
-  are from the corrected run (`fixtures-local/evsi-calibration/`, 607 s on 12
-  workers).
+  (continue = 0), wrong action = the true loss table's minutes. All arms in a
+  world see the same learners and the same answer to the same question (common
+  random numbers), so differences are paired. Ensembles use 32 draws (live 128;
+  the sweep shows no minutes effect).
+* Four design defects were found and fixed. Two during the stage (the first
+  full run was discarded): the starting belief conditioned on the error alone
+  (biasing it against `knows`), and a stronger-instrument override left a
+  holder zero probability of the other distractors (log-score blow-ups). Two in
+  the Codex review: stronger worlds reused the fitted world's histories (F2),
+  and the arm standing for today's caps lacked the robust completion gate (F8).
+  The numbers below are from the rerun (`fixtures-local/evsi-calibration-v2/`,
+  711 s on 12 workers, saved fit reused). In the fitted world only the
+  incumbent rows are new: every other policy there is unchanged.
 
 ### 4.1 Forecast quality: (1) outcome calibration, (2) information, (3) action change
 
@@ -183,21 +216,24 @@ Fitted world, repair 3 minutes, checks pooled over each policy's episodes.
 
 | System model | Policy | Log loss (uniform = 1.386) | ECE | Predicted EIG (nats) | Realized entropy drop | Realized gain about the truth [95% CI] | P(action change) predicted / realized | EVSI per check predicted / realized (min) |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| hand_set | caps | 1.401 | 0.107 | 0.317 | 0.209 | **−0.042** [−0.113, 0.027] | 0.260 / 0.262 | 0.377 / **−0.016** |
-| hand_set | max_entropy | 1.303 | 0.069 | 0.156 | 0.117 | 0.039 [−0.008, 0.090] | 0.116 / 0.120 | 0.113 / 0.049 |
+| hand_set | incumbent | 1.356 | 0.107 | 0.328 | 0.208 | **−0.058** [−0.142, 0.030] | 0.254 / 0.266 | 0.383 / **−0.022** |
+| hand_set | caps_only | 1.401 | 0.107 | 0.317 | 0.209 | −0.042 [−0.113, 0.027] | 0.260 / 0.262 | 0.377 / −0.016 |
+| hand_set | max_entropy | 1.303 | 0.069 | 0.156 | 0.117 | 0.039 [−0.012, 0.086] | 0.116 / 0.120 | 0.113 / 0.049 |
 | hand_set | evsi_lcb_only | 1.683 | 0.139 | 0.584 | 0.378 | −0.276 [−0.703, 0.136] | 0.625 / 0.526 | 1.432 / **−0.553** |
-| eedi_fitted | caps | 1.162 | **0.011** | 0.097 | 0.096 | **0.097** [0.077, 0.119] | 0.070 / 0.064 | 0.027 / 0.004 |
-| eedi_fitted | max_entropy | 1.176 | 0.010 | 0.088 | 0.096 | 0.092 [0.070, 0.112] | 0.053 / 0.058 | 0.017 / 0.013 |
+| eedi_fitted | incumbent | 1.109 | **0.013** | 0.110 | 0.105 | **0.103** [0.071, 0.133] | 0.058 / 0.061 | 0.024 / 0.000 |
+| eedi_fitted | caps_only | 1.162 | 0.011 | 0.097 | 0.096 | 0.097 [0.077, 0.119] | 0.070 / 0.064 | 0.027 / 0.004 |
+| eedi_fitted | max_entropy | 1.176 | 0.010 | 0.088 | 0.096 | 0.092 [0.072, 0.109] | 0.053 / 0.058 | 0.017 / 0.013 |
 | eedi_fitted | eig_no_gate | 1.212 | 0.003 | 0.069 | 0.073 | 0.073 [0.063, 0.085] | 0.067 / 0.067 | 0.023 / 0.017 |
 
-Reliability of the answer forecasts (caps): under `hand_set`, answers given
-0.7–0.8 happen 32% of the time and answers given 0.0–0.1 happen 11%; under
-`eedi_fitted` every decile is within 0.06 of its rate. By predicted EIG
-quintile, the hand-set model's most "informative" checks (0.61 nats predicted)
-move belief 0.19 nats *away* from the truth; the fitted model's quintiles track
-the truth (0.19 predicted, 0.18 realized). The action-change forecast is the one
-thing the hand-set model gets roughly right on average (0.26 vs 0.26), but not
-by bin (0.85 predicted → 0.61 realized).
+Reliability of the answer forecasts (incumbent): under `hand_set`, answers
+given 0.7–0.8 happen 28% of the time and answers given 0.0–0.1 happen 11%;
+under `eedi_fitted` every decile with 100 or more answers is within 0.07 of its
+rate. By predicted EIG quintile, the hand-set model's most "informative" checks
+(0.62 nats predicted) move belief 0.18 nats *away* from the truth; the fitted
+model's quintiles track it (top quintile 0.20 predicted, 0.18 entropy drop,
+0.12 about the truth). The action-change forecast is the one thing the
+hand-set model gets roughly right on average (0.25 vs 0.27), but not by bin
+(0.85 predicted → 0.58 realized).
 
 ### 4.2 (4) Checks, minutes, identification, waste
 
@@ -207,114 +243,143 @@ minutes.
 
 | System | Policy | Checks | Total minutes [95% CI] | Right action | Misconception identified | Wasted minutes | Main stop |
 |---|---|---:|---:|---:|---:|---:|---|
-| eedi_fitted | caps | 3.38 | 5.18 [4.97, 5.45] | 0.46 | 0.23 | 4.78 | budget exhausted 266, decision stable 97 |
-| eedi_fitted | random | 3.38 | 5.17 [4.92, 5.41] | 0.45 | 0.17 | 4.79 | budget 260 |
-| eedi_fitted | max_entropy | 3.36 | 5.12 [4.88, 5.37] | 0.47 | 0.16 | 4.72 | budget 259 |
+| eedi_fitted | **incumbent** | 1.96 | 3.77 [3.59, 3.92] | 0.44 | 0.15 | 3.59 | can't reliably distinguish 296, decision stable 78 |
+| eedi_fitted | caps_only | 3.38 | 5.18 [4.97, 5.45] | 0.46 | 0.23 | 4.78 | budget exhausted 266, decision stable 97 |
+| eedi_fitted | random | 3.38 | 5.17 [4.93, 5.39] | 0.45 | 0.17 | 4.79 | budget 260 |
+| eedi_fitted | max_entropy | 3.36 | 5.12 [4.87, 5.36] | 0.47 | 0.16 | 4.72 | budget 259 |
 | eedi_fitted | eig | 0.01 | 1.82 [1.70, 1.95] | 0.40 | 0.03 | 1.82 | abstain (agreement gate) 354 |
 | eedi_fitted | eig_no_gate | 6.74 | 8.44 [7.88, 9.02] | 0.53 | 0.31 | 6.96 | value stop 317 |
 | eedi_fitted | evsi | 0.00 | 1.81 [1.67, 1.96] | 0.40 | 0.03 | 1.81 | LCB below cost 396 |
 | eedi_fitted | evsi_lookahead | 0.00 | 1.81 [1.67, 1.95] | 0.40 | 0.03 | 1.81 | LCB below cost 396 |
-| hand_set | caps | 2.84 | 4.96 [4.64, 5.28] | 0.55 | 0.23 | 3.79 | decision stable 224 |
+| hand_set | **incumbent** | 2.05 | 4.17 [3.96, 4.45] | 0.50 | 0.20 | 3.48 | can't reliably distinguish 193, decision stable 178 |
+| hand_set | caps_only | 2.84 | 4.96 [4.64, 5.28] | 0.55 | 0.23 | 3.79 | decision stable 224 |
 | hand_set | evsi | 0.01 | 2.09 [1.93, 2.26] | 0.40 | 0.05 | 2.09 | LCB below cost 368, flip abstain 28 |
 | hand_set | evsi_lcb_only | 0.10 | 2.23 [2.02, 2.42] | 0.41 | 0.06 | 2.17 | LCB below cost 396 |
 
-With Eedi's signal, four checks lift the right-action rate from 0.40 to 0.46
-and identify the exact misconception 23% of the time; that is not worth 3.4
-minutes when a wrong repair costs 3–6.
+With Eedi's signal, today's two checks lift the right-action rate from 0.40 to
+0.44 and identify the exact misconception 15% of the time (four checks without
+the gate: 0.46 and 23%); neither is worth its minutes when a wrong repair costs
+3–6.
 
 ### 4.3 Regimes: instrument strength × stakes
 
 Mean total minutes per episode (checks; right-action rate), `eedi_fitted`
 system. "Consistency" overrides the holder's designated-distractor rate for
-truth and model alike (the other answers keep their fitted ratio).
+truth and model alike (the other answers keep their fitted ratio), and each
+world runs on its own histories.
 
-| Consistency | Repair min | caps | eig (as built) | eig_no_gate | **evsi (as built)** | evsi_lcb_only | evsi_lookahead |
-|---|---:|---|---|---|---|---|---|
-| Eedi 0.41 | 3 | 5.18 (3.4; .46) | 1.82 (0.0; .40) | 8.44 (6.7; .53) | **1.81** (0.0; .40) | 1.81 | 1.81 |
-| Eedi 0.41 | 10 | 9.36 (3.4; .46) | 6.04 | 12.39 | **6.03** (0.0) | 6.00 | 6.00 |
-| Eedi 0.41 | 30 | 21.31 (3.4; .46) | 18.09 | 23.69 | **18.08** (0.0) | 18.06 | 18.02 |
-| 0.7 | 3 | 4.64 (3.3; .65) | 1.93 | 6.69 | **1.81** (0.0) | 1.81 | 1.81 |
-| 0.7 | 10 | 7.84 (3.3; .65) | 6.11 | 9.23 | **6.07** (0.0) | 6.16 | 6.19 |
-| 0.7 | 30 | 16.99 (3.3; .65) | 18.06 | **16.48** (5.6; .76) | 18.25 (0.0; .41) | 17.86 | 17.00 (0.7; .51) |
-| 0.9 | 3 | 3.84 (2.9; .80) | 2.03 | 5.33 | **1.88** (0.0) | 1.90 | 1.90 |
-| 0.9 | 10 | 5.92 (2.9; .80) | 6.20 | 7.01 | 6.29 (0.0; .41) | 5.95 (0.4) | **5.63** (0.6; .56) |
-| 0.9 | 30 | 11.87 (2.9; .80) | 18.10 | **11.81** (4.6; .86) | 18.84 (0.0; .41) | 14.77 (0.9; .61) | 13.04 (1.7; .72) |
+| Consistency | Repair min | **incumbent** | caps_only | eig (as built) | eig_no_gate | **evsi (as built)** | evsi_lcb_only | evsi_lookahead |
+|---|---:|---|---|---|---|---|---|---|
+| Eedi 0.41 | 3 | 3.77 (2.0; .44) | 5.18 (3.4; .46) | 1.82 (0.0; .40) | 8.44 (6.7; .53) | **1.81** (0.0; .40) | 1.81 | 1.81 |
+| Eedi 0.41 | 10 | 7.98 (2.0; .44) | 9.36 (3.4; .46) | 6.04 | 12.39 | 6.03 (0.0) | **6.00** | **6.00** |
+| Eedi 0.41 | 30 | 20.03 (2.0; .44) | 21.31 (3.4; .46) | 18.09 | 23.69 | 18.08 (0.0) | 18.06 | **18.02** (0.1) |
+| 0.7 | 3 | 3.53 (2.0; .58) | 4.53 (3.2; .67) | 1.90 | 6.54 | **1.80** (0.0) | 1.80 | 1.80 |
+| 0.7 | 10 | 7.05 (2.0; .58) | 7.53 (3.2; .67) | 6.01 | 8.85 | 6.04 (0.0) | **5.96** (0.2) | 6.02 (0.2) |
+| 0.7 | 30 | 17.10 (2.0; .58) | 16.07 (3.2; .67) | 17.76 | **15.45** (5.5; .77) | 18.17 (0.0; .41) | 17.11 (0.4; .49) | 16.25 (0.7; .53) |
+| 0.9 | 3 | 3.20 (2.1; .72) | 3.56 (2.9; .84) | 1.91 | 4.99 | **1.79** (0.0) | 1.81 | 1.81 |
+| 0.9 | 10 | 5.82 (2.1; .72) | 5.13 (2.9; .84) | 5.76 | 6.18 | 5.99 (0.0; .43) | 5.29 (0.4; .55) | **4.99** (0.6; .60) |
+| 0.9 | 30 | 13.32 (2.1; .72) | 9.63 (2.9; .84) | 16.76 | **9.58** (4.5; .90) | 17.94 (0.0; .43) | 12.52 (0.9; .65) | 10.76 (1.7; .77) |
 
-Where checks are weak or cheap to skip, every value rule beats the caps by
-2.0–3.4 minutes per episode. Where they are strong and the stakes high, `evsi`
-as built is the worst rule (+7.0 minutes vs caps at 0.9/30): ignoring the flip
-abstention recovers 4.1 of those minutes, valuing 2–3 checks jointly another
-1.7, and 1.2 remain. No rule beats a well-placed cap everywhere; the lookahead
-is never far from the best, and is the best at 0.9/10.
+Per-policy 95% CIs at 0.9/30: incumbent [11.65, 15.05], caps_only [8.14,
+11.28], evsi [16.44, 19.36], evsi_lcb_only [11.11, 14.02], evsi_lookahead
+[9.09, 12.59], eig_no_gate [7.77, 11.17].
+
+Where checks are weak or cheap to skip, every value rule beats the incumbent
+by 1.1–2.0 minutes per episode (and the cap-only comparator by 1.6–3.4). Where
+they are strong and the stakes high, `evsi` as built is the worst rule (+4.6
+minutes vs the incumbent, +8.3 vs caps-only at 0.9/30): ignoring the flip
+abstention recovers 5.4 of those minutes, valuing 2–3 checks jointly another
+1.8, and 1.1–1.2 remain against caps-only and `eig_no_gate`. Today's robust
+completion gate stops too early in exactly that regime: the incumbent's 13.3
+minutes against 9.6 for the same caps without it (the gate ends 190 of 400
+episodes at 0.9 and 296 at Eedi's consistency). No rule beats a well-placed
+cap everywhere; the lookahead is never far from the best, and is the best at
+0.9/10.
 
 ### 4.4 (5) Sensitivity to each hand-set number
 
 Regime where measuring matters (consistency 0.9, true repair 10 min, true
-check 1 min; 300 learners). Each row moves **what the system assumes**; the
-world stays fixed. Mean total minutes (checks; Kendall τ of the first
-decision's ranking vs the current value; paired Δ vs current [95% CI]).
+check 1 min; 300 learners, the 0.9 world's own histories). Each row moves
+**what the system assumes**; the world stays fixed. Mean total minutes
+(checks; Kendall τ of the first decision's ranking vs the current value;
+paired Δ vs current [95% CI]).
 
 | Parameter | Value | evsi (as built) | evsi_lcb_only | evsi_lookahead |
 |---|---|---|---|---|
-| `PERTURBATION_DELTA` | 0.05 … 0.35 (current 0.15) | 6.49–6.52, Δ ≤ 0.03 | identical (delta only feeds abstention) | identical |
-| `ROBUST_QUANTILE` | 0.05 | 6.55 (τ .85) | 6.25, Δ +0.14 [−0.08, 0.38] | 5.94, Δ +0.19 [−0.01, 0.41] |
-| | **0.10 (current)** | 6.52 | 6.11 | 5.75 |
-| | 0.25 | 6.51 (τ .78) | **5.95, Δ −0.16 [−0.33, −0.00]** | 5.66, Δ −0.09 [−0.29, 0.12] |
-| | 0.50 | 6.51 (τ .64) | 5.90, Δ −0.21 [−0.46, 0.11] | 5.56, Δ −0.19 [−0.50, 0.10] |
-| `INSTRUMENT_PERTURBATION_CONCENTRATION` | 4 (≈ Eedi κ) | 6.50 (τ .55) | 6.33, Δ +0.22 [−0.06, 0.52] | 5.80, Δ +0.05 [−0.44, 0.53] |
-| | 10 | 6.50 (τ .70) | 6.32, Δ +0.20 [−0.08, 0.46] | 5.86, Δ +0.12 [−0.18, 0.43] |
-| | **40 (current)** | 6.52 | 6.11 | 5.75 |
-| | 160 | 6.56 (τ .77) | 6.09, Δ −0.03 [−0.27, 0.20] | 5.83, Δ +0.09 [−0.18, 0.34] |
-| Ensemble draws | 16 / **32** / 64 / 128 | 6.56 / 6.52 / 6.51 / 6.51 (τ .84–.88) | 6.08 / 6.11 / 6.15 / 6.27 | 5.86 / 5.75 / 5.78 / 5.92 (all Δ CIs include 0) |
-| `BURDEN_COST` | **0 (current)** / 0.5 / 1 / 2 | ≈ 6.51 | 6.11 / 6.40 / 6.50 / 6.35 (Δ +0.29 [0.03, 0.56] at 0.5) | 5.75 / 5.98 / 6.28 / 6.29 (Δ +0.53 [0.21, 0.90] at 1) |
-| Assumed repair minutes (`DEFAULT_INTERVENTION_MINUTES`; truth 10) | 1.5 | 6.50 | 6.50, Δ +0.06 | 6.50, Δ +0.06 |
-| | **3 (current default)** | 6.50 | 6.44 | 6.44 |
-| | 10 (the truth) | 6.52 | **6.11, Δ −0.33 [−0.71, 0.06]** | **5.75, Δ −0.70 [−1.15, −0.22]** |
-| | 20 | 6.52 | 5.85, Δ −0.59 [−1.06, −0.05] | 5.59, Δ −0.85 [−1.44, −0.24] |
-| Assumed check minutes (truth 1) | 0.5 | 6.52 | 5.85, Δ −0.26 [−0.54, 0.02] | 5.59, Δ −0.16 [−0.54, 0.25] |
-| | **1 (the truth)** | 6.52 | 6.11 | 5.75 |
-| | 1.5 (causal default) | 6.51 | 6.40, Δ +0.29 [0.03, 0.56] | 6.24, Δ +0.49 [0.19, 0.83] |
+| `PERTURBATION_DELTA` | 0.05 … 0.35 (current 0.15) | 6.15–6.18, Δ ≤ 0.03 | identical (delta only feeds abstention) | identical |
+| `ROBUST_QUANTILE` | 0.05 | 6.21 (τ .85) | 5.61, Δ +0.14 [−0.09, 0.39] | 5.19, Δ +0.06 [−0.21, 0.32] |
+| | **0.10 (current)** | 6.18 | 5.47 | 5.13 |
+| | 0.25 | 6.17 (τ .79) | 5.37, Δ −0.10 [−0.30, 0.12] | 4.97, Δ −0.15 [−0.38, 0.08] |
+| | 0.50 | 6.18 (τ .63) | 5.23, Δ −0.24 [−0.50, 0.06] | 4.82, Δ −0.30 [−0.63, 0.04] |
+| `INSTRUMENT_PERTURBATION_CONCENTRATION` | 4 (≈ Eedi κ) | 6.17 (τ .56) | 5.65, Δ +0.18 [−0.13, 0.48] | 4.94, Δ −0.18 [−0.62, 0.25] |
+| | 10 | 6.17 (τ .71) | 5.71, Δ +0.24 [−0.05, 0.56] | 5.08, Δ −0.04 [−0.39, 0.29] |
+| | **40 (current)** | 6.18 | 5.47 | 5.13 |
+| | 160 | 6.20 (τ .78) | 5.53, Δ +0.06 [−0.17, 0.35] | 5.22, Δ +0.09 [−0.15, 0.36] |
+| Ensemble draws | 16 / **32** / 64 / 128 | 6.22 / 6.18 / 6.18 / 6.17 (τ .85–.89) | 5.57 / 5.47 / 5.57 / 5.65 | 5.23 / 5.13 / 5.16 / 5.27 (all Δ CIs include 0) |
+| `BURDEN_COST` | **0 (current)** / 0.5 / 1 / 2 | ≈ 6.18 | 5.47 / 5.77 / 5.94 / 6.00 (Δ +0.30 [0.05, 0.53] at 0.5) | 5.13 / 5.44 / 5.64 / 5.92 (Δ +0.51 [0.22, 0.83] at 1) |
+| Assumed repair minutes (`DEFAULT_INTERVENTION_MINUTES`; truth 10) | 1.5 | 6.17 | 6.17, Δ −0.02 | 6.17, Δ −0.02 |
+| | **3 (current default)** | 6.17 | 6.18 | 6.18 |
+| | 6 | 6.18 | 5.87, Δ −0.31 [−0.60, 0.03] | 5.75, Δ −0.43 [−0.76, −0.03] |
+| | 10 (the truth) | 6.18 | **5.47, Δ −0.71 [−1.10, −0.29]** | **5.13, Δ −1.06 [−1.47, −0.58]** |
+| | 20 | 6.18 | 5.17, Δ −1.01 [−1.48, −0.48] | 4.95, Δ −1.24 [−1.77, −0.64] |
+| Assumed check minutes (truth 1) | 0.5 | 6.18 | 5.17, Δ −0.30 [−0.56, −0.04] | 4.95, Δ −0.18 [−0.53, 0.16] |
+| | **1 (the truth)** | 6.18 | 5.47 | 5.13 |
+| | 1.5 (causal default) | 6.18 | 5.77, Δ +0.30 [0.05, 0.53] | 5.57, Δ +0.44 [0.20, 0.71] |
+| | 3 | 6.17 | 6.00, Δ +0.53 [0.13, 0.86] | 6.00, Δ +0.87 [0.42, 1.27] |
+
+Over-stating the repair (20 minutes) or under-stating the check (0.5) beats the
+truth: both push an under-probing rule toward measuring more, which is the
+myopia of §4.3 showing through, not a reason to mis-state costs.
 
 `VALUE_PER_NAT_MINUTES` (EIG path, same regime): with the agreement gate the
-EIG path barely measures whatever the value (6.41–6.50 minutes, Δ ≤ 0.07).
+EIG path barely measures whatever the value (5.97–6.17 minutes, Δ ≤ 0.19).
 Without the gate:
 
 | `VALUE_PER_NAT_MINUTES` | 1 | 2.5 | 5 | **10** | 20 | 40 | **60 (current)** | 120 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| eig_no_gate total minutes (checks) | 6.50 (0.0) | 6.33 (0.3) | 5.87 (1.8) | **5.56 (2.8)** | 6.43 (3.8) | 7.14 (4.5) | 7.51 (4.9) | 8.10 (5.7) |
-| Δ vs current [95% CI] | −1.01 [−1.91, −0.30] | −1.18 | −1.64 | **−1.94 [−2.36, −1.53]** | −1.08 | −0.37 | 0 | +0.59 [0.41, 0.78] |
+| eig_no_gate total minutes (checks) | 6.17 (0.0) | 5.90 (0.3) | 5.10 (1.7) | **4.75 (2.8)** | 5.52 (3.6) | 6.28 (4.4) | 6.64 (4.7) | 7.32 (5.5) |
+| Δ vs current [95% CI] | −0.48 [−1.38, 0.27] | −0.74 [−1.62, 0.07] | −1.54 [−2.21, −0.83] | **−1.89 [−2.26, −1.52]** | −1.12 [−1.32, −0.97] | −0.36 [−0.48, −0.27] | 0 | +0.68 [0.55, 0.83] |
 
 Realized minutes per nat (regression of a check's realized value on its
-predicted EIG, calibrated model): 0.12 [−0.17, 0.40] at Eedi/3 min, 1.31
-[1.05, 1.53] at 0.9/3, **4.35 [3.50, 5.12] at 0.9/10**, 13.06 [10.51, 15.34]
-at 0.9/30. The minutes a nat is worth scale with the stakes (≈ 0.43 × repair
-minutes at consistency 0.9, ≈ 0.04 × at Eedi's); no single constant fits.
+predicted EIG, calibrated model; on the incumbent's checks / on caps-only's):
+−0.01 [−0.39, 0.40] / 0.12 at Eedi/3 min, 1.22 [0.90, 1.59] /
+1.53 at 0.9/3, **4.06 [2.88, 5.20] / 5.10 [4.17, 5.91] at 0.9/10**, 12.19
+[8.95, 15.72] / 15.31 at 0.9/30. The minutes a nat is worth scale with the
+stakes (≈ 0.4–0.5 × repair minutes at consistency 0.9, ≈ 0.04 × at Eedi's); no
+single constant fits.
 
-Robust quantile against realized value (calibrated model, the caps' checks):
-the 10th-percentile member under-predicts the realized value in every regime
-with value (by 0.07–0.73 minutes), the 50th over-predicts, and the **25th is
-within ±0.09 minutes** of realized at 0.7–0.9 and repairs of 3–30 minutes.
+Robust quantile against realized value (calibrated model): the 10th-percentile
+member under-predicts the realized value in every regime with value (by
+0.04–0.55 minutes on the incumbent's checks, 0.05–1.22 on caps-only's). On the
+incumbent's checks the 25th percentile is within 0.01–0.14 minutes below
+realized and the 50th over-predicts (by 0.03–0.30); on caps-only's later checks
+the 50th is the closer one at 0.9 (0.03–0.27 below). Realized value sits
+between the members' 25th and 50th percentiles; 0.10 is too conservative
+everywhere.
 
 ### 4.5 Part C in simulation: charging the unresolved cost
 
 True `U` = Eedi excess repeat rate 0.151 × encounters × 2 minutes per repeated
 error. "Measured" = the system's loss charges the true `U`; "minutes-only" =
-today's loss. Paired Δ = measured − minutes-only, minutes per episode.
+today's loss. Paired Δ = measured − minutes-only, minutes per episode; each
+world's own histories.
 
 | Consistency | Encounters | True U | evsi_lcb_only: Δ [95% CI] (checks) | evsi_lookahead: Δ [95% CI] (checks) |
 |---|---:|---:|---|---|
 | Eedi 0.41 | 3 | 0.91 | +0.03 [−0.03, 0.10] (0 → 0) | same |
+| Eedi 0.41 | 6 | 1.81 | +0.08 [−0.01, 0.18] (0 → 0) | same |
 | Eedi 0.41 | 12 | 3.63 | −0.07 [−0.28, 0.16] (0 → 0) | same |
-| Eedi 0.41 | 24 | 7.25 | −0.27 [−0.71, 0.18] (0 → 0.01) | same |
-| 0.9 | 3 | 0.91 | +0.12 [0.03, 0.22] (0.04 → 0.13) | +0.12 [0.03, 0.22] |
-| 0.9 | 6 | 1.81 | +0.11 [−0.04, 0.26] | +0.10 [−0.05, 0.24] |
-| 0.9 | 12 | 3.63 | −0.23 [−0.55, 0.03] (0.04 → 0.42) | −0.25 [−0.57, 0.04] |
-| 0.9 | 24 | 7.25 | **−1.11 [−1.60, −0.64]** (0.04 → 0.88) | **−1.04 [−1.52, −0.58]** (→ 0.99) |
+| Eedi 0.41 | 24 | 7.25 | −0.27 [−0.71, 0.18] (0 → 0.02) | same |
+| 0.9 | 3 | 0.91 | −0.05 [−0.15, 0.05] (0.05 → 0.16) | −0.05 [−0.15, 0.05] |
+| 0.9 | 6 | 1.81 | −0.09 [−0.25, 0.07] (0.05 → 0.23) | −0.10 [−0.27, 0.06] (→ 0.25) |
+| 0.9 | 12 | 3.63 | **−0.54 [−0.89, −0.26]** (0.05 → 0.44) | **−0.56 [−0.93, −0.26]** (→ 0.49) |
+| 0.9 | 24 | 7.25 | **−1.53 [−2.10, −1.09]** (0.05 → 0.89) | **−1.47 [−1.99, −1.04]** (→ 1.00) |
 
 Charging the true cost pays off once it is large next to a repair and a check
-(clearly at 7 minutes, borderline at 3.6); below that it costs a few seconds per
-episode (slightly more checking than the value repays). So the measured loss is
-worth having exactly when the owner's history says misconceptions linger.
+(clearly from about 3.6 minutes); below that no difference is distinguishable
+from zero. So the measured loss is worth having exactly when the owner's
+history says misconceptions linger, and costs nothing measurable when they do
+not.
 
 ## 5. Recommended values
 
@@ -326,16 +391,16 @@ clear; **medium** = measured, transfer uncertain; **low** = direction only.
 | Card vocabulary as a likelihood (`ORDINAL_VOCABULARY`, default rows) | "dominant" ≈ 0.83 consistency, slip ≈ 0.03 | Keep as a **prior only**, and let real counts take over fast: lower `DEFAULT_CONDITIONAL_PSEUDO_COUNT` from 8 to ≈ 2 so a family's own observations dominate after a handful | §3, §4.1: the vocabulary is 2× overconfident in consistency, 4× in slip; its checks lose information about the truth | high (direction), low (the value 2: count updating was not simulated) |
 | `probe.irt.err_low_frac` / `unfamiliar_error_leak` / bridge sensitivity–specificity | 0.80 / 0.20 / 0.6–0.9 | For multiple-choice-like items: 0.41 / 0.13 / 0.41–0.87 (Eedi). For free text: unchanged until the owner's calibration counts exist (§6) | §3 | high for MCQ, low for transfer |
 | `PERTURBATION_DELTA` | 0.15 | **0.10** (the measured per-row error of a calibrated model: p90 0.098; hand-set rows are off by 0.52 at p90, which no delta can cover) | §4.4: no minutes effect at any value while flips abstain on members | medium (value), high (no decision effect) |
-| `ROBUST_QUANTILE` | 0.10 | **0.25** | §4.4: realized value sits at the members' 25th percentile; lcb_only Δ −0.16 [−0.33, −0.00] | medium |
-| `INSTRUMENT_PERTURBATION_CONCENTRATION` | 40 | keep 40; note Eedi's between-question κ ≈ 3.7 | rankings move (τ 0.55 at 4), minutes do not | low |
+| `ROBUST_QUANTILE` | 0.10 | **0.25** (0.5 would match some checks better; 0.25 keeps a margin) | §4.4: the 10th percentile under-predicts realized value in every regime with value; realized sits between the 25th and 50th; minutes Δ at 0.25: −0.10 [−0.30, 0.12] / −0.15 [−0.38, 0.08] | low–medium (direction consistent, minutes within noise) |
+| `INSTRUMENT_PERTURBATION_CONCENTRATION` | 40 | keep 40; note Eedi's between-question κ ≈ 3.7 | rankings move (τ 0.56 at 4), minutes do not | low |
 | `ROBUST_DRAW_COUNT` | 128 | keep | flat; draws only add ranking noise (τ ≈ 0.85) | high |
 | `BURDEN_COST` | 0 | keep 0 (dormant) | any positive value only adds minutes | high |
-| `VALUE_PER_NAT_MINUTES` | 60 | **retire** for EVSI computed from the loss table on the EIG path; if a constant must stay, ≈ 0.4 × the repair minutes (≈ 1.3 at the 3-minute default, 4 at 10) | §4.4: 60 is 5–500× the measured minutes per nat; best in sweep 10 vs measured 4.35 [3.50, 5.12] | high (60 is wrong), medium (the replacement) |
-| `ENSEMBLE_ACTION_AGREEMENT_THRESHOLD` | 0.90 | do not let it stop diagnosis on its own (it abstained in 89% of episodes) | §4.2 | medium |
-| `DEFAULT_INTERVENTION_MINUTES` | 3.0 | keep as the fallback, but measure repair durations per repair class (decision-value spec Stage 2); Eedi cannot | §4.4: knowing the true 10 minutes is worth 0.70 [0.22, 1.15] minutes per episode | high (it matters), n/a (value) |
-| Causal probe burden default | 1.5 | the live receipt's measured burden; 1.5 over-states a 1-minute check | §4.4: +0.49 [0.19, 0.83] | medium |
-| Flip abstention (`rank_feasible`) | any member/stress flip abstains | abstain only when the robust value fails to clear the cost, or when the flipping emissions carry real probability mass | §4.3: +4 minutes per episode at 0.9/30 | high (as built is wrong), medium (the replacement) |
-| One-step EVSI | myopic | value the best 2–3 checks jointly when no single check clears the cost (`evsi_lookahead`) | §4.3 | medium |
+| `VALUE_PER_NAT_MINUTES` | 60 | **retire** for EVSI computed from the loss table on the EIG path; if a constant must stay, ≈ 0.4–0.5 × the repair minutes (≈ 1.5 at the 3-minute default, 4–5 at 10) | §4.4: 60 is 4–500× the measured minutes per nat; best in sweep 10 vs measured 4.1–5.1 at 0.9/10 | high (60 is wrong), medium (the replacement) |
+| `ENSEMBLE_ACTION_AGREEMENT_THRESHOLD` (and the robust completion gate built on it) | 0.90 | do not let it stop diagnosis on its own | §4.2/§4.3: it abstained in 89% of episodes on the EIG path; as today's robust completion gate it ends 48–74% of episodes after two checks and costs 3.7 minutes per episode at 0.9/30 (incumbent 13.3 vs caps-only 9.6) | medium |
+| `DEFAULT_INTERVENTION_MINUTES` | 3.0 | keep as the fallback, but measure repair durations per repair class (decision-value spec Stage 2); Eedi cannot | §4.4: knowing the true 10 minutes is worth 0.71 [0.29, 1.10] to 1.06 [0.58, 1.47] minutes per episode | high (it matters), n/a (value) |
+| Causal probe burden default | 1.5 | the live receipt's measured burden; 1.5 over-states a 1-minute check | §4.4: +0.30 [0.05, 0.53] to +0.44 [0.20, 0.71] | medium |
+| Flip abstention (`rank_feasible`) | any member/stress flip abstains | abstain only when the robust value fails to clear the cost, or when the flipping emissions carry real probability mass | §4.3: +5.4 minutes per episode at 0.9/30 (17.9 vs 12.5) | high (as built is wrong), medium (the replacement) |
+| One-step EVSI | myopic | value the best 2–3 checks jointly when no single check clears the cost (`evsi_lookahead`) | §4.3: best rule at 0.9/10, 2.6 below the incumbent at 0.9/30 | medium |
 
 ## 6. Where Eedi does not transfer, and how personal data takes over
 
@@ -378,9 +443,9 @@ decision.
 |---|---|---|
 | `probe_selection` | `probe_episodes.commit_presentation` and the scheduler's committed presentation | the card's grader-composed rows over the episode labels, under the selection-time posterior; EIG = the presentation's |
 | `probe_robust_selection` | `_robust_completion_override` (the mvp-0.8 stop/abstain gate) | the chosen candidate's ensemble mean; robust EIG, `VALUE_PER_NAT × EIG`, the stop threshold, the agreement fraction, the verdict |
-| `followup_selection` | `evaluate_intervention_followup` when a follow-up is queued | the facet response model over the primary facet's marginal |
+| `followup_selection` | `evaluate_intervention_followup` when a follow-up is queued | the facet response model over the primary facet's marginal; the target facet's scoring contract (criteria → facet share, fatal errors, item and rubric hashes) frozen with it |
 | `causal_shadow_selection` | `causal_diagnostic_selector.record_shadow_selection` (`rank_feasible`) | EVSI point/LCB/UCB of every candidate, the loss table, emission keys per hypothesis |
-| `staged_diagnostic_selection` | `staged_policy._select_diagnostic` (`rank_feasible`) | same |
+| `staged_diagnostic_selection` | `staged_policy.decide`, once the decision is persisted (`rank_feasible`) | same, for the candidate actually committed after the near-tie randomization (`forecast_of: committed`, its assignment id and propensity), keyed by the decision id; the ranking's nominal best kept apart (`nominal_best_ref`, `nominal`); stops and abstentions `forecast_of: nominal_best` |
 
 Each forecast body is self-contained: the chosen check's mean-member
 likelihood `P(e | h)`, the belief, predicted answers, EIG, the action before
@@ -396,17 +461,33 @@ own source instead.
 **Join (read time, `learnloop evsi calibration`).** Outcome adapters in order:
 R1's `router_decisions`/`router_outcomes` when the tables exist (the decision's
 chosen scheduler candidate → the attempt that took it; `pending` and
-`not_taken` stay right-censored), else the ledgers
-(`practice_attempts.probe_presentation_id` → `probe_observations`; the first
-later attempt on the chosen item). The realized answer is mapped into the
-forecast's own alphabet (probe outcome label, the robust coarse emission,
-`bucket|error` for follow-ups, the matched hypothesis's declared emission for
-the causal shadow); anything else is `unmapped`, never guessed. **Truth
-adapters** count only independent evidence: a cold verification of a repair
-(success confirms the repaired causes, failure rules them out), a factor's
-resolution (`repair_confirmed` / `escalated_unrepaired`), and a later
-teach-back whose diagnosis names the same cause. The system's own posterior
-resolving a misconception is not truth.
+`not_taken` stay right-censored), else the ledgers:
+`practice_attempts.probe_presentation_id` → `probe_observations` for probes;
+for a queued follow-up, the attempt the scheduler's own binding
+(`Repository.followup_source_attempt`) gives this decision, answered through
+the follow-up lane (its offer is a slate candidate inserted as an intervention
+follow-up), with `superseded`, `not_taken`, `unbound_attempt` and `pending`
+kept apart; for a staged decision, `not_administered` (stop/abstain),
+`shadow_not_administered` (shadow mode composes no work) or
+`no_attempt_binding` (live, no attempt receipt exists yet); else the first
+later attempt on the chosen item (causal shadow, joined through its
+discriminating observation). The realized answer is mapped into the
+forecast's own alphabet (probe outcome label, the robust coarse emission, the
+**target facet's** `bucket|error` for follow-ups, scored from the attempt's
+grading evidence under the contract frozen at selection, the matched
+hypothesis's declared emission for the causal shadow, the graded probe outcome
+for a staged check); anything else is `unmapped` with its reason, never
+guessed. **Truth adapters** need explicit linkage (the evidence names the
+forecast's own hypothesis ids, which belong to one episode; a shared repair
+class is not linkage) and independent diagnostic evidence: a cold
+verification's diagnosis-support update on an admitted basis
+(`SUPPORT_BASIS_AUTHORITY`) citing its observation, an admitted
+`matched_single` discriminating observation that is not the forecast's own
+answer, a later teach-back whose diagnosis names the same cause. What a repair
+did (cold-check success or failure, `repair_confirmed` /
+`escalated_unrepaired`) is reported apart as `repair_effect`: it neither
+confirms nor rules out a cause. The system's own posterior resolving a
+misconception is not truth.
 
 **Report:** per site, reliability of answer forecasts (log loss, Brier, ECE,
 bins), predicted EIG vs realized entropy drop, action-change calibration, EVSI
@@ -431,6 +512,10 @@ upgrade.
   misconception's history; the minutes of its attempts after the first
   (latency capped at 15 per attempt) are what it cost. A class first seen
   within 14 days with no repeat is right-censored and counted, not averaged.
+  Missing time is never a measured zero: an untimed repeat is imputed from the
+  learner's own pooled latency (`imputed_classes`, labelled), or, with nothing
+  timed to impute from, its class is left out of the mean and the sample count
+  (`unmeasurable_classes`).
 * **Prior:** `0.151 × 6 encounters × minutes per repeat` (the learner's median
   attempt minutes once 20 attempts are timed, else 3.0). Six encounters is a
   labelled heuristic: Eedi does not say how often a misconception comes back.
@@ -446,23 +531,27 @@ upgrade.
 
 1. **Turn on the measured loss (Part C)?** Recommended: **yes, now**: today it
    changes only the causal shadow and its receipts, so the cap-lifting
-   successor starts from audited measured-loss receipts.
-   `learnloop evsi calibration` shows the estimate first.
+   successor starts from audited measured-loss receipts (in simulation it pays
+   off from about 3.6 minutes of unresolved cost and costs nothing measurable
+   below). `learnloop evsi calibration` shows the estimate first.
 2. **Before the caps move onto value of information,** replace the flip
    abstention (abstain only when the robust value does not clear the cost) and
    add the 2–3 check lookahead. Recommended: yes, as part of the successor
    (a serving change, so behind its kill switch).
 3. **Retire `VALUE_PER_NAT_MINUTES`** in favour of loss-derived EVSI on the EIG
-   path, and stop the agreement gate from ending diagnosis alone. Recommended:
-   yes, same successor.
+   path, and stop the agreement gate from ending diagnosis alone, including
+   today's robust completion gate (it costs 3.7 minutes per episode at 0.9/30
+   against the same caps without it, §4.3). Recommended: yes, same successor.
 4. **Lower `DEFAULT_CONDITIONAL_PSEUDO_COUNT` (8 → 2)** so cards learn from the
    owner's answers quickly. Recommended: yes (an algorithm successor: it changes
    posteriors).
 5. **`ROBUST_QUANTILE` 0.10 → 0.25 and `PERTURBATION_DELTA` 0.15 → 0.10.**
-   Recommended: yes with the successor; neither changes today's serving
-   (only shadow EVSI and the robust gate read them).
+   Recommended: yes with the successor. `PERTURBATION_DELTA` is read only by
+   EVSI (the causal shadow, the dormant staged selector); `ROBUST_QUANTILE`
+   also feeds today's robust completion gate, so it is a serving change and
+   goes behind the successor's kill switch.
 6. **Measure repair durations per repair class** (decision-value spec Stage 2):
-   worth ≈ 0.7 minutes per diagnosed error in the simulation.
+   worth ≈ 0.7–1.1 minutes per diagnosed error in the simulation.
 
 ## 10. Owner commands
 
@@ -515,8 +604,15 @@ uv run learnloop evsi calibration --vault <vault> --since 2026-10-13T00:00:00Z
   DB and config references regenerated (300 table notes, 681 config leaves).
 * CLI `learnloop evsi simulate|calibration` (help snapshot refreshed); no
   sidecar RPC (nothing to pin in `test_mobile_allowlist.py`).
-* Tests: `tests/test_evsi_calibration_sim.py` (8), `tests/test_voi_forecasts.py`
-  (17); `tests/test_architecture.py` registers the new SQL owner.
+* Tests: `tests/test_evsi_calibration_sim.py` (10), `tests/test_voi_forecasts.py`
+  (25); `tests/test_architecture.py` registers the new SQL owner.
+* Codex review fixes (F1–F8, `evsi-calibration-codex-review.md`): linked,
+  independent truth with repair effect apart; target-facet follow-up outcomes
+  under a frozen contract; follow-up and staged joins through explicit
+  bindings; the staged forecast written after the decision, behind the kill
+  switch; untimed recurrences never measured zeros; the `incumbent` arm and
+  per-world histories, with the study rerun. Forecast body `voi_forecast_v2`,
+  report `voi_calibration_report_v2`.
 
 ## 12. Paid calls and data
 
@@ -554,3 +650,11 @@ regenerated references only). `TMPDIR` = the worktree's `fixtures-local/tmp`.
 * Teach-back can confirm a cause but not rule one out (a later success may
   follow a repair); a truth adapter for "ruled out" needs the teach-back
   diagnosis to say which causes it tested.
+* Today's robust completion gate (mvp-0.8) is itself a stop rule the
+  simulation finds too eager where checks are strong and stakes high (§4.3).
+  The cap-lifting successor should decide whether value of information
+  replaces it or it stays as an abstention signal only.
+* Staged diagnostic decisions have no decision-to-attempt receipt: a live
+  staged forecast stays right-censored (`no_attempt_binding`) until the staged
+  controller records which attempt administered it. No production caller
+  passes a `DiagnosticSelector` today, so nothing is lost yet.
