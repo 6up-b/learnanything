@@ -483,8 +483,16 @@ worktree's `fixtures-local/tmp`.
 
 Branch `merge/route-rules-onto-main`, from main `e8d261405` (the sources
 track mvp-0.18/0.19 with migrations 187-195, and facet locks with 196-197;
-head fixture `fixtures/migration_head_197`). A real `--no-ff` merge of
-`grading/route-check-in-grader` (`745641edc`, unchanged). No migration.
+head fixture `fixtures/migration_head_197`). No migration, no paid call.
+
+| Commit | What |
+|---|---|
+| `1e3b56d76` | a real `--no-ff` merge of `grading/route-check-in-grader` (`745641edc`, unchanged), with the relabel and the composition |
+| `f80d34cc1` | regenerated references |
+| `5b005a4af` | this section, first part |
+| `c8c3caaea` | main `c50dd0bcb` (UX Phase 1, migrations 198-199) merged in (below) |
+| `6906db6b4` | references regenerated again |
+| (this commit) | the gate and parity |
 
 ### Relabel: mvp-0.18 becomes mvp-0.20
 
@@ -559,16 +567,110 @@ and source-first needs. The version-gate tests say so:
 - **Defaults.** All twelve `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9
   to mvp-0.20) were recomputed with `defaults_fingerprint_for_version`, from
   the composed defaults (the sources sections, the facet reword confirm,
-  minus `ai.routing.proof_check`). The template `.pyc` was deleted before and
-  after.
+  minus `ai.routing.proof_check`; after the UX Phase 1 merge, its keys too).
+  The template `.pyc` was deleted before and after.
 - **Regenerated.**
   - The CLI help snapshot: `attempt`, `upgrade`, `grading hardcases`.
-  - The DB/config reference: 317 table notes, 787 configuration leaves in 47
-    sections (main's 788, less the retired route). `db_validate_reference.py`
-    reports 0 errors.
+  - The DB/config reference: 318 table notes, 794 configuration leaves in 47
+    sections after the UX Phase 1 merge (main's 795, less the retired route;
+    317 and 787 before it). `db_validate_reference.py` reports 0 errors and
+    `validate_vault.py` passes.
   - The hand-written counts in `Configuration.md` and `Database.md`.
   - `Version Registry.md`, which was still at `mvp-0.17` and head 186 on main,
-    now reads `mvp-0.20` and 197.
+    now reads `mvp-0.20` and 199.
 - **The replay fixture.** `fixtures/mvp017_route_check_replay` stays at
-  migration 186. A copy migrates forward to 197 on load, and its exact-replay
+  migration 186. A copy migrates forward to 199 on load, and its exact-replay
   test passes on the composed code. Its README says so.
+
+### Merging UX Phase 1 (main `c50dd0bcb`)
+
+UX Phase 1 landed on main first: migrations 198-199, head fixture
+`fixtures/migration_head_199`, and no successor (the reading step is the
+`plan.reading_from_furthest` switch). Main was merged in as `c8c3caaea`.
+
+- **Defaults snapshots.** UX Phase 1's template note comes first, then the
+  route rules'. All twelve entries (mvp-0.9 to mvp-0.20) were recomputed from
+  the composed defaults, and the template `.pyc` was cleared.
+- **Removed test file.** Main moved `tests/test_proof_route_check.py` to head
+  199; it stays deleted.
+- **Head fixture.** The branch's own head paths now name
+  `migration_head_199`:
+  - `tests/test_route_rules_in_grader.py`, whose max-migration assertion is
+    now 199;
+  - `tests/test_mvp020_upgrade.py`.
+- **`tests/test_reading_step_switch.py`.** It pinned the latest tag as
+  mvp-0.19. It now pins the route rules' mvp-0.20, still with no
+  reading-step tag.
+- **Generated files.** References are main's in the merge and regenerated
+  after (`6906db6b4`). The CLI help snapshot is unchanged by `--write`.
+- **`apps/`.** It is identical to main's, so the frontend and cargo steps do
+  not apply.
+
+### Gate
+
+Run on `6906db6b4` with `TMPDIR` set to the worktree's
+`fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and
+`uv pip install pypdfium2`.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,177 passed**, 0 failed (8 min 59 s) |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10,078 deselected |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: head 199, 318 table notes, 794 leaves in 47 sections |
+| `validate_vault.py` | passed |
+| Frontend and cargo | not applicable (`apps/` identical to main) |
+
+Phase 1, before main moved, ran a targeted selection of 48 files (797
+passed).
+
+### Parity
+
+**Setup.** Backup-API copies of `fixtures/linear_algebra` and
+`fixtures/probability` were made in `fixtures-local/route-rules-parity`. The
+tracked fixtures are at migration 155 and `mvp-0.8`. Each copy was migrated
+to 199 (`migration_coordinator.migrate_vault`) by one of two codes:
+
+- main `c50dd0bcb`'s, exported with `git archive` and run on `PYTHONPATH`;
+- the merge's.
+
+On each copy the commands were `learnloop rebuild --shadow --json` and
+`learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` pointed at an empty
+directory.
+
+**Shadow rebuilds match main's.** Minted ids, timestamps and the live
+database hash differ; the copies were migrated at different times. Set
+aside, the JSON is identical.
+
+| Fixture | Facet | Mastery | Schedule |
+|---|---:|---:|---:|
+| linear algebra | 22 | 6 | 47 |
+| probability | 2 | 1 | 1 |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same as at the UX
+Phase 1 landing. `live_database.unchanged` is true on every run.
+
+**Doctor JSON matches main's** once the copy's path is set aside.
+
+| Fixture | Issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|
+| linear algebra | 106 | 1 | none |
+| probability | 134 | 49 | 46 |
+
+The exit status is 1 on both sides, as on main.
+
+**Playbook item 7, on the composed code.** A third copy of `linear_algebra`
+went through these steps:
+
+1. It was upgraded `mvp-0.8` → `mvp-0.9` → `mvp-0.19` (the advisory guard's
+   notes passed through).
+2. It was rebuilt twice to its fixed point.
+3. `rebuild --shadow` at `mvp-0.19` showed 0 changes in facets, mastery and
+   schedule.
+4. It was upgraded to `mvp-0.20` (the default target).
+5. `rebuild --shadow` showed facets 0 and schedule 0. Mastery showed 21 rows,
+   whose only differing field is `algorithm_version` (`mvp-0.19` →
+   `mvp-0.20`), as at every successor.
+
+The live database was unchanged by every shadow run, and the tracked
+fixtures were only copied: `git status fixtures` is clean.

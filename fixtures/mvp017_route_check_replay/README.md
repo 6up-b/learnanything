@@ -14,7 +14,8 @@ Replay reads the blind records and the evidence rows. It never reads the check.
 - **Version:** `algorithm_version = "mvp-0.17"`. The schema is at migration
   186, with a rollback journal (`journal_mode = DELETE`), vacuumed. A copy
   opened by later code migrates forward on load (on main: the sources
-  track's 187-195 and facet locks' 196-197); the fixture itself stays at 186.
+  track's 187-195, facet locks' 196-197 and UX Phase 1's 198-199); the
+  fixture itself stays at 186.
 - **Outcomes recorded** (`expected.json`):
   - restored;
   - restored and disputed;
