@@ -35,7 +35,7 @@ already values probes, never a new constant:
   (``probe_families.instrument_conditionals``, or the episode's pinned robust
   ensemble), the follow-up slate's facet and misconception EIG, the selection
   reward's ``probe_eig_total`` for a teach-back or a project probe. The robust
-  EIG is the ensemble's lower quantile (``robust_composition.ROBUST_QUANTILE``)
+  EIG is the ensemble's lower quantile (``voi_stopping.robust_quantile``)
   where a credible set exists, the point EIG otherwise.
 * **Decision value** (robust EVSI, minutes) where a next-action decision is
   at stake: the hypotheses' triage routes (``failure_triage_routes``) give
@@ -60,19 +60,41 @@ already values probes, never a new constant:
   ``expected_minutes``), else ``action_loss.DEFAULT_INTERVENTION_MINUTES``.
 
 lambda_time (1, the minutes numeraire), the burden (0), the nat-to-minutes
-scale (60), the robust quantile (0.10), the +-0.15 stress and the loss model
-are heuristic decision parameters (``robust_composition``, ``evsi``,
-``action_loss``); every decision receipt lists them with that label. The
-``evsi/calibration`` stage will recommend values.
+scale (60), the +-0.15 stress and the loss model are heuristic decision
+parameters (``robust_composition``, ``evsi``, ``action_loss``); every decision
+receipt lists them with that label.
+
+**The multi-family EVSI study's changes** (``docs/reviews/evsi-multisim.md``
+§6.1, ranks 1 to 3; :class:`VoiSettings`), each behind its own switch at the
+study's recommendation, each restoring this successor as it was before the
+study at the value in brackets:
+
+* rank 1, ``robust_gate_with_value`` (false; true): the mvp-0.8 robust
+  completion gate does not end an episode while value decides it
+  (``probe_episodes.robust_gate_applies``); a value stop records the gate's
+  verdict as a counterfactual (:func:`with_robust_gate_counterfactual`);
+* rank 2, ``lookahead_max_checks`` (3; 1): where a decision is at stake,
+  ``rank_feasible`` did not abstain and no single check pays, the best 2-3
+  ranked checks are valued jointly (``evsi.robust_batch_evsi``) and a paying
+  batch continues with the site's own choice among it (:func:`_lookahead`);
+* rank 3, ``robust_quantile`` (0.25; 0.10): the credible set's lower quantile
+  this value gate reads (``rank_feasible``, the robust EIG, the batch); the
+  mvp-0.8 paths keep ``robust_composition.ROBUST_QUANTILE`` (0.10).
+
+Receipts label these ``evsi_multisim`` at the study's values. The study's
+rank 4 (the measured unresolved cost in the loss table) is wired at the merge
+onto main, where it lives, behind ``evsi.measured_loss_enabled`` (off).
 
 **Every stop/continue decision is a forecast**, recorded beside the decision
 in a table no rebuild clears (router R1's ``router_decisions`` detail for
 Today offers and plan blocks, the probe presentation's selection components,
-the follow-up's own ``followup_value_decisions`` receipt, one row per
-decision): the predicted outcome
-distribution, the EIG, the EVSI point and robust value, the predicted
-probability of an action change, the parameters with their provenance, and
-the former cap's counterfactual (would it have bound?). Where the serving path
+the episode's completion detail, the follow-up's own
+``followup_value_decisions`` receipt, one row per decision): the predicted
+outcome distribution, the EIG, the EVSI point and robust value, the predicted
+probability of an action change, the parameters with their provenance, the
+lookahead's batches when it ran (``lookahead``), and the former caps'
+counterfactuals (would they have bound? the robust completion gate's
+verdict on a value stop). Where the serving path
 commits a different candidate from value's recommendation (router R1's seeded
 exploration, a manual follow-up), the receipt names both and carries the
 SERVED candidate's complete forecast with how it was chosen. The shape follows
@@ -152,12 +174,27 @@ CONTINUE = "continue"
 STOP = "stop"
 METHOD_ROBUST_EVSI = "robust_evsi"
 METHOD_EIG_VALUE = "eig_value"
+#: A decision the lookahead took: ``robust_evsi_lookahead_<k>``.
+METHOD_LOOKAHEAD_PREFIX = "robust_evsi_lookahead_"
 
 #: Reasons a decision names.
 REASON_EVSI_CLEARS = "robust_evsi_clears_minutes_cost"
 REASON_EVSI_BELOW = "robust_evsi_below_minutes_cost"
 REASON_EIG_CLEARS = "eig_value_clears_minutes_cost"
 REASON_EIG_BELOW = "eig_value_below_minutes_cost"
+#: The lookahead (the multi-family study's rank 2): no single check pays, but
+#: the best 2-3 valued jointly do.
+REASON_EVSI_BATCH_CLEARS = "robust_evsi_batch_clears_minutes_cost"
+
+#: The mvp-0.8 robust completion gate. While value decides an episode it no
+#: longer ends it (the study's rank 1, ``voi_stopping.robust_gate_with_value``
+#: off); a value stop's receipt carries its verdict as a counterfactual.
+ROBUST_GATE = "probe_episodes._robust_completion_override"
+ROBUST_GATE_SWITCH = "voi_stopping.robust_gate_with_value"
+
+#: Where the study's recommended values come from (receipt provenance).
+STUDY_PROVENANCE = "evsi_multisim"
+STUDY_REFERENCE = "docs/reviews/evsi-multisim.md §6.1"
 
 #: Candidates whose full forecast a site decision keeps (the best one always).
 MAX_RECORDED_CANDIDATES = 6
@@ -213,6 +250,37 @@ def probe_lane_holds_out_pending(config: Any) -> bool:
     return str(getattr(diagnosis, "probe_lane_pending", "hold_out")) == "hold_out"
 
 
+@dataclass(frozen=True)
+class VoiSettings:
+    """The multi-family EVSI study's three switches (``[voi_stopping]``,
+    ``docs/reviews/evsi-multisim.md`` §6.1 ranks 1-3), read once per decision.
+
+    At their restore values (``robust_gate_with_value = true``,
+    ``lookahead_max_checks = 1``, ``robust_quantile = 0.10``) the successor
+    decides exactly as it did before the study."""
+
+    robust_gate_with_value: bool
+    lookahead_max_checks: int
+    robust_quantile: float
+
+    @classmethod
+    def from_config(cls, config: Any) -> "VoiSettings":
+        from learnloop.config.schema import VoiStoppingConfig
+
+        defaults = VoiStoppingConfig()
+        section = getattr(config, "voi_stopping", None)
+        return cls(
+            robust_gate_with_value=bool(getattr(section, "robust_gate_with_value", defaults.robust_gate_with_value)),
+            lookahead_max_checks=max(int(getattr(section, "lookahead_max_checks", defaults.lookahead_max_checks)), 1),
+            robust_quantile=float(getattr(section, "robust_quantile", defaults.robust_quantile)),
+        )
+
+    def is_study_default(self, name: str) -> bool:
+        from learnloop.config.schema import VoiStoppingConfig
+
+        return getattr(self, name) == getattr(VoiStoppingConfig(), name)
+
+
 # ---------------------------------------------------------------------------
 # Minutes
 # ---------------------------------------------------------------------------
@@ -259,6 +327,15 @@ class VoiContext:
         self._routes: list[dict[str, Any]] | None = None
         self._durations: dict[str, AL.DurationEstimate] | None = None
         self._loss_tables: dict[tuple[tuple[str, str], ...], AL.LossTable] = {}
+        self._settings: VoiSettings | None = None
+
+    @property
+    def settings(self) -> VoiSettings:
+        """The study's switches from the vault's config."""
+
+        if self._settings is None:
+            self._settings = VoiSettings.from_config(getattr(self.vault, "config", None))
+        return self._settings
 
     @property
     def plausible_threshold(self) -> float:
@@ -440,9 +517,37 @@ def _map_label(distribution: Mapping[str, float]) -> str | None:
     return max(sorted(distribution), key=lambda label: distribution[label])
 
 
-def heuristic_parameters(minutes: MinutesEstimate, *, method: str, evsi_used: bool) -> list[dict[str, Any]]:
-    """Every number the decision ran on, with its provenance (all heuristic but the minutes)."""
+def _quantile_parameter(settings: VoiSettings) -> dict[str, Any]:
+    if settings.is_study_default("robust_quantile"):
+        provenance = STUDY_PROVENANCE
+        note = f"{STUDY_REFERENCE} rank 3 (0.10 restores robust_composition.ROBUST_QUANTILE)"
+    else:
+        provenance = "heuristic"
+        note = (
+            "robust_composition.ROBUST_QUANTILE's value, as before the study; not yet calibrated"
+            if settings.robust_quantile == ROBUST_QUANTILE
+            else "set in config; not yet calibrated"
+        )
+    return {"name": "robust_quantile", "value": settings.robust_quantile, "provenance": provenance,
+            "source": "voi_stopping.robust_quantile", "note": note}
 
+
+def _lookahead_parameter(settings: VoiSettings) -> dict[str, Any]:
+    default = settings.is_study_default("lookahead_max_checks")
+    return {"name": "lookahead_max_checks", "value": settings.lookahead_max_checks,
+            "provenance": STUDY_PROVENANCE if default else "heuristic",
+            "source": "voi_stopping.lookahead_max_checks",
+            "note": f"{STUDY_REFERENCE} rank 2 (1 turns the lookahead off)" if default else "set in config"}
+
+
+def heuristic_parameters(
+    minutes: MinutesEstimate, *, method: str, evsi_used: bool, settings: VoiSettings | None = None
+) -> list[dict[str, Any]]:
+    """Every number the decision ran on, with its provenance: heuristic but the
+    minutes, and the multi-family study's recommendations (``evsi_multisim``)
+    where its switches are at their defaults."""
+
+    settings = settings or VoiSettings.from_config(None)
     params = [
         {"name": "lambda_time", "value": LAMBDA_TIME, "provenance": "heuristic",
          "source": "robust_composition.LAMBDA_TIME", "note": "minutes numeraire, fixed at 1 (U-023); not yet calibrated"},
@@ -450,8 +555,7 @@ def heuristic_parameters(minutes: MinutesEstimate, *, method: str, evsi_used: bo
          "source": "robust_composition.BURDEN_COST", "note": "not yet calibrated"},
         {"name": "value_per_nat_minutes", "value": VALUE_PER_NAT_MINUTES, "provenance": "heuristic",
          "source": "robust_composition.VALUE_PER_NAT_MINUTES", "note": "nat-to-minutes scale; not yet calibrated"},
-        {"name": "robust_quantile", "value": ROBUST_QUANTILE, "provenance": "heuristic",
-         "source": "robust_composition.ROBUST_QUANTILE", "note": "not yet calibrated"},
+        _quantile_parameter(settings),
         {"name": "expected_minutes", "value": round(float(minutes.minutes), 6), "provenance": minutes.provenance,
          "source": minutes.source, "sample_count": int(minutes.sample_count)},
     ]
@@ -463,6 +567,7 @@ def heuristic_parameters(minutes: MinutesEstimate, *, method: str, evsi_used: bo
                 {"name": "loss_model", "value": "triage_route_wasted_minutes", "provenance": "heuristic",
                  "source": "action_loss.build_loss_table",
                  "note": "a wrong repair wastes its minutes plus the delay of the right one; not yet calibrated"},
+                _lookahead_parameter(settings),
             ]
         )
     params.append({"name": "method", "value": method, "provenance": "structural"})
@@ -556,6 +661,9 @@ class SiteDecision:
     rank: dict[str, Any] | None
     context: dict[str, Any]
     parameters: list[dict[str, Any]]
+    #: The lookahead's forecast when it ran (no single check paid with a
+    #: decision at stake): the batches it valued and whether one paid.
+    lookahead: dict[str, Any] | None = None
 
     def value_for(self, ref: str) -> CandidateValue | None:
         return next((value for value in self.candidates if value.ref == ref), None)
@@ -629,6 +737,8 @@ class SiteDecision:
             "parameters": list(self.parameters),
             "calibration_label": "heuristic",
         }
+        if self.lookahead is not None:
+            body["lookahead"] = dict(self.lookahead)
         if served_ref is not None:
             served = self.value_for(served_ref)
             body["served_ref"] = served_ref
@@ -711,9 +821,21 @@ def value_candidates(
     ``prior`` is the belief over the learner's rival hypotheses that the
     candidates' members are keyed by. The site continues when at least one
     candidate's value pays for its minutes; the candidates come back ordered
-    by robust value per minute (the best first).
+    by robust value per minute (the best first). ``candidates`` come in the
+    site's own order (its first is the check it would serve, e.g. the probe
+    episode's highest predictive information rate), which the lookahead's
+    serving rule reads.
+
+    The multi-family study's switches (:class:`VoiSettings`): the credible
+    set's lower ``robust_quantile`` is the robust value (``rank_feasible``'s
+    EVSI, the robust EIG, a batch's value); and when a decision is at stake,
+    ``rank_feasible`` did not abstain and no single candidate pays, the best
+    2 to ``lookahead_max_checks`` ranked candidates are valued jointly
+    (:func:`_lookahead`).
     """
 
+    settings = ctx.settings
+    quantile = settings.robust_quantile
     labels = sorted(label for label, value in prior.items() if float(value) > 0)
     prior_n = _normalized(prior, labels)
     # Outcome keys as strings: an adapter's outcomes may be tuples holding None
@@ -754,7 +876,7 @@ def value_candidates(
             )
             for candidate in evaluable
         ]
-        rank = EV.rank_feasible(diagnostic, loss_table)
+        rank = EV.rank_feasible(diagnostic, loss_table, quantile=quantile)
         evsi_by_ref = {ranked.ref: ranked for ranked in rank.ranked}
         excluded_refs = {str(entry.get("ref")) for entry in rank.excluded}
 
@@ -763,7 +885,7 @@ def value_candidates(
         members = candidate.members
         member_eigs = [expected_information_gain(member, prior_n) for member in members] if prior_n else []
         member_eig = member_eigs[0] if member_eigs else 0.0
-        member_eig_robust = robust_quantile(member_eigs, ROBUST_QUANTILE) if len(member_eigs) > 1 else member_eig
+        member_eig_robust = robust_quantile(member_eigs, quantile) if len(member_eigs) > 1 else member_eig
         scale = max(float(candidate.eig_scale), 0.0)
         extra = max(float(candidate.extra_eig_nats), 0.0)
         eig_point = scale * member_eig + extra
@@ -827,6 +949,16 @@ def value_candidates(
                 detail=dict(candidate.detail),
             )
         )
+    lookahead: dict[str, Any] | None = None
+    if (
+        settings.lookahead_max_checks >= 2
+        and at_stake
+        and rank is not None
+        and rank.verdict != "abstain"
+        and loss_table is not None
+        and not any(value.continues for value in values)
+    ):
+        values, lookahead = _lookahead(values, candidates, diagnostic, rank, loss_table, settings)
     values.sort(key=lambda value: (-value.value_per_minute, value.ref))
     continuing = [value for value in values if value.continues]
     decision = CONTINUE if continuing else STOP
@@ -864,8 +996,136 @@ def value_candidates(
         former_cap=dict(former_cap),
         rank=rank_body,
         context=site_context,
-        parameters=heuristic_parameters(best_minutes, method=method, evsi_used=bool(at_stake)),
+        parameters=heuristic_parameters(best_minutes, method=method, evsi_used=bool(at_stake), settings=settings),
+        lookahead=lookahead,
     )
+
+
+def _lookahead(
+    values: list[CandidateValue],
+    candidates: Sequence[Candidate],
+    diagnostic: Sequence[EV.DiagnosticCandidate],
+    rank: EV.RankResult,
+    loss_table: AL.LossTable,
+    settings: VoiSettings,
+) -> tuple[list[CandidateValue], dict[str, Any]]:
+    """The multi-family study's lookahead (rank 2, ``evsi_multisim`` §6.1;
+    ``evsi_calibration/policies.py:_paying_batch`` and ``decide_package``).
+
+    No single check pays, a decision is at stake and ``rank_feasible`` did not
+    abstain: the top ``k`` of its ranking (k = 2 up to
+    ``lookahead_max_checks``, the smallest first) are valued jointly
+    (:func:`evsi.robust_batch_evsi`). The first batch whose robust value
+    exceeds its checks' summed minutes cost pays, and so every check in it
+    does; the site serves its own choice among them (its first candidate when
+    that one is in the batch, else the batch's top-ranked check), and only that
+    one continues (method ``robust_evsi_lookahead_<k>``, reason
+    ``robust_evsi_batch_clears_minutes_cost``, the batch's value and cost; its
+    own single-check value is kept in ``detail.single_check``). The returned
+    body is the batch's forecast, recorded whether or not a batch paid.
+    """
+
+    feasible = {candidate.ref for candidate in candidates if candidate.members and not candidate.infeasible_reason}
+    ranked = [entry.ref for entry in rank.ranked if entry.ref in feasible]
+    by_ref = {candidate.ref: candidate for candidate in diagnostic}
+    body: dict[str, Any] = {
+        "max_checks": settings.lookahead_max_checks,
+        "quantile": settings.robust_quantile,
+        "ranking": ranked[:MAX_RECORDED_CANDIDATES],
+        "paid": False,
+        "tried": [],
+    }
+    found: EV.BatchEVSI | None = None
+    for k in range(2, min(settings.lookahead_max_checks, len(ranked)) + 1):
+        refs = ranked[:k]
+        try:
+            batch = EV.robust_batch_evsi(
+                [by_ref[ref] for ref in refs], loss_table, k=k, quantile=settings.robust_quantile
+            )
+        except EV.EVSIInputError as error:
+            body["tried"].append({"k": k, "refs": list(refs), "excluded": error.reason})
+            break
+        body["tried"].append(
+            {"k": k, "refs": list(refs), "evsi_point_minutes": round(batch.point, 6),
+             "evsi_robust_minutes": round(batch.lcb, 6), "cost_minutes": round(batch.stop_threshold, 6)}
+        )
+        if batch.pays:
+            found = batch
+            break
+    if found is None:
+        return values, body
+    site_choice = next((candidate.ref for candidate in candidates if candidate.ref in feasible), None)
+    if site_choice in found.refs:
+        chosen_ref, rule = str(site_choice), "site_choice_in_batch"
+    else:
+        chosen_ref, rule = found.refs[0], "batch_top_ranked"
+    method = f"{METHOD_LOOKAHEAD_PREFIX}{found.k}"
+    body.update(
+        {
+            "paid": True,
+            "k": found.k,
+            "batch": list(found.refs),
+            "method": method,
+            "chosen_ref": chosen_ref,
+            "chosen_rule": rule,
+            "site_choice_ref": site_choice,
+            "evsi_point_minutes": round(found.point, 6),
+            "evsi_robust_minutes": round(found.lcb, 6),
+            "evsi_ucb_minutes": round(found.ucb, 6),
+            "cost_minutes": round(found.stop_threshold, 6),
+            "member_count": found.member_count,
+            "current_action": found.current_action,
+            "p_action_change": round(found.p_action_change, _ROUND_DIGITS),
+            "emission_count": found.emission_count,
+        }
+    )
+    out: list[CandidateValue] = []
+    for value in values:
+        if value.ref not in found.refs:
+            out.append(value)
+            continue
+        detail = {**dict(value.detail), "lookahead_batch": list(found.refs)}
+        if value.ref != chosen_ref:
+            out.append(replace(value, detail=detail))
+            continue
+        detail["single_check"] = {
+            "method": value.method,
+            "reason": value.reason,
+            "evsi_point_minutes": round(value.value_point_minutes, 6),
+            "evsi_robust_minutes": round(value.value_robust_minutes, 6),
+            "cost_minutes": round(value.cost_minutes, 6),
+        }
+        out.append(
+            replace(
+                value,
+                decision=CONTINUE,
+                reason=REASON_EVSI_BATCH_CLEARS,
+                method=method,
+                value_point_minutes=float(found.point),
+                value_robust_minutes=float(found.lcb),
+                value_ucb_minutes=float(found.ucb),
+                cost_minutes=float(found.stop_threshold),
+                detail=detail,
+            )
+        )
+    return out, body
+
+
+def with_robust_gate_counterfactual(decision: SiteDecision, verdict: str | None) -> SiteDecision:
+    """The value decision with the robust completion gate's verdict as a
+    counterfactual on its former-cap receipt (the study's rank 1): the gate
+    did not run because value decides; ``verdict`` is what it would have said
+    (``couldnt_reliably_distinguish``) or None."""
+
+    cap = dict(decision.former_cap)
+    cap["robust_completion_gate"] = {
+        "name": ROBUST_GATE,
+        "switch": ROBUST_GATE_SWITCH,
+        "verdict": verdict,
+        "would_bind": verdict is not None,
+    }
+    cap["would_bind"] = bool(cap.get("would_bind")) or verdict is not None
+    return replace(decision, former_cap=cap)
 
 
 def former_cap(site: str, *, value: int, count: int) -> dict[str, Any]:
@@ -1811,6 +2071,12 @@ def followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None:
 
 __all__ = [
     "CONTINUE",
+    "METHOD_LOOKAHEAD_PREFIX",
+    "REASON_EVSI_BATCH_CLEARS",
+    "ROBUST_GATE",
+    "ROBUST_GATE_SWITCH",
+    "VoiSettings",
+    "with_robust_gate_counterfactual",
     "EPISODE_MAXIMUM_CAP",
     "VALUATION_SUPPRESSION_REASONS",
     "VOI_VALUE_SUPPRESSION",

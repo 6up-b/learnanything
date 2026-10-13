@@ -2085,7 +2085,31 @@ class VoiStoppingConfig(BaseModel):
     stake, otherwise the robust EIG converted to minutes. The decision
     parameters are the existing heuristic ones in
     ``diagnosis.robust_composition`` (lambda_time, burden, the nat-to-minutes
-    scale, the robust quantile); there are no new constants here.
+    scale), and the three below.
+
+    The multi-family EVSI study (``docs/reviews/evsi-multisim.md`` §6.1,
+    ranks 1 to 3; the owner may flip each) adds one switch per change, each
+    at the study's recommendation; the value in brackets restores the
+    successor as it was before the study, exactly:
+
+    * ``robust_gate_with_value`` (false; true restores): whether the mvp-0.8
+      robust completion gate (``couldnt_reliably_distinguish``) may still end
+      an episode while value decides it. Off, a value-decided episode ends on
+      its value stop (or a stability stop), and that stop's receipt records
+      the gate's verdict as a counterfactual. Where value does not decide (the
+      site off, below the successor, a calibration session) the gate serves
+      as before.
+    * ``lookahead_max_checks`` (3; 1 restores): when a decision is at stake,
+      ``rank_feasible`` did not abstain and no single check pays, the best
+      2 to this many ranked checks are valued jointly (robust EVSI of their
+      product table) against their summed minutes; a paying batch continues
+      with the site's own choice among it. A valuation depth, never a count of
+      observations (bounded at 4: the joint table grows as the alphabet to the
+      power k).
+    * ``robust_quantile`` (0.25; 0.10 restores): the lower quantile of the
+      credible set the value gate reads (``rank_feasible``'s robust EVSI, the
+      robust EIG, the lookahead's batch value). The mvp-0.8 paths keep
+      ``robust_composition.ROBUST_QUANTILE`` (0.10).
     """
 
     enabled: bool = True
@@ -2093,6 +2117,9 @@ class VoiStoppingConfig(BaseModel):
     followups: bool = True
     teach_back: bool = True
     project_probes: bool = True
+    robust_gate_with_value: bool = False
+    lookahead_max_checks: int = Field(default=3, ge=1, le=4)
+    robust_quantile: float = Field(default=0.25, gt=0.0, le=0.5)
 
 
 class LearnLoopConfig(BaseModel):

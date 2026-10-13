@@ -254,9 +254,12 @@ def test_every_decision_is_a_logged_forecast_with_heuristic_parameters():
     for key in ("evsi_point_minutes", "evsi_robust_minutes", "eig_nats", "cost_minutes"):
         assert key in body["best"]
     names = {p["name"]: p for p in body["parameters"]}
-    for name in ("lambda_time", "burden_cost_minutes", "value_per_nat_minutes", "robust_quantile",
-                 "perturbation_delta", "loss_model"):
+    for name in ("lambda_time", "burden_cost_minutes", "value_per_nat_minutes", "perturbation_delta", "loss_model"):
         assert names[name]["provenance"] == "heuristic"
+    # voi-v2: the multi-family EVSI study's switches, at its recommendations.
+    for name in ("robust_quantile", "lookahead_max_checks"):
+        assert names[name]["provenance"] == "evsi_multisim"
+        assert names[name]["source"] == f"voi_stopping.{name}"
     assert body["former_cap"] == {
         "name": "probe.episode.session_qualifying_observation_cap", "value": 4, "count": 4, "would_bind": True,
     }

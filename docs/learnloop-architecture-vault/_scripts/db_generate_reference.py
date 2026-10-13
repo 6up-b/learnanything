@@ -860,7 +860,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
-    "voi_stopping": "value-of-information stopping (mvp-0.17): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information",
+    "voi_stopping": "value-of-information stopping (mvp-0.17): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
 }
 
 

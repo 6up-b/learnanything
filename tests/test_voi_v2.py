@@ -237,6 +237,34 @@ def test_a_refresh_admits_against_the_minutes_left_and_conditions_on_planned_pro
     assert a["reason"] == voi.REASON_DOES_NOT_FIT
 
 
+def test_a_minutes_change_values_probes_against_the_new_minutes_left(tmp_path, monkeypatch):
+    """A chip tap re-plans the rest: the probes are valued against what the
+    new budget leaves after the planned blocks, not the old budget."""
+
+    from learnloop.daily_plan import engine
+
+    env, record, provider = _requested_plan(tmp_path)
+    seen = []
+    original = engine._live_context
+
+    def spy(env_, record_, **kwargs):
+        context, built = original(env_, record_, **kwargs)
+        seen.append({item.practice_item_id: item.voi for item in built.pool if item.check_kind == "project_probe"})
+        return context, built
+
+    monkeypatch.setattr(engine, "_live_context", spy)
+    try:
+        engine.set_minutes(env, 30)
+    finally:
+        unregister_scheduled_check_provider(provider)
+    assert seen
+    a = seen[0]["pi_a"]
+    # 30 minutes less the 20 planned (neither the old budget, 20, nor the old
+    # minutes left, 0).
+    assert a["context"]["minutes_budget"] == pytest.approx(30.0 - record.minutes_planned()) == pytest.approx(10.0)
+    assert a["context"]["chosen_before"] == ["pi_b"] and a["subject"]["detail"]["conditioning"] == "chosen_before"
+
+
 def test_the_usable_minutes_are_what_the_requests_and_lanes_leave():
     """The minutes project probes are admitted against: the plan's minutes
     less the requested items reserved before the split (on a build), or the
@@ -329,3 +357,485 @@ def test_migration_188_backfills_a_legacy_follow_up_receipt_once(tmp_path):
     with repository.connection() as connection:
         total = connection.execute("SELECT COUNT(*) FROM followup_value_decisions").fetchone()[0]
     assert total == 3
+
+
+# ── the switches: defaults, ranges, restore values ──────────────────────────
+
+
+def test_the_study_switches_default_to_the_recommendation():
+    from learnloop.config.schema import LearnLoopConfig, VoiStoppingConfig
+    from learnloop.diagnosis.robust_composition import ROBUST_QUANTILE
+
+    section = LearnLoopConfig().voi_stopping
+    assert section.robust_gate_with_value is False
+    assert section.lookahead_max_checks == 3
+    assert section.robust_quantile == 0.25
+    # The mvp-0.8 paths keep their own quantile.
+    assert ROBUST_QUANTILE == 0.10
+    for bad in ({"lookahead_max_checks": 0}, {"robust_quantile": 0.0}, {"robust_quantile": 0.6}):
+        with pytest.raises(ValueError):
+            VoiStoppingConfig(**bad)
+    settings = voi.VoiSettings.from_config(LearnLoopConfig())
+    assert (settings.robust_gate_with_value, settings.lookahead_max_checks, settings.robust_quantile) == (False, 3, 0.25)
+
+
+def _restore_config(**overrides):
+    from learnloop.config.schema import LearnLoopConfig
+
+    config = LearnLoopConfig()
+    config.voi_stopping.robust_gate_with_value = True
+    config.voi_stopping.lookahead_max_checks = 1
+    config.voi_stopping.robust_quantile = 0.10
+    for name, value in overrides.items():
+        setattr(config.voi_stopping, name, value)
+    return config
+
+
+_RESTORE_TOML = "[voi_stopping]\nrobust_gate_with_value = true\nlookahead_max_checks = 1\nrobust_quantile = 0.10\n"
+
+
+def test_at_their_restore_values_the_switches_reproduce_the_branchs_decisions_exactly(tmp_path, monkeypatch):
+    """robust_gate_with_value = true, lookahead_max_checks = 1 and
+    robust_quantile = 0.10 give the decisions the branch took before the
+    study (pinned at 1b094b73): every pure scenario and the real probe vault's
+    builds, episodes and completions, the robust gate's included."""
+
+    from tests import voi_restore_scenarios as S
+
+    golden = S.load_golden()
+    assert S.pure_decisions(_restore_config()) == golden["pure"]
+    assert S.integration_decisions(tmp_path, monkeypatch, toml=_RESTORE_TOML) == golden["integration"]
+
+
+@pytest.mark.parametrize(
+    "switch,default,method_prefix",
+    [("lookahead_max_checks", 3, "robust_evsi_lookahead_"), ("robust_quantile", 0.25, None)],
+)
+def test_each_switch_alone_moves_only_its_own_decisions(switch, default, method_prefix):
+    """With one switch at its default and the others at their restore values,
+    the scenarios that change are exactly that switch's: the lookahead changes
+    only decisions it takes (method robust_evsi_lookahead_<k>), never one a
+    single check already decided; the quantile never adds a lookahead."""
+
+    from tests import voi_restore_scenarios as S
+
+    golden = S.load_golden()["pure"]
+    moved = S.pure_decisions(_restore_config(**{switch: default}))
+    changed = [name for name in golden if moved[name] != golden[name]]
+    assert changed, "the switch must matter somewhere in the grid"
+    for name in changed:
+        methods = {candidate["method"] for candidate in moved[name]["candidates"]}
+        if method_prefix is not None:
+            assert golden[name]["decision"] == voi.STOP and moved[name]["decision"] == voi.CONTINUE
+            assert any(method.startswith(method_prefix) for method in methods), name
+        else:
+            assert not any(method.startswith("robust_evsi_lookahead_") for method in methods)
+
+
+# ── rank 1: the robust completion gate does not end an episode while value decides
+
+
+def _gate_abstains(monkeypatch):
+    from learnloop.diagnosis import probe_episodes as pe
+
+    calls = []
+
+    def gate(*_args, **_kwargs):
+        calls.append(1)
+        return "couldnt_reliably_distinguish"
+
+    monkeypatch.setattr(pe, "_robust_completion_override", gate)
+    return calls
+
+
+def _gate_vault(tmp_path, version="mvp-0.17", toml=""):
+    from tests.test_voi_stopping import _long_probe_vault
+
+    return _long_probe_vault(tmp_path, version, toml)
+
+
+def test_the_robust_gate_does_not_end_an_episode_while_value_decides(tmp_path, monkeypatch):
+    from tests.test_voi_stopping import _answer_probe, _minutes
+
+    vault, repository = _gate_vault(tmp_path)
+    _gate_abstains(monkeypatch)
+    _minutes(monkeypatch, 0.0001)  # the next observation pays
+    episode = _answer_probe(vault, repository, score=0)
+    assert episode.status == "in_progress" and episode.completion_reason is None
+
+
+@pytest.mark.parametrize(
+    "version,toml",
+    [
+        ("mvp-0.17", "[voi_stopping]\nrobust_gate_with_value = true\n"),  # the switch restores the gate
+        ("mvp-0.17", "[voi_stopping]\nprobe_episodes = false\n"),  # value off: today's gate
+        ("mvp-0.17", "[voi_stopping]\nenabled = false\n"),
+        ("mvp-0.16", ""),
+    ],
+)
+def test_the_gate_still_ends_an_episode_where_value_does_not_decide_or_the_switch_is_on(tmp_path, monkeypatch, version, toml):
+    from tests.test_voi_stopping import _answer_probe, _minutes
+
+    vault, repository = _gate_vault(tmp_path, version, toml)
+    _gate_abstains(monkeypatch)
+    _minutes(monkeypatch, 0.0001)
+    episode = _answer_probe(vault, repository, score=0)
+    assert episode.status == "complete" and episode.completion_reason == "couldnt_reliably_distinguish"
+
+
+def test_a_calibration_session_keeps_the_robust_gate(tmp_path, monkeypatch):
+    from learnloop.diagnosis import calibration_sessions
+    from tests.test_voi_stopping import _answer_probe, _minutes
+
+    vault, repository = _gate_vault(tmp_path)
+    _gate_abstains(monkeypatch)
+    _minutes(monkeypatch, 0.0001)
+    monkeypatch.setattr(calibration_sessions, "calibration_cap_lifted", lambda _repository, _session_id: True)
+    episode = _answer_probe(vault, repository, score=0)
+    assert episode.completion_reason == "couldnt_reliably_distinguish"
+
+
+def test_a_value_stop_records_the_gates_verdict_as_a_counterfactual(tmp_path, monkeypatch):
+    from tests.test_voi_stopping import _answer_probe, _minutes
+
+    vault, repository = _gate_vault(tmp_path)
+    _gate_abstains(monkeypatch)
+    _minutes(monkeypatch, 10_000.0)  # nothing pays
+    episode = _answer_probe(vault, repository, score=0)
+    assert episode.completion_reason == "value_of_information_stop"
+    with repository.connection() as connection:
+        detail = json.loads(
+            connection.execute("SELECT completion_detail_json FROM probe_episodes WHERE id = ?", (episode.id,)).fetchone()[0]
+        )
+    gate = detail["former_cap"]["robust_completion_gate"]
+    assert gate == {
+        "name": voi.ROBUST_GATE, "switch": "voi_stopping.robust_gate_with_value",
+        "verdict": "couldnt_reliably_distinguish", "would_bind": True,
+    }
+    assert detail["former_cap"]["would_bind"] is True and detail["cap_comparison"] == "agree"
+
+
+def test_in_the_real_probe_vault_the_gate_no_longer_ends_a_paying_episode(tmp_path, monkeypatch):
+    """The pinned golden: with the gate restored the third episode ends
+    couldnt_reliably_distinguish after two answers while value still pays;
+    at the default it keeps asking (no monkeypatch: the real robust gate)."""
+
+    from tests import voi_restore_scenarios as S
+
+    golden = S.load_golden()["integration"]["episode_gate_m0.02"]
+    assert golden[-1]["completion_reason"] == "couldnt_reliably_distinguish"
+    toml = "[voi_stopping]\nlookahead_max_checks = 1\nrobust_quantile = 0.10\n"  # only the gate moves
+    now = S.integration_decisions(tmp_path, monkeypatch, toml=toml)["episode_gate_m0.02"]
+    assert now[: len(golden) - 1] == golden[:-1]
+    assert now[len(golden) - 1]["status"] == "in_progress"
+
+
+# ── rank 2: the best 2-3 checks valued jointly when no single check pays ───
+
+
+_PAIR_PRIOR = {"unfamiliar": 0.75, "robust_initial_grasp": 0.25}
+
+
+def _weak(ref, accuracy=0.7, minutes=0.1):
+    row = {"unfamiliar": {"w": accuracy, "r": 1.0 - accuracy}, "robust_initial_grasp": {"w": 1.0 - accuracy, "r": accuracy}}
+    return voi.Candidate(ref=ref, minutes=voi.MinutesEstimate(minutes, "authored_prior"), members=(row,))
+
+
+def _decide(candidates, prior=_PAIR_PRIOR, config=None):
+    from tests import voi_restore_scenarios as S
+
+    return voi.value_candidates(
+        S.context(config), voi.SITE_PROBE_EPISODE, candidates, prior=prior, learning_object_id="lo",
+        former_cap=voi.former_cap(voi.SITE_PROBE_EPISODE, value=4, count=1),
+    )
+
+
+def test_robust_batch_evsi_is_the_robust_quantile_of_the_joint_evsi_per_member():
+    from learnloop.scheduling import evsi as EV
+    from tests import voi_restore_scenarios as S
+
+    ctx = S.context()
+    table = ctx.loss_table(ctx.label_actions(_PAIR_PRIOR))
+    members = [
+        {"unfamiliar": {"w": a, "r": 1 - a}, "robust_initial_grasp": {"w": 1 - a, "r": a}} for a in (0.7, 0.6, 0.8, 0.65)
+    ]
+    candidates = [
+        EV.DiagnosticCandidate(ref=ref, members=tuple(members), prior=_PAIR_PRIOR, expected_minutes=0.1)
+        for ref in ("a", "b", "c")
+    ]
+    batch = EV.robust_batch_evsi(candidates, table, k=2, quantile=0.25)
+    joint = [
+        EV.evsi_for_conditionals(
+            {h: {(e1, e2): m[h][e1] * m[h][e2] for e1 in m[h] for e2 in m[h]} for h in m}, _PAIR_PRIOR, table
+        ).evsi
+        for m in members
+    ]
+    assert batch.refs == ("a", "b") and batch.member_count == 4
+    assert batch.point == pytest.approx(joint[0])
+    assert batch.lcb == pytest.approx(sorted(joint)[0])  # ceil(0.25 * 4) - 1 = 0
+    assert batch.stop_threshold == pytest.approx(0.2)
+    # Conditionally independent given H: a check that repeats a perfectly
+    # revealing one adds nothing, so the pair is worth the revealing one alone.
+    reveal = {"unfamiliar": {"w": 1.0}, "robust_initial_grasp": {"r": 1.0}}
+    sure = EV.DiagnosticCandidate(ref="sure", members=(reveal,), prior=_PAIR_PRIOR, expected_minutes=0.1)
+    weak = EV.DiagnosticCandidate(ref="weak", members=(members[0],), prior=_PAIR_PRIOR, expected_minutes=0.1)
+    alone = EV.robust_evsi(sure.members, _PAIR_PRIOR, table).point
+    assert EV.robust_batch_evsi([sure, weak], table, k=2).point == pytest.approx(alone)
+
+
+def test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets(tmp_path, monkeypatch):
+    """The vectorized joint EVSI is evsi_for_conditionals on the product
+    table, member by member, on the probe vault's 129-member ensembles (and
+    the receipt's P(action change) is member 0's)."""
+
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
+    from learnloop.diagnosis.probe_robust import instrument_ensemble, load_pinned_channel
+    from learnloop.diagnosis.robust_composition import robust_quantile
+    from learnloop.scheduling import evsi as EV
+    from tests.test_voi_stopping import LO, _long_probe_vault
+    from tests.voi_restore_scenarios import seed_ids
+
+    seed_ids(monkeypatch)
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    episode = repository.open_probe_episode(LO)
+    labels = list(episode_posterior(vault, repository, episode).posterior)
+    posterior = {label: 0.85 if label == "unfamiliar" else 0.05 for label in labels}
+    eligible = eligible_instruments(vault, repository, episode, posterior=posterior)[:3]
+    channel = load_pinned_channel(repository, episode.calibration_model_hash)
+    ctx = voi.VoiContext(vault, repository)
+    table = ctx.loss_table(ctx.label_actions(posterior))
+    candidates = []
+    for entry in eligible:
+        ensemble, _ = instrument_ensemble(channel, entry.instrument, entry.slot_map, posterior, episode_id=episode.id)
+        members = tuple(voi._keyed(member) for member in ensemble.members)
+        candidates.append(EV.DiagnosticCandidate(ref=entry.item.id, members=members, prior=posterior, expected_minutes=0.5))
+    for k in (2, 3):
+        batch = EV.robust_batch_evsi(candidates, table, k=k, quantile=0.25)
+        slow = [
+            EV.evsi_for_conditionals(
+                EV.joint_conditionals([c.members[index] for c in candidates[:k]], list(posterior)), posterior, table
+            )
+            for index in range(batch.member_count)
+        ]
+        assert batch.member_count == 129
+        assert batch.point == pytest.approx(slow[0].evsi, abs=1e-12)
+        assert batch.lcb == pytest.approx(robust_quantile([r.evsi for r in slow], 0.25), abs=1e-12)
+        joint0 = EV.joint_conditionals([c.members[0] for c in candidates[:k]], list(posterior))
+        moved = sum(
+            sum(posterior[h] * joint0[h].get(e, 0.0) for h in posterior)
+            for e, action in slow[0].argmin_by_emission.items() if action != slow[0].current_action
+        )
+        assert batch.p_action_change == pytest.approx(moved, abs=1e-12)
+        assert batch.current_action == slow[0].current_action
+
+
+def test_when_no_single_check_pays_a_paying_pair_continues_with_its_forecast():
+    """Two weak checks: alone neither can change the repair (EVSI 0), together
+    they can (0.33 minutes against 0.2): the episode continues."""
+
+    decision = _decide([_weak("weak_a"), _weak("weak_b")])
+    assert decision.decision == voi.CONTINUE
+    chosen = decision.chosen
+    assert chosen.method == "robust_evsi_lookahead_2" and chosen.reason == voi.REASON_EVSI_BATCH_CLEARS
+    assert chosen.value_robust_minutes == pytest.approx(0.33) and chosen.cost_minutes == pytest.approx(0.2)
+    assert chosen.detail["single_check"]["evsi_robust_minutes"] == pytest.approx(0.0)
+    body = decision.as_dict()
+    json.dumps(body)
+    lookahead = body["lookahead"]
+    assert lookahead["paid"] is True and lookahead["k"] == 2 and set(lookahead["batch"]) == {"weak_a", "weak_b"}
+    assert lookahead["chosen_ref"] == chosen.ref and lookahead["evsi_robust_minutes"] == pytest.approx(0.33)
+    assert 0.0 < lookahead["p_action_change"] <= 1.0
+    assert [t["k"] for t in lookahead["tried"]] == [2]
+    names = {p["name"]: p for p in body["parameters"]}
+    assert names["lookahead_max_checks"]["value"] == 3 and names["lookahead_max_checks"]["provenance"] == "evsi_multisim"
+    # Only the chosen check continues: the site serves one observation.
+    assert [value.ref for value in decision.candidates if value.continues] == [chosen.ref]
+
+
+def test_the_lookahead_tries_three_checks_when_two_do_not_pay():
+    prior = {"unfamiliar": 0.8, "robust_initial_grasp": 0.2}
+    candidates = [_weak(ref, accuracy=0.65, minutes=0.03) for ref in ("a", "b", "c")]
+    decision = _decide(candidates, prior=prior)
+    assert decision.decision == voi.CONTINUE and decision.chosen.method == "robust_evsi_lookahead_3"
+    assert [t["k"] for t in decision.as_dict()["lookahead"]["tried"]] == [2, 3]
+    capped = _decide(candidates, prior=prior, config=_restore_config(lookahead_max_checks=2, robust_quantile=0.25))
+    assert capped.decision == voi.STOP and capped.as_dict()["lookahead"]["paid"] is False
+    off = _decide(candidates, prior=prior, config=_restore_config(robust_quantile=0.25))
+    assert off.decision == voi.STOP and "lookahead" not in off.as_dict()
+
+
+def test_the_lookahead_does_not_run_when_a_single_check_pays_or_rank_abstains():
+    strong = voi.Candidate(
+        ref="strong", minutes=voi.MinutesEstimate(0.05, "authored_prior"),
+        members=({"unfamiliar": {"w": 0.95, "r": 0.05}, "robust_initial_grasp": {"w": 0.05, "r": 0.95}},),
+    )
+    decision = _decide([strong, _weak("weak_a"), _weak("weak_b")], prior={"unfamiliar": 0.5, "robust_initial_grasp": 0.5})
+    assert decision.decision == voi.CONTINUE and decision.chosen.method == voi.METHOD_ROBUST_EVSI
+    assert "lookahead" not in decision.as_dict()
+    # Nothing at stake (no routes): the EIG rule decides, never the lookahead.
+    from tests import voi_restore_scenarios as S
+
+    unrouted = voi.value_candidates(
+        S.context(routes=()), voi.SITE_PROBE_EPISODE, [_weak("weak_a"), _weak("weak_b")], prior=_PAIR_PRIOR,
+        learning_object_id="lo", former_cap=voi.former_cap(voi.SITE_PROBE_EPISODE, value=4, count=1),
+    )
+    assert "lookahead" not in unrouted.as_dict()
+    assert all(not value.method.startswith("robust_evsi_lookahead_") for value in unrouted.candidates)
+
+
+def test_the_batch_serves_the_sites_own_choice_when_it_is_in_the_batch():
+    """The successor's serving rule among a paying batch: the site's own first
+    choice (the first candidate in its order; on a predictive-objective
+    episode the highest predictive information rate) when it is in the batch,
+    else the batch's top-ranked check."""
+
+    # The site lists the weakest check first; it is not among the top two.
+    candidates = [_weak("site_pick", accuracy=0.62), _weak("weak_a", accuracy=0.7), _weak("weak_b", accuracy=0.71)]
+    decision = _decide(candidates)
+    lookahead = decision.as_dict()["lookahead"]
+    assert lookahead["paid"] and "site_pick" not in lookahead["batch"]
+    assert decision.chosen.ref == lookahead["batch"][0] and lookahead["chosen_rule"] == "batch_top_ranked"
+    # Listed first and inside the batch: the site's own pick is served.
+    reordered = [_weak("weak_a", accuracy=0.7), _weak("weak_b", accuracy=0.71)]
+    inside = _decide(reordered)
+    assert inside.chosen.ref == "weak_a" and inside.as_dict()["lookahead"]["chosen_rule"] == "site_choice_in_batch"
+
+
+def test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_pick(tmp_path, monkeypatch):
+    """Composes with the predictive objective: on the real probe vault (a
+    pinned channel, 129 members) the candidates arrive in the episode's own
+    order (the highest predictive information rate first); with a belief one
+    answer cannot move off its repair and cheap checks, a pair pays and the
+    episode's own pick is served when the pair holds it, else the pair's
+    top-ranked check."""
+
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
+    from tests.test_voi_stopping import LO, _long_probe_vault
+    from tests.voi_restore_scenarios import seed_ids
+
+    seed_ids(monkeypatch)  # the credible sets are seeded by ids
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    episode = repository.open_probe_episode(LO)
+    labels = list(episode_posterior(vault, repository, episode).posterior)
+    _minutes_patch(monkeypatch, 0.02)
+    rules = set()
+    for top in labels:
+        posterior = {label: 0.9 if label == top else 0.1 / (len(labels) - 1) for label in labels}
+        eligible = eligible_instruments(vault, repository, episode, posterior=posterior)
+        assert eligible[0].selection_objective == "predictive_eig"
+        decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None)
+        lookahead = decision.as_dict()["lookahead"]
+        assert lookahead["paid"] and lookahead["member_count"] == 129 and lookahead["quantile"] == 0.25
+        assert all(value.value_robust_minutes <= value.cost_minutes for value in decision.candidates if not value.continues)
+        own = eligible[0].item.id
+        expected = own if own in lookahead["batch"] else lookahead["batch"][0]
+        assert decision.chosen.ref == expected and lookahead["site_choice_ref"] == own
+        assert [value.ref for value in decision.candidates if value.continues] == [expected]
+        rules.add(lookahead["chosen_rule"])
+    assert rules == {"site_choice_in_batch", "batch_top_ranked"}
+
+
+def _minutes_patch(monkeypatch, minutes):
+    monkeypatch.setattr(
+        voi.VoiContext, "item_minutes",
+        lambda self, item, authored_minutes=None: voi.MinutesEstimate(float(minutes), "authored_prior"),
+    )
+
+
+def test_greedy_admission_never_runs_the_lookahead():
+    """Teach-backs and project probes have no decision at stake: their greedy
+    conditional admission (the F2 path) is the EIG rule, never a batch."""
+
+    entries = [
+        voi.InformationEntry(
+            ref=f"pi_{index}", learning_object_id="lo_xy", eig_nats=1.0, minutes=voi.MinutesEstimate(1.0, "authored_prior"),
+            terms=_predictive_terms(likelihood),
+        )
+        for index, likelihood in enumerate((_reveal_x(), _reveal_xy()))
+    ]
+    admission = voi.greedy_information_admission(_ctx(), voi.SITE_PROJECT_PROBE, entries, cap_value=4)
+    assert all("lookahead" not in step.as_dict() for step in admission.steps)
+
+
+# ── rank 3: the robust quantile of the successor's value gate ──────────────
+
+
+def _ensemble(ref, accuracies, minutes):
+    members = tuple(
+        {"unfamiliar": {"w": a, "r": 1 - a}, "robust_initial_grasp": {"w": 1 - a, "r": a}} for a in accuracies
+    )
+    return voi.Candidate(ref=ref, minutes=voi.MinutesEstimate(minutes, "authored_prior"), members=members)
+
+
+_SPREAD = (0.7, 0.58, 0.62, 0.65, 0.68, 0.72, 0.75, 0.78, 0.82)
+
+
+def test_the_value_gate_reads_the_configured_robust_quantile():
+    from learnloop.diagnosis.robust_composition import expected_information_gain, robust_quantile
+    from tests import voi_restore_scenarios as S
+
+    prior = {"unfamiliar": 0.5, "robust_initial_grasp": 0.5}
+    candidate = _ensemble("q", _SPREAD, 1.5)
+    eigs = [expected_information_gain(member, prior) for member in candidate.members]
+
+    def decide(config):
+        return voi.value_candidates(
+            S.context(config, routes=()), voi.SITE_PROBE_EPISODE, [candidate], prior=prior, learning_object_id="lo",
+            former_cap=voi.former_cap(voi.SITE_PROBE_EPISODE, value=4, count=1),
+        )
+
+    default, restored = decide(None), decide(_restore_config())
+    assert default.best.eig_robust_nats == pytest.approx(robust_quantile(eigs, 0.25))
+    assert restored.best.eig_robust_nats == pytest.approx(robust_quantile(eigs, 0.10))
+    assert default.decision == voi.CONTINUE and restored.decision == voi.STOP  # 2.75 vs 0.78 minutes against 1.5
+    names = {p["name"]: p for p in default.as_dict()["parameters"]}
+    assert names["robust_quantile"] == {
+        "name": "robust_quantile", "value": 0.25, "provenance": "evsi_multisim",
+        "source": "voi_stopping.robust_quantile",
+        "note": "docs/reviews/evsi-multisim.md §6.1 rank 3 (0.10 restores robust_composition.ROBUST_QUANTILE)",
+    }
+    restored_names = {p["name"]: p for p in restored.as_dict()["parameters"]}
+    assert restored_names["robust_quantile"]["value"] == 0.10 and restored_names["robust_quantile"]["provenance"] == "heuristic"
+
+
+def test_rank_feasible_values_the_episode_at_the_configured_quantile():
+    from learnloop.diagnosis.robust_composition import robust_quantile
+    from learnloop.scheduling import evsi as EV
+    from tests import voi_restore_scenarios as S
+
+    prior = {"unfamiliar": 0.6, "robust_initial_grasp": 0.4}
+    candidate = _ensemble("q", _SPREAD, 0.05)
+    decision = _decide([candidate], prior=prior)
+    ctx = S.context()
+    table = ctx.loss_table(ctx.label_actions(prior))
+    evsis = [EV.evsi_for_conditionals(member, prior, table).evsi for member in candidate.members]
+    if decision.best.method == voi.METHOD_ROBUST_EVSI:
+        assert decision.best.value_robust_minutes == pytest.approx(robust_quantile(evsis, 0.25))
+    else:  # an abstention: the EIG fallback, at the same quantile
+        assert decision.best.value_uncertain
+
+
+# ── no count cap reappears ──────────────────────────────────────────────────
+
+
+def test_no_count_cap_reappears(tmp_path, monkeypatch):
+    """At the defaults one episode keeps asking past the former maximum (4),
+    the session cap (4) and the lookahead's depth (3) while value pays; none
+    of the study's switches is a count of observations."""
+
+    from tests.test_voi_stopping import _answer_probe, _long_probe_vault, _minutes, _qualifying
+
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 0.0001)
+    episode_id = repository.open_probe_episode(LO_ID).id
+    for index in range(6):
+        episode = _answer_probe(vault, repository, score=4 if index % 2 else 0)
+        assert episode.id == episode_id and episode.status == "in_progress", episode.completion_reason
+    assert _qualifying(repository, episode_id) == 6
+    section = vault.config.voi_stopping
+    assert section.lookahead_max_checks == 3 and _qualifying(repository, episode_id) > section.lookahead_max_checks
+    for name, value in section.model_dump().items():
+        assert "cap" not in name and "max_observations" not in name, name
+
+
+LO_ID = "lo_svd_definition"

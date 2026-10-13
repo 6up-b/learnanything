@@ -229,25 +229,31 @@ def pure_decisions(config: LearnLoopConfig | None = None) -> dict[str, Any]:
     return out
 
 
+def seed_ids(monkeypatch: Any, seed: int = 7) -> None:
+    """Seeded ULIDs for one test. The pinned channel's credible sets are
+    seeded by ids (the episode's, the calibration schema's and models'), so
+    seeded ids make the ensembles, and the decisions, the same on every run.
+    Still monotonic, so id order stays creation order."""
+
+    import random
+
+    from learnloop import ids
+
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: 1_760_000_000_000)
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids.secrets, "randbits", random.Random(seed).getrandbits)
+
+
 def integration_decisions(tmp_path: Path, monkeypatch: Any, toml: str = "") -> dict[str, Any]:
     """The real probe vault: a Today build, then an episode answered step by
     step at two minute costs (pinned per check), with each build's value
     decisions, the queue and each completion."""
 
-    import random
-
     from tests import test_voi_stopping as T
-    from learnloop import ids
     from learnloop.scheduling.scheduler import OfferTrace
 
-    # The pinned channel's credible sets are seeded by ids (the episode's, the
-    # calibration schema's and models' ULIDs): seeded ids make the ensembles,
-    # and so the decisions, the same on every run. Still monotonic, so id order
-    # stays creation order.
-    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: 1_760_000_000_000)
-    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
-    monkeypatch.setattr(ids, "_last_randomness", 0)
-    monkeypatch.setattr(ids.secrets, "randbits", random.Random(7).getrandbits)
+    seed_ids(monkeypatch)
     out: dict[str, Any] = {}
     _paths, vault, repository = T._probe_vault(tmp_path / "build", "mvp-0.17", toml=toml)
     trace = OfferTrace()
@@ -326,6 +332,7 @@ __all__ = [
     "load_golden",
     "pure_decisions",
     "pure_scenarios",
+    "seed_ids",
     "summarize",
     "summarize_body",
 ]

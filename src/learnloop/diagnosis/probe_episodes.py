@@ -2529,9 +2529,17 @@ def _evaluate_completion(
         # repair needs no further probing — stop before spending instruments.
         if _action_equivalent():
             return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
-        abstain_reason = _robust_completion_override(vault, repository, episode, posterior)
-        if abstain_reason is not None:
-            return _complete(repository, episode, abstain_reason, posterior=posterior, clock=clock)
+        # mvp-0.17 (the multi-family EVSI study's rank 1,
+        # voi_stopping.robust_gate_with_value): while value decides the
+        # episode the gate no longer ends it; the value stop below records the
+        # gate's verdict as a counterfactual. Where value does not decide (the
+        # site off, below the successor, a calibration session) or with the
+        # switch on, the gate serves exactly as before.
+        gate_decides = robust_gate_applies(vault, repository, qualifying)
+        if gate_decides:
+            abstain_reason = _robust_completion_override(vault, repository, episode, posterior)
+            if abstain_reason is not None:
+                return _complete(repository, episode, abstain_reason, posterior=posterior, clock=clock)
         # §10: an unstable episode with no unconsumed instrument left (§5.4
         # forbids surface repeats) parks in pending_items with one deduplicated
         # generation need — never blocking ordinary practice on the LO.
@@ -2548,7 +2556,17 @@ def _evaluate_completion(
             return None
         # mvp-0.17: the episode keeps asking only while the next observation's
         # value pays for its minutes.
-        value_stop = _value_of_information_stop(vault, repository, episode, posterior, qualifying, remaining)
+        value_stop = _value_of_information_stop(
+            vault,
+            repository,
+            episode,
+            posterior,
+            qualifying,
+            remaining,
+            gate_counterfactual=(
+                None if gate_decides else (lambda: _robust_completion_override(vault, repository, episode, posterior))
+            ),
+        )
         if value_stop is not None:
             return _complete(
                 repository, episode, "value_of_information_stop", posterior=posterior, detail=value_stop, clock=clock
@@ -2613,6 +2631,45 @@ def voi_probe_site_active(vault: LoadedVault) -> bool:
     return voi_stopping_active(vault.config, SITE_PROBE_EPISODE)
 
 
+def value_decides_episode(
+    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Does value of information decide this episode's next observation?
+
+    Yes at mvp-0.17 with the probe-episode site on, unless the latest
+    observation was made in a calibration session (the learner's opt-in lifts
+    the value rule, as it lifted the session cap)."""
+
+    if not voi_probe_site_active(vault):
+        return False
+    session_id = _latest_observation_session(repository, qualifying)
+    if session_id is not None:
+        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
+
+        if calibration_cap_lifted(repository, str(session_id)):
+            return False
+    return True
+
+
+def robust_gate_applies(
+    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]
+) -> bool:
+    """May the mvp-0.8 robust completion gate end this unstable episode?
+
+    Always where value does not decide (the kill-switch path, below the
+    successor, a calibration session: today's gate exactly). Where value
+    decides, only with ``voi_stopping.robust_gate_with_value`` on (the
+    multi-family EVSI study's rank 1: off by default, so a value-decided
+    episode ends on its value stop and that stop records the gate's verdict).
+    """
+
+    if not value_decides_episode(vault, repository, qualifying):
+        return True
+    from learnloop.diagnosis.voi_stopping import VoiSettings
+
+    return VoiSettings.from_config(vault.config).robust_gate_with_value
+
+
 def _latest_observation_session(repository: Repository, qualifying: Sequence[Mapping[str, Any]]) -> str | None:
     """The session of the episode's latest qualifying observation (oldest first)."""
 
@@ -2638,15 +2695,7 @@ def episode_maximum_binds(
     receipt's counterfactual (``voi_stopping.EPISODE_MAXIMUM_CAP``).
     """
 
-    if not voi_probe_site_active(vault):
-        return True
-    session_id = _latest_observation_session(repository, qualifying)
-    if session_id is not None:
-        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
-
-        if calibration_cap_lifted(repository, session_id):
-            return True
-    return False
+    return not value_decides_episode(vault, repository, qualifying)
 
 
 def _plausible_actions_agree(
@@ -2801,6 +2850,8 @@ def _value_of_information_stop(
     posterior: EpisodePosterior,
     qualifying: list[dict[str, Any]],
     candidates: list[EligibleInstrument],
+    *,
+    gate_counterfactual: Any = None,
 ) -> dict[str, Any] | None:
     """mvp-0.17 (voi_stopping, site ``probe_episode``): the logged stop
     decision when the episode's next observation no longer pays for its
@@ -2810,24 +2861,23 @@ def _value_of_information_stop(
     qualifying observation (as the decision-equivalence stop is) and with an
     eligible instrument to value (an empty pool keeps its own park). A
     calibration session the observation was made in lifts the rule, as it
-    lifted the session cap.
+    lifted the session cap. ``gate_counterfactual`` (the study's rank 1) is
+    the robust completion gate, called only on a stop, whose verdict the stop
+    records in ``former_cap.robust_completion_gate``.
     """
 
     from learnloop.diagnosis import voi_stopping as voi
 
-    if not qualifying or not candidates or not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
+    if not qualifying or not candidates or not value_decides_episode(vault, repository, qualifying):
         return None
     session_id = _latest_observation_session(repository, qualifying)
-    if session_id is not None:
-        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
-
-        if calibration_cap_lifted(repository, str(session_id)):
-            return None
     decision = voi.probe_episode_decision(
         voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
     )
     if decision.decision == voi.CONTINUE:
         return None
+    if gate_counterfactual is not None:
+        decision = voi.with_robust_gate_counterfactual(decision, gate_counterfactual())
     return decision.as_dict()
 
 

@@ -950,7 +950,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.16 serving is unchanged; every snapshot moves only because the
     # effective config gains the keys, and all were recomputed
     # (defaults_fingerprint_for_version). "mvp-0.17" is a placeholder label.
-    "mvp-0.9": "7cd4d17eadaaa64a8a0cd4cab416f2df3b54b24e3aca4a67e59de0afe7ccdf0d",
+    # voi-v2 adds the multi-family EVSI study's three switches to
+    # [voi_stopping] (robust_gate_with_value, lookahead_max_checks,
+    # robust_quantile; modelled defaults, left out of the decision-only
+    # template; they act only where value of information decides, at
+    # mvp-0.17): every snapshot was recomputed again for the new keys.
+    "mvp-0.9": "5101af0032f4223c8aec7c4edfa7d1e2b18374e101d69bc8fec16906f6c161af",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -970,7 +975,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.10": "93c86dc400de0c292230e1168b08750176ae71ff90bbf6ea6fb1c04e5c757d82",
+    "mvp-0.10": "6137d272a21495e0116363972de8b7fec9ade4e10c2f49fd66c3c932c4497d53",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -998,7 +1003,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.11": "5c8a62a15affe91e1e6b450d732af0c758365c202f4dff1fa04867e7407d1355",
+    "mvp-0.11": "b19756b1df2c74256501d162bf0c9ede631bcd03c1c2ba68003952e26b106e10",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1020,7 +1025,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.12": "2ea0d7707e429dbb74e2417f0648cf71a88d98a96285da384a6269b7ac6e4087",
+    "mvp-0.12": "113fa5685b161480cb2f54f96ffb946d85aa30a61e253c1315b08511c97b3ed2",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1037,7 +1042,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.13": "0235f020793ec02e3a1e729974c081c42abec7e72dff0f155946710de099a04e",
+    "mvp-0.13": "1ca0e4583690a2d90a2406c57a622875f26f34ae3977837aaff13788063bd365",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1053,7 +1058,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.14": "2e2e08c06228dad9b9c3a7c70aaf50ad614a38483b59b04afa445229b197d3f2",
+    "mvp-0.14": "83a44395422cf23e9b5c39bf3d65a588a0d76cab1353ca1b685e4a00f40b6cc2",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1067,7 +1072,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.15": "5c3c67011828ff7ce17a84a90887365e13bc8db978b1874827a3f34a9adc088f",
+    "mvp-0.15": "14f5f59fbcc789602fad546661462bd60c6df0358023db461dbc11f773f50b73",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1087,7 +1092,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.17).
-    "mvp-0.16": "0013e5ac671ae8f705eb1fabaac5250b005a6cd9e4ebf669f3bd2da00a13f049",
+    "mvp-0.16": "08c1f09420ec15f1c2ed592a7ffec5e9806fc5ba79e0c66ff0d77949d4bb6120",
     # mvp-0.17 (value-of-information stopping, owner-directed 2026-10-12/13; a
     # placeholder label, expect relabelling at the merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1103,8 +1108,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # vaults reach it by `learnloop upgrade` (default target) from mvp-0.16,
     # or from mvp-0.9 to mvp-0.15 through the chain (under mvp-0.12's advisory
     # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
-    # owner decision 2026-10-12).
-    "mvp-0.17": "518ce08c6bf62748a5c0d3ede75dbf5053c024a42032fb11b325134985400f85",
+    # owner decision 2026-10-12). voi-v2: the value rule also reads the
+    # multi-family EVSI study's switches, at its recommendations (the robust
+    # completion gate does not end a value-decided episode, a 2-3 check
+    # lookahead, the value gate's robust quantile 0.25); true / 1 / 0.10
+    # restore the successor as it was before the study.
+    "mvp-0.17": "c19dcada54d132641ac76c6c3bee7048bc2058ee3d1635ef9f95cd5b163c7b62",
 }
 
 

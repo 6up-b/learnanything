@@ -1139,6 +1139,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
+    # mvp-0.17 value-of-information stopping: the multi-family EVSI study's
+    # switches (docs/reviews/evsi-multisim.md §6.1, ranks 2 and 3; rank 1 is a
+    # boolean). Heuristic until live voi_forecasts calibrate them.
+    _ConfigRule(_exact("voi_stopping.robust_quantile"), "decision", "threshold",
+                "value-of-information gate's lower credible-set quantile (rank_feasible's robust EVSI, the "
+                "robust EIG, the lookahead's batch value); the multi-family study's rank 3 (0.25, "
+                "directional in all four simulator families); 0.10 restores "
+                "robust_composition.ROBUST_QUANTILE, which the mvp-0.8 paths keep."),
+    _ConfigRule(_exact("voi_stopping.lookahead_max_checks"), "decision", "threshold",
+                "how many ranked checks the value gate values jointly when a decision is at stake and no "
+                "single check pays (the study's rank 2); a valuation depth, never a count of observations "
+                "served; 1 turns the lookahead off."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

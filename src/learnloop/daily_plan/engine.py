@@ -498,15 +498,17 @@ def _classified_pool(
     day: Sequence[PlanRecord],
     reentry: bool,
     record: PlanRecord | None = None,
+    minutes_left: float | None = None,
 ) -> _Pool:
     """The scheduler's ranked list, classified into lanes (§6.1).
 
     ``record`` is the open plan on a refresh (None on a build). At mvp-0.17
     the due project probes are valued together against the minutes the plan
     can use (final verify F10): on a build, the budget less the requested
-    items reserved before the split; on a refresh, the plan's minutes left,
-    with the probes it already holds (planned, not yet answered) conditioned
-    on and not charged again.
+    items reserved before the split; on a refresh, the plan's minutes left
+    (``minutes_left`` when a minutes change is re-planning the rest), with the
+    probes it already holds (planned, not yet answered) conditioned on and not
+    charged again.
     """
 
     scheduled = env.build_eligible(minutes)
@@ -562,7 +564,9 @@ def _classified_pool(
             if not record.blocks and not record.receipts:
                 pending = sum(float(row.get("est_minutes") or 0.0) for row in record.split.get("requested") or [])
             usable = _usable_probe_minutes(
-                minutes=record.minutes_left(), reserved=pending, lanes_allowed=lanes_allowed
+                minutes=record.minutes_left() if minutes_left is None else float(minutes_left),
+                reserved=pending,
+                lanes_allowed=lanes_allowed,
             )
             held = tuple(
                 item.practice_item_id
@@ -1077,7 +1081,9 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     )
 
 
-def _live_context(env: PlanEnv, record: PlanRecord) -> tuple[PoolContext, _Pool]:
+def _live_context(
+    env: PlanEnv, record: PlanRecord, *, minutes_left: float | None = None
+) -> tuple[PoolContext, _Pool]:
     built = _classified_pool(
         env,
         minutes=record.budget,
@@ -1085,6 +1091,7 @@ def _live_context(env: PlanEnv, record: PlanRecord) -> tuple[PoolContext, _Pool]
         day=day_records(env),
         reentry=record.kind == "reentry",
         record=record,
+        minutes_left=minutes_left,
     )
     return _context(env, record, built, day=()), built
 
@@ -2289,7 +2296,9 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     now = env.now_iso()
     split = record.split
     if abs(budget - record.budget) > _EPS and record.status in ("open", "complete"):
-        context, built = _live_context(env, record)
+        # The pool the new split is sized from; due project probes are valued
+        # against the minutes the NEW budget leaves (final verify F10).
+        context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
         allotment, spent = record.ledger()
         pool_loads = {lane: 0.0 for lane in LANES}
         for item in context.pool:
