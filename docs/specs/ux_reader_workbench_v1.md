@@ -6,6 +6,8 @@
 
 **Consistency review (2026-10-13, spec §20.10).** A critic compared this document with the spec line by line and found seven contradictions; all seven are fixed in both documents. Tutor offers are fetched when an answer lands and shown only when pressed (spec D44). W11's density had an extra ½ in each component (total mass ½, so its 30% readout was wrong) and its prediction's answer was backwards; the density, readout and prediction are corrected, and the wrong density is now a negative control in the spec's golden case (G45). A hint sits under the step it is about and names the step it continues from, which is never the questionable one (spec D45). *Check my work* counts as a hint in every example. *Where this goes* says what each box is actually used for (§4.10). The help ladder's fallback steps up a rung on each further Help press. A check on your own names only the book until feedback: no exercise number, section, page, link or *why* (spec D46).
 
+**Adaptive hints folded in (2026-10-13, spec §20.11).** The workbench's hints now come from the hint service of `docs/specs/spec_adaptive_hints_v1.md` (its phase H3). What changes here is presentation only: the suggested rung names the **kind** of help in plain words (a question, a goal to aim for, a plan, the next step, check this part, a worked example, a worked piece) and, for a goal, how far ahead it points; each hint's label carries its kind; a goal offers *a smaller step toward this goal*, and every hint *show me the book's way*; the four *doesn't connect* shortcuts say what they do; rung 1's question before a hint is usually, not always, the suggested rung, because the suggestion is now drawn from LearnLoop's judgment; and the help style is one setting shared with the practice screen. The rule for conflicts was: that spec wins on how hints are generated, the workbench spec and this document on how the Reader presents them, and the workbench spec on what an attempt records.
+
 **Inputs, read in full:**
 - the brainstorm `docs/brainstorming/Improving Reader's design.md` (three rounds, 1,461 lines);
 - the spec at `8deb75be` and the restoration edits in progress on `docs/reader-workbench-spec`, plus the coverage audit `docs/reviews/reader-dialogue-coverage.md`;
@@ -26,7 +28,7 @@ The brainstorm's test is the whole brief: *"Does this interaction help the learn
 2. **Every detour is reversible with one key.** A return stack and a breadcrumb record each step away from the reading position. `Alt+←` goes back, and "Does this make sense now?" waits where the learner returns (B 105, 154, 186).
 3. **Three voices, one visual grammar.** The author's text (`§`), LearnLoop's model (`◇`) and the learner (`›`) each look different everywhere, never by colour alone. "Checked" appears only when something other than a model checked it (B 206, 261, 1282).
 4. **The well's vocabulary in the margin.** The Reader uses the gravity well's discrete markers and never a percentage: `○` untested, `◌` worked with help (a check on your own is pending), `●` demonstrated on your own. A passage note, a recap line and a scheduled check all speak the language the owner already reads on the map (`KnowledgeWellView.tsx`: "dashed amber bead = instructed — cold check pending").
-5. **Help is a visible ladder anchored to your own steps.** All five levels are always on screen when help is open. LearnLoop marks the one it would offer first, and taking any level costs one key and no justification. Hints sit under the step they are about, say which steps stand, and never switch to the book's route uninvited (B 510, 713–763, 788).
+5. **Help is a visible ladder anchored to your own steps.** All five levels are always on screen when help is open. LearnLoop marks the one it would offer first and says, in plain words, what form it takes (a question, a goal to aim for, the next step…), and taking any level costs one key and no justification. Hints sit under the step they are about, say which steps stand, and never switch to the book's route uninvited (B 510, 713–763, 788).
 6. **Quiet by construction.** In reading, nothing moves, blinks, pops or takes focus. LearnLoop speaks only through margin marks, at a density the learner sets. Skim mode mutes it. "No intervention" is the default outcome (B 285–293).
 7. **Never wait.** Every model-backed action returns control at once and lands in a known place, with honest pending, failed, capped and offline states. Reading, selecting and typing never stop for a model (P3 §1.1 invariant 1).
 8. **Coming back is the hero.** "Last time here", resumable problems and cold checks turn `◌` into `●`, and the Reader shows that change. Open questions are threads to pick up, never a debt count (B 263–273, 1020–1055).
@@ -48,7 +50,7 @@ Each principle comes from a brainstorm intention and ends in a test that a scree
 | **U7** | **Every sentence has a visible author.** Source, model and learner text look different, and the difference survives in greyscale and for a screen reader. | B 206 ("visibly AI-generated … not passed off as the author's"); B 261 (source vs inference vs belief); B 655 (reconstruction vs interpretation); B 1282 (provenance is fundamental); P3 invariant 9 | …a block of text on any screenshot cannot be attributed to source, model or learner without hovering. …"checked" or "verified" appears without a non-LLM check (spec W2). |
 | **U8** | **Sources keep their identity.** Several books stay several voices. Their differences are the content. | B 242–261 ("preserve differences … an attractive but misleading consensus"); B 873 (different formulas are not necessarily errors); B 1272 (the textbook is central, not context for an AI) | …a cross-source view contains a model sentence that cites no single source's quote, or a heading such as "summary" or "consensus". …the tutor's answer puts its own explanation above an available excerpt from the learner's book. |
 | **U9** | **Waiting never blocks reading.** A model action is fire-and-keep-going, with a known landing place and honest states. | P3 §1.1 invariant 1 and spec W12; B 102 (context switching); B 982 (don't wait for the session to end) | …any model-backed action has an undefined pending, failed, capped or offline state (§4.0). …scroll, selection or typing in another step stalls while a request runs. …a result moves focus when it lands. |
-| **U10** | **Struggle is respected; autonomy is the default.** The learner sets how much LearnLoop leans in, and nothing counts the time they take. | B 329–335 (expertise reversal; "defaults to respecting the learner's chosen level of autonomy"); B 510 (scaffolding that adapts to struggle); B 808 ("how much of the solution should remain theirs") | …a timer, an elapsed-time display or "taking a while?" appears in the workbench. …help appears that the learner didn't request. …the first offer ignores the help style: the workbench report shows suggested levels under "let me struggle" no lower than under "balanced" on the same facets. (The chooser stays a judgment, spec §5.5; this tests that it listens.) |
+| **U10** | **Struggle is respected; autonomy is the default.** The learner sets how much LearnLoop leans in, and nothing counts the time they take. | B 329–335 (expertise reversal; "defaults to respecting the learner's chosen level of autonomy"); B 510 (scaffolding that adapts to struggle); B 808 ("how much of the solution should remain theirs") | …a timer, an elapsed-time display or "taking a while?" appears in the workbench. …help appears that the learner didn't request. …the first offer ignores the help style: the workbench report shows suggested levels under "let me struggle" no lower, and suggested kinds no more specific, than under "balanced" on the same facets. (The chooser stays a judgment, spec §5.5; this tests that it listens.) |
 | **U11** | **Cold is honest, and the learner is never trapped.** A check on your own shows nothing from before. Help is one key away and says plainly what taking it changes. | B 1043 ("doing so would transition the attempt to an assisted activity rather than secretly preserving cold status"); B 1047 and 1376 (genuine unfamiliarity); P3 §11 ("the learner is never trapped in a cold task to protect a metric") | …a cold check shows source text, an earlier hint, an inquiry or a figure. …help is blocked. …taking help doesn't say, before it happens, that the attempt becomes practice with help. |
 | **U12** | **Everything returns, as a thread to pick up, never as debt.** Questions, unfinished problems, missed predictions and scheduled checks come back at the right moment, each with a way to act on it. | B 263–273 (durable questions; an optional synthesis under a minute); B 106 ("endless accumulation of … overdue reviews"); B 1020–1055 and B 514 (the short unfamiliar problem later); DL L9 (no capture debt) | …any surface shows a count of open or unfinished things as a to-do number, in red, or with "overdue". …a returning visit doesn't offer "continue", the still-open questions and "resume" for unfinished work. |
 | **U13** | **Simple first, everything one key away, everything switchable.** One box on selection. The full palette, every shortcut and every off switch remain. | B 164–166 ("select something and express what you're trying to do"); B 168–174 (standard selection, excellent keyboard controls, the ability to disable interventions, one interaction model across books, PDFs, videos and notes) | …selecting text changes rail tab, moves focus or alters the selection. …any action in today's palette needs more than `Tab` plus one choice from a selection. …a LearnLoop-initiated element lacks an off switch reachable from the element itself. …a switched-off feature leaves a disabled button behind. |
@@ -88,9 +90,11 @@ They write three steps with live KaTeX. Step 3 is `F_Z(x) = −e^{−x}`, and th
 - *Feels:* the slip was found and the fix is still theirs. Nothing about the screen says "wrong".
 - *Does not:* show a red ✗, reveal the answer, start a timer, or comment on how long they took.
 
-**Moment 6 — a question before a hint.** `Ctrl+H`. The help ladder opens at once below step 3 with all five levels. Because two explanations of the step-3 slip are open (a support mistake or a missing constant), rung 1 reads *a question that tells apart two explanations of step 3 · not graded · counts as a hint*, and about two seconds later it is marked *▸ suggested (why?)* **[RW2b, restored]**. They take it: *"What is P(Z ≤ 0) when Z ~ Exponential(1)?"* They answer *"0"*. *"That settles it: your support is right; the gap is the constant."* The hint (level 3) follows under step 3, the step it is about, labelled *continues from step 2*, the last step that stands: *"Steps 1–2 stand. Your antiderivative in step 3 matches the density, but a CDF must be 0 at x = 0, and −e^{−x} gives −1 there. What constant keeps your derivation and fixes that?"* They write step 4, `1 − e^{−x}`. About seven seconds later a quiet line appears under the hint: *§ compare with the book: Example 5.3.2's boundary step, p.219 ▸*. They peek: the source pane scrolls to it, outlined, with a crumb back to 5.14 **[RW2b bridging; RW2c route-matched examples]**.
+**Moment 6 — a question before a hint.** `Ctrl+H`. The help ladder opens at once below step 3 with all five levels. Because two explanations of the step-3 slip are open (a support mistake or a missing constant), rung 1 reads *a question that tells apart two explanations of step 3 · not graded · counts as a hint*, and about two seconds later it is marked *▸ suggested (why?)* **[RW2b, restored]**. They take it: *"What is P(Z ≤ 0) when Z ~ Exponential(1)?"* They answer *"0"*. *"That settles it: your support is right; the gap is the constant."* The hint (level 3, *check this part*: what is off in the step and the principle it breaks, without the fix) follows under step 3, the step it is about, labelled *continues from step 2*, the last step that stands: *"Steps 1–2 stand. Your antiderivative in step 3 matches the density, but a CDF must be 0 at x = 0, and −e^{−x} gives −1 there. What constant keeps your derivation and fixes that?"* They write step 4, `1 − e^{−x}`. About seven seconds later a quiet line appears under the hint: *§ compare with the book: Example 5.3.2's boundary step, p.219 ▸*. They peek: the source pane scrolls to it, outlined, with a crumb back to 5.14 **[RW2b bridging; RW2c route-matched examples]**.
 
 Had the hint said "integrate the piecewise density instead" (the book's route), they would have pressed *this doesn't connect to my work…*, then *I'm using a different approach*, and the next hint would have stayed on their CDF-first route (spec §5.2 rules 4–5).
+
+Had LearnLoop's judgment drawn a goal instead, the hint would have read *a goal to aim for · about two steps ahead*: *"Steps 1–2 stand. Aim for a CDF of the exponential part that is 0 at x = 0 and climbs to 1; you're about two steps from that."* It says what will be true, not how to get there. Had that been too far, *a smaller step toward this goal* (`Ctrl+Shift+H`) would have given the next step toward the same goal, at the same rung and the same cost (spec §5.2).
 - *Feels:* the hint met them where they were, and nobody took the pencil.
 - *Does not:* restart the explanation, switch to the book's route, hide the higher rungs, or ask "are you sure?".
 
@@ -172,12 +176,13 @@ Rules that make the transitions predictable (B 140–160, Jenson's "a sequence o
 | Reading position per source | P3 restoration (existing) | restarts |
 | The return stack (detours within a visit) | Reader UX state for the visit; its root is P3's restored position | navigation within the visit; app restart restores only the root **[UX→RW1a]** |
 | Inquiries, branches and status | `question_events` and branch parents on the answer payload (spec §4.3) | always; open ones also appear in Today's question queue |
-| Workbench sessions, steps (with superseded versions) and assists | `workbench_sessions`, `workbench_steps`, `workbench_assists` (spec §5.7) | always; open sessions are never closed automatically (spec §5.1) |
+| Workbench sessions, steps (with superseded versions) and assists | `workbench_sessions`, `workbench_steps`, and `help_assists` rows with `surface = 'workbench'` (spec §5.7; the table is shared with the practice screen's hints) | always; open sessions are never closed automatically (spec §5.1) |
 | Library asks, comparisons, kept comparisons | `library_asks`; kept comparisons as `source_object_relations` proposals **[RW4d]** | always |
 | Figures and predictions | `interactive_figures`, `figure_predictions` | always (the figure reopens from cache) |
 | Formative records (next-step misses, "still unclear", predictions, check verdicts) | learner-text gaps sources and `ReaderObservationV1` **[RW1b, RW5a, RW6a]** | always |
 | Scheduled checks | commitments (`test_me_later`, `due_hint`) **[RW6b]** | until answered, retired or undone |
-| Rail tab, rail and split widths, help style, cue density, reading font, "cues off" for a source | UX preferences on the device (try/catch around storage; render correctly without it); "cues off" and cue density also in vault config so they hold across devices | per device or per vault, as noted |
+| Help style | One setting in Settings, read by LearnLoop's hint judgment on every surface (spec §5.5); the workbench header changes it for one problem (`workbench_sessions.help_style`, spec D31) | always |
+| Rail tab, rail and split widths, cue density, reading font, "cues off" for a source | UX preferences on the device (try/catch around storage; render correctly without it); "cues off" and cue density also in vault config so they hold across devices | per device or per vault, as noted |
 | Recap dismissal | per source, until the next session | — |
 
 ### 3.4 The visual grammar: three voices and one evidence vocabulary
@@ -248,6 +253,8 @@ The map stays consistent with what the app teaches elsewhere: `^p` palette, `Esc
 | | `Ctrl+Backspace` in an empty step | delete the step (undo shows) |
 | | `Ctrl+K` | check my work |
 | | `Ctrl+H` | help ladder: `1`–`5` or `↑↓` to choose, `↵` to take, `Esc` to close |
+| | `Ctrl+Shift+H` | after *a goal to aim for*: a smaller step toward it (the next step, same rung) |
+| | `Tab` from a hint | its actions: *a smaller step toward this goal* · *this doesn't connect to my work…* · *show me the book's way* |
 | | `Ctrl+D` | I'm stuck |
 | | `Ctrl+↵` | submit |
 | | `Ctrl+Shift+B` | hide the book (before step 1) / show the book |
@@ -256,7 +263,7 @@ The map stays consistent with what the app teaches elsewhere: `^p` palette, `Esc
 | Comparing | `↑` `↓` · `Space` · `p` · `o` · `c` · `Ctrl+↵` | move · peek · pin · open source · compare pinned · ask the tutor about pinned |
 | Figure | `Tab` · arrows · `Shift+arrows` · `t` | next control · adjust · big step · values as a table |
 
-`Ctrl+K` and `Ctrl+Shift+B` must be checked against `LiveMarkdownEditor`'s own bindings in RW2a. If they clash, the editor's binding wins and the action gets the next free chord.
+`Ctrl+K`, `Ctrl+Shift+B` and `Ctrl+Shift+H` must be checked against `LiveMarkdownEditor`'s own bindings in RW2a (and RW2b for the last). If they clash, the editor's binding wins and the action gets the next free chord.
 
 ---
 
@@ -483,53 +490,90 @@ When a gap is named from the learner's text, the inquiry shows one line: *◇ mo
 
   | Rung | Label | Consequence shown |
   |---|---|---|
-  | 1 | a question about your approach | *hint* |
+  | 1 | a question about your approach (with rivals open: *a question that tells apart two explanations of step N*, §5.8) | *hint* |
   | 2 | point to the first step that doesn't hold yet | *hint* |
-  | 3 | a hint on your step N | *hint* |
-  | 4 | write the next step for me, in my notation | *worked help ◌* |
+  | 3 | a hint on your step N — a goal to aim for, a plan, the next step… | *hint* |
+  | 4 | work a piece of it for me, in my notation | *worked help ◌* |
   | 5 | walk me through the rest, keeping my route | *worked help ◌* |
 
-- **The offered rung** gets a `▸` and *suggested (why?)* when the chooser returns (≤ 3 s). Until then the ladder works with no suggestion. On timeout, or when the chooser is unavailable, the suggestion is rung 1 the first time, then one rung above the last one offered or taken on that step each time Help opens there again (spec §5.5); its *why?* reads *"no judgment available right now — the next rung up"*. *why?* expands to the chooser's inputs in plain words: *"you've demonstrated conditioning on your own twice; this is your first boundary-condition problem; help style: balanced · LearnLoop's judgment."*
+- **The rung is the amount; the words say the form.** The rung decides what the attempt records (spec §5.4). The form of help at that rung — its kind (spec §5.2) — is LearnLoop's judgment, and the ladder names it in plain words so the learner knows what they are about to get. The names are the hint labels of §5.6.
+- **The offered rung** gets a `▸` and *suggested (why?)* when the chooser returns (≤ 3 s), and names its form: *▸ 3 · a goal to aim for, about two steps ahead · suggested (why?)*. Until then the ladder works with no suggestion. The other rungs keep their general labels; taking one gets a form LearnLoop picks for that rung, named on the hint's label. On timeout, or when the chooser is unavailable, the suggestion is rung 1 the first time, then one rung above the last one offered or taken on that step each time Help opens there again (spec §5.5); its *why?* reads *"no judgment available right now — the next rung up"*, and rung 3 then serves the item's own hints first (*from the item*). *why?* expands to the chooser's inputs in plain words: *"a goal to aim for: you've demonstrated conditioning on your own twice and your steps so far stand; help style: balanced · LearnLoop's judgment."* When the judgment was split, *why?* says so: *"it leaned between a goal and the next step"*. The suggestion is drawn from that judgment rather than always its top choice (spec §5.5), and the learner never needs to know more than that.
 - **Choosing and taking are separate.** Digits and arrows choose a rung, and `↵` takes it, so a stray keypress can't reveal a worked step. There is no "are you sure?".
-- **The ladder never shrinks.** No rung is ever disabled for being "too early" (B 788). With *let me struggle*, the suggestion leans low. With *guide me* it leans high. The learner's choice always wins.
+- **The ladder never shrinks.** No rung is ever disabled for being "too early" (B 788). With *let me struggle*, the suggestion leans low and toward questions and goals; with *guide me* it leans high, toward next steps and worked steps. The learner's choice always wins.
 - **When rival explanations are open,** rung 1 reads *a question that tells apart two explanations of step N* (§5.8).
+- **After a goal to aim for,** Help on that step keeps the goal: rung 3 and up aim at the same goal, and the next step toward it is always among what LearnLoop can suggest (spec §5.2).
 - **Assistance taken** shows in the footer as it accrues: *book open = 1 hint · help used: a check, a question (L1), a hint (L3)*.
 
 ### 5.6 Hints, anchored and reconciled
 
-- A hint appears **under the step it is about**, in the model voice, and its label names **the step it continues from** (spec §5.2 rules 2–3; D45). The two can differ: a hint about a questionable step may quote it, but it builds on the steps that stand, so the questionable step is never its checkpoint.
+- A hint appears **under the step it is about**, in the model voice, and its label names **its kind, its rung and the step it continues from** (spec §5.2 rules 2–3; D45). The step it is about and the step it continues from can differ: a hint about a questionable step may quote it, but it builds on the steps that stand, so the questionable step is never its checkpoint.
 
   ```
   3 › = −e^{−x}
-      ◇ model · hint, level 3 · on your step 3 · continues from step 2
+      ◇ model · check this part · level 3 · on your step 3 · continues from step 2
       ┊ Steps 1–2 stand. Your antiderivative in step 3 matches the density,
       ┊ but a CDF must be 0 at x = 0, and "−e^{−x}" gives −1 there.
       ┊ What constant keeps your derivation and fixes that?
-      ┊ this doesn't connect to my work…
+      ┊ this doesn't connect to my work… · show me the book's way
   ```
 
+- **Kinds in plain words.** Each hint's label names its form, never its internal name, and never a judgment of the learner (spec §5.2's table):
+
+  | Kind (spec) | Label | Rung |
+  |---|---|---|
+  | `approach_question` | *a question about your approach* (with no steps yet: *your first move?*) | 1 |
+  | `discriminating` | *a question that tells apart two explanations* · at rung 3, *a check that tells them apart* | 1, 3 |
+  | `localize` | *where it stops holding* | 2 |
+  | `waypoint` | *a goal to aim for* · *about two steps ahead* / *at the end of this part* / *the goal itself* | 3 |
+  | `subgoal_plan` | *a plan for the rest* | 3 |
+  | `next_step` | *the next step* | 3 |
+  | `error_specific` | *check this part* | 3 |
+  | `worked_parallel` | *the same move on another example* · *from the book* or *AI-written* | 3 |
+  | `authored` | *from the item* | 3 |
+  | `continuation` | *the next part, written for you* · *worked help ◌* | 4 |
+  | `worked_chunk` | *a worked piece, from the goal back* · *worked help ◌* | 4 |
+  | `walkthrough` | *the rest, worked through* · *worked help ◌* | 5 |
+
+- **A goal to aim for** says what will be true, not how to get there, and how far ahead it is. Under it sits *a smaller step toward this goal ▸* (`Ctrl+Shift+H`), which gives the next step toward the same goal at the same rung and cost. It is the way down that never depends on LearnLoop's suggestion: learners who couldn't bridge to a goal tended to give up (spec §5.2).
+
+  ```
+  3 › = −e^{−x}
+      ◇ model · a goal to aim for · about two steps ahead · level 3 · on your step 3 · continues from step 2
+      ┊ Steps 1–2 stand. Aim for a CDF of the exponential part that is 0 at x = 0
+      ┊ and climbs to 1; you're about two steps from that.
+      ┊ a smaller step toward this goal ▸ · this doesn't connect to my work… · show me the book's way
+  ```
+
+- **A plan for the rest** lists a few labelled parts of the route, *reached* on those the learner's steps already reach and *← here* on the current one: *find the CDF on each piece (reached) · fix the constant with a boundary value ← here · put the pieces together*. `✓` is never used here, because it means a non-LLM check passed (§3.4). Labels never carry a value from a later part.
 - **"What stands" comes first** (spec §5.2 rule 3). The learner's quoted step uses the learner's styling.
+- **Earlier hints stay** where they landed, in order, so a goal or a plan can be reread while working.
+- **Show me the book's way** (under every hint) asks for the next hint on the book's route, at the same rung (spec §5.2 rule 4). It is the only way a hint leaves the learner's route while that route is valid.
 - **Authored hints** are labelled *from the item*.
 - **A capped or failed hint writer** shows *"Tailored hints are unavailable right now (reason). The item's own hints are still here ▸"*.
 - **Leaks:** a hint that would give the answer away is withheld with *"This hint would give the answer away — take level 4 instead?"*.
+- **Never unasked.** A hint, a goal included, appears only after the learner opened Help or replied to a hint (U10; spec §5.2).
 - **Compare with the book** arrives later, under the hint, as *◐ finding the matching step in the book…* and then *§ compare with the book: Example 5.3.2's boundary step, p.219 ▸*, which peeks it in the left pane with a crumb. With RW2c the example is chosen to **match the learner's route** where one exists (*"a CDF-first example"*).
 
 ### 5.7 "This doesn't connect to my work"
 
 - Under every hint. One click opens, inline:
-  - four shortcuts, *that's not where I'm stuck · too big a jump · I'm using a different approach · the notation* (§10 S14 adds the first);
+  - four shortcuts, each with what it does (§10 S14 adds the first):
+    - *that's not where I'm stuck* — the next hint moves to the step you pick, starting from what stands before it;
+    - *too big a jump* — the next hint takes a smaller step: a nearer goal, or the next step itself;
+    - *I'm using a different approach* — the next hint stays on your route and says which of your steps it builds on;
+    - *the notation* — the next hint says the same thing again in your symbols;
   - *about step: [3 ▾]*, defaulting to the hint's step;
   - a one-line box, *say more (optional)*;
   - *↵ next hint*.
-- The next hint is requested at once with the reply, and **must declare a different strategy** (spec §5.2 rule 5). The UI shows it on the hint label as *"a different approach: a worked parallel"*.
+- The next hint is requested at once with the reply, **on the same rung**, so it costs nothing new; more help is a higher rung, taken on the ladder. Except after *the notation*, it **changes its form or approach** (spec §5.2 rule 5), and the label shows it: *"a different approach: a worked parallel"*.
 - With *I'm using a different approach*, the next hint's first line says which of the learner's steps it builds on.
-- Nothing about this is framed as a complaint. The button's tooltip reads *"tells LearnLoop the hint missed — the next one changes approach"*.
+- Nothing about this is framed as a complaint. The button's tooltip reads *"tells LearnLoop the hint missed — the next one adjusts"*.
 
 ### 5.8 A question before a hint (discriminating questions) **[RW2b, restored]**
 
-- **When:** the check leaves a questionable step with two or more rival explanations open (spec §5.2 rule 6). Rung 1 then takes this form, and is the suggested rung, unless there is a single explanation, the help style is *guide me*, or the learner picks a higher rung (spec §5.2 "when it is skipped").
+- **When:** the check leaves a questionable step with two or more rival explanations open (spec §5.2 rule 6). Rung 1 then takes this form. LearnLoop's judgment usually suggests it first, because asking first both helps and tells the explanations apart, but the suggestion is a judgment (spec §5.5, §20.11 C1): with *guide me*, or when the steps point clearly at one explanation, another rung may be suggested, and the question stays on rung 1 for the learner who wants it. With a single explanation rung 1 is an ordinary question; the learner picking a higher rung skips it.
 - **Its label says three things before it is answered:** what it's for, that it isn't graded, and what it counts as. *"a question that tells apart two explanations of step 3 · not graded · counts as a hint"*. The spec records it as a level-1 hint (`hints_used` += 1, §5.4), and the learner sees that up front.
-- **Shape:** the question in the model voice, a one-line answer box, *↵ answer · skip to a hint*. After the answer comes one line saying what it settled (*"That settles it: your support is right; the gap is the constant"*), or *"Still two possibilities — here's a hint that covers both"*, then the hint at the offered rung.
+- **Shape:** the question in the model voice, a one-line answer box, *↵ answer · skip to a hint*. After the answer comes one line saying what it settled (*"That settles it: your support is right; the gap is the constant"*), or *"Still two possibilities — here's a hint that covers both"*, then the hint at the offered rung. If no question can separate the explanations, rung 1 says so and asks about the approach instead (*"no question separates these two readings; here is a question about your approach"*).
 - **A short problem instead** (once SRC's discriminating search merges): one line under the question, *or try a short problem from your books that tells these apart ▸ (about 5 min)*. Taking it opens a second workbench session in the same posture, with a crumb back to Exercise 5.14, which stays open. Leaving it lets RW6b value it with the other follow-ups.
 - **Recorded** as a formative answer (tier 2): in the diagnoser's trace at Submit, in the next hint's context, and in learner-text gaps when written (in-session updates, spec §5.2). It moves no posterior.
 - **One at a time.** A second discriminating question appears only if the learner asks for it, and it must clear the same EIG bar (spec §5.2).
@@ -550,18 +594,19 @@ When a gap is named from the learner's text, the inquiry shows one line: *◇ mo
 ### 5.11 Help style and emotional tone
 
 - **Help style** is *let me struggle · balanced · guide me*, a three-way control in the header, remembered (default *balanced*). Each choice has one line:
-  - *"offers the lightest help first"*;
+  - *"offers the lightest help first: questions and goals to aim for"*;
   - *"LearnLoop picks from your history"*;
-  - *"offers worked steps sooner"*.
+  - *"offers more specific help sooner: next steps, then worked steps"*.
 
-  It changes only the suggestion. Every rung stays available.
+  It changes only the suggestion. Every rung stays available. It is one setting, shared with the hints on the practice screen (spec §5.5); the header changes it for this problem only (spec D31).
 - **Tone rules:**
 
   | Situation | Say | Never |
   |---|---|---|
   | A step doesn't hold | "? this is where your expression stops being a CDF" | "wrong", "error", "mistake", red |
   | A valid different route | "your route works — the book goes another way" | "the correct method is…" |
-  | Taking worked help | "write the next step for me (worked help ◌)" | "are you sure? this will hurt your score" |
+  | Taking worked help | "work a piece of it for me (worked help ◌)" | "are you sure? this will hurt your score" |
+  | A goal that was too far | "a smaller step toward this goal" | "that was too hard for you" |
   | Book open | "practice beside the book · counts as one hint" | "assisted (penalty)", "cheating" |
   | Many hints on one step | nothing; the next hint changes approach | "you've used 4 hints" |
   | A long time on a problem | nothing | "taking a while?", any timer |
@@ -570,7 +615,7 @@ When a gap is named from the learner's text, the inquiry shows one line: *◇ mo
 
 ### 5.12 On the practice screen
 
-The remembered *Work in steps* button (spec D9) opens the same step editor, full width, with the item stem on top and no source pane. Keys and states are the same. The practice screen's `MathLiveEditor` stays the default answer surface until the RW2b checkpoint.
+The remembered *Work in steps* button (spec D9) opens the same step editor, full width, with the item stem on top and no source pane. Keys and states are the same. The practice screen's `MathLiveEditor` stays the default answer surface until the RW2b checkpoint. Hints on the practice screen's own answer box are the adaptive-hints spec's (its §4.8: a clickable hint control, kind labels, *doesn't connect*); they come from the same service and read the same help style, and with *Work in steps* the ladder above applies.
 
 ---
 
@@ -702,8 +747,8 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │  │ ▸ 1  a question that tells apart two explanations of step 3 · not graded       hint     │ │
 │  │      or try a short problem from your books that tells them apart ▸ (~5 min)            │ │
 │  │   2  point to the first step that doesn't hold yet                         hint          │ │
-│  │   3  a hint on your step 3                                                 hint          │ │
-│  │   4  write the next step for me, in my notation                    worked help ◌         │ │
+│  │   3  a hint on your step 3 — a goal to aim for, a plan, the next step…     hint          │ │
+│  │   4  work a piece of it for me, in my notation                     worked help ◌         │ │
 │  │   5  walk me through the rest, keeping my route                    worked help ◌         │ │
 │  │ ↑↓ / 1–5 choose · ↵ take · esc close                                                     │ │
 │  └──────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -722,17 +767,18 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 ```
 │  3 › = −e^{−x}                                                                               │
 │      ◇ model · that settles it: your support is right; the gap is the constant              │
-│      ◇ model · hint, level 3 · on your step 3 · continues from step 2                       │
+│      ◇ model · check this part · level 3 · on your step 3 · continues from step 2           │
 │      ┊ Steps 1–2 stand. Your antiderivative in step 3 matches the density,                  │
 │      ┊ but a CDF must be 0 at x = 0, and "−e^{−x}" gives −1 there.                          │
 │      ┊ What constant keeps your derivation and fixes that?                                  │
-│      ┊ this doesn't connect to my work…                                                     │
+│      ┊ this doesn't connect to my work… · show me the book's way                            │
 │      ┊ § compare with the book: Example 5.3.2's boundary step, p.219 ▸                      │
 │  4 › _                                                                                       │
 
     after "this doesn't connect to my work…":
 │      ┊ [that's not where I'm stuck] [too big a jump] [I'm using a different approach]        │
 │      ┊ [the notation]                                       about step: [3 ▾]                │
+│      ┊ the next hint stays on this rung · it moves, shrinks, keeps your route or your symbols│
 │      ┊ ┌───────────────────────────────────────────────────────────────┐                     │
 │      ┊ │ say more (optional)                                            │   ↵ next hint        │
 │      ┊ └───────────────────────────────────────────────────────────────┘   ⓘ where this goes │
@@ -924,7 +970,7 @@ Every posture is fully operable from the keyboard (§3.5).
 - **Math:** KaTeX renders with MathML (`output: "htmlAndMathml"`) in the source, answers and steps, so formulas are read, not spelled.
 - **Margin marks** are buttons placed before their paragraph in the DOM, labelled with the full sentence ("Note on this paragraph: connects to a distinction you worked on…").
 - **Figures:** sliders are `input[type=range]` with `aria-valuetext` ("p equals 0.30"). Readouts sit in a polite live region throttled to one update per second of dragging. *Values as a table* gives a data table equivalent of every plot (B 379: figures carry meaning text extraction loses, so the reverse must hold too).
-- **The ladder** is a radio group with each rung's consequence in its accessible name.
+- **The ladder** is a radio group with each rung's consequence in its accessible name, and the suggested rung's form too ("suggested: a goal to aim for, about two steps ahead"). A hint's kind is the first words its screen-reader label speaks after "LearnLoop's model".
 
 ### 7.3 Reduced motion and calm
 
@@ -994,7 +1040,7 @@ Proposed for later, with defaults in §10:
 |---|---|---|
 | **RW1a** (inquiry) | A week of normal reading; optionally one timed walkthrough: ask → branch → return | The funnel: selections → actions → usable result → **back to the origin passage**; detour round trips (`reader_source_restored`) per inquiry; reconnect answers |
 | **RW2a** (scratchpad) | A week of solving beside the book; walkthrough: open → solve → leave → resume | Sessions opened, resumed, submitted, abandoned and left open; resume after restart; time from open to first step (should be seconds, §10 S2) |
-| **RW2b** (checks and help) | Two weeks | Help level taken vs suggested, by facet over time; recovery after a check; **"doesn't connect" rate by shortcut**; discriminating questions asked, answered and skipped; check and hint latency against the 10 s target |
+| **RW2b** (checks and help) | Two weeks | Help level and kind taken vs suggested, by facet over time; recovery after a check; **"doesn't connect" rate by shortcut and kind**; goals reached after *a goal to aim for*; discriminating questions asked, answered and skipped; check and hint latency against their targets |
 | **RW3a/b** (cues) | Two weeks with the density at *normal* | Marks per reading hour; open, check-me and not-relevant rates; density changes; the share of `●` vs `◌` cues |
 | **RW4a/d** (library, compare) | Use it when curious; no quota | Asks; tutor-on-request rate; compare and keep rates; organizer lines dropped by verification |
 | **RW5a** (figures) | Make two or three figures in the probability chapters | Verified, illustrative, failed and unsupported shares; predictions made and missed; "what changed?" answers |
@@ -1008,8 +1054,9 @@ No new table is needed. Each measure below reads the events and tables in spec �
 - **Detour cost:** the minutes from leaving the origin to returning, with model wait separated out.
 - **Proactive load:** LearnLoop-started elements shown per reading hour (`cue_shown`, reconnect shown, section-boundary offers, quick-check availability), against the density setting. This is U5's measure.
 - **Waiting behaviour:** the share of model waits during which the learner scrolled, selected or typed. A spinner-watching learner means U9 is failing in practice.
-- **Unusable help:** "doesn't connect" replies per hint, by shortcut and help style.
-- **Help drift:** the level taken by facet over time. It should fall on facets the learner is demonstrating.
+- **Unusable help:** "doesn't connect" replies per hint, by shortcut, kind and help style.
+- **Help drift:** the level and kind taken by facet over time. Both should become less specific on facets the learner is demonstrating.
+- **Goals reached:** after *a goal to aim for*, the share where the learner's next steps reached it without more help, how often *a smaller step toward this goal* was taken, and *too big a jump* replies — split by how well the facet is demonstrated. This is the n = 1 check of the waypoint research (spec §5.2, §15).
 - **Undo reasons on scheduled checks.** These are the only direct evidence about the learner's own cost of a check (§9.3).
 
 ### 9.3 Calibrating value of information from the learner's side
@@ -1037,6 +1084,7 @@ Answer each at the end of the week. A "no" names the screen and the moment.
 10. Were the checks on your own unfamiliar but fair, and did each say why it was there?
 11. Did you avoid the workbench because it felt heavy? If so, where did the weight come from?
 12. Is there anything you wanted to do in the Reader that took more than two keys?
+13. When a hint gave you a goal to aim for, could you get there? When you couldn't, was a smaller step one key away, and did the hint's label tell you what kind of help it was?
 
 The existing *how did that feel* affect tap (`AffectTap`) stays at the foot of an inquiry and of the workbench, never opened automatically, as a place for in-the-moment reactions.
 
@@ -1130,6 +1178,7 @@ The existing *how did that feel* affect tap (`AffectTap`) stays at the foot of a
 | Saving states, leave for now, abandon with reopen, resume | §5.3 | RW2a (S13 adopted) |
 | Check my work, error-kind guess | §5.4 | RW2b |
 | Help ladder, suggested rung, why, choose/take separation | §5.5 | RW2b |
+| Kinds in plain words on the suggested rung and every hint; goals with how far ahead; *a smaller step toward this goal*; *show me the book's way*; shortcuts that say what they do | §5.5–5.7 | RW2b, through the adaptive-hints spec's service (its H3) |
 | Anchored hints, "what stands", leak and cap messages | §5.6 | RW2b |
 | Compare with the book; route-matched examples | §5.6 | RW2b (bridging); RW2c (`find_examples`, restored) |
 | "This doesn't connect" with four shortcuts | §5.7 | RW2b (S14 adopted) |
@@ -1156,9 +1205,9 @@ The restored spec labels these DEFERRED (spec §17). Each has a place in this de
 | Page-image (visual) retrieval | library hits gain a page thumbnail beside the `§` excerpt (§4.5) |
 | OS-level or MCP learning service; browser or editor capture | the capture box and inbox (DL C1–C4); questions arriving from elsewhere open as inquiries in the returning posture |
 | Local rerankers | invisible; shows only as lower latency in the pending lines |
-| Learned cue and hint policies | invisible; the ladder's *why?* would name the policy |
+| Learned cue policies; a learned hint chooser (the adaptive-hints spec's deferral) | invisible; the ladder's *why?* would name the policy |
 | Formative signals as numeric observations | invisible; W1 tier 2 would change, not the UI |
-| Alternative reference routes in solution graphs | the hint label's *"a different approach"*, and *show me the book's way* listing routes |
+| Full step-level solution graphs (routes at subgoal level now come from the adaptive-hints spec's approach maps, spec §17) | the hint label naming the route it follows, and *show me the book's way* listing the book's routes |
 | Formal verification of proof steps | a new check method behind `✓ checked` (§3.4) |
 | Cross-learner data-driven hints | not applicable at n = 1 |
 | A learned, causal model of which help works | the ladder's *why?*; RW2c's record is its data |
