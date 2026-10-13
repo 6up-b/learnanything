@@ -2834,6 +2834,14 @@ class DurableIngestJobs:
         self._reader_synth_client_factory: Any = None
         self._reader_client: Any = None
         self._reader_client_checked = False
+        # UX Phase 1 (re-review F8): the Reader's "keep one chapter ahead" asks
+        # that failed, per extraction (the newest position wins), retried by
+        # the worker off the Reader's progress RPC.
+        self._reading_advances: dict[str, dict[str, Any]] = {}
+
+    #: Seconds before each worker retry of a failed keep-ahead ask; after the
+    #: last one the ask waits for the Reader's next report (re-review F8).
+    READING_RETRY_DELAYS: tuple[float, ...] = (2.0, 10.0, 30.0)
 
     # -- wiring ------------------------------------------------------------
 
@@ -2891,6 +2899,8 @@ class DurableIngestJobs:
             if not same_vault or background is not None:
                 self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
+            if not same_vault:
+                self._reading_advances = {}
         # Recover anything a prior process left mid-flight before draining.
         if not same_vault:
             runner.recover_stale_leases()
@@ -2997,6 +3007,73 @@ class DurableIngestJobs:
         )
         self._ensure_worker()
         return batch_id
+
+    # -- UX Phase 1: the Reader's keep-ahead asks that failed (re-review F8) --
+
+    def reading_advance_pending(self, extraction_id: str) -> bool:
+        """Whether a keep-ahead ask for this book failed and is not settled."""
+
+        with self._lock:
+            return extraction_id in self._reading_advances
+
+    def defer_reading_advance(self, extraction_id: str, section_id: str) -> None:
+        """A keep-ahead ask failed: the worker retries it, with the newest
+        position, a few times (:attr:`READING_RETRY_DELAYS`)."""
+
+        with self._lock:
+            self._reading_advances[extraction_id] = {
+                "section_id": section_id,
+                "attempts": 0,
+                "due_at": time.monotonic() + self.READING_RETRY_DELAYS[0],
+            }
+        if self._background:
+            self._ensure_worker()
+
+    def settle_reading_advance(self, extraction_id: str) -> None:
+        """A keep-ahead ask for this book was queued or durably deferred."""
+
+        with self._lock:
+            self._reading_advances.pop(extraction_id, None)
+
+    def retry_reading_advances(self, *, now: float | None = None) -> int:
+        """Retry the failed keep-ahead asks that are due (worker side; tests
+        and foreground hosts call it directly). Returns how many settled."""
+
+        from learnloop.content.pipeline import add_source
+
+        moment = time.monotonic() if now is None else now
+        delays = self.READING_RETRY_DELAYS
+        with self._lock:
+            due = [
+                (extraction_id, pending)
+                for extraction_id, pending in self._reading_advances.items()
+                if pending["attempts"] < len(delays) and pending["due_at"] <= moment
+            ]
+        settled = 0
+        for extraction_id, pending in due:
+            try:
+                add_source.advance_reading_build(self, extraction_id, pending["section_id"])
+            except Exception:  # noqa: BLE001 - a retry never kills the worker
+                import logging
+
+                logging.getLogger(__name__).warning("keeping questions a chapter ahead failed again", exc_info=True)
+                with self._lock:
+                    # A newer ask replaced this one meanwhile: it keeps its own count.
+                    if self._reading_advances.get(extraction_id) is pending:
+                        pending["attempts"] += 1
+                        if pending["attempts"] < len(delays):
+                            pending["due_at"] = moment + delays[pending["attempts"]]
+                continue
+            with self._lock:
+                if self._reading_advances.get(extraction_id) is pending:
+                    del self._reading_advances[extraction_id]
+            settled += 1
+        return settled
+
+    def _reading_retry_waiting(self) -> bool:
+        with self._lock:
+            limit = len(self.READING_RETRY_DELAYS)
+            return any(pending["attempts"] < limit for pending in self._reading_advances.values())
 
     # -- sidecar-facing API ------------------------------------------------
 
@@ -3739,8 +3816,14 @@ class DurableIngestJobs:
                 ran += self._drain_reader_requests(runner)
             except Exception:  # noqa: BLE001 — reader synthesis must never kill the ingest drain
                 pass
+            try:
+                ran += self.retry_reading_advances()
+            except Exception:  # noqa: BLE001 — a keep-ahead retry must never kill the ingest drain
+                pass
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
-            if idle_rounds >= 3 and self._active_job_locked(runner) is None:
+            # A failed keep-ahead ask keeps the worker polling until its
+            # retries settle it or run out (re-review F8).
+            if idle_rounds >= 3 and self._active_job_locked(runner) is None and not self._reading_retry_waiting():
                 break
             if ran == 0:
                 self._work_available.wait(timeout=self._poll_interval)

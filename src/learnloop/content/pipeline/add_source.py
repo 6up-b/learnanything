@@ -1540,13 +1540,18 @@ def reconcile_reading_builds(ingest_jobs, *, skip: Iterable[str] = ()) -> list[s
     started: list[str] = []
     for state in repo.sources_with_wanted_reading():
         source_id = str(state["source_id"])
-        if source_id in skipped or _source_work_active(repo, source_id):
-            continue
-        wanted = _wanted_chapters(repo, ingest_jobs.vault_root, source_id, state)
-        if wanted:
-            request_auto_build(ingest_jobs, source_id, chapter_ids=wanted)
-            started.append(source_id)
-        repo.clear_source_wanted_reading(source_id, section_id=state["wanted_section_id"])
+        try:
+            if source_id in skipped or _source_work_active(repo, source_id):
+                continue
+            wanted = _wanted_chapters(repo, ingest_jobs.vault_root, source_id, state)
+            if wanted:
+                request_auto_build(ingest_jobs, source_id, chapter_ids=wanted)
+                started.append(source_id)
+            repo.clear_source_wanted_reading(source_id, section_id=state["wanted_section_id"])
+        except Exception:  # noqa: BLE001 - one book's failure keeps its position for next time
+            import logging
+
+            logging.getLogger(__name__).warning("could not act on a book's pending reading position", exc_info=True)
     return started
 
 
@@ -1576,11 +1581,52 @@ def advance_reading_build(ingest_jobs, extraction_id: str, section_id: str) -> d
     chapters = outline_chapters(_unit_tree(repo, extraction_id))
     cover = coverage(repo, source_id)
     wanted = chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)
-    repo.clear_source_wanted_reading(source_id)
     if not wanted:
+        repo.clear_source_wanted_reading(source_id)
         return None
     batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=[chapter.unit_id for chapter in wanted])
+    # Only once the build is queued (re-review F8): a failed enqueue keeps any
+    # pending position for the retry.
+    repo.clear_source_wanted_reading(source_id)
     return {"batch_id": batch_id, "source_id": source_id, "chapters": [chapter.label for chapter in wanted]}
+
+
+def keep_ahead_for_reader(ingest_jobs, extraction_id: str, section_id: str) -> dict[str, Any] | None:
+    """The Reader's progress RPC asks to keep one chapter ahead. Never raises.
+
+    A failed ask (a busy database, a config mid-edit) is not lost (re-review
+    F8): it is recorded as the book's pending reading position, which the next
+    start, a finished build and reconnecting an AI act on, and handed to the
+    ingest worker, which retries it off the RPC path. Until it settles, the
+    Reader's next report for the book asks again instead of being coalesced."""
+
+    try:
+        started = advance_reading_build(ingest_jobs, extraction_id, section_id)
+    except Exception:  # noqa: BLE001 - planning never fails the Reader
+        import logging
+
+        logging.getLogger(__name__).warning("failed to keep questions a chapter ahead; retrying", exc_info=True)
+        _remember_reading_position(ingest_jobs, extraction_id, section_id)
+        ingest_jobs.defer_reading_advance(extraction_id, section_id)
+        return None
+    ingest_jobs.settle_reading_advance(extraction_id)
+    return started
+
+
+def _remember_reading_position(ingest_jobs, extraction_id: str, section_id: str) -> None:
+    """Best effort: the book's pending reading position, durably."""
+
+    try:
+        repo = ingest_jobs.repository
+        run = repo.get_extraction_run(extraction_id)
+        revision = repo.get_source_revision(run["revision_id"]) if run else None
+        source_id = (revision or {}).get("source_id")
+        if source_id:
+            repo.set_source_wanted_reading(source_id, extraction_id, section_id)
+    except Exception:  # noqa: BLE001 - the in-memory retry still holds it
+        import logging
+
+        logging.getLogger(__name__).warning("could not record the pending reading position", exc_info=True)
 
 
 def _record_undo_judgment(repo, source_id: str, proposal_id: str, item_ids: Sequence[str],
@@ -2199,6 +2245,7 @@ __all__ = [
     "ensure_subject",
     "estimate_usd",
     "file_upload_allowed",
+    "keep_ahead_for_reader",
     "keep_on_this_computer",
     "kind_noun",
     "source_kind_noun",

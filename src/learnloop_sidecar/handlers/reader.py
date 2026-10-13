@@ -1502,13 +1502,21 @@ def reader_mark_section_progress(
     # (``spans_seen``, usability round 1 U4): reaching a section is reading
     # progress too, not only a reveal or a finished check. Reading on inside
     # a section it already reached plans nothing new, so only the first
-    # report for a section asks (round-2 review F1: every report used to).
+    # report for a section asks (round-2 review F1: every report used to),
+    # unless that ask failed and has not settled since: then the next report
+    # asks again with the newest position (re-review F8), and the ingest
+    # worker retries it meanwhile, off this RPC.
     first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
-    if params.revealed or params.completed or first_reach:
+    if (
+        params.revealed
+        or params.completed
+        or first_reach
+        or ctx.ingest_jobs.reading_advance_pending(resolved)
+    ):
         try:
             from learnloop.content.pipeline import add_source as auto_build
 
-            auto_build.advance_reading_build(ctx.ingest_jobs, resolved, params.section_id)
+            auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
         except Exception:  # pragma: no cover - background planning boundary
             import logging
 
