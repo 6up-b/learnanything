@@ -3196,8 +3196,16 @@ class DurableIngestJobs:
         approved: bool = False,
         chapter_ids: Sequence[str] | None = None,
         start_unit_id: str | None = None,
-    ) -> str:
-        """Plan another automatic build for an already-readable source."""
+        answers_revision: int | None = None,
+    ) -> str | None:
+        """Plan another automatic build for an already-readable source.
+
+        ``answers_revision``: the book's reading request this build answers
+        (keep one chapter ahead). The request is settled at exactly that
+        revision in the enqueue's own transaction, and if it is no longer
+        pending there (a cancel settled it first, or a newer request replaced
+        it) nothing is queued and ``None`` is returned (reading-hardening
+        verify, F1). The worker is started only after the commit."""
 
         from learnloop.content.pipeline.add_source import (
             AUTO_BUILD_WORKFLOW,
@@ -3213,9 +3221,12 @@ class DurableIngestJobs:
             payload["chapter_ids"] = list(chapter_ids)
         if start_unit_id:
             payload["start_unit_id"] = start_unit_id
-        batch_id = runner.enqueue_batch(
-            AUTO_BUILD_WORKFLOW, [JobSpec(AUTO_STUDY_MAP_JOB, payload)], priority=BUILD_PRIORITY
-        )
+        with runner.repo.atomic():
+            if answers_revision is not None and not runner.repo.settle_reading_request(source_id, answers_revision):
+                return None
+            batch_id = runner.enqueue_batch(
+                AUTO_BUILD_WORKFLOW, [JobSpec(AUTO_STUDY_MAP_JOB, payload)], priority=BUILD_PRIORITY
+            )
         self._ensure_worker()
         return batch_id
 

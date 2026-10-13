@@ -1615,27 +1615,39 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
 
 def after_auto_build(ctx) -> None:
     """An automatic build's synthesis finished: act on reading progress that
-    arrived while it ran (review F7). Best effort."""
+    arrived while it ran (review F7). Best effort.
+
+    It holds no reading lock (it runs on the worker, or in a CLI drain), so
+    the follow-on and the settle are one transaction, and the settle is
+    exactly the revision read (reading-hardening verify, F1): a cancel that
+    settled the request first, or a newer request, leaves nothing to queue,
+    and a cancel of this build that committed first queues nothing either. A
+    request left pending that way is due for the reading sweep."""
 
     auto = ctx.payload.get("auto_build")
     if not isinstance(auto, Mapping) or not auto.get("source_id"):
         return
-    try:
-        from learnloop.content.pipeline.runner import JobSpec
+    from learnloop.content.pipeline.runner import JobCancelled, JobSpec
 
+    try:
         source_id = str(auto["source_id"])
         request = ctx.repo.pending_reading_request(source_id)
         if request is None:
             return
         wanted = _wanted_chapters(ctx.repo, ctx.vault_root, source_id, request)
-        if wanted:
-            ctx.enqueue_batch(
-                AUTO_BUILD_WORKFLOW,
-                [JobSpec(AUTO_STUDY_MAP_JOB, {"source_id": source_id, "chapter_ids": wanted})],
-                priority=BUILD_PRIORITY,
-            )
-        # Exactly the request acted on (F9): a newer one recorded meanwhile stays.
-        ctx.repo.settle_reading_request(source_id, request["revision"])
+        with ctx.repo.atomic():
+            # Exactly the request acted on (F9): a newer one recorded meanwhile
+            # stays, and one already settled (by a cancel) queues nothing.
+            if not ctx.repo.settle_reading_request(source_id, request["revision"]):
+                return
+            if wanted:
+                ctx.enqueue_batch(
+                    AUTO_BUILD_WORKFLOW,
+                    [JobSpec(AUTO_STUDY_MAP_JOB, {"source_id": source_id, "chapter_ids": wanted})],
+                    priority=BUILD_PRIORITY,
+                )
+    except JobCancelled:
+        return  # this build was cancelled meanwhile: nothing queued, nothing settled
     except Exception:  # noqa: BLE001 - a follow-up must never fail the build that applied
         import logging
 
@@ -1648,11 +1660,15 @@ def after_auto_build(ctx) -> None:
 
 
 def request_auto_build(ingest_jobs, source_id: str, *, approved: bool = False,
-                       chapter_ids: Sequence[str] | None = None, start_unit_id: str | None = None) -> str:
+                       chapter_ids: Sequence[str] | None = None, start_unit_id: str | None = None,
+                       answers_revision: int | None = None) -> str | None:
     """Plan another automatic build for ``source_id`` (connect, build now,
     keep ahead). ``approved`` is the learner's explicit "Build them": it passes
     the confirmation threshold once, for the chapters the pause named (never
-    the daily cap)."""
+    the daily cap). ``answers_revision``: the book's reading request this
+    build answers, settled in the same transaction; ``None`` is returned and
+    nothing queued when that request is no longer pending (see
+    :meth:`~learnloop.content.pipeline.jobs.DurableIngestJobs.enqueue_auto_build`)."""
 
     if approved and chapter_ids is None:
         repo = ingest_jobs.repository
@@ -1665,6 +1681,7 @@ def request_auto_build(ingest_jobs, source_id: str, *, approved: bool = False,
                 chapter_ids = outcome.get("chapter_ids")
     return ingest_jobs.enqueue_auto_build(
         source_id, approved=approved, chapter_ids=chapter_ids, start_unit_id=start_unit_id,
+        answers_revision=answers_revision,
     )
 
 
@@ -1761,8 +1778,10 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
 
     ``None``: nothing to do (not a book whose questions grow with reading, or
     the next chapter is already covered). ``{"deferred": True}``: the book's
-    work is running; the request waits for it. Otherwise the build is queued.
-    It keeps no state of its own: the caller settles the request it acted on.
+    work is running; the request waits for it. Otherwise the chapters to
+    build (``chapter_ids``, ``chapters``). It only reads: the caller queues
+    the build and settles the request it acted on, in one transaction
+    (:func:`act_on_reading_request`; reading-hardening verify, F1).
 
     It runs on the Reader's progress RPC, so it stays cheap (round-2 review
     F1): the chapter list comes from the unit tree, never the full outline
@@ -1783,8 +1802,8 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
     wanted = chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)
     if not wanted:
         return None
-    batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=[chapter.unit_id for chapter in wanted])
-    return {"batch_id": batch_id, "source_id": source_id, "chapters": [chapter.label for chapter in wanted]}
+    return {"source_id": source_id, "chapter_ids": [chapter.unit_id for chapter in wanted],
+            "chapters": [chapter.label for chapter in wanted]}
 
 
 def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False,
@@ -1798,7 +1817,12 @@ def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False,
     revision, so settling the older one cannot erase it, and the newer one is
     acted on next.
 
-    * queued, or nothing to do: the request is settled;
+    * queued, or nothing to do: the request is settled. A build is queued in
+      the settle's own transaction, and only while the request is still
+      pending at the revision read (reading-hardening verify, F1): a cancel
+      that settled it first (in this process the lock rules that out; the
+      CLI's cancel does not hold it) or a newer request leaves nothing queued
+      and the outcome says ``superseded``. A newer request is acted on next;
     * deferred (the book's work is unfinished): it stays due, and the reading
       sweep acts on it once that work ends. A deferral is not a failure: a
       failed attempt it follows is forgotten. Work that waits on the worker
@@ -1815,6 +1839,12 @@ def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False,
             return None
         try:
             outcome = plan_reading_advance(ingest_jobs, source_id, request["extraction_id"], request["section_id"])
+            if outcome and not outcome.get("deferred") and outcome.get("chapter_ids"):
+                batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=list(outcome["chapter_ids"]),
+                                              answers_revision=request["revision"])
+                outcome = ({"batch_id": batch_id, "source_id": source_id, "chapters": outcome.get("chapters")}
+                           if batch_id else {"superseded": True, "source_id": source_id})
+                return outcome  # queued and settled together, or a cancel or a newer request came first
         except Exception:
             attempts = 1 if rearm else request["attempts"] + 1
             _note_reading_failure(ingest_jobs, source_id, request["revision"], attempts, now=now)

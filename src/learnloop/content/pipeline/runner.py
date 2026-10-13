@@ -425,11 +425,20 @@ class JobContext:
         return self._held.enter_context(scope)
 
     def enqueue_batch(self, workflow_type: str, jobs: Sequence["JobSpec"], **kwargs: Any) -> str:
-        """Queue a follow-up batch through the runner that is running this job."""
+        """Queue a follow-up batch through the runner that is running this job.
+
+        A job whose batch was cancelled queues nothing: the check and the
+        enqueue are one transaction, so a cancel that committed first raises
+        :class:`JobCancelled` here instead of being followed by the work
+        (reading-hardening verify, F1). Inside a caller's ``atomic()`` it
+        joins that transaction."""
 
         if self._enqueue_batch is None:
             raise IngestRunnerError("this job context cannot enqueue follow-up work.")
-        return self._enqueue_batch(workflow_type, jobs, **kwargs)
+        with self.repo.atomic():
+            if self._cancel_requested():
+                raise JobCancelled()
+            return self._enqueue_batch(workflow_type, jobs, **kwargs)
 
     def _cancel_requested(self) -> bool:
         fresh = self.repo.get_ingest_job(self.job_id)
