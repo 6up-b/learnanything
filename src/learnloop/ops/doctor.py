@@ -19,7 +19,11 @@ from learnloop.config import (
     LearnLoopConfig,
     load_config,
 )
-from learnloop.content.facet_identity.actions import interrupted_actions, recover_interrupted_actions
+from learnloop.content.facet_identity.actions import (
+    interrupted_actions,
+    interrupted_registry_saves,
+    recover_interrupted_actions,
+)
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
     WAL_RESET_ADVISORY_URL,
@@ -1075,9 +1079,10 @@ def _recover_facet_identity_actions(
     *,
     fix_state: bool,
 ) -> None:
-    """Finish a facet merge or undo left mid-flight (facet identity, review F4).
+    """Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
 
-    A row left ``applying`` or ``undoing`` is reconciled against facets.yaml
+    A row left ``applying`` or ``undoing``, or a Library save's intent left
+    ``applying`` (Codex re-review 2, F7), is reconciled against facets.yaml
     under ``--fix-state`` (holding the vault mutation lock); a plain run only
     reports it.
     """
@@ -1085,14 +1090,18 @@ def _recover_facet_identity_actions(
     if repository is None or "facet_identity_actions" not in database_tables:
         return
     pending = interrupted_actions(repository)
-    if not pending:
+    saves = interrupted_registry_saves(repository)
+    if not pending and not saves:
         return
     if not fix_state:
+        left = [f"{len(pending)} facet merge/undo action(s)"] if pending else []
+        if saves:
+            left.append(f"{len(saves)} Library save(s)")
         issues.append(
             _issue(
                 "warning",
                 "facet_identity:interrupted",
-                f"{len(pending)} facet merge/undo action(s) left mid-flight; run doctor --fix-state to finish them",
+                f"{' and '.join(left)} left mid-flight; run doctor --fix-state to finish them",
                 paths.sqlite_path,
             )
         )
@@ -1115,8 +1124,10 @@ def _recover_facet_identity_actions(
                 "warning",
                 "facet_identity:recovered",
                 "Finished " + ", ".join(
-                    f"{row['id']} ({row['from']} -> {row['to']}"
+                    ("Library save " if row.get("kind") == "library_save" else "")
+                    + f"{row['id']} ({row['from']} -> {row['to']}"
                     + (f"; refused by the meaning-authority check: {row['refused']}" if row.get("refused") else "")
+                    + (f"; {len(row['withdrawn'])} owner verdict(s) withdrawn" if row.get("withdrawn") else "")
                     + ")"
                     for row in finished
                 ),

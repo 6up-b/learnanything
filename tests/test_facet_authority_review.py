@@ -422,9 +422,12 @@ def test_recovery_withdraws_the_verdicts_of_a_library_save_killed_before_its_wri
     monkeypatch.undo()
     assert {row["verdict"] for row in _authority_verdicts(repository)} == {"granted"}
 
-    (outcome,) = facet_actions.recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    outcomes = facet_actions.recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
 
-    assert outcome["to"] == "abandoned"
+    # The save's intent and its reword are both withdrawn (Codex re-review 2,
+    # F7: the save's intent owns the verdicts).
+    assert sorted((row.get("kind", "action"), row["to"]) for row in outcomes) == [
+        ("action", "abandoned"), ("library_save", "abandoned")]
     verdicts = _authority_verdicts(repository)
     granted = {row["id"] for row in verdicts if row["verdict"] == "granted"}
     assert len(granted) == 2

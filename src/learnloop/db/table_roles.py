@@ -176,6 +176,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("facet_merges", TableRole.RAW_LEDGER),
     ("facet_outcome_observations", TableRole.DERIVED),
     ("facet_recall_state", TableRole.DERIVED),
+    # A Library save's write-ahead intent (lifecycle state; the owner's
+    # manual-authority verdicts are judgment_ledger's).
+    ("facet_registry_saves", TableRole.WORKFLOW),
     ("facet_uncertainty", TableRole.COMPAT),
     ("failure_triage_events", TableRole.RECEIPT),
     ("failure_triage_routes", TableRole.RAW_LEDGER),

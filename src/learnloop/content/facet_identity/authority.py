@@ -31,9 +31,10 @@ that rule is enforced for a facet, whichever path writes it.
     facet stays what it was: a proposal the ``adequate_provenance`` gate sends
     to review;
   - a proposal's contributions are its ``meaning_support`` reconciled with the
-    refs it records (:func:`write_contributions`): a recorded span no declared
-    contribution cites is one more contribution, and malformed bookkeeping is
-    refused; recorded citations an undo restores must still resolve.
+    refs it records (:func:`write_contributions`): a recorded span that no
+    declared citation which resolves names is one more contribution, and
+    malformed bookkeeping is refused; recorded citations an undo restores must
+    still resolve.
 
   A citation that does not resolve supports nothing: it is recorded as
   ``unresolved`` and never becomes a source link (:func:`added_provenance`).
@@ -491,6 +492,7 @@ def _span_key(citation: Mapping[str, Any]) -> tuple[str, str]:
 
 def write_contributions(
     payload: Mapping[str, Any], *, before: Mapping[str, Any] | None, after: Mapping[str, Any],
+    resolver: CitationResolver | None = None,
 ) -> tuple[Contribution, ...]:
     """What supports a proposal write: its ``meaning_support``, reconciled with the refs it records.
 
@@ -501,6 +503,12 @@ def write_contributions(
     empty or partial declaration never hides the write's own exam citation, nor
     lets a declared explanatory span corroborate a citation it does not name.
     Malformed bookkeeping raises :class:`FacetAuthorityError`.
+
+    A declared citation covers a recorded span only when it resolves in
+    ``resolver`` (Codex re-review 2, F2): one that names the span under a unit
+    that does not hold it, or that does not resolve for any other reason,
+    supports nothing, so the recorded ref is still judged on its own. Without
+    a resolver nothing is validated, so nothing covers.
     """
 
     recorded: list[dict[str, Any]] = []
@@ -511,7 +519,10 @@ def write_contributions(
     if "meaning_support" not in payload:
         return contributions(recorded, label="provenance") if recorded else ()
     declared = contributions_from_support(payload.get("meaning_support"))
-    covered = {_span_key(citation) for item in declared for citation in item.citations}
+    covered = {
+        _span_key(citation) for item in declared for citation in item.citations
+        if resolver is not None and isinstance(resolver.resolve(citation), ResolvedCitation)
+    } if recorded else set()
     uncovered = tuple(citation for citation in recorded if _span_key(citation) not in covered)
     return (*declared, *((Contribution("provenance", uncovered),) if uncovered else ()))
 

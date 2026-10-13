@@ -538,7 +538,8 @@ def _compile_facet(
     before = existing.model_dump(mode="json", exclude_none=False) if existing is not None else None
     after = authority.overlay(before, data)
     try:
-        contributed = authority.write_contributions(payload, before=before, after=after)
+        contributed = authority.write_contributions(payload, before=before, after=after,
+                                                    resolver=facet_authority.resolver)
     except authority.FacetAuthorityError as exc:  # malformed meaning_support: refused, never "no support"
         raise PatchApplicationError(f"Refusing to apply facet {entity_id}: {exc}") from exc
     verdict = authority.check_meaning_write(

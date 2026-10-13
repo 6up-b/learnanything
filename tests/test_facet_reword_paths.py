@@ -309,9 +309,11 @@ def test_a_library_reword_interrupted_after_the_write_is_finished_by_recovery(tm
     assert record["status"] == "applying" and _entry(paths, SHARED)["claim"] == NEW_CLAIM
     monkeypatch.undo()
 
-    (outcome,) = recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    outcomes = recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
 
-    assert outcome["to"] == "applied"
+    # The reword and the save's intent (Codex re-review 2, F7) both land.
+    assert sorted((row.get("kind", "action"), row["to"]) for row in outcomes) == [
+        ("action", "applied"), ("library_save", "applied")]
     undo_action(paths.root, repository, record["id"], clock=_CLOCK)
     assert _entry(paths, SHARED)["claim"] == OLD_CLAIM
 

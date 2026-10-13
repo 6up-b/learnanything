@@ -1,4 +1,4 @@
-"""Facet-identity action rows (migrations 183, 185) and the facet_merges rows they own.
+"""Facet-identity action rows (migrations 183, 185), Library save intents (186), and facet_merges rows.
 
 Actions: ``merge`` and ``absorb`` (a survivor plus retired facets) and, since
 migration 185, ``reword`` (one facet's meaning changed by a proposal apply;
@@ -6,6 +6,11 @@ the row keeps the entry it replaced). Lifecycle: ``proposed`` (an ingest action 
 ``applying`` (a vault merge's write-ahead intent), ``applied``, ``undoing``
 (an undo's write-ahead intent), ``undone``, and ``abandoned`` (an intent
 withdrawn before its file write).
+
+Library saves (migration 186, ``facet_registry_saves``): the write-ahead
+intent of an owner's own edit of facets.yaml that records manual-authority
+verdicts, ``applying`` until it lands (``applied``) or is withdrawn
+(``abandoned``).
 
 Writes only within the caller's transaction (``Repository.atomic``). The
 policy (what an action changes in the vault, when undo is legal) lives in
@@ -139,6 +144,75 @@ def set_status(
         params.append(_dump(dict(undo_detail)))
     params.append(action_id)
     connection.execute(f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", params)
+
+
+# --- Library save intents (migration 186) ----------------------------------------------------
+
+_SAVE_JSON_COLUMNS = {
+    "facets_json": "facets",
+    "judgment_ids_json": "judgment_ids",
+    "action_ids_json": "action_ids",
+    "settle_detail_json": "settle_detail",
+}
+
+
+def _decode_save(row: Mapping[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for column in row.keys():
+        value = row[column]
+        if column in _SAVE_JSON_COLUMNS:
+            out[_SAVE_JSON_COLUMNS[column]] = json.loads(value) if value else None
+        else:
+            out[column] = value
+    return out
+
+
+def insert_registry_save(
+    connection: sqlite3.Connection, *, save_id: str, created_at: str, facets: Mapping[str, Any],
+    judgment_ids: Mapping[str, str], action_ids: Sequence[str],
+) -> str:
+    """Record a Library save's write-ahead intent (``applying``)."""
+
+    connection.execute(
+        """
+        INSERT INTO facet_registry_saves(id, created_at, status, facets_json, judgment_ids_json, action_ids_json)
+        VALUES (?, ?, 'applying', ?, ?, ?)
+        """,
+        (save_id, created_at, _dump(dict(facets)), _dump(dict(judgment_ids)), _dump(list(action_ids))),
+    )
+    return save_id
+
+
+def registry_save_by_id(connection: sqlite3.Connection, save_id: str) -> dict[str, Any] | None:
+    row = connection.execute("SELECT * FROM facet_registry_saves WHERE id = ?", (save_id,)).fetchone()
+    return _decode_save(row) if row is not None else None
+
+
+def registry_saves(connection: sqlite3.Connection, *, status: str) -> list[dict[str, Any]]:
+    """Library saves in ``status``, oldest first (none before migration 186)."""
+
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'facet_registry_saves'"
+    ).fetchone() is None:
+        return []
+    rows = connection.execute(
+        "SELECT * FROM facet_registry_saves WHERE status = ? ORDER BY created_at, rowid", (status,),
+    ).fetchall()
+    return [_decode_save(row) for row in rows]
+
+
+def settle_registry_save(
+    connection: sqlite3.Connection, save_id: str, status: str, *, at: str,
+    settle_detail: Mapping[str, Any] | None = None,
+) -> None:
+    """Move an ``applying`` save to ``applied`` or ``abandoned`` (a settled save stays as it is)."""
+
+    column = {"applied": "applied_at", "abandoned": "abandoned_at"}[status]
+    connection.execute(
+        f"UPDATE facet_registry_saves SET status = ?, {column} = ?, settle_detail_json = ? "
+        "WHERE id = ? AND status = 'applying'",
+        (status, at, _dump(dict(settle_detail)) if settle_detail is not None else None, save_id),
+    )
 
 
 def graded_contract_version_ids(connection: sqlite3.Connection) -> list[str]:

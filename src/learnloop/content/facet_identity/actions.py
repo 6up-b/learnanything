@@ -40,10 +40,13 @@ row (``applying``) and its ``facet_merges`` rows commit in one transaction
 before ``facets.yaml`` is replaced (a staged, fsynced temp file and an atomic
 rename); the row becomes ``applied`` only after the derived state is
 refreshed. An undo records ``undoing`` (with the owner's verdicts) before it
-restores the file. :func:`recover_interrupted_actions` finishes either from
-whichever side of the file write it stopped on; every merge, undo and
-dedupe run calls it under the vault lock, the sidecar calls it when it opens
-the vault, and ``doctor --fix-state`` does too. Until an action settles, its
+restores the file. A Library save that records the owner's manual-authority
+verdicts records its own intent with them (``facet_registry_saves``,
+migration 186), whether or not it also writes a facet version.
+:func:`recover_interrupted_actions` finishes each from whichever side of the
+file write it stopped on; every merge, undo, Library save and dedupe run
+calls it under the vault lock, the sidecar calls it when it opens the vault,
+and ``doctor --fix-state`` does too. Until an action settles, its
 ``facet_merges`` rows are left out of the merge map
 (``Repository.facet_merge_map``), so facets.yaml is the authority: a facet it
 still lists keeps its own evidence, and a written merge already resolves
@@ -548,8 +551,10 @@ def merge_registered_facets(
 def _abandon(repository: Repository, record: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
     """Withdraw an ``applying`` intent whose file write never happened.
 
-    A Library save's reword also withdraws the owner's authority verdicts that
-    save recorded (``detail.authority_judgment_ids``): the save never landed.
+    A Library save's verdicts belong to its save intent
+    (:func:`_abandon_registry_save`). A reword recorded before save intents
+    existed lists them itself (``detail.authority_judgment_ids``); those are
+    withdrawn with it.
     """
 
     with repository.atomic():
@@ -691,7 +696,7 @@ def _grant_owner_authority(
     meaning = authority.authority_meaning(after)
     return append_judgment(
         connection, task=MANUAL_AUTHORITY_TASK, left_kind="facet", left_id=facet_id,
-        right_kind="facet_wording", right_id=content_key(meaning), judge="owner",
+        right_kind="facet_wording", right_id=wording_key(after), judge="owner",
         input_hash=content_key({"library_save": save_id, "facet": facet_id, "meaning": meaning}),
         verdict="granted",
         rationale=json.dumps({
@@ -701,6 +706,100 @@ def _grant_owner_authority(
         }, sort_keys=True),
         created_at=created_at,
     )
+
+
+def wording_key(entry: Mapping[str, Any] | None) -> str | None:
+    """The key of a facet entry's meaning (``authority.AUTHORITY_FIELDS``): a verdict's ``right_id``."""
+
+    from learnloop.ai.execution import content_key
+
+    return None if entry is None else content_key(authority.authority_meaning(entry))
+
+
+def registry_save_by_id(repository: Repository, save_id: str) -> dict[str, Any] | None:
+    with repository.connection() as connection:
+        return store.registry_save_by_id(connection, save_id)
+
+
+def interrupted_registry_saves(repository: Repository) -> list[dict[str, Any]]:
+    """Library saves left ``applying`` by an interrupted process (oldest first)."""
+
+    with repository.connection() as connection:
+        return store.registry_saves(connection, status="applying")
+
+
+def registry_save_state(record: Mapping[str, Any], current: Mapping[str, Any]) -> str:
+    """Which side of its file write a Library save is on: ``after``, ``before`` or ``neither``.
+
+    The file is replaced atomically, so one facet showing the wording the
+    owner's verdict names proves the save landed. Every facet as it was (a new
+    facet still absent) is ``before``; anything else (edited since) is
+    ``neither``.
+    """
+
+    states: set[str] = set()
+    for facet_id, wording in (record.get("facets") or {}).items():
+        try:
+            key = wording_key(current.get(facet_id))
+        except ValueError:  # an entry edited since into one that no longer validates
+            states.add("neither")
+            continue
+        if key == wording.get("after"):
+            states.add("after")
+        elif key == wording.get("before"):
+            states.add("before")
+        else:
+            states.add("neither")
+    if "after" in states:
+        return "after"
+    return "before" if states <= {"before"} else "neither"
+
+
+def _abandon_registry_save(
+    repository: Repository, record: Mapping[str, Any], *, reason: str, file: str, clock: Clock | None = None,
+) -> list[str]:
+    """Withdraw a Library save that never landed: its verdicts ``withdrawn``, the intent ``abandoned``."""
+
+    withdrawn = [str(value) for value in (record.get("judgment_ids") or {}).values()]
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        _withdraw_authority_grants(connection, withdrawn, reason=reason, created_at=now)
+        store.settle_registry_save(connection, str(record["id"]), "abandoned", at=now, settle_detail={
+            "reason": reason, "file": file, "withdrawn_judgment_ids": withdrawn,
+        })
+    return withdrawn
+
+
+def _recover_registry_saves(root: Path, repository: Repository, *, clock: Clock | None = None) -> list[dict[str, Any]]:
+    """Settle every Library save left ``applying`` (Codex re-review 2, F7).
+
+    Landed (facets.yaml shows the wording a verdict names): the derived state
+    is refreshed and the save is ``applied``, its verdicts standing. Not
+    landed, or edited since: its verdicts are withdrawn and the save is
+    ``abandoned``, as when the write fails in process (the owner saw it fail).
+    The caller holds the vault mutation lock. A registry that cannot be read
+    settles nothing (the error propagates, as it does for an action).
+    """
+
+    out: list[dict[str, Any]] = []
+    for record in interrupted_registry_saves(repository):
+        vault = load_vault(root)
+        state = registry_save_state(record, _current_entries(VaultPaths(vault.root, vault.config)))
+        if state == "after":
+            refresh_derived_state(vault.root, repository, [], clock=clock)
+            with repository.atomic():
+                store.settle_registry_save(repository.connection(), str(record["id"]), "applied",
+                                           at=utc_now_iso(clock))
+            out.append({"id": record["id"], "kind": "library_save", "from": "applying", "to": "applied",
+                        "file": state})
+            continue
+        reason = ("the registry edit was never written" if state == "before"
+                  else "facets.yaml changed before the registry edit was written")
+        withdrawn = _abandon_registry_save(repository, record, reason=reason, file=state, clock=clock)
+        out.append({"id": record["id"], "kind": "library_save", "from": "applying", "to": "abandoned",
+                    "file": state, "withdrawn": withdrawn})
+    return out
 
 
 def _withdraw_authority_grants(connection: Any, judgment_ids: Iterable[str], *, reason: str, created_at: str) -> None:
@@ -781,15 +880,19 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
     edit without one. Which edits are versions is a separate, narrower policy
     (:data:`MEANING_FIELDS`).
 
-    Under the vault mutation lock, write-ahead like a merge: the verdicts and
-    the ``applying`` reword rows commit, then the file is replaced atomically,
-    then the rows become ``applied``. If the write fails, or the process stops
-    in between, recovery marks a row ``applied`` when facets.yaml shows the
-    edit and withdraws it (``abandoned``, its save's verdicts ``withdrawn``)
-    when it does not: the save never landed, so nothing is written on the
-    owner's behalf. Text that does not parse, or is not a valid facet
-    registry, is refused (``invalid_registry``) and nothing is written or
-    recorded.
+    Under the vault mutation lock, write-ahead like a merge: the verdicts, the
+    save's intent (``facet_registry_saves``, ``applying``; Codex re-review 2,
+    F7) and the ``applying`` reword rows commit in one transaction, then the
+    file is replaced atomically, then the rows and the intent become
+    ``applied``. Every save with verdicts has an intent, a new facet or an
+    example-only edit (verdicts, no reword) included. If the write fails, or
+    the process stops in between, recovery settles the intent and the rewords
+    from facets.yaml: ``applied`` when it shows the edit; otherwise withdrawn
+    (``abandoned``, the save's verdicts ``withdrawn``): the save never landed,
+    so nothing stands on the owner's behalf. Text that does not parse, or is
+    not a valid facet registry, is refused (``invalid_registry``) and nothing
+    is written or recorded. The result's ``save_id`` names the intent (None
+    when the save changed no facet's meaning).
     """
 
     from learnloop.vault_lock import vault_mutation_lock
@@ -836,11 +939,14 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
         ]
         records: list[dict[str, Any]] = []
         grant_ids: dict[str, str] = {}
+        save: dict[str, Any] | None = None
         if grants:
             evidence = facet_evidence(repository, [facet_id for facet_id, *_rest in rewords])
             now = utc_now_iso(clock)
             save_id = new_ulid()
-            # One write-ahead transaction: the verdicts, then the ``applying`` rewords.
+            # One write-ahead transaction: the verdicts, the ``applying``
+            # rewords and the save's intent, which owns the verdicts (Codex
+            # re-review 2, F7: a save with no reword is recoverable too).
             with repository.atomic():
                 connection = repository.connection()
                 for facet_id, old, new, fields in grants:
@@ -859,15 +965,22 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
                         "detail": {
                             "via": "library", "fields": fields,
                             "evidence": {facet_id: evidence[facet_id]} if facet_id in evidence else {},
-                            # The owner's verdict for this wording, and every verdict of the save
-                            # (withdrawn together if the save never lands).
+                            # The owner's verdict for this wording; the save's
+                            # intent holds every verdict of the save.
                             "authority_judgment_id": grant_ids[facet_id],
-                            "authority_judgment_ids": list(grant_ids.values()),
+                            "save_id": save_id,
                         },
                         "status": "applying", "created_at": now,
                     }
                     record["id"] = insert_action(connection, record)
                     records.append(record)
+                store.insert_registry_save(
+                    connection, save_id=save_id, created_at=now,
+                    facets={facet_id: {"before": wording_key(old), "after": wording_key(new), "fields": list(fields)}
+                            for facet_id, old, new, fields in grants},
+                    judgment_ids=grant_ids, action_ids=[str(record["id"]) for record in records],
+                )
+            save = {"id": save_id, "judgment_ids": dict(grant_ids)}
         try:
             # The owner's own save is the explicit manual authority over a
             # facet's meaning, audited by the verdicts just recorded (each
@@ -879,19 +992,19 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
             reason = "facets.yaml could not be written"
             for record in records:
                 _abandon(repository, record, reason=reason, clock=clock)
-            if grant_ids:
-                with repository.atomic():
-                    _withdraw_authority_grants(repository.connection(), grant_ids.values(), reason=reason,
-                                               created_at=utc_now_iso(clock))
+            if save is not None:
+                _abandon_registry_save(repository, save, reason=reason, file="before", clock=clock)
             raise
         # A reword moves no evidence (the facet keeps its id): sync only.
         refresh_derived_state(vault.root, repository, [], clock=clock)
-        if records:
+        if save is not None:
             with repository.atomic():
+                connection = repository.connection()
                 for record in records:
-                    store.set_status(repository.connection(), str(record["id"]), "applied",
-                                     applied_at=utc_now_iso(clock))
-    return {"text": written, "reword_action_ids": [str(record["id"]) for record in records]}
+                    store.set_status(connection, str(record["id"]), "applied", applied_at=utc_now_iso(clock))
+                store.settle_registry_save(connection, str(save["id"]), "applied", at=utc_now_iso(clock))
+    return {"text": written, "reword_action_ids": [str(record["id"]) for record in records],
+            "save_id": save["id"] if save is not None else None}
 
 
 def facet_history(repository: Repository, facet_id: str, vault: LoadedVault | None = None) -> list[dict[str, Any]]:
@@ -1212,6 +1325,10 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
       retried (Codex re-review F1): an ``applying`` merge is withdrawn
       (``abandoned``), an ``undoing`` action stays ``applied`` with the
       refusal in its ``undo_detail``.
+    * A Library save's intent left ``applying`` (Codex re-review 2, F7):
+      ``applied`` when facets.yaml shows its edit, otherwise ``abandoned``
+      with the owner's verdicts it recorded ``withdrawn``; rows with
+      ``kind = "library_save"``.
 
     The caller holds the vault mutation lock (it is re-entrant). Returns what
     happened to each row.
@@ -1220,10 +1337,11 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
     from learnloop.vault_lock import vault_mutation_lock
 
     pending = interrupted_actions(repository)
-    if not pending:
+    if not pending and not interrupted_registry_saves(repository):
         return []
     out: list[dict[str, Any]] = []
     with vault_mutation_lock(root, purpose="facet_identity_recover"):
+        out.extend(_recover_registry_saves(root, repository, clock=clock))
         for record in interrupted_actions(repository):
             vault = load_vault(root)
             paths = VaultPaths(vault.root, vault.config)
@@ -1339,8 +1457,12 @@ __all__ = [
     "save_registry_text",
     "file_state",
     "interrupted_actions",
+    "interrupted_registry_saves",
     "recover_interrupted_actions",
     "refresh_derived_state",
+    "registry_save_by_id",
+    "registry_save_state",
     "stored_entry",
     "undo_action",
+    "wording_key",
 ]

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-185. Migration 167 adds the learner-field F1 read model
+186. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -58,8 +58,12 @@ reserved, so it kept its number at its merge); migration 185 rebuilds
 accept `action = 'reword'` (a facet version a proposal apply or a Library save
 wrote, the old entry kept for the undo) and `origin IN ('proposal',
 'registry')` (facet locks removed, owner 2026-10-12; built as
-facets/locks-and-depends-on's 188 and renumbered at its merge).
-Built as a backup-API copy of `migration_head_184` with only 185 applied
+facets/locks-and-depends-on's 188 and renumbered at its merge); migration
+186 adds `facet_registry_saves` (WORKFLOW: the write-ahead intent of a
+Library save that records the owner's manual-authority verdicts, settled by
+recovery from facets.yaml; Codex re-review 2 of the facet authority
+chokepoint, F7).
+Built as a backup-API copy of `migration_head_185` with only 186 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

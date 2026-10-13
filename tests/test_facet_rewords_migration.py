@@ -79,7 +79,7 @@ def test_migration_185_upgrades_a_184_vault_keeping_actions_and_the_forecast_log
         voi_before = _voi_objects(connection)
         forecasts_before = list(connection.execute("SELECT * FROM voi_forecasts"))
 
-    applied = apply_migrations(sqlite_path)
+    applied = apply_migrations(sqlite_path, migrations_dir=_migrations_through(tmp_path, 185))
     assert [migration.version for migration in applied] == [185]
 
     with closing(connect(sqlite_path)) as connection:
