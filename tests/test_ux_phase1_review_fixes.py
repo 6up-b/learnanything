@@ -718,3 +718,310 @@ def test_f12_undo_records_the_owners_verdict_once(tmp_path):
     )
     rationale = json.loads(row["rationale"])
     assert rationale["action"] == "undo_questions" and rationale["item_ids"]
+
+
+# ===========================================================================
+# Codex re-review (be3ad518..3784487c): F1, F2, F3 reopened; F13 new
+# ===========================================================================
+
+
+def _first_span_id(repo, extraction_id):
+    ir = repo.load_document_ir(extraction_id)
+    return next(block.span_id for block in sorted(ir.blocks, key=lambda b: b.ordinal) if (block.text or "").strip())
+
+
+def _reader_ctx(root, client, services=None):
+    ctx = SidecarContext()
+    ctx.load(root)
+    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=services or fake_services(),
+                         reader_synth_client_factory=lambda: client)
+    return ctx
+
+
+def _queue_reader_request(ctx, item):
+    from learnloop.reader import reader_requests as RR
+
+    extraction_id = resolve_extraction_id(ctx.repository, item["sourceId"])
+    return RR.enqueue_request(
+        ctx.repository, source_id=item["sourceId"], revision_id=item["revisionId"], extraction_id=extraction_id,
+        span_id=_first_span_id(ctx.repository, extraction_id), preset="worked_example",
+    )
+
+
+def test_f1_rereview_keeping_a_book_local_stops_the_reader_requests_it_queued(tmp_path):
+    from tests.test_reader_requests import _FakePresetClient
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    client = _FakePresetClient()
+    ctx = _reader_ctx(root, client)
+    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]
+    queued = _queue_reader_request(ctx, item)
+
+    call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "keep_local"})
+    ctx.ingest_jobs.kick_reader_drain()  # the production drain, as the worker runs it
+    assert client.calls == []
+    assert ctx.repository.get_reader_request(queued["request_id"])["status"] == "cancelled"
+
+
+def test_f1_rereview_the_drain_reads_the_books_privacy_when_it_runs(tmp_path):
+    """However the policy was persisted (another window, an Add of the same
+    book with the option), a queued request is checked when it is executed."""
+
+    from tests.test_reader_requests import _FakePresetClient
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    client = _FakePresetClient()
+    ctx = _reader_ctx(root, client)
+    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]
+    queued = _queue_reader_request(ctx, item)
+
+    ctx.repository.set_source_keep_local(item["sourceId"], True)
+    ctx.ingest_jobs.kick_reader_drain()
+    assert client.calls == []
+    row = ctx.repository.get_reader_request(queued["request_id"])
+    assert row["status"] == "cancelled"
+    assert json.loads(row["error_json"])["code"] == "kept_on_this_computer"
+
+
+def test_f1_rereview_keeping_a_book_local_stops_its_queued_build(tmp_path):
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    calls = Calls()
+    ctx = SidecarContext()
+    ctx.load(root)
+    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services(calls=calls))
+    repo, jobs = ctx.repository, ctx.ingest_jobs
+    jobs._ensure_worker = lambda: None  # type: ignore[method-assign]
+    source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
+    _drain(jobs, max_jobs=2)  # the import and the planner: the build is queued
+    assert latest_auto_outcome(repo, source_id)["outcome"] == "building"
+
+    call(ctx, "source_action", {"sourceId": source_id, "action": "keep_local"})
+    _drain(jobs)
+    assert calls.inventory_calls == 0 and calls.synthesis_calls == 0
+    assert _build_batches(repo)[0]["status"] == "cancelled"
+    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
+    assert card["statusLine"]["text"] == "Kept on this computer — no questions are written for it"
+
+
+def _openrouter_client():
+    from learnloop.ai.providers.openrouter import OpenRouterProviderClient
+    from learnloop.config import AIProviderConfig
+
+    return OpenRouterProviderClient(
+        "openrouter", AIProviderConfig(type="openrouter", model="test/model", response_format="json_object")
+    )
+
+
+def test_f2_rereview_a_json_repair_is_admitted_like_any_paid_request(tmp_path, monkeypatch):
+    """The provider's own JSON repair is a second paid request: it is admitted
+    against what the first one really cost (its reported cost here is more
+    than the whole build was allowed)."""
+
+    from tests.openai_fakes import install_fake_openai
+
+    fake = install_fake_openai(monkeypatch, "not json", "still not json",
+                               usages=[{"prompt_tokens": 900, "completion_tokens": 50, "cost": 5.0}])
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-credential")
+    root = fresh_library(tmp_path)
+    authoring = _metered(root, 0.01)
+    repo, jobs = _jobs(root, fake_services(authoring, inventory_client_factory=lambda ctx: _openrouter_client()))
+    item = _add(root, jobs, write_book(tmp_path))
+
+    sent = [len(instance.requests) for instance in fake.instances]
+    assert sum(sent) >= 1 and max(sent) == 1  # no repair request went out
+    outcome = latest_auto_outcome(repo, item["source_id"])
+    inventory = next(job for job in repo.ingest_jobs_for_batch(outcome["build_batch_id"])
+                     if job["job_type"] == "inventory")
+    assert inventory["error"]["code"] == "spend_paused"
+    assert inventory["error"]["details"]["reason"] == "authorization"
+    line = source_status_line(repo, load_vault(root), item["source_id"])
+    assert line["action"] == {"kind": "build_now", "label": "Build them"}
+
+
+def test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included(monkeypatch):
+    from pydantic import BaseModel
+
+    from learnloop.ai.execution import gate_model_requests
+    from learnloop.ai.providers import openai_chat
+    from learnloop.ai.transport import execute_structured_operation
+    from tests.openai_fakes import FakeAPIConnectionError, install_fake_openai
+
+    class Answer(BaseModel):
+        answer: str
+
+    class Recording:
+        def __init__(self):
+            self.admitted: list[str] = []
+            self.settled: list[dict] = []
+
+        def admit(self, client, *, purpose, prompt, budget):
+            self.admitted.append(purpose)
+            return len(self.admitted)
+
+        def settle(self, admission, usage):
+            self.settled.append(dict(usage))
+
+    monkeypatch.setattr(openai_chat, "_sleep", lambda _seconds: None)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-credential")
+    install_fake_openai(monkeypatch, FakeAPIConnectionError("reset"), "not json", '{"answer": "42"}')
+    gate = Recording()
+    with gate_model_requests(gate):
+        result = execute_structured_operation(_openrouter_client(), purpose="probe", prompt="Answer.",
+                                              result_model=Answer)
+    assert result.answer == "42"
+    # The transport retry, the first answer and the JSON repair: three physical
+    # requests, each admitted and settled; the structured call around them is not one.
+    assert gate.admitted == ["chat_request", "chat_request", "chat_request"]
+    assert len(gate.settled) == 3
+
+
+def test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room(monkeypatch):
+    from pydantic import BaseModel
+
+    from learnloop.ai.execution import gate_model_requests
+    from learnloop.ai.providers import openai_chat
+    from learnloop.ai.spend import MeteredRequestGate, SpendLimitExceeded
+    from learnloop.ai.transport import execute_structured_operation
+    from tests.openai_fakes import FakeAPIConnectionError, install_fake_openai
+
+    class Answer(BaseModel):
+        answer: str
+
+    monkeypatch.setattr(openai_chat, "_sleep", lambda _seconds: None)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-a-credential")
+    fake = install_fake_openai(monkeypatch, FakeAPIConnectionError("reset"), '{"answer": "42"}')
+    client = _openrouter_client()
+    probe = MeteredRequestGate(limit_usd=10**9, price_per_token=lambda provider: 1.0, is_subscription=lambda c: False,
+                               default_output_tokens=500)
+    one_request = probe.estimate_usd(client, prompt=None, budget=None)
+    gate = MeteredRequestGate(limit_usd=1.5 * one_request + 4000, price_per_token=lambda provider: 1.0,
+                              is_subscription=lambda c: False, default_output_tokens=500)
+    with pytest.raises(SpendLimitExceeded), gate_model_requests(gate):
+        execute_structured_operation(client, purpose="probe", prompt="Answer.", result_model=Answer)
+    # A failed attempt reports nothing, so its reservation stands: no retry.
+    assert sum(len(instance.requests) for instance in fake.instances) == 1
+    assert gate.refusal is not None
+
+
+def test_f2_rereview_append_reconciliation_calls_are_admitted_one_by_one(tmp_path):
+    """Append reconciliation may ask for more passages and call the model
+    again; each request inside the build is admitted on its own."""
+
+    from learnloop.ai.execution import model_call, report_call_usage
+
+    class Metered:
+        provider_name = "openrouter"
+        model = "test/model"
+
+    sent: list[str] = []
+
+    def two_paid_requests(_context):
+        for label in ("first", "with more passages"):
+            with model_call(Metered(), purpose="chat_request", prompt=label, budget=100):
+                sent.append(label)
+                report_call_usage({"input_tokens": 100, "output_tokens": 100, "cost": 5.0})
+
+    root = fresh_library(tmp_path)
+    authoring = _metered(root, 0.01)
+    on_append = {"hook": None}
+    repo, jobs = _jobs(root, fake_services(authoring, on_append=lambda c: on_append["hook"] and on_append["hook"](c)))
+    item = _add(root, jobs, write_book(tmp_path))
+    source_id = item["source_id"]
+    labels = _labels(repo, source_id)
+    on_append["hook"] = two_paid_requests
+    advance_reading_build(jobs, resolve_extraction_id(repo, source_id), labels["2 Conditional probability"])
+    assert sent == ["first"]
+    ch3 = _build_batches(repo)[0]
+    synthesis = next(job for job in repo.ingest_jobs_for_batch(ch3["id"]) if job["job_type"] == "bootstrap_synthesis")
+    assert synthesis["error"]["code"] == "spend_paused"
+
+
+def _book_html() -> str:
+    sections = [
+        ("1 Probability and counting", "A probability is a number between zero and one."),
+        ("2 Conditional probability", "Conditioning updates a probability in the light of new evidence."),
+        ("3 Random variables", "A random variable assigns a number to every outcome."),
+        ("4 Expectation", "The expectation of a random variable is its probability-weighted average."),
+    ]
+    body = "".join(f"<h1>{title}</h1><p>{text} {text} {text}</p>" for title, text in sections)
+    return f"<!doctype html><html><head><title>Probability notes</title></head><body>{body}</body></html>"
+
+
+def test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found(tmp_path, monkeypatch):
+    """A link's Add knows no book yet: its planner's payload has no source.
+    The build it queued carries the book, and that association is enough."""
+
+    from learnloop.content.pipeline.runner import FetchedBytes, JobContext
+
+    def fetch(source, category, ctx):
+        return FetchedBytes(raw_bytes=_book_html().encode(), content_type="text/html", original_uri=source,
+                            retrieved_at=CLOCK.now().isoformat(), title="Probability notes")
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    repo, jobs = _jobs(root, fake_services(fetch=fetch), hold=True)
+    item = _add(root, jobs, "https://example.org/probability-notes")
+    assert item["status"] == "queued" and item["source_id"] is None
+    _drain(jobs, max_jobs=1)  # the import registers the book
+    batch_jobs = repo.ingest_jobs_for_batch(item["batch_id"])
+    source_id = next(job for job in batch_jobs if job["job_type"] == "import")["result"]["source_id"]
+    planner = next(job for job in batch_jobs if job["job_type"] == core.AUTO_STUDY_MAP_JOB)
+    assert "source_id" not in (planner["payload"] or {})
+
+    real = JobContext.enqueue_batch
+
+    def enqueue_then_die(self, *args, **kwargs):
+        real(self, *args, **kwargs)
+        raise _Crash()
+
+    monkeypatch.setattr(JobContext, "enqueue_batch", enqueue_then_die)
+    with pytest.raises(_Crash):
+        _drain(jobs, max_jobs=1)  # the planner: build committed, result never saved
+    monkeypatch.setattr(JobContext, "enqueue_batch", real)
+
+    assert [job["id"] for job in core.auto_jobs(repo, source_id)] == [planner["id"]]
+    assert core.latest_auto_outcome(repo, source_id)["build_batch_id"] == core.child_batch_id(planner["id"])
+    assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Questions for")
+
+
+def test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file_ok(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import jobs as jobs_module
+    from learnloop.content.pipeline.runner import IngestRunnerError
+
+    sent = []
+
+    def transcribe(fetched, ctx):
+        sent.append(fetched)
+        raise IngestRunnerError("transcription endpoint not reachable in tests", code="audio_failed")
+
+    monkeypatch.setattr(jobs_module, "_extract_audio", transcribe)
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    ctx = SidecarContext()
+    ctx.load(root)
+    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
+    item = call(ctx, "add_source", {"sources": [str(_audio_file(tmp_path))], "keepLocal": True})["items"][0]
+    source_id = item["sourceId"]
+
+    def card():
+        return next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
+
+    assert card()["statusLine"]["text"] == "Kept on this computer — this recording can't be read here"
+
+    call(ctx, "source_action", {"sourceId": source_id, "action": "share_with_ai"})
+    assert ctx.repository.source_kept_local(source_id) is False
+    assert sent == []  # sharing passages is not the OK to upload the whole recording
+    assert card()["statusLine"]["text"] == "Transcribing this recording sends it to an online service"
+    assert card()["statusLine"]["action"] == {"kind": "allow_upload", "label": "OK"}
+
+    # Trying the original import again never brings the old choice back.
+    call(ctx, "source_action", {"sourceId": source_id, "action": "retry"})
+    assert ctx.repository.source_kept_local(source_id) is False
+    assert sent == []
+
+    call(ctx, "source_action", {"sourceId": source_id, "action": "allow_upload"})
+    assert len(sent) == 1
+    assert ctx.repository.source_kept_local(source_id) is False
