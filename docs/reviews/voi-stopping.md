@@ -357,7 +357,23 @@ None. Everything ran on fakes or locally; no model route, no network, $0.00.
 
 ## 8. Gate
 
-GATE_TABLE
+Run at `cbfb9f5f` (the code is that of `65549c98`; the later commit is
+documentation only), `TMPDIR` = the worktree's `fixtures-local/tmp`, the two
+suites under `flock /tmp/learnloop-fullsuite.lock`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 15 kept, 0 broken |
+| `flock … uv run pytest -n auto` | **9,001 passed, 1 failed** of 9,002 (417 s). The failure, `test_stuck_prompt.py::test_kill_switch_restores_dont_know_exactly`, compares mvp-0.12 with mvp-0.13 (code this stage does not touch) and its field mass depends on wall-clock familiarity between attempts; it passed in the previous full run and passes alone 3 of 3 |
+| `flock … uv run pytest -m durability` | **95 passed**, 8,907 deselected (109 s) |
+| DB and config references (`db_generate_reference.py`, `db_validate_reference.py`) | regenerated at head 187; validator `errors: []` |
+| Frontend, `src-tauri` | not changed: not run |
+
+The previous full run (at `bc756e53`) had 8,999 passed and 3 failed: the
+`decision_features` compactness test expected the old context (fixed in
+`65549c98`), and the two `test_diagnosis_isolation.py` cases timed out in the
+real `codex sandbox` under load (16 of 16 pass alone).
 
 ## 9. Open questions for the owner
 
