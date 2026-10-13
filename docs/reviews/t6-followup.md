@@ -80,6 +80,8 @@ decision API, not a chat completion) and the owner-set synthesis budgets in
 10,000). **Left alone on purpose:** `diagnosis/recurrence/benchmarks.py`
 (`WRITER_OUTPUT_TOKENS = 300`, B1's writer): the in-flight `fix/owner-batch-2`
 branch changes it and the orchestrator raises its default at that merge.
+*(Merge onto main, 2026-10-13: owner batch 2 had raised it to 16,000; B1's
+default now follows this policy, with B1's no-retry rule kept; §11.)*
 
 **Every LLM call site and its budget now.** "Policy" means `ai.output_tokens`
 (16,384) unless the serving profile declares `max_tokens` or the route has an
@@ -109,7 +111,16 @@ branch changes it and the orchestrator raises its default at that merge.
 | `projects/probes.py` authoring / closed book / grading (`project`, `grading`) | 6,000 + 4,000 headroom / 250 per question + 4,000 / 250 per item + 4,000 | policy (resolved with the route) | transport |
 | `cli/success_head.py`, `cli/field.py`, `cli/evaluation.py` `--output-tokens` (LLM probability arm, `llm_probability_llm`) | 256 | policy; the option still overrides | own loop (`TruncationRetry`) |
 | `cli/field_classification.py` `--output-tokens` (`field_question_classifier`) | 512 | policy; the option still overrides | none: one physical call per question by contract, so a truncation is logged and stops the command |
-| `diagnosis/recurrence/benchmarks.py` B1 writer | 300 | **unchanged** (owner-batch-2) | `PFCaller` loop |
+| `diagnosis/recurrence/benchmarks.py` B1 writer (`diagnosis`) | 300 (owner batch 2: 16,000) | **policy** for the writer's route at the merge (§11); `--writer-output-tokens` still overrides | none (B1's rule: an invalid output, a truncation included, is one failed case): logged in `PFCaller.truncations`; the local runner's `ReviewSpend` unit sets `retry_truncation=False` |
+| *Main's sites, merged after this branch (§11):* | | | |
+| `diagnosis/text_gaps/judges.py` LLM pair judge and the "needed" LLM half (`learner_gap_judge`), stuck-text reader (`learner_gap_reader`), prerequisite drafter (`authoring`) | `ReviewSpend` default 2,000 (or the profile's larger `max_tokens`) | policy: `TextBudget.for_text` and `learnloop gaps run` give `ReviewSpend` the vault config | transport (`ReviewSpend` admits it) |
+| `diagnosis/text_gaps/pipeline.py` seed item (`learner_gap_seed` on `tutor_qa`/`authoring`) | `SEED_OUTPUT_TOKENS` 6,000 | policy for the seed's route | transport |
+| `diagnosis/text_gaps/judges.py` Decider halves (`learner_gap_decider`: pair, kind, needed) | Decider | **exempt** | none (typed answers) |
+| `content/facet_identity/judge.py` LLM group judge (`facet_identity_judge`), in ingest and `learnloop facets dedupe` | 1,200 + 160 per facet; a truncation failed the group | policy (`judge_output_tokens`; part of the checkpoint key, with a requested effort; the dry-run plan reserves it) | own loop (`TruncationRetry`); events in the dedupe report's `truncations` |
+| `content/facet_identity/judge.py` Decider group judge | Decider | **exempt** | none |
+| `cli/ai.py` `learnloop ai latency` (`ai_latency_probe`, per profile) | `LATENCY_OUTPUT_TOKENS` 64 | policy for each profile (its `max_tokens`, else `ai.output_tokens`); `--max-cost-usd` default 0.05 → 0.50 (a reservation cap) | none: a timed call is one physical request, so a truncation is logged (`truncation` on the run) and the call fails |
+| `diagnosis/recurrence/escalation.py` escalated repair | policy at the code default (`ReviewSpend` without the config) | policy with the vault config (`per_job_spend(cancelled, config)`) | transport |
+| ChatGPT plan (any route on `chatgpt_plan`) | the budget as a prompt hint; the profile's effort | unchanged hint (never `max_output_tokens` or `max_tokens`: the route forbids them); a route's `ai.route_reasoning_effort` now replaces the profile's | the caller's loop resends with the doubled hint (subscription: admitted under the call and retry caps only) |
 | `field/probability_prep.py` Decider | 16 | **exempt** | none (typed answers) |
 | `content/synthesis/*` inventory / shards / synthesis / append | `[ingest.budgets]` | **exempt** (owner-set) | none (the owner's budget is the limit): raised and logged, as before plus the event |
 | Unbudgeted structured calls: `tutor/tutor_qa.py`, `tutor/teach_back.py`, `tutor/promotions.py`, `attempts/grading*.py` and `blind_grading.py` (live), `content/authoring/*`, `content/pipeline/source_ingestion.py`, `content/proposals/proposals.py`, `content/synthesis/vault_epigraphs.py`, `curriculum/*`, `diagnosis/diagnostic_gate.py`, `misconceptions.py`, `probe_dialogue.py`, `probe_instance_generation.py`, `reader/*`, native media transcription and PDF markdown | no cap (profile/provider maximum) | unchanged: no `max_tokens` unless the profile sets one | none possible (the provider's or profile's own maximum): raised and logged |
@@ -729,3 +740,70 @@ frontend, the sidecar's RPC set (no new RPC, so nothing to pin in
 5. **`hybrid_rrf` code path.** With `dense_plus_bm25` the default and its own
    fallback to `hybrid_rrf` for incomplete indexes, the fusion stays needed;
    nothing to retire.
+
+## 11. Merge onto main (2026-10-13)
+
+Merged onto main at `11177f6f` (owner batch 2, the ChatGPT-plan provider,
+DL1, the stuck prompt, router R1, learner-text gaps, facet identity) as
+`merge/t6-followup`: one merge commit with the conflict resolutions and the
+regenerated files, then one composition commit with tests that fail on the
+plain merge (`tests/test_t6_followup_composition.py`).
+
+**Conflicts.** `ops/pf_calls.py` (`PFCaller.call` keeps the policy budget,
+`TruncationRetry` and route effort beside owner batch 2's
+`retry_invalid_output`: under `False`, B1's, a truncation is logged and
+raised, never retried); `ops/embedding_compare.py` (the dry run's four
+per-class totals beside the per-role output-rate pricing);
+`tests/openai_fakes.py`; `config/template.py` (both sides' snapshot notes;
+every `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry, mvp-0.9 to mvp-0.16,
+recomputed); the generated references (main's side, regenerated:
+`errors: []`, 755 configuration leaves).
+
+**Composition changes** (second commit):
+
+- `PFCaller` priced a truncation retry's reservation with the first budget's
+  output share (owner batch 2's input/output pricing): the retry's doubled
+  output is now priced at the output rate.
+- B1: the writer's default budget is the policy's for its route
+  (`B1_DEFAULT_WRITER_OUTPUT_TOKENS` is the code default, 16,384), and the
+  local runner (`learnloop recurrence bench`) no longer lets the chat
+  transport retry a truncated writer answer (`ReviewSpend.request(...,
+  retry_truncation=False)`), which the policy's `ReviewSpend` retry had
+  silently re-enabled.
+- ChatGPT plan: honours a route's requested effort (T6's rewrite and
+  verification ask for `low`); the policy's budget stays a prompt hint, never
+  a request field (tested on the live rewrite and its truncation retry).
+- Main's new call sites follow the policy (the table in §1): the text-gap
+  judges, reader and drafter (their `ReviewSpend` now has the vault config),
+  the seed unit (the hand-set 6,000 retired), facet identity's LLM judge (the
+  hand-set 1,200 + 160 per facet retired; a truncation is retried once at
+  double instead of failing the group), the escalated repair, and
+  `learnloop ai latency`.
+- No LLM call: router R1 (decision logging only), DL1's chooser
+  (`lane_quota_v1`, deterministic), the stuck prompt (its reading is the
+  existing grader call; the gap reading is the text-gap reader above). The
+  tutor's `learner_gap` is part of the existing unbudgeted tutor answer. The
+  synthesis prompts' facet rule keeps the owner-set `[ingest.budgets]`.
+- No sidecar RPC was added by this branch, so nothing to pin desktop-only.
+
+**Reservations to watch.** Facet identity's metered judge (`openrouter_haiku`)
+now reserves 16,384 output tokens per group, so a 24-group plan of large
+groups can exceed the default `facet_identity.max_total_tokens` (600,000)
+before any call; the default route is the Codex (subscription) profile, where
+token and dollar caps are not enforced. The text-gap per-text dollar cap
+(`max_usd_per_text` 0.25) admits fewer metered calls per text at an owner
+price for the same reason. No default was changed.
+
+**Gate (merge tree with the composition commit;** `uv sync --extra dev --extra
+mobile`, `uv pip install pypdfium2`, `TMPDIR` = the worktree's
+`fixtures-local/tmp`, under `flock /tmp/learnloop-fullsuite.lock`):
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 15 contracts kept, 0 broken |
+| `uv run pytest -n auto -q -p no:cacheprovider` | **9003 passed**, 0 failed (325 s) |
+| `uv run pytest -n auto -q -p no:cacheprovider -m durability` | **95 passed** (28 s) |
+| `tests/test_t6_followup_composition.py` on the plain merge (source of the merge commit) | 12 of 13 fail; the 13th (a plan truncation retried on the subscription with no output cap field) is a guard that already held |
+| Frontend | not changed, not run |
+| `db_generate_reference.py`, `db_validate_reference.py` | `errors: []` (755 configuration leaves) |
+| CLI help snapshot | regenerated (`--writer-output-tokens` help, `ai latency --max-cost-usd`) |

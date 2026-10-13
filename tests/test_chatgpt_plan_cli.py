@@ -217,9 +217,13 @@ def _two_metered(tmp_path, server, monkeypatch, extra=("openrouter_b",)):
     vault = _vault(tmp_path, server, {})
     path = vault / "learnloop.toml"
     document = tomlkit.parse(path.read_text(encoding="utf-8"))
+    # The probe asks for each profile's output budget under the shared policy
+    # (T6 follow-up merge); a 64-token profile maximum keeps 464 tokens a call.
+    document["ai"]["providers"]["openrouter"]["max_tokens"] = 64
     for name in extra:
         profile = tomlkit.table()
-        for key, value in {"type": "openrouter", "model": f"metered/{name}", "api_key_env": "OPENROUTER_API_KEY"}.items():
+        for key, value in {"type": "openrouter", "model": f"metered/{name}", "api_key_env": "OPENROUTER_API_KEY",
+                           "max_tokens": 64}.items():
             profile[key] = value
         document["ai"]["providers"][name] = profile
     path.write_text(tomlkit.dumps(document), encoding="utf-8")

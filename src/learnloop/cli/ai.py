@@ -23,7 +23,11 @@ from learnloop.cli.render import _dump
 ai_app = typer.Typer(no_args_is_help=True, help="AI provider sign-in, status and checks.")
 
 PROVIDERS = ("chatgpt",)
-LATENCY_OUTPUT_TOKENS = 64
+#: The probe's prompt-side estimate (tokens); its output budget is the shared
+#: policy's for each profile (``learnloop.ai.output_budget``: the profile's
+#: ``max_tokens``, else ``ai.output_tokens``), so a reasoning model is never
+#: cut off before it answers and the timing is the model's, not a truncation.
+LATENCY_INPUT_TOKENS = 400
 
 
 def _require_chatgpt(provider: str) -> None:
@@ -235,7 +239,7 @@ def ai_latency(
     runs: Annotated[int, typer.Option("--runs", min=1, max=20, help="Calls per provider.")] = 3,
     timeout: Annotated[float, typer.Option("--timeout", min=5, max=600, help="Seconds per call.")] = 120.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens; required for a metered profile.")] = None,
-    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 0.05,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="A reservation cap for every metered profile together: each call reserves its prompt plus its full output budget (never what is billed).")] = 0.50,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the plan; build no client and send nothing.")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -245,11 +249,15 @@ def ai_latency(
     chatgpt_plan) estimate cost from reported usage; a metered profile needs
     --price-per-million, and all metered profiles together stay inside one
     --max-cost-usd (a plan whose combined estimate exceeds it is refused before
-    any call). Every call leaves a receipt in the vault.
+    any call). Each call asks for and reserves the profile's output budget
+    under the shared policy; a truncated answer is logged and counted as a
+    failed call (one physical request per timed call, no retry). Every call
+    leaves a receipt in the vault.
     """
 
-    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.ai.errors import AIOutputTruncated, AIProviderUnavailable
     from learnloop.ai.execution import generation_limit, single_request
+    from learnloop.ai.output_budget import output_budget, record_truncation
     from learnloop.ai.routing import client_for_provider, route_profile_mismatch, runtime_for_provider
     from learnloop.ai.schemas import WireModel
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded, is_subscription_transport
@@ -265,9 +273,11 @@ def ai_latency(
     bind_command_vault(loaded.root)
     config = loaded.config
     names = list(dict.fromkeys(provider))
-    tokens_per_call = 400 + LATENCY_OUTPUT_TOKENS
-    # The same per-call figure every metered request reserves below.
-    call_usd = tokens_per_call * price_per_million / 1_000_000 if price_per_million is not None else None
+
+    def call_usd(tokens: int) -> float | None:
+        # The same per-call figure every metered request reserves below.
+        return tokens * price_per_million / 1_000_000 if price_per_million is not None else None
+
     plan = []
     for name in names:
         profile = config.ai.providers.get(name)
@@ -280,26 +290,32 @@ def ai_latency(
         if not subscription and price_per_million is None:
             _fail(f"{name!r} is metered ({profile.type}); pass --price-per-million to bound its cost.",
                   json_output=json_output, code="unknown_price")
+        budget_tokens = output_budget(config, None, provider=name)
+        tokens_per_call = LATENCY_INPUT_TOKENS + budget_tokens
+        per_call_usd = call_usd(tokens_per_call)
         plan.append({
             "provider": name, "type": profile.type, "model": profile.model,
             "billing": "subscription" if subscription else "metered", "calls": runs,
+            "output_tokens": budget_tokens, "tokens_per_call": tokens_per_call,
             "estimated_tokens": runs * tokens_per_call,
-            "estimated_usd": float(Decimal(str(call_usd)) * runs) if call_usd is not None else None,
+            "estimated_usd": float(Decimal(str(per_call_usd)) * runs) if per_call_usd is not None else None,
         })
     # One dollar cap for every metered provider together; subscription
     # profiles keep their own (estimate-only) accounting per provider.
     metered = [entry for entry in plan if entry["billing"] == "metered"]
     # Decimal, like SpendBudget: the plan admits exactly what the per-call
     # reservations below will admit (a float sum can overshoot an exact cap).
-    metered_usd = float(Decimal(str(call_usd)) * runs * len(metered)) if metered else 0
+    metered_usd = (float(sum((Decimal(str(call_usd(entry["tokens_per_call"]))) * runs for entry in metered),
+                             Decimal(0))) if metered else 0)
+    metered_tokens = sum(runs * entry["tokens_per_call"] for entry in metered)
     metered_budget = SpendBudget(SpendCaps(
         max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs * len(metered),
-        max_total_tokens=runs * tokens_per_call * 4 * len(metered), max_estimated_usd=max_cost_usd,
+        max_total_tokens=metered_tokens * 4, max_estimated_usd=max_cost_usd,
     )) if metered else None
     reason = None
     if metered_budget is not None:
         try:
-            metered_budget.check(SpendEstimate(calls=runs * len(metered), total_tokens=runs * tokens_per_call * len(metered),
+            metered_budget.check(SpendEstimate(calls=runs * len(metered), total_tokens=metered_tokens,
                                                estimated_usd=metered_usd))
         except SpendLimitExceeded as exc:
             reason = (f"The metered providers together estimate ${metered_usd:.4f}, over --max-cost-usd "
@@ -339,6 +355,7 @@ def ai_latency(
         except AIProviderUnavailable as exc:
             row["error"] = str(exc)
             continue
+        tokens_per_call = entry["tokens_per_call"]
         if subscription or metered_budget is None:
             budget = SpendBudget(SpendCaps(max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs,
                                            max_total_tokens=runs * tokens_per_call * 4, max_estimated_usd=max_cost_usd),
@@ -349,18 +366,27 @@ def ai_latency(
         for index in range(1, runs + 1):
             prompt = (f"LearnLoop latency probe {index}. Return the JSON object "
                       f'{{"ok": true, "n": {index}}} and nothing else.')
-            estimate = SpendEstimate(calls=1, total_tokens=tokens_per_call, estimated_usd=call_usd)
+            estimate = SpendEstimate(calls=1, total_tokens=tokens_per_call, estimated_usd=call_usd(tokens_per_call))
             run: dict[str, Any] = {"n": index}
             try:
                 with budget.request(estimate) as charge:
                     started = time.perf_counter()
                     try:
-                        with (nullcontext() if subscription else single_request()), generation_limit(LATENCY_OUTPUT_TOKENS):
+                        with (nullcontext() if subscription else single_request()), \
+                                generation_limit(entry["output_tokens"]):
                             answer = execute_structured_operation(
                                 client, purpose="ai_latency_probe", prompt=prompt, result_model=LatencyProbe,
                                 timeout_seconds=timeout,
                             )
                         run["ok"] = bool(answer.ok) and answer.n == index
+                    except AIOutputTruncated as exc:
+                        # Never accepted; logged. A timed call is one physical
+                        # request, so it is not retried: the call failed.
+                        run["ok"] = False
+                        run["error"] = f"{type(exc).__name__}: {exc}"
+                        run["truncation"] = record_truncation(
+                            role="ai_latency_probe", provider=name, model=entry["model"],
+                            budget=entry["output_tokens"], retry_budget=None)
                     except AIProviderUnavailable as exc:
                         run["ok"] = False
                         run["error"] = f"{type(exc).__name__}: {exc}"

@@ -149,13 +149,17 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                 raise AIOutputTruncated("No generation budget remains.")
             # The plan route takes no max_output_tokens; state the target.
             prompt += f"\n\nKeep the complete JSON response within {request.output_budget_tokens} output tokens."
-        text = self._respond(self._instructions(model_type), prompt, model_type, deadline=deadline)
+        # A route's requested effort (ai.route_reasoning_effort) replaces the
+        # profile's for this request, as on Codex and OpenRouter.
+        effort = getattr(request, "reasoning_effort", None) or None
+        text = self._respond(self._instructions(model_type), prompt, model_type, deadline=deadline, effort=effort)
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError) as first:
             if single_request_active():
                 raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first
-            repaired = self._respond(_JSON_ONLY, _repair_prompt(text, model_type), model_type, deadline=deadline)
+            repaired = self._respond(_JSON_ONLY, _repair_prompt(text, model_type), model_type, deadline=deadline,
+                                     effort=effort)
             try:
                 return model_type.model_validate_json(repaired)
             except (ValidationError, ValueError) as second:
@@ -176,11 +180,12 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                     "strict": True}
         return {"type": "json_object"}
 
-    def _respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: float) -> str:
+    def _respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: float,
+                 effort: str | None = None) -> str:
         body = request_body(
             model=str(self.model), instructions=instructions, prompt=prompt,
             text_format=self._text_format(model_type),
-            reasoning_effort=(self.profile.reasoning_effort or None),
+            reasoning_effort=(effort or self.profile.reasoning_effort or None),
         )
         refreshed = False
         for attempt in range(1, _MAX_ATTEMPTS + 1):

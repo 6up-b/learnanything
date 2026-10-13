@@ -99,8 +99,9 @@ class CompareRequest:
     max_cases: int | None = None
     alternatives: int = 2
     max_items: int = 20
-    # B1: the hypothesis writer's output budget per case (None: the suite's
-    # default, 2000). Part of the writer's cache identity.
+    # B1: the hypothesis writer's output budget per case (None: the shared
+    # output-budget policy's for the writer's route). Part of the writer's
+    # cache identity.
     writer_output_tokens: int | None = None
     # A [pf.scaling] tier ("cheap" | "frontier"): PF roles resolve through that
     # tier's routes and verdicts record it, so the scaling check can compare

@@ -24,8 +24,8 @@
     "sha256": "ee20c39e6b525e84c9e5ddfe06ac7004a75a3763e1714d0b92d6c2891cd5f423"
   },
   "ai latency": {
-    "bytes": 3481,
-    "sha256": "98898f62d459ebe3f196fe5ab5bcb6882c43e15eb6eb77559f6a1a8e23099bb7"
+    "bytes": 4319,
+    "sha256": "0fb2d972e9bd0e20fec0eb1b3bbba383b2be9d7ec166bea412a0f1e99657babe"
   },
   "ai models": {
     "bytes": 1921,
@@ -340,8 +340,8 @@
     "sha256": "2b4806fd4c81d12006fa27ccb43a359d3ec4fa21396c18989959b6eabf567fa5"
   },
   "embeddings compare": {
-    "bytes": 13339,
-    "sha256": "a5f01932ded30069f3113c4b5615c8a6988aa3599c3a29b9f8d29f0330cd0552"
+    "bytes": 13849,
+    "sha256": "a94d2157176e283a39767b773f6a0ddf2fcd6c2ce149d3e4af633ca5fa8ea6ff"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
@@ -828,8 +828,8 @@
     "sha256": "873a37c3a43b9964f9531e646a14f35aae3aaa9297c698ba132bfb034764d8dd"
   },
   "recurrence bench": {
-    "bytes": 8735,
-    "sha256": "f0b8aece735ee13292803bb136e909b897118f59f1cf68d23703e909857ee644"
+    "bytes": 9326,
+    "sha256": "84dc213213bbcedf1102315ec7e3029c6800016ee59e98aa549bd0780b9f764b"
   },
   "recurrence groups": {
     "bytes": 1295,

@@ -108,7 +108,9 @@ class TextBudget:
         cls, vault: LoadedVault, *, price_per_million: float | None = None, cancelled: Callable[[], bool] | None = None,
     ) -> "TextBudget":
         price = price_per_million if price_per_million is not None else vault.config.learner_text_gaps.metered_price_per_million
-        return cls(ReviewSpend(caps_for(vault), cancelled=cancelled, price_per_million=price))
+        # The vault's output-budget policy sets every route's allowance
+        # (ai.output_tokens, ai.route_output_tokens, the profile maximum).
+        return cls(ReviewSpend(caps_for(vault), cancelled=cancelled, price_per_million=price, config=vault.config))
 
     def register_llm(self, route: str, client: Any) -> None:
         if route not in self.spend.routes:

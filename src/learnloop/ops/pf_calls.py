@@ -467,7 +467,9 @@ class PFCaller:
             estimate = SpendEstimate(
                 candidates=candidates if attempts == 0 else 0, pairs=pairs if attempts == 0 else 0,
                 retries=int(attempts > 0), calls=1, total_tokens=tokens,
-                estimated_usd=self.usd(max(0, tokens - output_tokens), output_tokens),
+                # The output share is what this attempt sends: a truncation
+                # retry's doubled budget is priced at the output rate too.
+                estimated_usd=self.usd(max(0, tokens - truncation.budget), truncation.budget),
             )
             self.check_shared(estimate)
             usage.clear()

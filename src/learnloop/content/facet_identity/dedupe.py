@@ -148,7 +148,7 @@ def run_dedupe(
     caps = caps_from_config(settings, **(caps_overrides or {}))
     route = resolve_route(vault.config, client=client, input_price=price_per_million_input,
                           output_price=price_per_million_output)
-    estimate = plan_estimate(requests, route.pricing, decider=route.decider)
+    estimate = plan_estimate(requests, route.pricing, decider=route.decider, output_tokens=route.output_tokens)
     run_id = new_ulid()
     locked = lock_reasons(vault, repository, (member.key for request in requests for member in request.members))
     report: dict[str, Any] = {
@@ -236,6 +236,8 @@ def run_dedupe(
                     "held_back": result["held_back"], "note": HELD_BACK_NOTE,
                 })
     report["charged"] = judge.charged()
+    # Truncation events of the LLM judge (each logged and retried once at double the budget).
+    report["truncations"] = list(getattr(judge, "truncations", []))
     statuses = {outcome.status for outcome in outcomes}
     if statuses <= {"judged", "reused"}:
         report["status"] = "complete"

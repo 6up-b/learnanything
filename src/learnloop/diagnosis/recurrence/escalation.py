@@ -160,8 +160,9 @@ def request_different_repair(
     return repair, {**info, "status": "used", "operator": repair["operator"]}
 
 
-def per_job_spend(cancelled: Callable[[], bool] | None = None) -> ReviewSpend:
-    return ReviewSpend(ESCALATION_REPAIR_CAPS, cancelled=cancelled)
+def per_job_spend(cancelled: Callable[[], bool] | None = None, config: Any | None = None) -> ReviewSpend:
+    # ``config``: the vault's output-budget policy (None: its code default).
+    return ReviewSpend(ESCALATION_REPAIR_CAPS, cancelled=cancelled, config=config)
 
 
 __all__ = [

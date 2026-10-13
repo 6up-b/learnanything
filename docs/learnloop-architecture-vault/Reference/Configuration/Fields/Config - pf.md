@@ -3,8 +3,8 @@ title: "Config - pf"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
-source_commit_timestamp: "2026-10-13T01:36:55-04:00"
+source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
+source_commit_timestamp: "2026-10-13T02:13:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml pf"
@@ -66,8 +66,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `pf.sandbox_memory_mb` | `2048` | integer | modeled default or validator seed | Controls sandbox memory megabytes in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1816` |
 | `pf.sandbox_wall_seconds` | `60` | integer | modeled default or validator seed | Sets the sandbox wall duration in seconds for PF-b generation, verification and capped publication of verified practice items (kill switch off by default). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1817` |
 | `pf.freshness_top_k` | `10` | integer | modeled default or validator seed | Controls freshness top k in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1819`; `src/learnloop/ops/pf_generation.py:1271` |
-| `pf.scaling.cheap` | `[]` | array | modeled default or validator seed | Controls cheap in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1793`; `src/learnloop/ops/embedding_compare.py:117`; `src/learnloop/ops/pf_generation.py:1461` |
-| `pf.scaling.frontier` | `[]` | array | modeled default or validator seed | Controls frontier in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1794`; `src/learnloop/ops/embedding_compare.py:117`; `src/learnloop/ops/pf_generation.py:1461` |
+| `pf.scaling.cheap` | `[]` | array | modeled default or validator seed | Controls cheap in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1793`; `src/learnloop/ops/embedding_compare.py:118`; `src/learnloop/ops/pf_generation.py:1461` |
+| `pf.scaling.frontier` | `[]` | array | modeled default or validator seed | Controls frontier in PF-b generation, verification and capped publication of verified practice items (kill switch off by default), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1794`; `src/learnloop/ops/embedding_compare.py:118`; `src/learnloop/ops/pf_generation.py:1461` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

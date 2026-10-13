@@ -201,7 +201,7 @@ def recurrence_bench(
     embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help="Embedding input price for models without a built-in estimate.")] = None,
     input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0, help="b1: the metered writer's input-token price (USD per million); with --output-price-per-million.")] = None,
     output_price_per_million: Annotated[float | None, typer.Option("--output-price-per-million", min=0, help="b1: the metered writer's output-token price (USD per million); with --input-price-per-million.")] = None,
-    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default 16000; reasoning tokens count against it).")] = None,
+    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default: the output-budget policy's for the diagnosis route, ai.output_tokens 16384 unless overridden; reasoning tokens count against it).")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run B1 or B3: an alias for `learnloop embeddings compare --suite b1|b3`.
@@ -212,7 +212,7 @@ def recurrence_bench(
     prices it from that route's configuration (Codex: calls only,
     estimated_only; metered: input and output tokens at the owner's prices,
     unknown fails closed) together with the embeddings. Its output budget is
-    --writer-output-tokens (default 16000); the profile's reasoning_effort
+    --writer-output-tokens (default: the output-budget policy's); the profile's reasoning_effort
     reaches OpenRouter as reasoning.effort. Hypotheses are cached per writer
     (model, settings and budget); a truncated case is recorded as failed. Vectors are cached in
     the output directory, never in the vault. Reports are aggregate; B3 prints

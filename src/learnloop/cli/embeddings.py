@@ -204,7 +204,7 @@ def embeddings_compare(
     embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help="Embedding input price for models without a built-in estimate.")] = None,
     input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0, help="Owner input-token price for metered LLM roles (USD per million); pass with --output-price-per-million instead of --price-per-million.")] = None,
     output_price_per_million: Annotated[float | None, typer.Option("--output-price-per-million", min=0, help="Owner output-token price for metered LLM roles (USD per million); pass with --input-price-per-million.")] = None,
-    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default 16000; a reasoning model's reasoning tokens count against it). Part of the writer's cache identity.")] = None,
+    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default: the output-budget policy's for the diagnosis route, ai.output_tokens 16384 unless overridden; a reasoning model's reasoning tokens count against it). Part of the writer's cache identity.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run one registered benchmark suite on the shared harness (B2 sets PF's blocking cutoffs).

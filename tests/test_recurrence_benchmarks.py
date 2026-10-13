@@ -484,6 +484,7 @@ def test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged(tmp_path):
 import types  # noqa: E402
 
 from learnloop.ai.errors import AIOutputTruncated  # noqa: E402
+from learnloop.ai.output_budget import DEFAULT_OUTPUT_TOKENS  # noqa: E402
 from learnloop.ops import embedding_compare as compare  # noqa: E402
 from learnloop.ops import pf_calls  # noqa: E402
 
@@ -610,8 +611,9 @@ def test_b3_markdown_renders_its_table_on_the_harness(tmp_path):
     assert "| Model | AUC |" in text and "Grader model" not in text
 
 
-def test_b1_writer_output_budget_defaults_to_16000_and_is_planned(tmp_path):
-    """2d: the writer's output budget is configurable, in the plan and the estimate."""
+def test_b1_writer_output_budget_defaults_to_the_policy_budget_and_is_planned(tmp_path):
+    """2d: the writer's output budget is configurable, in the plan and the estimate;
+    its default is the shared output-budget policy's (T6 follow-up merge)."""
 
     from learnloop.diagnosis.recurrence.benchmarks import b1_prompt, load_eedi, writer_tokens
 
@@ -621,12 +623,12 @@ def test_b1_writer_output_budget_defaults_to_16000_and_is_planned(tmp_path):
     default = _harness(vault, tmp_path, dry_run=True)
     assert default["status"] == "dry_run", default
     role = default["plan"]["roles"][B1_WRITER_ROLE]
-    assert default["plan"]["writer"]["output_tokens"] == 16000
-    assert role["output_tokens"] == 16000 * 4
-    assert role["tokens"] == sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis, 16000) for case in cases)
+    assert default["plan"]["writer"]["output_tokens"] == DEFAULT_OUTPUT_TOKENS
+    assert role["output_tokens"] == DEFAULT_OUTPUT_TOKENS * 4
+    assert role["tokens"] == sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis, DEFAULT_OUTPUT_TOKENS) for case in cases)
     small = _harness(vault, tmp_path, dry_run=True, writer_output_tokens=500)
     assert small["plan"]["writer"]["output_tokens"] == 500
-    assert small["plan"]["roles"][B1_WRITER_ROLE]["tokens"] == role["tokens"] - 4 * (16000 - 500)
+    assert small["plan"]["roles"][B1_WRITER_ROLE]["tokens"] == role["tokens"] - 4 * (DEFAULT_OUTPUT_TOKENS - 500)
 
 
 def test_a_truncated_writer_call_is_a_failed_case_not_a_failed_run(tmp_path):
@@ -694,7 +696,7 @@ def test_the_openrouter_writer_carries_its_effort_and_budget_and_the_bill_is_the
     assert report["status"] == "complete", report
     requests = fake.instances[0].requests
     assert len(requests) == 4
-    assert all(request["max_tokens"] == 16000 for request in requests)
+    assert all(request["max_tokens"] == DEFAULT_OUTPUT_TOKENS for request in requests)
     assert all(request["extra_body"] == {"reasoning": {"effort": "low"}} for request in requests)
     assert report["results"]["writer"]["settings"]["reasoning_effort"] == "low"
     billed = report["usage"]["billed"]["metered"]

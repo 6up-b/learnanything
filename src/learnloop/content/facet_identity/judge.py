@@ -61,7 +61,15 @@ from learnloop.ai.execution import (
     generation_limit,
     model_settings,
     observe_model_calls,
+    requested_reasoning_effort,
     single_request,
+)
+from learnloop.ai.output_budget import (
+    DEFAULT_OUTPUT_TOKENS,
+    TruncationRetry,
+    output_budget as policy_output_budget,
+    output_ceiling,
+    reasoning_effort as policy_reasoning_effort,
 )
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
@@ -296,15 +304,21 @@ def build_request(
                         input_hash=input_hash, shortlisted=kept)
 
 
-def output_budget(request: GroupRequest) -> int:
-    """A generous output bound: labels and a sentence per set (verbose models too)."""
+def judge_output_tokens(config: Any | None, provider: str | None = None) -> int:
+    """The LLM judge's output budget: the shared policy's for its route.
 
-    return 1200 + 160 * len(request.members)
+    ``ai.route_output_tokens.facet_identity_judge``, else the serving
+    profile's ``max_tokens``, else ``ai.output_tokens`` (16,384): the
+    hand-set 1,200 + 160 per facet is retired (owner, 2026-10-12: no role is
+    cut off by a hand-set cap). The Decider is exempt (typed answers).
+    """
+
+    return policy_output_budget(config, ROUTE, provider=provider or None)
 
 
-def estimate_tokens(request: GroupRequest) -> int:
+def estimate_tokens(request: GroupRequest, output_tokens: int = DEFAULT_OUTPUT_TOKENS) -> int:
     schema = json.dumps(FacetPartitionVerdict.model_json_schema())
-    return max(1, (len(request.prompt) + len(schema)) // 4) + output_budget(request)
+    return max(1, (len(request.prompt) + len(schema)) // 4) + int(output_tokens)
 
 
 # --- validation -------------------------------------------------------------
@@ -585,9 +599,10 @@ def pricing_for(model: str | None, *, input_override: float | None = None, outpu
 
 
 def request_estimate(request: GroupRequest, pricing: Pricing, *, retry: bool = False,
-                     new_facets: int | None = None, new_pairs: int | None = None) -> SpendEstimate:
-    output = output_budget(request)
-    total = estimate_tokens(request)
+                     new_facets: int | None = None, new_pairs: int | None = None,
+                     output_tokens: int = DEFAULT_OUTPUT_TOKENS) -> SpendEstimate:
+    output = int(output_tokens)
+    total = estimate_tokens(request, output)
     return SpendEstimate(
         candidates=request.new_count() if new_facets is None else new_facets,
         pairs=len(request.pairs()) if new_pairs is None else new_pairs,
@@ -596,8 +611,13 @@ def request_estimate(request: GroupRequest, pricing: Pricing, *, retry: bool = F
     )
 
 
-def plan_estimate(requests: Sequence[GroupRequest], pricing: Pricing, *, decider: bool = False) -> SpendEstimate:
-    """The whole plan, for a dry run and the up-front cap check."""
+def plan_estimate(requests: Sequence[GroupRequest], pricing: Pricing, *, decider: bool = False,
+                  output_tokens: int = DEFAULT_OUTPUT_TOKENS) -> SpendEstimate:
+    """The whole plan, for a dry run and the up-front cap check.
+
+    An LLM judge's call reserves its full output budget (``output_tokens``,
+    the policy's: :func:`judge_output_tokens`); the Decider's output is free.
+    """
 
     if not requests:
         return SpendEstimate(estimated_usd=0.0)
@@ -613,8 +633,9 @@ def plan_estimate(requests: Sequence[GroupRequest], pricing: Pricing, *, decider
             cost = pricing.usd(per * chunks, 0)
         else:
             calls += 1
-            tokens += estimate_tokens(request)
-            cost = pricing.usd(estimate_tokens(request) - output_budget(request), output_budget(request))
+            total = estimate_tokens(request, output_tokens)
+            tokens += total
+            cost = pricing.usd(total - int(output_tokens), int(output_tokens))
         usd = None if usd is None or cost is None else usd + cost
     return SpendEstimate(
         candidates=sum(request.new_count() for request in requests),
@@ -633,6 +654,13 @@ class LLMGroupJudge:
     tokens and dollars are estimated only and the call has no physical-request
     bound. Metered routes keep the full cap set and one physical request per
     admitted call.
+
+    Output budget (the shared policy, ``learnloop.ai.output_budget``):
+    ``output_tokens`` (None: the policy's code default; :func:`build_judge`
+    passes :func:`judge_output_tokens`). A truncated answer is never accepted:
+    it is logged (``truncations``) and retried once at double the budget,
+    held to the transport's ceiling and admitted as a retry; a second
+    truncation fails the group.
     """
 
     judge = "llm"
@@ -649,6 +677,8 @@ class LLMGroupJudge:
         repository: Any,
         owner_id: str,
         cancelled: Callable[[], bool] | None = None,
+        output_tokens: int | None = None,
+        reasoning_effort: str | None = None,
     ) -> None:
         self.client = client
         self.provider = provider
@@ -659,6 +689,12 @@ class LLMGroupJudge:
         self.subscription = is_subscription_transport(client=client)
         self.budget = SpendBudget(caps, cancelled=cancelled, subscription=self.subscription)
         self.settings = {**model_settings(client), "provider": provider, "model": model}
+        #: The output budget every request asks for and reserves (the policy's).
+        self.output_tokens = int(output_tokens) if output_tokens is not None else policy_output_budget(None)
+        #: The route's requested reasoning effort (``ai.route_reasoning_effort``).
+        self.reasoning_effort = reasoning_effort or None
+        #: Truncation events (role, model, budget, what happened next).
+        self.truncations: list[dict[str, Any]] = []
 
     def declared(self) -> dict[str, Any]:
         return {
@@ -668,13 +704,21 @@ class LLMGroupJudge:
             "cost_basis": ESTIMATED_ONLY if self.subscription else "metered_caps",
             "physical_request_bound": not self.subscription,
             "price": asdict(self.pricing), "caps_in_force": self.budget.declared(),
+            "output_tokens": self.output_tokens,
         }
 
     def checkpoint_key(self, request: GroupRequest) -> str:
-        return content_key({
+        # The output budget (and a requested effort) is part of the request's
+        # identity, as everywhere under the policy: an answer produced under
+        # another budget is not replayed for this one.
+        identity: dict[str, Any] = {
             "purpose": PURPOSE, "prompt": request.prompt,
             "schema": FacetPartitionVerdict.model_json_schema(), "settings": self.settings,
-        })
+            "output_tokens": self.output_tokens,
+        }
+        if self.reasoning_effort:
+            identity["reasoning_effort"] = self.reasoning_effort
+        return content_key(identity)
 
     def run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]:
         outcomes: list[GroupOutcome] = []
@@ -726,11 +770,15 @@ class LLMGroupJudge:
                     outcomes.append(self._finish(request, verdict, model, status="reused"))
                     continue
             attempts = 0
+            truncation = TruncationRetry(self.output_tokens, role=ROUTE, provider=self.provider, model=self.model,
+                                         owner_kind=OWNER_KIND, owner_id=self.owner_id,
+                                         ceiling=output_ceiling(self.client))
             while True:
                 new_facets = {member.key for member in request.members if not member.existing or request.mode != "attach"}
                 estimate = request_estimate(
                     request, self.pricing, retry=attempts > 0,
                     new_facets=len(new_facets - seen_facets), new_pairs=0 if attempts else None,
+                    output_tokens=truncation.budget,
                 )
                 current.update(input_hash=request.input_hash, tokens=estimate.total_tokens)
                 usage.clear()
@@ -741,7 +789,8 @@ class LLMGroupJudge:
                         seen_facets |= new_facets
                         bound = nullcontext() if self.subscription else single_request()
                         try:
-                            with bound, generation_limit(output_budget(request)):
+                            with bound, generation_limit(truncation.budget), truncation.receipts(), \
+                                    requested_reasoning_effort(self.reasoning_effort):
                                 raw = execute_structured_operation(
                                     self.client, purpose=PURPOSE, prompt=request.prompt,
                                     result_model=FacetPartitionVerdict,
@@ -764,7 +813,14 @@ class LLMGroupJudge:
                                                  error=stopped))
                     break
                 except AIOutputTruncated as exc:
-                    # The same budget would truncate again: never pay to retry it.
+                    # Never accepted: logged, then retried once at double the
+                    # budget (admitted as a retry), else the group fails.
+                    retry = truncation.after_truncation(
+                        allowed=self.budget.used.retries < self.budget.caps.max_retries)
+                    self.truncations.append(truncation.events[-1])
+                    if retry:
+                        attempts += 1
+                        continue
                     outcomes.append(GroupOutcome(request, "failed", judge=self.judge, judge_model=self.model,
                                                  error=type(exc).__name__))
                     break
@@ -1069,6 +1125,10 @@ class JudgeRoute:
     decider: bool
     pricing: Pricing
     problem: str | None = None
+    #: The LLM judge's output budget under the shared policy (the Decider is exempt).
+    output_tokens: int = DEFAULT_OUTPUT_TOKENS
+    #: The route's requested reasoning effort (``ai.route_reasoning_effort``).
+    reasoning_effort: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -1077,6 +1137,7 @@ class JudgeRoute:
             "billing": "subscription" if self.subscription else "metered",
             "cost_basis": ESTIMATED_ONLY if self.subscription else "metered_caps",
             "price": asdict(self.pricing), "problem": self.problem,
+            "output_tokens": None if self.decider else self.output_tokens,
         }
 
 
@@ -1111,7 +1172,9 @@ def resolve_route(
         problem = (f"unknown price for metered judge model {model!r}: set "
                    "facet_identity.price_per_million_input/_output")
     return JudgeRoute(provider=provider, profile_type=profile_type, model=model, subscription=subscription,
-                      decider=decider, pricing=pricing, problem=problem)
+                      decider=decider, pricing=pricing, problem=problem,
+                      output_tokens=judge_output_tokens(config, provider),
+                      reasoning_effort=policy_reasoning_effort(config, ROUTE))
 
 
 def build_judge(
@@ -1150,7 +1213,8 @@ def build_judge(
         return None, route
     return LLMGroupJudge(client=client, provider=route.provider, model=route.model, caps=caps,
                          pricing=route.pricing, repository=repository, owner_id=owner_id,
-                         cancelled=cancelled), route
+                         cancelled=cancelled, output_tokens=route.output_tokens,
+                         reasoning_effort=route.reasoning_effort), route
 
 
 def caps_from_config(settings: Any, **overrides: Any) -> SpendCaps:
@@ -1189,6 +1253,7 @@ __all__ = [
     "build_judge",
     "build_request",
     "caps_from_config",
+    "judge_output_tokens",
     "choice_question",
     "partition_from_pairs",
     "owner_vetoes",

@@ -505,7 +505,7 @@ def _request_repair(
     rows = classes.get(statement) or []
     learning_object_id = str(rows[0].get("learning_object_id") or "") if rows else ""
     learning_object = vault.learning_objects.get(learning_object_id)
-    job_spend = spend if spend is not None else per_job_spend(cancelled)
+    job_spend = spend if spend is not None else per_job_spend(cancelled, vault.config)
     with _receipts_for(job_spend, repository, attempt_id):
         return request_different_repair(
             client=client,

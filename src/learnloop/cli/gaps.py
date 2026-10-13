@@ -103,7 +103,7 @@ def gaps_run(
     price = price_per_million if price_per_million is not None else loaded.config.learner_text_gaps.metered_price_per_million
     # Its calls are receipted as the command's, not the live path's: the
     # live daily cap never counts them (re-review F5).
-    shared = TextBudget.for_command(ReviewSpend(caps, price_per_million=price))
+    shared = TextBudget.for_command(ReviewSpend(caps, price_per_million=price, config=loaded.config))
     outcomes = run_pending(loaded.root, repository, owner=f"cli:{new_ulid()}", max_jobs=max_texts,
                            budget_factory=lambda _vault: shared)
     _echo({"queued_by_backlog": swept, "outcomes": [outcome.as_dict() for outcome in outcomes],

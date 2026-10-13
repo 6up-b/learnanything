@@ -32,7 +32,10 @@ joins 5a's ``ROLE_TASKS``, so 5a's whole-plan admission prices it and
   (2026-10-12): hypotheses are cached in the output directory under the
   writer's identity (model, generation settings, output budget), so a rerun
   with another writer never reuses old text; the writer's output budget is
-  ``writer_output_tokens`` (default 16000; owner 2026-10-12: never cut the writer off early); a truncated or invalid output is a
+  ``writer_output_tokens``, by default the shared output-budget policy's for
+  the writer's route (``learnloop.ai.output_budget``: ``ai.output_tokens``,
+  16,384, unless the route or profile says otherwise; owner 2026-10-12: never
+  cut the writer off early); a truncated or invalid output is a logged
   failed case (not retried, not cached, a miss in the hypothesis view), and
   the suite renders its own Markdown table (``markdown_lines``).
 * **B3**: the vault's own labelled hypothesis pairs (owner verdicts imported
@@ -75,6 +78,7 @@ from pydantic import Field, field_validator
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import generation_limit
 from learnloop.ai.execution import content_key, record_model_calls
+from learnloop.ai.output_budget import DEFAULT_OUTPUT_TOKENS, output_budget
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
@@ -121,10 +125,13 @@ EMBEDDING_ROUTE = "embedding"
 #: Published per-million input prices (estimates for admission, not quotes).
 #: Models without one need ``--embedding-price-per-million``.
 EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
-#: The writer's output budget per hypothesis (``--writer-output-tokens``).
+#: The writer's output budget per hypothesis without ``--writer-output-tokens``
+#: and without a config: the shared policy's code default. With a vault, the
+#: default is the policy's budget for the writer's route (``ai.output_tokens``,
+#: ``ai.route_output_tokens.diagnosis`` or the profile's ``max_tokens``).
 #: Owner batch 2: 300 truncated current writers (a reasoning model's
 #: reasoning tokens count against it; one model failed on its first call).
-B1_DEFAULT_WRITER_OUTPUT_TOKENS = 16000
+B1_DEFAULT_WRITER_OUTPUT_TOKENS = DEFAULT_OUTPUT_TOKENS
 #: The profile settings that change what the writer writes: part of every
 #: hypothesis cache key, with the model and the output budget.
 WRITER_SETTING_KEYS = ("type", "base_url", "reasoning_effort", "thinking", "response_format", "max_tokens")
@@ -291,7 +298,10 @@ class BenchContext:
             self.spend.register(role, writer)
             self._registered.add(role)
         with self.spend.collector.observing():
-            with self.spend.request(role, purpose, input_tokens=estimate_tokens(prompt), output_tokens=output_tokens):
+            # B1's rule: an invalid output (a truncation included) is one
+            # failed case, so the transport never retries it either.
+            with self.spend.request(role, purpose, input_tokens=estimate_tokens(prompt), output_tokens=output_tokens,
+                                    retry_truncation=False):
                 with generation_limit(output_tokens):
                     return execute_structured_operation(
                         writer, purpose=purpose, prompt=prompt, result_model=result_model, isolated=True
@@ -324,12 +334,17 @@ def writer_tokens(prompt: str, result_model: type[WireModel],
     return len(prompt.encode("utf-8")) + schema + 512 + int(output_tokens)
 
 
-def requested_writer_output_tokens(request: Any) -> int:
-    """The writer's output budget a request asks for (default 16000)."""
+def requested_writer_output_tokens(request: Any, config: Any | None = None) -> int:
+    """The writer's output budget a request asks for.
+
+    Without ``writer_output_tokens``, the shared policy's budget for the
+    writer's route under ``config`` (``learnloop.ai.output_budget``; None: the
+    policy's code default, :data:`B1_DEFAULT_WRITER_OUTPUT_TOKENS`).
+    """
 
     value = getattr(request, "writer_output_tokens", None)
     if value is None:
-        return B1_DEFAULT_WRITER_OUTPUT_TOKENS
+        return output_budget(config, B1_WRITER_TASK)
     if int(value) <= 0:
         raise ValueError("writer_output_tokens must be positive")
     return int(value)
@@ -663,7 +678,7 @@ class B1Suite:
         return content_key({"prompt_version": B1_PROMPT_VERSION, "case": dict(case), "writer": dict(writer)})
 
     def plan(self, vault: LoadedVault, data: B1Data, request: BenchRequest) -> dict[str, Any]:
-        output_tokens = requested_writer_output_tokens(request)
+        output_tokens = requested_writer_output_tokens(request, vault.config)
         writer = configured_writer(vault, output_tokens) if "hypothesis" in data.views else None
         cached = self._cached_hypotheses(request) if writer is not None else {}
         to_write = [case for case in data.cases if self._case_key(case, writer) not in cached] if writer is not None else []
@@ -707,7 +722,8 @@ class B1Suite:
         caps and cancellation still stop the run.
         """
 
-        output_tokens = requested_writer_output_tokens(request)
+        vault = getattr(ctx, "vault", None)
+        output_tokens = requested_writer_output_tokens(request, getattr(vault, "config", None))
         writer = _run_writer(ctx, output_tokens)
         cached = self._cached_hypotheses(request)
         path = self._hypothesis_cache(request)
@@ -1174,7 +1190,7 @@ def run_bench(
         raise ValueError(f"Unknown suite {request.suite!r}; registered: {', '.join(sorted(SUITES))}")
     data = suite.load(vault, request)
     plan = suite.plan(vault, data, request)
-    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     report: dict[str, Any] = {
         "status": "dry_run" if request.dry_run else "pending",
         "suite": suite.name,

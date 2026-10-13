@@ -304,13 +304,17 @@ class ReviewSpend:
         input_tokens: int,
         output_tokens: int | None = None,
         retry: bool = False,
+        retry_truncation: bool = True,
     ) -> Iterator[AdmittedCall]:
         """Admit one unit of paid work on ``route``, then meter what it used.
 
         Metered: the first physical request is admitted here and every later
         one inside the unit (transport retry, JSON repair) is admitted as a
         retry before it is sent; the transport is held to the admitted output
-        limit. Subscription: one logical call against the call cap, physical
+        limit and may retry a truncated answer once at double it.
+        ``retry_truncation=False`` (B1's writer: an invalid output is one
+        failed case) keeps that retry off; the truncation is still logged.
+        Subscription: one logical call against the call cap, physical
         requests unbounded but each preceded by a cancellation check.
         """
 
@@ -355,7 +359,8 @@ class ReviewSpend:
             call = AdmittedCall(route=route, purpose=purpose, estimate=estimate, usage=usage, started=time.monotonic())
             # Each further physical request is admitted as it starts, so the
             # transport may retry a truncated answer once at double the budget.
-            retry = truncation_retry_allowed() if info.billing == "metered" else nullcontext()
+            retry = (truncation_retry_allowed() if info.billing == "metered" and retry_truncation
+                     else nullcontext())
             try:
                 with limit, retry:
                     yield call
