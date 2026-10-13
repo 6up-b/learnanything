@@ -2110,6 +2110,19 @@ export function ReaderScreen({
     if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) setReadingMoved(true);
     setReadingSpan(spanId);
   }, []);
+  // Every seek the watch panel makes is a placement, like a jump on a page
+  // (reading-hardening verify, N1: a click on a transcript cue past 70 % of an
+  // unread section carried the watching done before it there, and offered and
+  // pinned that section's check unwatched). The movement is reset in the
+  // same render that moves the position, so no render judges the new place
+  // by the old watching. Checks already offered stay pinned.
+  const onPlaybackSeek = useCallback((spanId: string | null) => {
+    settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+    setReadingMoved(false);
+    movedPendingRef.current = false;
+    lastPlaybackSpanRef.current = spanId;
+    if (spanId) setReadingSpan(spanId);
+  }, []);
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -3543,6 +3556,7 @@ export function ReaderScreen({
               resumeSpan={readingSpan}
               findShortcutEnabled={railTab !== "ask"}
               onPlaybackSpan={onPlaybackSpan}
+              onSeek={onPlaybackSeek}
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
               }}
@@ -4051,6 +4065,9 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   /** The cue playback is at; ``advancing`` is false for a seek's landing
    *  and while the player is paused (only playing on is watching). */
   onPlaybackSpan: (spanId: string | null, advancing: boolean) => void;
+  /** Every seek this panel makes (a resume, a transcript cue, a jump), told
+   *  before the player moves: a seek is a placement, not watching. */
+  onSeek: (spanId: string | null) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
   /** RW1a: the reconnect line under the transcript passage holding this cue. */
@@ -4063,6 +4080,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   resumeSpan,
   findShortcutEnabled,
   onPlaybackSpan,
+  onSeek,
   onAskSpan,
   onTagMenu,
   inlineNote = null,
@@ -4078,9 +4096,10 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   // playback.
   const playingRef = useRef<boolean | null>(null);
   const seekUntilRef = useRef(0);
-  const noteSeek = useCallback(() => {
+  const noteSeek = useCallback((spanId: string | null) => {
     seekUntilRef.current = Date.now() + SEEN_SETTLE_MS;
-  }, []);
+    onSeek(spanId);
+  }, [onSeek]);
   // ctrl/cmd+F transcript find (mirrors the PDF pane's find conventions).
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -4122,7 +4141,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: "llwatch", channel: "widget" }), YT_ORIGIN);
     const resumeCue = transcriptCues.find((cue) => cue.block.spanId === resumeSpanRef.current);
     if (resumeCue && resumeCue.start > 0) {
-      noteSeek();
+      noteSeek(resumeCue.block.spanId ?? null);
       post("seekTo", [resumeCue.start, true]);
       setCurrentTime(resumeCue.start);
     }
@@ -4192,7 +4211,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const seekToCue = useCallback((cue: TranscriptCue) => {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
-    noteSeek();
+    noteSeek(cue.block.spanId ?? null);
     post("seekTo", [cue.start, true]);
     post("playVideo");
     setFollowTranscript(true);
@@ -4266,7 +4285,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     seekToSpan: (spanId: string) => {
       const cue = transcriptCues.find((c) => c.block.spanId === spanId);
       if (!cue) return false;
-      noteSeek();
+      noteSeek(spanId);
       post("seekTo", [cue.start, true]);
       setCurrentTime(cue.start);
       setFollowTranscript(true);

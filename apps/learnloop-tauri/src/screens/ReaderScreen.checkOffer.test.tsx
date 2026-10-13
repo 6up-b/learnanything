@@ -397,3 +397,106 @@ describe("the original PDF's section-break offer", () => {
     expect(screen.getAllByText(AUTO_CHECK.prompt).length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Codex's verify of reading-hardening (N1): a video seek carried earlier
+// watching into an unread section. Playback through the lecture set the
+// learner's movement; a click on a transcript cue past 70 % of the next,
+// unread section only moved the playback position, so that section's check
+// was offered (and pinned) before a second of it was watched.
+// ---------------------------------------------------------------------------
+
+describe("a video seek (verify N1)", () => {
+  const LECTURE_CHECK: ReaderSectionQuestionDto = { ...AUTO_CHECK, prompt: "What does the lecture open with?", authoredQuestionId: "raq_v1", spanIds: ["v1"] };
+  const SUMMARY_CHECK: ReaderSectionQuestionDto = { ...AUTO_CHECK, prompt: "What does the summary conclude?", authoredQuestionId: "raq_v2", spanIds: ["v8"] };
+  const CUES = ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"];
+  const VIDEO: SourceLibraryCard = { ...CARD, sourceId: "src_vid", canonicalUri: "https://www.youtube.com/watch?v=abcdefghijk" };
+
+  function videoBackend() {
+    const videoView: ReaderRenderViewDto = {
+      ...VIEW,
+      sourceId: "src_vid",
+      blocks: CUES.map((spanId, index) => ({
+        ...VIEW.blocks[0],
+        displayNodeId: `node-${spanId}`,
+        spanId,
+        extractorBlockId: `t=${index * 10}-${index * 10 + 10}`,
+        markdown: `Caption ${spanId}.`
+      }))
+    };
+    const section = (id: string, label: string, spanIds: string[], question: ReaderSectionQuestionDto) => ({
+      id, label, startSpanId: spanIds[0], endSpanId: spanIds[spanIds.length - 1], spanIds, question, suggestedPassages: []
+    });
+    // The lecture (0-40 s), then a summary (40-90 s) not watched yet.
+    const videoPlan = {
+      version: 1, sourceId: "src_vid", extractionId: EXTRACTION_ID, personalized: false, selectionBasis: "", goalContext: null,
+      pendingDiagnosisAttemptIds: [],
+      sections: [
+        section("u1", "The lecture", CUES.slice(0, 4), LECTURE_CHECK),
+        section("u2", "Summary", CUES.slice(4), SUMMARY_CHECK)
+      ]
+    };
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "get_source_library") return { version: 1, sources: [VIDEO] };
+      if (command === "reader_render_view") return videoView;
+      if (command === "reader_guide_plan") return videoPlan;
+      if (command === "reader_watch_plan") return { version: 1, sourceId: "src_vid", videoId: "abcdefghijk", embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk", pausePoints: [] };
+      return sidecar(command);
+    });
+    // jsdom has no smooth scrolling; the transcript follows playback with it.
+    Element.prototype.scrollTo = vi.fn();
+  }
+
+  async function player(info: Record<string, unknown>) {
+    window.dispatchEvent(new MessageEvent("message", {
+      origin: "https://www.youtube-nocookie.com",
+      data: JSON.stringify({ event: "infoDelivery", info })
+    }));
+    await settle(100);
+  }
+
+  function shown(prompt: string): boolean {
+    return screen.queryAllByText(prompt).length > 0;
+  }
+
+  async function watchTheLecture() {
+    videoBackend();
+    render(<ReaderScreen onError={() => undefined} initialSource={{ card: VIDEO, spanId: null }} />);
+    await settle(SETTLED_MS);
+    fireEvent.load(document.querySelector("iframe")!);
+    await settle(100);
+    await player({ playerState: 1 });
+    for (const seconds of [2, 12, 22, 32]) await player({ currentTime: seconds });
+  }
+
+  it("a click on a cue past 70 % of an unread section offers its check only once playback moves on there", async () => {
+    await watchTheLecture();
+    expect(shown(LECTURE_CHECK.prompt)).toBe(true); // earned by watching the lecture through
+
+    // The learner clicks the summary's fourth cue (80 % of it); the player
+    // lands there, still playing.
+    fireEvent.click(document.querySelector('[data-transcript-span="v8"]')!);
+    await settle(100);
+    await player({ currentTime: 72 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+    await settle(5_000);
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+
+    // Watching on from there is watching the summary.
+    await player({ currentTime: 82 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(true);
+  });
+
+  it("a seek keeps a check already earned", async () => {
+    await watchTheLecture();
+    expect(shown(LECTURE_CHECK.prompt)).toBe(true);
+
+    fireEvent.click(document.querySelector('[data-transcript-span="v8"]')!);
+    await settle(100);
+    await player({ currentTime: 72 });
+    await settle(5_000);
+
+    expect(shown(LECTURE_CHECK.prompt)).toBe(true); // pinned when offered, until answered or set aside
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+  });
+});
