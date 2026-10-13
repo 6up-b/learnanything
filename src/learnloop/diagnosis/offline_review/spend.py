@@ -325,11 +325,21 @@ class ReviewSpend:
         with ExitStack() as stack:
             charge = stack.enter_context(self.budget.request(estimate))
             charges: list[SpendCharge] = [charge]
+            #: Each charge's own reservation (its fallback when usage is unreported).
+            reserved: list[int] = [base.total_tokens]
             if info.billing == "metered":
-                extra = SpendEstimate(calls=1, retries=1, total_tokens=base.total_tokens, estimated_usd=base.estimated_usd)
 
-                def admit(_event: dict[str, Any]) -> None:
+                def admit(event: dict[str, Any]) -> None:
+                    # Reserved at the output allowance this physical request is
+                    # sent with: the transport's truncation retry asks for twice
+                    # the budget (review F1); never less than the admitted limit.
+                    allowance = event.get("output_budget_tokens")
+                    sent = allowance if isinstance(allowance, int) and not isinstance(allowance, bool) else 0
+                    own = self.estimate(route, calls=1, input_tokens=input_tokens, output_tokens=max(output, sent))
+                    extra = SpendEstimate(calls=1, retries=1, total_tokens=own.total_tokens,
+                                          estimated_usd=own.estimated_usd)
                     charges.append(stack.enter_context(self.budget.request(extra)))
+                    reserved.append(own.total_tokens)
             else:
 
                 def admit(_event: dict[str, Any]) -> None:
@@ -359,7 +369,7 @@ class ReviewSpend:
                     for index, admitted in enumerate(charges):
                         own = per_request[index] if index < len(per_request) else None
                         reported = (own.input_tokens + own.output_tokens) if own is not None else 0
-                        tokens = reported or base.total_tokens
+                        tokens = reported or reserved[index]
                         cost = own.cost if own is not None and own.cost is not None else self._usd(info, tokens)
                         admitted.reconcile(total_tokens=tokens, estimated_usd=cost)
                 self._accumulate(route, info, usage, input_tokens * call.physical_requests, output * call.physical_requests)

@@ -408,11 +408,16 @@ class PaidCalls:
                     if _physical_start(event):
                         state["physical"] += 1
                         if state["physical"] > 1 and not route.subscription:
-                            # A hidden provider retry: admit it as a retry first.
+                            # A hidden provider retry: admit it as a retry first,
+                            # reserved at the output allowance it is sent with (a
+                            # truncation retry asks for twice the budget; review F1).
+                            allowance = event.get("output_budget_tokens")
+                            sent = allowance if isinstance(allowance, int) and not isinstance(allowance, bool) else 0
+                            retry_tokens = estimated_tokens - output_tokens + max(output_tokens, sent)
                             retries.enter_context(self.counts.request(SpendEstimate(calls=1, retries=1, estimated_usd=0.0)))
-                            retries.enter_context(self.metered.request(
-                                SpendEstimate(calls=1, retries=1, total_tokens=estimated_tokens, estimated_usd=usd)
-                            ))
+                            retries.enter_context(self.metered.request(SpendEstimate(
+                                calls=1, retries=1, total_tokens=retry_tokens, estimated_usd=self.usd(route, retry_tokens),
+                            )))
                 self.store.record_model_event(
                     action, event, owner_kind="project_command", owner_id=self.run_id,
                     diff_id=diff_id, disclosure=disclosure, cost_label=cost_label,
