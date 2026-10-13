@@ -412,34 +412,23 @@ def test_f8_a_stuck_answer_is_queued_at_recording_without_a_diagnosis(tmp_path, 
 
 
 def test_f8_the_adapter_reads_the_marker_before_scanning(tmp_path, monkeypatch):
-    import sys
-    import types
-
-    from learnloop.diagnosis.text_gaps.sources import StuckAnswersAdapter, stuck_text_for
+    from learnloop.attempts import stuck
+    from learnloop.diagnosis.text_gaps.sources import stuck_text_for
 
     root, repository = _vault(tmp_path, sync=True)
     attempt = _self_graded(root, repository, minutes=1)
-    with closing(connect(repository.sqlite_path)) as connection, connection:
-        # Main's migration 178 adds the marker; only an older schema lacks it.
-        if "declared_stuck" not in {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}:
-            connection.execute("ALTER TABLE practice_attempts ADD COLUMN declared_stuck INTEGER NOT NULL DEFAULT 0")
     scans: list[int] = []
-    module = types.ModuleType("fake_stuck_module")
 
     def stuck_answers(connection):
         scans.append(1)
-        return [{"attempt_id": attempt.attempt_id, "practice_item_id": "pi_diag_easy", "learning_object_id": "lo_diag",
-                 "subject_id": "linear-algebra", "has_text": True, "learner_answer_md": "confused",
-                 "created_at": NOW_ISO, "reading": {"confusion_quote": "confused"}}]
+        return []
 
-    module.stuck_answers = stuck_answers
-    monkeypatch.setitem(sys.modules, "fake_stuck_module", module)
-    adapter = StuckAnswersAdapter()
-    adapter.module = "fake_stuck_module"
-    assert stuck_text_for(repository, attempt.attempt_id, adapter) is None and scans == []
+    # The default adapter is the stuck prompt's own module (merged as mvp-0.13).
+    monkeypatch.setattr(stuck, "stuck_answers", stuck_answers)
+    assert stuck_text_for(repository, attempt.attempt_id) is None and scans == []
     with closing(connect(repository.sqlite_path)) as connection, connection:
         connection.execute("UPDATE practice_attempts SET declared_stuck = 1 WHERE id = ?", (attempt.attempt_id,))
-    found = stuck_text_for(repository, attempt.attempt_id, adapter)
+    found = stuck_text_for(repository, attempt.attempt_id)
     # Read by its id, never by scanning every stuck answer (re-review F4;
     # its reading: test_rr_f4_a_stuck_answer_is_read_by_its_id_with_its_current_reading).
     assert found is not None and found.text == "I don't get what an eigenvalue is" and scans == []

@@ -1550,9 +1550,11 @@ class LearnerTextGapsConfig(BaseModel):
 
     One pipeline turns a learner's own text (a tutor question, a non-empty
     stuck answer, a diagnosis) into a named gap and acts on it. Live behind
-    kill switches (frictionless defaults); only the sooner check is an
+    kill switches (frictionless defaults); what changes serving is an
     algorithm successor (``mvp-0.16``), with ``sooner_check_enabled`` as its
-    switch. Nothing here writes evidence, mastery or certification (G13).
+    switch: the sooner check, and a matched gap's target read as a weak
+    prerequisite signal by the field loader (placement's fast-track rule
+    reads it). Nothing here writes evidence, mastery or certification (G13).
 
     ``chooser`` decides whose kind is authoritative: ``context_model`` (the
     tutor, the diagnoser or the stuck-text reader: the model with the whole
@@ -1584,7 +1586,9 @@ class LearnerTextGapsConfig(BaseModel):
     # A stated belief is a holding-pen sighting (or a new candidate).
     sightings_enabled: bool = True
     # mvp-0.16's kill switch: a matched prerequisite gap brings an assumed or
-    # maintenance LO's next check forward to no sooner than this delay.
+    # maintenance LO's next check forward to no sooner than this delay, and
+    # its target is a weak prerequisite signal (placement's fast-track rule).
+    # Off: mvp-0.15's serving exactly.
     sooner_check_enabled: bool = True
     sooner_check_delay_hours: int = Field(default=24, ge=1, le=24 * 60)
     # Per learner text: paid requests (all routes) and metered dollars.

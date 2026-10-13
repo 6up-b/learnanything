@@ -226,29 +226,24 @@ def test_rr_f3_the_sidecar_drain_goes_on_past_a_text_backing_off(tmp_path):
 # -- F4: queueing a stuck answer reads that one attempt -------------------------------------------
 
 
-def _stuck_module(monkeypatch, rows, *, per_attempt=None):
-    import sys
-    import types
+def _no_scan(monkeypatch):
+    """Record any scan of every stuck answer through the stuck prompt's module."""
+
+    from learnloop.attempts import stuck
 
     scans: list[int] = []
-    module = types.ModuleType("fake_stuck_module_rr")
 
     def stuck_answers(connection):
         scans.append(1)
-        return rows
+        return []
 
-    module.stuck_answers = stuck_answers
-    if per_attempt is not None:
-        module.stuck_answer = per_attempt
-    monkeypatch.setitem(sys.modules, "fake_stuck_module_rr", module)
+    monkeypatch.setattr(stuck, "stuck_answers", stuck_answers)
     return scans
 
 
 def _mark_stuck(repository, attempt_id):
+    # Main's migration 178 carries the marker; the answer becomes a stuck one.
     with closing(connect(repository.sqlite_path)) as connection, connection:
-        # Main's migration 178 adds the marker; only an older schema lacks it.
-        if "declared_stuck" not in {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}:
-            connection.execute("ALTER TABLE practice_attempts ADD COLUMN declared_stuck INTEGER NOT NULL DEFAULT 0")
         connection.execute("UPDATE practice_attempts SET declared_stuck = 1 WHERE id = ?", (attempt_id,))
 
 
@@ -263,17 +258,15 @@ def _reading_judgment(repository, attempt_id, quote, *, supersedes=None, at="202
 
 
 def test_rr_f4_a_stuck_answer_is_read_by_its_id_with_its_current_reading(tmp_path, monkeypatch):
-    from learnloop.diagnosis.text_gaps.sources import StuckAnswersAdapter, stuck_text_for
+    from learnloop.diagnosis.text_gaps.sources import stuck_text_for
 
     root, repository = _vault(tmp_path, sync=True)
     attempt = _self_graded(root, repository, minutes=1)
     _mark_stuck(repository, attempt.attempt_id)
-    scans = _stuck_module(monkeypatch, [])
-    adapter = StuckAnswersAdapter()
-    adapter.module = "fake_stuck_module_rr"
+    scans = _no_scan(monkeypatch)
     first = _reading_judgment(repository, attempt.attempt_id, "what an eigenvalue is")
     _reading_judgment(repository, attempt.attempt_id, "an eigenvalue", supersedes=first, at="2026-05-19T12:05:00Z")
-    found = stuck_text_for(repository, attempt.attempt_id, adapter)
+    found = stuck_text_for(repository, attempt.attempt_id)
     assert found is not None and scans == []  # no scan of every stuck answer
     assert (found.attempt_id, found.learning_object_id, found.practice_item_id) == (
         attempt.attempt_id, "lo_diag", "pi_diag_easy")
@@ -281,7 +274,8 @@ def test_rr_f4_a_stuck_answer_is_read_by_its_id_with_its_current_reading(tmp_pat
 
 
 def test_rr_f4_the_stuck_modules_own_per_attempt_reader_is_preferred(tmp_path, monkeypatch):
-    from learnloop.diagnosis.text_gaps.sources import StuckAnswersAdapter, stuck_text_for
+    from learnloop.attempts import stuck
+    from learnloop.diagnosis.text_gaps.sources import stuck_text_for
 
     root, repository = _vault(tmp_path, sync=True)
     attempt = _self_graded(root, repository, minutes=1)
@@ -294,10 +288,9 @@ def test_rr_f4_the_stuck_modules_own_per_attempt_reader_is_preferred(tmp_path, m
                 "subject_id": "linear-algebra", "has_text": True, "learner_answer_md": "from the module",
                 "created_at": "2026-05-19T12:00:00Z", "reading": {"confusion_quote": "module"}}
 
-    scans = _stuck_module(monkeypatch, [], per_attempt=stuck_answer)
-    adapter = StuckAnswersAdapter()
-    adapter.module = "fake_stuck_module_rr"
-    found = stuck_text_for(repository, attempt.attempt_id, adapter)
+    scans = _no_scan(monkeypatch)
+    monkeypatch.setattr(stuck, "stuck_answer", stuck_answer)
+    found = stuck_text_for(repository, attempt.attempt_id)
     assert found is not None and (found.text, found.confusion_quote) == ("from the module", "module")
     assert asked == [attempt.attempt_id] and scans == []
 

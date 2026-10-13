@@ -70,6 +70,16 @@ REPAIR_RULE_DIAGNOSIS = "open_diagnosis"
 REPAIR_RULE_RECENT_ERROR = "recent_error_fallback"
 
 
+#: Why an assumed-known LO's first review is in the maintain lane.
+ASSUMED_CHECK_REASON = "the first review of a topic assumed known (not tested): this is the check"
+#: Learner-text gaps: the scheduler's ``gap_commitment_check`` (a prerequisite
+#: created from the learner's question, its one delayed check) and
+#: ``gap_sooner_check`` (mvp-0.16: a check a learner's question brought
+#: forward), worded as the scheduler's own reasons are.
+GAP_COMMITMENT_CHECK_REASON = "the one check on a topic added from your question"
+GAP_SOONER_CHECK_REASON = "a check brought forward: your question pointed at this topic"
+
+
 @dataclass(frozen=True)
 class ScheduledCheck:
     """A fixed-date cold check the plan serves in the maintain lane (§6.1 rule 1)."""
@@ -191,11 +201,20 @@ def classify_item(
         if check.kind == "project_probe" and not probe_slot_available:
             return PoolItem(lane=None, reason="a due project probe beyond today's probe limit", check_kind=check.kind, check_priority=check.priority, **base)
         reasons = {
-            "assumed_check": "the first review of a topic assumed known (not tested): this is the check",
+            "assumed_check": ASSUMED_CHECK_REASON,
             "project_probe": "a delayed question about your project's code",
             "check_once": "your one delayed check",
         }
-        return PoolItem(lane="maintain", reason=reasons.get(check.kind, "a scheduled check"), check_kind=check.kind, check_priority=check.priority, **base)
+        reason = reasons.get(check.kind, "a scheduled check")
+        if check.kind == "assumed_check":
+            # Learner-text gaps: the scheduler serves a created prerequisite's
+            # one check, and a check a gap brought forward (mvp-0.16), as an
+            # assumed check; neither is "assumed known" (honest labels).
+            if float(components.get("gap_commitment_check", 0.0) or 0.0) > 0.0:
+                reason = GAP_COMMITMENT_CHECK_REASON
+            elif float(components.get("gap_sooner_check", 0.0) or 0.0) > 0.0:
+                reason = GAP_SOONER_CHECK_REASON
+        return PoolItem(lane="maintain", reason=reason, check_kind=check.kind, check_priority=check.priority, **base)
     if followup:
         return PoolItem(lane="repair", reason="a follow-up", **base)
     if open_problem is None:
@@ -313,8 +332,13 @@ def _lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]
         checks = [item for item in items if item.check_kind]
         if checks and len(checks) == count:
             kinds = {item.check_kind for item in checks}
-            if kinds == {"assumed_check"}:
+            reasons = {item.reason for item in checks}
+            if kinds == {"assumed_check"} and reasons == {ASSUMED_CHECK_REASON}:
                 return f"maintain: the check on {topic}, assumed known (not tested)"
+            if kinds == {"assumed_check"} and reasons == {GAP_COMMITMENT_CHECK_REASON}:
+                return f"maintain: the one check on {topic}, added from your question"
+            if kinds == {"assumed_check"} and reasons == {GAP_SOONER_CHECK_REASON}:
+                return f"maintain: the check on {topic}, brought forward by your question"
             return f"maintain: {count} scheduled check{plural} ({topic})"
         return f"maintain: {count} review{plural} past their 90% recall target ({topic})"
     if lane == "new":
@@ -489,7 +513,10 @@ def _pack(
 
 
 __all__ = [
+    "ASSUMED_CHECK_REASON",
     "FOLLOWUP_COMPONENTS",
+    "GAP_COMMITMENT_CHECK_REASON",
+    "GAP_SOONER_CHECK_REASON",
     "LegacyLanesSource",
     "PoolItem",
     "REPAIR_MIN_RECENT_ERROR",

@@ -3,8 +3,8 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
-source_commit_timestamp: "2026-10-13T00:05:36-04:00"
+source_commit: "28da3101f65026ca0d14ca21946d7c2c92e97469"
+source_commit_timestamp: "2026-10-13T00:28:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_learner_text_gaps.py`
+- `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_flow.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`

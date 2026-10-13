@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
-source_commit_timestamp: "2026-10-13T00:05:36-04:00"
+source_commit: "28da3101f65026ca0d14ca21946d7c2c92e97469"
+source_commit_timestamp: "2026-10-13T00:28:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -190,7 +190,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
-- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/field/signals.py`
