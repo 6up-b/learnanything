@@ -508,11 +508,14 @@ def _compile_facet(
     Whatever produced the item (bootstrap, append, a consolidation, an edited
     payload, a create that carries a registered facet's id), the write is
     judged here by ``authority.check_meaning_write`` from the citations in its
-    ``meaning_support`` (else the block-span refs it adds), resolved in the
-    proposal's source set: a registered facet's meaning changes only with an
-    explanatory citation in every contribution, and no facet takes meaning
-    that only exam material supports. The refs it records are the ones that
-    were validated (``authority.written_provenance``).
+    ``meaning_support``, reconciled with the block-span refs it adds (a ref no
+    declared contribution cites is judged as one more contribution; malformed
+    bookkeeping is refused), resolved in the proposal's source set: a
+    registered facet's meaning changes only with an explanatory citation in
+    every contribution, and no facet takes meaning that only exam material
+    supports. The refs it records are the ones that were validated
+    (``authority.written_provenance``); one that was not never becomes a
+    source link (``authority.added_provenance``).
     """
 
     entity_id = _entity_id(item, payload)
@@ -534,10 +537,13 @@ def _compile_facet(
     existing = vault.evidence_facets.get(entity_id)
     before = existing.model_dump(mode="json", exclude_none=False) if existing is not None else None
     after = authority.overlay(before, data)
+    try:
+        contributed = authority.write_contributions(payload, before=before, after=after)
+    except authority.FacetAuthorityError as exc:  # malformed meaning_support: refused, never "no support"
+        raise PatchApplicationError(f"Refusing to apply facet {entity_id}: {exc}") from exc
     verdict = authority.check_meaning_write(
         entity_id, before=before, after=after, registered=existing is not None,
-        contributions=authority.write_contributions(payload, before=before, after=after),
-        resolver=facet_authority.resolver,
+        contributions=contributed, resolver=facet_authority.resolver,
     )
     if not verdict.allowed:
         raise PatchApplicationError(f"Refusing to apply facet {entity_id}: {verdict.message}")

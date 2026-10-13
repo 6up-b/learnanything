@@ -1114,7 +1114,12 @@ def _recover_facet_identity_actions(
             _issue(
                 "warning",
                 "facet_identity:recovered",
-                "Finished " + ", ".join(f"{row['id']} ({row['from']} -> {row['to']})" for row in finished),
+                "Finished " + ", ".join(
+                    f"{row['id']} ({row['from']} -> {row['to']}"
+                    + (f"; refused by the meaning-authority check: {row['refused']}" if row.get("refused") else "")
+                    + ")"
+                    for row in finished
+                ),
                 paths.sqlite_path,
             )
         )

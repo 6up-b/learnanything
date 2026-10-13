@@ -428,10 +428,9 @@ def test_the_writer_refuses_a_new_facet_one_of_whose_contributions_is_exam_only(
     assert "facet_symmetry_merged" not in load_vault(root).evidence_facets
 
 
-def test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot_mint_it(tmp_path):
-    """End to end: the judge merges an exam-only candidate into the textbook one."""
+def _exam_alias_consolidation(tmp_path):
+    """An ingest run whose judge merges an exam-only candidate into the textbook one (it joins as an alias)."""
 
-    from learnloop.content.facet_identity.actions import undo_action
     from learnloop.content.synthesis.source_set_synthesis import create_study_map
 
     from tests.facet_identity_fakes import FakeFacetJudge
@@ -451,6 +450,21 @@ def test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot
     result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=with_exam_duplicate),
                               repository=repo, clock=_CLOCK, apply=True,
                               facet_identity_client=FakeFacetJudge(clusters=[[DEF_CLAIM, EXAM_CLAIM]]))
+    return root, repo, result
+
+
+def _owner_judgments(repo) -> list[dict]:
+    with repo.connection() as connection:
+        rows = connection.execute("SELECT * FROM judgment_ledger WHERE judge = 'owner' ORDER BY id").fetchall()
+    return [dict(row) for row in rows]
+
+
+def test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot_mint_it(tmp_path):
+    """End to end: the judge merges an exam-only candidate into the textbook one."""
+
+    from learnloop.content.facet_identity.actions import undo_action
+
+    root, repo, result = _exam_alias_consolidation(tmp_path)
 
     assert result.applied
     survivor = load_vault(root).evidence_facets["facet_symmetry_definition"]
@@ -461,6 +475,7 @@ def test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot
     (action,) = result.facet_identity["actions"]
     assert "alias only" in (action.get("contract_note") or "")
     before = load_vault(root).evidence_facets["facet_symmetry_definition"].model_dump(mode="json")
+    status = facet_actions.action_by_id(repo, action["id"])["status"]
 
     # Undoing the consolidation would mint the exam-only candidate as a facet.
     with pytest.raises(FacetIdentityActionError) as raised:
@@ -470,6 +485,21 @@ def test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot
     vault = load_vault(root)
     assert "facet_symmetry_exam" not in vault.evidence_facets
     assert vault.evidence_facets["facet_symmetry_definition"].model_dump(mode="json") == before
+    # Codex re-review F1: the refusal is decided before the undo intent is
+    # recorded, so the action stays as it was (never ``undoing``) with no owner
+    # verdict, and the next facet operation (each one runs recovery first) is
+    # not blocked by it.
+    assert facet_actions.action_by_id(repo, action["id"])["status"] == status != "undoing"
+    assert facet_actions.describe(facet_actions.action_by_id(repo, action["id"]), vault)["status"] == "applied"
+    assert _owner_judgments(repo) == []
+    assert facet_actions.recover_interrupted_actions(root, repo, clock=_CLOCK) == []
+    paths = VaultPaths(vault.root, vault.config)
+    document = read_yaml(paths.facets_path)
+    edited = next(entry for entry in document["facets"] if entry["id"] == "facet_symmetry_definition")
+    edited["claim"] = NEW_CLAIM
+    saved = facet_actions.save_registry_text(root, repo, yaml_to_string(document), clock=_CLOCK)
+    assert saved["reword_action_ids"]
+    assert load_vault(root).evidence_facets["facet_symmetry_definition"].claim == NEW_CLAIM
 
 
 # --- 5. the persisted locator is derived from the validated ids ----------------------------

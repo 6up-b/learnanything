@@ -1,4 +1,4 @@
-"""Facet meaning authority: the one chokepoint (Codex verification of F6, 2026-10-13).
+"""Facet meaning authority: the one chokepoint (Codex verification of F6 and its re-review, 2026-10-13).
 
 Facet identity locks were removed (owner, 2026-10-12), so nothing about a
 facet's history stops its meaning from changing. What must still hold is the
@@ -12,11 +12,14 @@ that rule is enforced for a facet, whichever path writes it.
   provenance, status, version) is not judged here.
 * :class:`CitationResolver` resolves a citation from its ids, never from what
   its producer says about it. The extraction must belong to a source-set
-  member; the span must resolve in that extraction; a cited unit must contain
-  the span; the span's unit must be selected in the member's scope; its role
-  is that unit's ``role_override`` when there is one, else the member's
-  ``default_role`` (the least authoritative one when several members select
-  it); an exam citation's relation is ``assessment_alignment``; and its
+  member (as the member revision's latest extraction or, after a
+  re-extraction, an earlier one of the same pinned revision); the span must
+  resolve in that extraction; a cited unit must hold the span (a split child
+  holds only the blocks under its own heading); the span must be held by a
+  unit selected in the member's scope; its role is that scope entry's
+  ``role_override`` when there is one, else the member's ``default_role`` (the
+  least authoritative one when several entries or members select it, in any
+  order); an exam citation's relation is ``assessment_alignment``; and its
   locator is derived from the ids.
 * :func:`check_meaning_write` judges one facet's change from the resolved
   citations of each contribution to it, with ``role_authority.support_verdict``:
@@ -26,7 +29,14 @@ that rule is enforced for a facet, whichever path writes it.
   - a new facet may not carry a contribution only exam material supports (a
     notes or problem-set citation never corroborates one). An uncited new
     facet stays what it was: a proposal the ``adequate_provenance`` gate sends
-    to review.
+    to review;
+  - a proposal's contributions are its ``meaning_support`` reconciled with the
+    refs it records (:func:`write_contributions`): a recorded span no declared
+    contribution cites is one more contribution, and malformed bookkeeping is
+    refused; recorded citations an undo restores must still resolve.
+
+  A citation that does not resolve supports nothing: it is recorded as
+  ``unresolved`` and never becomes a source link (:func:`added_provenance`).
 * :func:`join_candidate` is how a merge or absorb of a candidate (in-run
   consolidation, attach) changes its survivor: the candidate's meaning joins
   only when :func:`check_meaning_write` allows it, otherwise it joins as an
@@ -37,7 +47,10 @@ that rule is enforced for a facet, whichever path writes it.
   by a basis it verifies itself: :class:`Cited` (judged as above),
   :class:`RegisteredMerge` (the union of registered facets, recomputed here),
   :class:`Restore` (an entry an action recorded) or :class:`OwnerEdit` (the
-  owner's own Library save, the explicit and audited manual authority).
+  owner's own Library save, the explicit manual authority, which must name
+  the owner's ``granted`` verdict recorded for it). :func:`check_registry_text`
+  decides without writing, so a caller that records an intent first (undo)
+  never records one the chokepoint would refuse.
 * The proposal compiler (``patches._compile_facet``) calls
   :func:`check_meaning_write` for each facet item through a
   :class:`ProposalAuthority`, and the apply refuses a staged ``facets.yaml``
@@ -68,7 +81,7 @@ from learnloop.content.sources.role_authority import (
     support_verdict,
 )
 from learnloop.content.sources.source_outline import resolve_extraction_id
-from learnloop.content.synthesis.source_unit_selection import compute_effective_units
+from learnloop.content.synthesis.source_unit_selection import effective_unit_spans
 from learnloop.content.synthesis.synthesis_gates import ProvenanceRef
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span, parse_block_span
 from learnloop.vault.models import EvidenceFacet
@@ -191,6 +204,9 @@ class CitationProblem:
 
 @dataclass(frozen=True)
 class _Member:
+    #: The member revision's latest extraction ("" when it has none yet). A
+    #: citation of any other extraction of the same pinned revision resolves
+    #: through the revision (Codex re-review F4).
     extraction_id: str
     source_id: str
     revision_id: str
@@ -201,14 +217,24 @@ class _Member:
 
 @dataclass
 class _Units:
-    raw: dict[str, set[str]]
-    effective: dict[str, tuple[str, ...]]
+    """One extraction's units: each raw and each effective unit with the spans it holds."""
+
+    raw: dict[str, frozenset[str]]
+    effective: dict[str, frozenset[str]]
     spans: set[str]
 
-    def expand(self, unit_id: str) -> set[str]:
+    def spans_of(self, unit_id: str) -> frozenset[str] | None:
+        """The spans ``unit_id`` holds, or None when it is no unit of this extraction.
+
+        A raw unit holds its own spans. An effective unit holds what the
+        boundary overrides give it: a merge its members' spans, a split child
+        only the blocks under its own heading (Codex re-review F3), never its
+        raw parent's.
+        """
+
         if unit_id in self.raw:
-            return {unit_id}
-        return set(self.effective.get(unit_id, ()))
+            return self.raw[unit_id]
+        return self.effective.get(unit_id)
 
 
 def _authority_rank(role: str) -> int:
@@ -228,22 +254,23 @@ class CitationResolver:
         *,
         load_ir: Callable[[str], Any],
         load_overrides: Callable[[str], Sequence[Mapping[str, Any]]],
+        load_revision: Callable[[str], str | None] | None = None,
     ) -> None:
         self._members = list(members)
         self._load_ir = load_ir
         self._load_overrides = load_overrides
+        self._load_revision = load_revision
         self._units: dict[str, _Units | None] = {}
+        self._revisions: dict[str, str | None] = {}
 
     @classmethod
     def for_source_sets(cls, repository: Any, source_sets: Iterable[Any]) -> CitationResolver:
         members: list[_Member] = []
         for source_set in source_sets:
             for member in source_set.members:
-                extraction_id = resolve_extraction_id(repository, member.revision_id)
-                if extraction_id is None:
-                    continue
                 members.append(_Member(
-                    extraction_id=extraction_id, source_id=member.source_id, revision_id=member.revision_id,
+                    extraction_id=resolve_extraction_id(repository, member.revision_id) or "",
+                    source_id=member.source_id, revision_id=member.revision_id,
                     default_role=str(member.default_role or ""),
                     scope=tuple((str(entry.unit_id), entry.role_override) for entry in member.scope),
                     source_set_id=str(source_set.id),
@@ -252,7 +279,11 @@ class CitationResolver:
         def overrides(extraction_id: str) -> Sequence[Mapping[str, Any]]:
             return list((repository.get_unit_selection(extraction_id) or {}).get("boundary_overrides") or [])
 
-        return cls(members, load_ir=repository.load_document_ir, load_overrides=overrides)
+        def revision(extraction_id: str) -> str | None:
+            run = repository.get_extraction_run(extraction_id)
+            return str(run["revision_id"]) if run and run.get("revision_id") else None
+
+        return cls(members, load_ir=repository.load_document_ir, load_overrides=overrides, load_revision=revision)
 
     @classmethod
     def for_source_set(cls, repository: Any, source_set: Any) -> CitationResolver:
@@ -268,21 +299,43 @@ class CitationResolver:
             if ir is None:
                 self._units[extraction_id] = None
             else:
-                effective = {
-                    str(entry["effective_id"]): tuple(str(unit) for unit in entry["source_unit_ids"])
-                    for entry in compute_effective_units(ir, list(self._load_overrides(extraction_id)))
-                }
+                effective = effective_unit_spans(ir, list(self._load_overrides(extraction_id)))
                 self._units[extraction_id] = _Units(
-                    raw={unit.unit_id: set(unit.span_ids) for unit in ir.units},
-                    effective=effective,
+                    raw={unit.unit_id: frozenset(unit.span_ids) for unit in ir.units},
+                    effective={unit_id: frozenset(spans) for unit_id, spans in effective.items()},
                     spans={block.span_id for block in ir.blocks},
                 )
         return self._units[extraction_id]
 
+    def _members_for(self, extraction_id: str) -> list[_Member]:
+        """The members an extraction run belongs to: by its id, else by the revision it extracted.
+
+        A re-extraction of a member's pinned revision makes it the member's
+        latest extraction; a citation of the earlier one still belongs to that
+        member, with its role and scope (Codex re-review F4), rather than
+        becoming a citation that resolves nowhere.
+        """
+
+        members = [member for member in self._members if member.extraction_id == extraction_id]
+        if members or self._load_revision is None:
+            return members
+        if extraction_id not in self._revisions:
+            self._revisions[extraction_id] = self._load_revision(extraction_id)
+        revision_id = self._revisions[extraction_id]
+        if not revision_id:
+            return []
+        return [member for member in self._members if member.revision_id == revision_id]
+
     def resolve(
         self, citation: Mapping[str, Any], *, default_relation: str = "support",
     ) -> ResolvedCitation | CitationProblem:
-        """Validate a citation by its ids; the model's role, source, revision and locator are ignored."""
+        """Validate a citation by its ids; the model's role, source, revision and locator are ignored.
+
+        The span's role is decided by the scope entries that hold it (a split
+        child holds only its own blocks): an entry's ``role_override``, else
+        the member's role. When several entries or members select the span, the
+        least authoritative role wins, whatever order they are listed in.
+        """
 
         citation = dict(citation)
         extraction_id = str(citation.get("extraction_id") or "")
@@ -290,39 +343,31 @@ class CitationResolver:
         unit_id = str(citation.get("unit_id") or "")
         if not extraction_id or not span_id:
             return CitationProblem(citation, "no span cited")
-        members = [member for member in self._members if member.extraction_id == extraction_id]
+        members = self._members_for(extraction_id)
         if not members:
             return CitationProblem(citation, f"extraction run {extraction_id} is not in the source set")
         units = self._index(extraction_id)
         if units is None or span_id not in units.spans:
             return CitationProblem(citation, f"span {span_id} does not resolve in extraction run {extraction_id}")
-        containing = {unit for unit, spans in units.raw.items() if span_id in spans}
         if unit_id:
-            named = units.expand(unit_id)
-            if not named:
+            named = units.spans_of(unit_id)
+            if named is None:
                 return CitationProblem(citation, f"unit {unit_id} is not valid for extraction run {extraction_id}")
-            candidates = named & containing
-            if not candidates:
+            if span_id not in named:
                 return CitationProblem(
                     citation, f"span {span_id} is not in unit {unit_id} of extraction run {extraction_id}",
                 )
-        else:
-            candidates = containing
+        containing = sorted(unit for unit, spans in units.raw.items() if span_id in spans)
         hits: list[tuple[str, str, _Member]] = []  # (role, unit, member)
         for member in members:
             if not member.scope:  # the whole artifact is in scope, with the member's role
-                hits.append((member.default_role, unit_id or min(candidates, default=""), member))
+                hits.append((member.default_role, unit_id or (containing[0] if containing else ""), member))
                 continue
-            selected: set[str] = set()
-            overrides: dict[str, str] = {}
             for scope_unit, role_override in member.scope:
-                expanded = units.expand(scope_unit) or {scope_unit}
-                selected |= expanded
-                if role_override:
-                    for raw in expanded:
-                        overrides[raw] = str(role_override)
-            for unit in sorted(candidates & selected):
-                hits.append((overrides.get(unit) or member.default_role, unit_id or unit, member))
+                held = units.spans_of(scope_unit)
+                if held is None or span_id not in held:
+                    continue
+                hits.append((str(role_override or member.default_role), unit_id or scope_unit, member))
         if not hits:
             return CitationProblem(
                 citation, f"span {span_id} is outside the selected units of extraction run {extraction_id}",
@@ -376,23 +421,48 @@ def support_entries(contributed: Iterable[Contribution]) -> list[dict[str, Any]]
             for item in contributed]
 
 
+def _invalid_support(message: str) -> FacetAuthorityError:
+    return FacetAuthorityError("invalid_meaning_support", f"meaning_support {message}")
+
+
+def _cited_span(citation: Any, where: str) -> dict[str, Any]:
+    if not isinstance(citation, Mapping):
+        raise _invalid_support(f"{where} is not a citation (a mapping with extraction_id and span_id)")
+    if not str(citation.get("extraction_id") or "") or not str(citation.get("span_id") or ""):
+        raise _invalid_support(f"{where} names no span (extraction_id and span_id)")
+    return dict(citation)
+
+
 def contributions_from_support(meaning_support: Any) -> tuple[Contribution, ...]:
-    """Parse a payload's ``meaning_support`` (a flat citation list is one contribution)."""
+    """Parse a payload's ``meaning_support`` (a flat citation list is one contribution).
+
+    Bookkeeping that is not a list of contributions (``{"from", "citations":
+    [...]}``) or of citations, each naming a span, is refused
+    (``invalid_meaning_support``), never read as "no support" (Codex re-review F2).
+    """
 
     if not isinstance(meaning_support, list):
-        return ()
+        raise _invalid_support("must be a list of contributions")
     out: list[Contribution] = []
     flat: list[dict[str, Any]] = []
-    for entry in meaning_support:
+    for index, entry in enumerate(meaning_support, start=1):
+        where = f"entry {index}"
         if not isinstance(entry, Mapping):
-            continue
-        if isinstance(entry.get("citations"), list):
+            raise _invalid_support(f"{where} is not a contribution or a citation")
+        if "citations" in entry:
+            citations = entry["citations"]
+            if not isinstance(citations, list):
+                raise _invalid_support(f"{where}'s citations must be a list")
+            label = entry.get("from")
+            if label is not None and not isinstance(label, str):
+                raise _invalid_support(f"{where}'s from must be a label")
             out.append(Contribution(
-                str(entry.get("from") or "write"),
-                tuple(dict(citation) for citation in entry["citations"] if isinstance(citation, Mapping)),
+                str(label or f"contribution {index}"),
+                tuple(_cited_span(citation, f"{where}, citation {number}")
+                      for number, citation in enumerate(citations, start=1)),
             ))
         else:
-            flat.append(dict(entry))
+            flat.append(_cited_span(entry, where))
     if flat:
         out.append(Contribution("write", tuple(flat)))
     return tuple(out)
@@ -415,19 +485,35 @@ def _new_refs(before: Mapping[str, Any] | None, after: Mapping[str, Any]) -> lis
     return [ref for ref in _refs(after) if _ref_key(ref) not in seen]
 
 
+def _span_key(citation: Mapping[str, Any]) -> tuple[str, str]:
+    return str(citation.get("extraction_id") or ""), str(citation.get("span_id") or "")
+
+
 def write_contributions(
     payload: Mapping[str, Any], *, before: Mapping[str, Any] | None, after: Mapping[str, Any],
 ) -> tuple[Contribution, ...]:
-    """What supports a proposal write: its ``meaning_support``, else the block-span refs it adds."""
+    """What supports a proposal write: its ``meaning_support``, reconciled with the refs it records.
 
-    if "meaning_support" in payload:
-        return contributions_from_support(payload.get("meaning_support"))
-    cited: list[dict[str, Any]] = []
+    Without ``meaning_support`` the block-span refs the write adds are its one
+    contribution. With it, each declared contribution is judged on its own,
+    and a block-span ref the write records that no declared contribution cites
+    is one more contribution, judged on its own too (Codex re-review F2): an
+    empty or partial declaration never hides the write's own exam citation, nor
+    lets a declared explanatory span corroborate a citation it does not name.
+    Malformed bookkeeping raises :class:`FacetAuthorityError`.
+    """
+
+    recorded: list[dict[str, Any]] = []
     for ref in _new_refs(before, after):
         parsed = parse_block_span(str(ref.get("locator") or ""))
         if parsed is not None:
-            cited.append({"extraction_id": parsed[0], "span_id": parsed[1], "relation": ref.get("relation")})
-    return contributions(cited, label="provenance") if cited else ()
+            recorded.append({"extraction_id": parsed[0], "span_id": parsed[1], "relation": ref.get("relation")})
+    if "meaning_support" not in payload:
+        return contributions(recorded, label="provenance") if recorded else ()
+    declared = contributions_from_support(payload.get("meaning_support"))
+    covered = {_span_key(citation) for item in declared for citation in item.citations}
+    uncovered = tuple(citation for citation in recorded if _span_key(citation) not in covered)
+    return (*declared, *((Contribution("provenance", uncovered),) if uncovered else ()))
 
 
 @dataclass(frozen=True)
@@ -471,6 +557,7 @@ def check_meaning_write(
     registered: bool,
     contributions: Sequence[Contribution],
     resolver: CitationResolver | None,
+    require_resolved: bool = False,
 ) -> MeaningVerdict:
     """Judge one write of a facet's meaning from validated citations (the §4.2 rule, once).
 
@@ -478,6 +565,12 @@ def check_meaning_write(
     explanatory citation in every contribution. Otherwise (a new facet, or a
     candidate a consolidation grows) only an exam-uncorroborated contribution
     is refused. Citations resolve through ``resolver``; without one none does.
+
+    ``require_resolved``: the citations were recorded (an undo restoring a
+    candidate on its own citations), so one that no longer resolves refuses
+    the write (``unresolved_citation``) instead of leaving the contribution
+    "uncited" (Codex re-review F4): only a write that cites nothing gets the
+    treatment of uncited content.
     """
 
     fields = tuple(authority_changes(before, after))
@@ -508,6 +601,13 @@ def check_meaning_write(
             f"beside it ({', '.join(exam_only)}): an exam citation only ever aligns assessment (§4.2){detail}",
             **extra,
         )
+    if require_resolved and problems:
+        return _verdict(
+            facet_id, False, "unresolved_citation",
+            f"facet {facet_id}'s recorded citations no longer resolve in the source sets, so their authority "
+            f"cannot be judged ({where}){detail}",
+            **extra,
+        )
     if registered:
         if not verdicts or any(verdict != EXPLANATORY for _label, verdict in verdicts):
             return _verdict(
@@ -529,11 +629,13 @@ def written_provenance(
 
     The entry's earlier refs stay as they were. Each ref the write adds is
     rewritten from the span its locator names (role, relation, extraction and
-    source from the resolution); one that does not resolve is kept, marked
-    ``unresolved``, and supports nothing. With ``record_support`` (a write that
-    states its provenance), every citation the verdict resolved is recorded too
-    (an exam one as ``assessment_alignment``); a write that leaves provenance
-    alone (an alias, a grown example) keeps the facet's as it was.
+    source from the resolution); one that does not resolve (or names no block
+    span, or has no source set to resolve in) is kept, marked ``unresolved``,
+    and supports nothing: it never becomes a source link
+    (:func:`added_provenance`). With ``record_support`` (a write that states
+    its provenance), every citation the verdict resolved is recorded too (an
+    exam one as ``assessment_alignment``); a write that leaves provenance alone
+    (an alias, a grown example) keeps the facet's as it was.
     """
 
     provenance = dict((after or {}).get("provenance") or {})
@@ -541,14 +643,14 @@ def written_provenance(
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for ref in _refs(after):
-        if _ref_key(ref) not in old_keys and resolver is not None:
+        if _ref_key(ref) not in old_keys and ref.get("locator"):  # a ref with no locator never links
             parsed = parse_block_span(str(ref.get("locator") or ""))
-            if parsed is not None:
-                result = resolver.resolve_ref(ref)
-                if isinstance(result, ResolvedCitation):
-                    ref = {**ref, **result.yaml_ref()}
-                else:
-                    ref = {**ref, "extraction_id": parsed[0], "role": UNRESOLVED_ROLE}
+            result = resolver.resolve_ref(ref) if resolver is not None and parsed is not None else None
+            if isinstance(result, ResolvedCitation):
+                ref = {**ref, **result.yaml_ref()}
+            else:
+                ref = {**ref, **({"extraction_id": parsed[0]} if parsed is not None else {}),
+                       "role": UNRESOLVED_ROLE}
         key = _ref_key(ref)
         if key in seen:
             continue
@@ -563,9 +665,17 @@ def written_provenance(
 
 
 def added_provenance(before: Mapping[str, Any] | None, written: Mapping[str, Any]) -> dict[str, Any]:
-    """The refs a write adds (what its ``entity_source_links`` rows record)."""
+    """The refs a write adds that were validated (what its ``entity_source_links`` rows record).
 
-    return {"provenance": {"source_refs": _new_refs(before, written)}}
+    A ref marked ``unresolved`` is left out (Codex re-review F5): a link row is
+    ``current`` provenance, and a ``primary`` one is the entity's displayed
+    semantic authority (``content.sources.provenance``), so a citation outside
+    the selected units, or one that resolves nowhere, never becomes one.
+    """
+
+    return {"provenance": {"source_refs": [
+        ref for ref in _new_refs(before, written) if ref.get("role") != UNRESOLVED_ROLE
+    ]}}
 
 
 # --- merges and absorbs ---------------------------------------------------------------------
@@ -626,16 +736,27 @@ def merged_survivor(
 
 @dataclass(frozen=True)
 class OwnerEdit:
-    """The owner's own Library save: explicit, audited manual authority (a ``reword`` action)."""
+    """The owner's own Library save: explicit manual authority, audited.
 
+    ``judgment_id`` is the owner's ``granted`` verdict in ``judgment_ledger``
+    for this facet's new meaning (scope, actor, timestamp, rationale), recorded
+    before the write (Codex re-review F6); an owner edit without one is refused.
+    """
+
+    judgment_id: str = ""
     via: str = "library"
 
 
 @dataclass(frozen=True)
 class Cited:
-    """A change supported by citations, judged by :func:`check_meaning_write`."""
+    """A change supported by recorded citations, judged by :func:`check_meaning_write`.
+
+    ``require_resolved``: a recorded citation that no longer resolves refuses
+    the write rather than counting as no citation (Codex re-review F4).
+    """
 
     contributions: tuple[Contribution, ...] = ()
+    require_resolved: bool = True
 
 
 @dataclass(frozen=True)
@@ -700,6 +821,10 @@ def _check_basis(
     fields = tuple(authority_changes(before, entry))
     where = ", ".join(fields)
     if isinstance(basis, OwnerEdit):
+        if not basis.judgment_id:
+            return _verdict(facet_id, False, "unaudited",
+                            f"the owner's edit of facet {facet_id}'s meaning ({where}) has no authority verdict "
+                            "recorded for it", fields=fields)
         return _verdict(facet_id, True, "owner", fields=fields)
     if isinstance(basis, Cited):
         if resolver is None:  # fail closed: an exam citation cannot be told apart without one
@@ -707,7 +832,8 @@ def _check_basis(
                             f"facet {facet_id}'s cited change ({where}) has no source set to resolve its citations",
                             fields=fields)
         return check_meaning_write(facet_id, before=before, after=entry, registered=before is not None,
-                                   contributions=basis.contributions, resolver=resolver)
+                                   contributions=basis.contributions, resolver=resolver,
+                                   require_resolved=basis.require_resolved)
     if isinstance(basis, RegisteredMerge):
         members = (basis.survivor, *basis.retired)
         if facet_id == basis.survivor and all(member in current for member in members):
@@ -730,6 +856,41 @@ def _check_basis(
                     f"nothing authorizes the change to facet {facet_id}'s meaning ({where})", fields=fields)
 
 
+def check_registry_text(
+    paths: VaultPaths,
+    text: str,
+    *,
+    basis: Mapping[str, Basis],
+    resolver: CitationResolver | None = None,
+) -> dict[str, MeaningVerdict]:
+    """Verify, without writing, that every meaning change ``text`` makes to facets.yaml is authorized.
+
+    Each facet whose :data:`AUTHORITY_FIELDS` differ from the file (a new
+    facet included) must have a basis that verifies (see the module
+    docstring); otherwise :class:`FacetAuthorityError` is raised. A facet id
+    listed twice is refused. Returns the verdict of each changed facet. A
+    caller that records an intent before writing (an undo) checks first, so a
+    refused write leaves nothing in flight (Codex re-review F1).
+    """
+
+    try:
+        document = yaml_from_string(text) or {}
+    except Exception as exc:  # noqa: BLE001 - an unparseable registry is never written
+        raise FacetAuthorityError("invalid_registry", f"facets.yaml does not parse: {exc}") from exc
+    entries = registry_entries(document)
+    current = _file_entries(paths)
+    verdicts: dict[str, MeaningVerdict] = {}
+    for facet_id, entry in entries.items():
+        before = current.get(facet_id)
+        if not authority_changes(before, entry):
+            continue
+        verdict = _check_basis(facet_id, before, entry, basis.get(facet_id), current, resolver)
+        if not verdict.allowed:
+            raise FacetAuthorityError(verdict.code, verdict.message, facet_id=facet_id)
+        verdicts[facet_id] = verdict
+    return verdicts
+
+
 def write_registry_text(
     paths: VaultPaths,
     text: str,
@@ -739,29 +900,15 @@ def write_registry_text(
 ) -> None:
     """Replace facets.yaml with ``text`` if every meaning change in it is authorized.
 
-    The caller holds the vault mutation lock. Each facet whose
-    :data:`AUTHORITY_FIELDS` differ from the file (a new facet included) must
-    have a basis that verifies (see the module docstring); otherwise
-    :class:`FacetAuthorityError` is raised and nothing is written. A facet id
-    listed twice is refused. The file is replaced atomically (a staged, fsynced
+    The caller holds the vault mutation lock. :func:`check_registry_text`
+    decides; when it refuses, :class:`FacetAuthorityError` is raised and
+    nothing is written. The file is replaced atomically (a staged, fsynced
     temp file and a rename).
     """
 
     from learnloop.content.proposals.apply_protocol import materialize_targets
 
-    try:
-        document = yaml_from_string(text) or {}
-    except Exception as exc:  # noqa: BLE001 - an unparseable registry is never written
-        raise FacetAuthorityError("invalid_registry", f"facets.yaml does not parse: {exc}") from exc
-    entries = registry_entries(document)
-    current = _file_entries(paths)
-    for facet_id, entry in entries.items():
-        before = current.get(facet_id)
-        if not authority_changes(before, entry):
-            continue
-        verdict = _check_basis(facet_id, before, entry, basis.get(facet_id), current, resolver)
-        if not verdict.allowed:
-            raise FacetAuthorityError(verdict.code, verdict.message, facet_id=facet_id)
+    check_registry_text(paths, text, basis=basis, resolver=resolver)
     materialize_targets(paths.root, [{
         "rel_path": str(paths.facets_path.relative_to(paths.root)),
         "post_content": text,
@@ -869,6 +1016,7 @@ __all__ = [
     "authority_changes",
     "authority_meaning",
     "check_meaning_write",
+    "check_registry_text",
     "contributions",
     "contributions_from_support",
     "join_candidate",

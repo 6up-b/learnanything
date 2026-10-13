@@ -81,7 +81,9 @@ def _approx_tokens(blocks: list) -> int:
     return sum(len(block.text) // 4 for block in blocks)
 
 
-def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | None) -> list[dict]:
+def _effective_units_with_spans(
+    ir: DocumentIR, boundary_overrides: list[dict] | None
+) -> list[tuple[dict, list[str]]]:
     """Deterministically compute the *effective* unit shape after boundary overrides.
 
     Walks ``ir.units`` in ``ordinal`` order and applies each unit's override:
@@ -107,7 +109,7 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
         resolved = [blocks_by_span[span_id] for span_id in unit.span_ids if span_id in blocks_by_span]
         return sorted(resolved, key=lambda b: b.ordinal)
 
-    effective: list[dict] = []
+    effective: list[tuple[dict, list[str]]] = []
     index = 0
     while index < len(units):
         unit = units[index]
@@ -128,7 +130,7 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
             label = " + ".join(member.label for member in chain)
             if len(chain) == 1:
                 # merge_with_next on the last unit has no following unit to fuse.
-                effective.append(
+                effective.append((
                     {
                         "effective_id": unit.unit_id,
                         "label": unit.label,
@@ -136,10 +138,9 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
                         "block_count": len(collected),
                         "approx_tokens": _approx_tokens(collected),
                         "kind": "unchanged",
-                    }
-                )
+                    }, [block.span_id for block in collected]))
             else:
-                effective.append(
+                effective.append((
                     {
                         "effective_id": "+".join(member.unit_id for member in chain),
                         "label": label,
@@ -147,8 +148,7 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
                         "block_count": len(collected),
                         "approx_tokens": _approx_tokens(collected),
                         "kind": "merged",
-                    }
-                )
+                    }, [block.span_id for block in collected]))
             index = cursor + 1
             continue
 
@@ -167,7 +167,7 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
             real_headings = [sub for sub in order if sub is not None]
             if not real_headings:
                 # No level-2 headings — splitting does nothing.
-                effective.append(
+                effective.append((
                     {
                         "effective_id": unit.unit_id,
                         "label": unit.label,
@@ -176,13 +176,12 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
                         "approx_tokens": _approx_tokens(blocks),
                         "kind": "split",
                         "split_noop": True,
-                    }
-                )
+                    }, [block.span_id for block in blocks]))
             else:
                 for sub in order:
                     part_blocks = parts[sub]
                     slug = sub if sub is not None else "(intro)"
-                    effective.append(
+                    effective.append((
                         {
                             "effective_id": f"{unit.unit_id}#{slug}",
                             "label": f"{unit.label} › {slug}",
@@ -190,14 +189,13 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
                             "block_count": len(part_blocks),
                             "approx_tokens": _approx_tokens(part_blocks),
                             "kind": "split",
-                        }
-                    )
+                        }, [block.span_id for block in part_blocks]))
             index += 1
             continue
 
         # No override — pass through unchanged.
         blocks = unit_blocks(unit)
-        effective.append(
+        effective.append((
             {
                 "effective_id": unit.unit_id,
                 "label": unit.label,
@@ -205,11 +203,30 @@ def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | Non
                 "block_count": len(blocks),
                 "approx_tokens": _approx_tokens(blocks),
                 "kind": "unchanged",
-            }
-        )
+            }, [block.span_id for block in blocks]))
         index += 1
 
     return effective
+
+
+def compute_effective_units(ir: DocumentIR, boundary_overrides: list[dict] | None) -> list[dict]:
+    """The *effective* unit shape after boundary overrides (see :func:`_effective_units_with_spans`)."""
+
+    return [entry for entry, _span_ids in _effective_units_with_spans(ir, boundary_overrides)]
+
+
+def effective_unit_spans(ir: DocumentIR, boundary_overrides: list[dict] | None) -> dict[str, tuple[str, ...]]:
+    """``{effective unit id: the span ids it holds}``, from the same walk as :func:`compute_effective_units`.
+
+    A split child holds only the blocks under its own heading, not its raw
+    parent's (Codex re-review F3 of the facet authority fixes): selecting
+    ``chapter#Theory`` selects the theory blocks, never ``chapter#Exam``'s.
+    """
+
+    return {
+        str(entry["effective_id"]): tuple(span_ids)
+        for entry, span_ids in _effective_units_with_spans(ir, boundary_overrides)
+    }
 
 
 def effective_scope_groups(

@@ -93,6 +93,10 @@ class FacetIdentityActionError(ValueError):
         self.code = code
 
 
+class FacetAuthorityRefusal(FacetIdentityActionError):
+    """The meaning-authority chokepoint refused a registry write; nothing was written."""
+
+
 # --- the ledger ---------------------------------------------------------------
 
 
@@ -169,7 +173,19 @@ def _write_registry(
     try:
         authority.write_registry_text(paths, text, basis=basis, resolver=resolver)
     except authority.FacetAuthorityError as exc:
-        raise FacetIdentityActionError(exc.code, str(exc)) from exc
+        raise FacetAuthorityRefusal(exc.code, str(exc)) from exc
+
+
+def _check_registry(
+    paths: VaultPaths, text: str, basis: Mapping[str, authority.Basis], *,
+    resolver: authority.CitationResolver | None = None,
+) -> None:
+    """What :func:`_write_registry` would refuse, decided without writing (or recording) anything."""
+
+    try:
+        authority.check_registry_text(paths, text, basis=basis, resolver=resolver)
+    except authority.FacetAuthorityError as exc:
+        raise FacetAuthorityRefusal(exc.code, str(exc)) from exc
 
 
 def _merge_basis(record: Mapping[str, Any]) -> dict[str, authority.Basis]:
@@ -197,8 +213,22 @@ def _restore_basis(record: Mapping[str, Any]) -> dict[str, authority.Basis]:
     if record.get("scope") in {"in_run", "attach"}:
         for facet_id in retired:
             entry = dict(before.get(facet_id) or {})
+            # Its recorded citations must still resolve (Codex re-review F4):
+            # one that does not is never read as "cites nothing".
             basis[facet_id] = authority.Cited(authority.write_contributions(entry, before=None, after=entry))
     return basis
+
+
+def _restoration(
+    repository: Repository, vault: LoadedVault, record: Mapping[str, Any], document: Mapping[str, Any],
+) -> tuple[str, dict[str, authority.Basis], authority.CitationResolver | None]:
+    """The facets.yaml text an undo writes, the basis each restored entry carries, and its resolver."""
+
+    basis = _restore_basis(record)
+    cited = any(isinstance(item, authority.Cited) for item in basis.values())
+    resolver = authority.CitationResolver.for_vault(repository, vault) if cited else None
+    text = yaml_to_string(_restored_document(copy.deepcopy(dict(document)), record))
+    return text, basis, resolver
 
 
 def _record_parts(record: Mapping[str, Any]) -> tuple[str, list[str], dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -516,13 +546,21 @@ def merge_registered_facets(
 
 
 def _abandon(repository: Repository, record: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
-    """Withdraw an ``applying`` intent whose file write never happened."""
+    """Withdraw an ``applying`` intent whose file write never happened.
+
+    A Library save's reword also withdraws the owner's authority verdicts that
+    save recorded (``detail.authority_judgment_ids``): the save never landed.
+    """
 
     with repository.atomic():
         connection = repository.connection()
         store.delete_merge_rows(connection, record.get("merge_rows") or [])
         store.set_status(connection, str(record["id"]), "abandoned", undone_at=utc_now_iso(clock),
                          undo_detail={"abandoned": reason})
+        _withdraw_authority_grants(
+            connection, (record.get("detail") or {}).get("authority_judgment_ids") or [],
+            reason=reason, created_at=utc_now_iso(clock),
+        )
 
 
 def _delete_merge_rows(repository: Repository, rows: Iterable[Sequence[str]]) -> int:
@@ -629,6 +667,64 @@ def record_reword(
 
 #: ``run_id`` of the reword actions an owner's Library edit records.
 LIBRARY_RUN_ID = "library"
+#: The ``judgment_ledger`` task of the owner's manual authority over a facet's
+#: meaning (ingestion §4.2): one ``granted`` verdict per facet whose
+#: ``authority.AUTHORITY_FIELDS`` a Library save changes (a new facet
+#: included), ``withdrawn`` when that save never lands (Codex re-review F6).
+MANUAL_AUTHORITY_TASK = "facet_manual_authority"
+#: Why a Library save is authority over a facet's meaning (the verdict's rationale).
+MANUAL_AUTHORITY_RATIONALE = (
+    "the owner's own edit of facets.yaml in the Library: explicit manual authority over this facet's "
+    "meaning (ingestion §4.2), not derived from any source citation"
+)
+
+
+def _grant_owner_authority(
+    connection: Any, *, facet_id: str, before: Mapping[str, Any] | None, after: Mapping[str, Any],
+    fields: Sequence[str], save_id: str, created_at: str,
+) -> str:
+    """Append the owner's ``granted`` verdict for one facet's new meaning: scope, actor, time, rationale."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+
+    meaning = authority.authority_meaning(after)
+    return append_judgment(
+        connection, task=MANUAL_AUTHORITY_TASK, left_kind="facet", left_id=facet_id,
+        right_kind="facet_wording", right_id=content_key(meaning), judge="owner",
+        input_hash=content_key({"library_save": save_id, "facet": facet_id, "meaning": meaning}),
+        verdict="granted",
+        rationale=json.dumps({
+            "origin": "library", "actor": "owner", "granted_at": created_at, "save_id": save_id,
+            "scope": {"facet_id": facet_id, "fields": list(fields), "new_facet": before is None},
+            "rationale": MANUAL_AUTHORITY_RATIONALE,
+        }, sort_keys=True),
+        created_at=created_at,
+    )
+
+
+def _withdraw_authority_grants(connection: Any, judgment_ids: Iterable[str], *, reason: str, created_at: str) -> None:
+    """Supersede each ``granted`` verdict of a save that never landed with ``withdrawn`` (once)."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+
+    for judgment_id in dict.fromkeys(str(value) for value in judgment_ids):
+        grant = connection.execute(
+            "SELECT * FROM judgment_ledger WHERE id = ? AND task = ?", (judgment_id, MANUAL_AUTHORITY_TASK),
+        ).fetchone()
+        if grant is None or connection.execute(
+            "SELECT 1 FROM judgment_ledger WHERE supersedes_id = ?", (judgment_id,),
+        ).fetchone() is not None:
+            continue
+        append_judgment(
+            connection, task=MANUAL_AUTHORITY_TASK, left_kind=str(grant["left_kind"]), left_id=str(grant["left_id"]),
+            right_kind=grant["right_kind"], right_id=grant["right_id"], judge="owner",
+            input_hash=content_key({"withdrawn": judgment_id}), verdict="withdrawn",
+            rationale=json.dumps({"origin": "library", "reason": reason, "withdrawn_id": judgment_id},
+                                 sort_keys=True),
+            supersedes_id=judgment_id, created_at=created_at,
+        )
 
 
 def _parse_registry_text(text: str) -> dict[str, Any]:
@@ -676,14 +772,24 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
     a reworded facet's stale ``semantic_fingerprint``) had to be corrected;
     the result's ``text`` is what was written.
 
-    Under the vault mutation lock, write-ahead like a merge: the ``applying``
-    reword rows commit, then the file is replaced atomically, then the rows
-    become ``applied``. If the process stops in between, recovery marks a row
-    ``applied`` when facets.yaml shows the edit and withdraws it
-    (``abandoned``) when it does not: the save never landed, so nothing is
-    written on the owner's behalf. Text that does not parse, or is not a
-    valid facet registry, is refused (``invalid_registry``) and nothing is
-    written.
+    The save is the owner's explicit manual authority over a facet's meaning
+    (ingestion §4.2), and it is audited (Codex re-review F6): every facet whose
+    ``authority.AUTHORITY_FIELDS`` it changes, a new facet or a worked
+    example included, gets the owner's ``granted`` verdict in
+    ``judgment_ledger`` (task :data:`MANUAL_AUTHORITY_TASK`, with scope,
+    actor, timestamp and rationale), and the registry writer refuses an owner
+    edit without one. Which edits are versions is a separate, narrower policy
+    (:data:`MEANING_FIELDS`).
+
+    Under the vault mutation lock, write-ahead like a merge: the verdicts and
+    the ``applying`` reword rows commit, then the file is replaced atomically,
+    then the rows become ``applied``. If the write fails, or the process stops
+    in between, recovery marks a row ``applied`` when facets.yaml shows the
+    edit and withdraws it (``abandoned``, its save's verdicts ``withdrawn``)
+    when it does not: the save never landed, so nothing is written on the
+    owner's behalf. Text that does not parse, or is not a valid facet
+    registry, is refused (``invalid_registry``) and nothing is written or
+    recorded.
     """
 
     from learnloop.vault_lock import vault_mutation_lock
@@ -719,12 +825,29 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
                     corrected = True
             rewords.append((facet_id, copy.deepcopy(old), entry, fields))
         written = yaml_to_string(document) if corrected else text
+        # The owner's manual authority, audited (Codex re-review F6): every
+        # facet whose meaning this save changes, a new one included, gets the
+        # owner's ``granted`` verdict, whether or not the change is a new
+        # version (examples and new facets are not).
+        grants = [
+            (facet_id, current.get(facet_id), entry, fields)
+            for facet_id, entry in authority.registry_entries(document).items()
+            if (fields := authority.authority_changes(current.get(facet_id), entry))
+        ]
         records: list[dict[str, Any]] = []
-        if rewords:
+        grant_ids: dict[str, str] = {}
+        if grants:
             evidence = facet_evidence(repository, [facet_id for facet_id, *_rest in rewords])
             now = utc_now_iso(clock)
+            save_id = new_ulid()
+            # One write-ahead transaction: the verdicts, then the ``applying`` rewords.
             with repository.atomic():
                 connection = repository.connection()
+                for facet_id, old, new, fields in grants:
+                    grant_ids[facet_id] = _grant_owner_authority(
+                        connection, facet_id=facet_id, before=old, after=new, fields=fields, save_id=save_id,
+                        created_at=now,
+                    )
                 for facet_id, old, new, fields in rewords:
                     record = {
                         "origin": "registry", "scope": "vault", "run_id": LIBRARY_RUN_ID, "proposal_id": None,
@@ -736,20 +859,30 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
                         "detail": {
                             "via": "library", "fields": fields,
                             "evidence": {facet_id: evidence[facet_id]} if facet_id in evidence else {},
+                            # The owner's verdict for this wording, and every verdict of the save
+                            # (withdrawn together if the save never lands).
+                            "authority_judgment_id": grant_ids[facet_id],
+                            "authority_judgment_ids": list(grant_ids.values()),
                         },
                         "status": "applying", "created_at": now,
                     }
                     record["id"] = insert_action(connection, record)
                     records.append(record)
         try:
-            # The owner's own save is the explicit, audited manual authority
-            # over a facet's meaning (each reword is an action with an undo).
+            # The owner's own save is the explicit manual authority over a
+            # facet's meaning, audited by the verdicts just recorded (each
+            # reword is also an action with an undo).
             _write_registry(paths, written, {
-                str(entry.get("id") or ""): authority.OwnerEdit() for entry in document.get("facets") or []
+                facet_id: authority.OwnerEdit(judgment_id) for facet_id, judgment_id in grant_ids.items()
             })
         except Exception:
+            reason = "facets.yaml could not be written"
             for record in records:
-                _abandon(repository, record, reason="facets.yaml could not be written", clock=clock)
+                _abandon(repository, record, reason=reason, clock=clock)
+            if grant_ids:
+                with repository.atomic():
+                    _withdraw_authority_grants(repository.connection(), grant_ids.values(), reason=reason,
+                                               created_at=utc_now_iso(clock))
             raise
         # A reword moves no evidence (the facet keeps its id): sync only.
         refresh_derived_state(vault.root, repository, [], clock=clock)
@@ -924,6 +1057,12 @@ def undo_action(root: Path, repository: Repository, action_id: str, *, clock: Cl
             raise FacetIdentityActionError(
                 "changed_since", f"Facet(s) {', '.join(present)} exist again; nothing to restore.",
             )
+        # The meaning-authority chokepoint decides before the intent commits
+        # (Codex re-review F1): a refused restoration (undoing an exam-only
+        # alias join would mint the exam candidate) records nothing, so it
+        # never leaves an ``undoing`` row that recovery could only retry.
+        text, basis, resolver = _restoration(repository, vault, record, document)
+        _check_registry(paths, text, basis, resolver=resolver)
         with repository.atomic():
             _record_undo_intent(repository.connection(), record, clock=clock)
         result = _finish_undo(vault.root, repository, record, document=document, clock=clock)
@@ -1023,10 +1162,8 @@ def _finish_undo(
     affected = affected_learning_objects(vault, (survivor, *retired))
     document = document if document is not None else _facets_document(paths)
     if file_state(record, document["facets"]) == "after":
-        basis = _restore_basis(record)
-        cited = any(isinstance(item, authority.Cited) for item in basis.values())
-        _write_registry(paths, yaml_to_string(_restored_document(document, record)), basis,
-                        resolver=authority.CitationResolver.for_vault(repository, vault) if cited else None)
+        text, basis, resolver = _restoration(repository, vault, record, document)
+        _write_registry(paths, text, basis, resolver=resolver)
     deleted = _delete_merge_rows(repository, record.get("merge_rows") or [])
     vault_after = load_vault(root)
     affected = sorted(set(affected) | set(affected_learning_objects(vault_after, (survivor, *retired))))
@@ -1071,6 +1208,10 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
     * ``undoing``: the owner asked for the undo, so it is finished: the file
       restored if it still shows the merge, the rows removed, ``undone``. A
       file that shows neither side is reported and left for the owner.
+    * A write the meaning-authority chokepoint refuses is settled, never
+      retried (Codex re-review F1): an ``applying`` merge is withdrawn
+      (``abandoned``), an ``undoing`` action stays ``applied`` with the
+      refusal in its ``undo_detail``.
 
     The caller holds the vault mutation lock (it is re-entrant). Returns what
     happened to each row.
@@ -1113,8 +1254,16 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                                  reason="a criterion graded since the intent names two of its facets")
                         out.append({"id": record["id"], "from": "applying", "to": "abandoned", "held_back": held})
                         continue
-                    _write_registry(paths, yaml_to_string(_applied_document(document, record)),
-                                    _merge_basis(record))
+                    try:
+                        _write_registry(paths, yaml_to_string(_applied_document(document, record)),
+                                        _merge_basis(record))
+                    except FacetAuthorityRefusal as exc:
+                        # Settled, never retried: the chokepoint will refuse it again.
+                        _abandon(repository, record, clock=clock,
+                                 reason=f"the meaning-authority chokepoint refused the write ({exc.code}): {exc}")
+                        out.append({"id": record["id"], "from": "applying", "to": "abandoned",
+                                    "refused": exc.code, "refusal": str(exc)})
+                        continue
                 # A reword moved no evidence (the facet keeps its id): sync only.
                 affected = [] if reword else affected_learning_objects(vault, (survivor, *retired))
                 refresh_derived_state(root, repository, affected, clock=clock)
@@ -1128,14 +1277,46 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                             "problem": f"facets.yaml shows neither side of action {record['id']}; "
                                        f"restore facet {survivor} by hand, then run doctor --fix-state"})
                 continue
-            _finish_undo(root, repository, record, document=document, clock=clock)
+            try:
+                _finish_undo(root, repository, record, document=document, clock=clock)
+            except FacetAuthorityRefusal as exc:
+                # The chokepoint refuses this restoration (an intent recorded
+                # before undo checked first, or one whose citations changed
+                # since): retrying can only fail again and would block every
+                # later facet operation (Codex re-review F1). Nothing was
+                # written, so the action stands: it is settled ``applied``
+                # with the refusal recorded.
+                _settle_refused_undo(repository, record, exc, clock=clock)
+                out.append({"id": record["id"], "from": "undoing", "to": "applied", "file": state,
+                            "refused": exc.code, "refusal": str(exc)})
+                continue
             out.append({"id": record["id"], "from": "undoing", "to": "undone", "file": state})
     return out
 
 
+def _settle_refused_undo(
+    repository: Repository, record: Mapping[str, Any], refusal: FacetIdentityActionError, *,
+    clock: Clock | None = None,
+) -> None:
+    """An ``undoing`` intent whose restoration the chokepoint refuses: back to ``applied``, the refusal kept.
+
+    The owner verdicts the intent recorded stay in the ledger (it is
+    append-only); ``undo_detail`` keeps their ids beside the refusal, so the
+    record shows what was asked, what was refused and why.
+    """
+
+    current = action_by_id(repository, str(record["id"])) or {}
+    detail = {**dict(current.get("undo_detail") or {}),
+              "refused": {"code": refusal.code, "message": str(refusal), "at": utc_now_iso(clock)}}
+    with repository.atomic():
+        store.set_status(repository.connection(), str(record["id"]), "applied", undo_detail=detail)
+
+
 __all__ = [
+    "FacetAuthorityRefusal",
     "FacetIdentityActionError",
     "HELD_BACK_NOTE",
+    "MANUAL_AUTHORITY_TASK",
     "MEANING_FIELDS",
     "REWORD_TASK",
     "REWORD_UNDO_LIMITS",
