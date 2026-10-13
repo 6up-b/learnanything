@@ -287,8 +287,12 @@ export function ReaderScreen({
     question: string;
     spanId: string;
     inline: boolean;
-    startScroll: number;
   } | null>(null);
+  // Scroll baselines for "a screen of scrolling" (the reconnect line goes, a
+  // walked-back detour settles). An explicit jump moves the page itself, so
+  // for a moment after one the baselines follow the page instead of counting.
+  const reconnectBaseRef = useRef(0);
+  const jumpGuardRef = useRef(0);
   const [inquiryChecks, setInquiryChecks] = useState<Record<string, {
     phase: ModelActionPhase;
     question: ReaderInquiryQuestionDto | null;
@@ -1565,6 +1569,7 @@ export function ReaderScreen({
 
   const jumpToSpan = useCallback(
     (spanId: string) => {
+      jumpGuardRef.current = Date.now() + 1200;
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -1657,12 +1662,15 @@ export function ReaderScreen({
     if (!inquiry || muted) return;
     const root = inquiryRoot(exchangeId);
     if (!root || (root.resolution ?? "open") !== "open") return;
-    setReconnect({ rootId: root.id, question: root.question, spanId: root.spanId, inline, startScroll: bodyRef.current?.scrollTop ?? 0 });
+    reconnectBaseRef.current = bodyRef.current?.scrollTop ?? 0;
+    setReconnect({ rootId: root.id, question: root.question, spanId: root.spanId, inline });
     logReaderAction("reconnect_shown", { ...visitPayload(), root_exchange_id: root.id, placement: inline ? "inline" : "rail" });
   }, [inquiry, muted, inquiryRoot, visitPayload]);
 
   /** Walk the stack to an entry: restore its passage, selection and tab. */
   const restoreEntry = useCallback(async (next: ReturnStack, target: ReturnEntry, via: string) => {
+    // The walk moves the page (and may reopen a source): not the learner scrolling.
+    jumpGuardRef.current = Date.now() + 1500;
     const previous = returnStackRef.current;
     returnStackRef.current = next;
     setReturnStack(next);
@@ -1712,8 +1720,14 @@ export function ReaderScreen({
     noteBackToReading();
     const body = bodyRef.current;
     if (!body) return;
+    if (Date.now() < jumpGuardRef.current) {
+      // The page is still moving to an explicit jump's target: not the learner.
+      reconnectBaseRef.current = body.scrollTop;
+      if (settleScrollRef.current !== null) settleScrollRef.current = body.scrollTop;
+      return;
+    }
     const screen = Math.max(1, body.clientHeight);
-    if (reconnect && Math.abs(body.scrollTop - reconnect.startScroll) > screen) setReconnect(null);
+    if (reconnect && Math.abs(body.scrollTop - reconnectBaseRef.current) > screen) setReconnect(null);
     const settleFrom = settleScrollRef.current;
     if (settleFrom !== null && returnStackRef.current.cursor === 0 && Math.abs(body.scrollTop - settleFrom) > screen) {
       settleScrollRef.current = null;

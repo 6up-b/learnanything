@@ -231,3 +231,30 @@ it("records the funnel: a visit, the selection, the ask and its job, never the l
   expect(JSON.stringify(events)).not.toContain("My private words");
   expect(JSON.stringify(events)).not.toContain(view.blocks[1].markdown);
 });
+
+it("the reconnect line and the walked-back strip survive the jump home, and go after a screen of the learner's scrolling", async () => {
+  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  await askFollowUp();
+  altArrow("ArrowLeft");
+  altArrow("ArrowLeft");
+  await screen.findAllByRole("group", { name: "Does this make sense now?" });
+  const body = screen.getByRole("main");
+  Object.defineProperty(body, "clientHeight", { configurable: true, value: 300 });
+  // The jump home moves the page: that is not the learner scrolling on.
+  body.scrollTop = 800;
+  fireEvent.scroll(body);
+  expect(screen.getAllByRole("group", { name: "Does this make sense now?" }).length).toBe(2);
+  const later = Date.now() + 5_000;
+  const now = vi.spyOn(Date, "now").mockReturnValue(later);
+  body.scrollTop = 900;
+  fireEvent.scroll(body);
+  expect(screen.getAllByRole("group", { name: "Does this make sense now?" }).length).toBe(2);
+  expect(screen.getByRole("navigation", { name: "Detour" })).toBeTruthy();
+  body.scrollTop = 1300;
+  fireEvent.scroll(body);
+  await waitFor(() => expect(screen.queryAllByRole("group", { name: "Does this make sense now?" })).toHaveLength(0));
+  await waitFor(() => expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull());
+  // Ignored, it recorded nothing.
+  expect(api.readerReconnectAnswer).not.toHaveBeenCalled();
+  now.mockRestore();
+});
