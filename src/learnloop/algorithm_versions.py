@@ -72,6 +72,20 @@ PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
 # mvp-0.8 projection namespace.
 RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 
+# mvp-0.13 (learner-text gaps, implementation_handoffs §4, owner-directed
+# 2026-10-12): on top of mvp-0.12 (the chain stays linear: the split PLUS
+# placement PLUS recurrence groups PLUS this). A prerequisite gap a learner's
+# own text names (a tutor question, a stuck answer, a diagnosis) and that
+# matches an LO assumed known or in maintenance brings that LO's next check
+# forward, no sooner than a bound after the gap and never later than it was
+# (``learner_gap_check_advances`` receipts; placement reads them only at this
+# tag or later). It changes what is SERVED, not the projection, so it is
+# another successor tag on the mvp-0.8 namespace. Kill switch:
+# ``learner_text_gaps.sooner_check_enabled``. The rest of the pipeline
+# (names, matches, edges, created prerequisites, holding-pen sightings) is a
+# live change behind its own switches, not version-gated.
+LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.13"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -84,6 +98,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     PLACEMENT_ALGORITHM_VERSION,
     RECURRENCE_GROUP_ALGORITHM_VERSION,
+    LEARNER_TEXT_GAP_ALGORITHM_VERSION,
 )
 
 
@@ -104,6 +119,10 @@ DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = successors_from(DIAGNOSIS_SPLIT_ALGOR
 # ``recurrence.enabled``). Every later successor keeps recurrence groups;
 # gates must use this set, never equality.
 RECURRENCE_GROUP_VERSIONS: frozenset[str] = successors_from(RECURRENCE_GROUP_ALGORITHM_VERSION)
+
+# Versions whose placement reads the learner-text gap's sooner checks (behind
+# ``learner_text_gaps.sooner_check_enabled``). Gates use this set.
+LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against

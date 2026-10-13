@@ -168,8 +168,15 @@ def promote_tutor_question(
     authoring_client_factory: Callable[[], Any] | None = None,
     progress: Callable[[str], None] | None = None,
     clock: Clock | None = None,
+    grounding_learning_object_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Promote one answered tutor turn (spec_tutor_promotion.md §3).
+
+    ``grounding_learning_object_ids`` (learner-text gaps): extra LOs whose
+    source notes ground the authored item, for a target LO that was created
+    from this very question and has no sources of its own (the asking item's
+    LO). Only their canonical sources count toward auto-apply, as for reader
+    spans.
 
     ``intent`` is ``"practice"`` (keep the socratic question as a rep) or
     ``"gap"`` (the learner could not answer it — measure before scheduling; the
@@ -326,9 +333,10 @@ def promote_tutor_question(
             attributed=attributed,
             origin_lo=origin_lo,
             saved_note_id=saved_note_id,
-            reader_source_refs=_reader_source_refs(
-                vault, repository, event, origin_lo
-            ),
+            reader_source_refs=[
+                *(_reader_source_refs(vault, repository, event, origin_lo) or []),
+                *_grounding_source_refs(vault, grounding_learning_object_ids),
+            ],
             clock=clock,
         )
     if progress is not None:
@@ -475,6 +483,19 @@ def reconcile_reset_question_promotion_patch(
     if updated:
         repository.bump_queue_revision(clock=clock)
     return updated
+
+
+def _grounding_source_refs(vault: LoadedVault, learning_object_ids: list[str] | None) -> list[dict[str, Any]]:
+    """Source notes of the grounding LOs, typed as the promotion path types them."""
+
+    refs: list[dict[str, Any]] = []
+    for lo_id in learning_object_ids or []:
+        for note in vault.notes.values():
+            if lo_id not in note.related_los:
+                continue
+            ref_type = "canonical_source" if note.source_type == "canonical_source" else "note"
+            refs.append({"ref_type": ref_type, "ref_id": note.id, "path": note.path})
+    return refs
 
 
 def _run_promotion_analysis(

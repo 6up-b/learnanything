@@ -871,7 +871,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.12 (the algorithm version gates the recurrence groups), so
     # mvp-0.9, mvp-0.10 and mvp-0.11 serving are unchanged. Every snapshot
     # was recomputed at its merge (defaults_fingerprint_for_version).
-    "mvp-0.9": "fdaf91151e4c5ef9693d6954f35f19e0c952f32123e5cf808fae89e534fcc395",
+    # Learner-text gaps add [learner_text_gaps] and three unset routes; every
+    # snapshot was recomputed (see mvp-0.13).
+    "mvp-0.9": "55bbda17d1bcc3586b6d8ec1e55a1791867fc6f97b01d0417179c03eb373a3df",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -882,7 +884,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Phase 5a's [pf] section and routes move it too (no serving change).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "f026cfb3114612a9d05edd85567f7822836e389d6d75a21c3516152fadd4f1fa",
+    "mvp-0.10": "538c49e4b5900d7d3b1c721cc4adfac9c312dda845053211a29d2fcb6bb51740",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -901,7 +903,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the diagnosis, and unanswered opening episodes are ignored under
     # placement.
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "952394d5412f9cc88f9ae30e15631b53fe179c0d0218bef4be50b614fdc08e64",
+    "mvp-0.11": "9a291b2459c4c1aa99fc1fb807d97d5d6d8ba3a105fa0bd88f9d1d4b90dda2a6",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -913,7 +915,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
     # groups are active from the first answer, built only from the judge's and
     # the diagnoser's verdicts on their own history.
-    "mvp-0.12": "650592b462d9690de8ee81d8f28de0e71efefe8ba49fc3e4faa44cf7645b3d2c",
+    "mvp-0.12": "d6bb44d5a3dc19b766b5a65867d053635823d0661d5659968b4f843d97ba1888",
+    # mvp-0.13 (learner-text gaps, implementation_handoffs §4): mvp-0.12 plus
+    # the sooner check: a matched prerequisite gap on an LO assumed known or
+    # in maintenance brings its next check forward (no sooner than
+    # learner_text_gaps.sooner_check_delay_hours after the gap). Kill switch
+    # learner_text_gaps.sooner_check_enabled. New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION). The rest of [learner_text_gaps]
+    # (modelled defaults only, left out of the decision-only template) and
+    # the unset learner_gap_judge / learner_gap_reader / learner_gap_decider
+    # routes are live at every version behind learner_text_gaps.enabled and
+    # their own switches (named gaps, matches, "needed"-gated edges, created
+    # prerequisites as content, holding-pen sightings, the gap targets the
+    # field loader reads); they move every snapshot above, recomputed at this
+    # stage (defaults_fingerprint_for_version).
+    "mvp-0.13": "adc338091862a36a551786a32bcc4f9376b0150ef71d2dd80888d8cf5af6a2de",
 }
 
 

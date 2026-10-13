@@ -27,6 +27,7 @@ from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.reader import reader_dialogue as RD
+from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 from learnloop.reader import reader_guidance as RG
 from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
 from learnloop_sidecar.context import SidecarContext
@@ -147,6 +148,10 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             "burned_surface_ids": result["burned_surface_ids"],
             "hint_equivalent": result["hint_equivalent"],
             "remaining": result["remaining"],
+            # Learner-text gaps: a reader question is read for a named gap too.
+            "learner_gap": queue_tutor_question_gap(
+                ctx, vault, repository, result["event_id"], result.get("learner_gap")
+            ),
         }
     )
 

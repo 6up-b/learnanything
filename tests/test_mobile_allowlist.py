@@ -53,10 +53,14 @@ ROUTER_R0_SETTINGS_RPCS = ("get_settings", "update_ai_settings")
 # and get_feedback (an escalated repair leads the repairs shown). The first
 # two are pinned above; get_feedback is pinned here.
 SLICE2_T1_RPCS = ("get_feedback",)
+# Learner-text gaps: the overlay's gap reading and its one-tap reversals, plus
+# the two ask RPCs that now queue a reading. Desktop only.
+LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "ask_tutor_question", "reader.ask")
 
 
 @pytest.mark.parametrize(
-    "method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS
+    "method",
+    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + LEARNER_TEXT_GAP_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

@@ -21,6 +21,9 @@ from learnloop.field.types import AttemptRow, SignalRow
 
 SIGNAL_VERSION = "interaction-signals-v1"
 DAILY_SIGNAL_MASS_CAP = 0.3
+#: A named prerequisite gap's weak observation: the same mass a typed
+#: prerequisite question carries (the daily cap still applies).
+LEARNER_GAP_SIGNAL_MASS = 0.15
 QUESTION_TYPES = frozenset({
     "prerequisite", "mechanism", "clarification", "strategy", "verification", "other",
 })
@@ -127,8 +130,16 @@ def derive_interaction_signals(
     daily_mass_cap: float = DAILY_SIGNAL_MASS_CAP,
     lo_to_subject: Mapping[str, str] | None = None,
     diagnostics: dict[str, Any] | None = None,
+    learner_gaps: Iterable[Mapping[str, Any]] = (),
 ) -> tuple[SignalRow, ...]:
     """Derive immutable rows using logged data and already-paid classifications.
+
+    ``learner_gaps`` are learner-text gap rows with a prerequisite target
+    (implementation_handoffs §4): the target the tutor named and a judge
+    matched, persisted with its subject when the gap was read. A tutor
+    question's gap target replaces its grounded facet mapping (a weak
+    ``prerequisite`` observation on that LO); a stuck answer's or a
+    diagnosis's gap adds one. Without one, the grounded rule applies.
 
     Classifications supply ONLY missing fields. Their availability is their
     creation time, not the historical question time. Feedback dependent on a
@@ -154,6 +165,17 @@ def derive_interaction_signals(
     events = [normalize_question(e) for e in question_events]
     events += [normalize_question(e, reader=True) for e in interaction_events if e["kind"] == "learner_question_asked"]
     signals: list[SignalRow] = []
+    question_gaps: dict[str, Mapping[str, Any]] = {}
+    for gap in learner_gaps:
+        if gap.get("source_kind") == "tutor_question":
+            question_gaps[str(gap["source_id"])] = gap
+            continue
+        signals.append(SignalRow(
+            signal_id=f"learner_gap:{gap['id']}", lo_id=str(gap["target_id"]),
+            observed_at=str(gap["created_at"]), signal_type="prerequisite", outcome=0.0,
+            effective_mass=LEARNER_GAP_SIGNAL_MASS, subject_id=str(gap.get("target_subject_id") or "default"),
+            attempt_id=gap.get("attempt_id"),
+        ))
     unmapped = 0
     for event in events:
         event_id = event["id"]
@@ -161,6 +183,16 @@ def derive_interaction_signals(
         observed = event.get("received_at") or event["created_at"]
         logged_at = observed
         qtype = event.get("question_type")
+        gap = question_gaps.get(str(event_id)) if kind == "question_event" else None
+        if gap is not None:
+            # The tutor named the gap and a judge matched it: the question's
+            # target, with its subject as of the question (F4 contract).
+            event = {**event, "lo_ids": [str(gap["target_id"])],
+                     "_question_time_lo_subjects": {
+                         **event["_question_time_lo_subjects"],
+                         str(gap["target_id"]): str(gap.get("target_subject_id") or "default"),
+                     }}
+            qtype = "prerequisite"
         no_work_yet = _logged_no_work_yet(event)
         logged_before = no_work_yet and (
             bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
@@ -320,7 +352,33 @@ def load_interaction_signals(
     return derive_interaction_signals(
         questions, readers, attempts,
         facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
+        learner_gaps=learner_gap_targets(connection, vault),
     )
+
+
+def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
+    """Prerequisite gap targets the pipeline persisted (switch on; undone creations out)."""
+
+    section = getattr(getattr(vault, "config", None), "learner_text_gaps", None)
+    if section is not None and not section.enabled:
+        return []
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='learner_text_gaps'"
+    ).fetchone() is None:
+        return []
+    cursor = connection.execute(
+        """
+        SELECT g.id, g.source_kind, g.source_id, g.attempt_id, g.target_id, g.target_subject_id, g.created_at
+          FROM learner_text_gaps g
+         WHERE g.kind = 'prerequisite' AND g.target_kind = 'learning_object' AND g.target_id IS NOT NULL
+           AND g.action IN ('matched_prerequisite', 'created_prerequisite')
+           AND NOT EXISTS (SELECT 1 FROM learner_text_gap_reversals r
+                            WHERE r.gap_id = g.id AND r.reversal = 'undo_creation')
+         ORDER BY g.created_at, g.id
+        """
+    )
+    names = [column[0] for column in cursor.description]
+    return [dict(zip(names, row, strict=True)) for row in cursor]
 
 
 def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -> list[dict[str, Any]]:

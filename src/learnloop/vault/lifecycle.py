@@ -33,6 +33,23 @@ SERVABLE_LEARNING_OBJECT_STATUS = "active"
 #: predates the sweep and is never gated by its switch.
 REFERENCE_ADOPTION_MECHANISM = "reader_reference_adoption_v1"
 REFERENCE_ADOPTION_DISABLED = "reference_adoption_disabled"
+#: Versioned provenance of a prerequisite the learner-text gap pipeline created
+#: (``provenance.mechanism`` on the LO). Its items are served only while
+#: ``learner_text_gaps.create_prerequisites_enabled`` (and the pipeline) is on:
+#: off restores the predecessor's queue; the LO stays in the vault.
+LEARNER_TEXT_GAP_MECHANISM = "learner_text_gap_v1"
+LEARNER_TEXT_GAP_DISABLED = "learner_text_gap_disabled"
+
+
+def created_from_learner_text(learning_object: Any) -> bool:
+    provenance = getattr(learning_object, "provenance", None)
+    extra: dict[str, Any] = getattr(provenance, "model_extra", None) or {}
+    return extra.get("mechanism") == LEARNER_TEXT_GAP_MECHANISM
+
+
+def _learner_text_gap_creations_on(vault: LoadedVault) -> bool:
+    section = getattr(vault.config, "learner_text_gaps", None)
+    return section is None or bool(section.enabled and section.create_prerequisites_enabled)
 
 
 def adopted_by_reference_sweep(item: PracticeItem) -> bool:
@@ -54,6 +71,8 @@ def learning_object_serving_block(vault: LoadedVault, learning_object_id: str | 
         return "learning_object_missing"
     if learning_object.status != SERVABLE_LEARNING_OBJECT_STATUS:
         return f"learning_object_{learning_object.status}"
+    if created_from_learner_text(learning_object) and not _learner_text_gap_creations_on(vault):
+        return LEARNER_TEXT_GAP_DISABLED
     return None
 
 

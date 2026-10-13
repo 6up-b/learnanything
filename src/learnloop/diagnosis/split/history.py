@@ -424,6 +424,27 @@ class _Written:
     version: int = 1
     created_at: str | None = None
     updated_at: str | None = None
+    #: A holding-pen candidate a learner's own text named (learner-text gaps):
+    #: it has no source attempt, so it is anchored by the time it was written.
+    anchored_by_write: bool = False
+
+
+def _learner_text_candidate_ids(connection: Any, vault: LoadedVault) -> frozenset[str]:
+    """Holding-pen candidates a learner's text named (learner-text gaps), while
+    the pipeline and its sightings are switched on."""
+
+    section = getattr(vault.config, "learner_text_gaps", None)
+    if section is None or not (section.enabled and section.sightings_enabled):
+        return frozenset()
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'learner_text_gaps'"
+    ).fetchone() is None:
+        return frozenset()
+    return frozenset(
+        str(row[0]) for row in connection.execute(
+            "SELECT target_id FROM learner_text_gaps WHERE action = 'belief_candidate' AND target_kind = 'candidate'"
+        )
+    )
 
 
 def _decode_json(value: Any, default: Any) -> Any:
@@ -687,6 +708,7 @@ class VaultHistoryStore:
             candidates = [dict(row) for row in connection.execute(
                 "SELECT * FROM misconception_candidates ORDER BY created_at, id"
             )]
+            learner_text_candidates = _learner_text_candidate_ids(connection, vault)
             cold = [dict(row) for row in connection.execute(
                 "SELECT source_attempt_id, cold_attempt_id, repair_class_id, success, created_at "
                 "FROM causal_cold_verifications ORDER BY created_at, id"
@@ -829,7 +851,8 @@ class VaultHistoryStore:
             sources = [str(value) for value in _decode_json(row.get("source_error_event_ids_json"), []) or []]
             self._registry.append(
                 _Written(
-                    RegistryRecord(
+                    anchored_by_write=str(row["id"]) in learner_text_candidates,
+                    record=RegistryRecord(
                         id=str(row["id"]),
                         kind="candidate",
                         statement=str(row.get("statement") or ""),
@@ -842,7 +865,7 @@ class VaultHistoryStore:
                         occurrence_count=int(row.get("occurrence_count") or 0),
                         source_attempt_id=self._earliest_source(sources),
                     ),
-                    _instant(row.get("created_at")),
+                    written=_instant(row.get("created_at")),
                 )
             )
         # Raw cold observations per class: the as-of view picks the owners
@@ -886,6 +909,8 @@ class VaultHistoryStore:
         return written is not None and cutoff is not None and written < cutoff
 
     def _visible(self, entry: _Written, before: AttemptRef) -> bool:
+        if entry.anchored_by_write and entry.record.source_attempt_id is None:
+            return self._written_before(entry.written, before)
         return self._source_before(entry.record.source_attempt_id, before) and self._written_before(entry.written, before)
 
     def _hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]:

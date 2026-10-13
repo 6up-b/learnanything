@@ -332,6 +332,13 @@ def build_due_queue(
                 if placement_serving.check_items.get(learning_object.id) != item.id:
                     continue
                 assumed_check = True
+            elif (
+                learning_object.id in placement_serving.gap_check_learning_object_ids
+                and placement_serving.check_items.get(learning_object.id) == item.id
+            ):
+                # mvp-0.13: a learner-text gap brought this maintenance LO's
+                # next check forward and it is due: serve its check item.
+                assumed_check = True
             elif learning_object.id in placement_serving.maintained_learning_object_ids:
                 if never_attempted:
                     continue
@@ -517,6 +524,15 @@ def build_due_queue(
             # F2: the same small floor the predecessor's opening episode gave a
             # never-attempted LO; the selection reward decides the rest.
             components["new_material" if new_material else "assumed_check"] = 1.0
+            if assumed_check and placement_serving is not None:
+                if learning_object.id in placement_serving.committed_learning_object_ids:
+                    # A prerequisite created from the learner's own text.
+                    components["gap_commitment_check"] = 1.0
+                elif (
+                    learning_object.id in placement_serving.gap_check_learning_object_ids
+                    or learning_object.id in placement_serving.advanced_learning_object_ids
+                ):
+                    components["gap_sooner_check"] = 1.0
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if episode is not None and (mastery is None or mastery.last_evidence_at is None):
             # Cold-start floor (probe redesign §10): an open episode — including
@@ -764,6 +780,12 @@ class _PlacementServing:
     #: One first-review check item per assumed LO whose review is due.
     check_items: dict[str, str]
     predictor: Any
+    #: Learner-text gaps: maintenance LOs whose brought-forward check is due
+    #: (mvp-0.13), open assumptions it brought forward, and created LOs whose
+    #: light commitment is open (their check is the seed item).
+    gap_check_learning_object_ids: frozenset[str] = frozenset()
+    advanced_learning_object_ids: frozenset[str] = frozenset()
+    committed_learning_object_ids: frozenset[str] = frozenset()
 
 
 #: Practice modes never used as an assumed-known first review: the check is a
@@ -818,6 +840,8 @@ def _placement_serving(
     # A check answer whose diagnosis has not landed is the check: the decision
     # waits on it (owner decision 2026-10-12), so no second check item is served.
     due = state.due_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
+    gap_due = state.due_gap_check_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
+    due = due | gap_due
     if due:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
@@ -849,6 +873,9 @@ def _placement_serving(
         back_to_learning_learning_object_ids=state.back_to_learning_learning_object_ids,
         check_items=choose_check_items(predictor, candidates, attempted_item_ids=attempted),
         predictor=predictor,
+        gap_check_learning_object_ids=frozenset(gap_due),
+        advanced_learning_object_ids=state.advanced_learning_object_ids,
+        committed_learning_object_ids=state.committed_learning_object_ids,
     )
 
 
@@ -2046,7 +2073,11 @@ def _errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list
 
 def _plain_english(item: PracticeItem, components: dict[str, float]) -> list[str]:
     reasons: list[str] = []
-    if components.get("assumed_check", 0.0) > 0:
+    if components.get("gap_commitment_check", 0.0) > 0:
+        reasons.append("the one check on a topic added from your question")
+    elif components.get("gap_sooner_check", 0.0) > 0:
+        reasons.append("a check brought forward: your question pointed at this topic")
+    elif components.get("assumed_check", 0.0) > 0:
         reasons.append("first review of a topic assumed known (not tested): this is the check")
     if components.get("new_material", 0.0) > 0:
         reasons.append("new material: starts as learning, no opening probe")

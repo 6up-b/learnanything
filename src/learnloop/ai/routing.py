@@ -45,6 +45,12 @@ AITask = Literal[
     "diagnosis_generator",
     # Slice 2 T1: the same-cause judge (unset -> the resolved diagnosis route).
     "same_cause_judge",
+    # Learner-text gaps: the same/different and needed-for-item judge and the
+    # stuck-text reader (unset -> the resolved diagnosis route), and the
+    # Decider's second opinion (a decider task).
+    "learner_gap_judge",
+    "learner_gap_reader",
+    "learner_gap_decider",
     "canonical_ingest",
     "canonical_ingest_retry",
     "authoring",
@@ -67,7 +73,7 @@ AITask = Literal[
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
-DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider"})
+DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider"})
 
 # Every structured operation explicitly inherits one configured task route.
 # This is documentation as executable data: feature callers no longer invent
@@ -93,6 +99,15 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Slice 2 T1 §3.7: a repair with a different operator and representation
     # for a recurrence group's K-th answer (the diagnoser's own route).
     "recurrence_escalation_repair": "diagnosis",
+    # Learner-text gaps (implementation_handoffs §4): one pairwise verdict
+    # (same prerequisite / same belief), the "needed for this item?" yes/no,
+    # the stuck-text reading, and the missing prerequisite's draft (the
+    # authoring route, as the owner decided).
+    "learner_gap_same_prerequisite": "learner_gap_judge",
+    "learner_gap_same_belief": "learner_gap_judge",
+    "learner_gap_prerequisite_needed": "learner_gap_judge",
+    "learner_gap_reading": "learner_gap_reader",
+    "learner_gap_prerequisite_draft": "authoring",
     "tutor_qa": "tutor_qa",
     "teach_back_question": "teach_back",
     "teach_back_authoring": "teach_back",
@@ -217,6 +232,9 @@ def provider_for_task(
         return provider_for_task(config, "grading", allow_env=allow_env)
     if task == "same_cause_judge" and not routed:
         # Slice 2 §3.1: the same-cause judge is "routed like diagnosis".
+        return provider_for_task(config, "diagnosis", allow_env=allow_env)
+    if task in ("learner_gap_judge", "learner_gap_reader") and not routed:
+        # Learner-text gaps: judged and read like a diagnosis.
         return provider_for_task(config, "diagnosis", allow_env=allow_env)
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
 

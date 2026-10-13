@@ -855,6 +855,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "same-cause judge calls per diagnose job / turn deadline; spend and latency bounds, no "
         "measurement authority (verdicts go to judgment_ledger, never evidence)."),
+    # Learner-text gaps: per-text spend and latency bounds of the pipeline's
+    # judge, reader, Decider and draft calls (verdicts go to judgment_ledger,
+    # never evidence).
+    _ConfigRule(_exact(
+        "learner_text_gaps.judge_max_pairs",
+        "learner_text_gaps.judge_timeout_seconds",
+        "learner_text_gaps.max_calls_per_text",
+        "learner_text_gaps.max_usd_per_text",
+        "learner_text_gaps.metered_price_per_million",
+    ), "structural", "operational",
+        "learner-text gap judge pairs per text / turn deadline / per-text call and dollar caps / owner "
+        "price for metered routes; spend and latency bounds, no measurement authority."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "
@@ -1015,6 +1027,25 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("placement.quick_check_k", "placement.quick_check_budget_minutes"),
                 "structural", "operational",
                 "optional learner-initiated quick-check length and time bound (field D4)."),
+    # Learner-text gaps (implementation_handoffs §4): the vault-wide shortlist
+    # breadth (judges decide, R4), the daily cap on created prerequisites, the
+    # created LO's delayed check and mvp-0.13's sooner-check delay. A priori,
+    # owner-accepted defaults; read from `learnloop gaps report`.
+    _ConfigRule(
+        _exact("learner_text_gaps.top_k", "learner_text_gaps.max_creations_per_day"),
+        "decision",
+        "constraint",
+        "learner-text gap shortlist breadth (judges decide every pair, R4) and the daily cap on "
+        "prerequisites created from learner text; kill switches learner_text_gaps.enabled and "
+        "create_prerequisites_enabled.",
+    ),
+    _ConfigRule(
+        _exact("learner_text_gaps.seed_check_delay_days", "learner_text_gaps.sooner_check_delay_hours"),
+        "decision",
+        "threshold",
+        "learner-text gap check timing: a created prerequisite's one delayed check, and mvp-0.13's "
+        "bound on how soon a gap brings a check forward (kill switch sooner_check_enabled).",
+    ),
     # Slice 2 T1 (mvp-0.12): which embedding-shortlisted pairs reach the
     # same-cause judge. Recall-oriented blocking only: the judge decides every
     # pair it sees and nothing is merged or rejected by score (R4). Set from

@@ -31,6 +31,7 @@ from learnloop.cli.inbox import inbox_app
 from learnloop.cli.placement import placement_app
 from learnloop.cli.pf import pf_app
 from learnloop.cli.recurrence import recurrence_app
+from learnloop.cli.gaps import gaps_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(inbox_app, name="inbox")
@@ -63,6 +64,7 @@ app.add_typer(practice_index_app, name="practice-index")
 app.add_typer(placement_app, name="placement")
 app.add_typer(pf_app, name="pf")
 app.add_typer(recurrence_app, name="recurrence")
+app.add_typer(gaps_app, name="gaps")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

@@ -69,6 +69,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/recurrence.py",
         # Slice 2 T1: leases of the shared judge's in-flight questions.
         "src/learnloop/db/stores/judgment_claims.py",
+        # Learner-text gaps: the gap ledger, reversals, queue and receipts.
+        "src/learnloop/db/stores/learner_gaps.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

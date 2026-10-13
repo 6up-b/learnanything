@@ -77,8 +77,8 @@ def upgrade(
         typer.Option(
             "--to",
             help=(
-                "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11 or "
-                "mvp-0.12); default: the latest."
+                "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
+                "mvp-0.12 or mvp-0.13); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -93,11 +93,14 @@ def upgrade(
     over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
     ``--to mvp-0.11`` adds placement, starting new material without ceremony,
     over an mvp-0.10 vault, or over an mvp-0.9 vault by activating mvp-0.10
-    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` (default, the
-    latest successor) adds Slice 2 T1 recurrence groups over an mvp-0.11 vault
-    (or an mvp-0.9/mvp-0.10 vault through the chain), refused while the
-    same-answer/different-cause guard has a false merge or has not run (kill
-    switch: ``recurrence.enabled = false``)."""
+    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` adds Slice 2
+    T1 recurrence groups over an mvp-0.11 vault (or an mvp-0.9/mvp-0.10 vault
+    through the chain), refused while the same-answer/different-cause guard
+    has a false merge or has not run (kill switch: ``recurrence.enabled =
+    false``); ``--to mvp-0.13`` (default, the latest successor) adds
+    learner-text gaps' sooner checks over an mvp-0.12 vault (or earlier,
+    through the chain and its guard; kill switch:
+    ``learner_text_gaps.sooner_check_enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -121,9 +124,14 @@ def upgrade(
         from learnloop.diagnosis.recurrence.upgrade import upgrade_to_mvp012
 
         result = upgrade_to_mvp012(_root(vault))
+    elif to == "mvp-0.13":
+        from learnloop.diagnosis.text_gaps.upgrade import upgrade_to_mvp013
+
+        result = upgrade_to_mvp013(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11 or mvp-0.12."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12 "
+            "or mvp-0.13."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
