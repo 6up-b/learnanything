@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
-source_commit_timestamp: "2026-10-13T16:10:03-04:00"
+source_commit: "befc484502be9e48b5dcedb929eb0838b672c850"
+source_commit_timestamp: "2026-10-13T18:03:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -137,6 +137,7 @@ Indexes and uniqueness:
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_ingest_runner.py`
+- `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
@@ -147,7 +148,6 @@ Indexes and uniqueness:
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`
 - `tests/test_ux_phase1_landing.py`
-- `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_review.py`
 - `tests/test_ux_phase1_usability_round1.py`
 

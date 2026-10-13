@@ -3,8 +3,8 @@ title: "reader_background_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
-source_commit_timestamp: "2026-10-13T16:10:03-04:00"
+source_commit: "befc484502be9e48b5dcedb929eb0838b672c850"
+source_commit_timestamp: "2026-10-13T18:03:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_background_requests"
@@ -22,7 +22,6 @@ source_paths:
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop_sidecar/handlers/reader.py"
-  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/reader_requests.py"
 tags:
@@ -133,7 +132,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
@@ -146,10 +144,10 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ingest_jobs.py`
+- `tests/test_keep_local_retired.py`
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_requests.py`
-- `tests/test_ux_phase1_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

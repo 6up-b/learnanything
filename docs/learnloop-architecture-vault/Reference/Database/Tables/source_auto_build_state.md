@@ -3,8 +3,8 @@ title: "source_auto_build_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
-source_commit_timestamp: "2026-10-13T16:10:03-04:00"
+source_commit: "befc484502be9e48b5dcedb929eb0838b672c850"
+source_commit_timestamp: "2026-10-13T18:03:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_auto_build_state"
@@ -86,16 +86,15 @@ Indexes and uniqueness:
 - `Repository._reading_request()`
 - `Repository._record_reading_request_for_extraction()`
 - `Repository.advance_source_auto_build_generation()`
+- `Repository.defer_reading_request()`
 - `Repository.delete_source_artifact()`
-- `Repository.due_reading_requests()`
 - `Repository.fail_reading_request()`
 - `Repository.pending_reading_request()`
+- `Repository.pending_reading_requests()`
 - `Repository.reading_request_unsettled()`
-- `Repository.reading_retry_waiting()`
 - `Repository.record_reading_request()`
 - `Repository.settle_reading_request()`
 - `Repository.source_auto_build_state()`
-- `Repository.sources_with_wanted_reading()`
 
 ### Direct SQL readers
 
@@ -117,6 +116,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reading_request_sweep.py`
 - `tests/test_ux_phase1_finish.py`
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_rereview.py`
