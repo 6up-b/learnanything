@@ -43,6 +43,9 @@ KNOWN_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 #: enforced on the transport, so it must leave room for reasoning tokens.
 OUTPUT_ALLOWANCE = {
     "grading": 6_000,
+    # mvp-0.15: the proof-like reading and the independent route check (a
+    # full re-derivation, so the grader's allowance; review F3).
+    "proof_check": 6_000,
     "diagnosis": 8_000,
     "diagnosis_judge": 4_000,
     "diagnosis_generator": 6_000,

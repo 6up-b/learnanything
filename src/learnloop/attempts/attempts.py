@@ -808,14 +808,20 @@ class GradingCallPlan:
     calls: int
     prompt_version: str | None = None
     estimated_input_tokens_per_call: int = 0
+    #: ``mvp-0.15``: the proof-like reading and route check a blind grade adds
+    #: on its own spend route (review F3); None when it cannot run.
+    proof_check: Any = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "kind": self.kind,
             "calls": self.calls,
             "prompt_version": self.prompt_version,
             "estimated_input_tokens_per_call": self.estimated_input_tokens_per_call,
         }
+        if self.proof_check is not None:
+            payload["proof_check"] = self.proof_check.as_dict()
+        return payload
 
 
 def plan_grading_calls(
@@ -824,14 +830,16 @@ def plan_grading_calls(
     draft: AttemptDraft,
     *,
     clock: Clock | None = None,
+    grader_model: str | None = None,
 ) -> GradingCallPlan:
     """What the practice door would send to a grader for ``draft`` (read-only).
 
     The same decisions as the completion doors, in the same order: an empty
     stuck answer and an unambiguous option letter make no call; otherwise the
     blind (split) or joint prompt is assembled exactly as it would be sent and
-    its input tokens estimated, once per sample. Raises like the doors on an
-    invalid draft.
+    its input tokens estimated, once per sample. A blind grade at ``mvp-0.15``
+    also plans the route check's calls (``grader_model`` picks its route, as
+    the live door does). Raises like the doors on an invalid draft.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
@@ -857,6 +865,8 @@ def plan_grading_calls(
     if split_grading_active(vault):
         from learnloop.attempts.blind_grading import blind_grading_prompt
 
+        from learnloop.attempts.proof_check import plan_proof_check, proof_check_active
+
         blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
         return GradingCallPlan(
             kind="blind",
@@ -864,6 +874,14 @@ def plan_grading_calls(
             prompt_version=blind.prompt_version,
             estimated_input_tokens_per_call=estimated_prompt_tokens(
                 blind_grading_prompt(blind.context)
+            ),
+            proof_check=(
+                plan_proof_check(
+                    vault, repository, item=item, rubric=rubric,
+                    learner_answer_md=draft.learner_answer_md, grader_model=grader_model,
+                )
+                if proof_check_active(vault)
+                else None
             ),
         )
     from learnloop.attempts.ai_contracts import grading_prompt_version

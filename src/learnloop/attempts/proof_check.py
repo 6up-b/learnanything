@@ -78,6 +78,7 @@ from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
 from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
+from learnloop.attempts.grading_admission import admit_grading_call, estimated_prompt_tokens
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
     UNVERIFIED_INTERPRETATION_KEY,
@@ -106,6 +107,9 @@ CLARIFICATION_TRIGGER = "route_check_disagreement"
 RESTORED_CRITERION_LABEL = "restored: an independent check found your route valid"
 #: Support key on the blind record.
 SUPPORT_KEY = "proof_route_check"
+#: The spend route a command admits the reading and the check on (review F3):
+#: the checker's own client, which may bill differently from the grader's.
+SPEND_ROUTE = "proof_check"
 #: Kinds whose credit can never rest on the learner's reasoning; any other kind
 #: whose rubric credits the reasoning is checked (a computation whose rubric
 #: credits the working included: its final-answer check rarely verifies a
@@ -672,6 +676,27 @@ def _current_judgment(connection: Any, *, task: str, left_kind: str, left_id: st
     return connection.execute(sql + " ORDER BY j.created_at DESC, j.id DESC LIMIT 1", params).fetchone()
 
 
+def _cached_reading(repository: Any, item: PracticeItem, rubric: Rubric) -> tuple[ItemKindReading, Any] | None:
+    """The item's current reading for its present content, with its ledger row."""
+
+    with repository.connection() as connection:
+        cached = _current_judgment(
+            connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id,
+            input_hash=item_kind_input_hash(item, rubric),
+        )
+    if cached is None:
+        return None
+    try:
+        stored = json.loads(cached[1])
+        # The verdict also records the derived ``proof_like`` for readers.
+        reading = ItemKindReading.model_validate(
+            {key: value for key, value in stored.items() if key in ItemKindReading.model_fields}
+        )
+    except (ValueError, AttributeError):
+        return None
+    return reading, cached
+
+
 def classify_item(
     repository: Any,
     item: PracticeItem,
@@ -685,27 +710,20 @@ def classify_item(
     from learnloop.db.stores.judgments import append_judgment
 
     input_hash = item_kind_input_hash(item, rubric)
-    with repository.connection() as connection:
-        cached = _current_judgment(
-            connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id, input_hash=input_hash,
-        )
+    cached = _cached_reading(repository, item, rubric)
     if cached is not None:
-        try:
-            stored = json.loads(cached[1])
-            # The verdict also records the derived ``proof_like`` for readers.
-            reading = ItemKindReading.model_validate(
-                {key: value for key, value in stored.items() if key in ItemKindReading.model_fields}
-            )
-        except (ValueError, AttributeError):
-            reading = None
-        if reading is not None:
-            return reading, {"cached": True, "judgment_id": str(cached[0]), "model": cached[2]}
+        reading, row = cached
+        return reading, {"cached": True, "judgment_id": str(row[0]), "model": row[2]}
     if client is None:
         return None, {"cached": False, "error": "no ready client for the item classification"}
-    reading = execute_structured_operation(
-        client, purpose="proof_item_classification", prompt=item_kind_prompt(item, rubric),
-        result_model=ItemKindReading, isolated=True,
-    )
+    prompt = item_kind_prompt(item, rubric)
+    # Admitted on the check's spend route when a command installed a guard
+    # (review F3); a no-op on every other door.
+    with admit_grading_call("proof_item_classification", prompt, route=SPEND_ROUTE, client=client):
+        reading = execute_structured_operation(
+            client, purpose="proof_item_classification", prompt=prompt,
+            result_model=ItemKindReading, isolated=True,
+        )
     model = getattr(client, "model", None) or "unknown"
     with repository.connection() as connection:
         previous = _current_judgment(connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id)
@@ -784,9 +802,11 @@ def run_proof_route_check(
         prompt = route_check_prompt(
             item, rubric, learner_answer_md, clarification_exchange=clarification_exchange,
         )
-        check = execute_structured_operation(
-            client, purpose="proof_route_check", prompt=prompt, result_model=ProofRouteCheck, isolated=True,
-        )
+        with admit_grading_call("proof_route_check", prompt, route=SPEND_ROUTE, client=client):
+            check = execute_structured_operation(
+                client, purpose="proof_route_check", prompt=prompt, result_model=ProofRouteCheck,
+                isolated=True,
+            )
         checker_model = support["checker"]["model"]
         gate = apply_proof_route_gate(
             proposal, rubric=rubric, learner_answer_md=learner_answer_md, check=check,
@@ -896,6 +916,59 @@ def gate_inputs(
     return (str(check.get("status")) if check.get("status") else None), bool(route.get("divergent_route"))
 
 
+@dataclass(frozen=True)
+class ProofCheckPlan:
+    """What the route check would send for one answer (read-only; review F3).
+
+    ``calls`` is an upper bound: an item not read yet costs one reading and,
+    only if it reads as proof-like, one check.
+    """
+
+    calls: int
+    estimated_input_tokens: int
+    route: CheckerRoute | None
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "calls": self.calls,
+            "estimated_input_tokens": self.estimated_input_tokens,
+            "provider": self.route.provider if self.route is not None else None,
+            "model": self.route.model if self.route is not None else None,
+            "independent": self.route.independent if self.route is not None else None,
+            "reason": self.reason,
+        }
+
+
+def plan_proof_check(
+    vault: LoadedVault,
+    repository: Any,
+    *,
+    item: PracticeItem,
+    rubric: Rubric,
+    learner_answer_md: str,
+    grader_model: str | None,
+) -> ProofCheckPlan:
+    """The calls a new blind grade of this answer adds (no call, no write)."""
+
+    if not proof_check_active(vault):
+        return ProofCheckPlan(0, 0, None, "inactive: below mvp-0.15 or proof_check.enabled = false")
+    route = proof_check_route(vault, grader_model=grader_model)
+    if not route.provider:
+        return ProofCheckPlan(0, 0, route, "no route for the check")
+    check_tokens = estimated_prompt_tokens(route_check_prompt(item, rubric, learner_answer_md))
+    cached = _cached_reading(repository, item, rubric)
+    if cached is not None:
+        if not cached[0].proof_like:
+            return ProofCheckPlan(0, 0, route, "the item's cached reading is not proof-like: no check")
+        return ProofCheckPlan(1, check_tokens, route, "proof-like item (cached reading): one route check")
+    kind_tokens = estimated_prompt_tokens(item_kind_prompt(item, rubric))
+    return ProofCheckPlan(
+        2, kind_tokens + check_tokens, route,
+        "the item is read once, then checked only if proof-like (upper bound)",
+    )
+
+
 def checked_calibration_prompt_version(base: str, grading_support: Mapping[str, Any] | None) -> str:
     """The calibration identity of one blind grade (S1 §4.3; P1's identity bump).
 
@@ -977,11 +1050,13 @@ __all__ = [
     "ItemKindReading",
     "PROOF_CHECK_VERSION",
     "PROOF_ROUTE_REVIEW_REASON",
+    "ProofCheckPlan",
     "ProofCheckResult",
     "ProofGateOutcome",
     "ProofRouteCheck",
     "RESTORED_CRITERION_LABEL",
     "ROUTE_CHECK_TASK",
+    "SPEND_ROUTE",
     "SUPPORT_KEY",
     "apply_proof_route_gate",
     "checked_calibration_prompt_version",
@@ -989,6 +1064,7 @@ __all__ = [
     "classify_item",
     "gate_inputs",
     "item_kind_prompt",
+    "plan_proof_check",
     "proof_check_active",
     "proof_check_route",
     "record_route_check_judgment",

@@ -698,6 +698,136 @@ def test_the_kill_switch_and_the_predecessor_grade_exactly_as_mvp014(tmp_path, c
     assert rows == ref
 
 
+# -- review F3: the reading and the check are planned and admitted --------------------------
+
+
+class AdmissionLog:
+    """A command guard that records each admission and may refuse one route."""
+
+    def __init__(self, deny_route=None):
+        self.calls, self.deny_route = [], deny_route
+
+    def __call__(self, purpose, prompt, *, route="grading", client=None):
+        from contextlib import nullcontext
+
+        from learnloop.ai.spend import SpendLimitExceeded
+
+        self.calls.append((purpose, route, getattr(client, "model", None)))
+        if route == self.deny_route:
+            raise SpendLimitExceeded(f"{route} refused")
+        return nullcontext()
+
+
+def test_the_reading_and_the_check_are_admitted_on_their_own_route(tmp_path, checker):
+    from learnloop.attempts.grading_admission import grading_admission
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}}))
+    log = AdmissionLog()
+    with grading_admission(log):
+        submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE, pipeline=False)
+    assert log.calls == [
+        ("blind_grading", "grading", None),
+        ("proof_item_classification", "proof_check", "checker-model"),
+        ("proof_route_check", "proof_check", "checker-model"),
+    ]
+
+
+def test_a_refused_check_stops_the_grade_and_is_never_sent(tmp_path, checker):
+    from learnloop.ai.spend import SpendLimitExceeded
+    from learnloop.attempts.grading_admission import grading_admission
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    fake = checker(CheckerFake(verdicts={"setup": {"verdict": "established"}}))
+    before = {row["id"] for row in repository.list_attempt_history()}
+    with grading_admission(AdmissionLog(deny_route="proof_check")), pytest.raises(SpendLimitExceeded):
+        submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE, pipeline=False)
+    assert fake.calls == []
+    assert {row["id"] for row in repository.list_attempt_history()} == before
+
+
+def _cli_attempt(monkeypatch, root, client, *args):
+    from typer.testing import CliRunner
+
+    import learnloop.cli as cli_module
+    from learnloop.cli.app import app
+
+    monkeypatch.setattr(cli_module, "_ready_provider_for_task", lambda *_a, **_k: ("fake", ReadyRuntime(), client))
+    return CliRunner().invoke(app, [
+        "attempt", ITEM, *args, "--criterion-points", "setup=0,result=0", "--json", "--no-diagnose",
+        "--vault", str(root),
+    ])
+
+
+METERED_JUDGE = (
+    '[ai.providers.judge]\ntype = "openrouter"\nmodel = "openai/gpt-6-luna"\n'
+    'api_key_env = "OPENROUTER_API_KEY"\n'
+)
+
+
+def test_cli_dry_run_plans_the_route_check_with_the_grade(tmp_path, monkeypatch, checker):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    fake = checker(CheckerFake())
+    result = _cli_attempt(monkeypatch, vault.root, ReviewFakeClient(), "--answer", ALTERNATIVE, "--dry-run")
+    assert result.exit_code == 0, result.output
+    grading = json.loads(result.output)["grading"]
+    assert grading["calls"] == 1 and grading["admissible"] is True
+    proof = grading["proof_check"]
+    assert proof["calls"] == 2 and proof["estimated_input_tokens"] > 100  # read + check (upper bound)
+    assert proof["route"]["billing"] == "subscription"
+    assert grading["total_estimate"]["calls"] == 3
+    assert fake.calls == []
+    # The caps cover the grade and the check together.
+    capped = _cli_attempt(monkeypatch, vault.root, ReviewFakeClient(), "--answer", ALTERNATIVE, "--dry-run",
+                          "--max-calls", "2")
+    assert capped.exit_code == 1 and "calls exceeds max_calls" in json.loads(capped.output)["grading"]["reason"]
+    # A metered checker route with no price is not admissible, and says so.
+    _set_route(vault.root, "proof_check", "judge")
+    (vault.root / "learnloop.toml").write_text(
+        (vault.root / "learnloop.toml").read_text(encoding="utf-8") + "\n" + METERED_JUDGE, encoding="utf-8")
+    metered = _cli_attempt(monkeypatch, vault.root, ReviewFakeClient(), "--answer", ALTERNATIVE, "--dry-run")
+    assert metered.exit_code == 1, metered.output
+    plan = json.loads(metered.output)["grading"]
+    assert plan["proof_check"]["route"]["billing"] == "metered" and plan["admissible"] is False
+    assert "price" in plan["reason"].lower()
+
+
+def _metered_vault(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=METERED_JUDGE)
+    _set_route(vault.root, "proof_check", "judge")
+    return load_vault(vault.root), repository
+
+
+def test_cli_a_metered_check_without_a_price_is_refused_before_any_call(tmp_path, monkeypatch, checker):
+    vault, repository = _metered_vault(tmp_path)
+    fake = checker(CheckerFake(provider_type="openai_compatible", model="openai/gpt-6-luna"))
+    grader = ReviewFakeClient()  # the subscription grader
+    before = {row["id"] for row in repository.list_attempt_history()}
+    result = _cli_attempt(monkeypatch, vault.root, grader, "--answer", ALTERNATIVE)
+    assert result.exit_code == 1, result.output
+    assert json.loads(result.output)["status"] == "over_budget"
+    assert grader.calls == [] and fake.calls == []  # nothing was sent, not even the grade
+    assert {row["id"] for row in repository.list_attempt_history()} == before
+
+
+def test_cli_admits_and_meters_the_check_on_its_route(tmp_path, monkeypatch, checker):
+    vault, repository = _metered_vault(tmp_path)
+    fake = checker(CheckerFake(
+        provider_type="openai_compatible", model="openai/gpt-6-luna",
+        verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}},
+    ))
+    result = _cli_attempt(monkeypatch, vault.root, ReviewFakeClient(), "--answer", ALTERNATIVE,
+                          "--price-per-million", "2.0")
+    assert result.exit_code == 0, result.output
+    spend = json.loads(result.output)["spend"]
+    assert fake.calls == ["proof_item_classification", "proof_route_check"]
+    assert spend["charged"]["calls"] == 3  # the grade and both check calls
+    route = spend["routes"]["proof_check"]
+    assert route["billing"] == "metered" and route["calls"] == 2 and route["input_tokens"] > 0
+    assert spend["charged"]["metered_total_tokens"] > 0 and spend["charged"]["metered_estimated_usd"] > 0
+    assert spend["routes"]["grading"]["billing"] == "subscription"
+
+
 # -- review F4: a checked grade has its own calibration identity ------------------------------
 
 
