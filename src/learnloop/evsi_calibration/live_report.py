@@ -9,13 +9,15 @@ Reads ``voi_forecasts`` (EVSI calibration Part B) and joins, at read time:
    -> ``probe_observations``; the first later attempt on the chosen item).
    The realized emission is mapped into the forecast's own alphabet; one that
    cannot be mapped is counted as ``unmapped``, never guessed.
-2. **Later truth**, through truth adapters: a cold verification of a repair
-   (``causal_cold_verifications``) and a factor's resolution
-   (``unresolved_cause_factors``: ``repair_confirmed`` confirms the repaired
-   cause, ``escalated_unrepaired`` after a failed cold check rules it out), and
-   a later teach-back whose diagnosis names the same cause (its recurrence
-   class) confirms it. Only independent evidence counts as truth: the
-   system's own posterior moving a misconception to "resolved" does not.
+2. **Later truth**, through truth adapters that need explicit hypothesis
+   linkage and independent diagnostic evidence (:func:`truth_for`): a cold
+   verification's diagnosis-support update on an admitted basis, an admitted
+   ``matched_single`` discriminating observation (not of the forecast's own
+   answer), and a later teach-back whose diagnosis names the same cause. What
+   a repair did (a cold check's success or failure, a factor closed as
+   ``repair_confirmed`` / ``escalated_unrepaired``) is reported apart, as
+   repair effect: it neither confirms nor rules out a cause. The system's own
+   posterior moving a misconception to "resolved" is never truth.
 
 Reports: (a) reliability of outcome forecasts (log loss, Brier, ECE, bins);
 (b) realized vs predicted information gain; (c) action-change calibration;
@@ -33,6 +35,7 @@ from typing import Any, Mapping, Sequence
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
+from learnloop.diagnosis.causal_attribution import SUPPORT_BASIS_AUTHORITY
 from learnloop.diagnosis.probes import score_bucket
 from learnloop.evsi_calibration.metrics import reliability
 from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
@@ -190,45 +193,117 @@ def realized_emission(
 # -- truth adapters -------------------------------------------------------------------------------
 
 
-def truth_for(connection: sqlite3.Connection, forecast: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Independent later truth about the forecast's hypotheses, or None."""
+#: Factor resolutions that record what a REPAIR did (a cold check after it), not
+#: which cause was true (``causal_factor_deferral``): repair effect, never truth.
+REPAIR_RESOLUTION_KINDS = ("repair_confirmed", "escalated_unrepaired")
+
+
+def _own_observation_ids(connection: sqlite3.Connection, realized_attempt_id: str | None) -> set[str]:
+    """Discriminating observations made of the forecast's own realized answer."""
+
+    if not realized_attempt_id or not _has(connection, "causal_discriminating_observations"):
+        return set()
+    return {
+        str(row["id"])
+        for row in connection.execute(
+            "SELECT id FROM causal_discriminating_observations WHERE probe_attempt_id = ?", (realized_attempt_id,)
+        )
+    }
+
+
+def _support_delta(support: Mapping[str, Any]) -> float:
+    try:
+        return float(support.get("delta") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def truth_for(
+    connection: sqlite3.Connection,
+    forecast: Mapping[str, Any],
+    *,
+    realized_attempt_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Independent later diagnostic truth about the forecast's hypotheses, or None.
+
+    Truth needs two things (review F1):
+
+    * **explicit linkage**: the evidence names one of the forecast's own
+      hypothesis ids. Causal hypothesis ids belong to one episode, so this is
+      episode linkage too; sharing a repair class (a route) is not linkage.
+    * **independent diagnostic evidence**: a cold verification whose
+      ``diagnosis_support_update`` carries a non-zero delta on an admitted
+      basis (``causal_attribution.SUPPORT_BASIS_AUTHORITY``) and cites its
+      observation, an admitted ``matched_single`` discriminating observation,
+      or a later teach-back naming the same cause. An observation of the
+      forecast's own realized answer is not independent of the forecast.
+
+    What a repair did (a cold check's success or failure, a factor closed as
+    ``repair_confirmed`` / ``escalated_unrepaired``) is reported separately as
+    ``repair_effect``: a repair can work for the wrong reason and fail for the
+    right one, so it neither confirms nor rules out a cause.
+    """
 
     body = forecast.get("forecast") or {}
     hypotheses = set((body.get("prior") or {}).keys())
-    effective = ((body.get("loss") or {}).get("effective_action")) or {}
     confirmed: set[str] = set()
     ruled_out: set[str] = set()
     sources: list[str] = []
+    repair_effect: list[dict[str, Any]] = []
     created = forecast.get("created_at") or ""
+    own_observations = _own_observation_ids(connection, realized_attempt_id)
     if hypotheses and _has(connection, "causal_cold_verifications"):
         for row in connection.execute(
-            "SELECT hypothesis_ids_json, repair_class_id, success FROM causal_cold_verifications "
-            "WHERE created_at >= ?",
+            "SELECT id, hypothesis_ids_json, repair_class_id, success, diagnosis_support_update_json "
+            "FROM causal_cold_verifications WHERE created_at >= ? ORDER BY created_at, id",
             (created,),
         ):
-            ids = set(str(v) for v in _loads(row["hypothesis_ids_json"], []))
-            by_route = {h for h, a in effective.items() if a == row["repair_class_id"]}
-            hit = (ids | by_route) & hypotheses
-            if not hit:
+            linked = {str(v) for v in _loads(row["hypothesis_ids_json"], [])} & hypotheses
+            if not linked:
                 continue
-            (confirmed if row["success"] else ruled_out).update(hit)
-            sources.append("cold_verification")
+            repair_effect.append({
+                "source": "cold_verification", "id": str(row["id"]), "repair_class_id": row["repair_class_id"],
+                "success": bool(row["success"]), "hypothesis_ids": sorted(linked),
+            })
+            support = _loads(row["diagnosis_support_update_json"], {}) or {}
+            delta = _support_delta(support)
+            if (
+                delta == 0.0
+                or support.get("basis") not in SUPPORT_BASIS_AUTHORITY
+                or not support.get("observation_id")
+                or str(support["observation_id"]) in own_observations
+            ):
+                continue
+            (confirmed if delta > 0 else ruled_out).update(linked)
+            sources.append("cold_verification_diagnosis_support")
     if forecast.get("factor_id") and _has(connection, "unresolved_cause_factors"):
         row = connection.execute(
-            "SELECT status, resolution_kind, resolution_detail_json, updated_at FROM unresolved_cause_factors "
-            "WHERE id = ?",
+            "SELECT status, resolution_kind, resolution_detail_json FROM unresolved_cause_factors WHERE id = ?",
             (forecast["factor_id"],),
         ).fetchone()
-        if row is not None and row["status"] == "resolved":
+        if row is not None and row["status"] == "resolved" and row["resolution_kind"] in REPAIR_RESOLUTION_KINDS:
             detail = _loads(row["resolution_detail_json"], {}) or {}
-            route = detail.get("repair_class_id")
-            by_route = {h for h, a in effective.items() if route and a == route}
-            if row["resolution_kind"] == "repair_confirmed" and by_route:
-                confirmed.update(by_route)
-                sources.append("factor_repair_confirmed")
-            elif row["resolution_kind"] == "escalated_unrepaired" and by_route:
-                ruled_out.update(by_route)
-                sources.append("factor_cold_failure")
+            repair_effect.append({
+                "source": "factor_resolution", "resolution_kind": row["resolution_kind"],
+                "repair_class_id": detail.get("repair_class_id"),
+                "success": row["resolution_kind"] == "repair_confirmed",
+            })
+        # A factor closed by a discriminating observation is read below,
+        # through that observation (it names the hypothesis it matched).
+    if hypotheses and _has(connection, "causal_discriminating_observations"):
+        for row in connection.execute(
+            "SELECT id, classified_as_json FROM causal_discriminating_observations "
+            "WHERE admitted = 1 AND outcome = 'matched_single' AND created_at >= ? ORDER BY created_at, id",
+            (created,),
+        ):
+            classified = _loads(row["classified_as_json"], [])
+            if not isinstance(classified, list) or len(classified) != 1:
+                continue
+            hypothesis = str(classified[0])
+            if hypothesis not in hypotheses or str(row["id"]) in own_observations:
+                continue
+            confirmed.add(hypothesis)
+            sources.append("discriminating_observation")
     if hypotheses and _has(connection, "causal_hypotheses"):
         # A teach-back after the forecast whose diagnosis names the same cause
         # (same statement class) confirms the cause existed.
@@ -248,10 +323,10 @@ def truth_for(connection: sqlite3.Connection, forecast: Mapping[str, Any]) -> di
             for r in later:
                 confirmed.add(statements[str(r["statement_normalized"])])
                 sources.append("teach_back_recurrence")
-    if not confirmed and not ruled_out:
+    if not confirmed and not ruled_out and not repair_effect:
         return None
     return {"confirmed": sorted(confirmed - ruled_out), "ruled_out": sorted(ruled_out),
-            "sources": sorted(set(sources))}
+            "sources": sorted(set(sources)), "repair_effect": repair_effect}
 
 
 # -- the report -----------------------------------------------------------------------------------
@@ -294,7 +369,7 @@ def calibration_report(vault: LoadedVault, *, since: str | None = None) -> dict[
         rows = []
         for forecast in forecasts:
             joined = _join(connection, vault, forecast, adapters)
-            truth = truth_for(connection, forecast)
+            truth = truth_for(connection, forecast, realized_attempt_id=joined.get("attempt_id"))
             rows.append((forecast, joined, truth))
     report = summarize_joined(rows, since=since, router_available=adapters[0].available,
                               logging_enabled=bool(vault.config.evsi.forecast_logging),
@@ -327,6 +402,7 @@ def summarize_joined(
             "forecasts": 0, "status": {}, "adapters": {}, "pairs": [], "log_losses": [], "eig": [],
             "entropy_drop": [], "change_pairs": [], "evsi_point": [], "truth": 0, "regret": [],
             "predicted_loss": [], "truth_probability": [], "verdicts": {},
+            "repair_effect": {"success": 0, "failure": 0},
         })
         block["forecasts"] += 1
         block["status"][joined.get("status")] = block["status"].get(joined.get("status"), 0) + 1
@@ -354,6 +430,8 @@ def summarize_joined(
                 block["change_pairs"].append((float(forecast["p_action_change"]), 1.0 if changed else 0.0))
         if forecast.get("evsi_point_minutes") is not None:
             block["evsi_point"].append(float(forecast["evsi_point_minutes"]))
+        for effect in (truth or {}).get("repair_effect") or []:
+            block["repair_effect"]["success" if effect.get("success") else "failure"] += 1
         if truth is not None and truth.get("confirmed"):
             block["truth"] += 1
             belief = posterior(likelihood, prior, emission) if (emission is not None and likelihood) else prior
@@ -405,6 +483,8 @@ def summarize_joined(
             "mean_evsi_point_minutes": _round(sum(block["evsi_point"]) / len(block["evsi_point"]))
             if block["evsi_point"] else None,
             "truth": truth_block,
+            # What repairs did after these forecasts: not diagnostic truth.
+            "repair_effect": block["repair_effect"],
         }
     total = sum(block["forecasts"] for block in by_site.values())
     return {
@@ -418,8 +498,10 @@ def summarize_joined(
         "outcome_adapter": "router_outcomes then ledgers" if router_available else "ledgers (R1 tables absent)",
         "sites": sites,
         "notes": [
-            "Truth counts only independent evidence: cold verifications, factor resolutions, teach-back "
-            "recurrence. A misconception the system's own posterior resolved is not truth.",
+            "Truth counts only independent diagnostic evidence linked to the forecast's own hypotheses: "
+            "a cold verification's diagnosis support on an admitted basis, an admitted discriminating "
+            "observation (not of the forecast's own answer), teach-back recurrence. Repair outcomes are "
+            "reported as repair_effect, never as truth; the system's own posterior is never truth.",
             "Single-learner sample sizes: read every rate with its n.",
         ],
     }
