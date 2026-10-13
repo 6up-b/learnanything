@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
-source_commit_timestamp: "2026-10-13T16:04:01-04:00"
+source_commit: "d7920405cd3508239e2b9ea33c7a7b1e595ae09f"
+source_commit_timestamp: "2026-10-13T16:37:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -158,6 +158,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_substrate.py`
+- `tests/test_exam_protection.py`
 - `tests/test_grading_cli.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_reader_branches.py`

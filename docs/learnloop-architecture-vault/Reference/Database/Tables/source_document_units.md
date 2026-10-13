@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "02ca94d261a72a3db8265f17545121db5ebc7eef"
-source_commit_timestamp: "2026-10-13T16:04:01-04:00"
+source_commit: "d7920405cd3508239e2b9ea33c7a7b1e595ae09f"
+source_commit_timestamp: "2026-10-13T16:37:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_exam_protection.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
