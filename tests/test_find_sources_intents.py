@@ -264,3 +264,38 @@ def test_find_sources_compare_delegates_to_compare_sources(textbook):
     cold = find_sources_for_caller(vault, repository, "rows", caller=CallerContext(
         kind="tutor", context="practice", item_id="pi_eigen_1", cold=True), intent="compare")
     assert cold.hits == [] and cold.status.startswith("empty")
+
+
+def test_the_compare_switch_holds_on_every_entry_point(textbook, monkeypatch):
+    """Codex re-review F8: with ``source_service.compare`` off, ``find_sources(intent="compare")``
+    reached ``compare_sources`` (and its paid calls) through the delegate. The
+    switch is enforced at the shared comparison boundary, for both public
+    entry points (``propose_sources`` and ``propose_comparison``), the RPCs and
+    the tool, and nothing reaches the comparison's model."""
+
+    from learnloop.instructional.sources import ServiceDisabled, propose_comparison
+
+    paths, repository, _spans = textbook
+    set_config(paths, "source_service", compare=False)
+    vault = loaded(paths)
+    reached: list[str] = []
+
+    def boom(*_args, **_kwargs):
+        reached.append("model")
+        raise AssertionError("a switched-off comparison reached its model")
+
+    llm = FakeServiceLLM()
+    monkeypatch.setattr(llm, "_SourceComparison", boom, raising=False)
+    caller = CallerContext(kind="reader")
+    with pytest.raises(PolicyRefused) as refused:
+        propose_sources(vault, repository, "what happens when rows are swapped", caller=caller, intent="compare",
+                        rerank_client=llm, compare_client=llm)
+    assert refused.value.code == "source_service_disabled"
+    with pytest.raises(ServiceDisabled):
+        propose_comparison(vault, repository, "rows", caller=caller, client=llm)
+    with pytest.raises(PolicyRefused):
+        find_sources_for_caller(vault, repository, "rows", caller=caller, intent="compare", compare_client=llm)
+    response = call(paths.root, "find_sources", {"query": "what happens when rows are swapped",
+                                                 "intent": "compare", "caller": {"kind": "reader"}})
+    assert response["error"]["data"]["code"] == "source_service_disabled"
+    assert reached == [] and not [name for _purpose, name in llm.calls if name == "SourceComparison"]

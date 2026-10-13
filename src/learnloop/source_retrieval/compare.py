@@ -169,12 +169,18 @@ def compare_sources(
     embedder: Any | None = None,
     clock: Clock | None = None,
 ) -> Comparison:
+    config = vault.config.source_service
+    # The comparison's kill switch, at the boundary every entry point shares
+    # (propose_comparison, find_sources(intent="compare"), the RPCs and the
+    # tools): off, nothing is compared and nothing is paid for (re-review F8).
+    for switch in ("enabled", "compare"):
+        if not getattr(config, switch):
+            raise PolicyRefused("source_service_disabled", f"source_service.{switch} is off")
     derived, reason = derive_policy(caller)
     if policy is not None and policy != derived:
         raise PolicyRefused("policy_refused", f"requested policy {policy!r} differs from the caller's {derived!r}")
     if derived == "cold_attempt":
         raise PolicyRefused("cold_attempt", "nothing is compared during a cold administration")
-    config = vault.config.source_service
     item = vault.practice_items.get(caller.item_id) if caller.item_id else None
     lo_ids = list(caller.learning_object_ids) or ([item.learning_object_id] if item is not None else [])
     scope = scope_for(vault, repository, policy=derived, scope="library", learning_object_ids=lo_ids, item=item)
