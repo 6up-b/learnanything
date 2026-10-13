@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "f2aa47537b5203f923088e33b88174f61c08d027"
+source_commit_timestamp: "2026-10-13T13:46:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -176,13 +176,13 @@ Indexes and uniqueness:
 - `tests/test_field_split_outcomes.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
+- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_pfc_unverified_unassessed.py`
 - `tests/test_probability_prep.py`
 - `tests/test_projection_evidence_polarity.py`
 - `tests/test_show.py`
 - `tests/test_teach_back.py`
-- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

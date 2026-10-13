@@ -3,8 +3,8 @@ title: "Config - proof_check"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "f2aa47537b5203f923088e33b88174f61c08d027"
+source_commit_timestamp: "2026-10-13T13:46:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml proof_check"
@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
-  - "src/learnloop/attempts/proof_check.py"
+  - "src/learnloop/attempts/grading_support.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/split_live_helpers.py"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.17's route check. On, each new blind grade of an item an LLM reads as proof-like is followed by an independent re-derivation of the learner's route (ai.routing.proof_check, else a route with a model other than the grader's); the gate restores, records unverified or flags criteria and the verdict goes to judgment_ledger. Off, new answers are graded exactly as mvp-0.16. Dormant below mvp-0.17; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1803`; `src/learnloop/attempts/proof_check.py:164` |
+| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.18's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the answer unassessed (holding the grade for review when nothing is then assessed and nothing validated): one grading call. Off, new answers grade as mvp-0.17 now does (as mvp-0.16: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.18; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1812`; `src/learnloop/attempts/grading_support.py:196` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
