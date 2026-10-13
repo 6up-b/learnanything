@@ -9,7 +9,14 @@ intervention, never the clock). Per intervention:
   session (or, without one, the UTC day), its correctness and whether it was
   assisted;
 * ``R_cold``: the next independent attempt at least the cold retrieval delay
-  later, as one of the decision-value spec's outcome states (§4.3). Pending
+  later, as one of the decision-value spec's outcome states (§4.3). The
+  search skips assisted attempts and attempts contaminated by an exposure in
+  the cold delay before them (a reveal on the item or its LO, the passage or
+  the exercise's own source text shown, another retrieval intervention on the
+  same targets, a failed coldness receipt), so neither masks a later
+  independent attempt. A submitted "don't know" is an unaided answer
+  (``cold_dont_know``, counted as a failure); declining the proposal
+  (a ``skipped`` tap) with no attempt is ``learner_declined``. Pending
   outcomes stay right-censored, never failures;
 * the observed outcome bucket of a valued check beside its predicted P(E), and
   the actual minutes beside the predicted;
@@ -28,7 +35,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import interventions, replace_outcomes
 from learnloop.vault.models import LoadedVault
 
-OUTCOME_VERSION = "retrieval_outcomes.v1"
+OUTCOME_VERSION = "retrieval_outcomes.v2"
 #: The cold retrieval delay (``diagnosis.remediation.COLD_RETRIEVAL_DELAY``, 1 day).
 COLD_DELAY = timedelta(days=1)
 #: Past this, an intervention with no independent attempt is expired, not pending.
@@ -36,8 +43,12 @@ CENSOR_HORIZON = timedelta(days=30)
 #: A report threshold, not a learning decision: a graded attempt at or above it
 #: counts as a success in the association report.
 SUCCESS_CORRECTNESS = 0.5
-COLD_STATES = ("cold_success", "cold_failure", "right_censored_pending", "right_censored_expired",
+COLD_STATES = ("cold_success", "cold_failure", "cold_dont_know", "right_censored_pending", "right_censored_expired",
                "learner_declined", "unmeasurable_no_targets", "contaminated_or_assisted", "missing_duration")
+#: Measured cold outcomes (a submitted "don't know" is a measured failure).
+MEASURED_COLD_STATES = ("cold_success", "cold_failure", "cold_dont_know")
+#: Coldness-receipt dimensions whose failure makes an attempt not independent.
+COLDNESS_DIMENSIONS = ("unassisted", "answer_leakage", "exposure_isolation")
 USAGE_TASK = "practice_usage"
 
 
@@ -48,9 +59,9 @@ def _parse(value: str) -> datetime:
 
 def _attempts(connection: Any) -> list[dict[str, Any]]:
     rows = connection.execute(
-        "SELECT id, practice_item_id, created_at, session_id, correctness, rubric_score, error_type, attempt_type, "
-        "hints_used, primed, latency_seconds, declared_dont_know, evidence_facets_json FROM practice_attempts "
-        "ORDER BY created_at, id").fetchall()
+        "SELECT id, practice_item_id, learning_object_id, created_at, session_id, correctness, rubric_score, "
+        "error_type, attempt_type, hints_used, primed, latency_seconds, declared_dont_know, evidence_facets_json "
+        "FROM practice_attempts ORDER BY created_at, id").fetchall()
     attempts = []
     for row in rows:
         value = dict(row)
@@ -62,14 +73,88 @@ def _attempts(connection: Any) -> list[dict[str, Any]]:
     return attempts
 
 
+#: Attempt types that are unaided productions (the learner field's graded
+#: retrieval types, ``field.outcomes.GRADED_RETRIEVAL_TYPES``): a submitted
+#: "don't know" is an unaided answer, not assistance.
+UNAIDED_TYPES = frozenset({"independent_attempt", "dont_know", "exam_attempt"})
+
+
 def is_assisted(attempt: Mapping[str, Any]) -> bool:
     """Not an unaided attempt: another attempt type, a hint used, or primed."""
 
-    return (attempt.get("attempt_type") != "independent_attempt" or bool(attempt.get("hints_used"))
+    return (attempt.get("attempt_type") not in UNAIDED_TYPES or bool(attempt.get("hints_used"))
             or bool(attempt.get("primed")))
 
 
 _assisted = is_assisted
+
+
+def _table(connection: Any, name: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() \
+        is not None
+
+
+def exposure_evidence(connection: Any) -> dict[str, Any]:
+    """The persisted exposure and coldness records the cold search reads."""
+
+    evidence: dict[str, Any] = {"reveals": [], "source_exposures": [], "coldness_failures": {}}
+    if _table(connection, "reveal_events"):
+        evidence["reveals"] = [dict(row) for row in connection.execute(
+            "SELECT id, practice_item_id, learning_object_id, created_at FROM reveal_events ORDER BY created_at, id")]
+    if _table(connection, "source_exposure_events"):
+        evidence["source_exposures"] = [dict(row) for row in connection.execute(
+            "SELECT id, extraction_id, span_id, entity_type, entity_id, created_at FROM source_exposure_events "
+            "ORDER BY created_at, id")]
+    if _table(connection, "coldness_receipts"):
+        for row in connection.execute(
+                "SELECT cold_attempt_id, dimensions_json FROM coldness_receipts WHERE stage='final' "
+                "AND cold_attempt_id IS NOT NULL ORDER BY id"):
+            try:
+                dimensions = json.loads(row[1] or "{}")
+            except (TypeError, ValueError):
+                dimensions = {}
+            failed = [name for name in COLDNESS_DIMENSIONS
+                      if (dimensions.get(name) or {}).get("status") == "fail"]
+            if failed:
+                evidence["coldness_failures"][str(row[0])] = failed
+    return evidence
+
+
+def _contamination(attempt: Mapping[str, Any], intervention: Mapping[str, Any],
+                   interventions_on_targets: Sequence[Mapping[str, Any]], evidence: Mapping[str, Any],
+                   vault: LoadedVault) -> list[str]:
+    """Why ``attempt`` is not independent of exposure (empty: it is), from
+    persisted rows only: anything in the cold delay before it."""
+
+    at = _parse(attempt["created_at"])
+    start = at - COLD_DELAY
+
+    def inside(value: str) -> bool:
+        moment = _parse(value)
+        return start < moment <= at
+
+    reasons: list[str] = []
+    item_id = str(attempt.get("practice_item_id") or "")
+    lo_id = attempt.get("learning_object_id")
+    if any(inside(row["created_at"]) and (row["practice_item_id"] == item_id
+                                          or (lo_id and row.get("learning_object_id") == lo_id))
+           for row in evidence.get("reveals") or ()):
+        reasons.append("revealed")
+    spans = {str(key) for key in (intervention.get("assets") or {}).get("span_keys") or ()}
+    item = vault.practice_items.get(item_id)
+    canonical = getattr(item, "canonical_exercise", None) if item is not None else None
+    if canonical is not None:
+        spans |= {f"{canonical.extraction_id}:{span}" for span in canonical.span_ids}
+    if any(inside(row["created_at"]) and (f"{row['extraction_id']}:{row['span_id']}" in spans
+                                          or (row.get("entity_type") == "practice_item"
+                                              and row.get("entity_id") == item_id))
+           for row in evidence.get("source_exposures") or ()):
+        reasons.append("source_exposed")
+    if any(other["id"] != intervention["id"] and inside(other["created_at"]) for other in interventions_on_targets):
+        reasons.append("another_intervention")
+    if evidence.get("coldness_failures", {}).get(str(attempt.get("id"))):
+        reasons.append("coldness_receipt_failed")
+    return reasons
 
 
 def _targets(intervention: Mapping[str, Any], vault: LoadedVault) -> tuple[set[str], set[str]]:
@@ -118,7 +203,8 @@ def _signals(connection: Any, proposal_id: str | None) -> list[dict[str, Any]]:
 
 
 def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str, Any]], vault: LoadedVault, *,
-                as_of: datetime, signals: list[dict[str, Any]]) -> dict[str, Any]:
+                as_of: datetime, signals: list[dict[str, Any]], evidence: Mapping[str, Any] | None = None,
+                interventions_seen: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     created = _parse(intervention["created_at"])
     items, facets = _targets(intervention, vault)
     valuation = intervention.get("valuation") or {}
@@ -151,17 +237,36 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
                 if attempt.get("latency_seconds") is not None:
                     row["actual_minutes"] = round(float(attempt["latency_seconds"]) / 60.0, 4)
             break
-    cold = next((attempt for attempt in targeted if _parse(attempt["created_at"]) >= created + COLD_DELAY), None)
+    # The next INDEPENDENT attempt (§11.2): assisted attempts and attempts
+    # contaminated by an exposure in the cold delay before them are skipped,
+    # never allowed to mask a later independent one.
+    on_targets = [other for other in interventions_seen
+                  if other.get("id") != intervention.get("id") and _overlaps(other, items, facets, vault)]
+    masked: dict[str, Any] | None = None
+    cold = None
+    for attempt in targeted:
+        if _parse(attempt["created_at"]) < created + COLD_DELAY:
+            continue
+        if _assisted(attempt) or _contamination(attempt, intervention, on_targets, evidence or {}, vault):
+            masked = masked or attempt
+            continue
+        cold = attempt
+        break
     if cold is None:
-        row["cold_outcome_state"] = ("right_censored_expired" if as_of - created > CENSOR_HORIZON
-                                     else "right_censored_pending")
+        if masked is not None:
+            row["cold_attempt_id"] = masked["id"]
+            row["cold_correctness"] = masked.get("correctness")
+            row["cold_outcome_state"] = "contaminated_or_assisted"
+        elif any(signal.get("signal") == "skipped" for signal in signals):
+            row["cold_outcome_state"] = "learner_declined"  # declined the proposal itself
+        else:
+            row["cold_outcome_state"] = ("right_censored_expired" if as_of - created > CENSOR_HORIZON
+                                         else "right_censored_pending")
         return row
     row["cold_attempt_id"] = cold["id"]
     row["cold_correctness"] = cold.get("correctness")
-    if cold.get("declared_dont_know") or cold.get("attempt_type") == "dont_know":
-        row["cold_outcome_state"] = "learner_declined"
-    elif _assisted(cold):
-        row["cold_outcome_state"] = "contaminated_or_assisted"
+    if _dont_know(cold):
+        row["cold_outcome_state"] = "cold_dont_know"
     elif cold.get("correctness") is None:
         row["cold_outcome_state"] = "right_censored_pending"
     elif cold.get("latency_seconds") is None:
@@ -170,6 +275,15 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
         row["cold_outcome_state"] = ("cold_success" if float(cold["correctness"]) >= SUCCESS_CORRECTNESS
                                      else "cold_failure")
     return row
+
+
+def _dont_know(attempt: Mapping[str, Any]) -> bool:
+    return bool(attempt.get("declared_dont_know")) or attempt.get("attempt_type") == "dont_know"
+
+
+def _overlaps(other: Mapping[str, Any], items: set[str], facets: set[str], vault: LoadedVault) -> bool:
+    other_items, other_facets = _targets(other, vault)
+    return bool(other_items & items or other_facets & facets)
 
 
 def rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
@@ -181,11 +295,13 @@ def rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) ->
         stamps = [_parse(attempt["created_at"]) for attempt in attempts]
         stamps += [_parse(record["created_at"]) for record in records]
         as_of = max(stamps) if stamps else datetime(1970, 1, 1, tzinfo=timezone.utc)
-        rows = [outcome_for(record, attempts, vault, as_of=as_of, signals=_signals(connection, record.get("proposal_id")))
+        evidence = exposure_evidence(connection)
+        rows = [outcome_for(record, attempts, vault, as_of=as_of, signals=_signals(connection, record.get("proposal_id")),
+                            evidence=evidence, interventions_seen=records)
                 for record in records]
         cleared, written = replace_outcomes(connection, rows)
     return {"cleared": cleared, "written": written, "as_of": as_of.isoformat()}
 
 
-__all__ = ["COLD_STATES", "OUTCOME_VERSION", "SUCCESS_CORRECTNESS", "is_assisted", "outcome_for",
-           "rebuild_intervention_outcomes"]
+__all__ = ["COLD_STATES", "MEASURED_COLD_STATES", "OUTCOME_VERSION", "SUCCESS_CORRECTNESS", "exposure_evidence",
+           "is_assisted", "outcome_for", "rebuild_intervention_outcomes"]

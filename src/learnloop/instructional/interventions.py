@@ -43,7 +43,12 @@ from learnloop.db.stores.source_service import (
 from learnloop.ids import new_ulid
 from learnloop.instructional.policy import caller_for_question_event
 from learnloop.source_retrieval.policy import derive_policy
-from learnloop.substrate.intervention_outcomes import COLD_STATES, SUCCESS_CORRECTNESS, rebuild_intervention_outcomes
+from learnloop.substrate.intervention_outcomes import (
+    COLD_STATES,
+    MEASURED_COLD_STATES,
+    SUCCESS_CORRECTNESS,
+    rebuild_intervention_outcomes,
+)
 from learnloop.vault.models import LoadedVault
 
 ASSOCIATIONS_LABEL = ("Associations, not causes: improvement after an explanation doesn't show the explanation "
@@ -333,7 +338,7 @@ def _wilson(successes: int, n: int, z: float = 1.96) -> list[float] | None:
 def _rates(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     nexts = [row for row in rows if row.get("next_correctness") is not None]
     next_successes = sum(1 for row in nexts if float(row["next_correctness"]) >= SUCCESS_CORRECTNESS)
-    measured = [row for row in rows if row.get("cold_outcome_state") in ("cold_success", "cold_failure")]
+    measured = [row for row in rows if row.get("cold_outcome_state") in MEASURED_COLD_STATES]
     cold_successes = sum(1 for row in measured if row["cold_outcome_state"] == "cold_success")
     return {
         "n": len(rows),

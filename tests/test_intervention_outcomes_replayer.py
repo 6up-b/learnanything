@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.db.stores.source_service import outcomes
 from learnloop.instructional.interventions import record_need_served
@@ -37,7 +39,13 @@ def test_outcome_states(tmp_path):
     assert state([_attempt("a", later, correctness=0.0)])["cold_outcome_state"] == "cold_failure"
     assert state([_attempt("a", later, attempt_type="hinted_attempt")])["cold_outcome_state"] == \
         "contaminated_or_assisted"
-    assert state([_attempt("a", later, declared_dont_know=1)])["cold_outcome_state"] == "learner_declined"
+    # A submitted "don't know" is an unaided answer (F12), not declining.
+    assert state([_attempt("a", later, declared_dont_know=1)])["cold_outcome_state"] == "cold_dont_know"
+    assert state([_attempt("a", later, attempt_type="dont_know", correctness=None)])["cold_outcome_state"] == \
+        "cold_dont_know"
+    # Declining is the proposal's own "skipped" tap with no attempt.
+    assert outcome_for(_intervention(), [], vault, as_of=later,
+                       signals=[{"signal": "skipped", "ref": "pi_eigen_1"}])["cold_outcome_state"] == "learner_declined"
     assert state([_attempt("a", later, latency_seconds=None)])["cold_outcome_state"] == "missing_duration"
     # Pending stays right-censored, never a failure; past the horizon it is expired.
     assert state([])["cold_outcome_state"] == "right_censored_pending"
@@ -82,3 +90,89 @@ def test_the_replayer_is_registered_deterministic_and_calls_nothing(tmp_path):
     [row] = first.values()
     assert row["next_attempt_id"] is not None and row["cold_outcome_state"] == "right_censored_pending"
     assert table_counts(repository, ["model_call_receipts", "judgment_ledger"]) == before
+
+
+# -- Codex sources-build review F12 -----------------------------------------------------------------
+
+
+def test_an_assisted_attempt_no_longer_masks_a_later_independent_one(tmp_path):
+    paths, _repository = build_service_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    day2, day3 = T0 + timedelta(days=2), T0 + timedelta(days=3)
+    row = outcome_for(_intervention(), [_attempt("assisted", day2, hints_used=2),
+                                        _attempt("independent", day3, correctness=0.0)],
+                      vault, as_of=day3, signals=[])
+    assert row["cold_attempt_id"] == "independent" and row["cold_outcome_state"] == "cold_failure"
+    only_assisted = outcome_for(_intervention(), [_attempt("assisted", day2, hints_used=2)], vault, as_of=day2,
+                                signals=[])
+    assert only_assisted["cold_outcome_state"] == "contaminated_or_assisted"
+
+
+@pytest.mark.parametrize("exposure", ["reveal", "passage_shown_again", "exercise_text", "another_intervention",
+                                      "coldness_receipt"])
+def test_an_attempt_right_after_another_exposure_is_not_cold(tmp_path, exposure):
+    """More than a day after the intervention, but within the cold delay after
+    another exposure: contaminated, and the search goes on to a later
+    independent attempt."""
+
+    paths, _repository = build_service_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    day2, day4 = T0 + timedelta(days=2), T0 + timedelta(days=4)
+    just_before = (day2 - timedelta(minutes=10)).isoformat()
+    evidence = {"reveals": [], "source_exposures": [], "coldness_failures": {}}
+    others = []
+    intervention = _intervention(assets={"practice_item_ids": ["pi_eigen_1"], "span_keys": ["ext_text:t3"]})
+    if exposure == "reveal":
+        evidence["reveals"].append({"id": "r1", "practice_item_id": "pi_eigen_1", "learning_object_id": None,
+                                    "created_at": just_before})
+    elif exposure == "passage_shown_again":
+        evidence["source_exposures"].append({"id": "e1", "extraction_id": "ext_text", "span_id": "t3",
+                                             "entity_type": None, "entity_id": None, "created_at": just_before})
+    elif exposure == "exercise_text":
+        evidence["source_exposures"].append({"id": "e2", "extraction_id": "ext", "span_id": "s9",
+                                             "entity_type": "practice_item", "entity_id": "pi_eigen_1",
+                                             "created_at": just_before})
+    elif exposure == "another_intervention":
+        others.append({"id": "rti_2", "created_at": just_before, "assets": {}, "targets": {"facets": ["facet_eigen"]}})
+    else:
+        evidence["coldness_failures"]["a2"] = ["exposure_isolation"]
+    attempts = [_attempt("a2", day2), _attempt("a4", day4, correctness=0.0)]
+    row = outcome_for(intervention, attempts, vault, as_of=day4, signals=[], evidence=evidence,
+                      interventions_seen=[intervention, *others])
+    assert row["cold_attempt_id"] == "a4" and row["cold_outcome_state"] == "cold_failure"
+    alone = outcome_for(intervention, attempts[:1], vault, as_of=day2, signals=[], evidence=evidence,
+                        interventions_seen=[intervention, *others])
+    assert alone["cold_outcome_state"] == "contaminated_or_assisted"
+    # Exposure that ended before the cold delay does not contaminate.
+    clean = outcome_for(intervention, attempts[:1], vault, as_of=day2, signals=[],
+                        evidence={"reveals": [{"id": "r0", "practice_item_id": "pi_eigen_1",
+                                               "learning_object_id": None,
+                                               "created_at": (day2 - timedelta(days=2)).isoformat()}]},
+                        interventions_seen=[intervention])
+    assert clean["cold_outcome_state"] == "cold_success"
+
+
+def test_the_replayer_reads_persisted_exposure(tmp_path):
+    """End to end: the item's own source text shown just before the cold
+    attempt (a Reader exposure the attempt pipeline does not see) contaminates it."""
+
+    from learnloop.clock import FrozenClock
+
+    paths, repository = build_service_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    record_need_served(vault, repository, {"id": "n1", "target_facets": ["facet_eigen"],
+                                           "learning_object_id": "lo_matrices"}, practice_item_id="pi_eigen_1",
+                       clock=FrozenClock(T0))
+    day2 = T0 + timedelta(days=2)
+    repository.insert_source_exposure_event({"context": "reader", "extraction_id": "ext_any", "span_id": "s1",
+                                             "entity_type": "practice_item", "entity_id": "pi_eigen_1",
+                                             "created_at": day2.isoformat().replace("+00:00", "Z")})
+    complete_self_graded_attempt(vault, repository,
+                                 AttemptDraft(practice_item_id="pi_eigen_1", learner_answer_md="x",
+                                              attempt_type="independent_attempt", latency_seconds=60),
+                                 SelfGradeInput(criterion_points={"correct": 4}, fatal_errors=[], confidence=3),
+                                 clock=FrozenClock(day2 + timedelta(minutes=5)))
+    rebuild_intervention_outcomes(vault, repository)
+    with repository.connection() as connection:
+        [row] = outcomes(connection).values()
+    assert row["cold_outcome_state"] == "contaminated_or_assisted"
