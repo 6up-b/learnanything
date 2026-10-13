@@ -137,6 +137,20 @@ export function BookCard({
               Read it again with text recognition
             </button>
           ) : null}
+          {readable ? (
+            card.keepLocal ? (
+              <>
+                <div>Kept on this computer: nothing of it is sent to an AI.</div>
+                <button type="button" style={linkButton} onClick={() => onAction("share_with_ai", card)}>
+                  Let LearnLoop write questions for it
+                </button>
+              </>
+            ) : (
+              <button type="button" style={linkButton} onClick={() => onAction("keep_local", card)}>
+                Keep this book on this computer
+              </button>
+            )
+          ) : null}
           {onOpenImports ? (
             <button type="button" style={linkButton} onClick={onOpenImports}>
               Open in Imports & builds

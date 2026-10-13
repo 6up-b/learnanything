@@ -92,6 +92,9 @@ export interface TagMenuRequest {
 /** Imperative surface for the screen: jump to an annotation's page/block. */
 export interface PdfReaderPaneHandle {
   scrollToSegment: (page: number, spanId?: string | null) => void;
+  /** Put ``offset`` (0..1) of page ``page`` at the top of the view, exactly;
+   *  waits for the page to be laid out (the preparing view's hand-over). */
+  scrollToPage: (page: number, offset?: number) => void;
 }
 
 interface PdfReaderPaneProps {
@@ -317,7 +320,56 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     (target instanceof HTMLElement ? target : pageEl).scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
-  useImperativeHandle(handleRef, () => ({ scrollToSegment }), [scrollToSegment]);
+  // A position asked for before its page is laid out is applied when it is
+  // (polled for a few seconds: the document loads, then page sizes arrive).
+  const pendingPageScrollRef = useRef<{ page: number; offset: number; tries: number } | null>(null);
+  const [pendingPageScroll, setPendingPageScroll] = useState(0);
+  const applyPageScroll = useCallback((page: number, offset: number): boolean => {
+    const container = containerRef.current;
+    const pageEl = container?.querySelector(`[data-pdf-page="${page}"]`);
+    if (!(pageEl instanceof HTMLElement)) return false;
+    const pageRect = pageEl.getBoundingClientRect();
+    if (pageRect.height <= 0) return false;
+    let scroller: HTMLElement | null = container?.parentElement ?? null;
+    while (scroller && !/(auto|scroll)/.test(window.getComputedStyle(scroller).overflowY)) {
+      scroller = scroller.parentElement;
+    }
+    if (!scroller) {
+      pageEl.scrollIntoView({ block: "start" });
+      return true;
+    }
+    scroller.scrollTop += pageRect.top - scroller.getBoundingClientRect().top + offset * pageRect.height;
+    return true;
+  }, []);
+  const scrollToPage = useCallback(
+    (page: number, offset = 0) => {
+      if (applyPageScroll(page, offset)) {
+        pendingPageScrollRef.current = null;
+        return;
+      }
+      pendingPageScrollRef.current = { page, offset, tries: 0 };
+      setPendingPageScroll((tick) => tick + 1);
+    },
+    [applyPageScroll],
+  );
+  useEffect(() => {
+    if (!pendingPageScrollRef.current) return;
+    const timer = window.setInterval(() => {
+      const pending = pendingPageScrollRef.current;
+      if (!pending) {
+        window.clearInterval(timer);
+        return;
+      }
+      pending.tries += 1;
+      if (applyPageScroll(pending.page, pending.offset) || pending.tries > 50) {
+        pendingPageScrollRef.current = null;
+        window.clearInterval(timer);
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [doc, containerWidth, pendingPageScroll, applyPageScroll]);
+
+  useImperativeHandle(handleRef, () => ({ scrollToSegment, scrollToPage }), [scrollToSegment, scrollToPage]);
 
   // Map a DOM point inside a page wrapper to PDF points and hit-test blocks.
   const blockAtPoint = useCallback(

@@ -219,7 +219,10 @@ export function useAddSource({
       const result = await api.addSource({ sources, ...options });
       const unsupported = result.items.find((item) => item.status === "unsupported" && item.message);
       const existing = result.items.find((item) => item.status === "existing" && item.message);
-      setMessage(unsupported?.message ?? existing?.message ?? null);
+      // An add that went ahead without something asked for (text recognition
+      // that isn't set up) says so plainly (review F9).
+      const added = result.items.find((item) => (item.status === "added" || item.status === "queued") && item.message);
+      setMessage(unsupported?.message ?? existing?.message ?? added?.message ?? null);
       if (result.opened) openedRef.current(result.opened, result);
       return result;
     } catch (error) {

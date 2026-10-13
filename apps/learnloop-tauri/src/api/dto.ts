@@ -2923,6 +2923,8 @@ export interface SourceLibraryCard {
   subjectId?: string | null;
   /** The card's one learner-facing status line, or null when there is nothing to say. */
   statusLine?: SourceStatusLineDto | null;
+  /** "Keep this book on this computer": nothing of it is sent to an AI. */
+  keepLocal?: boolean;
 }
 
 // ── UX Phase 1: one Add, the book card's status line, connect AI once ──────
@@ -2935,6 +2937,11 @@ export type SourceActionKind =
   | "build_whole_book"
   | "retry"
   | "text_recognition"
+  /** The separate OK for sending a whole file out (a recording, a whole PDF). */
+  | "allow_upload"
+  /** Book details: keep this book on this computer, or let it go again. */
+  | "keep_local"
+  | "share_with_ai"
   | "connect_ai"
   | "open_changes"
   | "open_settings";

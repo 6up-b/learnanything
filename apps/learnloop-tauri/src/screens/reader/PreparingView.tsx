@@ -11,6 +11,7 @@ import type { ReaderPdfViewDto, SourceLibraryCard } from "../../api/dto";
 import { readableTitle } from "../../components/BookCard";
 import { PdfReaderPane } from "../../components/PdfReaderPane";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { readingPositionIn, type ReadingPosition } from "./readingPosition";
 
 const POLL_MS = 3000;
 const NO_SPANS = new Set<string>();
@@ -23,8 +24,9 @@ export function PreparingView({
 }: {
   card: SourceLibraryCard;
   onBack: () => void;
-  /** The text is ready: open the full Reader on this (refreshed) card. */
-  onReady: (card: SourceLibraryCard) => void;
+  /** The text is ready: open the full Reader on this (refreshed) card, at
+   *  the page and place the learner has scrolled to (review F8). */
+  onReady: (card: SourceLibraryCard, position: ReadingPosition | null) => void;
   onError: (message: string) => void;
 }) {
   const [manifest, setManifest] = useState<ReaderPdfViewDto | null>(null);
@@ -32,6 +34,7 @@ export function PreparingView({
   const [current, setCurrent] = useState<SourceLibraryCard>(card);
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -61,7 +64,7 @@ export function PreparingView({
           const next = library.sources.find((entry) => entry.sourceId === card.sourceId);
           if (!next) return;
           setCurrent(next);
-          if (next.readiness === "ready") readyRef.current(next);
+          if (next.readiness === "ready") readyRef.current(next, readingPositionIn(scrollRef.current));
         })
         .catch(() => undefined);
     };
@@ -95,6 +98,8 @@ export function PreparingView({
         </div>
       </div>
       <div
+        ref={scrollRef}
+        data-testid="preparing-scroll"
         className="ll-scroll"
         style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: manifest ? "18px 32px" : "40px 32px" }}
       >

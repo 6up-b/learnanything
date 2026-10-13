@@ -48,6 +48,7 @@ import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
 import { PreparingView } from "./reader/PreparingView";
+import { spanAtPosition, type ReadingPosition } from "./reader/readingPosition";
 import {
   parseRequestError,
   parseRequestResult,
@@ -348,6 +349,9 @@ export function ReaderScreen({
   // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
   // original PDF in PreparingView; the full Reader takes over when it is ready.
   const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
+  // Where the learner was in the original when the text became ready: the full
+  // Reader opens there, not at the top (review F8).
+  const handoffRef = useRef<ReadingPosition | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
@@ -513,7 +517,8 @@ export function ReaderScreen({
   }, []);
 
   const openSource = useCallback(
-    async (card: SourceLibraryCard, jumpSpan?: string) => {
+    async (card: SourceLibraryCard, jumpSpan?: string, handoff?: ReadingPosition | null) => {
+      handoffRef.current = handoff ?? null;
       if (card.readiness !== "ready") {
         // Nothing to render yet: show the original while LearnLoop prepares it.
         resetSourceState();
@@ -1510,7 +1515,7 @@ export function ReaderScreen({
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.
   useEffect(() => {
-    if (!render || offline || !readingSpan) return;
+    if (!render || offline || !readingSpan || handoffRef.current) return;
     const frame = window.requestAnimationFrame(() => {
       if (pdfView && surface === "pdf") {
         const geometry = pdfView.blocks.find((block) => block.spanId === readingSpan);
@@ -1525,6 +1530,21 @@ export function ReaderScreen({
     // scroll itself back to the marker it just recorded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [render?.renderViewId, pdfView?.available, surface, offline]);
+
+  // The hand-over from the preparing view (UX Phase 1 review F8): the same
+  // page and viewport offset, and the passage there becomes the reading
+  // position, so it is also where the book reopens next time.
+  useEffect(() => {
+    const position = handoffRef.current;
+    if (!render || offline || !position || !pdfView?.available) return;
+    handoffRef.current = null;
+    const spanId = spanAtPosition(pdfView.blocks, position);
+    if (spanId) {
+      setReadingSpan(spanId);
+      setActiveSpan(spanId);
+    }
+    paneRef.current?.scrollToPage(position.page, position.offset);
+  }, [render, offline, pdfView]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -1900,7 +1920,7 @@ export function ReaderScreen({
         key={preparingCard.sourceId}
         card={preparingCard}
         onBack={backToLibrary}
-        onReady={(next) => void openSource(next)}
+        onReady={(next, position) => void openSource(next, undefined, position)}
         onError={onError}
       />
     );

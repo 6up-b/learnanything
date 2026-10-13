@@ -149,7 +149,13 @@ export function LibraryPlace({
             loadError={library.error && !sources ? library.error.message : null}
             onRetryLoad={() => void library.refetch().catch(() => undefined)}
             onOpenImports={onOpenImports}
-            onRetryPending={(entry) => void run({ batchId: entry.batchId, action: "retry" })}
+            onRetryPending={(entry) =>
+              void run({
+                batchId: entry.batchId,
+                // A link whose file waits for the OK to send it out gets that OK.
+                action: entry.statusLine?.action?.kind === "allow_upload" ? "allow_upload" : "retry"
+              })
+            }
             onRemovePending={(entry) => {
               api
                 .cancelIngestBatch(entry.batchId)
