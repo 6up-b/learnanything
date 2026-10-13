@@ -477,13 +477,14 @@ def gated_review_reason(
     if not proof.get("applied"):
         return UNVERIFIED_REVIEW_REASON
     # mvp-0.15: the route check's own concerns, most serious first. A flag (or
-    # a disputed fatal error) is a real review; a pending clarification is A8's
+    # a disputed fatal error, or a grade with nothing assessed and nothing
+    # validated) is a real review; a pending clarification is A8's
     # provisional state; an unverified criterion is PF-c's non-blocking log; a
     # restore alone leaves nothing to review.
     from learnloop.attempts.grading import PROVISIONAL_PENDING_CLARIFICATION
     from learnloop.attempts.proof_check import PROOF_ROUTE_REVIEW_REASON
 
-    if proof.get("flagged_criterion_ids") or proof.get("disputed_fatal"):
+    if proof.get("flagged_criterion_ids") or proof.get("disputed_fatal") or proof.get("held_for_review"):
         return PROOF_ROUTE_REVIEW_REASON
     if proof.get("clarification"):
         return PROVISIONAL_PENDING_CLARIFICATION

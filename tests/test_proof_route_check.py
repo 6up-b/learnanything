@@ -267,7 +267,10 @@ def test_an_accepted_step_the_check_refutes_verbatim_is_flagged_never_silently()
     assert not unlocated.applied
 
 
-def test_agreement_and_cannot_tell_leave_the_grade_as_the_grader_gave_it():
+def test_off_a_divergent_route_agreement_and_cannot_tell_leave_the_grade_as_the_grader_gave_it():
+    """The grader did not read the route as divergent (P1's trigger), so an
+    abstention keeps its mark-down (review F1 scopes the located-error rule)."""
+
     proposal = _proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", "Let x be fixed")])
     gate = apply_proof_route_gate(
         proposal, rubric=RUBRIC, learner_answer_md=ANSWER,
@@ -281,6 +284,114 @@ def test_agreement_and_cannot_tell_leave_the_grade_as_the_grader_gave_it():
         check=_check(setup={"verdict": "cannot_tell"}),
     )
     assert not unlocated.applied and unlocated.assessed_shortfall is True
+
+
+# -- review F1: P1's located-error rule on a divergent route ------------------------------
+
+
+@pytest.mark.parametrize("setup_verdict", [
+    {"verdict": "cannot_tell"},
+    {"verdict": "not_established"},
+    {"verdict": "not_established", "invalid_step_quote": "a step the learner never wrote"},
+])
+def test_p1_an_unlocated_mark_down_on_a_divergent_route_is_unassessed(setup_verdict):
+    """The grader marks ``setup`` down without locating an error; the check
+    abstains or refutes it without a verbatim quote. On a divergent route whose
+    conclusion is not shown to differ, that is not negative evidence."""
+
+    gate = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup=setup_verdict, result={"verdict": "established"}),
+        final_answer_status="undecidable", divergent_route=True, checker_model="m2",
+    )
+    assert gate.unlocated == ("setup",) and gate.unverified == ("setup",)
+    assert gate.outcomes["setup"] == "unlocated" and gate.applied
+    assert gate.assessed_shortfall is False and gate.held_for_review is False
+    rows = {row.criterion_id: row for row in gate.proposal.criterion_evidence}
+    assert rows["setup"].points_awarded == 0.0  # unassessed, not restored
+    assert "Not assessed" in rows["setup"].notes and "m2" in rows["setup"].notes
+
+
+def test_p1_a_located_error_still_counts_from_either_judge():
+    grader_located = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}, [_attribution("setup", "Let x be fixed")]),
+        rubric=RUBRIC, learner_answer_md=ANSWER, check=_check(setup={"verdict": "cannot_tell"}),
+        final_answer_status="undecidable", divergent_route=True,
+    )
+    assert grader_located.unverified == () and grader_located.assessed_shortfall is True
+    assert grader_located.outcomes["setup"] == "cannot_tell" and not grader_located.applied
+    checker_located = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "not_established", "invalid_step_quote": "let X be FIXED"}),
+        final_answer_status="no_conclusion", divergent_route=True,
+    )
+    assert checker_located.unverified == () and checker_located.assessed_shortfall is True
+    assert checker_located.outcomes["setup"] == "agree_shortfall"
+
+
+def test_p1_applies_only_to_a_divergent_route_without_fatal_errors():
+    for kwargs, fatal in (({"divergent_route": False, "final_answer_status": "undecidable"}, ()),
+                          ({"divergent_route": True, "final_answer_status": "undecidable"}, ("wrong_statement",))):
+        rubric = Rubric.model_validate({
+            **RUBRIC.model_dump(mode="json"),
+            "fatal_errors": [{"id": "wrong_statement", "description": "proves the wrong claim", "max_grade": 0}],
+        })
+        gate = apply_proof_route_gate(
+            _proposal({"setup": 0.0, "result": 2.0}, fatal=fatal), rubric=rubric, learner_answer_md=ANSWER,
+            check=_check(setup={"verdict": "cannot_tell"}), **kwargs,
+        )
+        assert gate.unverified == () and gate.assessed_shortfall is True and not gate.applied
+
+
+def test_p1_nothing_assessed_and_nothing_validated_is_held_for_review():
+    gate = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 0.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "cannot_tell"}, result={"verdict": "not_established"}),
+        final_answer_status="no_conclusion", divergent_route=True,
+    )
+    assert gate.unlocated == ("setup", "result") and gate.held_for_review is True
+    assert gate.proposal.manual_review_recommended is True
+    assert all("Held for review" in row.notes for row in gate.proposal.criterion_evidence)
+    # One criterion the check validates is not "nothing validated".
+    validated = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 0.0}, [_attribution("result", "x squared is positive")]),
+        rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "cannot_tell"}, result={"verdict": "established"}),
+        final_answer_status="no_conclusion", divergent_route=True,
+    )
+    assert validated.unverified == ("result", "setup") and validated.held_for_review is False
+
+
+# -- review F2: the machine check outranks the checker -------------------------------------
+
+
+def test_a_conclusion_that_differs_from_the_reference_is_never_restored_or_unassessed():
+    restorable = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 0.0}, [_attribution("result", "x squared is positive")]),
+        rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "established"}, result={"verdict": "established"},
+                     question="Is x real?", reason="ambiguous_notation"),
+        final_answer_status="differs_from_reference", divergent_route=True,
+    )
+    assert restorable.restored == () and restorable.disputed == () and restorable.unverified == ()
+    assert restorable.outcomes == {"setup": "answer_differs", "result": "answer_differs"}
+    assert restorable.clarification is None and not restorable.applied
+    assert restorable.assessed_shortfall is True
+    assert [row.points_awarded for row in restorable.proposal.criterion_evidence] == [0.0, 0.0]
+    assert restorable.agreement == {"setup": "disagree", "result": "disagree"}
+    unlocated = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "cannot_tell"}),
+        final_answer_status="differs_from_reference", divergent_route=True,
+    )
+    assert unlocated.unverified == () and unlocated.assessed_shortfall is True
+    # A flag never changes the grade, so it still stands.
+    flagged = apply_proof_route_gate(
+        _proposal({"setup": 2.0, "result": 2.0}), rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(result={"verdict": "not_established", "invalid_step_quote": "x squared is positive"}),
+        final_answer_status="differs_from_reference", divergent_route=True,
+    )
+    assert flagged.flagged == ("result",)
 
 
 def test_a_grade_with_fatal_errors_is_never_restored_and_a_dispute_is_flagged():
@@ -409,6 +520,76 @@ def test_a_validated_alternative_route_is_restored_live(tmp_path, checker):
     assert verdict["left_id"] == result.attempt_id and verdict["judge_model"] == "checker-model"
     assert json.loads(verdict["verdict"])["agreement"]["disagree"] == 2
     assert fake.calls == ["proof_item_classification", "proof_route_check"]
+
+
+class DivergentUnlocatedGrader(ReviewFakeClient):
+    """The default fake's 0 on every criterion, locating no error, on a route
+    it reads as divergent from the reference (``route_check``)."""
+
+    def _blind_grading(self, request, context):
+        from learnloop.attempts.grading_support import RouteCheck
+
+        result = super()._blind_grading(request, context)
+        update = {"error_attributions": []}
+        if hasattr(result, "route_check"):
+            update["route_check"] = RouteCheck(divergent_route=True, rederivation_md="re-derived")
+        return result.model_copy(update=update)
+
+
+def test_p1_live_an_unlocated_mark_down_on_a_divergent_route_is_unassessed(tmp_path, checker):
+    """Review F1 through the live door: ``setup`` validated (restored),
+    ``result`` marked down with nothing located by either judge (unassessed)."""
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "cannot_tell"}}))
+    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    proof = _support(repository, result.attempt_id)["proof_route_check"]
+    assert proof["divergent_route"] is True and proof["final_answer_status"] == "undecidable"
+    assert proof["restored_criterion_ids"] == ["setup"] and proof["unlocated_criterion_ids"] == ["result"]
+    # Graded over setup alone (2/2): the unlocated shortfall is no evidence.
+    assert (attempt["rubric_score"], attempt["correctness"]) == (4, 1.0)
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert unassessed_evidence_row(rows["result"].attribution_json)
+    assert attempt["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+    assert diagnosis_status(repository, result.attempt_id)["status"] == "not_needed"
+
+
+def test_p1_live_nothing_located_and_nothing_validated_is_held_for_review(tmp_path, checker):
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    proof = _support(repository, result.attempt_id)["proof_route_check"]
+    assert proof["held_for_review"] is True
+    assert sorted(proof["unlocated_criterion_ids"]) == ["result", "setup"]
+    assert attempt["manual_review_reason"] == PROOF_ROUTE_REVIEW_REASON and attempt["manual_review"]
+
+
+@pytest.mark.parametrize("config", ["", "[diagnosis]\ngrading_support = false"])
+def test_f2_live_the_checker_never_restores_a_wrong_final_answer(tmp_path, checker, config):
+    """Review F2: "Name a prime." expects 2; the answer concludes 4. The grader
+    gives 0 without locating an error and the checker calls the route valid:
+    the deterministic check outranks it (with PF-c's policy on or off)."""
+
+    class Unlocated(ReviewFakeClient):
+        def _blind_grading(self, request, context):
+            return super()._blind_grading(request, context).model_copy(update={"error_attributions": []})
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=config)
+    checker(CheckerFake(verdicts={"correctness": {"verdict": "established"}}))
+    result = submit(vault, repository, Unlocated(), item_id="pi_unrelated_001",
+                    answer="Four is the smallest even square, so the answer is 4.")
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert (attempt["rubric_score"], attempt["correctness"]) == (0, 0.0)
+    proof = _support(repository, result.attempt_id)["proof_route_check"]
+    assert proof["status"] == "checked" and proof["applied"] is False
+    assert proof["final_answer_status"] == "differs_from_reference"
+    assert proof["outcomes"] == {"correctness": "answer_differs"}
+    assert proof["restored_criterion_ids"] == [] and proof["unverified_criterion_ids"] == []
+    rows = repository.fetch_grading_evidence(result.attempt_id)
+    assert [row.points_awarded for row in rows] == [0.0]
+    assert not unassessed_evidence_row(rows[0].attribution_json)
 
 
 def test_a_restore_alone_leaves_nothing_to_review(tmp_path, checker):

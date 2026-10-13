@@ -40,11 +40,19 @@ adds the smallest sound path for those items (owner decision 2026-10-13):
   - grader at full points, checker ``not_established`` with the failing step
     quoted verbatim -> **flagged**: the grade stands, never silently: a review
     reason and a note on the criterion;
-  - everything else (agreement, ``cannot_tell``) leaves the grade as the grader
-    gave it, recorded.
+  - grader below full points on a route the grader itself reads as divergent
+    from the reference, no error located verbatim by either judge (the check
+    abstains, or refutes without a quote) -> **unlocated**: unverified, so
+    unassessed (P1's rule: marked down only on a located, quoted error;
+    review F1). When nothing is then left assessed and nothing validated the
+    answer, the grade is also held for review;
+  - everything else (agreement, a located error, ``cannot_tell`` off a
+    divergent route) leaves the grade as the grader gave it, recorded.
 
-  A grade with fatal errors is never restored; a checker that disputes it is a
-  flag.
+  The deterministic final-answer check outranks the checker: a conclusion
+  that ``differs_from_reference`` is never restored, disputed or left
+  unassessed (P1 excludes it; review F2). A grade with fatal errors is never
+  restored and keeps its mark-downs; a checker that disputes it is a flag.
 
 Kill switch: ``proof_check.enabled = false`` grades exactly as ``mvp-0.14``
 for new answers. The algorithm version gates it; replay never reads either
@@ -65,7 +73,9 @@ from typing import Any, Callable, Literal, Mapping, Sequence
 
 from pydantic import Field
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.schemas import WireModel
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
 from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
 from learnloop.substrate.canonical_projection import (
@@ -76,7 +86,9 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 LOGGER = logging.getLogger(__name__)
 
-PROOF_CHECK_VERSION = "proof-route-check-v1"
+#: v2 (review F1/F2): P1's located-error rule on a divergent route, and the
+#: final-answer check outranks the checker.
+PROOF_CHECK_VERSION = "proof-route-check-v2"
 ITEM_KIND_PROMPT_VERSION = "proof-like-item-v1"
 ROUTE_CHECK_PROMPT_VERSION = "proof-route-check-v1"
 #: ``judgment_ledger.task`` of the item classification (left = the item, the
@@ -314,25 +326,45 @@ def _grader_located(attribution: Any, answer: str) -> bool:
     return _in_answer(getattr(divergence, "quote", None) if divergence is not None else None, answer)
 
 
+#: ``final_answer_check`` statuses (``attempts.answer_check``). A conclusion
+#: that demonstrably differs from the reference is never restored or left
+#: unassessed by this gate (P1 excludes it; review F2).
+DIFFERS_FROM_REFERENCE = "differs_from_reference"
+MATCHES_REFERENCE = "matches_reference"
+
+
 @dataclass(frozen=True)
 class ProofGateOutcome:
     proposal: Any
     outcomes: dict[str, str]
     restored: tuple[str, ...] = ()
     #: Every unverified criterion after both gates (PF-c's that stayed, plus
-    #: ``disputed``, the ones this gate added).
+    #: ``disputed`` and ``unlocated``, the ones this gate added).
     unverified: tuple[str, ...] = ()
     disputed: tuple[str, ...] = ()
+    #: P1 (review F1): marked down on a divergent route with no error located
+    #: in the learner's words by either judge, and not validated either.
+    unlocated: tuple[str, ...] = ()
     flagged: tuple[str, ...] = ()
     disputed_fatal: bool = False
+    #: Nothing is left assessed and nothing validated the answer (no verified
+    #: final answer, no criterion the check established): the grade is held
+    #: for review instead of resting on nothing.
+    held_for_review: bool = False
     clarification: dict[str, Any] | None = None
     assessed_shortfall: bool = True
     withdrawn_attributions: tuple[dict[str, Any], ...] = ()
+    #: Per-criterion agreement between the grader (full points or not) and the
+    #: check's verdict: ``agree`` | ``disagree`` | ``cannot_tell``.
+    agreement: dict[str, str] = field(default_factory=dict)
 
     @property
     def applied(self) -> bool:
         """Did this gate change anything (PF-c's own outcome alone is not this gate's)."""
-        return bool(self.restored or self.disputed or self.flagged or self.disputed_fatal or self.clarification)
+        return bool(
+            self.restored or self.disputed or self.unlocated or self.flagged or self.disputed_fatal
+            or self.clarification
+        )
 
 
 def apply_proof_route_gate(
@@ -345,6 +377,8 @@ def apply_proof_route_gate(
     grader_review_recommended: bool = False,
     checker_model: str | None = None,
     clarification_allowed: bool = True,
+    final_answer_status: str | None = None,
+    divergent_route: bool = False,
 ) -> ProofGateOutcome:
     """Combine the blind grade with the independent check (see the module doc).
 
@@ -352,6 +386,18 @@ def apply_proof_route_gate(
     the criteria PF-c already recorded unverified. ``grader_review_recommended``
     is the grader's OWN review flag (before PF-c forced one), so a gate that
     resolves everything leaves no forced review behind.
+
+    ``final_answer_status`` is the deterministic ``final_answer_check`` status
+    of this answer: when the conclusion ``differs_from_reference`` nothing is
+    restored, disputed or left unassessed (review F2); a flag still stands.
+    ``divergent_route`` is the grader's own ``route_check.divergent_route``:
+    on a divergent route whose conclusion is not shown to differ (P1), a
+    criterion stays marked down only where an error is located verbatim in the
+    learner's words, by the grader's attribution or the check's quote;
+    otherwise it is ``unlocated``, which is unverified (unassessed), whether
+    the check abstained or refuted it without a quote (review F1). A grade with
+    fatal errors keeps its mark-downs (the fatal error is the grader's whole-
+    answer finding).
     """
 
     maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
@@ -364,19 +410,33 @@ def apply_proof_route_gate(
     verdicts = {row.criterion_id: row for row in check.criteria if row.criterion_id in maxima}
     previously_unverified = {str(value) for value in unverified_before}
     fatal = bool(proposal.fatal_errors)
+    answer_differs = final_answer_status == DIFFERS_FROM_REFERENCE
+    # P1's trigger: a divergent route whose conclusion is not shown to differ.
+    p1_eligible = bool(divergent_route) and not answer_differs and not fatal
 
     outcomes: dict[str, str] = {}
+    agreement: dict[str, str] = {}
     restored: list[str] = []
     disputed: list[str] = []
+    unlocated: list[str] = []
     flagged: list[str] = []
     disputed_fatal = False
     for cid in maxima:
         row = verdicts.get(cid)
         verdict = row.verdict if row is not None else "cannot_tell"
         quoted = row is not None and _in_answer(row.invalid_step_quote, learner_answer_md)
+        if verdict == "cannot_tell":
+            agreement[cid] = "cannot_tell"
+        elif (cid in below) == (verdict == "not_established"):
+            agreement[cid] = "agree"
+        else:
+            agreement[cid] = "disagree"
         if cid in below:
             if verdict == "established":
-                if fatal:
+                if answer_differs:
+                    # The machine check outranks the checker's validation.
+                    outcomes[cid] = "answer_differs"
+                elif fatal:
                     outcomes[cid] = "disputed_fatal"
                     disputed_fatal = True
                 elif cid in located:
@@ -385,10 +445,13 @@ def apply_proof_route_gate(
                 else:
                     outcomes[cid] = "restored"
                     restored.append(cid)
-            elif verdict == "not_established":
-                outcomes[cid] = "agree_shortfall"
+            elif cid in located or (verdict == "not_established" and quoted):
+                outcomes[cid] = "agree_shortfall" if verdict == "not_established" else "cannot_tell"
+            elif p1_eligible and cid not in previously_unverified:
+                outcomes[cid] = "unlocated"
+                unlocated.append(cid)
             else:
-                outcomes[cid] = "cannot_tell"
+                outcomes[cid] = "agree_shortfall" if verdict == "not_established" else "cannot_tell"
         else:
             if verdict == "not_established" and quoted:
                 outcomes[cid] = "flagged"
@@ -401,9 +464,16 @@ def apply_proof_route_gate(
                 outcomes[cid] = "cannot_tell"
 
     restored_set = set(restored)
-    unverified = (previously_unverified - restored_set) | set(disputed)
-    # Rows: a restored criterion gets full points; flagged and disputed
-    # criteria carry a note naming what the check found.
+    unverified = (previously_unverified - restored_set) | set(disputed) | set(unlocated)
+    # PF-c's "nothing assessed schedules as correct" rests on a verified final
+    # answer; a dispute rests on the check's affirmative validation. With
+    # neither, an all-unlocated grade is held for review, never silent.
+    held_for_review = bool(
+        unlocated and not (set(maxima) - unverified) and not disputed
+        and final_answer_status != MATCHES_REFERENCE
+    )
+    # Rows: a restored criterion gets full points; flagged, disputed and
+    # unlocated criteria carry a note naming what the check found.
     evidence = []
     for row in proposal.criterion_evidence:
         cid = row.criterion_id
@@ -432,6 +502,14 @@ def apply_proof_route_gate(
                 "notes": (
                     f"An independent check ({model}) found this step valid: {reason}".strip()
                     + " Not assessed while the two checks disagree."
+                ),
+            })
+        elif cid in unlocated:
+            row = row.model_copy(update={
+                "notes": (
+                    f"Not assessed: neither the grader nor an independent check ({model}) located "
+                    "an error in your own route here."
+                    + (" Held for review." if held_for_review else "")
                 ),
             })
         evidence.append(row)
@@ -473,7 +551,10 @@ def apply_proof_route_gate(
             "criterion_id": disputed[0],
             "trigger": CLARIFICATION_TRIGGER,
         }
-    review = bool(grader_review_recommended or unverified or flagged or disputed_fatal or clarification)
+    review = bool(
+        grader_review_recommended or unverified or flagged or disputed_fatal or clarification
+        or held_for_review
+    )
     gated = proposal.model_copy(update={
         "criterion_evidence": evidence,
         "error_attributions": attributions,
@@ -486,11 +567,14 @@ def apply_proof_route_gate(
         restored=tuple(restored),
         unverified=tuple(sorted(unverified)),
         disputed=tuple(disputed),
+        unlocated=tuple(unlocated),
         flagged=tuple(flagged),
         disputed_fatal=disputed_fatal,
+        held_for_review=held_for_review,
         clarification=clarification,
         assessed_shortfall=assessed_shortfall,
         withdrawn_attributions=tuple(withdrawn),
+        agreement=agreement,
     )
 
 
@@ -652,14 +736,22 @@ def run_proof_route_check(
     created_at: str,
     clarification_exchange: Mapping[str, str] | None = None,
     client_resolver: Callable[[LoadedVault, CheckerRoute], Any] | None = None,
+    final_answer_status: str | None = None,
+    divergent_route: bool = False,
 ) -> ProofCheckResult:
     """Classify the item (cached), check the route, apply the gate.
 
-    Never raises: anything that stops the check leaves the grader's grade in
-    force, with ``status = unavailable`` and the error type recorded.
+    Never raises for a model or provider failure: anything that stops the
+    check leaves the grader's grade in force, with ``status = unavailable``
+    and the error type recorded. A spend refusal or cancellation from the
+    command's admission guard is not a model failure and propagates.
     """
 
-    support: dict[str, Any] = {"version": PROOF_CHECK_VERSION, "status": "unavailable", "applied": False}
+    support: dict[str, Any] = {
+        "version": PROOF_CHECK_VERSION, "status": "unavailable", "applied": False,
+        # The gate's deterministic inputs (P1's trigger, review F1/F2).
+        "final_answer_status": final_answer_status, "divergent_route": bool(divergent_route),
+    }
     resolver = client_resolver or resolve_check_client
     try:
         route = proof_check_route(vault, grader_model=grader_model)
@@ -702,7 +794,12 @@ def run_proof_route_check(
             checker_model=checker_model,
             # One question per attempt: an answered exchange is never re-asked.
             clarification_allowed=not clarification_exchange,
+            final_answer_status=final_answer_status, divergent_route=divergent_route,
         )
+    except (SpendLimitExceeded, AIInterrupted):
+        # The command's caps refused the call, or the learner cancelled: the
+        # whole grade stops, as a refused grading sample does (review F3).
+        raise
     except Exception as exc:  # a bonus check never fails a grade
         LOGGER.warning("proof route check unavailable for item %s", item.id, exc_info=True)
         support["error"] = f"{type(exc).__name__}: {exc}"[:500]
@@ -717,12 +814,8 @@ def run_proof_route_check(
         for row in check.criteria if row.criterion_id in {c.id for c in rubric.criteria}
     }
     agreement = {
-        "agree": sum(value in {"agree_full", "agree_shortfall"} for value in gate.outcomes.values()),
-        "disagree": sum(
-            value in {"restored", "disputed", "disputed_fatal", "flagged", "questioned_unlocated"}
-            for value in gate.outcomes.values()
-        ),
-        "cannot_tell": sum(value == "cannot_tell" for value in gate.outcomes.values()),
+        key: sum(value == key for value in gate.agreement.values())
+        for key in ("agree", "disagree", "cannot_tell")
     }
     support.update(
         status="checked",
@@ -733,9 +826,11 @@ def run_proof_route_check(
         agreement=agreement,
         restored_criterion_ids=list(gate.restored),
         disputed_criterion_ids=list(gate.disputed),
+        unlocated_criterion_ids=list(gate.unlocated),
         unverified_criterion_ids=list(gate.unverified),
         flagged_criterion_ids=list(gate.flagged),
         disputed_fatal=gate.disputed_fatal,
+        held_for_review=gate.held_for_review,
         clarification=gate.clarification,
         assessed_shortfall=gate.assessed_shortfall,
         withdrawn_attributions=list(gate.withdrawn_attributions),
@@ -780,6 +875,27 @@ def record_route_check_judgment(connection: Any, *, attempt_id: str, judgment: M
     )
 
 
+def gate_inputs(
+    grading_support: Mapping[str, Any], *, item: PracticeItem, learner_answer_md: str,
+) -> tuple[str | None, bool]:
+    """(final-answer status, divergent route) for the gate, from the blind run.
+
+    The status is the deterministic check PF-c recorded in its reference
+    policy, or the same check computed here when the policy is off
+    (``diagnosis.grading_support = false``), so a demonstrably different
+    conclusion is never restored either way (review F2). ``divergent_route``
+    is the grader's own ``route_check`` reading; without the policy there is
+    none, and P1's unlocated rule does not apply.
+    """
+
+    from learnloop.attempts.answer_check import final_answer_check
+
+    policy = grading_support.get("reference_policy") or {}
+    check = policy.get("final_answer_check") or final_answer_check(learner_answer_md, item.expected_answer)
+    route = grading_support.get("route_check") or {}
+    return (str(check.get("status")) if check.get("status") else None), bool(route.get("divergent_route"))
+
+
 def checked_run(
     run: Any,
     vault: LoadedVault,
@@ -806,11 +922,13 @@ def checked_run(
     support = dict(run.grading_support)
     unverified_before = [str(value) for value in support.get("unverified_criterion_ids") or ()]
     own_review = bool(getattr(run.ungated_proposal or run.proposal, "manual_review_recommended", False))
+    final_status, divergent = gate_inputs(support, item=item, learner_answer_md=learner_answer_md)
     result = run_proof_route_check(
         vault, repository, item=item, rubric=rubric, learner_answer_md=learner_answer_md,
         proposal=run.proposal, unverified_before=unverified_before,
         grader_review_recommended=own_review, grader_model=grader_model, created_at=created_at,
         clarification_exchange=clarification_exchange,
+        final_answer_status=final_status, divergent_route=divergent,
     )
     support[SUPPORT_KEY] = result.support
     proposal = run.proposal
@@ -846,6 +964,7 @@ __all__ = [
     "apply_proof_route_gate",
     "checked_run",
     "classify_item",
+    "gate_inputs",
     "item_kind_prompt",
     "proof_check_active",
     "proof_check_route",
