@@ -24,6 +24,12 @@ No paid call was made.
 > holds it (`outcome_contract.grade_held_for_review`) AND nothing in its
 > current (non-superseded) grading evidence is assessed.
 
+(Codex review of this stage, F1: "nothing assessed" is read per criterion, as
+the attempt step reads its criterion vector: a criterion is assessed when a
+live row grades it and no live row marks it unassessed. A regrade INTO a hold
+supersedes the machine tiers it replaces. See
+`held-grade-evidence-codex-review.md`.)
+
 - The record half is the merge's: `status = checked`, `held_for_review`, a
   gate version after `proof-route-check-v2`. It now also accepts a hold that a
   failed regrade check kept (`hold_kept_from`, F2).
@@ -189,8 +195,8 @@ evidence, which contains every held grade.
 | Error severity from recent attempts (`event_local_severity_from_attempts`) | routed: held rows skipped |
 | Familiarity / independent-evidence discount (`familiarity_discount_from_attempts`) | routed: a held row's score reads as unknown (weight 1.0); the exposure counts |
 | Error-event auto-resolution (`_auto_resolve_clean_error_events`, `count_clean_attempts_since`) | routed: a held grade is never clean; earlier held attempts are excluded from the count |
-| Certification cold probe label (`_record_probe_outcome`) | routed (F3) |
-| Probe episode observation and posterior (`_record_presentation_observation`, `episode_posterior`) | routed (F11) |
+| Certification cold probe label (`_record_probe_outcome`) | routed (F3); a probe scored on submission that a later regrade holds abstains at read time (`effective_cold_probe_outcomes`, Codex review F2) |
+| Probe episode observation and posterior (`_record_presentation_observation`, `episode_posterior`) | routed (F11); an observation a later regrade holds reads through the repository's effective view (Codex review F3) |
 | Grade-channel dual write (raw grade event + calibrated interpretation) | kept. It is the grader's output, and grader calibration against adjudication needs exactly these. Criterion classes are empty (all unassessed). No reader turns a nothing-assessed attempt's interpretation into learner evidence: the field drops the attempt, and certification needs assessed criteria |
 | Ability transition audit | kept: an audit of practice done, `applied_to_* = false`, no reader |
 | Causal episode, repair factor (`_open_repair_factor`) | routed (ledger). A blind grade materializes only with a diagnosis, and a held grade gets none |
@@ -202,7 +208,7 @@ evidence, which contains every held grade.
 | Door | Handling |
 |---|---|
 | Live grade (`_complete_blind_graded_attempt`) | `checked_run`, then `revalidated_support` (F1), then the record flag into the step; the blind record is written after the step |
-| Regrade (`regrade_attempt`, both clarification paths, `trigger_regrade`) | reads the prior hold from the ledger; a failed check keeps it (F2); a held prior supersedes tiers 1 and 3 (F4); `revalidated_support` (F1) |
+| Regrade (`regrade_attempt`, both clarification paths, `trigger_regrade`) | reads the prior hold from the ledger; a failed check keeps it (F2); a held prior, or a held incoming grade (Codex review F1), supersedes tiers 1 and 3 (F4); `revalidated_support` (F1) |
 | Replay (`replay_existing_attempt`) | the latest record's flag; the step adds the evidence half |
 | Adjudication (`append_adjudication_evidence_revision`) | writes assessed tier-4 rows: releases (F5) |
 | Post-attempt pipeline (`run_post_attempt_pipeline`) | routed (ledger, F5); suppresses follow-up insertion while held |
@@ -230,7 +236,7 @@ evidence, which contains every held grade.
 | Follow-up failure streak (`current_same_item_failure_streak`), also read by practice generation | routed (F9) |
 | Episode posterior (`episode_posterior`), both channels | routed (F11) |
 | Legacy probe-phase posterior (`probes._probe_phase_attempts`) | routed: held attempts skipped |
-| Diagnostic pack, calibration sessions, probe blocks' qualifying counts, inspector | read the held observation's flags: `updates_belief = false`, not qualifying |
+| Diagnostic pack, calibration sessions, probe blocks' qualifying counts, inspector | read the repository's effective view (`probe_observations_for_episode`, `held_grades.effective_probe_observation_rows`, Codex review F3): an observation held now (on submission or by a later regrade) updates no belief, qualifies nothing and carries no score; the session cap and onboarding ceiling counts exclude it too |
 | Probe audit: downstream outcomes | routed: excluded |
 | Probe audit: replay check | skips `updates_belief = false` |
 | Pinned-probe features (`deterministic_probe_features`) | ⊂ nothing assessed (no feature) |
@@ -245,7 +251,7 @@ evidence, which contains every held grade.
 
 | Reader | Handling |
 |---|---|
-| Certification cold probe | routed (F3) |
+| Certification cold probe | routed (F3); rate, labels and report read `effective_cold_probe_outcomes` (Codex review F2) |
 | Goal certification, canonical facet x capability ledger | ⊂ nothing assessed |
 | Exam calibration (items, facets, duel, confidence share) | routed (F7) |
 | Forecast resolution (`forecast_ledger._cold_outcomes`) | routed: a held grade resolves no forecast |
@@ -364,9 +370,13 @@ None. Every test uses fakes; the parity runs make no model call.
 3. **Probe observations are written once.** A held probe answer stays a
    non-updating, non-qualifying observation after a release. Probe
    observations are never re-recorded by a regrade. The episode had already
-   selected and stopped without that observation.
+   selected and stopped without that observation. (Codex review F3: an
+   observation recorded as qualifying that a later regrade holds keeps its
+   stored flags, but reads as non-updating and non-qualifying while held.)
 4. **Certification probe labels are written once.** A held probe stays
    `indeterminate` after a release, as a withdrawn certificate's does.
+   (Codex review F2: a probe scored on submission that a later regrade holds
+   keeps its receipt, but abstains in every reader while held.)
 
 ## Open questions
 
