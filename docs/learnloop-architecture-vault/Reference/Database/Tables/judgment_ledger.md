@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0248f84e68e571e4f7f940c9c777c147096085a2"
-source_commit_timestamp: "2026-10-13T01:46:11-04:00"
+source_commit: "d9b14f02bbc1b374fc0c1f18941b772cbfbddd54"
+source_commit_timestamp: "2026-10-13T02:45:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/families.py"
-  - "src/learnloop/cli/practice_index.py"
+  - "src/learnloop/cli/grading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -149,6 +149,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
 - `tests/test_family_proposals.py`
+- `tests/test_grading_hardcases.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judge_routes.py`
@@ -158,7 +159,6 @@ None found by exact static reference scan.
 - `tests/test_pf_reports.py`
 - `tests/test_practice_index_evaluation.py`
 - `tests/test_practice_index_find.py`
-- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
