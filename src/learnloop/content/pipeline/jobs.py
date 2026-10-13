@@ -2217,6 +2217,19 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     return {"question_id": row["id"], "deduplicated": False}
 
 
+def _reader_source_sets(vault_root: Path) -> list[Any]:
+    """The vault's source sets, read when a Reader request is sent (the
+    held-out partition reads them; exam protection, Codex review F3). A root
+    with no vault config holds no source sets; a vault that fails to load
+    raises, so the request fails before any model call."""
+
+    from learnloop.vault.loader import load_vault
+
+    if not (Path(vault_root) / "learnloop.toml").exists():
+        return []
+    return list(load_vault(vault_root).source_sets)
+
+
 def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None:
     """Exam protection (2026-10-13): a Reader check over held-out material (the
     one held-out partition, read with the vault's source sets) is refused
@@ -2224,9 +2237,8 @@ def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_i
     handed back (code ``exam_material``)."""
 
     from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
-    from learnloop.vault.loader import load_vault
 
-    held = held_out_among(held_out_material(load_vault(ctx.vault_root), ctx.repo), extraction_id, span_ids)
+    held = held_out_among(held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo), extraction_id, span_ids)
     if held:
         raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
                                 details={"extraction_id": extraction_id, "span_ids": held})
@@ -3886,12 +3898,10 @@ class DurableIngestJobs:
         client = self._resolve_reader_client(runner)
         if client is None:
             return 0
-        from learnloop.vault.loader import load_vault
-
         result = RR.drain_requests(
             runner.repo,
             worker_id=f"sidecar-{os.getpid()}",
-            synthesize=RR.model_synthesis(client, source_sets=lambda: load_vault(runner.vault_root).source_sets),
+            synthesize=RR.model_synthesis(client, source_sets=lambda: _reader_source_sets(runner.vault_root)),
             limit=3,
         )
         return len(result["completed"]) + len(result["failed"]) + len(result["partial"])
