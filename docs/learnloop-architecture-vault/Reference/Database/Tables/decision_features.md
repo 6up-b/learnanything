@@ -3,13 +3,13 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
   - "table decision_features"
-schema_head: 199
+schema_head: 201
 table_name: "decision_features"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,13 +20,14 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -53,7 +54,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/011_training_dataset_logging.sql`.
-- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`, `161_collection_contract.sql`.
+- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`, `161_collection_contract.sql`, `201_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -90,6 +91,7 @@ Database triggers:
 
 ### Repository access surface
 
+- `Repository.active_error_events_overlaid()`
 - `Repository.decision_features()`
 - `Repository.find_record()`
 - `Repository.record_decision_features()`
@@ -110,6 +112,7 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
@@ -129,6 +132,8 @@ Database triggers:
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
+- `tests/test_voi_stopping.py`
+- `tests/test_voi_v2.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

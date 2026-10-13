@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 199
+schema_head: 201
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
   - "src/learnloop/curriculum/golden_path_run.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
-  - "src/learnloop/diagnosis/causal_activity_policy.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
@@ -55,7 +55,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/028_probe_episodes.sql`.
-- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`.
+- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`, `200_probe_value_of_information_stop.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -87,6 +87,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `calibration_model_hash` | `TEXT` | no | — | — | Stored value |
 | `probe_mapping_version` | `TEXT` | no | — | — | Stored value |
 | `completion_posterior_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `completion_detail_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -171,8 +172,8 @@ Indexes and uniqueness:
 - `tests/test_held_grade_evidence.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_instrument_servability_journeys.py`
+- `tests/test_mvp021_upgrade.py`
 - `tests/test_p2_acceptance.py`
-- `tests/test_p2_leakage_suite.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -218,7 +219,8 @@ CREATE TABLE "probe_episodes" (
       'fast_path_strong_claim',
       'superseded_by_redesign',
       'couldnt_reliably_distinguish',
-      'action_equivalent'
+      'action_equivalent',
+      'value_of_information_stop'
     )
   ),
   algorithm_version TEXT NOT NULL,
@@ -229,8 +231,10 @@ CREATE TABLE "probe_episodes" (
   target_support_hash TEXT,
   calibration_model_id TEXT,
   calibration_model_hash TEXT,
-  probe_mapping_version TEXT
-, completion_posterior_json TEXT);
+  probe_mapping_version TEXT,
+  completion_posterior_json TEXT,
+  completion_detail_json TEXT
+);
 ```
 
 ## Related notes

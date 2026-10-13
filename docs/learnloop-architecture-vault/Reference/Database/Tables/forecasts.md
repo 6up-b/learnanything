@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 199
+schema_head: 201
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,9 +22,10 @@ source_paths:
   - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/compat.py"
   - "src/learnloop/config/template.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/probes.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
-  - "src/learnloop/evsi_calibration/__init__.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/forecast_ledger.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
@@ -54,7 +55,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/057_forecast_ledger.sql`.
-- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`.
+- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

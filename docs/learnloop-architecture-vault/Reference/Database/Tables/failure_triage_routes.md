@@ -3,13 +3,13 @@ title: "failure_triage_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite failure_triage_routes"
   - "table failure_triage_routes"
-schema_head: 199
+schema_head: 201
 table_name: "failure_triage_routes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/diagnosis/failure_triage.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_hypotheses.py"
+  - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/scheduling/action_loss.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/voi_forecasting.py`
+- `src/learnloop/diagnosis/voi_stopping.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -111,6 +113,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_failure_triage.py`
+- `tests/test_voi_merge_composition.py`
+- `tests/test_voi_stopping.py`
+- `tests/voi_restore_scenarios.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 199
+schema_head: 201
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -31,7 +31,6 @@ source_paths:
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/proposals/proposals.py"
-  - "src/learnloop/content/synthesis/facet_candidates.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +105,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.active_error_events_overlaid()`
 - `Repository.active_misconception_facet_ids()`
 - `Repository.insert_misconception()`
 - `Repository.misconception()`
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
+- `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
@@ -147,7 +148,6 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/instructional/sources.py`
 - `src/learnloop/instructional/tools.py`
-- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

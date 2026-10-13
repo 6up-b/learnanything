@@ -3,13 +3,13 @@ title: "voi_forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite voi_forecasts"
   - "table voi_forecasts"
-schema_head: 199
+schema_head: 201
 table_name: "voi_forecasts"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/voi_forecasts.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
-  - "src/learnloop/diagnosis/voi_forecasting.py"
+  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/184_voi_forecasts.sql`.
-- **Schema touched by:** `184_voi_forecasts.sql`.
+- **Schema touched by:** `184_voi_forecasts.sql`, `201_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -130,6 +130,8 @@ None found by exact static reference scan.
 - `tests/test_facet_rewords_migration.py`
 - `tests/test_sources_merge_composition.py`
 - `tests/test_voi_forecasts.py`
+- `tests/test_voi_merge_composition.py`
+- `tests/voi_restore_scenarios.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

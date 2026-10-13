@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 199
+schema_head: 201
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -90,6 +90,7 @@ Indexes and uniqueness:
 - `Repository._active_error_rows()`
 - `Repository._insert_error_event()`
 - `Repository.active_error_events()`
+- `Repository.active_error_events_overlaid()`
 - `Repository.all_error_events_by_attempt()`
 - `Repository.attempt_ids_for_misconception()`
 - `Repository.find_record()`
@@ -144,22 +145,22 @@ Indexes and uniqueness:
 - `tests/test_active_errors_overlay.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_migrations.py`
+- `tests/test_mvp021_upgrade.py`
 - `tests/test_probability_prep.py`
 - `tests/test_replay.py`
 - `tests/test_simulation.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_table_roles.py`
+- `tests/test_voi_stopping.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_diagnosis_embeddings.py`
 - `tests/test_diagnosis_pipeline.py`
-- `tests/test_diagnosis_reports.py`
-- `tests/test_diagnostic_gate.py`
-- `tests/test_e2e_codex_mock.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

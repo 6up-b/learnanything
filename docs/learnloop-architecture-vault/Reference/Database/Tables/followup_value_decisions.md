@@ -3,24 +3,26 @@ title: "followup_value_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "73dff7ba49a3e2156a2e89dc541b02f28eae73fb"
-source_commit_timestamp: "2026-10-13T15:18:18-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_value_decisions"
   - "table followup_value_decisions"
-schema_head: 188
+schema_head: 201
 table_name: "followup_value_decisions"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "tutor-and-remediation"
-introduced_in: "188_followup_value_decisions.sql"
+introduced_in: "201_followup_value_decisions.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/188_followup_value_decisions.sql"
+  - "migrations/201_followup_value_decisions.sql"
   - "src/learnloop/db/stores/followup_value.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
+  - "src/learnloop/scheduling/voi_forecasts.py"
+  - "src/learnloop/voi_stopping_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -35,7 +37,7 @@ tags:
 
 ## Why it exists
 
-Keeps one immutable receipt per follow-up decision the value-of-information rule takes part in (mvp-0.17): each decision on a source attempt gets its own id and ordinal (an automatic decision and a later manual follow-up, or a recorded generation need and a later queue), with the value decision's forecasts in `decision_json` (NULL when no candidate was valued), so no later decision overwrites an earlier one and no rebuild clears them. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `session_id`, making the operational relationship explicit. ^table-purpose
+Keeps one immutable receipt per follow-up decision the value-of-information rule takes part in (mvp-0.21): each decision on a source attempt gets its own id and ordinal (an automatic decision and a later manual follow-up, or a recorded generation need and a later queue), with the value decision's forecasts in `decision_json` (NULL when no candidate was valued), so no later decision overwrites an earlier one and no rebuild clears them. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `session_id`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **tutor and remediation** navigation family. The family context lives in [[Database Catalog#Tutor And Remediation]]. Its persistence behavior follows [[Table Roles#Receipt]].
 
@@ -43,8 +45,8 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/188_followup_value_decisions.sql`.
-- **Schema touched by:** `188_followup_value_decisions.sql`.
+- **Introduced by:** `migrations/201_followup_value_decisions.sql`.
+- **Schema touched by:** `201_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

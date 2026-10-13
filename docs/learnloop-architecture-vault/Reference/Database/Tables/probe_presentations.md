@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 199
+schema_head: 201
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -140,6 +140,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
@@ -164,6 +165,9 @@ Indexes and uniqueness:
 - `tests/test_router_probe_ties.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_voi_forecasts.py`
+- `tests/test_voi_merge_composition.py`
+- `tests/test_voi_stopping.py`
+- `tests/test_voi_v2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

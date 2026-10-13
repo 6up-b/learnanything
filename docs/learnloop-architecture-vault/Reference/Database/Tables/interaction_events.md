@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c8c3caaeaa25dffa6a11d02899460ce1c95023b3"
-source_commit_timestamp: "2026-10-13T16:40:52-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 199
+schema_head: 201
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -165,6 +165,8 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_reader_inquiry_status.py`
 - `tests/test_source_exercise_import.py`
+- `tests/test_voi_stopping.py`
+- `tests/voi_restore_scenarios.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
