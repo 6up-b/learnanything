@@ -118,11 +118,14 @@ DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 # validates the route, records one it disputes on a located step unverified
 # (PF-c's unassessed type; a clarification only when the dispute turns on
 # what the learner meant), and flags a step the grader accepted that the
-# check refutes with a verbatim quote. Persisted meaning changes for NEW
-# grades only (the blind record's grading_support.proof_route_check, the
-# restored points, the route-check verdict in judgment_ledger, migration 185's
-# clarification trigger); replay reads every record as written and the
-# projection namespace is unchanged. Kill switch: ``proof_check.enabled``.
+# check refutes with a verbatim quote. A grade left with nothing assessed and
+# nothing validated is held for review: the grader's own grade, no evidence,
+# no FSRS review until a regrade or an adjudication settles it. Persisted
+# meaning changes for NEW grades only (the blind record's
+# grading_support.proof_route_check, the restored points, the route-check
+# verdict in judgment_ledger, migration 185's clarification trigger); replay
+# reads every record as written and the projection namespace is unchanged.
+# Kill switch: ``proof_check.enabled``.
 PROOF_ROUTE_CHECK_ALGORITHM_VERSION = "mvp-0.15"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest

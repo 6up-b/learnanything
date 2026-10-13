@@ -242,6 +242,8 @@ def regrade_attempt(
     unverified: set[str] = set()
     # mvp-0.15: the route check's verdict, written with the regrade.
     proof_result = None
+    # mvp-0.15 (re-review F9): nothing assessed and nothing validated.
+    held = False
     try:
         if blind_plan is not None:
             from learnloop.attempts.blind_grading import (
@@ -305,6 +307,11 @@ def regrade_attempt(
             # replay leaves it out of the facet evidence. The informational
             # reason is recorded only as the grade's sole concern (review F7).
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
+            from learnloop.attempts.proof_check import is_held_for_review
+
+            # The new blind record carries it, so the replay below keeps (or
+            # releases) the hold exactly as this grade decided.
+            held = is_held_for_review(run.grading_support)
             if run.grading_support.get("valid_alternative_gate_applied"):
                 from learnloop.attempts.grading_support import gated_review_reason
 
@@ -375,6 +382,7 @@ def regrade_attempt(
                 {evidence.criterion_id: evidence.points_awarded for evidence in criterion_evidence},
                 validated.fatal_errors,
                 unassessed_criterion_ids=unverified,
+                answer_validated=not held,
             )
             validated = replace(validated, rubric_score=new_score)
     first_new_evidence_id = new_ulid()

@@ -362,6 +362,78 @@ def test_p1_nothing_assessed_and_nothing_validated_is_held_for_review():
     assert validated.unverified == ("result", "setup") and validated.held_for_review is False
 
 
+def _whole_answer(quote=None):
+    """An attribution naming no criterion (a whole-answer finding)."""
+
+    return BlindErrorAttribution(
+        error_type="conceptual_slip", evidence="the route does not prove the claim",
+        target_evidence_families=["svd"], validity_scope="valid_measurement",
+        first_divergence=(
+            {"anchor_kind": "whole_answer", "criterion_id": "", "quote": quote} if quote else None
+        ),
+    )
+
+
+def test_p1_an_unlocated_whole_answer_attribution_is_the_graders_interpretation():
+    """Re-review F1: an attribution that names no criterion and locates no
+    step never preserves a measured failure on its own, once the gate has
+    left the mark-downs unassessed (PF-c rescopes it the same way)."""
+
+    gate = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 0.0}, [_whole_answer()]), rubric=RUBRIC,
+        learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "cannot_tell"}, result={"verdict": "not_established"}),
+        final_answer_status="undecidable", divergent_route=True,
+    )
+    assert gate.unverified == ("result", "setup")
+    assert [row.validity_scope for row in gate.proposal.error_attributions] == ["grader_interpretation"]
+    assert gate.assessed_shortfall is False
+    # A whole-answer error the grader located verbatim still counts.
+    located = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 0.0}, [_whole_answer("x squared is positive")]),
+        rubric=RUBRIC, learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "cannot_tell"}, result={"verdict": "not_established"}),
+        final_answer_status="undecidable", divergent_route=True,
+    )
+    assert [row.validity_scope for row in located.proposal.error_attributions] == ["valid_measurement"]
+    assert located.assessed_shortfall is True
+    # A restore refutes the grader's unlocated mark-down; an unlocated
+    # whole-answer claim does not keep the full grade a measured failure.
+    restored = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}, [_whole_answer()]), rubric=RUBRIC,
+        learner_answer_md=ANSWER,
+        check=_check(setup={"verdict": "established"}, result={"verdict": "established"}),
+    )
+    assert restored.restored == ("setup",) and restored.assessed_shortfall is False
+    assert [row.validity_scope for row in restored.proposal.error_attributions] == ["grader_interpretation"]
+    # Where the gate changes nothing, the grader's attribution is untouched.
+    untouched = apply_proof_route_gate(
+        _proposal({"setup": 0.0, "result": 2.0}, [_whole_answer()]), rubric=RUBRIC,
+        learner_answer_md=ANSWER, check=_check(setup={"verdict": "not_established"}),
+    )
+    assert not untouched.applied and untouched.assessed_shortfall is True
+    assert [row.validity_scope for row in untouched.proposal.error_attributions] == ["valid_measurement"]
+
+
+def test_an_unvalidated_grade_with_nothing_assessed_is_not_credited():
+    """Re-review F9: with no criterion assessed, the assessed fraction is 1
+    only on a verified answer (PF-c). Unvalidated, the grade is the grader's
+    own, provisional and held for review: no credit the answer never earned."""
+
+    from learnloop.attempts.attempts import assessed_rubric_score
+
+    points = {"setup": 0.0, "result": 1.0}
+    every = ("setup", "result")
+    assert assessed_rubric_score(RUBRIC, points, [], unassessed_criterion_ids=every) == 4
+    assert assessed_rubric_score(
+        RUBRIC, points, [], unassessed_criterion_ids=every, answer_validated=False,
+    ) == 1
+    # With something assessed the flag changes nothing.
+    assert assessed_rubric_score(
+        RUBRIC, points, [], unassessed_criterion_ids=("setup",), answer_validated=False,
+    ) == assessed_rubric_score(RUBRIC, points, [], unassessed_criterion_ids=("setup",)) == 2
+
+
 # -- review F2: the machine check outranks the checker -------------------------------------
 
 
@@ -564,6 +636,151 @@ def test_p1_live_nothing_located_and_nothing_validated_is_held_for_review(tmp_pa
     assert proof["held_for_review"] is True
     assert sorted(proof["unlocated_criterion_ids"]) == ["result", "setup"]
     assert attempt["manual_review_reason"] == PROOF_ROUTE_REVIEW_REASON and attempt["manual_review"]
+
+
+class WholeAnswerGrader(DivergentUnlocatedGrader):
+    """``DivergentUnlocatedGrader`` plus one whole-answer attribution that
+    names no criterion and quotes nothing."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        return result.model_copy(update={"error_attributions": [_whole_answer()]})
+
+
+def test_p1_live_an_unlocated_whole_answer_attribution_queues_no_diagnosis(tmp_path, checker):
+    """Re-review F1 through the live door: every criterion ends unassessed and
+    the grader's unlocated whole-answer claim no longer keeps the attempt a
+    measured failure (no diagnosis; the claim is the grader's interpretation)."""
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    result = submit(vault, repository, WholeAnswerGrader(), answer=ALTERNATIVE)
+    support = _support(repository, result.attempt_id)
+    assert sorted(support["proof_route_check"]["unlocated_criterion_ids"]) == ["result", "setup"]
+    assert support["assessed_shortfall"] is False
+    assert diagnosis_status(repository, result.attempt_id)["status"] == "not_needed"
+    [attribution] = repository.latest_blind_grade_record(result.attempt_id)["record"]["error_attributions"]
+    assert attribution["validity_scope"] == "grader_interpretation"
+
+
+def _schedule(repository):
+    state = repository.practice_item_state(ITEM)
+    return (state.difficulty, state.stability, state.due_at)
+
+
+def _first_scheduled_attempt(vault, repository, checker):
+    """A validated attempt (both criteria restored: 4/4) that schedules the
+    item, rebuilt once so the baseline schedule is replay's (a rebuild of the
+    seeded vault alone moves this item's due date by minutes)."""
+
+    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}}))
+    first = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=CLOCK.now())
+    assert repository.fetch_practice_attempt(first.attempt_id)["rubric_score"] == 4
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    return first
+
+
+def test_f9_a_held_grade_is_not_credited_and_leaves_the_schedule_as_it_was(tmp_path, checker):
+    """Re-review F9: nothing assessed and nothing validated is not a verified
+    answer. The grade is the grader's own (provisional, held for review), and
+    the item's FSRS memory and due date stay as they were until a regrade or
+    an adjudication settles it; the held grade is no prediction error either."""
+
+    from datetime import timedelta
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository, checker)
+    before = _schedule(repository)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                  when=CLOCK.now() + timedelta(days=3))
+    attempt = repository.fetch_practice_attempt(held.attempt_id)
+    assert _support(repository, held.attempt_id)["proof_route_check"]["held_for_review"] is True
+    # The grader's own 0/4, never the verified-answer 4/4.
+    assert (attempt["rubric_score"], attempt["correctness"]) == (0, 0.0)
+    assert attempt["manual_review_reason"] == PROOF_ROUTE_REVIEW_REASON
+    assert _schedule(repository) == before
+    assert held.surprise_direction == "none"
+    surprise = repository.latest_attempt_surprise(held.attempt_id)
+    assert surprise["surprise_direction"] == "none"
+    # Follow-up work is scheduling too: its insertion is withheld, typed.
+    assert any(action.endswith(":grade_held_for_review") for action in surprise["suppressed_actions"])
+    # Nothing assessed: no evidence, no diagnosis, no follow-up inserted.
+    rows = repository.fetch_grading_evidence(held.attempt_id)
+    assert rows and all(unassessed_evidence_row(row.attribution_json) for row in rows)
+    assert diagnosis_status(repository, held.attempt_id)["status"] == "not_needed"
+    # Replay reproduces the hold from the record, without a model.
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _schedule(repository) == before
+    assert repository.fetch_practice_attempt(held.attempt_id)["rubric_score"] == 0
+
+
+def test_f9_a_regrade_keeps_a_hold_and_releases_it_once_validated(tmp_path, checker):
+    from datetime import timedelta
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository, checker)
+    before = _schedule(repository)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                  when=CLOCK.now() + timedelta(days=3))
+    # Still held after a regrade: the grader's grade, the schedule untouched.
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+                    runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+                    clock=FrozenClock(CLOCK.now() + timedelta(days=4)))
+    assert repository.fetch_practice_attempt(held.attempt_id)["rubric_score"] == 0
+    assert repository.latest_blind_grade_record(held.attempt_id)["record"]["grading_support"][
+        "proof_route_check"]["held_for_review"] is True
+    assert _schedule(repository) == before
+    # The check validates the route on a later regrade: the hold is released,
+    # the grade is credited and the review is applied.
+    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}}))
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+                    runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+                    clock=FrozenClock(CLOCK.now() + timedelta(days=5)))
+    assert repository.fetch_practice_attempt(held.attempt_id)["rubric_score"] == 4
+    assert repository.latest_blind_grade_record(held.attempt_id)["record"]["grading_support"][
+        "proof_route_check"]["held_for_review"] is False
+    assert _schedule(repository) != before
+
+
+def test_f9_a_record_from_before_the_hold_replays_as_written():
+    from learnloop.attempts.proof_check import is_held_for_review, record_held_for_review
+
+    support = {"proof_route_check": {"status": "checked", "held_for_review": True,
+                                     "version": "proof-route-check-v3"}}
+    assert is_held_for_review(support)
+    assert record_held_for_review({"record": {"grading_support": support}})
+    support["proof_route_check"]["version"] = "proof-route-check-v2"
+    assert not is_held_for_review(support)
+    assert not is_held_for_review({"proof_route_check": {"status": "unavailable", "held_for_review": True}})
+    assert not record_held_for_review(None)
+
+
+def test_f9_an_adjudication_releases_a_hold_on_replay(tmp_path, checker):
+    """An owner's adjudication writes assessed evidence over the held grade
+    (Ruling A's revision), so the next replay schedules it like any grade."""
+
+    from datetime import timedelta
+
+    from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _first_scheduled_attempt(vault, repository, checker)
+    before = _schedule(repository)
+    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+                  when=CLOCK.now() + timedelta(days=3))
+    assert _schedule(repository) == before
+    revision = append_adjudication_evidence_revision(
+        repository, attempt_id=held.attempt_id, resolved_fraction=1.0, adjudication_id="adj-f9",
+        adjudicator_source="human_owner", rationale="the route is valid", vault=vault,
+        clock=FrozenClock(CLOCK.now() + timedelta(days=4)),
+    )
+    assert revision["status"] == "revised"
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert repository.fetch_practice_attempt(held.attempt_id)["rubric_score"] == 4
+    assert _schedule(repository) != before
 
 
 @pytest.mark.parametrize("config", ["", "[diagnosis]\ngrading_support = false"])

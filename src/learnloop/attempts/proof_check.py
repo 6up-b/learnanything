@@ -45,9 +45,20 @@ adds the smallest sound path for those items (owner decision 2026-10-13):
     abstains, or refutes without a quote) -> **unlocated**: unverified, so
     unassessed (P1's rule: marked down only on a located, quoted error;
     review F1). When nothing is then left assessed and nothing validated the
-    answer, the grade is also held for review;
+    answer, the grade is also **held for review** (re-review F9): it is the
+    grader's own grade, provisional, never the full marks PF-c gives a
+    verified answer; the attempt writes no evidence, applies no FSRS review
+    (the item's memory and due date stay as they were), is no prediction
+    error and inserts no follow-up, until a regrade or an adjudication
+    assesses a criterion. The blind record carries the hold, so replay and
+    the regrade reproduce it;
   - everything else (agreement, a located error, ``cannot_tell`` off a
     divergent route) leaves the grade as the grader gave it, recorded.
+
+  Once the gate overrides a mark-down (restores or unassesses it), an
+  attribution that names no criterion and locates no step in the learner's
+  words is the grader's interpretation, as PF-c rescopes it: it never keeps
+  the attempt a measured failure on its own (re-review F1).
 
   The deterministic final-answer check outranks the checker: a conclusion
   that ``differs_from_reference`` is never restored, disputed or left
@@ -88,8 +99,13 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 LOGGER = logging.getLogger(__name__)
 
 #: v2 (review F1/F2): P1's located-error rule on a divergent route, and the
-#: final-answer check outranks the checker.
-PROOF_CHECK_VERSION = "proof-route-check-v2"
+#: final-answer check outranks the checker. v3 (re-review F1/F9): an unlocated
+#: attribution naming no criterion is the grader's interpretation once the gate
+#: overrides a mark-down, and a grade held for review keeps the grader's own
+#: score (not the verified-answer full marks) and applies no FSRS review.
+PROOF_CHECK_VERSION = "proof-route-check-v3"
+#: Gate versions whose records predate the hold (re-review F9).
+_PRE_HOLD_VERSIONS = frozenset({"proof-route-check-v1", "proof-route-check-v2"})
 ITEM_KIND_PROMPT_VERSION = "proof-like-item-v1"
 ROUTE_CHECK_PROMPT_VERSION = "proof-route-check-v1"
 #: ``judgment_ledger.task`` of the item classification (left = the item, the
@@ -107,6 +123,9 @@ CLARIFICATION_TRIGGER = "route_check_disagreement"
 RESTORED_CRITERION_LABEL = "restored: an independent check found your route valid"
 #: Support key on the blind record.
 SUPPORT_KEY = "proof_route_check"
+#: The typed suppression the post-attempt pipeline records when a grade held
+#: for review would otherwise insert follow-up work (re-review F9).
+HELD_FOR_REVIEW_SUPPRESSION = "grade_held_for_review"
 #: The spend route a command admits the reading and the check on (review F3):
 #: the checker's own client, which may bill differently from the grader's.
 SPEND_ROUTE = "proof_check"
@@ -520,7 +539,13 @@ def apply_proof_route_gate(
 
     # Attributions on a restored criterion are refuted by the restore: they
     # leave the grade (kept on the record); on an unverified one they are the
-    # grader's interpretation, as PF-c rescopes them.
+    # grader's interpretation, as PF-c rescopes them. Once the gate has
+    # overridden a mark-down (restored or unassessed it), an attribution that
+    # names no criterion and locates no step in the learner's words is the
+    # grader's interpretation too: P1 marks down only on a located error, so
+    # an unlocated whole-answer claim never keeps the grade a measured failure
+    # on its own (PF-c's rule for untargeted attributions; re-review F1).
+    overridden = bool(unverified or restored_set)
     attributions = []
     withdrawn: list[dict[str, Any]] = []
     attribution_in_force = False
@@ -529,7 +554,11 @@ def apply_proof_route_gate(
         if criteria and criteria <= restored_set:
             withdrawn.append(attribution.model_dump(mode="json"))
             continue
-        if criteria and criteria & unverified and not criteria - unverified - restored_set:
+        rescoped = (
+            (criteria and criteria & unverified and not criteria - unverified - restored_set)
+            or (not criteria and overridden and not _grader_located(attribution, learner_answer_md))
+        )
+        if rescoped:
             if attribution.validity_scope != "grader_interpretation":
                 attribution = attribution.model_copy(update={"validity_scope": "grader_interpretation"})
         elif attribution.validity_scope != "grader_interpretation":
@@ -969,6 +998,33 @@ def plan_proof_check(
     )
 
 
+def is_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:
+    """Did the route check leave this grade held for review (re-review F9)?
+
+    Nothing assessed and nothing validated the answer: the grade is the
+    grader's own, provisional, and the attempt applies no FSRS review on it.
+    Read from the blind run's ``grading_support`` (live, regrade) or from the
+    blind record that persists it (replay and the post-attempt pipeline), so
+    every door reads one recorded fact, never today's config.
+    """
+
+    proof = (grading_support or {}).get(SUPPORT_KEY) or {}
+    return (
+        proof.get("status") == "checked"
+        and bool(proof.get("held_for_review"))
+        # A record written before the hold (v2 scheduled it as correct, with
+        # PF-c's full marks) replays as it was written.
+        and proof.get("version") not in _PRE_HOLD_VERSIONS
+    )
+
+
+def record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool:
+    """:func:`is_held_for_review` of a persisted blind grade record row."""
+
+    record = (blind_record or {}).get("record") or {}
+    return is_held_for_review(record.get("grading_support"))
+
+
 def checked_calibration_prompt_version(base: str, grading_support: Mapping[str, Any] | None) -> str:
     """The calibration identity of one blind grade (S1 §4.3; P1's identity bump).
 
@@ -1046,6 +1102,7 @@ __all__ = [
     "CLARIFICATION_TRIGGER",
     "CheckerRoute",
     "CriterionRouteVerdict",
+    "HELD_FOR_REVIEW_SUPPRESSION",
     "ITEM_KIND_TASK",
     "ItemKindReading",
     "PROOF_CHECK_VERSION",
@@ -1063,10 +1120,12 @@ __all__ = [
     "checked_run",
     "classify_item",
     "gate_inputs",
+    "is_held_for_review",
     "item_kind_prompt",
     "plan_proof_check",
     "proof_check_active",
     "proof_check_route",
+    "record_held_for_review",
     "record_route_check_judgment",
     "resolve_check_client",
     "route_check_prompt",

@@ -419,6 +419,13 @@ class ApplyAttemptInput:
     # gives them no facet mass and no outcome. Replay reads them back from the
     # stamped rows, so live, regrade and replay apply one rule.
     unverified_criterion_ids: tuple[str, ...] = ()
+    # mvp-0.15 (re-review F9): the route check left nothing assessed and
+    # nothing validated the answer, so the grade is the grader's own,
+    # provisional and held for review. While no criterion is assessed the
+    # attempt applies no FSRS review (the item's memory and due date stay as
+    # they were) and is no prediction error; a regrade or an adjudication that
+    # assesses a criterion releases it. Replay reads it from the blind record.
+    grade_held_for_review: bool = False
 
 
 @dataclass(frozen=True)
@@ -1171,6 +1178,7 @@ def complete_codex_graded_attempt(
     manual_review_override: str | None = None,
     unverified_criterion_ids: Iterable[str] = (),
     clarification_override: dict[str, Any] | None = None,
+    grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> AttemptResult:
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -1206,7 +1214,9 @@ def complete_codex_graded_attempt(
         validated = replace(validated, repair_suggestions=[])
     unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
     if unverified:
-        # PF-c: the attempt's grade is over the assessed criteria only.
+        # PF-c: the attempt's grade is over the assessed criteria only. With
+        # nothing assessed and nothing validated (mvp-0.15, re-review F9) it is
+        # the grader's own, held for review.
         validated = replace(
             validated,
             rubric_score=assessed_rubric_score(
@@ -1214,6 +1224,7 @@ def complete_codex_graded_attempt(
                 {row.criterion_id: row.points_awarded for row in validated.criterion_evidence},
                 validated.fatal_errors,
                 unassessed_criterion_ids=unverified,
+                answer_validated=not grade_held_for_review,
             ),
         )
     if clarification_override and validated.clarification is None:
@@ -1239,6 +1250,7 @@ def complete_codex_graded_attempt(
             grader_mode=grader_mode,
             grader_identity=grader_identity,
             unverified_criterion_ids=unverified,
+            grade_held_for_review=grade_held_for_review,
         ),
         clock=clock,
     )
@@ -1327,6 +1339,7 @@ def replay_existing_attempt(
     )
     error_type = attempt.get("error_type")
     blind_record = repository.latest_blind_grade_record(attempt["id"])
+    from learnloop.attempts.proof_check import record_held_for_review
     return apply_attempt(
         vault,
         repository,
@@ -1365,6 +1378,9 @@ def replay_existing_attempt(
                 else grader_identity
             ),
             unverified_criterion_ids=unverified,
+            # mvp-0.15 (re-review F9): a grade the route check held for review
+            # replays held, from the record it was written with.
+            grade_held_for_review=record_held_for_review(blind_record),
         ),
         clock=clock,
     )
@@ -1651,6 +1667,7 @@ def _complete_blind_graded_attempt(
     from learnloop.attempts.proof_check import (
         checked_calibration_prompt_version,
         checked_run,
+        is_held_for_review,
         record_route_check_judgment,
     )
 
@@ -1736,6 +1753,7 @@ def _complete_blind_graded_attempt(
             manual_review_override=review_override,
             unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
             clarification_override=proof_result.clarification if proof_result is not None else None,
+            grade_held_for_review=is_held_for_review(support),
             clock=clock,
         )
         if proof_result is not None and proof_result.judgment is not None:
@@ -2608,6 +2626,7 @@ def compute_attempt_application(
         fallback_reason=attempt.fallback_reason,
         grader_identity=attempt.grader_identity,
         unassessed_criterion_ids=attempt.unverified_criterion_ids,
+        grade_held_for_review=attempt.grade_held_for_review,
     )
 
 
@@ -3211,6 +3230,7 @@ def _compute_resolved_grade_application(
     fallback_reason: str | None = None,
     grader_identity: tuple[str, str] | None = None,
     unassessed_criterion_ids: Iterable[str] = (),
+    grade_held_for_review: bool = False,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -3238,6 +3258,11 @@ def _compute_resolved_grade_application(
     # No assessed criterion left in the vector (the learner field's test too):
     # never the legacy "no criterion information" reading of an empty vector.
     nothing_assessed = bool(unassessed) and not criterion_points
+    # mvp-0.15 (re-review F9): nothing assessed AND nothing validated the
+    # answer. The grade is the grader's provisional one, held for review: no
+    # FSRS review and no prediction error until a regrade or an adjudication
+    # assesses a criterion (which ends ``nothing_assessed`` and the hold).
+    held = nothing_assessed and grade_held_for_review
     # Which facets the unassessed criteria alone account for comes from the
     # rubric's observation contract (the projection's map), never the item's
     # lexical inference: on most items that maps nothing and the attempt's
@@ -3529,6 +3554,11 @@ def _compute_resolved_grade_application(
         item_a=item_a,
         item_b=item_b,
     )
+    if held:
+        # A held grade rests on mark-downs nobody located (P1): it is no
+        # prediction error, so neither the follow-up gate nor the re-probe
+        # trigger reads it as one, and it stretches no interval.
+        surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
 
     previous_state = prior_state.practice_item_state
     fsrs_rating = fsrs_rating_for_attempt(item, grade.rubric_score, rubric.max_points, draft.hints_used)
@@ -3563,7 +3593,10 @@ def _compute_resolved_grade_application(
         primed=draft.primed,
         hints_used=draft.hints_used,
     )
-    if causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
+    # A grade held for review (re-review F9) leaves the item's scheduling
+    # state exactly as it was, as an ineligible observation does (§3.8),
+    # until a regrade or an adjudication assesses a criterion.
+    if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
         eligible=observation_eligible,
         algorithm_version=vault.config.algorithms.algorithm_version,
@@ -3811,6 +3844,8 @@ def _compute_resolved_grade_application(
         "facet_uncertainty_trace": facet_uncertainty_trace,
         "ability_transition": ability_transition,
         "primed": draft.primed,
+        # mvp-0.15 (re-review F9): a grade held for review applied no review.
+        **({"grade_held_for_review": True} if held else {}),
         # Non-None only when the ledger forced it: the summed reveal amount on
         # this item since its last attempt. This is the audit trail for "why is
         # an attempt the learner submitted as unassisted recorded as primed?".
@@ -4294,6 +4329,7 @@ def assessed_rubric_score(
     fatal_errors: Iterable[str],
     *,
     unassessed_criterion_ids: Iterable[str],
+    answer_validated: bool = True,
 ) -> int:
     """The grade over the ASSESSED criteria only (PF-c, owner decision 2026-10-12).
 
@@ -4309,12 +4345,19 @@ def assessed_rubric_score(
     the fraction is 1: correct for scheduling (the attempt writes no facet
     evidence; see ``_compute_resolved_grade_application``).
 
+    ``answer_validated = False`` (mvp-0.15, re-review F9): nothing validated
+    the answer (no verified final answer, no criterion an independent check
+    established), so an empty assessed set is not a verified answer. The
+    grade is then the grader's own over every criterion, provisional and held
+    for review: it earns no credit it was never shown to deserve, and the
+    attempt step applies no review on it (``grade_held_for_review``).
+
     With nothing unassessed this is :func:`calculate_rubric_score` exactly.
     """
 
     unassessed = {str(value) for value in unassessed_criterion_ids}
     assessed = [criterion for criterion in rubric.criteria if criterion.id not in unassessed]
-    if len(assessed) == len(rubric.criteria):
+    if len(assessed) == len(rubric.criteria) or (not assessed and not answer_validated):
         return calculate_rubric_score(rubric, dict(criterion_points), list(fatal_errors))
     assessed_max = sum(max(float(criterion.points), 0.0) for criterion in assessed)
     fraction = 1.0
