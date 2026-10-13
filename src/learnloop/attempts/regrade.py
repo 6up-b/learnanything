@@ -251,7 +251,10 @@ def regrade_attempt(
             from learnloop.attempts.grading_support import request_blind_grading_run
 
             run = request_blind_grading_run(client, blind_plan.context, rubric=rubric)
-            from learnloop.attempts.proof_check import checked_run
+            from learnloop.attempts.proof_check import (
+                checked_calibration_prompt_version,
+                checked_run,
+            )
 
             # mvp-0.15: a regrade of a proof-like answer is checked again (with
             # the clarification exchange, when that is what triggered it).
@@ -276,7 +279,10 @@ def regrade_attempt(
                 **validated_blind.as_record(),
                 "prompt_version": run.prompt_version,
                 "practice_item_id": item.id,
-                "calibration_prompt_version": blind_plan.calibration_prompt_version,
+                # Review F4: the identity of the grade this regrade produced.
+                "calibration_prompt_version": checked_calibration_prompt_version(
+                    blind_plan.calibration_prompt_version, run.grading_support
+                ),
                 "calibration_output_schema_version": BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
                 "samples": run.samples,
                 "grading_support": dict(run.grading_support),

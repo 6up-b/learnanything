@@ -698,6 +698,63 @@ def test_the_kill_switch_and_the_predecessor_grade_exactly_as_mvp014(tmp_path, c
     assert rows == ref
 
 
+# -- review F4: a checked grade has its own calibration identity ------------------------------
+
+
+def _identity(repository, attempt_id):
+    record = repository.latest_blind_grade_record(attempt_id)["record"]
+    return record["calibration_prompt_version"], repository.latest_raw_grade_identity(attempt_id)[0]
+
+
+def test_a_checked_grade_is_calibrated_under_its_own_identity(tmp_path, checker):
+    from learnloop.attempts.grading_support import REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION as BASE
+    from learnloop.attempts.proof_check import PROOF_CHECK_VERSION, ROUTE_CHECK_PROMPT_VERSION
+
+    _paths, vault, repository = split_vault(tmp_path / "v", version=VERSION)
+    verdicts = {"setup": {"verdict": "established"}, "result": {"verdict": "established"}}
+    checker(CheckerFake(verdicts=verdicts))
+    checked = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE)
+    expected = f"{BASE}+{PROOF_CHECK_VERSION}:{ROUTE_CHECK_PROMPT_VERSION}@checker-model"
+    # The blind record (what replay reads) and the raw grade event agree.
+    assert _identity(repository, checked.attempt_id) == (expected, expected)
+    # Another checker model is another measurement process.
+    checker(CheckerFake(verdicts=verdicts, model="other-checker"))
+    other = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE + " (2)")
+    assert _identity(repository, other.attempt_id)[0] == expected.replace("checker-model", "other-checker")
+    # A grade the grader produced alone keeps the predecessor identity.
+    reader = CheckerFake(kind="computation", reasoning=False, model="reader-model")
+    _paths, plain_vault, plain_repository = split_vault(tmp_path / "plain", version=VERSION)
+    checker(reader)
+    plain = submit(plain_vault, plain_repository, ReviewFakeClient(), answer=ALTERNATIVE)
+    assert _identity(plain_repository, plain.attempt_id) == (BASE, BASE)
+    for setup, kwargs in (("kill_switch", {"version": VERSION, "config": "[proof_check]\nenabled = false"}),
+                          ("predecessor", {"version": "mvp-0.14"})):
+        _paths, off_vault, off_repository = split_vault(tmp_path / setup, **kwargs)
+        checker(CheckerFake(verdicts=verdicts))
+        off = submit(off_vault, off_repository, ReviewFakeClient(), answer=ALTERNATIVE)
+        assert _identity(off_repository, off.attempt_id) == (BASE, BASE), setup
+
+
+def test_a_regrade_records_the_identity_of_the_grade_it_produced(tmp_path, checker):
+    from learnloop.attempts.attempts import replay_grader_identity
+    from learnloop.attempts.grading_support import REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION as BASE
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    checker(None)  # no ready checker: the grader's grade alone, base identity
+    result = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE)
+    assert _support(repository, result.attempt_id)["proof_route_check"]["status"] == "unavailable"
+    assert _identity(repository, result.attempt_id) == (BASE, BASE)
+    # The checker is back; the regrade is checked and says so.
+    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}}))
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=ReviewFakeClient(),
+                    grading_source="ai", clock=CLOCK)
+    record_identity, raw_identity = _identity(repository, result.attempt_id)
+    assert record_identity.startswith(BASE + "+proof-route-check-") and raw_identity == record_identity
+    blind = repository.latest_blind_grade_record(result.attempt_id)
+    assert replay_grader_identity(repository, result.attempt_id, blind)[0] == record_identity
+
+
 # -- regrade and replay ------------------------------------------------------------------------
 
 

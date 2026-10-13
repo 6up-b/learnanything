@@ -896,6 +896,28 @@ def gate_inputs(
     return (str(check.get("status")) if check.get("status") else None), bool(route.get("divergent_route"))
 
 
+def checked_calibration_prompt_version(base: str, grading_support: Mapping[str, Any] | None) -> str:
+    """The calibration identity of one blind grade (S1 §4.3; P1's identity bump).
+
+    A grade the route check ran on (``status = checked``) comes from a
+    different measurement process than the grader alone: the gate may have
+    restored, unassessed or flagged it. Its identity names the gate version,
+    the checker's prompt version and the checker's model (review F4), so
+    calibration never pools it with grades the grader produced alone
+    (predecessors, the kill switch, a non-proof-like item, an unavailable
+    check) or with checks by another model. It is persisted on the blind
+    record, which is where replay reads it.
+    """
+
+    proof = (grading_support or {}).get(SUPPORT_KEY) or {}
+    if proof.get("status") != "checked":
+        return base
+    checker = (proof.get("checker") or {}).get("model") or "unknown"
+    gate = proof.get("version") or PROOF_CHECK_VERSION
+    prompt = proof.get("prompt_version") or ROUTE_CHECK_PROMPT_VERSION
+    return f"{base}+{gate}:{prompt}@{checker}"
+
+
 def checked_run(
     run: Any,
     vault: LoadedVault,
@@ -962,6 +984,7 @@ __all__ = [
     "ROUTE_CHECK_TASK",
     "SUPPORT_KEY",
     "apply_proof_route_gate",
+    "checked_calibration_prompt_version",
     "checked_run",
     "classify_item",
     "gate_inputs",

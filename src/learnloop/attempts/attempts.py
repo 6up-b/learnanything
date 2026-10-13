@@ -1630,7 +1630,11 @@ def _complete_blind_graded_attempt(
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
-    from learnloop.attempts.proof_check import checked_run, record_route_check_judgment
+    from learnloop.attempts.proof_check import (
+        checked_calibration_prompt_version,
+        checked_run,
+        record_route_check_judgment,
+    )
 
     # mvp-0.15: on a proof-like item, the independent route check and its
     # gate (a no-op below mvp-0.15 or with proof_check.enabled = false).
@@ -1680,10 +1684,15 @@ def _complete_blind_graded_attempt(
         prior_fractions=prior_fractions,
         family=family,
     )
+    # mvp-0.15 (review F4): a route-checked grade is calibrated under its own
+    # identity; a grade the grader produced alone keeps the base one.
+    calibration_prompt_version = checked_calibration_prompt_version(
+        blind.calibration_prompt_version, run.grading_support
+    )
     record.update(
         prompt_version=run.prompt_version,
         practice_item_id=item.id,
-        calibration_prompt_version=blind.calibration_prompt_version,
+        calibration_prompt_version=calibration_prompt_version,
         calibration_output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
         samples=run.samples,
         grading_support=support,
@@ -1694,7 +1703,7 @@ def _complete_blind_graded_attempt(
         record[STUCK_READING_KEY] = verified_stuck_reading(
             run.stuck_reading, draft.learner_answer_md
         )
-    identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
+    identity = (calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
     with repository.atomic():
         result = complete_codex_graded_attempt(
             vault,
