@@ -197,6 +197,12 @@ def regrade_attempt(
     # and isolated in a split vault, no blind record: it is never diagnosed).
     # A joint vault, or the kill switch, regrades jointly exactly as before.
     prior_blind = repository.latest_blind_grade_record(attempt["id"])
+    # held-grade-evidence: is the grade this regrade replaces held for review
+    # now (THE predicate over the ledger: the latest record AND the current
+    # evidence, so an adjudication's release counts)?
+    from learnloop.held_grades import attempt_grade_held
+
+    prior_held = prior_blind is not None and attempt_grade_held(repository, attempt["id"])
     blind_plan = None
     if prior_blind is not None or (
         split_grading_active(vault) and attempt.get("attempt_type") != TEACH_BACK_ATTEMPT_TYPE
@@ -268,6 +274,13 @@ def regrade_attempt(
                 clarification_exchange=blind_plan.context.clarification_exchange,
             )
             proof_result = run.proof_check
+            if prior_held:
+                from learnloop.attempts.proof_check import kept_hold_run
+
+                # held-grade-evidence F2: a check that did not run (a provider
+                # failure, invalid output, no client) validates nothing, so
+                # the hold it replaces stays: never released unvalidated.
+                run = kept_hold_run(run, rubric=rubric, prior_record_id=str(prior_blind["id"]))
             validated_blind = validate_blind_grading_proposal(
                 run.proposal,
                 attempt_id=attempt["id"],
@@ -277,6 +290,13 @@ def regrade_attempt(
                 rubric=rubric,
             )
             validated = validated_blind.grade
+            from learnloop.attempts.proof_check import revalidated_support
+
+            # held-grade-evidence F1: the shortfall over the grade validation kept.
+            run = replace(
+                run,
+                grading_support=revalidated_support(run.grading_support, validated_blind.as_record(), rubric),
+            )
             blind_record = {
                 **validated_blind.as_record(),
                 "prompt_version": run.prompt_version,
@@ -448,8 +468,14 @@ def regrade_attempt(
                 agent_run_id=agent_run_id,
                 new_evidence_rows=new_evidence_rows,
                 first_new_evidence_id=first_new_evidence_id,
+                # held-grade-evidence F4: a regrade of a held grade (release
+                # or kept hold) supersedes its AI-graded rows too, so no
+                # stale unassessed row outlives the grade that replaced it in
+                # any projection.
                 supersede_tiers=(
-                    (1, 3) if graded_criteria is not None or clarification_exchange else (1,)
+                    (1, 3)
+                    if graded_criteria is not None or clarification_exchange or prior_held
+                    else (1,)
                 ),
                 new_score=new_score,
                 rubric=rubric,

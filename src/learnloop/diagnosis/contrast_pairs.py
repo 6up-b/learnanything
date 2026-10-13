@@ -872,8 +872,15 @@ def contrast_pair_order_effect(
     for row in servings:
         by_pair.setdefault(str(row["pair_key"]), {})[str(row["practice_item_id"])] = row
     outcomes: dict[str, list[dict[str, Any]]] = {}
-    for attempt in repository.list_all_attempts():
+    # held-grade-evidence: a grade held for review (THE predicate) is no
+    # outcome of a pair member; the member's latest outcome is the one before.
+    from learnloop.outcome_contract import HELD_ROW_KEY
+    from learnloop.held_grades import mark_held_attempts
+
+    for attempt in mark_held_attempts(repository, repository.list_all_attempts()):
         if since is not None and str(attempt.get("created_at") or "") < since:
+            continue
+        if attempt.get(HELD_ROW_KEY):
             continue
         outcomes.setdefault(str(attempt.get("practice_item_id") or ""), []).append(attempt)
     completed = 0

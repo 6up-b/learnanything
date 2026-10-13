@@ -32,9 +32,10 @@ class ReviewObservation:
     weight: float  # per-attempt-type evidence mass
     observed_at: datetime
     first_review: bool
-    #: False for a grade the proofs route check holds for review (mvp-0.17):
-    #: the live schedule applied no review for it, though its time is the
-    #: item's last attempt. Only callers that pass ``held_attempt_ids`` set it.
+    #: False for a grade the proofs route check holds for review (mvp-0.17,
+    #: THE held predicate): the live schedule applied no review for it, though
+    #: its time is the item's last attempt. The fitter neither scores nor
+    #: applies it (held-grade-evidence F8).
     applies_review: bool = True
 
 
@@ -47,7 +48,18 @@ class ReviewLog:
 
 
 def reconstruct_review_log(vault: LoadedVault, repository: Repository) -> ReviewLog:
-    return review_log_from_attempts(vault, repository.list_all_attempts())
+    """The FSRS fitter's review log (``learnloop fit fsrs``).
+
+    held-grade-evidence F8: a grade held for review (THE predicate over the
+    ledger) applied no review on the live schedule, so its observation is
+    marked ``applies_review = False`` and the fitter leaves it out.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+
+    return review_log_from_attempts(
+        vault, repository.list_all_attempts(), held_attempt_ids=held_attempt_ids(repository)
+    )
 
 
 def review_log_from_attempts(

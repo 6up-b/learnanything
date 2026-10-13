@@ -79,45 +79,18 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 #
 # Replay reads the row's own interpretation and never reinterprets history; a
 # regrade writes the attempt again under the current rule (the upgrade path).
-UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
-UNVERIFIED_INTERPRETATION_KEY = "unverified_interpretation"
-UNASSESSED_INTERPRETATION = "unassessed"
-
-
-def _attribution_mapping(attribution: Any) -> Mapping[str, Any] | None:
-    if isinstance(attribution, (str, bytes)):
-        try:
-            attribution = json.loads(attribution)
-        except (TypeError, ValueError):
-            return None
-    return attribution if isinstance(attribution, Mapping) else None
-
-
-def unverified_evidence_row(attribution: Any) -> bool:
-    """Whether a grading-evidence row is a PF-c unverified criterion, under
-    either interpretation. ``attribution`` is the row's persisted
-    ``attribution_json``: the JSON text or its decoded mapping."""
-
-    mapping = _attribution_mapping(attribution)
-    return mapping is not None and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
-
-
-def unassessed_evidence_row(attribution: Any) -> bool:
-    """Whether a grading-evidence row is a PF-c criterion written under the
-    unassessed rule (owner decision 2026-10-12).
-
-    Every reader that turns grading evidence into a grade, a facet outcome, a
-    probe feature, a repair verification or a display uses this one test. A
-    row written before the rule (no interpretation mark) is False here: it is
-    read as it was written.
-    """
-
-    mapping = _attribution_mapping(attribution)
-    return (
-        mapping is not None
-        and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
-        and mapping.get(UNVERIFIED_INTERPRETATION_KEY) == UNASSESSED_INTERPRETATION
-    )
+#
+# The stamp and its two row tests are defined in the dependency-free
+# ``learnloop.outcome_contract`` (held-grade-evidence: the held-grade predicate,
+# ``learnloop.held_grades``, reads them, and learner and placement code read it
+# without an edge into this package); they are re-exported here unchanged.
+from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside their rule
+    UNASSESSED_INTERPRETATION,
+    UNVERIFIED_CRITERION_BLOCK,
+    UNVERIFIED_INTERPRETATION_KEY,
+    unassessed_evidence_row,
+    unverified_evidence_row,
+)
 
 
 def pfc_assessment(attributions: Iterable[Any]) -> str | None:
@@ -154,53 +127,16 @@ def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, st
         if (state := pfc_assessment(rows)) is not None
     }
 
-def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None = None) -> frozenset[str]:
-    """Attempts whose current grade the proofs route check holds for review.
-
-    mvp-0.17 (re-review F9): read from each attempt's LATEST blind grade
-    record, the one recorded fact every door reads
-    (``outcome_contract.grade_held_for_review``): a regrade that validates
-    the route writes a record without the hold and releases it. ``None``
-    reads every blind-graded attempt. A database without blind records (a
-    pre-170 copy) holds nothing.
-
-    This is the one ledger-level answer to "is this attempt's grade usable
-    as an outcome?" for the readers composed at the merge (router R1's
-    outcomes and coldness covariate, the learner-text gaps' diagnosis source,
-    the EVSI calibration report): route any further reader through it.
-    """
-
-    from learnloop.outcome_contract import grade_held_for_review
-
-    if connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
-    ).fetchone() is None:
-        return frozenset()
-    if attempt_ids is None:
-        chunks: list[list[str] | None] = [None]
-    else:
-        ids = sorted({str(value) for value in attempt_ids if value})
-        chunks = [ids[start : start + 500] for start in range(0, len(ids), 500)]
-    latest: dict[str, Any] = {}
-    for chunk in chunks:
-        if chunk is not None and not chunk:
-            continue
-        where = "" if chunk is None else f"WHERE attempt_id IN ({','.join('?' for _ in chunk)}) "
-        for attempt_id, record_json in connection.execute(
-            f"SELECT attempt_id, record_json FROM blind_grade_records {where}"
-            "ORDER BY attempt_id, created_at, id",
-            chunk or (),
-        ):
-            latest[str(attempt_id)] = record_json
-    held: set[str] = set()
-    for attempt_id, record_json in latest.items():
-        try:
-            record = json.loads(record_json) if isinstance(record_json, str) else (record_json or {})
-        except ValueError:
-            continue
-        if isinstance(record, dict) and grade_held_for_review(record.get("grading_support")):
-            held.add(attempt_id)
-    return frozenset(held)
+# held-grade-evidence: THE held-grade predicate over the ledger, defined in the
+# leaf ``learnloop.held_grades`` (readers in learner and placement code import
+# it there) and re-exported here, where the merge composed it.
+from learnloop.held_grades import (  # noqa: E402 - re-exported beside PF-c's state
+    HELD_ROW_KEY,
+    attempt_grade_held,
+    held_attempt_ids,
+    held_for_review_attempts,
+    mark_held_attempts,
+)
 
 
 # Assistance channels that certify nothing (§5.4/§6).

@@ -1208,6 +1208,7 @@ def record_certification_cold_probe_attempt(
     *,
     grading_source: str | None = None,
     grading_agent_run_id: str | None = None,
+    grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Consume a due probe and record whether the certificate held.
@@ -1222,6 +1223,12 @@ def record_certification_cold_probe_attempt(
 
     Returns the stored row, or None when this attempt is not a probe. Never
     raises: a bookkeeping failure must not fail an attempt.
+
+    ``grade_held_for_review`` is THE held predicate evaluated in flight by the
+    attempt step (held-grade-evidence F3): the blind record is written after
+    this runs, so the step passes it. A probe whose grade is held abstains
+    (``indeterminate``, ``grade_unavailable``, no correctness): it never
+    enters the certification-validation denominator.
     """
 
     try:
@@ -1231,6 +1238,7 @@ def record_certification_cold_probe_attempt(
             attempt,
             grading_source=grading_source,
             grading_agent_run_id=grading_agent_run_id,
+            grade_held_for_review=grade_held_for_review,
             clock=clock,
         )
     except Exception:  # pragma: no cover - hot path must never fail on bookkeeping
@@ -1249,6 +1257,7 @@ def _record_probe_outcome(
     *,
     grading_source: str | None,
     grading_agent_run_id: str | None,
+    grade_held_for_review: bool = False,
     clock: Clock | None,
 ) -> dict[str, Any] | None:
     from learnloop.substrate.canonical_projection import surface_group_id
@@ -1316,6 +1325,14 @@ def _record_probe_outcome(
         verdict, reason = "indeterminate", "assisted_probe"
     elif certificate_state == "withdrawn":
         verdict, reason = "indeterminate", "certificate_withdrawn"
+    elif grade_held_for_review:
+        # held-grade-evidence F3: nothing validated the grade; its score is
+        # the grader's provisional one, so it is no verdict either way. The
+        # grade is unavailable as evidence (migration 139's CHECK fixes the
+        # reason vocabulary), and its provisional score is not recorded as
+        # the probe's correctness.
+        verdict, reason = "indeterminate", "grade_unavailable"
+        correctness = None
     elif correctness is None:
         verdict, reason = "indeterminate", "grade_unavailable"
     else:

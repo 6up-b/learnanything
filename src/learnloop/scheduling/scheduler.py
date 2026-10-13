@@ -300,6 +300,19 @@ def build_due_queue(
         frontier.by_lo,
         limit=config.recall_coverage.familiarity_recent_attempt_window,
     )
+    # held-grade-evidence: an exposure is an exposure, but a held grade's
+    # provisional score never weighs it (THE held predicate marks the rows).
+    from learnloop.held_grades import held_attempt_ids
+    from learnloop.outcome_contract import HELD_ROW_KEY
+
+    held_recent = held_attempt_ids(
+        repository, (row.get("id") for rows in recent_attempts_by_lo.values() for row in rows)
+    )
+    if held_recent:
+        recent_attempts_by_lo = {
+            lo_id: [{**row, HELD_ROW_KEY: True} if row.get("id") in held_recent else row for row in rows]
+            for lo_id, rows in recent_attempts_by_lo.items()
+        }
     for item in vault.practice_items.values():
         # Learner-retired items are never served, independent of sync ordering.
         if item.status != "active":

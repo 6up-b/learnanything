@@ -3013,6 +3013,7 @@ class Repository(
         since: str,
         until: str,
         min_correctness: float,
+        exclude_attempt_ids: Iterable[str] = (),
     ) -> int:
         """Count "clean" attempts on a learning object in ``(since, until]``.
 
@@ -3021,9 +3022,14 @@ class Repository(
         equivalent to "wrote no error events"), and not a ``dont_know``/``skip``
         self-diagnosis. Bounding by ``until`` (the triggering attempt's
         ``created_at``) keeps the count reproducible under replay, where future
-        attempts still exist in ``practice_attempts``.
+        attempts still exist in ``practice_attempts``. ``exclude_attempt_ids``
+        are never counted (the caller's held grades: no outcome at all).
         """
 
+        excluded = sorted({str(value) for value in exclude_attempt_ids if value})
+        exclusion = (
+            f" AND id NOT IN ({','.join('?' for _ in excluded)})" if excluded else ""
+        )
         with self.connection() as connection:
             row = connection.execute(
                 """
@@ -3035,10 +3041,36 @@ class Repository(
                   AND correctness >= ?
                   AND error_type IS NULL
                   AND attempt_type NOT IN ('dont_know', 'skip')
-                """,
-                (learning_object_id, since, until, min_correctness),
+                """
+                + exclusion,
+                (learning_object_id, since, until, min_correctness, *excluded),
             ).fetchone()
         return int(row["clean_count"])
+
+    def clean_attempt_ids_since(
+        self,
+        learning_object_id: str,
+        *,
+        since: str,
+        until: str,
+        min_correctness: float,
+    ) -> list[str]:
+        """The attempts :meth:`count_clean_attempts_since` would count."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id FROM practice_attempts
+                WHERE learning_object_id = ?
+                  AND created_at > ?
+                  AND created_at <= ?
+                  AND correctness >= ?
+                  AND error_type IS NULL
+                  AND attempt_type NOT IN ('dont_know', 'skip')
+                """,
+                (learning_object_id, since, until, min_correctness),
+            ).fetchall()
+        return [str(row["id"]) for row in rows]
 
     def resolve_error_event(self, event_id: str, *, clock: Clock | None = None) -> bool:
         now = utc_now_iso(clock)
@@ -3078,7 +3110,8 @@ class Repository(
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT a.practice_item_id AS practice_item_id,
+                SELECT a.id AS id,
+                       a.practice_item_id AS practice_item_id,
                        a.learning_object_id AS learning_object_id,
                        a.rubric_score AS rubric_score,
                        s.predicted_score_dist_json AS predicted_score_dist_json
@@ -3116,13 +3149,17 @@ class Repository(
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def answer_confidence_presence(self) -> dict[str, int]:
+    def answer_confidence_presence(self, *, exclude_attempt_ids: Iterable[str] = ()) -> dict[str, int]:
         """How often an ordinary graded attempt carries a pre-answer confidence tap.
 
         The duel's denominator: graded, unprimed, unhinted ordinary attempts
         (the duel's own exclusions, without its scheduler-candidate match).
+        ``exclude_attempt_ids`` are not graded attempts here (the caller's
+        held grades).
         """
 
+        excluded = sorted({str(value) for value in exclude_attempt_ids if value})
+        exclusion = f" AND a.id NOT IN ({','.join('?' for _ in excluded)})" if excluded else ""
         with self.connection() as connection:
             row = connection.execute(
                 """
@@ -3137,6 +3174,8 @@ class Repository(
                     'dont_know', 'skip'
                   )
                 """
+                + exclusion,
+                excluded,
             ).fetchone()
         return {"graded_attempts": int(row["graded"]), "with_confidence": int(row["with_confidence"])}
 
@@ -9285,7 +9324,7 @@ class Repository(
         with self.connection() as connection:
             rows = connection.execute(
                 f"""
-                SELECT practice_item_id, rubric_score, correctness, created_at
+                SELECT id, practice_item_id, rubric_score, correctness, created_at
                 FROM practice_attempts
                 WHERE practice_item_id IN ({placeholders})
                 ORDER BY created_at, id
@@ -9294,6 +9333,7 @@ class Repository(
             ).fetchall()
         return [
             {
+                "id": row["id"],
                 "practice_item_id": row["practice_item_id"],
                 "rubric_score": row["rubric_score"],
                 "correctness": row["correctness"],

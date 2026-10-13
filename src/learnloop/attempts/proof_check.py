@@ -81,7 +81,7 @@ import hashlib
 import json
 import logging
 import re
-from typing import Any, Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, Collection, Literal, Mapping, Sequence
 
 from pydantic import Field
 
@@ -95,6 +95,7 @@ from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
 from learnloop.attempts.grading_admission import admit_grading_call, estimated_prompt_tokens
 from learnloop.outcome_contract import (
     GRADE_HELD_FOR_REVIEW,
+    HOLD_KEPT_FROM_KEY,
     PRE_HOLD_ROUTE_CHECK_VERSIONS,
     grade_held_for_review,
 )
@@ -375,15 +376,24 @@ def _in_answer(quote: str | None, answer: str) -> bool:
     return bool(squashed) and squashed in _squash(answer)
 
 
-def _criteria_of(attribution: Any) -> set[str]:
+def _criteria_of(attribution: Any, rubric_ids: Collection[str]) -> set[str]:
+    """The rubric criteria an attribution names (held-grade-evidence F1).
+
+    Only ids of this rubric count: a blank or unknown id (``[""]``, a
+    criterion ``target_ref`` with no id) names no criterion. Validation drops
+    such ids after the gate (``validate_blind_grading_proposal``), so the
+    gate reads the attribution as validation will keep it: untargeted, and
+    so rescoped like any whole-answer claim when it locates nothing.
+    """
+
     criteria = {str(value) for value in (attribution.target_criterion_ids or [])}
     ref = attribution.target_ref
     if ref is not None and getattr(ref, "kind", None) == "criterion":
-        criteria.add(str(getattr(ref, "criterion_id", "")))
+        criteria.add(str(getattr(ref, "criterion_id", "") or ""))
     divergence = attribution.first_divergence
     if divergence is not None and getattr(divergence, "criterion_id", None):
         criteria.add(str(divergence.criterion_id))
-    return criteria
+    return {value for value in criteria if value.strip() and value in rubric_ids}
 
 
 def _grader_located(attribution: Any, answer: str) -> bool:
@@ -475,7 +485,7 @@ def apply_proof_route_gate(
     located: set[str] = set()
     for attribution in proposal.error_attributions:
         if _grader_located(attribution, learner_answer_md):
-            located.update(_criteria_of(attribution))
+            located.update(_criteria_of(attribution, maxima))
     verdicts = {row.criterion_id: row for row in check.criteria if row.criterion_id in maxima}
     previously_unverified = {str(value) for value in unverified_before}
     fatal = bool(proposal.fatal_errors)
@@ -596,7 +606,7 @@ def apply_proof_route_gate(
     withdrawn: list[dict[str, Any]] = []
     attribution_in_force = False
     for attribution in proposal.error_attributions:
-        criteria = _criteria_of(attribution)
+        criteria = _criteria_of(attribution, maxima)
         if criteria and criteria <= restored_set:
             withdrawn.append(attribution.model_dump(mode="json"))
             continue
@@ -1077,6 +1087,94 @@ def record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool:
     return is_held_for_review(record.get("grading_support"))
 
 
+def kept_hold_run(run: Any, *, rubric: Rubric, prior_record_id: str) -> Any:
+    """A regrade's run that keeps the hold it replaces (held-grade-evidence F2).
+
+    Called only for a regrade of an attempt whose grade is held now. When this
+    regrade's route check did not run (``status = unavailable``: a provider
+    error, invalid output, no ready client or no item reading), nothing
+    validated the new grade either, so the hold stays: every criterion is
+    unassessed, the grade is the grader's own (provisional), its attributions
+    are the grader's interpretation, and the record names the record the hold
+    was kept from (``outcome_contract.HOLD_KEPT_FROM_KEY``), which is what
+    ``grade_held_for_review`` reads. A check that ran decides for itself
+    (it keeps or releases the hold), and so does a regrade with the check
+    switched off (``proof_check.enabled = false`` grades as mvp-0.16) or an
+    item no longer read as proof-like.
+    """
+
+    support = dict(run.grading_support)
+    proof = support.get(SUPPORT_KEY)
+    if not isinstance(proof, Mapping) or proof.get("status") != "unavailable":
+        return run
+    every = sorted(criterion.id for criterion in rubric.criteria)
+    pfc_applied = bool(support.get("valid_alternative_gate_applied"))
+    support[SUPPORT_KEY] = {
+        **proof,
+        "applied": True,
+        "held_for_review": True,
+        HOLD_KEPT_FROM_KEY: prior_record_id,
+        "unverified_criterion_ids": every,
+        "assessed_shortfall": False,
+    }
+    support.update(
+        unverified_criterion_ids=every,
+        valid_alternative_gate_applied=True,
+        valid_alternative_gate={"final_answer": pfc_applied, "proof_route": True},
+        assessed_shortfall=False,
+    )
+    support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
+    proposal = run.proposal
+    attributions = [
+        attribution
+        if attribution.validity_scope == "grader_interpretation"
+        else attribution.model_copy(update={"validity_scope": "grader_interpretation"})
+        for attribution in proposal.error_attributions
+    ]
+    proposal = proposal.model_copy(update={
+        "error_attributions": attributions, "manual_review_recommended": True,
+    })
+    return replace(run, proposal=proposal, grading_support=support)
+
+
+def revalidated_support(
+    grading_support: Mapping[str, Any], record: Mapping[str, Any], rubric: Rubric,
+) -> dict[str, Any]:
+    """``assessed_shortfall`` recomputed over the VALIDATED grade
+    (held-grade-evidence F1).
+
+    The gate runs on the raw proposal; validation then drops what it cannot
+    keep (an unknown or blank criterion id, an attribution it rejects). When
+    this gate applied, the support's ``assessed_shortfall`` (what queues a
+    diagnosis, what placement and the field read) is recomputed from the
+    persisted record exactly as the gate computes it: a criterion still below
+    full points that is not unverified, an attribution still in force (not
+    the grader's interpretation), or a fatal error. Unchanged otherwise.
+    """
+
+    support = dict(grading_support)
+    proof = support.get(SUPPORT_KEY) or {}
+    if not (isinstance(proof, Mapping) and proof.get("status") == "checked" and proof.get("applied")):
+        return support
+    unverified = {str(value) for value in support.get("unverified_criterion_ids") or ()}
+    maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
+    points = {
+        str(row.get("criterion_id")): float(row.get("points_awarded") or 0.0)
+        for row in record.get("criteria") or ()
+    }
+    still_below = {cid for cid, maximum in maxima.items() if points.get(cid, maximum) + 1e-9 < maximum}
+    in_force = any(
+        str(attribution.get("validity_scope") or "valid_measurement") != "grader_interpretation"
+        for attribution in record.get("error_attributions") or ()
+    )
+    shortfall = bool(still_below - unverified) or in_force or bool(record.get("fatal_errors"))
+    if support.get("assessed_shortfall") != shortfall:
+        support["assessed_shortfall"] = shortfall
+        if isinstance(proof, Mapping):
+            support[SUPPORT_KEY] = {**proof, "assessed_shortfall": shortfall}
+    return support
+
+
 def checked_calibration_prompt_version(base: str, grading_support: Mapping[str, Any] | None) -> str:
     """The calibration identity of one blind grade (S1 §4.3; P1's identity bump).
 
@@ -1175,12 +1273,14 @@ __all__ = [
     "gate_inputs",
     "is_held_for_review",
     "item_kind_prompt",
+    "kept_hold_run",
     "plan_proof_check",
     "proof_check_active",
     "proof_check_route",
     "record_held_for_review",
     "record_route_check_judgment",
     "resolve_check_client",
+    "revalidated_support",
     "route_check_prompt",
     "run_proof_route_check",
 ]

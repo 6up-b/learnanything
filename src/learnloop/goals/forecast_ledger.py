@@ -83,9 +83,17 @@ def _cold_outcomes(repository: Repository, forecast: Mapping[str, Any], now) -> 
     if horizon is None:
         return []
     outcomes: list[dict[str, Any]] = []
-    for attempt in repository.list_all_attempts():
+    # held-grade-evidence: a grade held for review (THE predicate) resolves no
+    # forecast.
+    from learnloop.held_grades import held_attempt_ids
+
+    attempts = repository.list_all_attempts()
+    held = held_attempt_ids(repository, (attempt.get("id") for attempt in attempts))
+    for attempt in attempts:
         created = parse_utc(attempt.get("created_at"))
         if created is None or created < horizon or created > now:
+            continue
+        if attempt.get("id") in held:
             continue
         attempt_facets = _attempt_facets(attempt)
         in_scope = (lo_ids and str(attempt.get("learning_object_id")) in lo_ids) or (

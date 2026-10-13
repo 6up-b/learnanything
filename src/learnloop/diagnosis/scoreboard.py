@@ -309,6 +309,7 @@ def cold_success_trajectories(
     from learnloop.diagnosis.causal_probe_coherence import (
         resolve_causal_probe_parameters,
     )
+    from learnloop.held_grades import held_attempt_ids
 
     threshold = (
         float(success_correctness)
@@ -326,7 +327,11 @@ def cold_success_trajectories(
         seconds = 0.0
         missing_latency = 0
         reached: str | None = None
-        for attempt in repository.list_attempts_by_learning_object(learning_object_id):
+        attempts = repository.list_attempts_by_learning_object(learning_object_id)
+        # held-grade-evidence: a held grade (THE predicate) was served, but
+        # its provisional score never reaches the cold success.
+        held = held_attempt_ids(repository, (attempt.get("id") for attempt in attempts))
+        for attempt in attempts:
             attempt_type = str(attempt.get("attempt_type") or "")
             if attempt_type in _NON_PROBLEM_ATTEMPT_TYPES:
                 continue
@@ -349,6 +354,7 @@ def cold_success_trajectories(
                 not assisted
                 and correctness is not None
                 and float(correctness) >= threshold
+                and attempt.get("id") not in held
             ):
                 reached = str(attempt["id"])
                 break

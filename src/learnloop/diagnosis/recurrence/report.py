@@ -176,8 +176,15 @@ def _next_outcomes(repository: Repository) -> dict[str, Any]:
         repository,
         "SELECT id, learning_object_id, created_at, correctness FROM practice_attempts ORDER BY created_at, id",
     )
+    # held-grade-evidence: a next attempt whose grade is held for review (THE
+    # predicate) is no outcome; it is left out of the sequence.
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository, (row["id"] for row in attempts))
     by_lo: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in attempts:
+        if row["id"] in held:
+            continue
         by_lo[str(row["learning_object_id"])].append(row)
     outcome: dict[str, list[int]] = {"escalated": [0, 0], "not_escalated": [0, 0]}
     for rows in by_lo.values():

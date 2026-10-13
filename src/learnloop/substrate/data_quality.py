@@ -133,6 +133,10 @@ def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any]
         if "grading_evidence" in tables
         else {}
     )
+    # held-grade-evidence: THE held predicate; a held grade is no label.
+    from learnloop.held_grades import held_for_review_attempts
+
+    held = held_for_review_attempts(connection) if "grading_evidence" in tables else frozenset()
     label_rejections: Counter = Counter()
     eligible_labels = total_labels = 0
     for label in read("learning_outcome_labels"):
@@ -141,7 +145,7 @@ def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any]
         total_labels += 1
         outcome = attempt_by_id.get(label["outcome_attempt_id"], {})
         source = attempt_by_id.get(label["source_attempt_id"], {})
-        label.update(metadata=json.loads(label["metadata_json"]), outcome_primed=outcome.get("primed"), outcome_manual_review=outcome.get("manual_review"), outcome_manual_review_reason=outcome.get("manual_review_reason"), outcome_pfc_assessment=pfc_states.get(label["outcome_attempt_id"]), source_session_id=source.get("session_id"), outcome_session_id=outcome.get("session_id"))
+        label.update(metadata=json.loads(label["metadata_json"]), outcome_primed=outcome.get("primed"), outcome_manual_review=outcome.get("manual_review"), outcome_manual_review_reason=outcome.get("manual_review_reason"), outcome_pfc_assessment=pfc_states.get(label["outcome_attempt_id"]), outcome_grade_held_for_review=label["outcome_attempt_id"] in held, source_session_id=source.get("session_id"), outcome_session_id=outcome.get("session_id"))
         exclusions = retention_exclusions(label)
         eligible_labels += not exclusions
         label_rejections.update(exclusions)

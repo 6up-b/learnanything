@@ -76,6 +76,11 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
     """Pooled prediction-outcome calibration across all completed exam sessions."""
 
     predictions = repository.all_exam_predictions()
+    # held-grade-evidence F7: a grade held for review (THE predicate) is no
+    # observed outcome, for the item curve, the facets and the duel alike.
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository)
 
     item_pairs: list[tuple[float, float]] = []
     facet_pairs: list[tuple[float, float]] = []
@@ -95,7 +100,7 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
         if answer is None or not answer.get("attempt_id"):
             continue
         attempt = repository.fetch_practice_attempt(answer["attempt_id"])
-        if attempt is None or attempt.get("correctness") is None:
+        if attempt is None or attempt.get("correctness") is None or attempt["id"] in held:
             continue
         outcome = float(attempt["correctness"])
         item_pairs.append((float(prediction["predicted_correctness"]), outcome))
@@ -120,7 +125,7 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
     items["minimum_n"] = MINIMUM_CURVE_N
     items["curve_available"] = items["n"] >= MINIMUM_CURVE_N
 
-    duel_rows = repository.calibration_duel_pairs()
+    duel_rows = [row for row in repository.calibration_duel_pairs() if row["attempt_id"] not in held]
     learner_brier = None
     model_brier = None
     if duel_rows:
@@ -142,7 +147,7 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
     model_split = brier_decomposition(
         outcomes, [float(row["model_predicted_correctness"]) for row in duel_rows]
     )
-    presence = repository.answer_confidence_presence()
+    presence = repository.answer_confidence_presence(exclude_attempt_ids=held)
     graded = presence["graded_attempts"]
 
     return {

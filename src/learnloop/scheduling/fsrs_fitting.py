@@ -79,6 +79,10 @@ def review_log_loss(
     for sequence in review_log.sequences.values():
         state: MemoryState | None = None
         for observation in sequence:
+            if not observation.applies_review:
+                # held-grade-evidence F8: a review that never happened (a
+                # grade held for review) is neither predicted nor applied.
+                continue
             if (
                 state is not None
                 and observation.elapsed_days >= min_elapsed_days

@@ -579,11 +579,18 @@ def _direction_evidence(
     target_items = _items_for_concept(vault, target_concept)
     if not source_items or not target_items:
         return None
+    # held-grade-evidence: a grade held for review (THE predicate) is neither
+    # a success nor a failure on either side.
+    from learnloop.held_grades import held_attempt_ids
+
     source_outcomes = repository.practice_attempt_outcomes_for_items(source_items)
+    target_outcomes = repository.practice_attempt_outcomes_for_items(target_items)
+    held = held_attempt_ids(repository, (o.get("id") for o in (*source_outcomes, *target_outcomes)))
+    source_outcomes = [o for o in source_outcomes if o.get("id") not in held]
+    target_outcomes = [o for o in target_outcomes if o.get("id") not in held]
     first_correct_at = next((o["created_at"] for o in source_outcomes if _is_correct(o)), None)
     if first_correct_at is None:
         return None
-    target_outcomes = repository.practice_attempt_outcomes_for_items(target_items)
     before = [o for o in target_outcomes if str(o["created_at"]) < str(first_correct_at)]
     after = [o for o in target_outcomes if str(o["created_at"]) >= str(first_correct_at)]
     if not before or not after:
