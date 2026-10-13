@@ -160,6 +160,14 @@ forbidden_modules = ["learnloop.daily_plan"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "tui-keeps-the-open-queue"
+name = "The TUI keeps the open queue: no plan view (DL1, owner decision 2026-10-12)"
+type = "forbidden"
+source_modules = ["learnloop.tui"]
+forbidden_modules = ["learnloop.daily_plan", "learnloop.daily_plan_upgrade"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "primitives-have-no-internal-dependencies"
 name = "Primitive modules stay dependency free"
 type = "forbidden"

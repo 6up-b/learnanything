@@ -6,11 +6,16 @@ matches, in this order:
 1. **scheduled checks -> maintain** (a due assumed-known first review, a due
    project probe under ``plan.project_probes_max_per_day``; DL2 adds "Check
    once"). Never new material, whatever their attempt history;
-2. **repair**: follow-up tasks, and previously attempted items on LOs with a
-   recent error (the scheduler's ``recent_error`` at or above
-   :data:`REPAIR_MIN_RECENT_ERROR`). A never-attempted item is new material
-   even on such an LO, so it stays under §6.3's admission, out of re-entry and
-   off with ``plan.new_admission_enabled`` (review F1);
+2. **repair**: follow-up tasks, and previously attempted items on LOs with an
+   open diagnosed problem (owner decision 2026-10-12): an unresolved causal
+   hypothesis or an open unresolved-cause factor from Slice 1 M2 and Slice 2
+   T1 (:func:`learnloop.db.stores.daily_plans.open_diagnosed_problem_learning_object_ids`).
+   A recent error alone is not repair. Only while the diagnosis split is off
+   (a vault below ``mvp-0.10``, or ``diagnosis.split_enabled = false``) does
+   the lane fall back to DL1's recency rule: the scheduler's ``recent_error``
+   at or above :data:`REPAIR_MIN_RECENT_ERROR`. A never-attempted item is new
+   material even on such an LO, so it stays under §6.3's admission, out of
+   re-entry and off with ``plan.new_admission_enabled`` (review F1);
 3. **new**: never-attempted items (Phase 6's order), including never-attempted
    learner requests;
 4. **maintain**: items whose (effective) due date has passed, and previously
@@ -49,12 +54,20 @@ _EPS = 1e-9
 #: Scheduler components that mark a follow-up (``_insert_pending_followups``).
 FOLLOWUP_COMPONENTS = ("intervention_followup", "negative_surprise_followup")
 
-#: The repair lane's recency bound (review F1). The scheduler's ``recent_error``
-#: is ``severity x exp(-days / 7)`` over every active learner error on the LO,
-#: so it never reaches zero however old the error. An item is repair only at or
-#: above exp(-2): a full-severity error within the last 14 days (two of the
-#: scheduler's 7-day decay constants), a half-severity one within about 9.
+#: The repair lane's recency bound (review F1), now ONLY the fallback while
+#: the diagnosis split is off (a vault below mvp-0.10, or
+#: ``diagnosis.split_enabled = false``): with the split on, repair means an
+#: open diagnosed problem (owner decision 2026-10-12; :data:`REPAIR_RULE_DIAGNOSIS`).
+#: The scheduler's ``recent_error`` is ``severity x exp(-days / 7)`` over every
+#: active learner error on the LO, so it never reaches zero however old the
+#: error. In the fallback an item is repair only at or above exp(-2): a
+#: full-severity error within the last 14 days (two of the scheduler's 7-day
+#: decay constants), a half-severity one within about 9.
 REPAIR_MIN_RECENT_ERROR = math.exp(-2.0)
+
+#: Which rule decided the repair lane (recorded on the plan's ``split_json``).
+REPAIR_RULE_DIAGNOSIS = "open_diagnosis"
+REPAIR_RULE_RECENT_ERROR = "recent_error_fallback"
 
 
 @dataclass(frozen=True)
@@ -144,8 +157,14 @@ def classify_item(
     check: ScheduledCheck | None,
     probe_slot_available: bool,
     deadline: bool = False,
+    open_problem: bool | None = None,
 ) -> PoolItem:
-    """§6.1: the first lane that matches, in order."""
+    """§6.1: the first lane that matches, in order.
+
+    ``open_problem`` says whether the item's LO has an open diagnosed problem
+    (owner decision 2026-10-12). ``None`` means the diagnosis split is off and
+    the repair lane falls back to the recency rule (:data:`REPAIR_MIN_RECENT_ERROR`).
+    """
 
     components = getattr(scheduled, "components", {}) or {}
     never_attempted = state is None or getattr(state, "last_attempt_at", None) is None
@@ -179,9 +198,12 @@ def classify_item(
         return PoolItem(lane="maintain", reason=reasons.get(check.kind, "a scheduled check"), check_kind=check.kind, check_priority=check.priority, **base)
     if followup:
         return PoolItem(lane="repair", reason="a follow-up", **base)
-    recent_error = float(components.get("recent_error", 0.0) or 0.0)
-    if not never_attempted and recent_error >= REPAIR_MIN_RECENT_ERROR - _EPS:
-        return PoolItem(lane="repair", reason="a recent error on this topic", **base)
+    if open_problem is None:
+        recent_error = float(components.get("recent_error", 0.0) or 0.0)
+        if not never_attempted and recent_error >= REPAIR_MIN_RECENT_ERROR - _EPS:
+            return PoolItem(lane="repair", reason="a recent error on this topic", **base)
+    elif open_problem and not never_attempted:
+        return PoolItem(lane="repair", reason="an open diagnosed problem on this topic", **base)
     if never_attempted:
         return PoolItem(lane="new", reason="your request" if requested else "new material", **base)
     if due or requested:
@@ -201,10 +223,17 @@ def classify_pool(
     checks: Mapping[str, ScheduledCheck],
     probe_cap_left: int,
     deadline_learning_object_ids: Iterable[str] = (),
+    open_problem_learning_object_ids: Iterable[str] | None = None,
 ) -> list[PoolItem]:
-    """Classify the scheduler's ranked list, in rank order (§6.1)."""
+    """Classify the scheduler's ranked list, in rank order (§6.1).
+
+    ``open_problem_learning_object_ids`` are the LOs with an open diagnosed
+    problem (the repair lane, owner decision 2026-10-12); ``None`` while the
+    diagnosis split is off, when repair falls back to the recency rule.
+    """
 
     requested = set(requested_ids)
+    open_problems = None if open_problem_learning_object_ids is None else set(open_problem_learning_object_ids)
     deadline_los = set(deadline_learning_object_ids)
     # Due project probes beyond the cap stay "later"; automation / all_at_once
     # diffs come first (§6.9), then the scheduler's rank.
@@ -231,6 +260,7 @@ def classify_pool(
                 check=checks.get(item_id),
                 probe_slot_available=item_id in probe_slots,
                 deadline=scheduled.learning_object_id in deadline_los,
+                open_problem=None if open_problems is None else scheduled.learning_object_id in open_problems,
             )
         )
     return pool
@@ -276,6 +306,8 @@ def _lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]
         followups = sum(1 for item in items if item.followup)
         if followups:
             return f"repair: {count} item{plural} following up recent mistakes on {topic}"
+        if any(item.reason == "an open diagnosed problem on this topic" for item in items):
+            return f"repair: {count} item{plural} on {topic}, where a diagnosed problem is still open"
         return f"repair: {count} item{plural} on {topic}, where you made recent errors"
     if lane == "maintain":
         checks = [item for item in items if item.check_kind]
@@ -461,6 +493,8 @@ __all__ = [
     "LegacyLanesSource",
     "PoolItem",
     "REPAIR_MIN_RECENT_ERROR",
+    "REPAIR_RULE_DIAGNOSIS",
+    "REPAIR_RULE_RECENT_ERROR",
     "SOURCE_NAME",
     "ScheduledCheck",
     "classify_item",

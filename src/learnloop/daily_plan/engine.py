@@ -50,6 +50,8 @@ from learnloop.daily_plan.admission import (
 from learnloop.daily_plan.chooser import CHOOSER_NAME, LaneQuotaChooser
 from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
 from learnloop.daily_plan.lanes import (
+    REPAIR_RULE_DIAGNOSIS,
+    REPAIR_RULE_RECENT_ERROR,
     LegacyLanesSource,
     PoolItem,
     SOURCE_NAME,
@@ -73,6 +75,7 @@ from learnloop.daily_plan.records import (
 from learnloop.daily_plan.reentry import ReentryGap, reentry_gap
 from learnloop.daily_plan.split import redistribute, split_v1
 from learnloop.daily_plan.types import (
+    AFTER_REENTRY_LANE_PRIORITY,
     CONTINUE_CURRENT,
     LANE_ACTIONS,
     LANES,
@@ -297,6 +300,73 @@ def remembered_minutes(env: PlanEnv) -> tuple[int, str]:
 # -- events ----------------------------------------------------------------------
 
 
+# -- router R1's hook ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PlanBlockDecision:
+    """One block-boundary decision as router R1 logs it (owner decision 2026-10-12).
+
+    R1 (merging after DL1) records every plan decision as a
+    ``router_decisions`` row of kind ``plan_block``. ``detail`` is the
+    ``block_chosen`` receipt the container writes: the candidate set, source,
+    chooser, ``chosen_by``, propensity, why, fallback, the state the chooser
+    saw, the redistribution and forced items. ``block_id`` is the block the
+    decision made, or the stop receipt's id for a chooser's stop.
+    """
+
+    plan_id: str
+    plan_kind: str
+    local_date: str
+    block_id: str
+    session_id: str | None
+    detail: Mapping[str, Any]
+    stop: bool = False
+    kind: str = "plan_block"
+
+
+#: ``(connection, decision) -> router_decisions id or None``. The logger runs on
+#: the block's own connection, inside its transaction, so R1's row commits or
+#: rolls back with the block. The id becomes the block's ``decision_ref`` (on
+#: its row and its ``block_chosen`` receipt) unless the chooser already set one
+#: (R2's choosers log their own decisions).
+PlanDecisionLogger = Callable[[Any, PlanBlockDecision], "str | None"]
+_PLAN_DECISION_LOGGERS: list[PlanDecisionLogger] = []
+
+
+def register_plan_decision_logger(logger: PlanDecisionLogger) -> None:
+    """Router R1's hook: log each plan block decision (DL1 builds no router table)."""
+
+    if logger not in _PLAN_DECISION_LOGGERS:
+        _PLAN_DECISION_LOGGERS.append(logger)
+
+
+def unregister_plan_decision_logger(logger: PlanDecisionLogger) -> None:
+    if logger in _PLAN_DECISION_LOGGERS:
+        _PLAN_DECISION_LOGGERS.remove(logger)
+
+
+def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | None:
+    """Hand one decision to the registered loggers; the first id written wins.
+
+    With no logger registered (DL1 alone) this is a no-op. A logger that
+    fails never blocks the plan: its decision goes unlogged and is reported.
+    """
+
+    ref: str | None = None
+    for logger in list(_PLAN_DECISION_LOGGERS):
+        try:
+            written = logger(connection, decision)
+        except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
+            import logging
+
+            logging.getLogger(__name__).warning("plan decision logger failed", exc_info=True)
+            continue
+        if ref is None and written:
+            ref = str(written)
+    return ref
+
+
 def _event(connection: Any, block_id: str, kind: str, detail: Mapping[str, Any], at: str) -> None:
     store.append_block_event(
         connection, event_id=new_ulid(), block_id=block_id, kind=kind, detail=detail, created_at=at
@@ -342,6 +412,25 @@ class _Pool:
     pool: list[PoolItem]
     estimator: Estimator
     deadlines: dict[str, str]
+    repair_rule: str = REPAIR_RULE_DIAGNOSIS
+
+
+def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
+    """The repair lane's LOs (owner decision 2026-10-12) and the rule used.
+
+    With the diagnosis split on, repair means an open diagnosed problem (an
+    unresolved hypothesis or an open unresolved-cause factor). While the split
+    is off (a vault below mvp-0.10, or ``diagnosis.split_enabled = false``)
+    there is no live diagnosis to read, and the lane falls back to DL1's
+    recency rule (``lanes.REPAIR_MIN_RECENT_ERROR``).
+    """
+
+    from learnloop.attempts.blind_grading import split_grading_active
+
+    if not split_grading_active(env.vault):
+        return None, REPAIR_RULE_RECENT_ERROR
+    with env.repository.connection() as connection:
+        return store.open_diagnosed_problem_learning_object_ids(connection), REPAIR_RULE_DIAGNOSIS
 
 
 def _classified_pool(
@@ -362,6 +451,7 @@ def _classified_pool(
         1 for record in day for item in record.active_items() if item.check_kind == "project_probe"
     )
     deadlines = _deadlines(env.vault, env.repository)
+    open_problems, repair_rule = _open_problems(env)
     pool = classify_pool(
         scheduled,
         item_states=states,
@@ -371,11 +461,14 @@ def _classified_pool(
         checks=checks,
         probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
         deadline_learning_object_ids=deadlines,
+        open_problem_learning_object_ids=open_problems,
     )
     if reentry:
         pool = reentry_order(pool)
     pool = [item if item.lane in lanes_allowed else replace(item, lane=None) for item in pool]
-    return _Pool(scheduled=list(scheduled), pool=pool, estimator=estimator, deadlines=deadlines)
+    return _Pool(
+        scheduled=list(scheduled), pool=pool, estimator=estimator, deadlines=deadlines, repair_rule=repair_rule
+    )
 
 
 def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
@@ -478,6 +571,18 @@ def _prepare_plan(
     reentry = kind == "reentry"
     lanes_allowed = REENTRY_LANES if reentry else LANES
     day = day_records(env)
+    # Owner decision 2026-10-12: re-entry stays short (repair and maintain
+    # only), and the plan "keep going" builds after it (for the day's
+    # remaining minutes, or the keep-going extension when none remain) leads
+    # with new material: new takes its admitted minutes first in the split
+    # (ordinary admission, ceiling and cap kept) and its blocks win the
+    # chooser's ties.
+    after_reentry = (
+        kind in ("normal", "keep_going")
+        and override is None
+        and parent_plan_id is not None
+        and any(record.id == parent_plan_id and record.kind == "reentry" for record in day)
+    )
     built = _classified_pool(env, minutes=budget, lanes_allowed=lanes_allowed, day=day, reentry=reentry)
     pool = built.pool
     # Requests first (L3): up to requested_items_per_session go in the first
@@ -545,7 +650,7 @@ def _prepare_plan(
         repair_max_share=float(config.repair_max_share),
         maintain_max_share=float(config.maintain_max_share),
         lanes_allowed=lanes_allowed,
-        new_first=override == "more_new",
+        new_first=override == "more_new" or after_reentry,
     )
     gap = env.gap()
     split_json = {
@@ -567,6 +672,10 @@ def _prepare_plan(
         "reentry_gap": {"due": gap.due, "gap_days": gap.gap_days, "threshold_days": gap.threshold_days, "last_activity_at": gap.last_activity_at},
         "items_cap": int(config.reentry_max_items) if reentry else None,
         "replans": [],
+        # Owner decision 2026-10-12: which rule decided the repair lane (an
+        # open diagnosed problem; the recency fallback while the split is off).
+        "repair_rule": built.repair_rule,
+        "new_first": "more_new" if override == "more_new" else ("after_reentry" if after_reentry else None),
     }
     now = env.now_iso()
     row = {
@@ -872,6 +981,9 @@ def decide(
         intents=_intents(context),
         items_left=items_left,
         lane_minutes_allotted=dict(allotment),
+        lane_priority=(
+            AFTER_REENTRY_LANE_PRIORITY if record.split.get("new_first") == "after_reentry" else LANES
+        ),
     )
     source = policy.make_source(context)
 
@@ -989,6 +1101,7 @@ def _state_row(state: PlanState) -> dict[str, Any]:
         "days_since_last_activity": state.days_since_last_activity,
         "streak_days": state.streak_days,
         "kind": state.kind,
+        **({"lane_priority": list(state.lane_priority)} if tuple(state.lane_priority) != tuple(LANES) else {}),
     }
 
 
@@ -1010,8 +1123,9 @@ def _persist_block(
     decision_ref: str | None = None,
     ordinal: int | None = None,
     releases: Mapping[str, Mapping[str, Any] | None] | None = None,
+    block_id: str | None = None,
 ) -> str:
-    block_id = new_ulid()
+    block_id = block_id or new_ulid()
     now = env.now_iso()
     reading_row = None
     if reading is not None:
@@ -1147,7 +1261,10 @@ def _boundary(
     }
     candidate = decision.candidate
     if candidate is None and not forced:
-        _close(env, record, status="complete", reason=choice.why or "nothing more worth doing today", stop_detail=detail)
+        _close(
+            env, record, status="complete", reason=choice.why or "nothing more worth doing today",
+            stop_detail=detail, log_decision=True,
+        )
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
     by_id = {item.practice_item_id: item for item in context.pool}  # forced ids are not in it
@@ -1178,7 +1295,24 @@ def _boundary(
     for item, origin in items[: len(forced)]:
         los = list(dict.fromkeys([item.learning_object_id, *los]))
     with env.repository.atomic(), env.repository.connection() as connection:
-        block_id = _persist_block(
+        block_id = new_ulid()
+        # Router R1's hook (owner decision 2026-10-12): the decision is logged
+        # as a ``plan_block`` router decision in this block's transaction.
+        logged = _log_plan_decision(
+            connection,
+            PlanBlockDecision(
+                plan_id=record.id,
+                plan_kind=record.kind,
+                local_date=str(record.row.get("local_date") or ""),
+                block_id=block_id,
+                session_id=env.session_id,
+                detail=detail,
+            ),
+        )
+        if decision_ref is None and logged is not None:
+            decision_ref = logged
+            detail["decision_ref"] = logged
+        _persist_block(
             env,
             connection,
             record,
@@ -1194,6 +1328,7 @@ def _boundary(
             items=items,
             decision_ref=decision_ref,
             releases=releases,
+            block_id=block_id,
         )
     return block_id
 
@@ -1209,13 +1344,14 @@ def _persist_receipt(
     decision_ref: str | None = None,
     est_minutes: float = 0.0,
     learning_object_ids: Sequence[str] = (),
+    receipt_id: str | None = None,
 ) -> str:
     """A plan-level receipt row: a decision that is not one of the plan's
     numbered blocks (a stop, a pick after the plan closed). Append-only: an
     ``attention_blocks`` row of the plan with no ordinal, and its
     ``block_chosen`` event (§6.8 rule 6; review F6, F10)."""
 
-    receipt_id = new_ulid()
+    receipt_id = receipt_id or new_ulid()
     now = env.now_iso()
     material = json.dumps({"plan": record.id, "receipt": receipt_id, "action": action}, sort_keys=True)
     store.insert_plan_block(
@@ -1242,22 +1378,52 @@ def _persist_receipt(
     return receipt_id
 
 
-def _close(env: PlanEnv, record: PlanRecord, *, status: str, reason: str, stop_detail: Mapping[str, Any] | None = None) -> None:
+def _close(
+    env: PlanEnv,
+    record: PlanRecord,
+    *,
+    status: str,
+    reason: str,
+    stop_detail: Mapping[str, Any] | None = None,
+    log_decision: bool = False,
+) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
-    reopened by a minutes tap and stopped again keeps both decisions (F6)."""
+    reopened by a minutes tap and stopped again keeps both decisions (F6).
+    ``log_decision``: the stop is a block-boundary decision (``_boundary``),
+    handed to router R1's hook like a block."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
         if stop_detail is not None:
+            detail = {**dict(stop_detail), "stop_reason": reason, "status": status}
+            receipt_id = new_ulid()
+            decision_ref = detail.get("decision_ref")
+            if log_decision:
+                logged = _log_plan_decision(
+                    connection,
+                    PlanBlockDecision(
+                        plan_id=record.id,
+                        plan_kind=record.kind,
+                        local_date=str(record.row.get("local_date") or ""),
+                        block_id=receipt_id,
+                        session_id=env.session_id,
+                        detail=detail,
+                        stop=True,
+                    ),
+                )
+                if decision_ref is None and logged is not None:
+                    decision_ref = logged
+                    detail["decision_ref"] = logged
             _persist_receipt(
                 env,
                 connection,
                 record,
                 action=RECEIPT_STOP,
                 chosen_by=str(stop_detail.get("chosen_by") or "lane_quota"),
-                decision_ref=stop_detail.get("decision_ref"),
-                detail={**dict(stop_detail), "stop_reason": reason, "status": status},
+                decision_ref=decision_ref,
+                detail=detail,
+                receipt_id=receipt_id,
             )
         store.update_plan(
             connection,
@@ -2137,6 +2303,8 @@ __all__ = [
     "Decision",
     "ENGINE_VERSION",
     "EligibleBuilder",
+    "PlanBlockDecision",
+    "PlanDecisionLogger",
     "PlanEnv",
     "PlanInactiveError",
     "PlanPolicy",
@@ -2161,8 +2329,10 @@ __all__ = [
     "plan_active",
     "reading_ended",
     "reconcile",
+    "register_plan_decision_logger",
     "remembered_minutes",
     "set_minutes",
     "simulate_blocks",
     "stop_today",
+    "unregister_plan_decision_logger",
 ]

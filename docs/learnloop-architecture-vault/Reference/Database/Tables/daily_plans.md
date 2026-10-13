@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -21,10 +21,11 @@ source_paths:
   - "migrations/180_daily_plans.sql"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
+  - "src/learnloop/daily_plan/lanes.py"
   - "src/learnloop/daily_plan/records.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/stores/daily_plans.py"
-  - "src/learnloop/tui/minutes_memory.py"
+  - "src/learnloop/field/outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -42,7 +43,7 @@ tags:
 Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `parent_plan_id`, `estimator_version`, `algorithm_version`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> Daily-loop DL1 (daily_plan_v1, mvp-0.14): the finite daily plan (built as migration 174 at mvp-0.12; renumbered 180 and relabelled mvp-0.14 when it merged after main's 174-179, none of which touches attention_blocks) (spec_daily_loop_v1.md §6, §10). Workflow and receipt rows only: nothing here is evidence, mastery, certification or FSRS state, and replay never reads it. One plan per local calendar date and kind: the day's normal (or re-entry) plan and its "keep going" extensions, linked by parent_plan_id. Mutable workflow state (status, budget after a minutes tap); the decisions that built it are attention_block_events receipts.
+> Daily-loop DL1 (daily_plan_v1, mvp-0.14): the finite daily plan (built as migration 174 at mvp-0.12; renumbered 180 and relabelled mvp-0.14 when it merged after main's 174-179, none of which touches attention_blocks or facet_outcome_observations) (spec_daily_loop_v1.md §6, §10). Workflow and receipt rows only: nothing here is evidence, mastery, certification or FSRS state, and replay never reads it. One plan per local calendar date and kind: the day's normal (or re-entry) plan and its "keep going" extensions, linked by parent_plan_id. Mutable workflow state (status, budget after a minutes tap); the decisions that built it are attention_block_events receipts.
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Workflow]].
 

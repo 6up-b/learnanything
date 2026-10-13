@@ -19,7 +19,7 @@ from learnloop.daily_plan.lanes import (
     unregister_scheduled_check_provider,
 )
 from learnloop.daily_plan.types import LANES, PlanState
-from tests.daily_plan_fakes import NOW, MovableClock, make_env, record_attempt, scheduled, seed_due
+from tests.daily_plan_fakes import NOW, MovableClock, make_env, record_attempt, scheduled, seed_due, seed_open_problem
 from tests.helpers import create_daily_plan_vault
 
 PAST = NOW - timedelta(days=1)
@@ -261,6 +261,9 @@ def _seed_wide(repository):
         seed_due(repository, item, due=FUTURE, last=LAST)
     for item in ("pi_m1a", "pi_m1b", "pi_m2a"):
         seed_due(repository, item, due=PAST, last=LAST)
+    # lo_r1 is the repair LO: an open diagnosed problem (owner decision
+    # 2026-10-12), not just its recent errors.
+    seed_open_problem(repository, "lo_r1")
 
 
 @pytest.mark.parametrize("budget", [10, 15, 25, 40])

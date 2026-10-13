@@ -94,6 +94,86 @@
 > `frontend:build` ok; `db_generate_reference.py` then
 > `db_validate_reference.py` **0 errors**; `validate_vault.py` passed. `cargo
 > check` not run (no Rust change beyond DL1's passthroughs).
+>
+> **Owner decisions (2026-10-12), applied on top of the merge** (fail-first
+> tests in `tests/test_daily_plan_owner_decisions.py`; each failed on the
+> merge commit and passes after):
+>
+> 1. **"Repair" means an open diagnosed problem**: an unresolved causal
+>    hypothesis (the latest version of a `learner_state` episode still
+>    `candidate` or `validated`, unless its promoted misconception has been
+>    resolved) or an `open` unresolved-cause factor, which Slice 1 M2's
+>    diagnoses and Slice 2 T1's groups write through the shared normalizer
+>    (`db/stores/daily_plans.open_diagnosed_problem_learning_object_ids`). A
+>    recent error alone is a due review, not repair; a retired (withdrawn,
+>    e.g. by a confirmed repair) or demoted head, a resolved factor and a
+>    diagnosed slip or item/grader/interaction cause are not repair either.
+>    `REPAIR_MIN_RECENT_ERROR` (review F1's e^-2 bound) stays only as the
+>    fallback while the diagnosis split is off (a vault below `mvp-0.10`, or
+>    `diagnosis.split_enabled = false`), as `lanes.py` and §6.1 of the spec
+>    now say; each plan records `split_json.repair_rule` (`open_diagnosis` or
+>    `recent_error_fallback`). Follow-ups are still repair, and a
+>    never-attempted item is still new material (F1). This supersedes F1's
+>    "recency bound" text below. DL1's own tests that meant an LO to be in
+>    repair now seed an open hypothesis on it (`daily_plan_fakes.seed_open_problem`);
+>    `test_f1_a_recent_error_repairs...` became
+>    `test_f1_an_open_diagnosis_repairs...`.
+> 2. **Re-entry stays short** (repair and maintain only, as built), and
+>    **"keep going" after a re-entry plan offers new material easily.** It did
+>    not: with a long break's maintenance backlog and push work, the plan
+>    keep going built for the day's remaining minutes gave new less than one
+>    item's minutes and served none (the fail-first test planned no new item).
+>    Now that plan (or the keep-going extension, when the re-entry used every
+>    remembered minute) leads with new material: new takes its admitted
+>    minutes first in the split (ordinary admission: ceiling, cap and floor
+>    kept; recorded as `split_json.new_first = "after_reentry"`), and its
+>    blocks win `lane_quota_v1`'s ties (`PlanState.lane_priority`), so the
+>    first block after re-entry is new material. This answers open question 7
+>    for the step after re-entry; re-entry itself is unchanged.
+> 3. **No TUI plan view.** The TUI keeps the open queue (open question 1),
+>    pinned by a new import contract, `tui-keeps-the-open-queue`
+>    (`learnloop.tui` never imports `learnloop.daily_plan`); the TUI's
+>    minutes memory says so.
+> 4. **Plan-served attempts get a `daily_plan` serving kind** in the learner
+>    field. `field.outcomes` reads the plan's `item_served` receipts
+>    (`db/stores/daily_plans.plan_served_origins`; matched by the served offer,
+>    else by session and item), so a plan-served attempt is `daily_plan` (or
+>    `learner_pick`, for a pick the plan served) instead of `unknown`;
+>    follow-ups keep `forced_followup` and full-list picks `learner_pick`.
+>    The field's DERIVED `facet_outcome_observations` checked its origin
+>    vocabulary, so migration 180 also rebuilds it with `daily_plan` in the
+>    CHECK (rows, columns, key and index unchanged; tested). The evaluation's
+>    split labels include it. This is the one rebuild reader of plan rows: an
+>    analysis label, never evidence. **Router R1's hook:** `_boundary` hands
+>    every block decision (and a chooser's stop) to registered
+>    `register_plan_decision_logger` loggers as a `PlanBlockDecision` of kind
+>    `plan_block`, on the block's own connection inside its transaction; the
+>    id a logger returns becomes the block's `decision_ref` (row and receipt)
+>    unless the chooser set one. With no logger registered nothing changes;
+>    DL1 builds no router table.
+>
+> Composition (`tests/test_daily_plan_composition.py`): **the headline read
+> placement at the wall clock**, so a check miss whose diagnosis was still
+> pending could be counted by today's rule once the bounded wait had passed
+> in wall-clock time; it now reads placement at its own time and keeps the LO
+> "assumed" while the diagnosis decides (failed before the fix). A pending
+> check miss serves no second check in the plan's maintain lane (the
+> scheduler subtracts `awaiting_diagnosis_learning_object_ids`). An empty
+> "I'm stuck" answer on a plan-served item is done, the plan moves on, and
+> the field labels it `daily_plan` through a real rebuild; a T6 tutor reveal
+> during a plan item leaves the item flow alone.
+>
+> Parity rerun on the owner-decision code (the merge side only, on fresh
+> copies of the same main-upgraded bases): **all identical at all five
+> versions on both copies** again, the candidate shadow at `mvp-0.14` differs
+> only by the version stamp, and plan-off Today equals `mvp-0.13`'s at the
+> frozen clock and at a later one (2027-01-20); neither copy has an active
+> goal, so the DL0 re-entry cap is `null` at both dates (the cap with the plan
+> off is pinned by `test_with_the_plan_off_the_dl0_queue_cap_still_applies...`).
+> Gate on the owner-decision commit: `lint-imports` **14 kept, 0 broken**;
+> `pytest -n auto` **8,507 passed**; `pytest -m durability` **93 passed**;
+> frontend `typecheck` clean, `npm test` **151 passed in 31 files**, build
+> ok; references regenerated with **0 errors**; `validate_vault.py` passed.
 
 **Branch:** `daily-loop/dl1`, worktree `learnanything-dl1`, from `main` at `0583648d`
 (DL0, `fix/daily-loop-followups` F1 and Slice A Phase 6 are merged there).

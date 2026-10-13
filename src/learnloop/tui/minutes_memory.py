@@ -11,7 +11,8 @@ session's minutes (``remembered_session_minutes``).
 
 Best effort, like any preference: a missing, unreadable or unwritable file means
 nothing is remembered, never a failed Begin. DL1's
-``daily_plans.remembered_minutes`` replaces this store.
+``daily_plans.remembered_minutes`` is the desktop plan's; the TUI has no plan
+view and keeps the open queue and this store (owner decision 2026-10-12).
 """
 
 from __future__ import annotations

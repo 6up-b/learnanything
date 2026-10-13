@@ -1,4 +1,4 @@
-"""The only SQL writer for daily-loop DL1 plan rows (migration 174).
+"""The only SQL writer for daily-loop DL1 plan rows (migration 180; built as 174).
 
 ``daily_plans`` is WORKFLOW state (status, budget, the remembered minutes).
 A plan's blocks are ``attention_blocks`` rows carrying the DL1 columns
@@ -7,8 +7,15 @@ A plan's blocks are ``attention_blocks`` rows carrying the DL1 columns
 ``attention_block_events`` receipt. A decision that is not a block (a stop,
 a pick served after the plan closed) is a receipt row: an ``attention_blocks``
 row of the plan with a NULL ``plan_ordinal`` and its own events. Nothing here is evidence, and replay never
-reads these rows. Callers own the transaction (``with repository.atomic(),
-repository.connection() as connection``).
+reads these rows: the only rebuild reader is the learner field's outcome view
+(an analysis read model, not evidence), which labels a plan-served attempt's
+serving kind from its ``item_served`` receipt (owner decision 2026-10-12,
+:func:`plan_served_origins`). Callers own the transaction (``with
+repository.atomic(), repository.connection() as connection``).
+
+Two read helpers serve the owner's decisions of 2026-10-12:
+:func:`open_diagnosed_problem_learning_object_ids` (what the repair lane means)
+and :func:`plan_served_origins` (the field's ``daily_plan`` serving kind).
 """
 
 from __future__ import annotations
@@ -203,17 +210,118 @@ def daily_plan_tables_present(connection: sqlite3.Connection) -> bool:
     return row is not None
 
 
+#: Hypothesis head statuses that are still an open problem: a candidate (the
+#: holding pen) or a validated (promoted) cause. ``retired`` (withdrawn, e.g.
+#: by a confirmed repair) and ``demoted`` (refuted) heads are resolved.
+OPEN_HYPOTHESIS_STATUSES = ("candidate", "validated")
+
+
+def open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]:
+    """LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
+
+    An open diagnosed problem is either
+
+    * an unresolved causal hypothesis: the latest version of a
+      ``learner_state`` episode whose status is still ``candidate`` or
+      ``validated``, unless it is a validated cause whose promoted
+      misconception has since been resolved; or
+    * an ``open`` unresolved-cause factor (on the LO of its attempt).
+
+    Slice 1 M2's diagnoses and Slice 2 T1's recurrence groups write both
+    through the shared normalizer; a confirmed repair closes the factor and
+    withdraws its candidate hypotheses, so a fixed problem leaves the lane. A
+    diagnosed slip (``transient_execution``) or an item, grader or interaction
+    cause is not the learner's problem to repair. Read-only.
+    """
+
+    open_los: set[str] = set()
+    resolved_misconceptions: set[str] | None = None
+    rows = connection.execute(
+        """
+        SELECT h.learning_object_id, h.status, h.evidence_json
+          FROM causal_hypotheses h
+         WHERE h.cause_scope = 'learner_state'
+           AND h.status IN ('candidate', 'validated')
+           AND h.version = (
+             SELECT MAX(head.version) FROM causal_hypotheses head
+              WHERE head.episode_key = h.episode_key
+           )
+        """
+    ).fetchall()
+    for row in rows:
+        learning_object_id, status, evidence_json = row[0], row[1], row[2]
+        if not learning_object_id:
+            continue
+        if status == "validated":
+            evidence = _loads(evidence_json)
+            promoted = evidence.get("promoted_misconception_id") if isinstance(evidence, dict) else None
+            if promoted:
+                if resolved_misconceptions is None:
+                    resolved_misconceptions = {
+                        str(value[0])
+                        for value in connection.execute("SELECT id FROM misconceptions WHERE status = 'resolved'")
+                    }
+                if str(promoted) in resolved_misconceptions:
+                    continue
+        open_los.add(str(learning_object_id))
+    for row in connection.execute(
+        "SELECT DISTINCT a.learning_object_id FROM unresolved_cause_factors f "
+        "JOIN practice_attempts a ON a.id = f.attempt_id WHERE f.status = 'open'"
+    ):
+        if row[0]:
+            open_los.add(str(row[0]))
+    return frozenset(open_los)
+
+
+def plan_served_origins(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
+    """Every plan ``item_served`` receipt, by practice item, oldest first.
+
+    Each entry: ``served_at``, ``session_id``, ``scheduler_candidate_id`` and
+    ``serving_origin`` (``daily_plan``, or ``learner_pick`` for a pick the plan
+    served). The learner field reads these so a plan-served attempt is labelled
+    ``daily_plan`` rather than ``unknown`` (owner decision 2026-10-12). Empty
+    on a database without the plan tables. Read-only.
+    """
+
+    if not daily_plan_tables_present(connection):
+        return {}
+    rows = connection.execute(
+        "SELECT e.detail_json, e.created_at FROM attention_block_events e "
+        "JOIN attention_blocks b ON b.id = e.block_id "
+        "WHERE e.kind = 'item_served' AND b.daily_plan_id IS NOT NULL "
+        "ORDER BY e.created_at, e.id"
+    ).fetchall()
+    served: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        detail = _loads(row[0]) or {}
+        item_id = detail.get("practice_item_id")
+        if not item_id:
+            continue
+        served.setdefault(str(item_id), []).append(
+            {
+                "served_at": str(row[1]),
+                "session_id": detail.get("session_id"),
+                "scheduler_candidate_id": detail.get("scheduler_candidate_id"),
+                "serving_origin": str(detail.get("serving_origin") or "daily_plan"),
+            }
+        )
+    return served
+
+
 __all__ = [
     "abandon_open_plans_before",
     "all_plans",
     "append_block_event",
     "block_events_for",
     "daily_plan_tables_present",
+    "OPEN_HYPOTHESIS_STATUSES",
     "insert_plan",
     "insert_plan_block",
     "latest_plan",
+    "open_diagnosed_problem_learning_object_ids",
     "plan_blocks",
     "plan_by_id",
+    "plan_served_origins",
     "plans_for_date",
     "update_plan",
 ]

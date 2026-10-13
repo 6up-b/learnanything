@@ -26,6 +26,10 @@ FLOW_ORDER: tuple[Lane, ...] = ("maintain", "repair", "push", "new")
 PICK_DEDUCTION_ORDER: tuple[Lane, ...] = ("push", "new", "repair", "maintain")
 #: The lanes a re-entry plan uses (§7).
 REENTRY_LANES: tuple[Lane, ...] = ("repair", "maintain")
+#: The lane tie order of the plan for the day's remaining minutes after a
+#: re-entry plan (owner decision 2026-10-12): re-entry stays repair and
+#: maintain only, and "keep going" after it leads with new material.
+AFTER_REENTRY_LANE_PRIORITY: tuple[Lane, ...] = ("new", "repair", "maintain", "push")
 
 #: Canonical actions per lane (§6.1; ``controller_actions``).
 LANE_ACTIONS: Mapping[str, tuple[str, str | None]] = {
@@ -83,6 +87,9 @@ class PlanState:
     items_left: int | None = None
     #: each lane's allotment after redistribution (the share's denominator).
     lane_minutes_allotted: Mapping[str, float] = field(default_factory=dict)
+    #: the lane order ties go in (``lane_quota_v1``); new first in the plan
+    #: after a re-entry plan (:data:`AFTER_REENTRY_LANE_PRIORITY`).
+    lane_priority: tuple[str, ...] = LANES
 
 
 @dataclass(frozen=True)
@@ -162,6 +169,7 @@ class BlockChooser(Protocol):
 
 
 __all__ = [
+    "AFTER_REENTRY_LANE_PRIORITY",
     "BLOCK_MAX_MINUTES",
     "BLOCK_MIN_MINUTES",
     "BlockCandidate",

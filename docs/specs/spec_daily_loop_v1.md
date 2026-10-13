@@ -422,7 +422,7 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 
 | Lane | Canonical action | Items |
 |---|---|---|
-| `repair` | `practice(completion_or_repair)` | Follow-up tasks (cold retries, intervention follow-ups) and items on LOs with recent errors |
+| `repair` | `practice(completion_or_repair)` | Follow-up tasks (cold retries, intervention follow-ups) and previously attempted items on LOs with an **open diagnosed problem**: an unresolved causal hypothesis or an open unresolved-cause factor (Slice 1 M2, Slice 2 T1). *Owner decision 2026-10-12, at DL1's merge: a recent error alone is not repair; DL1's recency bound (`recent_error` ≥ e^-2) is only the fallback while the diagnosis split is off (a vault below `mvp-0.10`, or `diagnosis.split_enabled = false`). Never-attempted items stay new material.* |
 | `maintain` | `maintain` | **Scheduled checks**, attempted or not: a due "Check once" (§5.2), assumed-known first reviews (§5.6) and due project probes (§6.9). Items whose effective due (§5.3) has passed. Previously attempted learner requests |
 | `new` | `instruct` | Never-attempted items on learning-eligible LOs, in Phase 6's order (opening probes, before Phase 6); never-attempted learner requests; reading blocks (§6.10) |
 | `push` | `practice(transfer \| integration \| fluency)` | Items on goal frontiers or under Learn and Master commitments that are not yet due |
@@ -672,6 +672,7 @@ The container's rules (minutes, lanes, finiteness, requests first, learner picks
 - **The plan** is kind `reentry`:
   - its minutes are min(remembered minutes, `plan.reentry_minutes` = 15), with at most `plan.reentry_max_items` = 8 items (D11);
   - it uses the repair and maintain lanes only;
+  - *owner decision 2026-10-12:* "keep going" after it builds the plan for the day's remaining minutes, which leads with new material (new takes its admitted minutes first, under ordinary admission, and its blocks win the chooser's ties), so new material is offered easily once the short re-entry is done;
   - its order: assumed-known checks that came due, then intent tier (Master, Learn and goals with deadlines; then Keep; then uncommitted), then the scheduler's rank. **Light touch is left out.**
 - **The panel** stays survival-first:
   > Welcome back — 23 days. Still solid: 41. Slipped below target: 6 (eigenvalues, Bayes' rule, …). Today: a short re-entry, about 12 min, 7 items.

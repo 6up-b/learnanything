@@ -3,8 +3,8 @@ title: "Config - plan"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml plan"
@@ -51,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `plan.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1797`; `src/learnloop/daily_plan/engine.py:107`; `src/learnloop_sidecar/handlers/daily_plan.py:129` |
+| `plan.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1797`; `src/learnloop/daily_plan/engine.py:110`; `src/learnloop_sidecar/handlers/daily_plan.py:129` |
 | `plan.new_admission_enabled` | `true` | boolean | modeled default or validator seed | Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1800` |
 | `plan.reading_blocks` | `true` | boolean | modeled default or validator seed | Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1802` |
 | `plan.default_minutes` | `25` | integer | modeled default or validator seed | Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1804` |

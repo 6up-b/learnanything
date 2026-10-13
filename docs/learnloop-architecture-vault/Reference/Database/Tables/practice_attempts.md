@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -175,6 +175,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -244,6 +245,7 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_contamination_report.py`
+- `tests/test_daily_plan_composition.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_replay.py`
@@ -253,7 +255,6 @@ Indexes and uniqueness:
 - `tests/test_embedding_compare.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_seeding.py`
-- `tests/test_facet_outcome_view.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

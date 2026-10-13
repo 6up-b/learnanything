@@ -16,7 +16,7 @@ from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
-from tests.daily_plan_fakes import NOW, MovableClock, iso, record_attempt
+from tests.daily_plan_fakes import NOW, MovableClock, iso, record_attempt, seed_open_problem
 from tests.helpers import ALGORITHM_VERSION, create_daily_plan_vault
 
 
@@ -33,7 +33,9 @@ def _ended_session(repository: Repository, session_id: str, moment) -> None:
         connection.commit()
 
 
-# -- F1: never-attempted items are new material, and repair has a recency bound --
+# -- F1: never-attempted items are new material, and repair has a bound --
+# (the recency bound is the fallback while the diagnosis split is off; with it
+# on, repair is an open diagnosed problem: owner decision 2026-10-12)
 
 
 def _failed_and_unseen(tmp_path, *, error_days_ago: float, plan_toml: str | None = None):
@@ -106,8 +108,13 @@ def test_f1_reentry_never_plans_an_unseen_sibling_of_an_old_error(tmp_path):
     assert all(lane != "repair" for lane in planned.values())
 
 
-def test_f1_a_recent_error_repairs_the_failed_item_and_the_unseen_one_is_new(tmp_path):
+def test_f1_an_open_diagnosis_repairs_the_failed_item_and_the_unseen_one_is_new(tmp_path):
+    # Owner decision 2026-10-12 (at DL1's merge): with the diagnosis split on,
+    # repair is an open diagnosed problem, not a recent error, so the failed
+    # item's LO carries an unresolved hypothesis here. A recent error alone is
+    # a due review (tests/test_daily_plan_owner_decisions.py).
     env = _failed_and_unseen(tmp_path, error_days_ago=1)
+    seed_open_problem(env.repository, "lo_err")
     components = _real_components(env)
     assert components["pi_unseen"]["recent_error"] > 0.5
     record = get_or_create_today(env)

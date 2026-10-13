@@ -3,8 +3,8 @@ title: "Config - recall_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recall_coverage"
@@ -61,7 +61,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `recall_coverage.familiarity_recent_attempt_window` | `8` | integer | modeled default or validator seed | Sets the rolling familiarity recent attempt window used by evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:454`; `src/learnloop/attempts/attempts.py:3128`; `src/learnloop/field/outcomes.py:395` |
+| `recall_coverage.familiarity_recent_attempt_window` | `8` | integer | modeled default or validator seed | Sets the rolling familiarity recent attempt window used by evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:454`; `src/learnloop/attempts/attempts.py:3128`; `src/learnloop/field/outcomes.py:429` |
 | `recall_coverage.same_item_evidence_discount` | `0.5` | number | modeled default or validator seed | Scales the contribution of same item evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:455`; `src/learnloop/learner/recall_coverage.py:341` |
 | `recall_coverage.same_surface_family_evidence_discount` | `0.7` | number | modeled default or validator seed | Scales the contribution of same surface family evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:456`; `src/learnloop/learner/recall_coverage.py:342` |
 | `recall_coverage.same_facet_surface_evidence_discount` | `0.85` | number | modeled default or validator seed | Scales the contribution of same facet surface evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:457`; `src/learnloop/learner/recall_coverage.py:343` |

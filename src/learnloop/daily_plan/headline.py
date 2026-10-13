@@ -5,7 +5,11 @@
 It counts active LOs in non-excluded intents (DL1: every active LO), each in
 exactly one class, in this order:
 
-- **assumed:** an open Phase 6 assumption whose first review hasn't resolved;
+- **assumed:** an open Phase 6 assumption whose first review hasn't resolved
+  (main's diagnosis-decided placement: a check miss whose diagnosis is still
+  pending leaves the assumption open, so the LO stays assumed until the
+  diagnosis decides it, within ``placement.rules.DIAGNOSIS_WAIT_DAYS`` of the
+  headline's own time);
 - **demonstrated:** the whole LO is certified, never just part of it. An LO
   with authored blueprints uses ``lo_certification(...).demonstrated``; any
   other LO needs every required capability of every one of its facets
@@ -21,7 +25,7 @@ class is omitted rather than shown as 0. Read-only: nothing here is evidence.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from learnloop.daily_plan.reentry import retrievability
@@ -36,13 +40,19 @@ HEADLINE_CLASSES = ("demonstrated", "assumed", "learning", "untested")
 EXPECTED_RECALL_TOOLTIP = "a model estimate, not a test"
 
 
-def classify_learning_objects(vault: Any, repository: Any) -> dict[str, str]:
-    """Each active LO in exactly one headline class."""
+def classify_learning_objects(vault: Any, repository: Any, *, now: datetime | None = None) -> dict[str, str]:
+    """Each active LO in exactly one headline class.
+
+    ``now`` is the headline's time. Placement state is read at it, never the
+    wall clock, because whether a pending diagnosis still holds a check miss
+    depends on the time (the wait is bounded).
+    """
 
     assumed_ids: set[str] = set()
     placement_on = placement_active(vault)
     if placement_on:
-        state = load_placement_state(vault, repository)
+        now_iso = None if now is None else now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        state = load_placement_state(vault, repository, now_iso=now_iso)
         assumed_ids = set(state.open_by_lo)
     canonical = is_canonical_state_vault(vault)
     cells_by_facet: dict[str, list[Any]] = defaultdict(list)
@@ -130,7 +140,7 @@ def expected_recall_today(vault: Any, repository: Any, *, now: datetime) -> tupl
 
 
 def today_headline(vault: Any, repository: Any, *, now: datetime) -> dict[str, Any]:
-    classes = classify_learning_objects(vault, repository)
+    classes = classify_learning_objects(vault, repository, now=now)
     counts = {name: 0 for name in HEADLINE_CLASSES}
     for value in classes.values():
         counts[value] += 1

@@ -1,8 +1,9 @@
 """``lane_quota_v1``: DL1's deterministic block chooser (``spec_daily_loop_v1.md`` §6.8).
 
 It picks the feasible candidate from the lane with the largest unspent share
-of its split; ties go in the order repair, maintain, new, push, then to the
-higher planner value (then the source's order). With nothing feasible it
+of its split; ties go in the order repair, maintain, new, push (the state's
+``lane_priority``: new first in the plan after a re-entry plan, owner decision
+2026-10-12), then to the higher planner value (then the source's order). With nothing feasible it
 stops for today. Its "why" is computed from the source's reason.
 """
 
@@ -50,11 +51,16 @@ class LaneQuotaChooser:
                 why_kind="computed",
             )
         order = {candidate.candidate_id: index for index, candidate in enumerate(feasible)}
+        priority = tuple(getattr(state, "lane_priority", LANES) or LANES)
+
+        def rank(lane: str) -> int:
+            return priority.index(lane) if lane in priority else len(priority) + LANES.index(lane)
+
         best = min(
             feasible,
             key=lambda candidate: (
                 -round(unspent_share(candidate.lane, state), 9),
-                LANES.index(candidate.lane),
+                rank(candidate.lane),
                 -candidate.planner_value,
                 order[candidate.candidate_id],
             ),

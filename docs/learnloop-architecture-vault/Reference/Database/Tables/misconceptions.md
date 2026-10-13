@@ -3,8 +3,8 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 

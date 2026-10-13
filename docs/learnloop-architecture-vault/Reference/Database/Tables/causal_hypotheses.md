@@ -3,8 +3,8 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68213d96d97ce61b30682ef4e4c01ea58ba82a5b"
-source_commit_timestamp: "2026-10-12T21:28:16-04:00"
+source_commit: "b187621ec5d7a2a6011c2faa594ba8131c3d0de2"
+source_commit_timestamp: "2026-10-12T22:14:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/118_causal_attribution_p1.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
 tags:
@@ -128,6 +128,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
@@ -178,6 +179,7 @@ Database triggers:
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
+- `tests/daily_plan_fakes.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_causal_attribution_p2.py`
@@ -185,7 +187,6 @@ Database triggers:
 - `tests/test_causal_migration.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_probe_commissioning.py`
-- `tests/test_causal_shadow_selection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

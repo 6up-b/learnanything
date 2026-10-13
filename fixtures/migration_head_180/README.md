@@ -37,7 +37,10 @@ append-only `reveal_events` (same columns, indexes and triggers) so its
 daily-loop DL1's finite plan (`daily_plans`, WORKFLOW, and the
 `attention_blocks` plan columns `daily_plan_id`, `plan_ordinal`, `lane`,
 `chosen_by`, `decision_ref`, `reading_json` with the unique
-`idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge).
+`idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge)
+and rebuilds the learner field's DERIVED `facet_outcome_observations` (same
+columns, key and index) so its `serving_origin` CHECK also accepts
+`daily_plan` (owner decision 2026-10-12).
 Built as a backup-API copy of `migration_head_179` with only 180 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins

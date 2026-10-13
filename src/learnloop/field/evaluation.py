@@ -31,6 +31,12 @@ from learnloop.numeric import student_t_quantile
 
 HARNESS_VERSION = "field-prequential-v2"
 
+#: Serving-origin split labels. ``daily_plan``: served by daily-loop DL1's
+#: finite plan, read from its item_served receipts (owner decision 2026-10-12).
+SERVING_ORIGIN_LABELS = frozenset(
+    {"learner_pick", "system_probe", "forced_followup", "requested", "daily_plan", "unknown"}
+)
+
 MEMORY_LIMITATIONS = (
     "Memory arms admit uncalibrated graded cold retrievals; ability arms require positive "
     "effective mass. Their sample counts can differ; comparisons pair only common attempts.",
@@ -506,9 +512,7 @@ def evaluate(
         labels.append({
             "attempt_position": "first_unseen_lo" if first else "later",
             "item_position": "first_unseen_item" if first_item else "repeat_item",
-            "serving_origin": row.serving_origin if row.serving_origin in {
-                "learner_pick", "system_probe", "forced_followup", "requested", "unknown"
-            } else "unknown",
+            "serving_origin": row.serving_origin if row.serving_origin in SERVING_ORIGIN_LABELS else "unknown",
             "revision_status": row.revision_status if row.revision_status in {
                 "exact", "reconstructed_current", "excluded"
             } else "unknown",

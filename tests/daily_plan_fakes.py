@@ -73,6 +73,26 @@ def seed_due(repository: Repository, item_id: str, *, due: datetime | None, last
     )
 
 
+def seed_open_problem(repository: Repository, lo_id: str, *, attempt_id: str | None = None) -> dict[str, Any]:
+    """An open diagnosed problem on ``lo_id``: an unresolved learner-state hypothesis.
+
+    Owner decision 2026-10-12: the plan's repair lane is an open diagnosed
+    problem (with the diagnosis split on), not a recent error. The hypothesis
+    names an attempt id only as a reference (no attempt row is written, so
+    estimates and reconciliation are untouched).
+    """
+
+    return repository.append_causal_hypothesis(
+        episode_key=f"ep_open_{lo_id}",
+        attempt_id=attempt_id or f"att_seed_{lo_id}",
+        learning_object_id=lo_id,
+        cause_scope="learner_state",
+        statement=f"an open problem on {lo_id}",
+        statement_normalized=f"an open problem on {lo_id}",
+        status="candidate",
+    )
+
+
 def record_attempt(repository: Repository, item_id: str, lo_id: str, at: datetime, *, latency_seconds: int | None = 120, session_id: str | None = None) -> str:
     attempt_id = f"att_{item_id}_{int(at.timestamp())}"
     with repository.connection() as connection:
