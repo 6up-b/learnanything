@@ -47,6 +47,7 @@ import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/a
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
+import { useBareAltClear } from "./reader/bareAlt";
 import {
   parseRequestError,
   parseRequestResult,
@@ -1405,9 +1406,10 @@ export function ReaderScreen({
     return () => window.removeEventListener("keydown", handler, true);
   }, [tagMenu]);
 
-  // A single Alt press is the quick "clear capture" gesture. It also composes
-  // with Alt+drag block sweeping: the key press clears the old capture first,
-  // then the drag commits its replacement on mouse-up.
+  // A single bare Alt press is the quick "clear capture" gesture (K7: it
+  // completes on release, and never when Alt was part of a chord, so Alt+←,
+  // Alt+drag sweeps and Alt+Tab keep the capture). An Alt+drag sweep replaces
+  // the capture itself on mouse-up.
   const clearSelection = useCallback(() => {
     setSelection(null);
     setSelectionActions([]);
@@ -1415,19 +1417,7 @@ export function ReaderScreen({
     setTagMenu(null);
     window.getSelection()?.removeAllRanges();
   }, []);
-  useEffect(() => {
-    const onAltClear = (event: KeyboardEvent) => {
-      if (event.key !== "Alt" || event.repeat) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest("input, textarea, select"))
-      ) return;
-      clearSelection();
-    };
-    window.addEventListener("keydown", onAltClear, true);
-    return () => window.removeEventListener("keydown", onAltClear, true);
-  }, [clearSelection]);
+  useBareAltClear(clearSelection);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.
