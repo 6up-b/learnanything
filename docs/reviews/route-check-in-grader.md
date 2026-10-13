@@ -50,8 +50,8 @@ Counts are `git diff --numstat e238fa07a f2aa47537`.
 - `proof_check_route` and `resolve_check_client`;
 - `ai.routing.proof_check`. It is retired, not an error: an old config that
   sets it, or sets `ai.route_output_tokens.proof_check` /
-  `ai.route_reasoning_effort.proof_check`, still loads; the value is ignored
-  and `doctor` reports `config:retired_route`;
+  `ai.route_reasoning_effort.proof_check`, still loads, and the value is
+  ignored. `doctor` reports `config:retired_route` for the route key itself;
 - the `proof_check` spend route and its dry-run and admission planning;
 - the checker calibration suffix (`+proof-route-check-v3:…@<checker>`);
 - the restored, disputed and flagged outcomes, the `disputed_fatal` and
