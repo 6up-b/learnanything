@@ -1,6 +1,6 @@
 # Reader workbench: inquiry, worked problems, passage cues, syntopic reading and loop closure (v1)
 
-**Status:** draft for owner review (2026-10-12), **revised after the integration review the same day** (§20). The review checked every phase against the code on `main` at `68213d96` and against the in-flight branches. It then split each phase into a small first slice that ships a learner benefit on its own and a second slice that adds the model work. It also folded in a Codex reviewer's high-ROI list (§20.3).
+**Status:** draft for owner review (2026-10-12), **revised after the integration review the same day** (§20). The review checked every phase against the code on `main` at `68213d96` and against the in-flight branches. It then split each phase into a small first slice that ships a learner benefit on its own and a second slice that adds the model work. It also folded in a Codex reviewer's high-ROI list (§20.3). **Owner decision, 2026-10-12 (§20.7):** cold follow-ups have no count cap; the existing EIG/EVSI machinery chooses, numbers and dates them (§9.3). A coverage audit of the source dialogue against this spec is `docs/reviews/reader-dialogue-coverage.md`.
 
 **Source:** `docs/brainstorming/Improving Reader's design.md` (the owner's design dialogue, committed with this spec). Its three rounds:
 1. the agent's brainstorm: intentions, textbook pain points, learning loops, features A–G, the workbench layout, retrieval;
@@ -45,7 +45,7 @@ The Reader today is a good source viewer with an Ask rail, capture presets, quic
 - **question → sources → explanation**: library search finds passages but can't say what each source contributes, or how two books differ;
 - **session → memory → later check**: nothing brings a returning learner back to where they were, nothing summarizes a reading session for the router, and nothing turns assisted understanding into a later independent check.
 
-**The Reader becomes a source-grounded workbench.** Reading still looks like reading. When the learner investigates, the Ask rail branches and reconnects. When the learner works a problem, the source stays beside a step-by-step workspace that survives navigation and restarts, and whose hints start from the learner's own steps. Passages that touch something the learner got wrong before carry a quiet margin mark. A question to the library returns the passages, organized by what each source contributes, with the tutor one click away. When the learner comes back, the Reader shows where they were and what is still open; LearnLoop gives the router a summary and schedules one short unfamiliar problem for later.
+**The Reader becomes a source-grounded workbench.** Reading still looks like reading. When the learner investigates, the Ask rail branches and reconnects. When the learner works a problem, the source stays beside a step-by-step workspace that survives navigation and restarts, and whose hints start from the learner's own steps. Passages that touch something the learner got wrong before carry a quiet margin mark. A question to the library returns the passages, organized by what each source contributes, with the tutor one click away. When the learner comes back, the Reader shows where they were and what is still open; LearnLoop gives the router a summary and schedules short unfamiliar problems for later — as many as are worth the learner's time, chosen by how much each would tell LearnLoop (§9.3).
 
 Four rules carry over from the dialogue:
 1. **Preserve the learner's evolving reasoning,** not only what was asked and whether the final answer was right.
@@ -69,7 +69,7 @@ Four rules carry over from the dialogue:
 - **RW4b. Exercises from my sources.** When `find_practice` finds nothing, find candidate exercise passages in the learner's sources and hand the chosen one to the existing exercise import.
 - **RW5. Explorable figures (narrowed pilot).** "Make this explorable" on a selected equation or figure: a declarative, verified figure spec drawn by a trusted renderer with two panel types, with an optional prediction.
 - **RW6a. "Last time here".** A deterministic recap on returning to a source: last position, open inquiries, unfinished problems, missed predictions, with resume links.
-- **RW6b. Digest, router card and cold follow-ups.** An optional narrative over the recap, reader activity in the router's learner-state card, and one cold follow-up per session served through DL2's "Check once".
+- **RW6b. Digest, router card and cold follow-ups.** An optional narrative over the recap, reader activity in the router's learner-state card, and cold follow-ups served through DL2's "Check once". Follow-ups have no count cap: the existing value-of-information machinery (probe EIG over the learner's open hypotheses, `scheduling/evsi.py` for the next decision) chooses, numbers and dates them, and the daily plan's finite minutes and the spend caps bound them (§9.3; owner decision 2026-10-12, §20.7).
 
 **Deferred, with triggers in §17:**
 - **goal-aware reading paths** (the first draft's RW7; §10 keeps its design);
@@ -95,7 +95,7 @@ Four rules carry over from the dialogue:
 - **W1. Reading and help are not evidence.** P3 invariant 6 holds: dwell, highlights, asks, cue taps, figure play, inquiry status, recaps and digests never enter mastery, posterior, certification or FSRS. The only evidence a workbench session produces is its final submitted attempt, graded by the blind grader and carrying the assistance it recorded (§5.4).
 - **W2. Honest labels.** Every surface distinguishes source-authored, AI-written and learner-written content (P3 invariant 9). Model judgments are labelled as such. "Checked" or "verified" appears only when a non-LLM check (a sandboxed sympy check, an exact key, a quote match) passed. A cue never says the learner *is* confused, only that a passage connects to something they worked on.
 - **W3. Generous defaults, live behind kill switches.** Every phase ships on by default with its switch. No step is added to protect a model.
-- **W4. LLM judgment over constants.** First-offer help level, cue selection and follow-up choice are model judgments over typed learner state. Numbers in this spec are caps or display limits, never thresholds that decide learning.
+- **W4. LLM judgment and value of information over constants.** First-offer help level and cue selection are model judgments over typed learner state. Follow-ups are valued by the existing EIG and EVSI machinery (§9.3); a model judges only whether an item tests the capability. Numbers in this spec are caps on money, time or display, never thresholds that decide learning. There is no count cap on follow-ups (§20.7).
 - **W5. Learner text over skip buttons.** The intent box, "what's still unclear?", "I'm stuck" in the workbench, "this doesn't connect to my work" on a hint, and "not relevant, because…" on cues take free text. A one-tap path still exists (an empty box is allowed), as with "I'm stuck".
 - **W6. Embeddings shortlist, judges decide.** No embedding score alone creates a cue, a role or a match (R1). Shortlists are top-k; a judge decides everything shown.
 - **W7. Cold means no source cue.** P3 invariant 10 and `find_sources`' policies (§7.2): a cold attempt gets no source, hint, tutor or figure; opening one ends cold status. A source-visible attempt never certifies.
@@ -104,7 +104,7 @@ Four rules carry over from the dialogue:
 - **W10. Spend controls.** Every paid step uses the Phase 1 framework (`learnloop/ai/spend.py`): per-route caps, `--dry-run` on every batch command, receipts. Codex is `estimated_only`. Every LLM, Decider, verifier or learner-card verdict appends to `judgment_ledger`.
 - **W11. Agency.** The learner can always ask for more help, turn cues off, hide the source before working, and undo every automatic action.
 - **W12. The reading hot path never waits for a model** (P3 invariant 1). Cue links and organizer lines are computed in the background or on request and appear when ready.
-- **W13. Reuse before building.** One retrieval substrate (T6), one listwise judge (`practice_index/listwise.judge_listwise`), one practice-proposal function (`find_practice`), one question producer (the quick-check producer), one learner-text compiler (learner-text gaps), one scheduled-check mechanism (DL2's "Check once"). A phase that needs a second one stops and records why.
+- **W13. Reuse before building.** One retrieval substrate (T6), one listwise judge (`practice_index/listwise.judge_listwise`), one practice-proposal function (`find_practice`), one question producer (the quick-check producer), one learner-text compiler (learner-text gaps), one scheduled-check mechanism (DL2's "Check once"), one value-of-information machinery (probe EIG in `diagnosis/probe_families.py` and `diagnosis/probes.py`, EVSI in `scheduling/evsi.py`). A phase that needs a second one stops and records why.
 
 ---
 
@@ -146,6 +146,11 @@ Four rules carry over from the dialogue:
 | T1's matcher (pairwise `same` / `different` / `unsure`) and recurrence groups | `learnloop/matching/` (`kinds.py`); `learnloop/substrate/recurrence_groups.py` | RW3 targets (groups), not the cue judge (§6.2) |
 | The Decider client (R0); `DECIDER_TASKS` | `ai/providers/decider.py`; `ai/decisions.py` (`ChoiceQuestion`); `ai/routing.py:77` | RW1b intent routing, RW2b first offer |
 | Commitments with versions, including `due_hint` | `migrations/072_commitments.sql:78`; `learnloop/curriculum/commitments.py` | RW6b follow-ups |
+| **Value of information: probe EIG** (live). Mutual information over a locked hypothesis set, an information rate per expected second, greedy conditional EIG for a block of several probes, and per-facet EIG over `facet_uncertainty.hypothesis_marginal`, which the post-attempt follow-up slate already uses together with a misconception-discrimination check | `diagnosis/probe_families.py:467` (`instrument_expected_information_gain`), `:536` (predictive), `:621` (`information_rate`); `diagnosis/probe_episodes.py:818` (`eligible_instruments`), `:1386` (`plan_precommitted_block`), `:1576` (`episode_posterior`); `diagnosis/probes.py:786` (`facet_expected_information_gain`); `diagnosis/followups.py:1532` (`_choose_intervention_item`), `:1482` (`_misconception_discrimination`) | RW6b valuation (§9.3). Audited on `main` at `19798a0c` (2026-10-12, DL1 merged) |
+| **Value of information: EVSI** (built, no live consumer yet). EVSI in minutes over a credible set; rank = LCB / (minutes + burden); stop when LCB ≤ λ·minutes + burden; `abstain` when the credible set or the stress test flips the winner. The loss table is wasted learner-minutes per hypothesis and action. The robust EIG-to-minutes conversion serves where no loss table exists. Today it runs only in shadow (`causal_diagnostic_selector.py:300`, called from `causal_orchestrator.py:1493`); `staged_policy.DiagnosticSelector` (`:351`) is never constructed. Live causal probes use the proxy `causal_probe_coherence.decide_probe` (`:413`) | `scheduling/evsi.py:124`, `:199` (`robust_evsi`), `:366` (`rank_feasible`); `scheduling/action_loss.py:235` (`build_loss_table`); `diagnosis/robust_composition.py:353` (`evaluate_selection`), constants `:44`–`:55` (λ = 1, burden 0, 60 minutes per nat, all labelled heuristic) | RW6b valuation and stop rule (§9.3): its first live consumer |
+| Hypothesis state the valuation reads | `hypothesis_sets` (`migrations/001_initial.sql:276`) with the posterior replayed from `probe_observations` (`028_probe_episodes.sql:94`); `causal_hypotheses` (`118_causal_attribution_p1.sql:5`); rival causes per attempt in `unresolved_cause_factors.candidate_causes_json` (`034_assessment_contract_snapshots.sql:32`); `facet_uncertainty` (`012_facet_diagnostic_state.sql:1`) | RW6b (§9.3) |
+| DL1's finite plan (`mvp-0.14`, on `main` at `19798a0c`): remembered minutes, `split_v1` (maintain ≤ 60% of the minutes), scheduled checks first in the maintain lane, mid-plan follow-ups only within the plan's minutes. `ScheduledCheck.kind` already names `check_once`, with no provider until DL2 | `daily_plan/engine.py:286` (`remembered_minutes`), `:1644` (`_insert_followups`); `daily_plan/split.py:121`; `daily_plan/lanes.py:74`; `daily_plan/chooser.py:36` | RW6b: what bounds follow-ups is minutes, not a count |
+| Spend framework: a per-command budget, per-route caps; no global daily dollar cap exists | `ai/spend.py:86` (`SpendCaps`) | Every paid route here (W10) |
 | Live markdown and math editing | `render/LiveMarkdownEditor.tsx`, `render/MarkdownMath.tsx` | RW2a step editor |
 | Practice-screen draft checkpointing and restore | `screens/PracticeScreen.tsx:306`–`:330`; `save_practice_draft` | RW2a lifecycle pattern |
 
@@ -154,10 +159,10 @@ Four rules carry over from the dialogue:
 | Branch | State | What this spec uses |
 |---|---|---|
 | `origin/feat/reader-clarification-branches` (`cf2cbe77`, 2026-10-08) | Built on PR #5, not merged | Branching Ask: explicit parents on the `reader_answer_submitted` payload, the branch tree (`screens/reader/ReaderAskBranches.tsx`), ancestor-only prompts. 8 backend tests (`tests/test_reader_branches.py`) and 9 frontend tests. No migration. `git merge-tree` against `main`: conflicts in `reader/reader_dialogue.py`, `tutor/tutor_qa.py` and `learnloop_sidecar/handlers/reader.py`; `ReaderScreen.tsx` and `api/dto.ts` merge cleanly |
-| `merge/dl1` (`daily-loop/dl1`) | Being merged; `mvp-0.14` | Learner-pick blocks, reading blocks (§6.10). DL1 touches no Reader file |
-| DL2 | Not built | "Check once" (§5.2) and effective due (§5.3). RW6b's follow-ups need it |
+| `merge/dl1` (`daily-loop/dl1`) | **Merged** to `main` as `19798a0c` (`mvp-0.14`) later on 2026-10-12 | Learner-pick blocks, reading blocks (§6.10), the plan's finite minutes that bound follow-ups (§9.3). DL1 touches no Reader file |
+| DL2 | Not built on any branch | "Check once" (§5.2) and effective due (§5.3). RW6b's follow-ups need it; DL1's `ScheduledCheck` already reserves the `check_once` kind (`daily_plan/lanes.py:74`) |
 | DL3 | Not built | "Practice on…" (§6.9); RW4a's "Practice this question" is the same `find_practice` call |
-| `router/r1` | Built; `mvp-0.15` at merge | `router_decisions`; R2 (not built) renders the card section RW6b adds |
+| `router/r1` | Built; `mvp-0.15` at merge (`merge/r1` prepared from `19798a0c`) | `router_decisions`, which logs each candidate's `probe_eig` and `evsi_assignment` but values nothing (`router/decisions.py:174`, `:441` on the branch); RW6b's valuation receipt uses the same field names (§9.3). R2 (not built) renders the card section RW6b adds and values pending follow-ups as block candidates |
 | `learner/text-gaps` | Built and reviewed; carries its own successor (labelled `mvp-0.13` on the branch, relabelled at merge) | `diagnosis/text_gaps/` (`LearnerText` sources, `StuckTextSource`, `named_gaps_for_card()`). Reader questions are already a source (`tutor_question_text` reads `context = 'reader'`). Touches `tutor_qa.py` (+28 lines) and `PracticeScreen.tsx` (+13) |
 | `providers/chatgpt-plan` | Built and gated; the owner's live sign-in pending | Profile type `chatgpt_plan`: one HTTPS structured call, no tools, isolated turn; `learnloop ai latency` |
 | `facets/identity` | Built | Nothing directly |
@@ -617,7 +622,7 @@ When the learner opens a source they have read before, the rail shows a compact 
 - **open inquiries** on this source, each with "open" (to the breadcrumb) and status chips (resolve / revisit once / keep open);
 - **unfinished problems** from RW2a, each with "Resume this problem";
 - **predictions that missed** (RW5) and **reconnect "still unclear"** answers (RW1a), as "worth a second look";
-- after RW6b: the narrative and the follow-up line.
+- after RW6b: the narrative and the scheduled follow-ups, each with its date, purpose and undo.
 
 Today's re-entry panel (DL1, goal-optional re-entry) can show the same card for the most recent source. The card is a pure read over `question_events`, `reader_section_progress`, `workbench_sessions`, `figure_predictions` and the reader envelope; nothing new is stored, and it is dismissible per source.
 
@@ -634,45 +639,68 @@ A **reader session** is one visit on the reader envelope (`visit_id`), or severa
 
 **The narrative** is optional (`digest.narrative_enabled`, default on): at most 120 words, written by route `reader_digest` from the typed summary only, citing event ids (validated against the summary), labelled "summary written by LearnLoop's model". It is generated once per session in the background and shown in the "Last time here" card.
 
-**Reader activity in the router's learner-state card.** `reader_activity_for_card(lo_ids, as_of) -> ReaderActivityV1` is a pure read, like `named_gaps_for_card()` on the text-gaps branch. For the candidates' LOs it returns: open inquiries (root question excerpt, age, depth); assisted-only work (facet, highest help level, date); pending reader follow-ups; missed predictions; the latest narrative, labelled model-written, with its cited event ids. Router R2 renders it as a "Reader activity" section of `LearnerStateCardV1` (router §4). The card stays deterministic from the ledger, because the narrative is a persisted, cited row (the teach-back summary pattern, router §15.1). **Nothing in it is evidence** (W1). Before R2 the function exists and has tests, but nothing renders it.
+**Reader activity in the router's learner-state card.** `reader_activity_for_card(lo_ids, as_of) -> ReaderActivityV1` is a pure read, like `named_gaps_for_card()` on the text-gaps branch. For the candidates' LOs it returns: open inquiries (root question excerpt, age, depth); assisted-only work (facet, highest help level, date); pending reader follow-ups (each with its purpose, date and valuation); missed predictions; the latest narrative, labelled model-written, with its cited event ids. Router R2 renders it as a "Reader activity" section of `LearnerStateCardV1` (router §4). The card stays deterministic from the ledger, because the narrative is a persisted, cited row (the teach-back summary pattern, router §15.1). **Nothing in it is evidence** (W1). Before R2 the function exists and has tests, but nothing renders it.
 
 ### 9.3 RW6b: cold follow-ups (the owner's "short unfamiliar problem")
 
-**One per session, at most, served through DL2's "Check once".**
-1. **Pick the capability.** When the summary has a "claim needing an independent check", the follow-up chooser (route `followup_chooser`) reads the typed summary and picks the capability most worth checking (W4), or none, which is legitimate.
-2. **Find an unfamiliar item.** `find_practice(query, constraints)` with the capability's facets and two new exact filters on `PracticeConstraints` (§3.4 item 7):
-   - `unattempted_only`: no attempt on the item;
-   - `exclude_family_ids`: the families of every item whose solution was revealed in the session (from the reveal ledger).
+**No count cap.** The owner's decision of 2026-10-12 (§20.7): value of information chooses, numbers and dates the checks, and the learner's real limits — the daily plan's minutes and the spend caps — bound them. Several follow-ups may be worth it, to find the true misconception, to decide between rival explanations, or to decide between actions. Follow-ups are served through DL2's "Check once". **RW6b builds no valuation of its own** (W13): it assembles the questions and candidates and asks the machinery that already values probes (§3.2).
 
-   Admission already applies the scheduler's reserves. PF siblings of the session's items come first when the family is not excluded. The chooser's pick among the proposals uses the listwise judge (ledger task `followup_selection`).
-3. **Nothing fits → no follow-up.** The summary records `no_item`, and the card says "No unfamiliar problem on this yet". Generation is deferred with a trigger (§17).
-4. **Schedule it as content, not as a new serving rule.** The follow-up is a `test_me_later` commitment (disposition `one_check_pending`) on the chosen item, with `provenance = {"via": "reader_followup", "summary_id": …, "ledger_id": …}` and the check date in `due_hint`: the practiced item's effective due (DL2 §5.3) bounded to 1–14 days, or `followups.fallback_days` (3) without FSRS state. DL2 serves it exactly like any other "Check once": one dated learner request in the maintain lane, cold (W7), with restoration after the measurement closes. **Cross-spec request:** DL2's dated branch reads `due_hint` when present and falls back to `capture.test_me_later_days` otherwise (§18).
-5. **Caps.** At most one per session and `followups.max_per_day` (2) created per day.
+1. **The open questions.** From the session's typed summary (§9.1), RW6b lists what a later independent attempt could tell LearnLoop about this learner. Each is read where it already lives; no new learner state is written:
+   - **claims needing an independent check** (assisted-only work on a facet): the hypotheses are "holds unaided" and "doesn't", with the active predictor's P(success) and interval as the prior (field §4);
+   - **rival explanations** still open on the session's facets: the locked hypothesis set and replayed posterior of an open probe episode (`episode_posterior`); a diagnosed attempt's rival causes (`unresolved_cause_factors.candidate_causes_json`); open `causal_hypotheses`; the facet's `hypothesis_marginal`; and, once learner-text gaps has merged, gaps named from this session's text.
+2. **Candidate checks.**
+   - For each facet with an open question, `find_practice(query, constraints)` proposes unfamiliar items with two new exact filters on `PracticeConstraints` (§3.4 item 7): `unattempted_only` (no attempt on the item) and `exclude_family_ids` (the families of every item whose solution the session revealed, from the reveal ledger). Admission already applies the scheduler's reserves.
+   - Open probe episodes on those facets add their eligible instruments (`probe_episodes.eligible_instruments`).
+   - **Relevance is the only model judgment.** One listwise call (`judge_listwise`, route `followup_relevance`, ledger task `followup_relevance`) keeps the candidates that test the capability or bear on the rival explanations, quoting what in the item does so. It no longer picks a winner or a number.
+3. **Value each candidate with the existing machinery.**
+   - **Information about the hypotheses (EIG).** Instruments use `instrument_expected_information_gain`, or the predictive variant when its target set is adequate; the two are never added together (probe EIG spec §7.4). Ordinary items use the per-facet EIG that the post-attempt follow-up slate already computes (`facet_expected_information_gain` over `hypothesis_marginal`), with `_misconception_discrimination` where rival misconceptions are open. Familiar surfaces are discounted with `familiarity_discount` (`learner/recall_coverage.py:293`), as the scheduler does for probes, so a near sibling of a problem just worked counts for less than a genuinely unfamiliar one.
+   - **Value for the next decision (EVSI).** Where the session left a decision pending between actions (which repair to try; repair or move on), the loss table is `action_loss.build_loss_table`'s wasted learner-minutes and the value is `evsi.robust_evsi` (point, LCB, UCB). Where no loss table exists, `robust_composition.evaluate_selection` converts the robust EIG to minutes, as the robust probe path already does.
+   - **Rank and stop with `evsi.rank_feasible`.** Rank is LCB / (expected minutes + burden); expected minutes come from DL1's estimator (`daily_plan/estimates.py:138`). Checks are added greedily, each valued conditionally on those already chosen (the rule `probe_episodes.plan_precommitted_block` uses for a block), so two checks that would tell LearnLoop the same thing are not both scheduled. Adding stops when the best remaining candidate's LCB ≤ λ·minutes + burden. An `abstain` verdict falls back to the EIG-per-minute order with the same stop, labelled "value uncertain".
+   - **The number follows.** A session gets whatever clears the stop: often none, sometimes one, sometimes several, for example to separate two misconceptions and then to check retention.
+   - **No new constants.** λ (1, minutes as numeraire), the burden (0) and the nat-to-minutes scale (60) are the existing decision parameters, labelled heuristic in `diagnosis/robust_composition.py:44`–`:55`. Calibrating them is the decision-value spec's job (§9 there); RW6b's receipts give it data.
+4. **Date each check by what it is for.**
+   - A **discriminating check**, valued for separating rival explanations before a repair decision, is dated for the next day's plan. DL1 never grows today's plan (§6.1), and the check is worth less once the repair is chosen without it.
+   - A **retention check**, valued for whether an assisted claim holds unaided, is dated at the practiced item's effective due (DL2 §5.3), when forgetting is expected and a success says most (router §15.2). Without FSRS state the date is `followups.fallback_days` (3) away, labelled as a default.
+   - **`followups.max_wait_days` (14) is a time cap:** no claim waits longer than two weeks for its check.
+   - The date goes in `due_hint`. **Cross-spec request:** DL2's dated branch reads `due_hint` when present and falls back to `capture.test_me_later_days` otherwise (§18).
+5. **Schedule as content, not as a new serving rule.** Each follow-up is a `test_me_later` commitment (disposition `one_check_pending`) on its item, with `provenance = {"via": "reader_followup", "summary_id": …, "purpose": "discriminating" | "retention", "valuation_ref": …}`. DL2 serves each exactly like any other "Check once": a dated learner request among the maintain lane's scheduled checks, cold (W7), with restoration after the measurement closes.
+6. **Time and money are the only limits.** There is no count cap per session or per day.
+   - **Minutes.** The plan's finite minutes bound what is served on any day. Scheduled checks sit in the maintain lane, which takes at most `plan.maintain_max_share` of the minutes (DL1 §6.2); what doesn't fit stays in the full list as "later", never as debt (DL1 §6.1). Dating by purpose spreads checks across days.
+   - **Money.** `followups.max_daily_cost_usd` ($0.50 metered) covers the relevance calls. The valuation itself makes no model call.
+   - **From router R2 on,** each pending follow-up is also a block candidate that the router values (planner value with robust EVSI, router §3). On a crowded day it then competes with reviews for the minutes instead of always going first.
+7. **Re-valuation.** Before each day's plan is built, RW6b re-values its pending follow-ups with the same machinery against the current state. A follow-up whose question has been answered since — the facet was demonstrated unaided, or the rival explanations resolved — no longer clears the stop and is retired with its reason shown ("No longer needed: you solved a problem like this on Tuesday · undo").
+8. **Nothing fits → no follow-up** for that question. The summary records `no_item`, and the card says "No unfamiliar problem on this yet". Generation is deferred with a trigger (§17).
 
-**Labelled, with undo.** The card says "Cold check on Thursday: a new mixture-distribution problem · undo". Undo retires the commitment (`commitments.retire`) and appends a `learner_card` verdict. The chooser's pick appends `judgment_ledger` (task `followup_selection`, judge `llm`).
+**Labelled, with undo.**
+- The card lists every scheduled check with its date and purpose: "Thursday: a problem that tells apart two explanations of your step-4 error · undo"; "Next Monday: a new mixture-distribution problem, cold · undo".
+- "Why" shows the valuation as LearnLoop's estimate ("expected to settle which repair to try · about 6 min"), never as a verified fact (W2).
+- "Undo all" retires every follow-up from the session. Undo and re-valuation retire the commitment (`commitments.retire`); undo also appends a `learner_card` verdict.
+- Each relevance verdict appends `judgment_ledger` (task `followup_relevance`, judge `llm`).
 
-**Why no successor.** The serving algorithm is unchanged: it serves commitments as DL2 defines them. RW6b adds content (a commitment) that the learner can undo, behind a kill switch, which is the precedent learner-text gaps set for its live prerequisite creation and seed check. The RW6b agent confirms this with the reviewer; if they rule otherwise, RW6b takes the next free `mvp-0.N` tag with plan parity under `followups.enabled = false`.
+**The valuation receipt** is stored on the digest row (§9.4): the questions, every candidate with its EIG, EVSI point, LCB and UCB, expected minutes, the verdict (`measure`, `stop`, `abstain`) and the stop reason, the chosen ids in order, and the module versions. Fields that R1 also logs for scheduler candidates use R1's names (`probe_eig`, `evsi_assignment`), so router R3's replay can read both. Replay never re-values (W9).
 
-**The outcome** joins later in the report: cold success after assisted reader work (§15).
+**Why no successor.** The serving algorithm is unchanged: it serves commitments as DL2 defines them. RW6b adds content (commitments) that the learner can undo, behind a kill switch, which is the precedent learner-text gaps set for its live prerequisite creation and seed check. This is the first live use of `evsi.rank_feasible`, but it decides only which commitments to create, never what the scheduler serves or how evidence counts. The RW6b agent confirms this with the reviewer. If they rule otherwise (for example because uncapped checks change the maintain lane's composition), RW6b takes the next free `mvp-0.N` tag with plan parity under `followups.enabled = false`.
+
+**The outcome** joins later in the report: cold success after assisted reader work, and whether each check told LearnLoop what its valuation predicted (§15).
 
 ### 9.4 Data
 
 | Table | Phase | Role | Contents |
 |---|---|---|---|
 | — | RW6a | — | No table: the card and summary are pure reads |
-| `reader_session_digests` | RW6b | WORKFLOW (the narrative is a paid output; never re-run on rebuild) | `id`, `visit_ids_json`, `started_at`, `ended_at`, `summary_json` (typed, including follow-up outcome or `no_item`), `narrative_md`, `cited_event_ids_json`, `followup_commitment_id`, `model`, `prompt_version`, `dismissed_at`, `created_at` |
+| `reader_session_digests` | RW6b | WORKFLOW (the narrative and the relevance verdicts are paid outputs; never re-run on rebuild) | `id`, `visit_ids_json`, `started_at`, `ended_at`, `summary_json` (typed, including each question's outcome or `no_item`), `narrative_md`, `cited_event_ids_json`, `followup_commitment_ids_json`, `valuation_json` (the receipt, §9.3), `model`, `prompt_version`, `dismissed_at`, `created_at` |
 
-Follow-ups live in `commitments`, so nothing else is added.
+Follow-ups live in `commitments`; re-valuation retirements are commitment events with their reason. Nothing else is added.
 
 ### 9.5 Routes, spend, privacy
 
-- **Routes:** `reader_digest`, `followup_chooser` (chat; Codex by default, since they are background work).
-- **Caps:** one narrative and one chooser call per session.
+- **Routes:** `reader_digest` (chat) and `followup_relevance` (listwise, through `judge_listwise`); Codex by default, since both are background work. The valuation makes no model call.
+- **Caps (money only):** one narrative per session; `followups.max_daily_cost_usd` ($0.50 metered) for relevance calls. Nothing caps the number of follow-ups (§9.3).
 - **Privacy:** the typed summary goes to the provider, the same class as the router card.
 
 ### 9.6 Successor
 
-None (§9.3, with the stated fallback). Kill switches: `recap.enabled` (RW6a), `digest.enabled`, `digest.narrative_enabled`, `followups.enabled` (off: no follow-up is created; existing ones stay as the learner's commitments and can be undone).
+None (§9.3, with the stated fallback). Kill switches: `recap.enabled` (RW6a), `digest.enabled`, `digest.narrative_enabled`, `followups.enabled` (off: no follow-up is created and no re-valuation runs; existing ones stay as the learner's commitments and can be undone).
 
 ---
 
@@ -715,16 +743,16 @@ RW1b, RW3a, RW4b and RW6a need no migration. **No DERIVED table, so no new repla
 - `[cues]`: `enabled`, `discovery_enabled`, `max_per_section` (2), `holdout_rate` (0.1), `max_calls_per_source_open` (12), `max_daily_cost_usd` (0.50).
 - `[library_ask]`: `enabled`, `personalized_default` (true), `max_daily_cost_usd` (1.00). `[compare_sources]`: `enabled`, `max_sources` (4). `[library_exercises]`: `enabled`.
 - `[figures]`: `enabled`, `predictions_enabled`, `max_per_day` (20).
-- `[recap]`: `enabled`. `[digest]`: `enabled`, `narrative_enabled`. `[followups]`: `enabled`, `fallback_days` (3), `max_per_day` (2).
+- `[recap]`: `enabled`. `[digest]`: `enabled`, `narrative_enabled`. `[followups]`: `enabled`, `fallback_days` (3, a dating default without FSRS state), `max_wait_days` (14, a time cap), `max_daily_cost_usd` (0.50). No count cap (§9.3, §20.7).
 
 **Routes** (each its own `ai.routing.*`, added to the `AITask` literal, `ROUTE_FOR_OPERATION` and the config schema):
 - **decider tasks** (added to `DECIDER_TASKS`; never a chat fallback, never overridden by `LEARNLOOP_AI_PROVIDER`): `reader_intent`, `workbench_level_chooser`;
-- **listwise tasks** (through `judge_listwise`): `passage_cue_judge`, `library_organizer`, `followup_chooser`;
+- **listwise tasks** (through `judge_listwise`): `passage_cue_judge`, `library_organizer`, `followup_relevance`;
 - **chat tasks:** `workbench_check`, `workbench_hint`, `figure_author`, `figure_verifier`, `reader_digest`.
 
 Unset chat routes fall back to the active provider, and receipts record the resolved model.
 
-**`judgment_ledger` tasks:** `reader_intent`, `workbench_hint_fit`, `passage_cue`, `library_contribution`, `figure_verified`, `followup_selection`, plus `learner_card` rows on the same tasks for corrections, taps, feedback and undos. The ledger's judge CHECK (migration 175) already admits `llm`, `verifier`, `decider` and `learner_card`; `task` is free text. No change.
+**`judgment_ledger` tasks:** `reader_intent`, `workbench_hint_fit`, `passage_cue`, `library_contribution`, `figure_verified`, `followup_relevance`, plus `learner_card` rows on the same tasks for corrections, taps, feedback and undos. The ledger's judge CHECK (migration 175) already admits `llm`, `verifier`, `decider` and `learner_card`; `task` is free text. No change.
 
 ---
 
@@ -741,7 +769,7 @@ Unset chat routes fall back to the active provider, and receipts record the reso
 | `find_sources`, library ask, compare, exercises (RW4a/b) | Retrieval context and display | None (T6's ruling) | `library_ask.enabled`, `compare_sources.enabled`, `library_exercises.enabled` | T6 as merged |
 | Figures and predictions (RW5) | Content, formative | None | `figures.enabled` | — |
 | Recap (RW6a); digest and card section (RW6b) | Content | None | `recap.enabled`, `digest.enabled` | — |
-| Follow-ups as "Check once" commitments (RW6b) | Content served by DL2's unchanged rule | None (§9.3; fallback: the next free `mvp-0.N` with plan parity) | `followups.enabled` | No new follow-ups |
+| Follow-ups valued by the existing EIG/EVSI machinery, with no count cap, as "Check once" commitments (RW6b) | Content served by DL2's unchanged rule; first live use of `evsi.rank_feasible`, deciding only which commitments to create | None (§9.3; fallback: the next free `mvp-0.N` with plan parity) | `followups.enabled` | No new follow-ups and no re-valuation |
 
 **Kill-switch parity is a gate** for every row: switch off, the RPCs it touches return byte-identical results on fixture copies.
 
@@ -765,8 +793,8 @@ Every phase goes through `implementation_goal.md` §2's loop: implement, adversa
 | **RW3b Discovered cues** | Links, listwise judge, holdout, impressions (migration) | RW3a. `learner/text-gaps` merged for gap targets (works without) | **M** | G13–G16. **Checkpoint:** cue report once there is data |
 | **RW4b Exercises from sources** | Exercise search and hand-off to `import_exercises` | RW4a | **S–M** | G19, G34 |
 | **RW5 Figures** | Spec, grammar, both evaluators with the golden corpus, renderer (two panels and readouts), verification, predictions, cache (migration) | RW1a (entry point) | **M–L** | G21–G24 |
-| **RW6b Digest, card, follow-ups** | Narrative (migration), `reader_activity_for_card`, chooser, `PracticeConstraints` filters, follow-up commitments with `due_hint`, undo | DL2 merged (with `due_hint`); RW2a (assisted work). R2 renders the card section later | **M** | G25–G27. **Checkpoint:** two weeks, then the follow-up outcomes block |
-| *Router R2 (router spec)* | Renders `ReaderActivityV1` | R1; DL1; RW6b for the reader section (R2 may land first) | — | Router gates |
+| **RW6b Digest, card, follow-ups** | Narrative (migration), `reader_activity_for_card`, the relevance judge, the valuation adapter over the existing EIG/EVSI functions (§9.3) with its receipt, `PracticeConstraints` filters, follow-up commitments with `due_hint` and purpose, daily re-valuation, undo | DL2 merged (with `due_hint`); RW2a (assisted work); `main`'s EIG and EVSI modules (no new valuation). R1 merged is recommended, not required: the receipt borrows its field names. R2 later renders the card section and values pending follow-ups as block candidates | **M–L** | G25–G27, G35. **Checkpoint:** two weeks, then the follow-up outcomes and valuation-calibration blocks |
+| *Router R2 (router spec)* | Renders `ReaderActivityV1`; values each pending reader follow-up as a block candidate (planner value with robust EVSI, router §3), so follow-ups compete with reviews for a day's minutes | R1; DL1; RW6b for the reader section and follow-up candidates (R2 may land first) | — | Router gates |
 | *Router §15.3 (router spec)* | The router and tutor call `find_sources` as a tool | Its own trigger | — | Router gates |
 
 **Size key:** S ≈ one agent session plus review (about a day); M ≈ two to four days of implement, review and fix; L ≈ one to two weeks.
@@ -804,8 +832,9 @@ Every phase goes through `implementation_goal.md` §2's loop: implement, adversa
 | G23 | **Labels follow verification.** "matches the source's equation" appears only after step 3 passed. A figure failing steps 1 or 2 is never shown. Unsupported requests are recorded with their kind |
 | G24 | **Predictions are formative.** They write no attempt, observation or signal |
 | G25 | **Recap, digest and card.** The typed summary is deterministic from the ledgers (computed twice, identical). The narrative cites only ids in the summary. `ReaderActivityV1` contains no cold-answer or reserved-surface material (router G5) |
-| G26 | **Follow-ups are unfamiliar.** Never an attempted item; never an item in a family whose solution the session revealed; at most one per session and `followups.max_per_day` per day; `no_item` when nothing fits; never generated |
-| G27 | **Follow-ups are ordinary "Check once" commitments.** Served by DL2's dated branch on `due_hint`, cold, with restoration after. Undo retires the commitment. With `followups.enabled = false` no commitment is created and plan builds equal DL2's |
+| G26 | **Follow-ups are unfamiliar and valued, not counted.** Never an attempted item; never an item in a family whose solution the session revealed; `no_item` when nothing fits; never generated. With a fake valuation where every candidate's LCB is below its minutes, none is created; where several clear it, all of them are created in rank order, with no count cap, and conditional valuation drops a second check that duplicates the first. Every created follow-up has a receipt whose chosen value cleared the stop rule. Re-valuation retires a follow-up whose facet was since demonstrated unaided, with its reason |
+| G27 | **Follow-ups are ordinary "Check once" commitments.** Served by DL2's dated branch on `due_hint`, cold, with restoration after; discriminating checks dated for the next day's plan, retention checks at effective due, none later than `followups.max_wait_days`. A day with more due follow-ups than its maintain minutes serves what fits and leaves the rest as "later" (plan minutes never exceeded). Undo and "undo all" retire the commitments. With `followups.enabled = false` no commitment is created and plan builds equal DL2's |
+| G35 | **Reuse, not a new chooser.** The valuation calls `evsi.robust_evsi` / `evsi.rank_feasible`, the probe-EIG functions and `familiarity_discount` (asserted by monkeypatching them in the test); RW6b defines no EIG, EVSI or stop rule of its own. The valuation makes no model call; replay never re-values |
 | G30 | **The Guide reads the overlay.** On a split fixture with a live diagnosis, the Guide's passage reason names the diagnoser's statement; on a joint-graded fixture it is unchanged |
 | G31 | **The recap is a pure read.** Opening a source with the recap on or off writes nothing but the `recap_shown` event |
 | G32 | **Resume.** Steps survive navigation, sidecar restart and app restart (flush-on-leave tested); "Leave for now" keeps the session open; "Abandon" closes it; a resumed session shows its full history |
@@ -825,7 +854,7 @@ Every phase goes through `implementation_goal.md` §2's loop: implement, adversa
 - **RW4b:** `test_library_exercises.py` (G34).
 - **RW5:** `test_figure_grammar.py` and `figureGrammar.test.ts` (golden corpus, fuzz); `test_figure_verification.py` (invariants, source match, downgrade, refusal, unsupported); `test_figure_predictions.py`; vitest for the renderer's panels.
 - **RW6a:** `test_reader_recap.py` (G25 summary part, G31).
-- **RW6b:** `test_reader_digest.py`; `test_reader_activity_card.py`; `test_reader_followups.py` (constraints, `no_item`, caps, `due_hint`, undo, kill switch).
+- **RW6b:** `test_reader_digest.py`; `test_reader_activity_card.py`; `test_reader_followups.py` (constraints, `no_item`, no count cap, stop rule, conditional valuation, dating by purpose, `max_wait_days`, re-valuation, `due_hint`, undo and undo all, kill switch, spend cap); `test_reader_followup_valuation.py` (G35).
 
 **Every phase runs** `uv run lint-imports --no-cache`, `uv run pytest -n auto`, `uv run pytest -m durability`, `npm run typecheck && npm test` (the frontend changes in every phase), and the DB reference generate and validate scripts when the schema changed. **B3:** while the Rust toolchain on carson is broken, `cargo check` fails and the desktop shell can't be rebuilt; phases are verified with vitest and the sidecar tests, and the owner's in-app check waits for the toolchain fix.
 
@@ -845,7 +874,8 @@ The dialogue's warning applies: a better Reader may produce *fewer* interactions
 | Figures | Requests; verified / illustrative / failed / unsupported shares (by kind); predictions made and missed | RW5 |
 | Calibration | Confidence before submission (optional) and reconnect "yes" against the next independent outcome on the same facets: counts of **confident misses** and **unconfident successes**, never a score | RW2a, RW1a, RW6b |
 | Interventions → outcomes | For each shown hint, bridge, comparison, figure and cue: the next attempt on the same item or facets (immediate continuation) and the later cold outcome; how many have **no follow-up observation yet**. Associations, never causal credit | RW2b, RW6b |
-| Loop closure | Follow-ups scheduled, undone, served and answered, `no_item` rate; **cold success after assisted reader work** (the dialogue's primary outcome), beside cold success on comparable items without reader help; recap and narrative dismissal | RW6a/b |
+| Loop closure | Follow-ups per session (the distribution, not a cap), by purpose; scheduled, undone, retired by re-valuation, served, answered and left as "later"; `no_item` rate; minutes spent on follow-ups as a share of plan minutes; **cold success after assisted reader work** (the dialogue's primary outcome), beside cold success on comparable items without reader help; recap and narrative dismissal | RW6a/b |
+| Valuation calibration | For each answered follow-up: predicted EIG against the realized change in the hypothesis posterior, and whether a pending decision flipped as its EVSI predicted; the `abstain` rate. Fed to the decision-value spec's readiness audit (`diagnosis/causal_selection_audit.py`) as the first live EVSI data. Reports, never thresholds (R6) | RW6b |
 
 The three experiments the dialogue proposes map as follows:
 - **Generic vs work-aligned hints** is *not* run: it would deliberately give worse help. The reconciliation contract is the design; recovery, dependence and unusable-hint rates are tracked.
@@ -876,7 +906,7 @@ The three experiments the dialogue proposes map as follows:
 | D14 | Roles | Ingest's `role_hint`; the organizer may name finer roles in its lines. No LLM labeller in v1 |
 | D15 | Figures | Declarative only; two panel types plus readouts; unverified reconstructions downgraded to labelled illustrations; one prediction per figure by default |
 | D16 | Recap and digest | "Last time here" on returning, deterministic. The narrative on, shown in the card, not as an exit panel |
-| D17 | Cold follow-ups | Automatic, at most one per session and two a day, labelled, with undo; a DL2 "Check once" commitment dated by `due_hint` (effective due, 1–14 days; 3-day fallback); `find_practice` only, `no_item` when nothing fits |
+| D17 | Cold follow-ups | **Owner, 2026-10-12 (§20.7):** automatic, with **no count cap**. The existing value-of-information machinery chooses, numbers and dates them: probe EIG over the learner's open hypotheses, and EVSI (`scheduling/evsi.py`) for the next decision, stopping when a check's robust value no longer pays for its minutes. Discriminating checks next day; retention checks at effective due; `max_wait_days` 14 as a time cap; 3-day fallback without FSRS state. Bounded by the plan's minutes and a $0.50 daily spend cap. Labelled with purpose and valuation, undo each or all; DL2 "Check once" commitments dated by `due_hint`; `find_practice` only, `no_item` when nothing fits |
 | D18 | Reading paths | Deferred (§10, §17) |
 | D19 | Spend | Metered caps of $1.00 a day each for the workbench and library, $0.50 for cues; Codex `estimated_only` |
 | D20 | Phone | No new RPC is phone-allowed in v1 |
@@ -917,7 +947,7 @@ The three experiments the dialogue proposes map as follows:
 - **P3 Reader spec.** §5.4's inquiry thread is implemented through `question_events.resolution` and branch parents, with no projection table. §1.3's "syntopic comparison UI" exclusion is lifted by RW4a under §7.1–7.2's source-local rules (display only; no stored relations). Invariants 1, 6, 9 and 10 are restated as W12, W1, W2 and W7.
 - **Quick-check producer.** Gains `scope_kind` (section, inquiry, selection) and `question_style` (recall, next step, why step). Section behaviour is unchanged; the section lookup filters on scope.
 - **Daily loop.**
-  - **DL2 (request):** the dated "Check once" branch reads `commitment_versions.due_hint` when present and falls back to `capture.test_me_later_days`; RW6b's follow-ups depend on it (§9.3).
+  - **DL2 (request):** the dated "Check once" branch reads `commitment_versions.due_hint` when present and falls back to `capture.test_me_later_days`; RW6b's follow-ups depend on it (§9.3). DL2's provider fills DL1's existing `check_once` scheduled-check kind (`daily_plan/lanes.py:74`). Reader follow-ups can make several checks due on one day; the plan's minutes, not a count, bound how many are served (§9.3 item 6).
   - DL1's learner-pick block serves RW3's "Check me", RW4a's "Practice this question" and RW4b's chosen exercise.
   - DL3's "Practice on…" box and RW4a's "Practice this question" are the same `find_practice` call; build one RPC and reuse it.
   - DL4's pre-questions and RW1's scoped questions share the quick-check producer.
@@ -926,13 +956,15 @@ The three experiments the dialogue proposes map as follows:
   - `LearnerStateCardV1` gains the "Reader activity" section from `reader_activity_for_card` (RW6b).
   - **§15.3's `search_sources(query)` is RW4a's `find_sources`**, with its policies; the existing `reader.source_search.search_sources` is the legacy keyword search and keeps its name. §15.3's "When nothing fits" generation stays the router's.
   - The Reader's in-session help (hint level choice, cues) is not a router decision (router §1).
+  - **R2:** each pending reader follow-up becomes a block candidate valued with robust EVSI like any other (router §3), so the router, not the order of lanes, decides whether it is served on a crowded day. RW6b's valuation receipt uses R1's field names (`probe_eig`, `evsi_assignment`) so R3's replay reads both.
 - **Embedding consumers.**
   - T6 gains consumers (workbench bridging, discovered cues, the library organizer, compare, exercise search) and one thin function (`find_sources`). R1–R6 hold.
-  - `judge_listwise` gains three tasks (`passage_cue`, `library_contribution`, `followup_selection`).
+  - `judge_listwise` gains three tasks (`passage_cue`, `library_contribution`, `followup_relevance`).
   - `PracticeConstraints` gains `unattempted_only` and `exclude_family_ids`.
   - T1's matcher gains no kind. B4's text-only decision stands.
 - **Blind grading and diagnosis.** The grader is unchanged (G6). The diagnoser's context gains the current attempt's workbench trace when one exists (`+workbench-v1`), so contexts without one hash as before. The Guide reads the diagnoser's overlay (RW3a).
 - **Learner field.** Workbench assistance flows into `hints_used` and `primed`, so the `+hints` arm sees it. No new signal source in v1 (§5.6, §17).
+- **Decision value and probe EIG.** RW6b is the first live consumer of `scheduling/evsi.py`'s `robust_evsi` and `rank_feasible`, and a new consumer of the probe-EIG functions, through an adapter that writes no learner state (§9.3). It adds no decision parameter; λ, the burden and the nat-to-minutes scale stay the registry's. Its receipts are an input to the decision-value spec's readiness audit (§9 there).
 - **Learner-text gaps.** One new source adapter (`workbench_stuck`, RW2b). Reader questions, including "what's still unclear?" and tutor questions from library asks, are already sources. Named gaps become RW3b cue targets.
 - **Knowledge model.** Cue links and organizer lines are labels. They never touch facet identity or the semantic graph.
 - **Mobile.** No new phone RPC. Every new RPC is pinned desktop-only.
@@ -960,7 +992,8 @@ Work in your own worktree on a new branch reader/<phase>, created from <base bra
 Follow §0 of the handoffs and §2 of the spec, especially:
 - reuse before building (W13): T6 for retrieval, practice_index/listwise.judge_listwise
   for every listwise judgment, find_practice for practice, the quick-check producer for
-  questions, learner-text gaps for learner text, DL2's "Check once" for follow-ups;
+  questions, learner-text gaps for learner text, DL2's "Check once" for follow-ups,
+  and the existing probe-EIG and scheduling/evsi.py functions for valuing them (§9.3);
 - no new interaction_events kind and no new reveal kind (payload `event` fields and
   the tutor_answer kind with a workbench basis instead);
 - reading, help, cues, figures, recaps and inquiry status never write evidence; the
@@ -1060,7 +1093,8 @@ None was rejected outright; A7 was folded in part, with the reason above.
 1. **Hint latency.** RW2b's value depends on fast hints. Without the ChatGPT-plan provider (and the owner's sign-in), Codex hints will likely exceed 10 s. Mitigation: authored hints first, the time-boxed chooser, bridging after the hint, the latency block.
 2. **Reconciliation quality is a model capability.** The contract catches structural failures (no citation, wrong checkpoint, repeated strategy), not a plausible-but-unhelpful hint. The "doesn't connect" rate is the measure; a fake-model test can't prove it.
 3. **The source-visible hint-equivalent** is an interpretation of existing semantics. The RW2a reviewer must confirm it against `resolve_attempt_activity_policy` and both certification projections; if they disagree, it becomes a successor.
-4. **The follow-up "no successor" ruling** (§9.3) relies on the learner-text-gaps precedent and on DL2 reading `due_hint`. If DL2 lands without it, follow-ups fall back to its fixed 7-day date; if the reviewer rules it a serving change, RW6b takes a tag.
+4. **The follow-up "no successor" ruling** (§9.3) relies on the learner-text-gaps precedent and on DL2 reading `due_hint`. If DL2 lands without it, follow-ups fall back to its fixed 7-day date; if the reviewer rules it a serving change, RW6b takes a tag. Without a count cap, the ruling also rests on the plan's minutes bounding what is served (DL1 §6.1–6.2); a reviewer may judge that uncapped checks change the maintain lane's composition enough to need the tag.
+9. **First live EVSI.** RW6b is the first consumer to act on `evsi.rank_feasible`, whose decision parameters (λ, burden, 60 minutes per nat) are labelled heuristic and uncalibrated. A badly scaled nat-to-minutes value schedules too many or too few checks. Mitigations: re-valuation retires checks that stop paying, every check is labelled and undoable, the plan's minutes bound the daily cost, and the valuation-calibration block (§15) measures predicted against realized information.
 5. **ReaderScreen churn.** Every phase touches the Reader frontend; the rail split must land first and phases must stay serialized (at most two open).
 6. **Data volume.** At n=1, the holdout, calibration and intervention reports will be thin for weeks (blocker B2). They are reports, never gates.
 7. **The Rust toolchain (B3)** blocks the owner's in-app check of any new desktop UI until it is fixed.
@@ -1075,7 +1109,7 @@ None was rejected outright; A7 was folded in part, with the reason above.
 | 3 | RW1b, RW4a | RW1a; DL1 merged for learner picks (optional) | S–M, M |
 | 4 | RW2b | RW2a; `providers/chatgpt-plan` merged and signed in; `learner/text-gaps` merged | L |
 | 5 | RW3b, RW4b, RW5 | RW3a + text-gaps; RW4a; RW1a | M, S–M, M–L |
-| 6 | RW6b | DL2 merged with `due_hint`; RW2a | M |
+| 6 | RW6b | DL2 merged with `due_hint`; RW2a; `main`'s EIG/EVSI modules. R1 recommended (receipt field names); R2 later for router-valued serving | M–L |
 
 In total about five to seven weeks of agent work through the implement–review–fix loop, serialized on the Reader frontend.
 
@@ -1083,6 +1117,27 @@ In total about five to seven weeks of agent work through the implement–review�
 
 **Start RW1a now; hold everything else until its dependencies land.** RW1a mostly ports finished, tested work and splits the rail. No in-flight branch touches `ReaderScreen.tsx` or `learnloop/reader/`, and its only overlap (`tutor_qa.py` with learner-text gaps) is a few lines. It needs no model route and no successor. It is also the prerequisite for every other phase, so it removes the main merge hazard early. Two conditions: the integration queue (DL1 now, then R1, facet identity, learner-text gaps, the ChatGPT-plan provider) keeps priority for merges and reviews, and RW1a merges after whichever of those is ready first. RW3a, RW6a and RW2a can follow straight after RW1a. **RW2b should wait** for the ChatGPT-plan provider (latency) and learner-text gaps (its stuck-text adapter). **RW6b must wait** for DL2.
 
+### 20.7 Owner decision (2026-10-12): follow-ups are valued, not counted
+
+**The owner:** "Follow up checks shouldn't be hardcapped artificially at one a session/2 a day. We want learnloop to prioritize EVSI/EIG and multiple follow ups might be high ROI for this to search for the true misconception or decide between hypotheses/decide between actions."
+
+**What changed:**
+
+| Before | After | Where |
+|---|---|---|
+| At most one follow-up per session and `followups.max_per_day` (2) a day | No count cap. Value of information chooses, numbers and dates follow-ups; the plan's finite minutes and a spend cap bound them | §1, §9.3, §11, §16 D17 |
+| An LLM chooser (`followup_chooser`) picked the one capability most worth checking | The existing machinery values every candidate: probe EIG over the open hypotheses (`probe_families.py:467`, `probes.py:786`, `followups.py:1482`), EVSI for the pending decision (`evsi.py:199`), ranked and stopped by `evsi.rank_feasible` (`:366`), with greedy conditional EIG so duplicates drop out. The model only judges relevance (`followup_relevance`) | W4, W13, §3.2, §9.3 |
+| One date rule (effective due, 1–14 days) | Dated by purpose: discriminating checks next day, retention checks at effective due; `max_wait_days` 14 is a time cap | §9.3 item 4 |
+| — | Daily re-valuation retires follow-ups whose question has since been answered, with the reason shown and undo | §9.3 item 7 |
+| One follow-up line with undo | Every check listed with date, purpose and the valuation as LearnLoop's estimate; undo each or all | §9.1, §9.3 |
+| — | Valuation receipt on the digest row; a valuation-calibration report block | §9.4, §15 |
+| Gates G26–G27 checked the caps | G26–G27 check the stop rule, conditional valuation, dating and minutes; G35 checks reuse | §14 |
+| RW6b: DL2 and RW2a; size M | Also `main`'s EIG/EVSI modules; R1 recommended for receipt names; R2 later values pending follow-ups as block candidates; size M–L | §13, §18, §20.5 |
+
+**Every number that remains is a cap on money or time, never a learning threshold** (W4): `followups.max_daily_cost_usd` (money), `followups.max_wait_days` (time a claim waits), `followups.fallback_days` (a dating default when there is no FSRS state), and the plan's own minutes and lane shares (DL1). The valuation's λ, burden and nat-to-minutes scale are not new: they are the existing decision parameters, labelled heuristic in `robust_composition.py`, and RW6b's receipts are data for calibrating them (§20.4 risk 9).
+
+**Not changed here, and worth the owner's look:** the same principle would also apply to count caps that live in other specs and code. RW6b neither applies nor changes them: `probe.episode.session_qualifying_observation_cap` (4) and `maximum_observations` (4) for probe episodes (`config/schema.py:224`, `:209`); `scheduler.followup.max_interventions_per_lo_per_session` (1) for post-attempt follow-ups (`schema.py:40`, enforced at `diagnosis/followups.py:339`); `teach_back.session_cap` (1); and `plan.project_probes_max_per_day` (4) in the daily plan. Each is a candidate for the same change in its own spec.
+
 ---
 
-*Related: `docs/brainstorming/Improving Reader's design.md` (source) · `spec_p3_reader_integration.md` · `spec_reader_quick_check_producer.md` · `spec_daily_loop_v1.md` (§5, §6.1, §6.9, §6.10) · `spec_embedding_consumers_v1.md` (§1, §5.9, §9) · `spec_action_router_v1.md` (§4, §15) · `spec_blind_grading_diagnosis_split_v1.md` · `spec_learner_field_v1.md` (§3.1) · `implementation_handoffs.md` §4 · `docs/reviews/slice-2-t6.md` · `docs/reviews/stuck-prompt.md`*
+*Related: `docs/brainstorming/Improving Reader's design.md` (source) · `docs/reviews/reader-dialogue-coverage.md` (what the dialogue proposed and where it went) · `decision_value_and_commissioning_spec_v1.md` (§6.4) · `spec_probe_eig_redesign.md` (§7) · `spec_p3_reader_integration.md` · `spec_reader_quick_check_producer.md` · `spec_daily_loop_v1.md` (§5, §6.1, §6.9, §6.10) · `spec_embedding_consumers_v1.md` (§1, §5.9, §9) · `spec_action_router_v1.md` (§3, §4, §15) · `spec_blind_grading_diagnosis_split_v1.md` · `spec_learner_field_v1.md` (§3.1) · `implementation_handoffs.md` §4 · `docs/reviews/slice-2-t6.md` · `docs/reviews/stuck-prompt.md`*
