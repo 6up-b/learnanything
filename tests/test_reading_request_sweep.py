@@ -79,7 +79,10 @@ def _pending(ctx, source_id):
     return ctx.repository.source_auto_build_state(source_id)["wanted_section_id"]
 
 
-def _wait_for(predicate, timeout: float = 15.0) -> bool:
+def _wait_for(predicate, timeout: float = 60.0) -> bool:
+    """Polls until ``predicate`` holds (returning at once when it does); the
+    bound only matters when the machine is loaded (a parallel full suite)."""
+
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if predicate():

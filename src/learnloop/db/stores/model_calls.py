@@ -96,23 +96,6 @@ class ModelCallStoreMixin:
             rows = connection.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
-    def ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]:
-        """Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in
-        batches whose id starts with ``batch_prefix`` (automatic book
-        preparation: ``batch_auto_``), started at or after ``started_since``,
-        each with its job's ``batch_id``."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT r.provider, r.input_tokens, r.output_tokens, r.cost, r.usage_json, "
-                "r.output_budget_tokens, r.parent_call_id, r.status, r.started_at, r.owner_kind, r.owner_id, "
-                "j.batch_id FROM model_call_receipts AS r "
-                "JOIN ingest_jobs AS j ON r.owner_kind = 'ingest_job' AND r.owner_id = j.id "
-                "WHERE substr(j.batch_id, 1, length(?)) = ? AND r.started_at >= ?",
-                (batch_prefix, batch_prefix, started_since),
-            ).fetchall()
-        return [dict(row) for row in rows]
-
     def model_checkpoint(self, cache_key: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT result_json,usage_json FROM model_work_checkpoints WHERE cache_key=?", (cache_key,)).fetchone()
