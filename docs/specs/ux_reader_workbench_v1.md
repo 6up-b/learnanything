@@ -4,6 +4,8 @@
 
 **Integrated into the spec on 2026-10-13 (spec §20.9).** Every spec phase's "what the learner sees" now names the sections here that present it. All seventeen proposed changes in §10.1 were adopted, five with a change; §10.1's last column gives each ruling. The open questions in §10.2 are the spec's owner decisions D29–D41, with the defaults recommended here. Where this document and the spec disagreed, the ruling is recorded in the spec's §20.9 and this document was edited to match: the reconnect line's formative check is now called *quick check* ("check me" always means an attempt on your own, spec D43); help during a check on your own uses the ladder's choose-then-take step instead of a confirmation dialog (spec D42); the submit line no longer promises a later check; the recap's "later" carries no number; U2's test governs only what LearnLoop starts; and a comparison has no fixed source limit. From here on the spec wins on behaviour, data and gates, and this document on presentation; a later disagreement goes in the phase's review file.
 
+**Consistency review (2026-10-13, spec §20.10).** A critic compared this document with the spec line by line and found seven contradictions; all seven are fixed in both documents. Tutor offers are fetched when an answer lands and shown only when pressed (spec D44). W11's density had an extra ½ in each component (total mass ½, so its 30% readout was wrong) and its prediction's answer was backwards; the density, readout and prediction are corrected, and the wrong density is now a negative control in the spec's golden case (G45). A hint sits under the step it is about and names the step it continues from, which is never the questionable one (spec D45). *Check my work* counts as a hint in every example. *Where this goes* says what each box is actually used for (§4.10). The help ladder's fallback steps up a rung on each further Help press. A check on your own names only the book until feedback: no exercise number, section, page, link or *why* (spec D46).
+
 **Inputs, read in full:**
 - the brainstorm `docs/brainstorming/Improving Reader's design.md` (three rounds, 1,461 lines);
 - the spec at `8deb75be` and the restoration edits in progress on `docs/reader-workbench-spec`, plus the coverage audit `docs/reviews/reader-dialogue-coverage.md`;
@@ -82,17 +84,17 @@ A real session, re-narrated with the revised design. The owner is reading the pr
 
 **Moment 5 — working the exercise beside the book.** End of section: Exercise 5.14, the one the Guide suggested. They select it and type *"let me work this"* → *work through this* **[RW1b → RW2a]**. The right side widens to half the window. The verbatim stem appears **at once**, taken from the selection, while the import finishes in the background (`◐ setting up checks and hints for this exercise…`) **[UX→RW2a, §10 S2]**. Above *Your work*, one line offers a choice that is already made: *● with the book open (practice beside the book — counts as one hint) ○ without it (your own attempt; you can open it any time)*. They start typing, so the default stands.
 
-They write three steps with live KaTeX. Step 3 is `F_Z(x) = −e^{−x}`, and they're not sure. `Ctrl+K`, *check my work* **[RW2b]**. `◐ reading your steps…` They keep typing step 4. The verdicts appear in a narrow right-hand column: step 1 `≈ looks valid (model's reading)`; step 2 `✓ checked (symbolic: integral)`; step 3 `? first questionable — at x = 0 this gives −1, and a CDF starts at 0 · looks like a missing constant of integration (model's guess)`. No correction is given.
+They write three steps with live KaTeX. Step 3 is `F_Z(x) = −e^{−x}`, and they're not sure. `Ctrl+K`, *check my work · counts as a hint* **[RW2b]**. `◐ reading your steps…` They keep typing step 4. The verdicts appear in a narrow right-hand column: step 1 `≈ looks valid (model's reading)`; step 2 `✓ checked (symbolic: integral)`; step 3 `? first questionable — at x = 0 this gives −1, and a CDF starts at 0 · looks like a missing constant of integration (model's guess)`. No correction is given. The footer now reads *book open = 1 hint · help used: a check*: a check that points at the first questionable step tells them as much as a level-2 hint, so it counts as one (spec §5.2), and the button said so before they pressed it.
 - *Feels:* the slip was found and the fix is still theirs. Nothing about the screen says "wrong".
 - *Does not:* show a red ✗, reveal the answer, start a timer, or comment on how long they took.
 
-**Moment 6 — a question before a hint.** `Ctrl+H`. The help ladder opens at once below step 3 with all five levels. Because two explanations of the step-3 slip are open (a support mistake or a missing constant), rung 1 reads *a question that tells apart two explanations of step 3 · not graded · counts as a hint*, and about two seconds later it is marked *▸ suggested (why?)* **[RW2b, restored]**. They take it: *"What is P(Z ≤ 0) when Z ~ Exponential(1)?"* They answer *"0"*. *"That settles it: your support is right; the gap is the constant."* The hint (level 3) follows, anchored under step 3: *"Steps 1–2 stand. Your antiderivative in step 3 matches the density, but a CDF must be 0 at x = 0, and −e^{−x} gives −1 there. What constant keeps your derivation and fixes that?"* They write step 4, `1 − e^{−x}`. About seven seconds later a quiet line appears under the hint: *§ compare with the book: Example 5.3.2's boundary step, p.219 ▸*. They peek: the source pane scrolls to it, outlined, with a crumb back to 5.14 **[RW2b bridging; RW2c route-matched examples]**.
+**Moment 6 — a question before a hint.** `Ctrl+H`. The help ladder opens at once below step 3 with all five levels. Because two explanations of the step-3 slip are open (a support mistake or a missing constant), rung 1 reads *a question that tells apart two explanations of step 3 · not graded · counts as a hint*, and about two seconds later it is marked *▸ suggested (why?)* **[RW2b, restored]**. They take it: *"What is P(Z ≤ 0) when Z ~ Exponential(1)?"* They answer *"0"*. *"That settles it: your support is right; the gap is the constant."* The hint (level 3) follows under step 3, the step it is about, labelled *continues from step 2*, the last step that stands: *"Steps 1–2 stand. Your antiderivative in step 3 matches the density, but a CDF must be 0 at x = 0, and −e^{−x} gives −1 there. What constant keeps your derivation and fixes that?"* They write step 4, `1 − e^{−x}`. About seven seconds later a quiet line appears under the hint: *§ compare with the book: Example 5.3.2's boundary step, p.219 ▸*. They peek: the source pane scrolls to it, outlined, with a crumb back to 5.14 **[RW2b bridging; RW2c route-matched examples]**.
 
 Had the hint said "integrate the piecewise density instead" (the book's route), they would have pressed *this doesn't connect to my work…*, then *I'm using a different approach*, and the next hint would have stayed on their CDF-first route (spec §5.2 rules 4–5).
 - *Feels:* the hint met them where they were, and nobody took the pencil.
 - *Does not:* restart the explanation, switch to the book's route, hide the higher rungs, or ask "are you sure?".
 
-**Moment 7 — submitting.** `Ctrl+Enter`. The optional 1–5 confidence row works as it does on the practice screen today. One line states what the attempt records: *book open · 2 hints (a level-1 question, a level-3 hint) → practice with help ◌ (not yet checked on your own).* Whether a check on your own follows is RW6b's valuation to decide, later, so the line promises none. The feedback screen is today's, and `Esc` returns to Exercise 5.14 in the Reader, not to the queue **[UX→RW2a, §10 S6]**. Because the answer was right and their route differed from the book's, the feedback carries one optional line: *the book derives the density first; you went CDF-first · compare methods ▸* **[RW2c]**.
+**Moment 7 — submitting.** `Ctrl+Enter`. The optional 1–5 confidence row works as it does on the practice screen today. One line states what the attempt records: *book open · 3 hints (a check, a level-1 question, a level-3 hint) → practice with help ◌ (not yet checked on your own).* Whether a check on your own follows is RW6b's valuation to decide, later, so the line promises none. The feedback screen is today's, and `Esc` returns to Exercise 5.14 in the Reader, not to the queue **[UX→RW2a, §10 S6]**. Because the answer was right and their route differed from the book's, the feedback carries one optional line: *the book derives the density first; you went CDF-first · compare methods ▸* **[RW2c]**.
 - *Feels:* honest bookkeeping, not a penalty.
 - *Does not:* call the attempt "assisted (penalty)" or hide that the visible book counts.
 
@@ -100,7 +102,7 @@ Had the hint said "integrate the piecewise density instead" (the book's route), 
 - *Feels:* their own library talking to itself, with its differences intact.
 - *Does not:* write an essay, merge the books into a "consensus", or rank by their history without saying so (the *personalized* chip is visible and switchable, B 877).
 
-**Moment 9 — an explorable figure.** Back in §5.4 there is the two-sided exponential figure. Select the density equation → *make this explorable* **[RW5a]**. `◐ building an interactive version — about 30 s · keep reading`. They read on. A collapsed line appears under the equation: *▸ interactive version · AI-built · matches the book's equation (checked)*. They open it. First a prediction: *"If p rises to 0.7, which side gains probability?"* They answer *left*. The reveal says *right*, and a box asks *what changed? (optional)*. They write one line. They shade `P(X ≤ 0)` and watch the readout move as they drag `p` with the arrow keys.
+**Moment 9 — an explorable figure.** Back in §5.4 there is the two-sided exponential figure. Select the density equation → *make this explorable* **[RW5a]**. `◐ building an interactive version — about 30 s · keep reading`. They read on. A collapsed line appears under the equation: *▸ interactive version · AI-built · matches the book's equation (checked)*. They open it. First a prediction: *"If λ doubles, what happens to P(X ≤ 0)?"* They answer *it rises*, because the peak at zero gets taller. The figure moves λ to 2 and shows the readout before and after: *30.0% → 30.0%*. A box asks *what changed? (optional)*. They write one line: *λ squeezes both sides toward 0, but p sets the split*. Then they shade `P(X ≤ 0)` and drag `p` with the arrow keys: the readout follows `p` exactly, which is the dialogue's own illustration (B 591–611: at p = 0.30, 30% left of zero and 70% right).
 - *Feels:* playing with the idea. The miss is a discovery.
 - *Does not:* grade the miss, present the figure as the author's, or animate anything when reduced motion is on.
 
@@ -308,7 +310,7 @@ Every model-backed action has the same seven states, rendered in the same way at
 - **Entry:** an ask from the intent box or palette; *ask follow-up* on any exchange; a question opened from Today's queue (it opens the source at its anchor with the inquiry expanded).
 - **The detour strip** (between the header and the body, 26 px, only while a detour exists): `↩ §5.4 ¶3 › why weighted by p? › conditioning on a coin flip    alt+← back`. Every crumb is a button. The first is always the reading position from before the detour. It is the brainstorm's "small breadcrumb trail" (B 184).
 - **The rail on Ask** shows the current inquiry expanded and other inquiries collapsed under *other questions on this source*. Each exchange shows the learner's question (`›`), the answer (`◇`, with citation chips that are `§` buttons), and *ask follow-up · show passage · status*. Status chips sit on the root only: *open · resolved · revisit once · make it something I can do · dismissed*, plus *reopen* on a closed one (spec D4). The tree with search is the branch's `ReaderAskBranches`, restyled to the voices.
-- **Three answer modes from the tutor that looks things up [RW1c]:** an answer shows, in this order, **from the book** (a `§` excerpt, when one directly answers), **LearnLoop's explanation** (`◇`, grounded, with citations), and **connecting it to your work** (`◇`, only when the learner has work or an open question on this; it quotes it) (B 1254–1272). Under the answer: *another way · that didn't help…*. The second takes optional text (W5) and fetches a different source or role, labelled *"from a different book"* or *"a worked example instead"*. Under it sit buttons the learner presses, never actions the tutor performs: the sources spec's requests (*practice this*, *from your books: …*, *how do your books treat this?*, each with the tutor's one-line reason labelled as LearnLoop's) and two of the Reader's own (*make this explorable* on a cited equation or figure, *try the next step first* on a cited derivation). When verification keeps no passage, the answer opens with *"Your books don't cover this directly — this is LearnLoop's model's explanation"*.
+- **Three answer modes from the tutor that looks things up [RW1c]:** an answer shows, in this order, **from the book** (a `§` excerpt, when one directly answers), **LearnLoop's explanation** (`◇`, grounded, with citations), and **connecting it to your work** (`◇`, only when the learner has work or an open question on this; it quotes it) (B 1254–1272). Under the answer: *another way · that didn't help…*. The second takes optional text (W5) and fetches a different source or role, labelled *"from a different book"* or *"a worked example instead"*. Under it sit buttons the learner presses, never actions the tutor performs: the sources spec's requests (*practice this*, *from your books: …*, *how do your books treat this?*, each with the tutor's one-line reason labelled as LearnLoop's) and two of the Reader's own (*make this explorable* on a cited equation or figure, *try the next step first* on a cited derivation). **Nothing appears until a button is pressed** (spec D44). Behind *practice this* and *from your books*, the lookup starts as soon as the answer lands, so pressing shows proposals or passages at once (pressed sooner, the button shows *◐ looking in your books…* in place); a proposal is served only by *practise* on it. *how do your books treat this?* is one heavier model call and is written only when pressed (*◐ comparing…*). A lookup that found nothing turns its button into a quiet line, *nothing in your practice or books fits this yet*, so the learner isn't sent to an empty list. When verification keeps no passage, the answer opens with *"Your books don't cover this directly — this is LearnLoop's model's explanation"*.
 - **Reconnect:** when a child is resolved, or when the learner returns to the root passage through the strip or `Alt+←`, one dim line appears under the root passage: *your question "…" — does this make sense now? yes · still unclear… · quick check*. The same line shows at the top of the inquiry in the rail. It disappears when the learner scrolls more than a screen on, and nothing is recorded if it is ignored (spec §4.1). *still unclear…* opens a text box (W5). *quick check* puts one formative question in the rail, revealed for self-comparison (*matches · partly · no*) and never an attempt. It is not called *check me*, which in this design always means an attempt on your own (spec D43).
 - **Latency:** answers are pending in place, with the learner's words saved first. A T6-grounded answer can take about 7 s for retrieval alone (spec §3.4 item 12), so the pending line says *looking in your books…* while retrieval runs and *writing…* while the model writes. This is honest about which wait is which.
 - **Undo:** status changes undo from the chip (*resolved · undo*). Follow-ups can't be unasked, but can be dismissed.
@@ -358,7 +360,7 @@ Most of this is backend work in the sources spec. The learner meets it in four p
 |---|---|
 | Comparing, "practice this question" | Textbook exercises beside existing items, labelled *from your book · verbatim · answer completed by LearnLoop's model (verified ✓ / not verified)* |
 | Reader, "find an exercise in my sources" | Candidate exercise passages with source and page, and *use this one*. Choosing imports it (spec §7.4), and the import runs in the background while the workbench opens with the stem |
-| Today's plan and the phone | An item header line: *Exercise 5.14 · Probability · verbatim*. During a cold check the header carries **no page link and no locator beyond the book's name** (enough to know it's real, not enough to look it up by accident). The book opens only through *show the book*, which first says it makes the attempt practice with help (§4.9). After feedback: *original page ↗* |
+| Today's plan and the phone | An item header line: *Exercise 5.14 · Probability · verbatim*. During a cold check the header carries **the book's name and nothing that locates the exercise in it**: *from Intro to Probability · verbatim* — no exercise number, page, section or link (enough to know it's real, not enough to look it up, or its worked solution, by accident; spec D46). The book opens only through *show the book*, which first says it makes the attempt practice with help (§4.9). After feedback: *original page ↗* |
 | A probe chosen to tell explanations apart | The why line: *"chosen because its answer tells apart two explanations of your step-3 slip · about 6 min · LearnLoop's estimate"* |
 
 **Novelty labels (restored, B 1047):** a follow-up says honestly how unfamiliar it is: *new wording · new setup · new kind of problem*. "Same idea, new numbers" is never presented as transfer.
@@ -396,12 +398,25 @@ Most of this is backend work in the sources spec. The learner meets it in four p
 
 - **In the plan:** *check · on your own · about 6 min · from your reading of §5.4 (why)*. *why* expands to the purpose (*to tell apart two explanations of your step-3 slip* or *to see whether the piecewise CDF holds without help*) and the valuation as an estimate (*"expected to settle which repair to try · LearnLoop's estimate"*, W2). The plan's minutes bound how many appear on a day. There is no count anywhere.
 - **The cold banner** (practice screen, `hint-banner` style, amber edge): *"A check on your own. Help is still here — using it makes this practice with help."* `^h`, `?` and *show the book* stay live, and each says its consequence in its own label before it is used (U11): `^h` opens the help ladder with nothing revealed, its header reads *"taking any rung makes this practice with help ◌"*, and `↵` on a rung takes it — the ladder's ordinary choose-then-take step (§5.5), so a stray key reveals nothing; `?` opens the ask box with the same line as its placeholder, and sending the question is the take step; *show the book (makes this practice with help)* is a labelled control. There is no confirmation dialog anywhere in this design (spec D42; the earlier draft had one here).
+- **The header during the check** names the book and nothing that locates the exercise in it: *from Intro to Probability · verbatim · new setup*. No exercise number, page, section or link, and no *why*: P3's invariant 10 withholds source cues and purpose text from a cold administration, and an exercise number is enough to find the exercise, or its solution, in the book (spec D46). After feedback the header gains *Exercise 3.19 · p.112 · original page ↗* and *why this check ▸*.
 - **After feedback,** when the result suggests repair: *↩ back to where you studied this: Exercise 5.14 · your question "why weighted by p?" (§5.4)*. This opens the Reader in the returning posture at that place (restored, B 1055).
 - **On the phone:** the same item header and banner. Probe-type checks show the existing *"continue it on the desktop"*.
 
 ### 4.10 Where your words go **[RW1b, RW2b, RW6a; learner-text gaps]**
 
-Every free-text box in this design ("still unclear", "I'm stuck", "doesn't connect", "not relevant", "what changed?", next-step answers) carries a quiet *ⓘ where this goes* that expands to: *"Kept with this passage or problem. LearnLoop's model may read it to name a gap, such as a prerequisite to look at — never to grade you."* When a gap is named from the learner's text, the inquiry shows one line: *◇ model noted a possible gap: conditioning a CDF on a discrete choice · see it on the map · not right?* What *not right?* does is an open question for the learner-text-gaps pipeline (§10 Q9).
+Every free-text box in this design carries a quiet *ⓘ where this goes*. What it says depends on the box, because the boxes go to different places (spec §6.2, §7.8, §8.1, §9.3; the first draft gave every box the gap wording, including *not relevant*, whose text the spec keeps out of learner-text gaps). Every version ends with "never to grade you".
+
+| Box | *ⓘ where this goes* says | Where it goes (spec) |
+|---|---|---|
+| *still unclear…*, *that didn't help…*, *I'm stuck*, *this doesn't connect… · say more*, an answer to a question before a hint, *not what I asked…* on a practice proposal | *"Kept with this passage or problem. LearnLoop's model may read it to name a gap, such as a prerequisite to look at — never to grade you."* | Learner-text gaps: a reader question, `workbench_text`, or (once the sources spec's adapter exists) its usage-verdict text |
+| next-step, why-step and assumption answers; a figure's *what changed?* | *"Kept with this passage. If your answer differed from the book's, LearnLoop's model may read it to name a gap — never to grade you."* | `reader_formative`, only when the learner marked the answer *partly* or *no*, or the prediction missed (§4.3, §8.4); a match is kept and nothing more |
+| *not relevant…* on a margin mark | *"Tells LearnLoop this mark missed, so marks like it get better. It isn't read for gaps in your understanding — and never grades you."* | Feedback on the cue judge only (spec §6.2) |
+| *why? (optional)* when undoing a scheduled check | *"Tells LearnLoop the check wasn't worth your time, so checks get valued better. It isn't read for gaps — and never grades you."* | The undo's `learner_card` verdict; calibration data (spec §9.3, §15) |
+| *your take* on a comparison | *"Kept as your own note on these passages, in your voice. It isn't read for gaps — and never grades you."* | A `learner_connects` relation (spec §7.8) |
+| *not right?* on a figure | *"Sent with this figure to the model that builds it, for a better version — never to grade you."* | A figure revision request (spec §8.1) |
+| the intent box | *"Used to pick the action you meant. If it becomes a question, it's kept like one."* | The Decider's routing; a routed question then follows the first row |
+
+When a gap is named from the learner's text, the inquiry shows one line: *◇ model noted a possible gap: conditioning a CDF on a discrete choice · see it on the map · not right?* What *not right?* does is spec D37 (this document's §10 Q9).
 
 ### 4.11 Reading paths in the Guide **[RW7a, RW7b]**
 
@@ -456,7 +471,7 @@ Every free-text box in this design ("still unclear", "I'm stuck", "doesn't conne
 
 ### 5.4 Check my work
 
-- `Ctrl+K`, or the button. While pending: *◐ reading your steps (as of 21:42)…* in the verdict column. Editing continues.
+- `Ctrl+K`, or the button, which says its cost before it is used: *check my work · counts as a hint*. A check that names the first questionable step tells the learner what a level-2 hint would (spec §5.2), so it is recorded as one, and the footer adds *a check* when the result shows. While pending: *◐ reading your steps (as of 21:42)…* in the verdict column. Editing continues.
 - **Results** are markers per step, the first questionable step marked *first*, and its reason quoted from the step: *"? first — at x = 0, '−e^{−x}' gives −1; a CDF starts at 0"*. The restored error-kind guess comes as a second line: *"looks like a missing constant of integration (model's guess)"*.
 - **Never** the correction, never red, never a score.
 - **Stale results** are labelled: *"checked your steps as of 21:42 — step 3 has changed since"*.
@@ -470,23 +485,23 @@ Every free-text box in this design ("still unclear", "I'm stuck", "doesn't conne
   |---|---|---|
   | 1 | a question about your approach | *hint* |
   | 2 | point to the first step that doesn't hold yet | *hint* |
-  | 3 | a hint from your step N | *hint* |
+  | 3 | a hint on your step N | *hint* |
   | 4 | write the next step for me, in my notation | *worked help ◌* |
   | 5 | walk me through the rest, keeping my route | *worked help ◌* |
 
-- **The offered rung** gets a `▸` and *suggested (why?)* when the chooser returns (≤ 3 s). Until then the ladder works with no suggestion, and on timeout the suggestion is rung 1. *why?* expands to the chooser's inputs in plain words: *"you've demonstrated conditioning on your own twice; this is your first boundary-condition problem; help style: balanced · LearnLoop's judgment."*
+- **The offered rung** gets a `▸` and *suggested (why?)* when the chooser returns (≤ 3 s). Until then the ladder works with no suggestion. On timeout, or when the chooser is unavailable, the suggestion is rung 1 the first time, then one rung above the last one offered or taken on that step each time Help opens there again (spec §5.5); its *why?* reads *"no judgment available right now — the next rung up"*. *why?* expands to the chooser's inputs in plain words: *"you've demonstrated conditioning on your own twice; this is your first boundary-condition problem; help style: balanced · LearnLoop's judgment."*
 - **Choosing and taking are separate.** Digits and arrows choose a rung, and `↵` takes it, so a stray keypress can't reveal a worked step. There is no "are you sure?".
 - **The ladder never shrinks.** No rung is ever disabled for being "too early" (B 788). With *let me struggle*, the suggestion leans low. With *guide me* it leans high. The learner's choice always wins.
 - **When rival explanations are open,** rung 1 reads *a question that tells apart two explanations of step N* (§5.8).
-- **Assistance taken** shows in the footer as it accrues: *book open = 1 hint · help used: a question (L1), a hint (L3)*.
+- **Assistance taken** shows in the footer as it accrues: *book open = 1 hint · help used: a check, a question (L1), a hint (L3)*.
 
 ### 5.6 Hints, anchored and reconciled
 
-- A hint appears **under the step it continues from**, in the model voice:
+- A hint appears **under the step it is about**, in the model voice, and its label names **the step it continues from** (spec §5.2 rules 2–3; D45). The two can differ: a hint about a questionable step may quote it, but it builds on the steps that stand, so the questionable step is never its checkpoint.
 
   ```
   3 › = −e^{−x}
-      ◇ model · hint, level 3 · from your step 3
+      ◇ model · hint, level 3 · on your step 3 · continues from step 2
       ┊ Steps 1–2 stand. Your antiderivative in step 3 matches the density,
       ┊ but a CDF must be 0 at x = 0, and "−e^{−x}" gives −1 there.
       ┊ What constant keeps your derivation and fixes that?
@@ -521,7 +536,7 @@ Every free-text box in this design ("still unclear", "I'm stuck", "doesn't conne
 
 ### 5.9 Submit
 
-- `Ctrl+↵`. Above the button, the optional confidence row (as on the practice screen) and **one line of record**: *book open · 2 hints (a level-1 question, a level-3 hint) → practice with help ◌ (not yet checked on your own).* With the book hidden and no help: *your own attempt*. It never promises a later check: only RW6b's valuation decides whether one is worth scheduling.
+- `Ctrl+↵`. Above the button, the optional confidence row (as on the practice screen) and **one line of record**: *book open · 3 hints (a check, a level-1 question, a level-3 hint) → practice with help ◌ (not yet checked on your own).* With the book hidden and no help: *your own attempt*. It never promises a later check: only RW6b's valuation decides whether one is worth scheduling.
 - The feedback screen is today's. `Esc` and `b` return to the problem in the Reader (§10 S6).
 - **Restored [RW2c]:** after a correct answer by a route different from the reference, an optional *compare methods ▸* shows both routes side by side, the learner's in their own voice and the reference's labelled by source or model.
 
@@ -673,8 +688,8 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │                                         │        looks like a missing constant of integration (guess)   │
 │                                         │  4 › _                                                        │
 │                                         │                                                                │
-│                                         │ ^k check my work   ^h help   ^d I'm stuck          ^↵ submit │
-│                                         │ book open = 1 hint · help used: none        esc leave · ⋯    │
+│                                         │ ^k check my work (a hint)  ^h help  ^d I'm stuck   ^↵ submit │
+│                                         │ book open = 1 hint · help used: a check     esc leave · ⋯    │
 ├─────────────────────────────────────────┴────────────────────────────────────────────────────────────────┤
 │ ↵ new step  ⇧↵ new line  alt+↑↓ steps  ^k check  ^h help  ^d stuck  ^↵ submit  ^⇧B book  esc esc leave  │
 ```
@@ -687,7 +702,7 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │  │ ▸ 1  a question that tells apart two explanations of step 3 · not graded       hint     │ │
 │  │      or try a short problem from your books that tells them apart ▸ (~5 min)            │ │
 │  │   2  point to the first step that doesn't hold yet                         hint          │ │
-│  │   3  a hint from your step 3                                               hint          │ │
+│  │   3  a hint on your step 3                                                 hint          │ │
 │  │   4  write the next step for me, in my notation                    worked help ◌         │ │
 │  │   5  walk me through the rest, keeping my route                    worked help ◌         │ │
 │  │ ↑↓ / 1–5 choose · ↵ take · esc close                                                     │ │
@@ -707,7 +722,7 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 ```
 │  3 › = −e^{−x}                                                                               │
 │      ◇ model · that settles it: your support is right; the gap is the constant              │
-│      ◇ model · hint, level 3 · from your step 3                                             │
+│      ◇ model · hint, level 3 · on your step 3 · continues from step 2                       │
 │      ┊ Steps 1–2 stand. Your antiderivative in step 3 matches the density,                  │
 │      ┊ but a CDF must be 0 at x = 0, and "−e^{−x}" gives −1 there.                          │
 │      ┊ What constant keeps your derivation and fixes that?                                  │
@@ -783,16 +798,18 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 **W11 — An explorable figure, inline.** **[RW5a]**
 
 ```
-│         f_X(x) = p·½λe^{λx}·[x<0] + (1−p)·½λe^{−λx}·[x≥0]                                    │
+│         f_X(x) = p·λe^{λx}·[x<0] + (1−p)·λe^{−λx}·[x≥0]                                      │
 │  ▾ interactive version · AI-built · matches the book's equation (checked)            ✕ close │
 │  ┌──────────────────────────────────────────────────────────────────────────────────────────┐ │
-│  │ Before you move anything: if p rises to 0.7, which side gains probability?               │ │
-│  │   ( ) left   (•) right   ( ) neither             ↵ answer                                 │ │
+│  │ Before you move anything: if λ doubles, what happens to P(X ≤ 0)?                        │ │
+│  │   (•) it rises   ( ) it falls   ( ) it stays the same       ↵ answer                      │ │
 │  │ ──────────────────────────────────────────────────────────────────────────────────────── │ │
-│  │   0.5 ┤          ▁▃▅█▅▃▁                                                                  │ │
-│  │       │     ░░░░░█                                                                        │ │
-│  │   0.0 ┼░░░░░░░░░░┴────────────────                                                        │ │
-│  │      −4          0                4        shade: [P(X ≤ 0) ▾]   readout: 30.0%           │ │
+│  │   0.8 ┤                ▄                                                                  │ │
+│  │       │                █▆▁                                                                │ │
+│  │       │               ▁███▅▂                                                              │ │
+│  │       │    ▁▁▁▁▂▂▃▃▄▆▇███████▆▅▄▃▂▂▁▁▁▁▁                                                  │ │
+│  │   0.0 ┼░░░░░░░░░░░░░░░░┴────────────────                                                  │ │
+│  │        −4              0               4    shade: [P(X ≤ 0) ▾]   readout: 30.0%          │ │
 │  │   p  [====|---------] 0.30   λ [===|------] 1.0        ▶ play   t values table            │ │
 │  │   what changed? (optional) › ______________________________________                      │ │
 │  └──────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -806,10 +823,10 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │ Still open                                                                 │
 │   ? density of a sum — why a convolution?        open · resolved · revisit │
 │ Unfinished                                                                 │
-│   ✎ Exercise 5.14 · 4 steps · help so far: L1 question, L3 hint resume ▸   │
+│   ✎ Exercise 5.14 · 4 steps · help: check, L1 question, L3 hint resume ▸   │
 │ Worth a second look                                                        │
 │   ◌ your next-step guess in Example 5.4.2 missed a (1−p)        reopen ▸   │
-│   ◌ figure: "p → 0.7, left gains" (it was right)                reopen ▸   │
+│   ◌ figure: "λ doubles → P(X ≤ 0) rises" (it stays at p)        reopen ▸   │
 │ Since last time                                                            │
 │   ● conditional probability — demonstrated on your own (Sat)   on the map ▸│
 │ Coming up · checks on your own                                             │
@@ -823,9 +840,9 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 **W13 — A cold check, and the loop back.** **[RW6b, SRC, DL2]**
 
 ```
-┌ PRACTICE · check · on your own · from your reading of §5.4 · about 6 min                        why ▸ ┐
+┌ PRACTICE · check · on your own · from your reading · about 6 min                                      ┐
 │ ┃ A check on your own. Help is still here — using it makes this practice with help.               │
-│ Exercise 3.19 · Intro to Probability · verbatim · new setup                                         │
+│ from Intro to Probability · verbatim · new setup                                                    │
 │ Let W be … Find P(W ≤ 0) and explain why the CDF of W is continuous at 0.                           │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐   │
 │ │ type your answer — $math$ renders as you type                                                 │   │
@@ -836,7 +853,9 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
                    │ ▸ 1 a question about your approach    …    5 walk me through it    │
                    └ ↑↓ / 1–5 choose · ↵ take · esc keep it on my own ──────────────────┘
 
-    feedback, when repair is suggested:
+    feedback: the header gains what was withheld (spec D46):
+│ Exercise 3.19 · Intro to Probability p.112 · original page ↗ · why this check ▸                     │
+    and, when repair is suggested:
 │ ↩ back to where you studied this: Exercise 5.14 · your question "why weighted by p?" (§5.4)   ▸   │
 ```
 
@@ -871,7 +890,8 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │ check · on your own          │
 │ from your reading · ~8 min   │
 │ ──────────────────────────── │
-│ Exercise 4.7 · verbatim      │
+│ from Intro to Probability    │
+│ verbatim                     │
 │ Let X be a mixture of …      │
 │ Find the CDF of X.           │
 │ ┌──────────────────────────┐ │
