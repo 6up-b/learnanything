@@ -347,6 +347,72 @@ def write_facets(paths: VaultPaths, facets: list[dict], *, schema_version: int =
     write_yaml(paths.facets_path, {"schema_version": schema_version, "facets": facets})
 
 
+def seed_explanatory_source(
+    root: Path,
+    repository: Repository,
+    *,
+    source_id: str = "src_cited",
+    revision_id: str = "rev_cited",
+    extraction_id: str = "ext_cited",
+    unit_id: str = "unit_cited",
+    role: str = "primary_textbook",
+) -> dict[str, str]:
+    """A source-set member with one extracted span; returns a citation of it.
+
+    A change to a registered facet's meaning must cite an explanatory span from
+    a source set's selected units (the facet-meaning chokepoint,
+    ``learnloop.content.facet_identity.authority``). Tests that reword a facet
+    through a proposal cite this one. Idempotent.
+    """
+
+    from learnloop.ingest.hashing import extraction_request_hash, extraction_result_hash
+    from learnloop.ingest.ir import IR_SCHEMA_VERSION, DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+    from learnloop.vault.writer import upsert_source_set
+
+    citation = {"extraction_id": extraction_id, "unit_id": unit_id, "span_id": "s1"}
+    if repository.get_extraction_run(extraction_id) is None:
+        now = NOW_ISO
+        with repository.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
+                "VALUES (?,?,?,?,?)",
+                (source_id, "pdf", f"file:///{source_id}.pdf", now, now),
+            )
+            connection.execute(
+                "INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+                (revision_id, source_id, f"sha256:{revision_id}", now),
+            )
+            connection.commit()
+        block = DocumentBlock.build(span_id="s1", block_type="Text", ordinal=1, section_path=["root"],
+                                    text="The singular value decomposition factorizes a real matrix.")
+        ir = DocumentIR(
+            extractor="text", extractor_version="1", blocks=[block], assets=[], health=ExtractionHealth(),
+            units=[DocumentUnit(unit_id=unit_id, label="Cited unit", ordinal=0, semantic_hash=f"sha256:{unit_id}",
+                                page_start=1, page_end=1, span_ids=["s1"])],
+        )
+        request_hash = extraction_request_hash(revision_id=revision_id, extractor=ir.extractor,
+                                               extractor_version=ir.extractor_version, config=None,
+                                               ir_schema_version=IR_SCHEMA_VERSION)
+        clock = FrozenClock(NOW)
+        repository.insert_extraction_run(id=extraction_id, revision_id=revision_id, extractor=ir.extractor,
+                                         extractor_version=ir.extractor_version, extraction_request_hash=request_hash,
+                                         ir_schema_version=IR_SCHEMA_VERSION, config=None, status="running",
+                                         clock=clock)
+        repository.persist_document_ir(extraction_id, ir)
+        repository.complete_extraction_run(extraction_id,
+                                           extraction_result_hash=extraction_result_hash(request_hash, ir),
+                                           clock=clock)
+    vault = load_vault(root)
+    if not any(member.revision_id == revision_id for source_set in vault.source_sets for member in source_set.members):
+        subject_id = next(iter(vault.subjects), "linear-algebra")
+        upsert_source_set(root, {
+            "id": f"set_{source_id}", "subject_id": subject_id, "title": "Cited source",
+            "members": [{"source_id": source_id, "revision_id": revision_id, "default_role": role,
+                         "scope": [{"unit_id": unit_id}], "priority": 1}],
+        }, clock=FrozenClock(NOW))
+    return citation
+
+
 def add_followup_item(root: Path, item_id: str = "pi_svd_define_002") -> None:
     upsert_practice_item(
         root,

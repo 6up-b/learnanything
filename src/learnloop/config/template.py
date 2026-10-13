@@ -649,13 +649,10 @@ local_severity_gain = 0.35
 # spec §4.2). Reserved for KM2+; residual activation ships default-off.
 [capabilities]
 
-# Identity-lock policy (knowledge-model spec §3.4): a facet's semantic identity
-# locks at direct evidence in >=2 distinct surface/correlation groups, at
-# facet_lock_mass independent evidence mass, or on entering an active goal's
-# certified scope — whichever comes first.
-[locks]
-facet_lock_mass = 2.0
-facet_surface_groups = 2
+# NOTE: [locks] is retired: facet identity locks were removed (owner,
+# 2026-10-12). Merges apply live with an undo and a reword writes a facet
+# version (knowledge-model §3.4). `learnloop doctor` warns when a vault TOML
+# still declares the block.
 
 # NOTE: [cross_lo_propagation] is retired (knowledge-model §8.3/§15). The LO-to-LO
 # graph-propagated prior is prerequisite-only, direction-respecting, and
@@ -1015,7 +1012,23 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # key's own limit the hard backstop. Money bounds only: no scoring,
     # scheduling, projection or serving change; every snapshot moves because
     # the effective config changed, and all eleven were recomputed.
-    "mvp-0.9": "80312e5835fcf9066df6369036147379567a7330176567330573104398028455",
+    # Facet locks were then removed (facets/locks-and-depends-on; built on
+    # merge/facet-locks after EVSI calibration and landed after the sources
+    # track): [locks] and merge_locked_facets stay in the schema
+    # with their defaults, unread, so no snapshot moves; the legacy before-image
+    # drops [locks] (no snapshot moves either, since its values were the
+    # defaults). All eight were recomputed at its merge and are unchanged.
+    # The facet reword confirm's review (F6; docs/reviews/
+    # facet-reword-confirm-codex-review.md) adds facet_identity.reword_confirm
+    # = true (modelled default, left out of the decision-only template), the
+    # kill switch of the owner's one-tap reword confirm: which facet writes
+    # are admitted, live at every version, never scoring, scheduling,
+    # projections, evidence or what is served, so no successor. Every snapshot
+    # moves only because the effective config gains the key; all eight were
+    # recomputed (defaults_fingerprint_for_version) on its branch, and all
+    # eleven again from the composed defaults when it landed after the sources
+    # track.
+    "mvp-0.9": "02e7da343ab0c5dbe44ef7435050fca2147bdd1b381c197f4465a75c6209fc64",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1038,7 +1051,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.10": "c224dd76e20cb22deecc2745b1dbc3e121ce404f92e48d0131e123b0071e790b",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.10": "d5d33b0390b1e7cf340b9019246f40115c555aa1d6d8362c55d9aa9baa349463",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1069,7 +1083,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.11": "82ea322c45cd79d514a23745ba2ed4a54774b444c4868c108a39fe5c477a3247",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.11": "91b0b095557b1f43adea18a1b8a96437075aacb5ea0f56310ab66a1e4a813505",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1094,7 +1109,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.12": "f784fcd1bfeb3e0649162a156d058298d9abe65b0c69a8197cd2abfaa61185f3",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.12": "fa7c35501d0a8cb11c0a06ec25cbafbf452839272e722da16440ccac3b7110e6",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1114,7 +1130,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.13": "7f0db61b76a08d977fedecc48d75dc83720fc6add2b916e7befed43b3c106d3d",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.13": "343afcd5537946bd1ca4a54cb3805cb96a50c4a79c250faeb60ff06dfeea9b77",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1133,7 +1150,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.14": "22a832555a3c920b891e4cab4aa4fe6d398d6d6b00775afe36f1c763e24a5311",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.14": "fe844e927ffac2dcf78847b2173205611709046de429e1fd261d9c4b894c1ba5",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1150,7 +1168,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.15": "e987e49abbdb93b3642d989e0e973b0d7dbb4bb5b841bd9564f3ba3de6777456",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.15": "01c0f36cccadc62433ae6a0e2d1d06976927f425f00078e9035ccda94398e3ab",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1174,7 +1193,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.16": "7747c975f0af9fa67050ecd23882932bc11778dc9dec2b600a4b1e65add6d88a",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.16": "688b990fa71ad87249e5628adf63f8a26d011a9d568fd3c283ad439c6d8fba2f",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1191,7 +1211,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
     # mvp-0.18 merged.
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.17": "d40bdb15adb21fa34854a5b7ef099664a56f00ef004a6e447fddd9ee5d12244d",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.17": "1220459e8dae8af9b78ca064c9503a69c26a8dadc29d9482bb7336257fb0c733",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1203,7 +1224,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # this tag. Existing vaults reach it by `learnloop upgrade --to mvp-0.18`
     # from mvp-0.17, or from mvp-0.9 to mvp-0.16 through the chain (under
     # mvp-0.12's advisory guard); never retroactive.
-    "mvp-0.18": "cdd8c8134098436e2fcd9f5f49c7665e12850dc643d23067e7a716fb933bdea5",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.18": "626d2b00f03cca87686560d1ae4e6ba0d72a70c06efe4fef2d60bdb22c81c78c",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1214,7 +1236,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # by `learnloop upgrade` (default target) from mvp-0.18, or from mvp-0.9
     # to mvp-0.17 through the chain (under mvp-0.12's advisory guard). New
     # vaults start here (the template's LATEST_ALGORITHM_VERSION).
-    "mvp-0.19": "33fed7bb6f48ff434de85887372004bfb94f8af8cdccdacd1d83494d4b90ab37",
+    # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
+    "mvp-0.19": "5847a339a9c2b4772b6c7a57c0c05981aa80e2ab8adbafbf1204bf1882628400",
 }
 
 

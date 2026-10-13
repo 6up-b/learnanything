@@ -104,6 +104,16 @@ def yaml_to_string(data: dict[str, Any]) -> str:
     return _dumped(data)
 
 
+def yaml_from_string(text: str) -> Any:
+    """Parse YAML text for editing (the round-trip loader ``read_yaml`` uses).
+
+    The inverse of :func:`yaml_to_string`: comments, key order and quoting
+    survive a later dump of the result. Raises on text that does not parse.
+    """
+
+    return _yaml().load(text)
+
+
 def read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]:
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---\n"):

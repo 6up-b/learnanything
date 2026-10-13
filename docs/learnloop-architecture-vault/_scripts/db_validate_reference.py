@@ -36,9 +36,9 @@ TABLES_ROOT = DATABASE_ROOT / "Tables"
 CONFIG_ROOT = VAULT_ROOT / "Reference" / "Configuration"
 CONFIG_FIELDS_ROOT = CONFIG_ROOT / "Fields"
 INITIALIZATION_NOTE = VAULT_ROOT / "Reference" / "CLI" / "Initialization.md"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_195" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_197" / "state.sqlite"
 CONFIG_SCHEMA_SOURCE = REPOSITORY_ROOT / "src" / "learnloop" / "config" / "schema.py"
-SCHEMA_HEAD = 195
+SCHEMA_HEAD = 197
 
 sys.path.insert(0, str(SRC_ROOT))
 
@@ -108,6 +108,8 @@ PINNED_CONFIG_STATUSES = {
     "probe.shadow.enabled": "DORMANT",
     "scheduler.followup.predictive_eig_weight": "DORMANT",
     "ingest.audio.provider": "COMPAT",
+    "locks.facet_lock_mass": "COMPAT",
+    "facet_identity.merge_locked_facets": "COMPAT",
 }
 CONFIG_ANCHOR_RE = re.compile(r"`([^`]+\.py):([1-9][0-9]*)`")
 REQUIRED_COMPAT_INPUTS = {
@@ -188,6 +190,9 @@ def expected_config_status(path: str) -> str:
     if path in LEGACY_CONFIG_PATHS:
         return "LEGACY"
     if path.endswith(".lo_mastery_delta") or path == "ingest.audio.provider":
+        return "COMPAT"
+    # Retired with facet identity locks (owner, 2026-10-12): accepted, never read.
+    if path.startswith("locks.") or path == "facet_identity.merge_locked_facets":
         return "COMPAT"
     if path in DORMANT_CONFIG_PATHS or path.startswith(DORMANT_CONFIG_PREFIXES):
         return "DORMANT"

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-195. Migration 167 adds the learner-field F1 read model
+197. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -81,10 +81,23 @@ mvp-0.18); 189 `source_comparisons` (WORKFLOW); 190
 (WORKFLOW); 195 rebuilds it for the spend accounting (`legacy`,
 `lease_expires_at`, `resolved_by`, the `released` state) and indexes
 `model_call_receipts` by `started_at` and `parent_call_id`.
-Built as a backup-API copy of `migration_head_186` with only 187-195 applied
-through `learnloop.db.migrate.apply_migrations` (checkpointed with
+Migrations 196-197 come from facet locks removed and the facet authority
+chokepoint (facets/locks-and-depends-on and merge/facet-locks; built there as
+188, then 185-186, and renumbered at their landing after main's 185-195): 196
+rebuilds `facet_identity_actions` (same columns, rows and indexes) so its
+CHECKs also accept `action = 'reword'` (a facet version a proposal apply, a
+Library save or the owner's one-tap confirm wrote, the old entry kept for the
+undo; a `proposed` reword is one held for the owner's confirm) and
+`origin IN ('proposal', 'registry')` (facet locks removed, owner 2026-10-12);
+197 adds `facet_registry_saves` (WORKFLOW: the write-ahead intent of a Library
+save or a confirm that records the owner's manual-authority verdicts, settled
+by recovery from facets.yaml; Codex re-review 2 of the facet authority
+chokepoint, F7).
+Built as a backup-API copy of `migration_head_195` (itself a backup-API copy of
+`migration_head_186` with 187-195 applied) with only 196-197 applied through
+`learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_186` was renamed to this
+`foreign_key_check` clean); `migration_head_195` was renamed to this
 directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.

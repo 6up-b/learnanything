@@ -48,8 +48,6 @@ learnloop.content.proposals.patches -> learnloop.curriculum.curriculum_locks
 learnloop.content.proposals.patches -> learnloop.learner.capability_mapping
 learnloop.content.proposals.patches -> learnloop.substrate.replay
 learnloop.content.proposals.proposals -> learnloop.diagnosis.missing_vocabulary
-learnloop.content.synthesis.append_neighborhood -> learnloop.curriculum.curriculum_locks
-learnloop.content.synthesis.source_set_synthesis -> learnloop.curriculum.curriculum_locks
 learnloop.content.synthesis.source_set_synthesis -> learnloop.learner.capability_mapping
 learnloop.content.synthesis.synthesis_gates -> learnloop.curriculum.curriculum_locks
 learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack

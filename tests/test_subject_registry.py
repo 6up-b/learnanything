@@ -1,7 +1,9 @@
 """Registry review (spec_source_ingestion_v2 §5.7; spec_knowledge_model §3.4, §12.2).
 
-Facet-contract cards for a subject, lock state, and a pre-lock merge that creates
-a REVIEW proposal (never auto-merge).
+Facet-contract cards for a subject, and the owner's merge: since facet locks
+were removed (owner, 2026-10-12) it applies live through the facet-identity
+merge, with the same one-tap undo as a judge's merge. (It used to file a facet
+``deactivate`` review item that proposal apply could not compile.)
 """
 
 from __future__ import annotations
@@ -48,23 +50,31 @@ def test_subject_registry_facet_contract_cards(tmp_path):
                 "error_signatures", "instructional_repairs", "status"):
         assert key in card
     assert set(card["conditions"]) == {"preconditions", "postconditions", "applicability"}
-    # This LO carries probe episodes, so the facet identity is locked; the card
-    # surfaces the lock and disables pre-lock merge with the reason.
-    assert card["locked"] is True
-    assert card["can_merge"] is False
-    assert card["lock_reasons"] and card["lock_reasons"][0]["source"] == "probe"
+    # This LO carries probe episodes, which used to lock the facet and disable
+    # its merge; facet locks were removed, so the card carries no lock state.
+    for retired_key in ("locked", "lock_reasons", "can_merge"):
+        assert retired_key not in card
+    assert card["version"] == 1
+    assert "locked_count" not in registry
     assert "identifiability_warnings" in registry
 
 
-def test_propose_merge_refused_when_facet_identity_locked(tmp_path):
-    vault, repo, _root = _applied_vault(tmp_path)
-    try:
-        propose_facet_merge(vault, repo, subject_id="linear-algebra",
-                            retired_facet_id="facet_spectral_applicability",
-                            surviving_facet_id="facet_symmetry_definition")
-        raise AssertionError("expected RegistryReviewError")
-    except RegistryReviewError as exc:
-        assert exc.code == "facet_identity_locked"
+def test_the_owner_merges_a_facet_that_used_to_be_locked_and_can_undo_it(tmp_path):
+    from learnloop.content.facet_identity.actions import list_actions, undo_action
+
+    vault, repo, root = _applied_vault(tmp_path)
+    result = propose_facet_merge(vault, repo, subject_id="linear-algebra",
+                                 retired_facet_id="facet_spectral_applicability",
+                                 surviving_facet_id="facet_symmetry_definition",
+                                 rationale="One skill.", clock=_CLOCK)
+    assert result["status"] == "applied"
+    merged = load_vault(root)
+    assert merged.canonical_facet_id("facet_spectral_applicability") == "facet_symmetry_definition"
+    (record,) = list_actions(repo)
+    assert record["origin"] == "registry" and record["judge"] == "owner"
+    assert result["action_id"] == record["id"] and result["undo"].endswith(record["id"])
+    undo_action(root, repo, record["id"], clock=_CLOCK)
+    assert "facet_spectral_applicability" in load_vault(root).evidence_facets
 
 
 def test_unknown_subject_raises(tmp_path):
@@ -91,7 +101,9 @@ def _unlocked_vault(tmp_path: Path):
     return load_vault(root), Repository(root / "state.sqlite"), root
 
 
-def test_propose_facet_merge_creates_review_item_never_auto_merges(tmp_path):
+def test_propose_facet_merge_applies_live_and_records_the_owners_verdict(tmp_path):
+    import sqlite3
+
     vault, repo, root = _unlocked_vault(tmp_path)
     before = len(repo.proposal_batches())
 
@@ -103,21 +115,34 @@ def test_propose_facet_merge_creates_review_item_never_auto_merges(tmp_path):
         rationale="Confusable in review.",
     )
 
-    assert result["proposal_id"] is not None
+    assert result["status"] == "applied"
     assert result["retired_facet_id"] == "facet_open_cover"
-    # A NEW review proposal was created — the merge was NOT auto-applied.
-    assert len(repo.proposal_batches()) == before + 1
-    # The facet is still present in the vault (retirement only happens on accept).
-    assert "facet_open_cover" in load_vault(root).evidence_facets
+    assert result["action"]["origin"] == "registry" and result["action"]["undoable"] is True
+    # No review proposal: the merge applied, with its undo.
+    assert len(repo.proposal_batches()) == before
+    after = load_vault(root)
+    assert "facet_open_cover" not in after.evidence_facets
+    assert "facet_open_cover" in after.evidence_facets["facet_open_set"].aliases
+    rows = sqlite3.connect(repo.sqlite_path).execute(
+        "SELECT task, left_id, right_id, judge, verdict FROM judgment_ledger").fetchall()
+    assert rows == [("same_facet", "facet_open_cover", "facet_open_set", "owner", "same")]
 
-    # The proposal item is a pending facet deactivate carrying the survivor.
-    batch = next(b for b in repo.proposal_batches() if b["id"] == result["proposal_id"])
-    assert batch["purpose"] == "facet_merge"
-    item = repo.proposal_items(result["proposal_id"])[0]
-    assert item["item_type"] == "facet"
-    assert item["operation"] == "deactivate"
-    assert item["target_entity_id"] == "facet_open_cover"
-    assert item["decision"] == "pending"
+
+def test_propose_facet_merge_still_holds_back_a_shared_graded_criterion(tmp_path, monkeypatch):
+    import learnloop.content.facet_identity.actions as actions
+
+    vault, repo, root = _unlocked_vault(tmp_path)
+    monkeypatch.setattr(actions, "graded_shared_criteria", lambda _vault, _repo, facets: [{
+        "contract_version_id": "c1", "practice_item_id": "pi_x", "criterion_id": "k",
+        "capability": "retrieval", "facets": sorted(facets),
+    }])
+    try:
+        propose_facet_merge(vault, repo, subject_id="topology", retired_facet_id="facet_open_cover",
+                            surviving_facet_id="facet_open_set")
+        raise AssertionError("expected RegistryReviewError")
+    except RegistryReviewError as exc:
+        assert exc.code == "shared_graded_criterion"
+    assert "facet_open_cover" in load_vault(root).evidence_facets
 
 
 def test_coarsen_acceptance_resolves_generation_need(tmp_path):

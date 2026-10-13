@@ -28,8 +28,9 @@ class ProposeFacetMergeInput(ParamsModel):
 @method("get_subject_registry", SubjectRegistryInput)
 def get_subject_registry_handler(ctx: SidecarContext, params: SubjectRegistryInput) -> dict[str, Any]:
     """Registry review (§5.7): facet-contract cards (claim/conditions/examples/
-    non-goals/error-signatures/repairs/status), identifiability warnings from the
-    synthesis generation-needs, and per-facet lock state for pre-lock actions."""
+    non-goals/error-signatures/repairs/status/version) and identifiability
+    warnings from the synthesis generation-needs. Every card can be merged:
+    facet identity locks were removed (owner, 2026-10-12)."""
 
     vault, repository = ctx.require_vault()
     try:
@@ -41,9 +42,14 @@ def get_subject_registry_handler(ctx: SidecarContext, params: SubjectRegistryInp
 
 @method("propose_facet_merge", ProposeFacetMergeInput)
 def propose_facet_merge_handler(ctx: SidecarContext, params: ProposeFacetMergeInput) -> dict[str, Any]:
-    """Pre-lock merge/coarsen (§3.4, §12.2): create a facet-merge REVIEW item via
-    the existing proposal machinery — never auto-merge. When ``need_id`` is set
-    (accepting a coarsening warning) the generation-need is resolved."""
+    """Merge (or coarsen) two facets now, with a one-tap undo.
+
+    The owner's merge applies live through the facet-identity merge, exactly
+    like a judge's: the result carries the action and its undo
+    (``undo_facet_identity_action``). A graded criterion naming both facets at
+    one capability holds it back (``shared_graded_criterion``). When
+    ``need_id`` is set (accepting a coarsening warning) the generation-need is
+    resolved. The method keeps its name for the desktop bridge."""
 
     vault, repository = ctx.require_vault()
     if params.subject_id not in vault.subjects:
@@ -60,4 +66,5 @@ def propose_facet_merge_handler(ctx: SidecarContext, params: ProposeFacetMergeIn
         )
     except RegistryReviewError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
+    ctx.reload(maintenance=False)
     return versioned(result)

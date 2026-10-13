@@ -957,7 +957,7 @@ def create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[s
             unlimited_token_budget=params.unlimited_token_budget,
         )
     except StudyMapError as exc:
-        raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics, "lockReasons": exc.lock_reasons})
+        raise SidecarError(exc.code, str(exc), details={"diagnostics": exc.diagnostics})
     if params.apply:
         ctx.reload(maintenance=False)
     return versioned({"studyMap": result.as_dict()})

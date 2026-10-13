@@ -1579,7 +1579,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
 
     # `auto` is a product journey, not an alias for bootstrap: once this subject
     # has a live map, new sources reconcile into it through the bounded append
-    # vocabulary instead of tripping the identity-lock refusal.
+    # vocabulary instead of re-creating it with bootstrap.
     if str(payload.get("mode") or "auto") == "auto" and not payload.get("reuse_candidate"):
         from learnloop.content.synthesis.source_append import subject_has_applied_study_map
         from learnloop.vault.loader import load_vault
@@ -1628,13 +1628,14 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
             code=exc.code,
             details={
                 "diagnostics": exc.diagnostics,
-                "lock_reasons": exc.lock_reasons,
                 "stage": "synthesis",
                 "completed_dependencies_preserved": True,
                 "candidate_preserved": exc.candidate_preserved,
                 "synthesis_run_id": exc.synthesis_run_id,
             },
-            retryable=exc.code not in {"subject_identity_locked"},
+            # Every bootstrap failure is retryable (the identity-lock refusal,
+            # the one that was not, went with facet locks).
+            retryable=True,
         ) from exc
 
     run = ctx.repo.synthesis_run(result.synthesis_run_id) if result.synthesis_run_id else None
@@ -1716,7 +1717,6 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             code=exc.code,
             details={
                 "diagnostics": exc.diagnostics,
-                "lock_reasons": exc.lock_reasons,
                 "stage": "synthesis",
                 "completed_dependencies_preserved": True,
                 "synthesis_run_id": exc.synthesis_run_id,

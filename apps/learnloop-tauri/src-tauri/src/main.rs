@@ -356,6 +356,7 @@ fn main() {
             propose_facet_merge,
             list_facet_identity_actions,
             undo_facet_identity_action,
+            decide_facet_reword,
             propose_graph_edits,
             queue_restructure_request,
             resolve_edge_direction,

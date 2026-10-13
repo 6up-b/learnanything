@@ -1,4 +1,4 @@
-"""Facet identity (handoff §4): dedupe an existing vault, list actions, undo one."""
+"""Facet identity (handoff §4): dedupe an existing vault, list actions, undo one, decide a held reword."""
 from __future__ import annotations
 
 import json
@@ -56,8 +56,8 @@ def facets_dedupe(
 
     Route: ai.routing.facet_identity_judge (default: the Codex `codex_luna`
     profile, on the subscription; a decider profile is also accepted). Every
-    merge or absorb applies live and is listed with its undo command; locked
-    facets merge too and are labelled. Merged and shortlisted pairs go to
+    merge or absorb applies live and is listed with its undo command, naming
+    the facets whose evidence it re-keys. Merged and shortlisted pairs go to
     judgment_ledger (task same_facet); a rerun reuses judged groups.
     """
     from learnloop.content.facet_identity.dedupe import run_dedupe
@@ -86,7 +86,11 @@ def facets_actions(
     limit: Annotated[int, typer.Option("--limit", min=1, max=10_000)] = 50,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Facet merges and absorbs, newest first, with their undo state."""
+    """Facet merges, absorbs and rewords (facet versions), newest first, with their undo state.
+
+    A reword waiting for your confirm is listed with status `proposed`
+    (`learnloop facets confirm` or `learnloop facets keep`).
+    """
     from learnloop.content.facet_identity.actions import describe, list_actions
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
@@ -109,7 +113,7 @@ def facets_undo(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Restore the facets one merge or absorb replaced; re-fold their evidence.
+    """Restore the facets one merge, absorb or reword replaced; re-fold their evidence.
 
     Rows graded while the merge stood (exercised facets, notes, error events)
     stay with the surviving facet; the result says so (not_restored).
@@ -128,6 +132,53 @@ def facets_undo(
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     _emit(report, json_output, ok={"undone"})
+
+
+def _decide_reword(action_id: str, vault: Path, json_output: bool, *, confirm: bool) -> None:
+    from learnloop.content.facet_identity.actions import (
+        FacetIdentityActionError,
+        confirm_reword,
+        keep_current_wording,
+    )
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+
+    try:
+        loaded = load_vault(_root(vault))
+        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        decide = confirm_reword if confirm else keep_current_wording
+        report = decide(loaded.root, repository, action_id)
+    except FacetIdentityActionError as exc:
+        report = {"status": "refused", "code": exc.code, "reason": str(exc)}
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, ok={"applied" if confirm else "kept"})
+
+
+@facets_app.command("confirm")
+def facets_confirm(
+    action_id: Annotated[str, typer.Argument(help="A reword waiting for your confirm (`facets actions`).")],
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Confirm a reword that had no explanatory source behind it: it applies, with an undo.
+
+    The confirm is your verdict (judgment_ledger, judge owner) and writes the
+    new wording as your own edit would. A reword whose support is exam
+    material only, or whose facet changed since, is refused.
+    """
+    _decide_reword(action_id, vault, json_output, confirm=True)
+
+
+@facets_app.command("keep")
+def facets_keep(
+    action_id: Annotated[str, typer.Argument(help="A reword waiting for your confirm (`facets actions`).")],
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Keep the facet's current wording: the held reword closes and nothing is written."""
+    _decide_reword(action_id, vault, json_output, confirm=False)
 
 
 __all__ = ["facets_app"]

@@ -1,9 +1,18 @@
-"""Facet-identity action rows (migration 183) and the facet_merges rows they own.
+"""Facet-identity action rows (migrations 183, 196), Library save intents (197), and facet_merges rows.
 
-Lifecycle: ``proposed`` (an ingest action riding on its proposal),
+Actions: ``merge`` and ``absorb`` (a survivor plus retired facets) and, since
+migration 196, ``reword`` (one facet's meaning changed by a proposal apply;
+the row keeps the entry it replaced; a ``proposed`` reword is a change held for
+the owner's confirm). Lifecycle: ``proposed`` (an ingest action riding on its
+proposal, or a reword waiting for the owner's confirm),
 ``applying`` (a vault merge's write-ahead intent), ``applied``, ``undoing``
 (an undo's write-ahead intent), ``undone``, and ``abandoned`` (an intent
 withdrawn before its file write).
+
+Library saves (migration 197, ``facet_registry_saves``): the write-ahead
+intent of an owner's own edit of facets.yaml that records manual-authority
+verdicts, ``applying`` until it lands (``applied``) or is withdrawn
+(``abandoned``).
 
 Writes only within the caller's transaction (``Repository.atomic``). The
 policy (what an action changes in the vault, when undo is legal) lives in
@@ -90,13 +99,16 @@ def action_by_id(connection: sqlite3.Connection, action_id: str) -> dict[str, An
 
 def list_actions(
     connection: sqlite3.Connection, *, run_id: str | None = None, status: str | None = None,
-    limit: int | None = 200,
+    limit: int | None = 200, survivor_facet_id: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if run_id is not None:
         clauses.append("run_id = ?")
         params.append(run_id)
+    if survivor_facet_id is not None:
+        clauses.append("survivor_facet_id = ?")
+        params.append(survivor_facet_id)
     if status is not None:
         clauses.append("status = ?")
         params.append(status)
@@ -134,6 +146,109 @@ def set_status(
         params.append(_dump(dict(undo_detail)))
     params.append(action_id)
     connection.execute(f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", params)
+
+
+def update_action(
+    connection: sqlite3.Connection,
+    action_id: str,
+    *,
+    status: str | None = None,
+    judge: str | None = None,
+    before: Mapping[str, Any] | None = None,
+    after: Mapping[str, Any] | None = None,
+    detail: Mapping[str, Any] | None = None,
+    undo_detail: Mapping[str, Any] | None = None,
+) -> None:
+    """Rewrite a pending reword confirm as the owner confirms it (proposed -> applying, or back).
+
+    A confirm writes the facet as it is when the owner taps it, so the row's
+    ``before``/``after`` become what the write replaces and writes (its undo
+    restores exactly that), and its judge becomes the owner.
+    """
+
+    values: dict[str, Any] = {
+        "status": status, "judge": judge,
+        "before_json": _dump(dict(before)) if before is not None else None,
+        "after_json": _dump(dict(after)) if after is not None else None,
+        "detail_json": _dump(dict(detail)) if detail is not None else None,
+        "undo_detail_json": _dump(dict(undo_detail)) if undo_detail is not None else None,
+    }
+    assignments = [f"{column} = ?" for column, value in values.items() if value is not None]
+    if not assignments:
+        return
+    params = [value for value in values.values() if value is not None]
+    connection.execute(
+        f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", (*params, action_id),
+    )
+
+
+# --- Library save intents (migration 197) ----------------------------------------------------
+
+_SAVE_JSON_COLUMNS = {
+    "facets_json": "facets",
+    "judgment_ids_json": "judgment_ids",
+    "action_ids_json": "action_ids",
+    "settle_detail_json": "settle_detail",
+}
+
+
+def _decode_save(row: Mapping[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for column in row.keys():
+        value = row[column]
+        if column in _SAVE_JSON_COLUMNS:
+            out[_SAVE_JSON_COLUMNS[column]] = json.loads(value) if value else None
+        else:
+            out[column] = value
+    return out
+
+
+def insert_registry_save(
+    connection: sqlite3.Connection, *, save_id: str, created_at: str, facets: Mapping[str, Any],
+    judgment_ids: Mapping[str, str], action_ids: Sequence[str],
+) -> str:
+    """Record a Library save's write-ahead intent (``applying``)."""
+
+    connection.execute(
+        """
+        INSERT INTO facet_registry_saves(id, created_at, status, facets_json, judgment_ids_json, action_ids_json)
+        VALUES (?, ?, 'applying', ?, ?, ?)
+        """,
+        (save_id, created_at, _dump(dict(facets)), _dump(dict(judgment_ids)), _dump(list(action_ids))),
+    )
+    return save_id
+
+
+def registry_save_by_id(connection: sqlite3.Connection, save_id: str) -> dict[str, Any] | None:
+    row = connection.execute("SELECT * FROM facet_registry_saves WHERE id = ?", (save_id,)).fetchone()
+    return _decode_save(row) if row is not None else None
+
+
+def registry_saves(connection: sqlite3.Connection, *, status: str) -> list[dict[str, Any]]:
+    """Library saves in ``status``, oldest first (none before migration 197)."""
+
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'facet_registry_saves'"
+    ).fetchone() is None:
+        return []
+    rows = connection.execute(
+        "SELECT * FROM facet_registry_saves WHERE status = ? ORDER BY created_at, rowid", (status,),
+    ).fetchall()
+    return [_decode_save(row) for row in rows]
+
+
+def settle_registry_save(
+    connection: sqlite3.Connection, save_id: str, status: str, *, at: str,
+    settle_detail: Mapping[str, Any] | None = None,
+) -> None:
+    """Move an ``applying`` save to ``applied`` or ``abandoned`` (a settled save stays as it is)."""
+
+    column = {"applied": "applied_at", "abandoned": "abandoned_at"}[status]
+    connection.execute(
+        f"UPDATE facet_registry_saves SET status = ?, {column} = ?, settle_detail_json = ? "
+        "WHERE id = ? AND status = 'applying'",
+        (status, at, _dump(dict(settle_detail)) if settle_detail is not None else None, save_id),
+    )
 
 
 def graded_contract_version_ids(connection: sqlite3.Connection) -> list[str]:
@@ -208,4 +323,5 @@ __all__ = [
     "list_actions",
     "set_status",
     "settled_merge_rows",
+    "update_action",
 ]

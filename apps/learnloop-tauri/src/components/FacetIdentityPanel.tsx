@@ -4,24 +4,14 @@ import type { CommandError, FacetIdentityActionDto, FacetIdentitySummaryDto } fr
 import { COLOR, Faint, FONT_MONO } from "./term";
 
 // Facet identity (handoff §4): the merges and absorbs one synthesis or append
-// run applied, each with a one-tap undo. The job result is a snapshot: the
+// run applied, and the rewords (facet versions) its proposal wrote when it
+// applied, each with a one-tap undo. The job result is a snapshot: the
 // panel re-reads the run's actions when it mounts (and after an undo), so an
 // action undone elsewhere, or one whose proposal was applied later, shows
 // its live state. A merge that rides on a proposal not applied yet says so
 // instead of offering an undo it cannot perform.
 
 const MAX_CLAIM = 110;
-
-// Why a facet's identity is locked (knowledge model §3.4, can_apply sources).
-const LOCK_PHRASES: Record<string, string> = {
-  attempts: "it has practice history",
-  independent_surface_groups: "it has evidence from independent sources",
-  independent_mass: "it carries substantial evidence",
-  goal_certified_scope: "it is in an active goal's certified scope",
-  probe: "a learning object that uses it has probes",
-  misconception: "an active misconception names it",
-  lock_check_failed: "its lock state could not be checked"
-};
 
 function short(text: string): string {
   return text.length > MAX_CLAIM ? `${text.slice(0, MAX_CLAIM - 1)}…` : text;
@@ -32,10 +22,36 @@ function verb(action: FacetIdentityActionDto): string {
   return action.scope === "attach" ? "matched an existing facet" : "merged";
 }
 
-export function lockLabel(action: FacetIdentityActionDto): string | null {
-  if (!action.locked) return null;
-  const phrases = (action.lockSources ?? []).map((source) => LOCK_PHRASES[source] ?? source);
-  return phrases.length ? `identity locked: ${phrases.join("; ")}` : "identity locked";
+// Facet identity locks were removed (owner, 2026-10-12): an action never
+// refuses because a facet carries evidence. It says what it did with it.
+export function evidenceLabel(action: FacetIdentityActionDto): string | null {
+  const evidenced = action.evidencedFacets ?? [];
+  if (action.action === "reword") {
+    return evidenced.length
+      ? "the facet keeps its evidence, graded against the old wording, which is kept"
+      : "the old wording is kept";
+  }
+  if (!evidenced.length) return null;
+  return evidenced.length === 1
+    ? "re-keys one facet's recorded evidence to the survivor"
+    : `re-keys ${evidenced.length} facets' recorded evidence to the survivor`;
+}
+
+function describeLine(action: FacetIdentityActionDto) {
+  if (action.action === "reword" && action.reworded) {
+    const { from, to, fromVersion, toVersion } = action.reworded;
+    return (
+      <>
+        {short(from)} <Faint>reworded (v{fromVersion ?? "?"} → v{toVersion ?? "?"}) to</Faint> {short(to)}
+      </>
+    );
+  }
+  return (
+    <>
+      {action.retired.map((facet) => short(facet.claim)).join("; ")}{" "}
+      <Faint>{verb(action)} into</Faint> {short(action.survivor.claim)}
+    </>
+  );
 }
 
 function skippedNote(summary: FacetIdentitySummaryDto): string | null {
@@ -107,26 +123,28 @@ export function FacetIdentityPanel({
   return (
     <div style={{ marginTop: 12, border: `1px solid ${COLOR.border}`, padding: "9px 11px" }} data-testid="facet-identity">
       <div style={{ color: COLOR.cyan, fontFamily: FONT_MONO, fontSize: 11 }}>
-        duplicate facets · {actions.length} {actions.length === 1 ? "change" : "changes"}
+        facet changes · {actions.length} {actions.length === 1 ? "change" : "changes"}
       </div>
       {note && <Faint style={{ display: "block", marginTop: 4, fontSize: 11 }}>{note}</Faint>}
       {actions.map((action) => {
         const state = stateLabel(action);
-        const lock = lockLabel(action);
+        const evidence = evidenceLabel(action);
         const details = [
           action.note,
           action.status === "applying" || action.status === "undoing" ? "finish it with learnloop doctor --fix-state" : null,
-          lock,
+          evidence,
           action.contractNote,
-          action.undoable ? "undo restores the facets; what grading recorded while they were merged stays with the survivor" : null,
+          action.undoable && action.action !== "reword"
+            ? "undo restores the facets; what grading recorded while they were merged stays with the survivor"
+            : null,
+          action.undoable && action.action === "reword" ? "undo restores the old wording" : null,
           action.rationale || null
         ].filter((part): part is string => Boolean(part));
         return (
           <div key={action.id} style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ color: action.status === "undone" || action.status === "abandoned" ? COLOR.textFaint : COLOR.text, flex: 1, minWidth: 0 }}>
-                {action.retired.map((facet) => short(facet.claim)).join("; ")}{" "}
-                <Faint>{verb(action)} into</Faint> {short(action.survivor.claim)}
+                {describeLine(action)}
               </span>
               {action.undoable && action.status === "applied" ? (
                 <button

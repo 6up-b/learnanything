@@ -156,11 +156,15 @@ def stage_target_contents(
     patch_id: str,
     *,
     clock: Clock | None,
+    facet_authority: Any = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Replay the compiled writers against a throwaway staging copy and capture
     the final target file contents plus the DB side-effect plan.
 
-    The real vault tree is never mutated here. Returns ``(targets, db_plan)``.
+    ``facet_authority`` (``facet_identity.authority.ProposalAuthority``) checks
+    each facet item's meaning write; a facet item compiled without it is
+    refused. The real vault tree is never mutated here. Returns
+    ``(targets, db_plan)``.
     """
 
     from learnloop.content.proposals.patches import PatchApplicationError, compile_proposal_item
@@ -181,7 +185,7 @@ def stage_target_contents(
                 raise PatchApplicationError(
                     f"Proposal item {item['id']} is invalid and cannot be accepted"
                 )
-            compiled = compile_proposal_item(staging_vault, item)
+            compiled = compile_proposal_item(staging_vault, item, facet_authority=facet_authority)
             compiled.apply(staging_vault.root, clock)
             staging_vault = load_vault(staging_root)
             now = utc_now_iso(clock)
@@ -199,7 +203,10 @@ def stage_target_contents(
                     "change_batch_id": new_ulid(),
                     "content_event_id": new_ulid(),
                     "source_links": _entity_source_link_rows(
-                        compiled.entity_type, compiled.entity_id, payload, patch_id
+                        compiled.entity_type,
+                        compiled.entity_id,
+                        compiled.link_payload if compiled.link_payload is not None else payload,
+                        patch_id,
                     ),
                     "db_side_effect": _stamp_side_effect(compiled.db_side_effect, patch_id),
                 }
@@ -307,6 +314,19 @@ def _entity_source_link_rows(
             }
         )
     return rows
+
+
+def entity_source_link_rows(
+    entity_type: str, entity_id: str, payload: Any, patch_id: str
+) -> list[dict[str, Any]]:
+    """The entity_source_links rows a payload's ``provenance.source_refs`` record (fixed ids).
+
+    The rows a proposal apply installs for a written entity; a confirmed facet
+    reword (``facet_identity.actions.confirm_reword``) installs its validated
+    citations the same way, write-ahead.
+    """
+
+    return _entity_source_link_rows(entity_type, entity_id, payload, patch_id)
 
 
 # --- materialize: staged temp -> fsync -> atomic rename ----------------------
@@ -433,7 +453,51 @@ def _perform_side_effect(
         return
     kind = side_effect["kind"]
     row = side_effect["row"]
-    if kind == "provenance_link":
+    if kind == "facet_version":
+        # An existing facet's meaning changed: keep the entry it replaced as a
+        # ``reword`` action with an undo (facet locks removed, owner 2026-10-12).
+        # A title or worked-example change is recorded the same way, with its
+        # sources, but is not a version (owner, 2026-10-13).
+        from learnloop.content.facet_identity.actions import record_reword
+
+        patch_id = row.get("patch_id")
+        record_reword(
+            repository,
+            action_id=str(row["id"]),
+            facet_id=str(row["facet_id"]),
+            before=row["before"],
+            after=row["after"],
+            run_id=_run_id_for_patch(repository, patch_id),
+            proposal_id=patch_id,
+            proposal_item_id=row.get("proposal_item_id"),
+            sources=row.get("sources"),
+            presentation=bool(row.get("presentation")),
+            fields=row.get("fields"),
+            clock=clock,
+        )
+    elif kind == "facet_reword_confirm":
+        # A reword with no explanatory support: held for the owner's confirm,
+        # nothing written to facets.yaml (owner, 2026-10-13).
+        from learnloop.content.facet_identity.actions import record_reword_confirm
+
+        patch_id = row.get("patch_id")
+        record_reword_confirm(
+            repository,
+            action_id=str(row["id"]),
+            facet_id=str(row["facet_id"]),
+            before=row["before"],
+            after=row["after"],
+            fields=row.get("fields") or [],
+            sources=row.get("sources") or [],
+            unresolved=row.get("unresolved") or [],
+            meaning_support=row.get("meaning_support") or [],
+            message=str(row.get("message") or ""),
+            run_id=_run_id_for_patch(repository, patch_id),
+            proposal_id=patch_id,
+            proposal_item_id=row.get("proposal_item_id"),
+            clock=clock,
+        )
+    elif kind == "provenance_link":
         repository.insert_entity_source_link(
             link_id=row["id"],
             entity_type=row["entity_type"],
@@ -488,6 +552,19 @@ def _perform_side_effect(
             patch_id=row.get("patch_id"),
             clock=clock,
         )
+
+
+def _run_id_for_patch(repository: Repository, patch_id: str | None) -> str:
+    """The synthesis run that produced a proposal, so its job lists the reword."""
+
+    if not patch_id:
+        return "proposal"
+    try:
+        batch = repository.proposal_batch(patch_id) or {}
+        run = repository.synthesis_run_for_agent_run(str(batch.get("agent_run_id") or "")) or {}
+    except Exception:  # noqa: BLE001 - a label lookup never fails an apply
+        return str(patch_id)
+    return str(run.get("id") or patch_id)
 
 
 # --- recovery ---------------------------------------------------------------

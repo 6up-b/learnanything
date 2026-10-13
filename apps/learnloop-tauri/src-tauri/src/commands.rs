@@ -631,6 +631,8 @@ sidecar_passthrough!(list_facet_identity_actions, "list_facet_identity_actions")
 
 sidecar_passthrough!(undo_facet_identity_action, "undo_facet_identity_action");
 
+sidecar_passthrough!(decide_facet_reword, "decide_facet_reword");
+
 sidecar_passthrough!(accept_proposal_items, "accept_proposal_items");
 
 sidecar_passthrough!(reject_proposal_items, "reject_proposal_items");

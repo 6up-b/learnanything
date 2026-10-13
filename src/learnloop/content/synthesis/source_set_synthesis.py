@@ -3,8 +3,10 @@
 
 This service orchestrates the "Create study map" journey:
 
-1. lock check — bootstrap is legal only where nothing touched is identity-locked
-   (§8.2 enforcement 1; typed refusal ``subject_identity_locked``);
+1. (no lock check: facet identity locks were removed, owner 2026-10-12. A
+   rebuild that rewords an existing facet writes a facet version with an
+   undo when its proposal applies; ``auto`` routes a subject that already has
+   a study map to append);
 2. immutable manifest persisted BEFORE the agent run (§8.4; the manifest hash is
    the ``agent_runs.input_context_hash`` cache seam — an identical manifest reuses
    the completed run);
@@ -54,8 +56,9 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.brief import validate_brief
+from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.facet_identity.plan import FacetIdentityPlan
-from learnloop.content.facet_identity.views import UNION_LIST_FIELDS, union_payload
+from learnloop.content.facet_identity.views import UNION_LIST_FIELDS
 from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_exam_profile
 from learnloop.content.synthesis.graph_nomination import (
     CONCEPT_RECIPE,
@@ -93,6 +96,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     persist_manifest,
 )
 from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
+from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.vault_epigraphs import (
     digest_from_proposal_rows,
     generate_vault_epigraphs,
@@ -104,23 +108,16 @@ from learnloop.vault.paths import VaultPaths
 SYNTHESIS_AGENT_PURPOSE = "source_set_synthesis"
 BOOTSTRAP_PROPOSAL_PURPOSE = "sourceset_bootstrap"
 
-# Roles allowed to support a canonical semantic claim (mirror of the gate set).
-_SEMANTIC_ROLES = frozenset(
-    {"primary_textbook", "lecture", "paper", "reference", "alternate_explanation"}
-)
-
 
 class StudyMapError(ValueError):
-    """A typed bootstrap-synthesis failure (lock refusal / gate hard-fail)."""
+    """A typed bootstrap-synthesis failure (gate hard-fail, budget, missing input)."""
 
     def __init__(self, code: str, message: str, *, diagnostics: list[dict[str, Any]] | None = None,
-                 lock_reasons: list[dict[str, Any]] | None = None,
                  synthesis_run_id: str | None = None,
                  candidate_preserved: bool = False):
         super().__init__(message)
         self.code = code
         self.diagnostics = diagnostics or []
-        self.lock_reasons = lock_reasons or []
         self.synthesis_run_id = synthesis_run_id
         self.candidate_preserved = candidate_preserved
 
@@ -215,6 +212,10 @@ class _SynthesisInputs:
     membership: list[dict[str, Any]]
     unit_inventory_versions: dict[str, str]
     span_origin: dict[str, dict[str, str]]  # extraction_id -> {source_id, revision_id, role}
+    # Resolves a citation in this source set's selected units with its
+    # effective role (Codex verification of F6): the one resolver the
+    # facet-meaning chokepoint uses (``facet_identity.authority``).
+    resolver: facet_meaning.CitationResolver | None = None
 
 
 def _best_inventory(rows: list[dict[str, Any]], unit_id: str, requested_profile: str) -> dict[str, Any] | None:
@@ -391,6 +392,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         membership=membership,
         unit_inventory_versions=unit_inventory_versions,
         span_origin=span_origin,
+        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set),
     )
 
 
@@ -527,10 +529,17 @@ def _span_refs(
 ) -> tuple[list[ProvenanceRef], list[dict[str, Any]], list[str]]:
     """Build gate ProvenanceRefs + YAML source_refs from synth span refs.
 
-    Role/source/revision are resolved from the citation's extraction (untrusted-
-    text discipline: never trust the model's claimed role)."""
-
-    from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
+    Each citation resolves through the facet-meaning chokepoint's resolver
+    (``facet_identity.authority.CitationResolver``, Codex verification of F6):
+    its role is the cited unit's ``role_override`` when there is one, else its
+    member's role (never the model's claimed role); the span must lie in the
+    unit it is cited with and that unit must be selected; an exam citation's
+    relation is ``assessment_alignment``; and the recorded locator is derived
+    from the validated ids, never the model's. A citation that does not
+    resolve is not recorded and supports nothing (role ``unresolved``): the
+    span/scope/unit gates hard-fail one whose span, revision or unit does not
+    exist, and ``citation_scope`` reviews one outside the selected scope.
+    """
 
     gate_refs: list[ProvenanceRef] = []
     yaml_refs: list[dict[str, Any]] = []
@@ -545,43 +554,74 @@ def _span_refs(
             # "". Skipping it lets the adequate-provenance gate judge the item
             # (review) instead of three hard-fails naming an empty string.
             continue
-        origin = inputs.span_origin.get(extraction_id, {})
-        role = origin.get("role", ref.get("role") or "reference")
-        source_id = origin.get("source_id", ref.get("source_id") or "")
-        revision_id = origin.get("revision_id", ref.get("revision_id") or "")
-        relation = ref.get("relation") or default_relation
         namespaced = f"{extraction_id}:{span_id}"
         held_out = namespaced in inputs.held_out_span_ids
-        gate_refs.append(
-            ProvenanceRef(
-                extraction_id=extraction_id,
-                revision_id=revision_id,
-                # None is the gate's "no unit cited" spelling; "" would fail
-                # unit_id_validity even when the span itself resolves.
-                unit_id=unit_id or None,
-                span_id=span_id,
-                relation=relation,
-                role=role,
-                held_out=held_out,
+        resolved = (
+            inputs.resolver.resolve(ref, default_relation=default_relation)
+            if inputs.resolver is not None
+            else facet_meaning.CitationProblem(ref, "no source set to resolve it in")
+        )
+        if isinstance(resolved, facet_meaning.ResolvedCitation):
+            gate_refs.append(resolved.gate_ref(held_out=held_out))
+            yaml_refs.append(resolved.yaml_ref())
+        else:
+            origin = inputs.span_origin.get(extraction_id, {})
+            gate_refs.append(
+                ProvenanceRef(
+                    extraction_id=extraction_id,
+                    revision_id=origin.get("revision_id", ref.get("revision_id") or ""),
+                    # None is the gate's "no unit cited" spelling; "" would fail
+                    # unit_id_validity even when the span itself resolves.
+                    unit_id=unit_id or None,
+                    span_id=span_id,
+                    relation=str(ref.get("relation") or default_relation),
+                    role=facet_meaning.UNRESOLVED_ROLE,
+                    held_out=held_out,
+                    problem=resolved.problem,
+                )
             )
-        )
-        yaml_refs.append(
-            {
-                "ref_type": "canonical_source",
-                "ref_id": source_id,
-                "source_id": source_id,
-                "revision_id": revision_id,
-                "extraction_id": extraction_id,
-                "locator": ref.get("locator") or format_block_span(extraction_id, span_id),
-                "locator_scheme": BLOCK_SPAN_V1,
-                "relation": relation if relation in {"primary", "support", "alternate", "exercise", "assessment_alignment"} else "support",
-                "role": role,
-                "span_hash": ref.get("span_hash"),
-            }
-        )
         if span_id:
             span_ids.append(namespaced)
     return gate_refs, yaml_refs, span_ids
+
+
+def _unresolved_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
+    """The citations of a candidate that did not resolve, by their ids (they support nothing)."""
+
+    return [
+        {"extraction_id": ref.extraction_id, "unit_id": ref.unit_id or "", "span_id": ref.span_id,
+         "relation": ref.relation}
+        for ref in gate_refs
+        if ref.role == facet_meaning.UNRESOLVED_ROLE and ref.extraction_id and ref.span_id
+    ]
+
+
+def _joined_contribution(candidate: Mapping[str, Any]) -> facet_meaning.Contribution:
+    """What a retired candidate offers the survivor its meaning joins (in-run consolidation or attach).
+
+    Its validated citations and the ones that did not resolve (Codex review of
+    the reword confirm, F1): an unresolved citation supports nothing, but one
+    that names exam material by its span (under the wrong unit, say) must keep
+    the candidate's claim, conditions and examples out of the survivor, as a
+    resolved exam citation does. Without it the contribution would read as
+    "uncited", which a new survivor takes and a registered one takes as a
+    worked example.
+    """
+
+    return facet_meaning.Contribution(
+        str(candidate["fkey"]), (*candidate["support"], *candidate.get("unresolved", ())),
+    )
+
+
+def _support_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
+    """The validated citations of a candidate, as a proposal's ``meaning_support`` carries them."""
+
+    return [
+        {"extraction_id": ref.extraction_id, "unit_id": ref.unit_id or "", "span_id": ref.span_id,
+         "relation": ref.relation}
+        for ref in gate_refs
+        if ref.role != facet_meaning.UNRESOLVED_ROLE and ref.extraction_id and ref.span_id
+    ]
 
 
 def _normalize(
@@ -778,6 +818,7 @@ def _normalize(
             "status": "reviewed",
             "provenance": {"origin": "sourceset_synthesis", "source_refs": yaml_refs},
         }
+        support = _support_citations(gate_refs)
         candidate_facets.append(
             {
                 "fkey": fkey,
@@ -785,15 +826,34 @@ def _normalize(
                 "payload": payload,
                 "deps": [concept_client] if concept_client and concept_client in concept_ids else [],
                 "gate_refs": gate_refs,
+                "support": support,
+                # Citations that did not resolve: they support nothing, but a
+                # reword of a registered facet, and a consolidation or attach
+                # that joins this candidate's meaning to a survivor, is judged
+                # with them, so one that names exam material by its span is
+                # never "uncited" (and so never held for the owner's confirm,
+                # nor joined as an uncited example; owner, 2026-10-13, and the
+                # Codex review of the reword confirm, F1).
+                "unresolved": _unresolved_citations(gate_refs),
+                # What supports the facet's meaning, one entry per source of it:
+                # the candidate itself, then each candidate whose meaning a
+                # consolidation joined to it. The proposal carries them
+                # (``meaning_support``) and the apply judges them again.
+                "contributions": [facet_meaning.Contribution(fkey, tuple(support))],
             }
         )
 
     # Facet identity (handoff §4): candidates the judge merged or absorbed are
     # not minted. In-run survivors take the union of their retirees first, so
-    # D2 and the gates see the consolidated facet.
+    # D2 and the gates see the consolidated facet. A retiree's meaning joins
+    # only through the facet-meaning chokepoint (Codex verification of F6): a
+    # candidate only exam material supports joins as an alias, never as a
+    # condition or an example of its survivor.
     retirements = dict(getattr(facet_identity_plan, "retirements", None) or {})
     retired_candidates: dict[str, dict[str, Any]] = {}
     pre_union: dict[str, dict[str, Any]] = {}
+    # Why a consolidation or attach kept a survivor's contract as it was.
+    contract_notes: dict[str, list[str]] = {}
     if retirements:
         by_client = {str(candidate["fkey"]): candidate for candidate in candidate_facets}
         for fkey, retirement in sorted(retirements.items()):
@@ -805,11 +865,24 @@ def _normalize(
                 if survivor is None or str(retirement.survivor_client) in retirements:
                     continue
                 pre_union.setdefault(str(survivor["fkey"]), copy.deepcopy(survivor["payload"]))
-                survivor["payload"] = union_payload(
-                    survivor["payload"], [candidate["payload"]],
-                    action=retirement.action, absorb_as=retirement.absorb_as,
+                contribution = _joined_contribution(candidate)
+                joined = facet_meaning.join_candidate(
+                    survivor["payload"], candidate["payload"], survivor_id=str(survivor["fid"]),
+                    action=retirement.action, absorb_as=retirement.absorb_as, contribution=contribution,
+                    registered=False, resolver=inputs.resolver,
                 )
-                survivor["payload"]["id"] = survivor["fid"]
+                survivor["payload"] = joined.payload
+                if joined.joined:
+                    survivor["contributions"].append(contribution)
+                else:
+                    contract_notes.setdefault(str(survivor["fid"]), []).append(
+                        f"{candidate['fid']} joined as an alias only: {joined.verdict.message}"
+                    )
+                    dropped_diagnostics.append(joined.verdict.diagnostic(
+                        entity_refs=[str(survivor["fid"]), str(candidate["fid"])],
+                        suggested_action="the candidate's meaning was not merged; corroborate it with an "
+                                         "explanatory span to add it to the facet",
+                    ))
             elif str(retirement.survivor_facet or "") not in vault.evidence_facets:
                 continue
             retired_candidates[fkey] = candidate
@@ -837,6 +910,10 @@ def _normalize(
     alias_additions: dict[str, list[str]] = {}
     minted_payload_by_id: dict[str, dict[str, Any]] = {}
     minted_client_by_id: dict[str, str] = {}
+    # Proposal bookkeeping per facet row (``meaning_support``, a target hash),
+    # added to the rows' payloads last so the facet dicts the identity actions
+    # record stay what facets.yaml will hold.
+    row_extras: dict[str, dict[str, Any]] = {}
     for candidate, verdict in zip(candidate_facets, mint_report.verdicts):
         fkey = str(candidate["fkey"])
         fid = str(candidate["fid"])
@@ -844,6 +921,37 @@ def _normalize(
         diagnostic = mint_diagnostic(verdict)
         if diagnostic is not None:
             dropped_diagnostics.append(diagnostic)
+        registered_entry = vault.evidence_facets.get(fid) if verdict.disposition is not MintDisposition.ALIAS else None
+        if registered_entry is not None:
+            # A candidate carrying a registered facet's id rewrites that facet
+            # (Codex verification of F6, finding 1). It is a reword, checked as
+            # an update against the facet as it was now. With explanatory
+            # support for every source of its meaning it applies; without it,
+            # and not exam-only, it is kept and waits for the owner's confirm
+            # at accept (owner, 2026-10-13); exam-only, it is dropped.
+            before = registered_entry.model_dump(mode="json", exclude_none=False)
+            own, *joined = candidate["contributions"]
+            candidate["contributions"] = [
+                facet_meaning.Contribution(own.label, (*own.citations, *candidate["unresolved"])), *joined,
+            ]
+            check = facet_meaning.check_meaning_write(
+                fid, before=before, after=facet_meaning.overlay(before, payload), registered=True,
+                contributions=candidate["contributions"], resolver=inputs.resolver,
+                policy=facet_meaning.meaning_policy(vault.config),
+            )
+            if check.confirmable:
+                dropped_diagnostics.append(check.diagnostic(entity_refs=[fid, fkey]))
+            elif not check.allowed:
+                # References resolve to the registered facet, as it is.
+                facet_client_to_id[fkey] = fid
+                dropped_diagnostics.append(check.diagnostic(
+                    entity_refs=[fid, fkey],
+                    suggested_action=(
+                        f"kept registered facet {fid} as it is: a candidate carrying its id rewords it only "
+                        "with an explanatory span from the selected units (or reword it in the Library)"
+                    ),
+                ))
+                continue
         if verdict.disposition is MintDisposition.ALIAS:
             target = str(verdict.alias_of or "")
             # ALIAS-NOT-MINT: no facet row is emitted; every downstream reference
@@ -871,22 +979,32 @@ def _normalize(
         minted_client_by_id[fid] = fkey
         facet_payloads.append(payload)
         deps = list(candidate["deps"])
-        rows.append(_row("facet", fid, payload, deps, client_id=fkey, now=now))
+        row_extras[fkey] = {"meaning_support": facet_meaning.support_entries(candidate["contributions"])}
+        if registered_entry is not None:
+            row = _row("facet", fid, payload, deps, client_id=fkey, now=now,
+                       target_entity_id=fid, target_entity_type="facet")
+            row["operation"] = "update"
+            row_extras[fkey]["expected_target_hash"] = compute_target_hash(vault, "facet", fid)
+            rows.append(row)
+        else:
+            rows.append(_row("facet", fid, payload, deps, client_id=fkey, now=now))
         gate_items.append(
             GateItem(
                 client_item_id=fkey,
                 item_type="facet",
+                operation="update" if registered_entry is not None else "create",
                 entity_id=fid,
                 payload=payload,
                 depends_on=deps,
                 provenance=candidate["gate_refs"],
                 establishes_semantic=True,
+                reconciliation_intent="restructure_unlocked" if registered_entry is not None else None,
             )
         )
 
     # Facet identity: a retired candidate's references point at its survivor
     # (as D2's alias does) and its id becomes the survivor's alias.
-    attach_unions: dict[str, list[tuple[dict[str, Any], Any]]] = {}
+    attach_unions: dict[str, list[tuple[dict[str, Any], Any, facet_meaning.Contribution]]] = {}
     alias_canonical: dict[str, str] = {}
     retired_targets: dict[str, tuple[str, str, Any, dict[str, Any]]] = {}
     for fkey, candidate in retired_candidates.items():
@@ -898,7 +1016,9 @@ def _normalize(
                 continue
         else:
             target = str(retirement.survivor_facet)
-            attach_unions.setdefault(target, []).append((candidate["payload"], retirement))
+            attach_unions.setdefault(target, []).append(
+                (candidate["payload"], retirement, _joined_contribution(candidate)),
+            )
         if target in vault.evidence_facets:
             # A registered survivor gains the alias through its update row, so
             # whatever references the alias depends on that row.
@@ -923,9 +1043,6 @@ def _normalize(
     # Register the aliases. An in-batch target is edited in place (its create row
     # holds this very dict); an already-registered target earns an `update` row.
     registered_before: dict[str, dict[str, Any]] = {}
-    # Why an attach kept a registered facet's contract as it was (review F2).
-    contract_notes: dict[str, list[str]] = {}
-    merge_locked = bool(vault.config.facet_identity.merge_locked_facets)
     for target in sorted(set(alias_additions) | set(attach_unions)):
         new_aliases = [
             alias
@@ -957,12 +1074,17 @@ def _normalize(
             # A merge is the alias alone; an absorb also adds the special case's
             # claim as a worked example. Claim, conditions, repairs, signatures
             # and status stay untouched (§10.2 additivity, verified by the gate).
-            # A precondition narrows the contract, and a locked facet's
-            # contract does not change without the owner's override (knowledge
-            # model §3.4): both stay an alias only, and the action says so.
+            # A precondition narrows the contract, so it stays an alias only and
+            # the action says so. Evidence on the registered facet changes
+            # nothing here: facet identity locks were removed (owner,
+            # 2026-10-12), and an example only annotates the contract.
+            # A worked example is part of the facet's meaning, so it grows
+            # only through the facet-meaning chokepoint (Codex verification of
+            # F6): the absorbed candidate must cite an explanatory span.
             registered_before[target] = registered_facet.model_dump(mode="json")
             unioned = registered_facet.model_dump(mode="json")
-            for attached_payload, attach_retirement in attach_unions[target]:
+            grown_by: list[facet_meaning.Contribution] = []
+            for attached_payload, attach_retirement, contribution in attach_unions[target]:
                 if attach_retirement.action != "absorb":
                     continue
                 claim = str(attached_payload.get("claim") or "").strip()
@@ -971,16 +1093,30 @@ def _normalize(
                         "kept as an alias only: a precondition would change the registered facet's contract"
                     )
                     continue
-                if attach_retirement.survivor_lock_reasons and not merge_locked:
-                    contract_notes.setdefault(target, []).append(
-                        "kept as an alias only: the facet's identity is locked, so its examples stay as they are"
-                    )
-                    continue
                 if claim and claim not in (unioned.get("positive_examples") or []):
-                    unioned["positive_examples"] = [*(unioned.get("positive_examples") or []), claim]
+                    grown = {**unioned, "positive_examples": [*(unioned.get("positive_examples") or []), claim]}
+                    check = facet_meaning.check_meaning_write(
+                        target, before=unioned, after=grown, registered=True, contributions=[contribution],
+                        resolver=inputs.resolver, policy=facet_meaning.meaning_policy(vault.config),
+                    )
+                    if not check.allowed:
+                        contract_notes.setdefault(target, []).append(
+                            f"{attached_payload.get('id') or contribution.label} kept as an alias only: "
+                            f"{check.message}"
+                        )
+                        dropped_diagnostics.append(check.diagnostic(
+                            entity_refs=[target, str(attached_payload.get("id") or contribution.label)],
+                            suggested_action="the absorbed candidate's claim was not added as an example; "
+                                             "corroborate it with an explanatory span to add it",
+                        ))
+                        continue
+                    unioned = grown
+                    grown_by.append(contribution)
             for field_name in ATTACH_GROWABLE_FIELDS:
                 if unioned.get(field_name) != registered_before[target].get(field_name):
                     alias_payload[field_name] = unioned[field_name]
+            if grown_by:
+                row_extras[f"facet_alias_{target}"] = {"meaning_support": facet_meaning.support_entries(grown_by)}
         alias_row = _row(
             "facet",
             target,
@@ -1308,11 +1444,12 @@ def _normalize(
                     "description": c.get("description") or "",
                     "tier": c.get("tier") or "core",
                     "targets": targets_out,
-                    "depends_on": c.get("depends_on") or [],
+                    "depends_on": [str(dep) for dep in c.get("depends_on") or [] if dep],
                     "recipe_ids": c.get("recipe_ids") or [],
                     "correlation_group": c.get("correlation_group") or None,
                 }
             )
+        _keep_sibling_criterion_dependencies(pid, criteria_payload, dropped_diagnostics)
         gate_refs, yaml_refs, span_ids = _span_refs(pi.get("provenance", []), inputs, default_relation="exercise")
         fp = pi.get("evidence_fingerprint") or {}
         fp = fp if isinstance(fp, dict) else fp.model_dump()
@@ -1506,6 +1643,13 @@ def _normalize(
                            for c in (d(x) for x in getattr(synth, "conflicts", []) or [])]
     dispositions = set(getattr(synth, "non_conflict_dispositions", []) or [])
 
+    # Proposal bookkeeping rides on the facet rows only (the gate items and the
+    # identity actions keep the facet as facets.yaml will hold it).
+    for row in rows:
+        extras = row_extras.get(str(row.get("client_item_id") or ""))
+        if row.get("item_type") == "facet" and extras:
+            row["payload"] = {**row["payload"], **extras}
+
     return _Normalized(
         rows=rows,
         gate_items=gate_items,
@@ -1572,12 +1716,9 @@ def _facet_identity_actions(
                 {"facet_id": fid, "action": r.action, "absorb_as": r.absorb_as, "group_id": r.group_id}
                 for _fkey, fid, r in kept
             ]
-        if scope == "attach":
-            if first.survivor_lock_reasons:
-                detail["lock_reasons"] = {target: list(first.survivor_lock_reasons)}
-            notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
-            if notes:
-                detail["contract_note"] = "; ".join(notes)
+        notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
+        if notes:
+            detail["contract_note"] = "; ".join(notes)
         after_entry: dict[str, Any] | None = None
         before_entry: dict[str, Any] | None = None
         if scope == "in_run":
@@ -1603,7 +1744,7 @@ def _facet_identity_actions(
                 before_entry = vault.evidence_facets[target].model_dump(mode="json")
             update = next((row["payload"] for row in rows
                            if row.get("item_type") == "facet" and row.get("operation") == "update"
-                           and str((row.get("payload") or {}).get("id") or "") == target), None)
+                           and row.get("client_item_id") == f"facet_alias_{target}"), None)
             if before_entry is not None and update is not None:
                 after_entry = {**before_entry, **copy.deepcopy(update)}
         actions.append({
@@ -1633,6 +1774,57 @@ def resolve_subject_id(source_set: Any, vault: LoadedVault) -> str:
         return next(iter(vault.subjects.keys()))
     raise StudyMapError(
         "missing_subject", "source set has no subject_id and the vault has no subjects"
+    )
+
+
+def _keep_sibling_criterion_dependencies(
+    item_id: str, criteria: list[dict[str, Any]], dropped_diagnostics: list[dict[str, Any]],
+) -> None:
+    """Keep each criterion's ``depends_on`` to sibling criterion ids (in place).
+
+    A criterion's ``depends_on`` names the criteria of the SAME practice item
+    that must be right before it can be judged (first-error localization,
+    knowledge model §5.3). Models often write facet, blueprint, client or
+    other items' criterion ids there; those name no criterion, so grading
+    treats them as passed and the gating is silently lost, and doctor reports
+    ``criterion:unknown_dependency``. A self-reference is a cycle. All of them
+    are dropped here, with one review diagnostic per item (the same
+    drop-and-flag discipline as edges and capability defaults), rather than
+    failing the paid-for synthesis.
+    """
+
+    siblings = {str(criterion.get("id") or "") for criterion in criteria} - {""}
+    removed: list[str] = []
+    for criterion in criteria:
+        own = str(criterion.get("id") or "")
+        kept: list[str] = []
+        for dep in criterion.get("depends_on") or []:
+            dep = str(dep)
+            if dep in siblings and dep != own:
+                if dep not in kept:
+                    kept.append(dep)
+                continue
+            if dep not in kept:
+                removed.append(f"{own}: {dep}")
+        criterion["depends_on"] = kept
+    if not removed:
+        return
+    unique = list(dict.fromkeys(removed))
+    dropped_diagnostics.append(
+        {
+            "gate": "criterion_dependency",
+            "severity": "review",
+            "entity_refs": [item_id, *sorted({entry.split(": ", 1)[1] for entry in unique})],
+            "message": (
+                f"item {item_id} dropped {len(unique)} criterion depends_on "
+                f"entr{'y' if len(unique) == 1 else 'ies'} that name no sibling criterion "
+                f"({'; '.join(unique)})"
+            ),
+            "suggested_action": (
+                "a criterion's depends_on names only sibling criterion ids of the same item; "
+                "re-author the dependency if a step really gates this one"
+            ),
+        }
     )
 
 
@@ -1695,30 +1887,6 @@ def _reusable_bootstrap_run(
         if nominations_on or not _nominations_shaped(repository.synthesis_run_for_agent_run(run["id"])):
             return run
     return None
-
-
-# --- lock refusal -----------------------------------------------------------
-
-
-def _bootstrap_lock_refusal(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
-    """§8.2 enforcement 1: bootstrap is legal only where nothing is identity-locked."""
-
-    from learnloop.curriculum.curriculum_locks import identity_locks
-
-    locked = identity_locks(vault, repository)
-    reasons: list[dict[str, Any]] = []
-    for facet_id, lock_reasons in locked.items():
-        for reason in lock_reasons:
-            reasons.append(
-                {
-                    "facet_id": facet_id,
-                    "source": reason.source,
-                    "entity_type": reason.entity_type,
-                    "entity_id": reason.entity_id,
-                    "detail": reason.detail,
-                }
-            )
-    return reasons
 
 
 # --- orchestration ----------------------------------------------------------
@@ -1953,17 +2121,6 @@ def _create_study_map(
         if apply and result.proposal_id:
             _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
         return result
-
-    # 1. lock check — typed refusal for a locked subject. It follows the cache
-    # lookup because a reused run only re-applies, and apply re-checks locks
-    # under the vault mutation lock.
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
-    if lock_reasons:
-        raise StudyMapError(
-            "subject_identity_locked",
-            f"Bootstrap synthesis refused: subject '{subject_id}' has locked identities.",
-            lock_reasons=lock_reasons,
-        )
 
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -2396,14 +2553,6 @@ def revalidate_synthesis_candidate(
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = resolve_subject_id(source_set, vault)
-
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
-    if lock_reasons:
-        raise StudyMapError(
-            "subject_identity_locked",
-            f"Revalidation refused: subject '{subject_id}' has locked identities.",
-            lock_reasons=lock_reasons,
-        )
 
     inputs = _collect_inputs(repository, vault, source_set)
     ops = derive_candidate_repairs(candidate) if repair else []

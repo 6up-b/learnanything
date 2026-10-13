@@ -3,7 +3,7 @@
 Small fixture library (explanatory textbook + exam) -> set -> role-specific
 inventories -> create_study_map -> §8.7 gates pass -> dependency-closed proposal
 -> accept under lock -> facets/blueprints/criteria in the vault +
-entity_source_links + replay-identical rebuild + locked-subject refusal + exam
+entity_source_links + replay-identical rebuild + no lock refusal + exam
 alignment + held-out wording absence. Canned codex payloads, zero network.
 """
 
@@ -483,14 +483,15 @@ def test_exam_shifts_blueprint_distribution(tmp_path):
     assert ra.item_counts and rb.item_counts
 
 
-def test_locked_subject_bootstrap_refusal(tmp_path):
-    root, repo = _setup(tmp_path, with_exam=False)
-    # First bootstrap + apply mints facets.
-    create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK, apply=True)
-    # Force an identity lock by seeding recall evidence + an active goal scope.
-    from learnloop.curriculum.curriculum_locks import identity_locks
+def test_a_vault_whose_facets_used_to_be_locked_still_bootstraps(tmp_path):
+    """Bootstrap refused (``subject_identity_locked``) in any vault with a locked
+    facet, even for a new subject. Facet locks were removed (owner,
+    2026-10-12): a goal-scoped facet no longer stops a new study map, and a
+    rebuild that rewords an existing facet writes a facet version when its
+    proposal applies."""
 
-    # Simulate a lock by directly writing a goal that certifies the facet scope.
+    root, repo = _setup(tmp_path, with_exam=False)
+    create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK, apply=True)
     from learnloop.vault.paths import VaultPaths
     from learnloop.vault.yaml_io import read_yaml, write_yaml
 
@@ -505,13 +506,10 @@ def test_locked_subject_bootstrap_refusal(tmp_path):
         "created_at": "2026-07-13T12:00:00Z", "updated_at": "2026-07-13T12:00:00Z",
     })
     write_yaml(paths.goals_path, goals_data)
-    vault = load_vault(root)
-    assert identity_locks(vault, repo)  # the facet is now locked
 
-    with pytest.raises(StudyMapError) as exc:
-        create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK)
-    assert exc.value.code == "subject_identity_locked"
-    assert exc.value.lock_reasons
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(), brief={"depth": "deeper"},
+                              repository=repo, clock=_CLOCK)
+    assert result.proposal_id is not None and not result.reused
 
 
 def test_manifest_idempotency_cache_zero_new_calls(tmp_path):

@@ -31,6 +31,7 @@ import type {
   ConfirmQuickAddInput,
   EntityProvenance,
   FacetIdentityActionDto,
+  FacetRewordDecisionDto,
   FacetMergeResultDto,
   PlanQuickAddInput,
   ProposeFacetMergeInput,
@@ -772,10 +773,16 @@ export const api = {
       "undo_facet_identity_action",
       { input: { actionId } },
     )),
+  // A reword with no explanatory source behind it waits for the owner's one
+  // tap: confirm (applies as the owner's edit, with an undo) or keep.
+  decideFacetReword: (actionId: string, decision: "confirm" | "keep") =>
+    mutatingAll(call<FacetRewordDecisionDto>("decide_facet_reword", { input: { actionId, decision } })),
   getSubjectRegistry: (subjectId: string) =>
     call<SubjectRegistryDto>("get_subject_registry", { input: { subjectId } }),
+  // The owner's merge applies live (facet locks were removed) with the same
+  // one-tap undo as a judge's merge (undoFacetIdentityAction).
   proposeFacetMerge: (input: ProposeFacetMergeInput) =>
-    mutating([TAG.proposals], call<{ version: number } & FacetMergeResultDto>("propose_facet_merge", { input })),
+    mutatingAll(call<{ version: number } & FacetMergeResultDto>("propose_facet_merge", { input })),
   readVaultFile: (path: string) => call<VaultFileContent>("read_vault_file", { path }),
   writeVaultFile: (path: string, body: string) => mutating([TAG.library], call<VaultFileContent>("write_vault_file", { path, body })),
   createVaultFile: (path: string, body = "") =>

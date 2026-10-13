@@ -397,6 +397,8 @@ def _recover_facet_identity_actions(vault_root: Path, repository: Repository) ->
     for row in recovered:
         if row.get("problem"):
             _LOGGER.warning("facet-identity recovery: %s", row["problem"])
+        if row.get("refusal"):
+            _LOGGER.warning("facet-identity recovery settled %s (%s): %s", row["id"], row["to"], row["refusal"])
     return bool(recovered)
 
 

@@ -12,6 +12,7 @@ from learnloop.content.proposals.proposals import (
     reject_items,
     reset_items,
 )
+from learnloop.content.facet_identity.actions import pending_reword_confirms, reword_confirms_by_item
 from learnloop.content.proposals.patches import PatchApplicationError
 from learnloop.tutor.promotions import (
     reconcile_accepted_question_promotion_patch,
@@ -97,7 +98,9 @@ def _source_refs(item: dict[str, Any], batch: dict[str, Any]) -> list[dict[str, 
     return out
 
 
-def _item_dto(item: dict[str, Any], batch: dict[str, Any]) -> dict[str, Any]:
+def _item_dto(
+    item: dict[str, Any], batch: dict[str, Any], reword_confirms: dict[str, str] | None = None,
+) -> dict[str, Any]:
     payload = item.get("edited_payload") if item.get("edited_payload") is not None else item.get("payload")
     payload = payload if isinstance(payload, dict) else {}
     proposed_entity_id = (
@@ -127,6 +130,9 @@ def _item_dto(item: dict[str, Any], batch: dict[str, Any]) -> dict[str, Any]:
         # ``learning_object_id``. As a string it round-trips untouched and is what
         # the Library payload editor reads/writes.
         "payload_json": json.dumps(payload, indent=2, ensure_ascii=False),
+        # A facet reword this accepted item holds for the owner's confirm:
+        # pending, confirmed, kept or withdrawn (owner, 2026-10-13).
+        "reword_confirm": (reword_confirms or {}).get(str(item["id"])),
     }
 
 
@@ -139,14 +145,15 @@ def _count_decisions(items: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _proposals_payload(ctx: SidecarContext) -> dict[str, Any]:
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     batches = repository.proposal_batches()
+    by_item = reword_confirms_by_item(repository)
 
     batch_dtos: list[dict[str, Any]] = []
     totals = {"pending": 0, "accepted": 0, "rejected": 0}
     for batch in batches:
         raw_items = repository.proposal_items(batch["id"])
-        items = [_item_dto(item, batch) for item in raw_items]
+        items = [_item_dto(item, batch, by_item) for item in raw_items]
         counts = _count_decisions(items)
         for key in totals:
             totals[key] += counts[key]
@@ -182,6 +189,9 @@ def _proposals_payload(ctx: SidecarContext) -> dict[str, Any]:
             "batches": batch_dtos,
             "totals": totals,
             "batch_count": len(batch_dtos),
+            # Rewords an accepted proposal holds for the owner's one-tap
+            # confirm (no explanatory source behind them; owner, 2026-10-13).
+            "reword_confirms": pending_reword_confirms(repository, vault),
         }
     )
 

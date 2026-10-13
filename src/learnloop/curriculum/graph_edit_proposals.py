@@ -10,7 +10,8 @@ persists it, as a directly-built row. Items land pending in the inbox; the
 review/apply flow is unchanged.
 
 Also owns two review surfaces layered on the same seam: ``queue_restructure_request``
-(durable intent for LOCKED facets, spec §17 machinery does not exist yet) and
+(a durable split or merge request for any facet; there is no split endpoint yet,
+and merges apply directly through ``propose_facet_merge``) and
 ``resolve_edge_direction`` (compiles a ``concept_edge`` proposal via the same
 service and resolves the ``ambiguous_edge_direction`` maintenance notice).
 """
@@ -25,7 +26,6 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.proposals.ai_contracts import AuthoringProposal, AuthoringProposalItem
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.curriculum.curriculum_locks import Operation, can_apply
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.proposals.proposals import auto_apply_rows, proposal_item_row
 from learnloop.vault.loader import load_vault
@@ -302,13 +302,14 @@ def queue_restructure_request(
     *,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Queue a durable restructure-intent record for LOCKED facets (spec §17).
+    """Queue a durable restructure request (split or merge) for any facets.
 
-    The §17 restructure-with-history machinery does not exist yet, so this only
-    records intent — reusing the generation-needs queue with kind
-    ``restructure_request`` (the closest existing durable queue) and surfacing it
-    in the maintenance feed. At least one named facet must actually be locked;
-    otherwise the normal merge/split flow (``propose_facet_merge``) applies.
+    It records intent only, reusing the generation-needs queue with kind
+    ``restructure_request`` and surfacing it in the maintenance feed. It used
+    to be the only path for LOCKED facets; facet identity locks were removed
+    (owner, 2026-10-12), so a merge now applies directly
+    (``propose_facet_merge``, with an undo) and this stays as the place to
+    record a split, which has no endpoint yet.
     """
 
     if requested_operation not in {"merge", "split"}:
@@ -323,23 +324,6 @@ def queue_restructure_request(
     for facet_id in canonical:
         if facet_id not in vault.evidence_facets:
             raise GraphEditError("facet_not_found", f"Facet '{facet_id}' does not exist.")
-
-    op_type = f"facet_{requested_operation}"
-    locked = [
-        facet_id
-        for facet_id in canonical
-        if not can_apply(
-            vault,
-            repository,
-            Operation(op_type=op_type, entity_type="facet", entity_id=facet_id, facet_ids=(facet_id,)),
-        ).legal
-    ]
-    if not locked:
-        raise GraphEditError(
-            "facets_not_locked",
-            "None of the named facets are locked; use the normal merge/split flow "
-            "(propose_facet_merge) instead of queueing a restructure request.",
-        )
 
     subject_id = _subject_for_facets(vault, canonical)
     target_key = f"{requested_operation}:{','.join(sorted(canonical))}"
@@ -356,7 +340,6 @@ def queue_restructure_request(
         "need_id": need_id,
         "subject_id": subject_id,
         "facet_ids": canonical,
-        "locked_facet_ids": locked,
         "requested_operation": requested_operation,
         "rationale": rationale,
         "status": "pending",
@@ -660,7 +643,7 @@ def _pending_prerequisite_edge_items(repository: Repository) -> list[dict[str, A
 
 
 def restructure_request_notices(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
-    """Surface queued restructure-intent records in the maintenance feed (§17)."""
+    """Surface queued restructure requests in the maintenance feed."""
 
     notices: list[dict[str, Any]] = []
     for need in repository.synthesis_generation_needs(
@@ -672,7 +655,7 @@ def restructure_request_notices(vault: LoadedVault, repository: Repository) -> l
             {
                 "notice_type": RESTRUCTURE_REQUEST_NOTICE,
                 "dedup_key": need["id"],
-                "title": f"Restructure request ({operation}) queued for {len(facet_ids)} locked facet(s)",
+                "title": f"Restructure request ({operation}) queued for {len(facet_ids)} facet(s)",
                 "action": {
                     "action": "review_restructure_request",
                     "label": "Review restructure request",

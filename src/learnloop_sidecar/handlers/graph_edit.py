@@ -61,11 +61,12 @@ class QueueRestructureRequestInput(ParamsModel):
 def queue_restructure_request_handler(
     ctx: SidecarContext, params: QueueRestructureRequestInput
 ) -> dict[str, Any]:
-    """Queue durable restructure intent for LOCKED facets (spec §17 not yet built).
+    """Queue a durable split (or merge) request for any facets.
 
-    Errors (pointing back at the normal merge flow) when no named facet is locked;
-    otherwise records a ``restructure_request`` generation-need that surfaces in the
-    maintenance feed."""
+    Records a ``restructure_request`` generation-need that surfaces in the
+    maintenance feed. There is no split endpoint yet; merges apply directly
+    (``propose_facet_merge``). Facet locks, which this used to require, were
+    removed (owner, 2026-10-12)."""
 
     vault, _repository = ctx.require_vault()
     try:

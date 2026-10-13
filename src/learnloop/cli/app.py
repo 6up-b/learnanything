@@ -759,7 +759,7 @@ def synthesize_command(
     except StudyMapError as exc:
         if json_output:
             typer.echo(_dump({"version": 1, "error": exc.code, "message": str(exc),
-                              "diagnostics": exc.diagnostics, "lockReasons": exc.lock_reasons}))
+                              "diagnostics": exc.diagnostics}))
         else:
             typer.echo(f"{exc.code}: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -1299,18 +1299,39 @@ def doctor(
     ai: Annotated[bool, typer.Option("--ai", help="Include active AI provider health.")] = False,
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to check.")] = None,
     data_quality: Annotated[bool, typer.Option("--data-quality", help="Report collection coverage from a read-only snapshot transaction.")] = False,
+    fix_content: Annotated[bool, typer.Option(
+        "--fix-content",
+        help="Repair vault content doctor can fix safely: remove criterion depends_on entries that name no "
+        "criterion of the item (criterion:unknown_dependency). A criterion that depends on itself is "
+        "reported, not changed. Run with --dry-run first.",
+    )] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="With --fix-content: list the edits, write nothing.")] = False,
 ) -> None:
     if data_quality:
         from learnloop.substrate.data_quality import data_quality_report
         loaded = _load_vault_or_exit(_root(vault), json_output=True)
         typer.echo(_dump(data_quality_report(VaultPaths(loaded.root, loaded.config).sqlite_path)))
         return
+    if dry_run and not fix_content:
+        typer.echo("--dry-run applies only with --fix-content.", err=True)
+        raise typer.Exit(code=2)
+    fix_report = None
+    if fix_content:
+        from learnloop.ops.content_fixes import fix_criterion_dependencies
+
+        # Content first, so the doctor report below describes the repaired vault.
+        fix_report = fix_criterion_dependencies(_root(vault), dry_run=dry_run)
     report = run_doctor(_root(vault), fix_state=fix_state, ai=ai, ai_provider=ai_provider)
     if json_output:
-        typer.echo(_dump(report.as_dict()))
+        payload = report.as_dict()
+        if fix_report is not None:
+            payload["fix_content"] = fix_report
+        typer.echo(_dump(payload))
         if not report.clean:
             raise typer.Exit(code=1)
         return
+    if fix_report is not None:
+        _echo_fix_content(fix_report)
     if report.storage is not None:
         typer.echo(_storage_line(report.storage))
     if report.clean:
@@ -1321,6 +1342,28 @@ def doctor(
         subject = f" {issue.entity_id}" if issue.entity_id else ""
         typer.echo(f"{issue.severity}: {issue.code}{subject}: {issue.message}{location}")
     raise typer.Exit(code=1)
+
+def _echo_fix_content(fix: dict) -> None:
+    verb = "would remove" if fix["dry_run"] else "removed"
+    typer.echo(
+        f"fix-content{' (dry run)' if fix['dry_run'] else ''}: {verb} {fix['entries_removed']} criterion "
+        f"depends_on entr{'y' if fix['entries_removed'] == 1 else 'ies'} from {fix['criteria_changed']} "
+        f"criteria in {fix['items_changed']} practice item(s)"
+    )
+    for change in fix["changes"]:
+        for entry in change["criteria"]:
+            typer.echo(f"  {change['practice_item_id']} {entry['criterion_id']}: -{', '.join(entry['removed'])}")
+    for entry in fix["unreadable"]:
+        typer.echo(f"  unreadable (left alone): {entry['path']}: {entry['error']}")
+    for entry in fix["not_rewritten"]:
+        typer.echo(f"  not rewritten: {entry['path']}: {entry['reason']}")
+    if fix["items_changed"]:
+        typer.echo(f"  {fix['note']}")
+    for entry in fix["self_dependencies"]:
+        typer.echo(f"  left as is (depends on itself): {entry['practice_item_id']} {entry['criterion_id']}")
+    if fix["self_dependencies"]:
+        typer.echo(f"  {fix['self_dependency_note']}")
+
 
 def _storage_line(storage) -> str:
     filesystem = storage.mount.filesystem_type if storage.mount is not None else "unknown"

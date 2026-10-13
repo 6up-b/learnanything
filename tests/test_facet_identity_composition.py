@@ -2,8 +2,10 @@
 
 Owner decisions (2026-10-12):
 
-* ``merge_locked_facets`` defaults to true: an identity-locked facet merges
-  live like any other, its lock named on the action, with the one-tap undo.
+* ``merge_locked_facets`` defaulted to true: an identity-locked facet merged
+  live like any other, with the one-tap undo. Facet locks were then removed
+  altogether (facets/locks-and-depends-on); the key is a retired compatibility
+  key and each action names the facets whose evidence it re-keyed instead.
 * The judge is cheap and live, and router R0's Decider (``judge='decider'``)
   is accepted on the ``facet_identity_judge`` route, receipts included.
 * The ledger records the merged pairs plus the shortlisted different pairs
@@ -104,45 +106,45 @@ def _route(root, provider: str) -> None:
                     encoding="utf-8")
 
 
-# --- owner decision: locked facets merge by default ------------------------------------
+# --- owner decision: facets with evidence merge (facet locks removed) -------------------
 
 
-def test_locked_facets_merge_by_default_and_each_merge_names_its_lock(tmp_path):
+def test_facets_with_evidence_merge_whatever_the_retired_lock_key_says(tmp_path):
     from learnloop.config.schema import FacetIdentityConfig
+    from tests.helpers import append_config_toml
 
-    assert FacetIdentityConfig().merge_locked_facets is True
+    assert FacetIdentityConfig().merge_locked_facets is True  # kept, unread, for the snapshots
     paths, vault, repository = _vault_with_duplicate(tmp_path)
     _lock_shared(vault, repository)
-    assert load_vault(paths.root).config.facet_identity.merge_locked_facets is True
-    applied = _merge(paths, repository, merge_locked=None)  # the configured (default) policy
-    assert applied["status"] == "applied" and applied["locked"] and SHARED in applied["lock_reasons"]
+    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")
+    applied = _merge(paths, repository)
+    assert applied["status"] == "applied" and SHARED in applied["evidence"]
     assert DUP in load_vault(paths.root).evidence_facets[SHARED].aliases
     (action,) = list_actions(repository)
-    assert action["detail"]["lock_reasons"][SHARED]
+    assert SHARED in action["detail"]["evidence"] and "lock_reasons" not in action["detail"]
     assert undo_action(paths.root, repository, applied["action_id"], clock=_CLOCK)["status"] == "undone"
     assert DUP in load_vault(paths.root).evidence_facets
 
 
-def test_dedupe_applies_a_locked_set_by_default(tmp_path):
+def test_dedupe_applies_a_set_with_evidence(tmp_path):
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     _one_concept(paths)
     _lock_shared(load_vault(paths.root), repository)
     report = run_dedupe(paths.root, client=FakeFacetJudge(clusters=[[SHARED_CLAIM, DUP_CLAIM]]), clock=_CLOCK)
-    assert report["status"] == "complete" and report["lock_policy"] == "merge_locked_facets"
-    assert report["locked_proposals"] == []
+    assert report["status"] == "complete" and "lock_policy" not in report
     (action,) = report["actions"]
-    assert action["survivor"]["id"] == SHARED and action["locked"]
+    assert action["survivor"]["id"] == SHARED and SHARED in action["evidenced_facets"]
     assert load_vault(paths.root).canonical_facet_id(DUP) == SHARED
 
 
-def test_an_absorb_into_a_locked_registered_facet_grows_its_examples_by_default(tmp_path, monkeypatch):
+def test_an_absorb_into_a_registered_facet_grows_its_examples_whatever_its_history(tmp_path):
     from tests.test_facet_identity_ingest import _attach_absorb
 
-    _root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", monkeypatch=monkeypatch)
+    _root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example")
     (action,) = result.facet_identity["actions"]
-    assert action["locked"] and not action.get("contract_note")
+    assert "locked" not in action and not action.get("contract_note")
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
-    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples", "meaning_support"}
     assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
 
 

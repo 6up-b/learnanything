@@ -19,7 +19,11 @@ from learnloop.config import (
     LearnLoopConfig,
     load_config,
 )
-from learnloop.content.facet_identity.actions import interrupted_actions, recover_interrupted_actions
+from learnloop.content.facet_identity.actions import (
+    interrupted_actions,
+    interrupted_registry_saves,
+    recover_interrupted_actions,
+)
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
     WAL_RESET_ADVISORY_URL,
@@ -570,6 +574,9 @@ def _check_retired_config(root: Path, issues: list[HealthIssue]) -> None:
         ("probe", "dialogue", "max_turns"),
         ("recall_coverage", "coverage_epsilon"),
         ("ingest", "budgets", "evidence_span_input_tokens"),
+        # Facet identity locks were removed (owner, 2026-10-12).
+        ("locks",),
+        ("facet_identity", "merge_locked_facets"),
     )
     for setting_path in retired_setting_paths:
         value: Any = data
@@ -1072,9 +1079,10 @@ def _recover_facet_identity_actions(
     *,
     fix_state: bool,
 ) -> None:
-    """Finish a facet merge or undo left mid-flight (facet identity, review F4).
+    """Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
 
-    A row left ``applying`` or ``undoing`` is reconciled against facets.yaml
+    A row left ``applying`` or ``undoing``, or a Library save's intent left
+    ``applying`` (Codex re-review 2, F7), is reconciled against facets.yaml
     under ``--fix-state`` (holding the vault mutation lock); a plain run only
     reports it.
     """
@@ -1082,14 +1090,18 @@ def _recover_facet_identity_actions(
     if repository is None or "facet_identity_actions" not in database_tables:
         return
     pending = interrupted_actions(repository)
-    if not pending:
+    saves = interrupted_registry_saves(repository)
+    if not pending and not saves:
         return
     if not fix_state:
+        left = [f"{len(pending)} facet merge/undo action(s)"] if pending else []
+        if saves:
+            left.append(f"{len(saves)} Library save(s)")
         issues.append(
             _issue(
                 "warning",
                 "facet_identity:interrupted",
-                f"{len(pending)} facet merge/undo action(s) left mid-flight; run doctor --fix-state to finish them",
+                f"{' and '.join(left)} left mid-flight; run doctor --fix-state to finish them",
                 paths.sqlite_path,
             )
         )
@@ -1111,7 +1123,15 @@ def _recover_facet_identity_actions(
             _issue(
                 "warning",
                 "facet_identity:recovered",
-                "Finished " + ", ".join(f"{row['id']} ({row['from']} -> {row['to']})" for row in finished),
+                "Finished " + ", ".join(
+                    ("Library save " if row.get("kind") == "library_save" else "")
+                    + f"{row['id']} ({row['from']} -> {row['to']}"
+                    + (f"; refused by the meaning-authority check: {row['refused']}" if row.get("refused") else "")
+                    + (f"; {len(row['withdrawn'])} owner verdict(s) withdrawn" if row.get("withdrawn") else "")
+                    + ("; the reword waits for your confirm again" if row.get("to") == "proposed" else "")
+                    + ")"
+                    for row in finished
+                ),
                 paths.sqlite_path,
             )
         )
