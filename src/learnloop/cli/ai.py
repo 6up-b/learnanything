@@ -8,6 +8,7 @@ LearnLoop config directory). Nothing here prints a token.
 from __future__ import annotations
 
 from contextlib import nullcontext
+from decimal import Decimal
 from pathlib import Path
 import statistics
 import time
@@ -265,6 +266,8 @@ def ai_latency(
     config = loaded.config
     names = list(dict.fromkeys(provider))
     tokens_per_call = 400 + LATENCY_OUTPUT_TOKENS
+    # The same per-call figure every metered request reserves below.
+    call_usd = tokens_per_call * price_per_million / 1_000_000 if price_per_million is not None else None
     plan = []
     for name in names:
         profile = config.ai.providers.get(name)
@@ -281,12 +284,14 @@ def ai_latency(
             "provider": name, "type": profile.type, "model": profile.model,
             "billing": "subscription" if subscription else "metered", "calls": runs,
             "estimated_tokens": runs * tokens_per_call,
-            "estimated_usd": (runs * tokens_per_call * price_per_million / 1_000_000) if price_per_million is not None else None,
+            "estimated_usd": float(Decimal(str(call_usd)) * runs) if call_usd is not None else None,
         })
     # One dollar cap for every metered provider together; subscription
     # profiles keep their own (estimate-only) accounting per provider.
     metered = [entry for entry in plan if entry["billing"] == "metered"]
-    metered_usd = sum(entry["estimated_usd"] for entry in metered)
+    # Decimal, like SpendBudget: the plan admits exactly what the per-call
+    # reservations below will admit (a float sum can overshoot an exact cap).
+    metered_usd = float(Decimal(str(call_usd)) * runs * len(metered)) if metered else 0
     metered_budget = SpendBudget(SpendCaps(
         max_candidates=0, max_pairs=0, max_retries=0, max_calls=runs * len(metered),
         max_total_tokens=runs * tokens_per_call * 4 * len(metered), max_estimated_usd=max_cost_usd,
@@ -344,8 +349,7 @@ def ai_latency(
         for index in range(1, runs + 1):
             prompt = (f"LearnLoop latency probe {index}. Return the JSON object "
                       f'{{"ok": true, "n": {index}}} and nothing else.')
-            usd = tokens_per_call * price_per_million / 1_000_000 if price_per_million is not None else None
-            estimate = SpendEstimate(calls=1, total_tokens=tokens_per_call, estimated_usd=usd)
+            estimate = SpendEstimate(calls=1, total_tokens=tokens_per_call, estimated_usd=call_usd)
             run: dict[str, Any] = {"n": index}
             try:
                 with budget.request(estimate) as charge:
