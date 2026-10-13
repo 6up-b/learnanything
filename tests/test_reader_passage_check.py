@@ -205,7 +205,11 @@ def test_a_failed_call_is_receipted_and_counts_toward_the_daily_cap(tmp_path):
     (receipt,) = [r for r in _receipts(repo) if r["parent_call_id"] is None]
     assert receipt["status"] == "failed"
     budget = json.loads(receipt["budget_json"])
-    assert budget["max_calls"] == 1 and budget["max_estimated_usd"] == spend.max_usd_per_check
+    # One call and one truncation retry at double the budget (the shared
+    # output-budget policy; tests/test_rw1a_composition.py); a provider
+    # failure is never retried.
+    assert budget["max_calls"] == 2 and budget["max_retries"] == 1
+    assert budget["max_estimated_usd"] == spend.max_usd_per_check
     healthy = RecordingClient(provider_type="openai_compatible")
     with pytest.raises(RQC.PassageCheckRefused):
         _author(repo, healthy, root, spend=spend, clock=None, owner="job_b")

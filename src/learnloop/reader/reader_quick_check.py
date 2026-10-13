@@ -24,7 +24,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
+from learnloop.ai.errors import AIOutputTruncated
+from learnloop.ai.execution import (
+    content_key,
+    generation_limit,
+    observe_model_calls,
+    requested_reasoning_effort,
+    single_request,
+)
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling, reasoning_effort
 from learnloop.ai.spend import (
     SpendBudget,
     SpendCaps,
@@ -93,6 +101,10 @@ INQUIRY_CLAIM_LEASE_SECONDS = 30 * 60
 # Prompt-size bound of one passage check (the passage is at most
 # MAX_PASSAGE_CHARS, about 2,000 tokens, plus the envelope).
 PASSAGE_CHECK_PROMPT_TOKENS = 8_000
+# The passage check's route: its client (the inventory resolver), its output
+# budget and its reasoning effort under the shared policy.
+PASSAGE_CHECK_ROUTE = "canonical_ingest"
+PASSAGE_CHECK_PURPOSE = "reading_quick_check"
 # The learner's own verdict after comparing answers (W10: every learner-card
 # verdict appends to judgment_ledger).
 SELF_CHECK_TASK = "reader_quick_check_self_check"
@@ -125,23 +137,30 @@ class PassageCheckSpend:
     """Admission settings of one passage check (``[reader_inquiry]``, W10).
 
     ``max_checks_per_day`` counts the check's root receipts since UTC midnight
-    (failed calls included; None: no daily count). A metered route is priced
-    at ``price_per_million`` (None: refused before sending) and held to
-    ``max_usd_per_check`` and to one admitted request per physical request,
-    its output limited to ``output_tokens``. A subscription route (Codex, the
-    ChatGPT plan) is estimated_only, with no token, dollar or physical-request
-    bound."""
+    (failed calls included, a truncation retry too; None: no daily count). A
+    metered route is priced at ``price_per_million`` (None: refused before
+    sending) and held to ``max_usd_per_check`` and to one admitted request per
+    physical request. ``output_tokens`` is the route's budget under the
+    shared output-budget policy (``learnloop.ai.output_budget``): the output
+    limit of a metered request, a prompt hint on the subscription, and the
+    reservation; a truncation is retried once at double it (admitted like any
+    retry), never accepted. ``reasoning_effort`` is the route's
+    (``ai.route_reasoning_effort``; None keeps the profile's). A subscription
+    route (Codex, the ChatGPT plan) is estimated_only, with no token, dollar
+    or physical-request bound."""
 
     max_checks_per_day: int | None = 100
     max_usd_per_check: float = 0.25
     price_per_million: float | None = None
     output_tokens: int = DEFAULT_OUTPUT_TOKENS
     cancelled: Callable[[], bool] | None = None
+    reasoning_effort: str | None = None
 
     def caps(self) -> SpendCaps:
+        # One call and one truncation retry at twice the output budget.
         return SpendCaps(
-            max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
-            max_total_tokens=self.output_tokens + PASSAGE_CHECK_PROMPT_TOKENS,
+            max_candidates=1, max_pairs=0, max_retries=1, max_calls=2,
+            max_total_tokens=PASSAGE_CHECK_PROMPT_TOKENS * 2 + self.output_tokens * 3,
             max_estimated_usd=self.max_usd_per_check,
         )
 
@@ -150,17 +169,17 @@ def passage_check_spend(
     config: Any, *, provider: str | None = None, cancelled: Callable[[], bool] | None = None,
 ) -> PassageCheckSpend:
     """The vault's passage-check admission settings (``[reader_inquiry]``,
-    and the shared output-budget policy for the check's route)."""
-
-    from learnloop.ai.output_budget import output_budget
+    and the shared output-budget policy for the check's route: its budget and
+    its reasoning effort)."""
 
     settings = config.reader_inquiry
     return PassageCheckSpend(
         max_checks_per_day=int(settings.max_checks_per_day),
         max_usd_per_check=float(settings.max_usd_per_check),
         price_per_million=settings.metered_price_per_million,
-        output_tokens=int(output_budget(config, "canonical_ingest", provider=provider)),
+        output_tokens=int(output_budget(config, PASSAGE_CHECK_ROUTE, provider=provider)),
         cancelled=cancelled,
+        reasoning_effort=reasoning_effort(config, PASSAGE_CHECK_ROUTE),
     )
 
 
@@ -199,7 +218,7 @@ def request_passage_check(
 
     return execute_structured_operation(
         client,
-        purpose="reading_quick_check",
+        purpose=PASSAGE_CHECK_PURPOSE,
         prompt=reading_passage_check_prompt(context),
         result_model=ReadingQuickCheck,
         isolated=True,
@@ -226,7 +245,15 @@ def _admitted_passage_check(
     written in the same write transaction that counts the day's receipts, so
     two workers (different inquiries, one slot left) can never both read
     spare capacity and both send. The count up front is only a fast path
-    that skips building the request when the day is plainly used."""
+    that skips building the request when the day is plainly used.
+
+    The shared output-budget policy (``learnloop.ai.output_budget``): every
+    attempt asks for the route's budget (the output limit of a metered
+    request, a prompt hint on the subscription) and reasoning effort. A
+    truncated answer is never accepted: it is logged and retried once at
+    double the budget (held to the transport's ceiling), the retry admitted
+    like any other attempt (the per-check caps, the day's count) and tagged
+    on its receipt; a second truncation, or one at the ceiling, fails."""
 
     day = parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
     limit = spend.max_checks_per_day
@@ -239,7 +266,7 @@ def _admitted_passage_check(
     ) >= limit:
         raise capped()
     subscription = is_subscription_transport(client=client)
-    planned = _estimate_tokens(reading_passage_check_prompt(context)) + spend.output_tokens
+    prompt_tokens = _estimate_tokens(reading_passage_check_prompt(context))
     price = spend.price_per_million
     if price is None and not subscription:
         raise PassageCheckRefused(
@@ -247,17 +274,61 @@ def _admitted_passage_check(
             "The quick check was refused before sending: no price is set for this metered model.",
             refusal="no_price",
         )
-    estimate = SpendEstimate(
-        candidates=1, calls=1, total_tokens=planned,
-        estimated_usd=(planned * price / 1_000_000) if price is not None else None,
-    )
     budget = SpendBudget(spend.caps(), cancelled=spend.cancelled, subscription=subscription)
-    try:
-        budget.check(estimate)
-    except SpendLimitExceeded as exc:
-        raise PassageCheckRefused(
-            "spend_refused", f"The quick check was refused before sending: {exc}.", refusal="over_cap",
-        ) from exc
+    truncation = TruncationRetry(
+        spend.output_tokens, role=PASSAGE_CHECK_PURPOSE, provider=getattr(client, "provider_name", None),
+        model=getattr(client, "model", None), owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, owner_id=owner_id,
+        ceiling=output_ceiling(client),
+    )
+    while True:
+        retry = truncation.retried
+        planned = prompt_tokens + truncation.budget
+        estimate = SpendEstimate(
+            candidates=0 if retry else 1, calls=1, retries=1 if retry else 0, total_tokens=planned,
+            estimated_usd=(planned * price / 1_000_000) if price is not None else None,
+        )
+        try:
+            budget.check(estimate)
+        except SpendLimitExceeded as exc:
+            what = (
+                f"its answer was cut off and the retry at {truncation.budget} output tokens was refused"
+                if retry else "the quick check was refused"
+            )
+            raise PassageCheckRefused(
+                "spend_refused", f"{what[0].upper()}{what[1:]} before sending: {exc}.", refusal="over_cap",
+            ) from exc
+        try:
+            return _send_passage_check(
+                repository, client, context, budget=budget, estimate=estimate, planned=planned,
+                price=price, subscription=subscription, limit=limit, day=day, capped=capped,
+                owner_id=owner_id, output_tokens=truncation.budget, truncation=truncation,
+                effort=spend.reasoning_effort,
+            )
+        except AIOutputTruncated:
+            if not truncation.after_truncation(allowed=budget.used.retries < budget.caps.max_retries):
+                raise
+
+
+def _send_passage_check(
+    repository: Repository,
+    client: Any,
+    context: ReadingQuickCheckContext,
+    *,
+    budget: SpendBudget,
+    estimate: SpendEstimate,
+    planned: int,
+    price: float | None,
+    subscription: bool,
+    limit: int | None,
+    day: str,
+    capped: Callable[[], PassageCheckRefused],
+    owner_id: str,
+    output_tokens: int,
+    truncation: TruncationRetry,
+    effort: str | None,
+) -> ReadingQuickCheck:
+    """One admitted attempt of the passage check: its receipts, its request."""
+
     totals: dict[str, Any] = {"input": 0, "output": 0, "cost": None, "root": None}
     refused: list[PassageCheckRefused] = []
 
@@ -303,10 +374,13 @@ def _admitted_passage_check(
                 stack.enter_context(observe_model_calls(receipt))
                 if not subscription:
                     # Metered: the one admitted request is the only physical
-                    # request (no hidden retry or repair), held to the output
-                    # allowance the estimate reserved.
+                    # request (no hidden retry or repair).
                     stack.enter_context(single_request())
-                    stack.enter_context(generation_limit(spend.output_tokens))
+                # The route's budget: a metered request's output limit, a
+                # prompt hint on the subscription (no output cap is sent).
+                stack.enter_context(generation_limit(output_tokens))
+                stack.enter_context(truncation.receipts())
+                stack.enter_context(requested_reasoning_effort(effort))
                 return request_passage_check(client, context)
         except BaseException:
             if refused:

@@ -414,3 +414,37 @@ New tests: Python `test_reader_branches.py` (ported + transcript/notes),
 `voices.test.tsx`, `paletteContrast.test.ts`, `modelActionStates.test.tsx`,
 `returnStack.test.ts`, `inquiryComponents.test.tsx`,
 `AskOverlay.reader.test.tsx`.
+
+## 11. Merge onto main (after EVSI calibration)
+
+Merged onto main at `3192d0c9` (EVSI calibration: migration 184, `[evsi]`),
+in two commits: the merge, then one composition commit.
+
+- **Migration 189 became 185.** Main's head is 184, and the branch had held
+  184-188 for branches in flight. Its header says so. The notes in
+  `repositories.py` and `test_reader_reconnect.py` follow, as does the
+  durability case `test_migration_185_and_the_inquiry_check_under_production_sqlite`.
+  `fixtures/migration_head_185` is a backup-API copy of main's
+  `migration_head_184` with only 185 applied. Head 183, head 184 and the
+  branch's head 189 are gone. The sections above keep the number 189 as it
+  was when they were written.
+- **Config.** `[reader_inquiry]` sits beside `[evsi]`. Every defaults
+  snapshot was recomputed, and each moves only because both sections are in
+  the effective config. No successor: RW1a is content and display only.
+- **Composition: the passage check under the shared output-budget policy**
+  (`learnloop.ai.output_budget`, merged at the branch's base). The check
+  already took its route's budget (`canonical_ingest`), but a truncation
+  failed it at once. The subscription got no budget hint, and the route's
+  reasoning effort was not asked for. Now every attempt asks for the
+  route's budget and effort. On a metered route the budget is the output
+  limit; on the subscription it is a prompt hint. A truncation is never
+  accepted. It is logged and retried once at double the budget through
+  `TruncationRetry`, held to the transport's ceiling. The retry is admitted
+  like any attempt, so it meets the per-check dollar cap (`over_cap` if
+  refused) and takes a slot in the day's count (`capped` if none is left).
+  Its receipt is tagged `truncation_retry`. A second truncation, or one at
+  the ceiling, fails the check. The per-check caps now allow one call plus
+  one truncation retry (`max_calls` 2, `max_retries` 1, tokens
+  2 × 8,000 + 3 × the budget). The dollar cap is unchanged. Tests are in
+  `tests/test_rw1a_composition.py`: 7 of 8 fail on the merge commit, and the
+  8th guards the ceiling.
