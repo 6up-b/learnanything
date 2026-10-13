@@ -27,6 +27,7 @@ from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import asdict, dataclass, field
 import json
+import time
 from typing import Any
 
 import numpy as np
@@ -1149,6 +1150,7 @@ def find_practice(
     cursor: Mapping[str, Any] | None = None,
     system_initiated: bool = False,
     pending_decision: Mapping[str, Any] | None = None,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     """Propose practice items for a natural-language request. Never serves.
 
@@ -1160,6 +1162,12 @@ def find_practice(
     adds textbook exercises from the learner's own sources: judged in the same
     listwise call as items and proposed as ``source_exercise`` entries, never
     as item ids until imported. ``constraints.kinds`` chooses the arms.
+
+    A value intent (``discriminate``, ``retention``) pages on inside the call
+    until every admissible candidate was offered to the judge, a budget or
+    ``deadline`` (``time.monotonic``) stops it, or no unjudged candidate can
+    clear the stop (§8.3.4); a stop before exhaustion returns a cursor that
+    resumes it, carrying the relevant candidates found so far.
     """
     config = vault.config.practice_index
     if not config.enabled:
@@ -1184,6 +1192,7 @@ def find_practice(
     limit = constraints.limit or config.proposals
     proposal_id = "pp_" + new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock, estimator=estimator)
+    admissible = set(corpus)
     judged_before = set((cursor or {}).get("judged_items") or ())
     corpus = [item_id for item_id in corpus if item_id not in judged_before]
     if not want_items:
@@ -1211,72 +1220,148 @@ def find_practice(
         snapshot, repository, text, query_vector, corpus,
     )
     ranked_order = list(ranking.order)
-    if constraints.intent in VALUE_INTENTS:
+    value_search = constraints.intent in VALUE_INTENTS
+    if value_search:
         # Every admissible item is offered before exhaustion is declared: the
         # ones no list ranked come last, labelled (§8.3.4).
         ranked_order += [item_id for item_id in corpus if item_id not in set(ranked_order)]
-    pool = ranked_order[: config.candidate_pool]
     unranked = set(ranked_order) - set(ranking.order)
+    use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
+    if value_search:
+        use_rerank = True  # relevance comes first: the judge keeps what bears on the request
+    # A continuation of a value search carries the candidates judged relevant
+    # on earlier pages, so the valuation stays conditional across pages and
+    # calls (Codex re-review F5); each is re-checked for admissibility here
+    # and for independence by the valuer.
+    carried = _carried_relevance(cursor, admissible=admissible) if value_search else _Carried()
+    judgments: dict[str, dict[str, Any]] = dict(carried.judgments)
+    metadata: dict[str, Any] = dict(carried.metadata)
+    by_key: dict[str, dict[str, Any]] = dict(carried.exercises)
+    relevant_order: list[str] = list(carried.order)
+    judged_items = set(judged_before)
+    judged_exercises = set((cursor or {}).get("judged_exercises") or ())
+    list_depths = (cursor or {}).get("exercise_list_depths") or None
+    exercise_failures: Counter[str] = Counter()
+    pages: list[dict[str, Any]] = []
+    used_mixed = False
+    statuses: list[str] = []
+    models: list[str] = []
+    offered = 0
+    valuation: dict[str, Any] | None = None
+    pool: list[str] = []
     exercise_pool = None
     exercises: list[dict[str, Any]] = []
-    if want_exercises and exercise_arm is not None:
-        judged_exercises = set((cursor or {}).get("judged_exercises") or ())
-        # Judged regions leave the arm's candidates before its pool is cut
-        # (F9): a continuation reaches the regions past the first pool.
-        exercise_pool = exercise_arm(
-            vault, repository, text, constraints, pool_size=config.candidate_pool, embedder=embedder,
-            owner_id=proposal_id,
-            **({"list_depth": cursor["exercise_list_depths"]} if cursor and cursor.get("exercise_list_depths") else {}),
-            **({"exclude_keys": sorted(judged_exercises)} if judged_exercises else {}),
-        )
-        exercises = [exercise for exercise in exercise_pool.candidates if exercise["key"] not in judged_exercises]
-    use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
-    if constraints.intent in VALUE_INTENTS:
-        use_rerank = True  # relevance comes first: the judge keeps what bears on the request
     mixed: MixedOutcome | None = None
-    pick_at_most = limit if constraints.intent not in VALUE_INTENTS else max(len(pool) + len(exercises), 1)
-    if exercises and use_rerank:
-        mixed = rerank_mixed_pool(vault, repository, query_text=text, items=pool, exercises=exercises,
-                                  pick_at_most=pick_at_most, owner_id=proposal_id, constraints=constraints,
-                                  client=rerank_client)
-        outcome = RerankOutcome(mixed.status, mixed.picks, mixed.judgments, mixed.model, mixed.usage)
-    elif use_rerank:
-        outcome = rerank_pool(vault, repository, query_text=text, pool=pool,
-                              pick_at_most=pick_at_most, owner_id=proposal_id, client=rerank_client)
+    outcome = RerankOutcome("empty_pool")
+    paging: dict[str, Any] = {}
+    while True:
+        # One page: the next unjudged items and exercise regions, one judge
+        # call. A value search pages on inside the call until exhaustion, a
+        # refused budget or deadline, or the perfect-information stop
+        # (§8.3.4, G8): ``candidate_pool`` bounds a prompt, never the search.
+        pool = [item_id for item_id in ranked_order if item_id not in judged_items][: config.candidate_pool]
+        exercise_pool = None
+        exercises = []
+        if want_exercises and exercise_arm is not None:
+            # Judged regions leave the arm's candidates before its pool is cut
+            # (F9): a continuation reaches the regions past the first pool.
+            exercise_pool = exercise_arm(
+                vault, repository, text, constraints, pool_size=config.candidate_pool, embedder=embedder,
+                owner_id=proposal_id, **({"list_depth": list_depths} if list_depths else {}),
+                **({"exclude_keys": sorted(judged_exercises)} if judged_exercises else {}),
+            )
+            exercises = [exercise for exercise in exercise_pool.candidates if exercise["key"] not in judged_exercises]
+        mixed = None
+        pick_at_most = limit if not value_search else max(len(pool) + len(exercises), 1)
+        before = len(judged_items) + len(judged_exercises)
+        if exercises and use_rerank:
+            mixed = rerank_mixed_pool(vault, repository, query_text=text, items=pool, exercises=exercises,
+                                      pick_at_most=pick_at_most, owner_id=proposal_id, constraints=constraints,
+                                      client=rerank_client)
+            used_mixed = True
+            outcome = RerankOutcome(mixed.status, mixed.picks, mixed.judgments, mixed.model, mixed.usage)
+        elif use_rerank:
+            outcome = rerank_pool(vault, repository, query_text=text, pool=pool,
+                                  pick_at_most=pick_at_most, owner_id=proposal_id, client=rerank_client)
+        else:
+            outcome = RerankOutcome("disabled")
+        offered += len(pool)
+        statuses.append(outcome.status)
+        if outcome.model:
+            models.append(outcome.model)
+        page_keys = {exercise["key"]: exercise for exercise in exercises}
+        # Only completed judgments advance the cursor (F6); a configured-off
+        # judge's display page advances what it showed.
+        judged_items |= (set(pool) if outcome.status == "disabled" else set(outcome.judgments) & set(pool))
+        judged_exercises |= set(outcome.judgments) & set(page_keys)
+        judgments.update(outcome.judgments)
+        page_metadata = mixed.metadata if mixed else {}
+        metadata.update(page_metadata)
+        # Exact filters on raw exercises read their provisional, quote-verified
+        # metadata; an unknown value fails a set filter and is counted (§8.1).
+        for key, exercise in page_keys.items():
+            if key not in outcome.judgments:
+                continue
+            reason = exercise_filter(constraints, page_metadata.get(key), estimator)
+            if reason is not None:
+                exercise_failures[reason] += 1
+                continue
+            by_key[key] = exercise
+        if value_search:
+            relevant_order += [key for key in [*pool, *page_keys]
+                               if key in outcome.judgments and key not in relevant_order
+                               and (key in vault.practice_items or key in by_key)
+                               and outcome.judgments[key].get("relevance") in ("relevant", "partial")]
+        pages.append({"items": len(pool), "exercises": len(exercises), "status": outcome.status})
+        if value_search and judgments:
+            valuation = valuer(vault, repository, constraints,
+                               items=[key for key in relevant_order if key in vault.practice_items],
+                               exercises=[by_key[key] for key in relevant_order if key in by_key],
+                               caller_kind=(caller or {}).get("kind") or origin, system_initiated=system_initiated,
+                               pending_decision=pending_decision)
+        pending_exercises = set(page_keys) - judged_exercises
+        paging = _paging(constraints, ranked=ranked_order, judged_items=judged_items,
+                         judged_exercises=judged_exercises, pending_exercises=pending_exercises,
+                         exercise_pool=exercise_pool, valuation=valuation, outcome=outcome, estimator=estimator,
+                         vault=vault)
+        if not value_search or paging["outcome"] != "unjudged_remain":
+            break
+        if (pool or exercises) and len(judged_items) + len(judged_exercises) == before:
+            # A judge that answered without judging anything new cannot make
+            # progress; the cursor keeps the page pending.
+            paging = {**paging, "outcome": "judge_unavailable", "judge_status": outcome.status}
+            break
+        if deadline is not None and time.monotonic() >= deadline:
+            paging = {**paging, "outcome": "budget", "budget": "deadline"}
+            break
+        list_depths = (paging.get("cursor") or {}).get("exercise_list_depths") or list_depths
+    paging["pages"] = len(pages)
+    if value_search and paging.get("cursor") is not None:
+        paging["cursor"].update(_carry_relevance(relevant_order, judgments, metadata, by_key, vault))
+    reranked = any(status in {"reranked", "cached"} for status in statuses) or bool(carried.order)
+    judged_statuses = [status for status in statuses if status != "empty_pool"]
+    if not judged_statuses:
+        rerank_status = statuses[-1] if statuses else "empty_pool"
+    elif judged_statuses[-1] not in {"reranked", "cached"}:
+        rerank_status = judged_statuses[-1]  # the refusal that stopped the search
     else:
-        outcome = RerankOutcome("disabled")
-    reranked = outcome.status in {"reranked", "cached"}
-    by_key = {exercise["key"]: exercise for exercise in exercises}
-    metadata = mixed.metadata if mixed else {}
-    # Exact filters on raw exercises read their provisional, quote-verified
-    # metadata; an unknown value fails a set filter and is counted (§8.1).
-    exercise_failures: Counter[str] = Counter()
-    for key in list(by_key):
-        reason = exercise_filter(constraints, metadata.get(key), estimator)
-        if reason is not None:
-            exercise_failures[reason] += 1
-            by_key.pop(key)
-    valuation: dict[str, Any] | None = None
+        rerank_status = "reranked" if "reranked" in judged_statuses else "cached"
+    rerank_model = models[-1] if models else None
     if constraints.intent in VALUE_INTENTS:
-        relevant = [key for key in pool + list(by_key)
-                    if outcome.judgments.get(key, {}).get("relevance") in ("relevant", "partial")]
-        valuation = valuer(vault, repository, constraints,
-                           items=[key for key in relevant if key in vault.practice_items],
-                           exercises=[by_key[key] for key in relevant if key in by_key],
-                           caller_kind=(caller or {}).get("kind") or origin, system_initiated=system_initiated,
-                           pending_decision=pending_decision) if reranked else None
+        relevant = list(relevant_order)
         chosen = _valued_order(valuation, relevant) if valuation is not None else []
     else:
         # Unjudged textbook exercises are never proposed: every learner-visible
         # pick passes a judge (SC7). Items keep Phase 5b's unreranked fallback.
-        chosen = outcome.picks if reranked else pool[:limit]
+        page_reranked = outcome.status in {"reranked", "cached"}
+        chosen = outcome.picks if page_reranked else pool[:limit]
         chosen = [key for key in chosen if key in by_key or key in vault.practice_items]
     items = []
     proposed_exercises = []
     for rank, key in enumerate(chosen, start=1):
-        judgment = outcome.judgments.get(key, {})
+        judgment = judgments.get(key, {})
         if key in by_key:
-            entry = _exercise_entry(by_key[key], judgment, (mixed.metadata if mixed else {}).get(key))
+            entry = _exercise_entry(by_key[key], judgment, metadata.get(key))
             entry["rank"] = rank
             if valuation is not None:
                 entry["valuation"] = valuation["candidates"].get(key, [])
@@ -1311,12 +1396,15 @@ def find_practice(
             signals["exercises"]["failed_filters"] = dict(exercise_failures)
     if remediation_note:
         signals["remediation"] = remediation_note
-    paging = _paging(constraints, corpus=corpus, ranked=ranked_order, pool=pool, exercise_pool=exercise_pool,
-                     exercises=exercises, valuation=valuation, outcome=outcome, cursor=cursor, estimator=estimator,
-                     vault=vault)
+    if len(pages) > 1:
+        signals["pages"] = pages
+    if paging.get("cursor") is not None:
+        # The receipt keeps what resumes the search (a later call, an RPC or
+        # a tool's ``continue_from``; Codex re-review F5).
+        signals["paging"] = {"outcome": paging["outcome"], "cursor": paging["cursor"]}
     manifest = {**snapshot.manifest(), "manifest_hash": snapshot.manifest_hash(),
                 "algorithm_version": vault.config.algorithms.algorithm_version}
-    if mixed is not None:
+    if used_mixed:
         manifest["rerank_prompt_version"] = MIXED_RERANK_PROMPT_VERSION
     proposed = [_proposed_entry(entry, with_rationale=caller is not None) for entry in items]
     proposed += [{key: entry[key] for key in (
@@ -1328,11 +1416,12 @@ def find_practice(
             connection, id=proposal_id, created_at=utc_now_iso(clock), origin=origin,
             query_id=query_id(text), query_text=text, constraints=constraints.as_dict(),
             path=path, path_reason=path_reason, signals=signals, reranked=reranked,
-            rerank_status=outcome.status, rerank_model=outcome.model,
+            rerank_status=rerank_status, rerank_model=rerank_model,
             proposed=proposed,
             exclusions={"admitted": len(corpus), "excluded": exclusions,
-                        "pool": len(pool), "facets": ranking.facets,
-                        **({"exercise_pool": len(exercises)} if exercise_pool is not None else {})},
+                        "pool": offered if value_search else len(pool), "facets": ranking.facets,
+                        **({"exercise_pool": len(exercises)} if exercise_pool is not None else {}),
+                        **({"pages": len(pages)} if len(pages) > 1 else {})},
             manifest=manifest, algorithm_version=vault.config.algorithms.algorithm_version,
             caller=(caller or {}).get("kind"), caller_ref=(caller or {}).get("ref"),
             intent=constraints.intent if caller is not None or constraints.intent != "practice" else None,
@@ -1344,10 +1433,10 @@ def find_practice(
         "status": "ok", "proposal_id": proposal_id, "query_id": query_id(text),
         "intent": constraints.intent,
         "path": path, "path_reason": path_reason, "signals": signals,
-        "reranked": reranked, "rerank_status": outcome.status, "rerank_model": outcome.model,
+        "reranked": reranked, "rerank_status": rerank_status, "rerank_model": rerank_model,
         "items": items,
         "facets": [{"facet_id": f, "label": facet_label(snapshot.facets[f])} for f in ranking.facets],
-        "admission": {"admitted": len(corpus), "excluded": exclusions, "pool": len(pool)},
+        "admission": {"admitted": len(corpus), "excluded": exclusions, "pool": offered if value_search else len(pool)},
         "serves": False,
         "note": "Proposals only. The scheduler serves; nothing here records practice or evidence.",
     }
@@ -1357,11 +1446,11 @@ def find_practice(
         if exercises and not reranked:
             result["source_exercises_status"] = (
                 f"not proposed: textbook exercises are proposed only after a judge reads them "
-                f"({outcome.status})")
+                f"({rerank_status})")
     if valuation is not None:
         result["valuation"] = valuation
     elif constraints.intent in VALUE_INTENTS:
-        result["valuation"] = {"status": "not_valued", "reason": f"the relevance judge did not run ({outcome.status})"}
+        result["valuation"] = {"status": "not_valued", "reason": f"the relevance judge did not run ({rerank_status})"}
     result["paging"] = paging
     return result
 
@@ -1437,25 +1526,63 @@ def _remediation_corpus(vault: LoadedVault, repository: Repository, constraints:
     return keyed, {"misconception_ids": ids, "keyed_items": len(keyed), "target_facets": sorted(targets)}
 
 
-def _paging(constraints: PracticeConstraints, *, corpus: Sequence[str], ranked: Sequence[str], pool: Sequence[str],
-            exercise_pool: Any, exercises: Sequence[Mapping[str, Any]], valuation: Mapping[str, Any] | None,
-            outcome: RerankOutcome, cursor: Mapping[str, Any] | None, estimator: Any | None,
+@dataclass
+class _Carried:
+    """A continuation's earlier relevant candidates (F5): order, judgments,
+    provisional metadata and the exercise records the valuer needs."""
+
+    order: list[str] = field(default_factory=list)
+    judgments: dict[str, dict[str, Any]] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    exercises: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def _carried_relevance(cursor: Mapping[str, Any] | None, *, admissible: set[str]) -> _Carried:
+    carried = _Carried()
+    relevant = (cursor or {}).get("relevant") or {}
+    exercises = {str(entry.get("key")): dict(entry) for entry in relevant.get("exercises") or ()
+                 if isinstance(entry, Mapping) and entry.get("key")}
+    for key in relevant.get("order") or ():
+        key = str(key)
+        if key in exercises:
+            carried.exercises[key] = exercises[key]
+        elif key not in admissible:
+            continue  # no longer admissible (attempted, retired, filtered): dropped
+        judgment = (relevant.get("judgments") or {}).get(key)
+        if not isinstance(judgment, Mapping):
+            continue
+        carried.order.append(key)
+        carried.judgments[key] = dict(judgment)
+        if key in (relevant.get("metadata") or {}):
+            carried.metadata[key] = relevant["metadata"][key]
+    return carried
+
+
+def _carry_relevance(order: Sequence[str], judgments: Mapping[str, Any], metadata: Mapping[str, Any],
+                     by_key: Mapping[str, Mapping[str, Any]], vault: LoadedVault) -> dict[str, Any]:
+    """The cursor's record of the relevant candidates judged so far (F5)."""
+
+    kept = [key for key in order if key in by_key or key in vault.practice_items]
+    return {"relevant": {
+        "order": kept,
+        "judgments": {key: dict(judgments[key]) for key in kept if key in judgments},
+        "metadata": {key: metadata[key] for key in kept if key in metadata},
+        "exercises": [dict(by_key[key]) for key in kept if key in by_key],
+    }}
+
+
+def _paging(constraints: PracticeConstraints, *, ranked: Sequence[str], judged_items: set[str],
+            judged_exercises: set[str], pending_exercises: set[str], exercise_pool: Any,
+            valuation: Mapping[str, Any] | None, outcome: RerankOutcome, estimator: Any | None,
             vault: LoadedVault) -> dict[str, Any]:
     """Why paging stopped, and the cursor that resumes it (§8.3.4).
 
-    Only candidates with a completed, persisted judgment advance the cursor
-    (Codex re-review F6): a page whose rerank was refused (its budget), failed
-    or had no judge stays pending, so a resumed call judges it. With the judge
-    switched off by configuration (``disabled``) the page is a display page,
-    and what it showed advances the cursor."""
-    advanced_items = set(outcome.judgments) & set(pool)
-    advanced_exercises = set(outcome.judgments) & {e["key"] for e in exercises}
-    if outcome.status == "disabled":
-        advanced_items = set(pool)
-    judged_items = sorted(set((cursor or {}).get("judged_items") or ()) | advanced_items)
-    judged_exercises = sorted(set((cursor or {}).get("judged_exercises") or ()) | advanced_exercises)
-    pending_exercises = {e["key"] for e in exercises} - advanced_exercises
-    unjudged_items = [item_id for item_id in ranked if item_id not in set(judged_items)]
+    Only candidates with a completed, persisted judgment are in the judged
+    sets (Codex re-review F6): a page whose rerank was refused (its budget),
+    failed or had no judge stays pending, so a resumed call judges it. With
+    the judge switched off by configuration (``disabled``) the page is a
+    display page, and what it showed is in the judged set."""
+    unjudged_items = [item_id for item_id in ranked if item_id not in judged_items]
     lists_open = {name: depth * 2 for name, depth in ((exercise_pool.list_depths if exercise_pool else {}) or {}).items()
                   if not (exercise_pool.list_ends or {}).get(name, True)} if exercise_pool else {}
     if pending_exercises and exercise_pool is not None:
@@ -1478,7 +1605,7 @@ def _paging(constraints: PracticeConstraints, *, corpus: Sequence[str], ranked: 
     if reason in ("budget", "judge_unavailable"):
         page["judge_status"] = outcome.status
     if reason in ("page", "unjudged_remain", "budget", "judge_unavailable"):
-        page["cursor"] = {"judged_items": judged_items, "judged_exercises": judged_exercises,
+        page["cursor"] = {"judged_items": sorted(judged_items), "judged_exercises": sorted(judged_exercises),
                           "exercise_list_depths": lists_open}
     return page
 

@@ -136,46 +136,6 @@ def fulfil_need_from_sources(
     injected = find_practice_injections(vault, estimator=estimator,
                                         screen_client=clients_by_role.get("exercise_discrimination"),
                                         judge_client=clients_by_role.get("worked_example_equivalence"))
-    result = find_practice(vault, repository, query or "practice", constraints, origin="api",
-                           caller={"kind": "need", "ref": str(need["id"])}, exercise_arm=injected["exercise_arm"],
-                           valuer=injected.get("valuer") if intent == "discriminate" else None,
-                           estimator=estimator, rerank_client=rerank_client, clock=clock,
-                           pending_decision=pending_decision)
-    proposal_id = result.get("proposal_id")
-    exercises = {entry["key"]: entry for entry in result.get("source_exercises") or ()}
-    receipt: dict[str, Any] = {"intent": intent, "proposal_id": proposal_id, "candidates": len(exercises)}
-    order: list[str]
-    if intent == "discriminate":
-        valuation = result.get("valuation") or {}
-        sections = valuation.get("problems") or []
-        decision_sections = [section for section in sections if section.get("mode") == "decision"]
-        if decision_sections:
-            section = decision_sections[0]
-            verdict = section.get("verdict")
-            receipt.update(verdict=verdict, named_action=section.get("named_action"),
-                           action_kind=section.get("action_kind"))
-            if verdict == "stop":
-                reason = f"value_stop:{section.get('action_kind')}:{proposal_id}"
-                repository.update_intervention_need_status(str(need["id"]), status="stale", blocked_reason=reason,
-                                                           clock=clock)
-                live = (pending_decision or {}).get("live_repair_class")
-                if live and section.get("named_action") and live != section.get("named_action"):
-                    receipt["action_disagreement"] = {"valuation": section.get("named_action"), "live": live}
-                return {"outcome": "stale", "reason": reason, **receipt}
-            if verdict != "measure":
-                return {"outcome": "generate", "reason": section.get("reason") or verdict, **receipt}
-            order = [check["ref"] for check in section.get("checks") or () if check["ref"] in exercises]
-        else:
-            bounded = [entry for section in sections for entry in section["groups"].get("bounded", [])]
-            usable = [entry for entry in bounded if not entry.get("skip_licensed")]
-            skipped = [entry["ref"] for entry in bounded if entry.get("skip_licensed")]
-            receipt["skipped_by_bound"] = skipped
-            usable.sort(key=lambda entry: -(entry["upper_bound_minutes"] / max(entry["expected_minutes"], 1e-6)))
-            order = [entry["ref"] for entry in usable if entry["ref"] in exercises]
-            if not order:
-                return {"outcome": "generate", "reason": "no_discriminating_instrument", **receipt}
-    else:
-        order = list(exercises)
     validate = draft_validator(vault, constraints, intent=intent, estimator=estimator, independent=True)
     gate = _chooser_gate(vault, repository, need) if intent == "discriminate" else None
 
@@ -188,31 +148,88 @@ def fulfil_need_from_sources(
                 verdict.update(ok=False, reason=gated["reason"])
         return verdict
 
-    tries = []
-    for key in order:
-        entry = exercises[key]
-        outcome = import_source_exercise(
-            vault.root, repository, extraction_id=entry["extraction_id"], span_ids=entry["span_ids"], caller="need",
-            proposal_id=proposal_id, clients=clients, validate=check, need_id=str(need["id"]),
-            label=entry.get("label"), learning_object_hint=str(need["learning_object_id"]), clock=clock,
-        )
-        tries.append({key_: outcome.get(key_) for key_ in ("import_id", "status", "key_status", "reason")})
-        if outcome.get("status") == "written":
-            repository.update_intervention_need_status(
-                str(need["id"]), status="fulfilled",
-                blocked_reason=f"source_exercise:{outcome['practice_item_id']}", clock=clock)
-            # The retrieval provenance the follow-up re-checks at serving
-            # (§5.4): rule 4's shortlist scope, the intent and the proposal.
-            scope = teaching_scope(vault, repository, [str(need["learning_object_id"])], item_bound=False)
-            with repository.connection() as connection:
-                validation = dict((import_row(connection, outcome["import_id"]) or {}).get("validation") or {})
-                validation["retrieval"] = {"intent": intent, "proposal_id": proposal_id,
-                                           "scope_extraction_ids": sorted(scope.extractions)}
-                update_import(connection, outcome["import_id"], updated_at=utc_now_iso(clock), need_id=str(need["id"]),
-                              validation=validation)
-            return {"outcome": "fulfilled", "practice_item_id": outcome["practice_item_id"],
-                    "import_id": outcome["import_id"], "tries": tries, **receipt}
-        vault = load_vault(vault.root)
+    tries: list[dict[str, Any]] = []
+    cursor: Mapping[str, Any] | None = None
+    proposals: list[str] = []
+    receipt: dict[str, Any] = {"intent": intent}
+    while True:
+        result = find_practice(vault, repository, query or "practice", constraints, origin="api",
+                               caller={"kind": "need", "ref": str(need["id"])}, exercise_arm=injected["exercise_arm"],
+                               valuer=injected.get("valuer") if intent == "discriminate" else None,
+                               estimator=estimator, rerank_client=rerank_client, clock=clock,
+                               pending_decision=pending_decision, cursor=cursor)
+        proposal_id = result.get("proposal_id")
+        proposals.append(str(proposal_id))
+        exercises = {entry["key"]: entry for entry in result.get("source_exercises") or ()}
+        receipt.update(proposal_id=proposal_id, candidates=receipt.get("candidates", 0) + len(exercises))
+        if len(proposals) > 1:
+            receipt["proposal_ids"] = list(proposals)
+        order: list[str]
+        if intent == "discriminate":
+            valuation = result.get("valuation") or {}
+            sections = valuation.get("problems") or []
+            decision_sections = [section for section in sections if section.get("mode") == "decision"]
+            if decision_sections:
+                section = decision_sections[0]
+                verdict = section.get("verdict")
+                receipt.update(verdict=verdict, named_action=section.get("named_action"),
+                               action_kind=section.get("action_kind"))
+                if verdict == "stop":
+                    reason = f"value_stop:{section.get('action_kind')}:{proposal_id}"
+                    repository.update_intervention_need_status(str(need["id"]), status="stale",
+                                                               blocked_reason=reason, clock=clock)
+                    live = (pending_decision or {}).get("live_repair_class")
+                    if live and section.get("named_action") and live != section.get("named_action"):
+                        receipt["action_disagreement"] = {"valuation": section.get("named_action"), "live": live}
+                    return {"outcome": "stale", "reason": reason, **receipt}
+                if verdict != "measure":
+                    return {"outcome": "generate", "reason": section.get("reason") or verdict, "tries": tries,
+                            **receipt}
+                order = [check["ref"] for check in section.get("checks") or () if check["ref"] in exercises]
+            else:
+                bounded = [entry for section in sections for entry in section["groups"].get("bounded", [])]
+                usable = [entry for entry in bounded if not entry.get("skip_licensed")]
+                skipped = [entry["ref"] for entry in bounded if entry.get("skip_licensed")]
+                receipt["skipped_by_bound"] = [*receipt.get("skipped_by_bound", []), *skipped]
+                usable.sort(key=lambda entry: -(entry["upper_bound_minutes"] / max(entry["expected_minutes"], 1e-6)))
+                order = [entry["ref"] for entry in usable if entry["ref"] in exercises]
+        else:
+            order = list(exercises)
+        for key in order:
+            entry = exercises[key]
+            outcome = import_source_exercise(
+                vault.root, repository, extraction_id=entry["extraction_id"], span_ids=entry["span_ids"],
+                caller="need", proposal_id=proposal_id, clients=clients, validate=check, need_id=str(need["id"]),
+                label=entry.get("label"), learning_object_hint=str(need["learning_object_id"]), clock=clock,
+            )
+            tries.append({key_: outcome.get(key_) for key_ in ("import_id", "status", "key_status", "reason")})
+            if outcome.get("status") == "written":
+                repository.update_intervention_need_status(
+                    str(need["id"]), status="fulfilled",
+                    blocked_reason=f"source_exercise:{outcome['practice_item_id']}", clock=clock)
+                # The retrieval provenance the follow-up re-checks at serving
+                # (§5.4): rule 4's shortlist scope, the intent and the proposal.
+                scope = teaching_scope(vault, repository, [str(need["learning_object_id"])], item_bound=False)
+                with repository.connection() as connection:
+                    validation = dict((import_row(connection, outcome["import_id"]) or {}).get("validation") or {})
+                    validation["retrieval"] = {"intent": intent, "proposal_id": proposal_id,
+                                               "scope_extraction_ids": sorted(scope.extractions)}
+                    update_import(connection, outcome["import_id"], updated_at=utc_now_iso(clock),
+                                  need_id=str(need["id"]), validation=validation)
+                return {"outcome": "fulfilled", "practice_item_id": outcome["practice_item_id"],
+                        "import_id": outcome["import_id"], "tries": tries, **receipt}
+            vault = load_vault(vault.root)
+        # Nothing on this page passed: a search that stopped with candidates
+        # left resumes from its cursor before the need goes to generation
+        # (Codex re-review F5). Exhaustion, a refused budget and the
+        # perfect-information stop end it.
+        paging = result.get("paging") or {}
+        receipt["paging"] = paging.get("outcome")
+        cursor = paging.get("cursor")
+        if paging.get("outcome") not in ("page", "unjudged_remain") or not cursor:
+            break
+    if intent == "discriminate" and not tries:
+        return {"outcome": "generate", "reason": "no_discriminating_instrument", "tries": tries, **receipt}
     return {"outcome": "generate", "reason": "no source exercise passed every check", "tries": tries, **receipt}
 
 

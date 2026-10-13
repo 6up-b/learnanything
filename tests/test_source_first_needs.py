@@ -261,3 +261,32 @@ def test_a_worked_example_outside_the_items_teaching_scope_does_not_block_it(act
                                              "span_id": other["worked"][1]})
     _selection, rows = _follow_up_slate(paths, repository)
     assert rows[item_id]["source_first"]["serve_time"]["eligible"] and rows[item_id]["gate_passed"]
+
+
+def test_a_need_resumes_its_search_before_it_goes_to_generation(active, monkeypatch):
+    """Codex re-review F5: when nothing on the first page passed, the need
+    step generated at once although the search had candidates left. It now
+    resumes the search from its cursor and generation waits for exhaustion
+    (or a refused budget)."""
+
+    from learnloop.instructional import needs as needs_module
+
+    paths, repository, _spans = active
+    set_config(paths, "practice_index", candidate_pool=1)
+    real = needs_module.import_source_exercise
+    seen: list[tuple[str, ...]] = []
+
+    def first_fails(*args, **kwargs):
+        seen.append(tuple(kwargs["span_ids"]))
+        if len(seen) == 1:
+            return {"status": "rejected", "reason": "validation: the draft does not fit the request",
+                    "import_id": None, "key_status": None}
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(needs_module, "import_source_exercise", first_fails)
+    # A request several textbook exercises answer (the need's own words).
+    need = _need(repository, focus={"misconception_statements": {"m": "solve for x to find the eigenvalue"}})
+    outcome = _fulfil(paths, repository, need, FakeServiceLLM())
+    assert len(seen) >= 2 and len(set(seen)) == len(seen), (seen, outcome)
+    assert outcome["outcome"] == "fulfilled", outcome
+    assert len(outcome.get("proposal_ids") or [outcome["proposal_id"]]) >= 2

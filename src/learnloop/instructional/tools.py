@@ -35,7 +35,7 @@ from learnloop.db.stores.source_service import insert_tool_call, tool_call, tool
 from learnloop.ids import new_ulid
 from learnloop.instructional.exercises import exercise_region_count
 from learnloop.instructional.policy import caller_for_question_event, cold_administration_open
-from learnloop.instructional.practice import propose_practice
+from learnloop.instructional.practice import continuation_cursor, propose_practice
 from learnloop.instructional.sources import propose_comparison, propose_sources
 from learnloop.instructional.valuation import HYPOTHESIS_ALIASES, REFERENCE_KINDS, named_gap_target
 from learnloop.practice_index.retrieval import (
@@ -90,6 +90,10 @@ class FindPracticeArgs(_Args):
     kinds: Literal["items", "source_exercises", "both"] | None = None
     unattempted_only: bool = False
     max_estimated_minutes: float | None = Field(default=None, gt=0, le=240)
+    continue_from: str | None = Field(
+        default=None, max_length=64,
+        description="The proposal_id of an earlier find_practice result whose paging says candidates remain "
+                    "(paging.continue_from): continues that same search, with the same query and intent.")
     reason: str = Field(default="", max_length=300, description="One line for the learner; never the answer.")
 
 
@@ -282,7 +286,13 @@ def _practice_view(vault: LoadedVault, result: Mapping[str, Any], withhold: _Wit
                           "checks": [check.get("ref") for check in section.get("checks") or ()]}
                          for section in valuation.get("problems") or ()]}
     if result.get("paging"):
-        view["paging"] = {"outcome": result["paging"].get("outcome")}
+        paging = result["paging"]
+        view["paging"] = {"outcome": paging.get("outcome"), "unjudged_items": paging.get("unjudged_items"),
+                          "unjudged_exercises": paging.get("unjudged_exercises")}
+        if paging.get("cursor") is not None:
+            # The continuation is the stored proposal, not a cursor the model
+            # could edit (Codex re-review F5).
+            view["paging"]["continue_from"] = result.get("proposal_id")
     return view
 
 
@@ -396,10 +406,18 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                        **({"kinds": args.kinds} if args.kinds else {}),
                        **({"max_estimated_minutes": args.max_estimated_minutes}
                           if args.max_estimated_minutes is not None else {})}
+        cursor = None
+        if args.continue_from:
+            try:
+                cursor = continuation_cursor(repository, args.continue_from, caller=caller, query=args.query,
+                                             intent=args.intent)
+            except ValueError as exc:
+                raise ToolArgumentsInvalid("continuation_invalid", str(exc)) from exc
         result = propose_practice(vault, repository, args.query, constraints, caller=caller, origin="tool",
                                   rerank_client=client.get("practice_rerank"), embedder=injected.get("embedder"),
-                                  clock=clock, **{key: injected[key] for key in ("exercise_arm", "valuer",
-                                                                                   "estimator") if key in injected})
+                                  clock=clock, cursor=cursor,
+                                  **{key: injected[key] for key in ("exercise_arm", "valuer", "estimator")
+                                     if key in injected})
         view = _practice_view(vault, result, withhold)
         out.update(result=view, result_ref=result.get("proposal_id"), model=result.get("rerank_model"),
                    result_keys=[entry["practice_item_id"] for entry in view["items"]]

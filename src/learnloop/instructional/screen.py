@@ -116,36 +116,45 @@ def screen_exercises(vault: LoadedVault, repository: Repository, problem: Any,
         return {"status": "empty", "screens": {}}
     config = vault.config.source_service
     slot_refs = {f"h{index}": slot for index, slot in enumerate(problem.slots, start=1)}
+    hypotheses = [{"ref": ref, "description": slot_description(repository, slot)} for ref, slot in slot_refs.items()]
+
+    def statement(exercise: Mapping[str, Any]) -> str:
+        return " ".join(str(exercise.get("statement") or "").split())[:1500]
+
+    # One screen per exercise and hypothesis space, whichever batch read it:
+    # a value search that pages on re-values the candidates of earlier pages
+    # and must not pay to screen them again (Codex re-review F5).
+    ids = {str(x["key"]): "sxd_" + content_key([SCREEN_PROMPT_VERSION, problem.key, hypotheses, x["key"],
+                                               statement(x)])[:40] for x in exercises}
+    screens: dict[str, Any] = {}
+    with repository.connection() as connection:
+        cached = judgments_by_ids(connection, ids.values())
+    for key, judgment_id in ids.items():
+        if judgment_id in cached:
+            details = json.loads(cached[judgment_id]["rationale"] or "{}")
+            screens[key] = {**details.get("screen", {}), "judgment_id": judgment_id}
+    exercises = [exercise for exercise in exercises if str(exercise["key"]) not in screens]
+    if not exercises:
+        return {"status": "cached", "screens": screens}
     exercise_refs = {f"x{index}": exercise for index, exercise in enumerate(exercises, start=1)}
     prompt = render_structured_prompt(
         "Exercise discrimination screen", SCREEN_PROMPT_VERSION,
         {"instructions": _INSTRUCTIONS,
-         "context": {"hypotheses": [{"ref": ref, "description": slot_description(repository, slot)}
-                                    for ref, slot in slot_refs.items()],
-                     "exercises": [{"ref": ref, "statement": " ".join(str(x.get("statement") or "").split())[:1500]}
-                                   for ref, x in exercise_refs.items()]}},
+         "context": {"hypotheses": hypotheses,
+                     "exercises": [{"ref": ref, "statement": statement(x)} for ref, x in exercise_refs.items()]}},
     )
     input_hash = content_key([prompt, SCREEN_PROMPT_VERSION])
-    ids = {str(x["key"]): "sxd_" + content_key([input_hash, x["key"], problem.key])[:40] for x in exercises}
-    with repository.connection() as connection:
-        cached = judgments_by_ids(connection, ids.values())
-    if cached and all(ids[key] in cached for key in ids):
-        screens = {}
-        for key, judgment_id in ids.items():
-            details = json.loads(cached[judgment_id]["rationale"] or "{}")
-            screens[key] = {**details.get("screen", {}), "judgment_id": judgment_id}
-        return {"status": "cached", "screens": screens}
     route = plan_route(vault, "exercise_discrimination", client)
     skip = route_skip(route, config.llm_price_per_million, injected=client is not None,
                       price_setting="source_service.llm_price_per_million")
     if skip is not None:
-        return {"status": skip, "screens": {}}
+        return {"status": skip, "screens": screens}
     if client is None:
         client, problem_text = resolve_client(vault, route)
     else:
         problem_text = transport_problem(route, client)
     if client is None or problem_text is not None:
-        return {"status": f"unavailable: {problem_text}", "screens": {}}
+        return {"status": f"unavailable: {problem_text}", "screens": screens}
     caps = SpendCaps(max_candidates=len(exercises), max_pairs=len(exercises) * len(slot_refs), max_retries=1,
                      max_calls=2, max_total_tokens=400_000, max_estimated_usd=config.import_max_cost_usd)
     calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=config.llm_price_per_million,
@@ -164,13 +173,12 @@ def screen_exercises(vault: LoadedVault, repository: Repository, problem: Any,
                 output_tokens=SCREEN_OUTPUT_TOKENS, metadata={"prompt_version": SCREEN_PROMPT_VERSION},
                 candidates=len(exercises), validate=validate)
     except AIInterrupted:
-        return {"status": "cancelled", "screens": {}}
+        return {"status": "cancelled", "screens": screens}
     except SpendLimitExceeded as exc:
-        return {"status": f"over_budget: {exc}", "screens": {}}
+        return {"status": f"over_budget: {exc}", "screens": screens}
     except (AIProviderUnavailable, AIInvalidOutput) as exc:
-        return {"status": f"failed: {type(exc).__name__}", "screens": {}}
+        return {"status": f"failed: {type(exc).__name__}", "screens": screens}
     model = calls.last_resolved_model or route.model or "unspecified"
-    screens: dict[str, Any] = {}
     with repository.connection() as connection:
         for screen in result.screens:
             exercise = exercise_refs.get(screen.exercise_ref)

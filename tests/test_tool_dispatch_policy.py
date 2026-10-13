@@ -86,3 +86,36 @@ def test_a_request_cannot_name_an_item_or_widen_its_policy(textbook):
     with pytest.raises(PolicyRefused) as refused:
         request_tool(vault, repository, "find_facets", {"query": "x"}, caller=caller_for(repository, "plan"))
     assert refused.value.code == "caller_refused"
+
+
+def test_a_find_practice_tool_result_can_be_continued(textbook):
+    """Codex re-review F5: a tool response kept no continuation and the tool
+    arguments could not take one. A stopped search returns ``continue_from``
+    (the stored proposal, never an editable cursor) and a later call resumes
+    the same search for the same caller."""
+
+    from learnloop.instructional.wiring import find_practice_injections
+
+    paths, repository, _spans = textbook
+    vault = loaded(paths)
+    agent = caller_for(repository, "agent", "cli")
+    injections = {key: value for key, value in find_practice_injections(vault).items() if key == "exercise_arm"}
+    down = FakeServiceLLM(fail_purposes={"PracticeRerank", "MixedPracticeRerank"})
+    arguments = {"query": "determinant rows swapped sign", "intent": "practice"}
+    first = run_tool(vault, repository, "find_practice", arguments, caller=agent, injections=injections,
+                     clients={"practice_rerank": down})
+    paging = first["result"]["paging"]
+    assert paging["outcome"] == "judge_unavailable" and paging["continue_from"] == first["result_ref"]
+    resumed = run_tool(vault, repository, "find_practice", {**arguments, "continue_from": paging["continue_from"]},
+                       caller=agent, injections=injections, clients={"practice_rerank": FakeServiceLLM()})
+    assert resumed["result"]["status"] == "ok" and resumed["result"]["items"]
+    # The same search only: another query, or another caller, is refused.
+    with pytest.raises(ToolArgumentsInvalid) as wrong_query:
+        run_tool(vault, repository, "find_practice", {"query": "eigenvalues", "intent": "practice",
+                                                      "continue_from": paging["continue_from"]},
+                 caller=agent, injections=injections, clients={"practice_rerank": FakeServiceLLM()})
+    assert wrong_query.value.code in ("continuation_invalid", "invalid_arguments")
+    other = caller_for(repository, "agent", "someone-else")
+    with pytest.raises((PolicyRefused, ToolArgumentsInvalid)):
+        run_tool(vault, repository, "find_practice", {**arguments, "continue_from": paging["continue_from"]},
+                 caller=other, injections=injections, clients={"practice_rerank": FakeServiceLLM()})

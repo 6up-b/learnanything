@@ -510,3 +510,57 @@ def test_a_refused_rerank_leaves_its_page_pending_and_a_resume_judges_it(textboo
         pools = [json.loads(row[0])["pool"] for row in connection.execute(
             "SELECT exclusions_json FROM practice_index_proposals ORDER BY created_at, id")]
     assert pools[-1] == pools[0] and pools[0] > 0  # the refused page is judged on resume
+
+
+class _RelevantOnly(FakeServiceLLM):
+    """A judge that finds only some candidates relevant, recording each page it reads."""
+
+    def __init__(self, relevant_ids=(), **kwargs):
+        super().__init__(**kwargs)
+        self.relevant_ids = set(relevant_ids)
+        self.pages: list[list[str]] = []
+        self.prompts: dict[str, str] = {}
+
+    def complete(self, request):
+        from tests.pf_fakes import prompt_context
+
+        if request.result_model.__name__ in ("PracticeRerank", "MixedPracticeRerank"):
+            context = prompt_context(request.prompt)
+            self.pages.append([c.get("prompt") or c.get("statement") or "" for c in context["candidates"]])
+        return super().complete(request)
+
+    def _grade(self, request_text, text):  # type: ignore[override]
+        return "relevant" if any(marker in text for marker in self.relevant_ids) else "not_relevant"
+
+
+def test_a_value_search_pages_on_until_a_stop_inside_one_call(textbook):
+    """Codex re-review F5: the first page's candidates are unsuitable and a
+    later candidate would pass. The value search keeps paging inside the call
+    (no fixed candidate page is a count cap) and values the later candidate."""
+
+    paths, repository, _spans, misconception = textbook
+    vault = loaded(paths)
+    vault.config.practice_index.candidate_pool = 1
+    constraints = {"intent": "discriminate", "learning_object_ids": ["lo_matrices"], "kinds": "items",
+                   "target_hypotheses": [{"kind": "misconception", "id": misconception}]}
+    query = "determinant swap rows sign"
+    probe = _RelevantOnly()
+    probe.model = "fake-probe-judge"
+    first_page = find_practice(vault, repository, query, constraints, valuer=_valuer(probe), rerank_client=probe)
+    seen_first = probe.pages[0]
+    lo_items = [item for item in vault.practice_items.values()
+                if item.learning_object_id == "lo_matrices" and item.status != "retired"
+                and " ".join(item.prompt.split())[:60] not in " ".join(seen_first)]
+    assert lo_items, "the fixture needs an item beyond the first page"
+    target = lo_items[-1]
+    marker = " ".join(target.prompt.split())[:40]
+    judge = _RelevantOnly(relevant_ids=[marker])
+    judge.model = "fake-later-judge"
+    result = find_practice(vault, repository, query, constraints, valuer=_valuer(judge), rerank_client=judge)
+    assert len(judge.pages) >= 2, "the search stopped after one page"
+    assert result["paging"]["outcome"] in ("exhausted", "perfect_information_bound"), result["paging"]
+    valued = {key for section in result["valuation"]["problems"]
+              for group in section["groups"].values() for entry in group for key in [entry.get("ref")]}
+    eligibility = result["valuation"].get("eligibility") or {}
+    assert target.id in valued or target.id in eligibility, (target.id, valued)
+    del first_page

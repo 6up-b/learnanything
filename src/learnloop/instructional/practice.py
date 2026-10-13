@@ -100,6 +100,33 @@ def propose_practice(vault: LoadedVault, repository: Repository, query: str,
     return result
 
 
+def continuation_cursor(repository: Repository, proposal_id: str, *, caller: CallerContext | None, query: str,
+                        intent: str) -> dict[str, Any]:
+    """The stored cursor that resumes an earlier search (Codex re-review F5).
+
+    A continuation continues the same request for the same caller: the
+    proposal must belong to this caller, for the same query and intent, and
+    its paging must have stopped with candidates left (ValueError, or
+    PolicyRefused for another caller's search)."""
+
+    from learnloop.practice_index.query_vectors import normalize_query, query_id
+    from learnloop.practice_index.retrieval import canonical_intent
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = stored_proposal(connection, proposal_id)
+    if found is None:
+        raise ValueError("Unknown proposal to continue")
+    if caller is not None and (found.get("caller"), found.get("caller_ref")) != (caller.kind, caller.ref):
+        raise PolicyRefused("continuation_refused", "that search belongs to another caller")
+    if found.get("query_id") != query_id(normalize_query(query)) or \
+            (found.get("intent") or "practice") != canonical_intent(intent):
+        raise ValueError("a continuation continues the same request (its query and intent)")
+    cursor = ((found.get("signals") or {}).get("paging") or {}).get("cursor")
+    if not cursor:
+        raise ValueError("that search has no candidates left to continue")
+    return dict(cursor)
+
+
 def _proposed_key(entry: Mapping[str, Any]) -> tuple[str, ...]:
     if entry.get("kind") == "source_exercise":
         return ("source_exercise", str(entry.get("extraction_id")),
@@ -293,6 +320,7 @@ def imported_exercise_selection(repository: Repository, *, proposal_id: str, imp
 __all__ = [
     "SHOWN_PROMPT_CHARS",
     "constrain_for_caller",
+    "continuation_cursor",
     "propose_practice",
     "record_proposal_impressions",
     "proposed_exercise",
