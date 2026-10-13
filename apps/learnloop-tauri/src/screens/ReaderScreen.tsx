@@ -418,6 +418,11 @@ export function ReaderScreen({
   const [watchLoading, setWatchLoading] = useState(false);
   // Tier-2 embedded PDF: originals-store manifest + which surface is showing.
   const [pdfView, setPdfView] = useState<ReaderPdfViewDto | null>(null);
+  // The manifest is still being asked for: the book may open in its original,
+  // so it is not read as the text view meanwhile (finish re-review F2). Only
+  // the newest request settles it.
+  const [pdfViewPending, setPdfViewPending] = useState(false);
+  const pdfViewRequestRef = useRef(0);
   const [surface, setSurface] = useState<"pdf" | "text">("pdf");
   // Right-click tag menu (selection or whole-block), on either surface.
   const [tagMenu, setTagMenu] = useState<TagMenuRequest | null>(null);
@@ -656,6 +661,8 @@ export function ReaderScreen({
     setWatch(null);
     setWatchLoading(false);
     setPdfView(null);
+    setPdfViewPending(false);
+    pdfViewRequestRef.current += 1;
     setSurface("pdf");
     setTagMenu(null);
     setAuthoringSections([]);
@@ -756,11 +763,21 @@ export function ReaderScreen({
             .finally(() => setWatchLoading(false));
         } else {
           // Original-PDF surface when the originals store has this revision's bytes.
+          const pdfRequest = ++pdfViewRequestRef.current;
+          const current = () => pdfViewRequestRef.current === pdfRequest;
+          setPdfViewPending(true);
           cachedSourceRead(card.sourceId, ["reader_pdf_view", card.sourceId], () =>
             api.readerPdfView({ extractionId: card.sourceId })
           )
-            .then((manifest) => setPdfView(manifest.available ? manifest : null))
-            .catch(() => setPdfView(null));
+            .then((manifest) => {
+              if (current()) setPdfView(manifest.available ? manifest : null);
+            })
+            .catch(() => {
+              if (current()) setPdfView(null);
+            })
+            .finally(() => {
+              if (current()) setPdfViewPending(false);
+            });
         }
       } catch (error) {
         setPreparingCard(null);
@@ -919,6 +936,11 @@ export function ReaderScreen({
   // check came a page before "the table on the next page"; #2: a resume into
   // Axler's 1.36 offered 1.36's leftover check before it was read again).
   const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
+  // Whether the original is still on its way: no check is due, and none is
+  // open in the section being read, until the surface it is read on is known
+  // (finish re-review F2: a resume pinned the check by the text view's rule
+  // while the manifest was pending, and the original then offered it).
+  const pdfSurfaceLoading = Boolean(!pdfView && pdfViewPending && surface === "pdf" && !offline);
   const pageBySpan = useMemo(() => {
     const pages = new Map<string, number>();
     for (const entry of pdfView?.pageSpans ?? []) pages.set(entry.spanId, entry.page);
@@ -935,7 +957,7 @@ export function ReaderScreen({
   const currentQuestionDue = useMemo(() => {
     const question = currentGuideSection?.question;
     const phase = question?.readingPhase;
-    if (!phase) return false;
+    if (!phase || pdfSurfaceLoading) return false;
     if (phase === "before_section") {
       const firstSpan = 1 / Math.max(1, currentGuideSection?.spanIds.length ?? 1);
       return currentSectionProgress <= Math.max(0.3, firstSpan);
@@ -943,7 +965,7 @@ export function ReaderScreen({
     if (phase === "during_section") return currentSectionProgress >= 0.45;
     if (pdfSurfaceActive) return atSectionBreak;
     return currentSectionProgress >= 0.7;
-  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, atSectionBreak]);
+  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, pdfSurfaceLoading, atSectionBreak]);
 
   // Pin a question the moment it becomes due; it stays pinned (and rendered)
   // until answered or dismissed, however far playback or scrolling moves on.
@@ -974,12 +996,12 @@ export function ReaderScreen({
           // In the original PDF the section being read waits for its break
           // (it is pinned from then on, below); elsewhere a written check is
           // open at once, as before.
-          (section.question.placement === "auto_authored" && (!pdfSurfaceActive || index !== currentIndex))
+          (section.question.placement === "auto_authored" && ((!pdfSurfaceActive && !pdfSurfaceLoading) || index !== currentIndex))
           || stickyQuestionSections.includes(section.id)
           || (currentIndex >= 0 && index < currentIndex)
         ),
     );
-  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive]);
+  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive, pdfSurfaceLoading]);
   // A check the learner answered is not waiting any more, though its card
   // stays open to compare (usability round 2).
   const pendingQuickCheckCount = boundaryChecksAvailable

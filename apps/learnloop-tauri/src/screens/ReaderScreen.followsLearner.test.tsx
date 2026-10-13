@@ -842,6 +842,61 @@ it("#2: a resume into a section offers its leftover check only after the learner
   expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
 });
 
+/** ``command``'s answer waits until the returned ``release`` is called; it
+ * resolves once the answer has landed and the Reader has settled after it
+ * (the original's arrival places the page, which is not reading). */
+function holdBack(command: string): () => Promise<void> {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  invoke.mockImplementation(async (name: string, args?: { input?: Record<string, unknown> }) => {
+    if (name === command) await held;
+    return sidecar(name, args);
+  });
+  return async () => {
+    release();
+    await settle();
+    await settle(SETTLED_MS);
+  };
+}
+
+it("#2: a resume offers no leftover check while the original PDF is still loading (guide first)", async () => {
+  // Codex finish re-review F2: the guide arrived first, the text view's 70 %
+  // rule pinned the check while the PDF's manifest was pending, and the
+  // original then offered it with no reading.
+  backend.withCheck = true;
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
+  const pdfArrives = holdBack("reader_pdf_view");
+  await openReader();
+  await settle(SETTLED_MS);
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+
+  await pdfArrives();
+  expect(screen.getByTestId("pdf-pane")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "quick check →" })).toBeNull();
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+
+  await scrollTo(2900);
+  expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
+});
+
+it("#2: a resume offers no leftover check when the original PDF arrives before the guide", async () => {
+  backend.withCheck = true;
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
+  const guideArrives = holdBack("reader_guide_plan");
+  await openReader();
+  await settle(SETTLED_MS);
+  expect(screen.getByTestId("pdf-pane")).toBeTruthy();
+
+  await guideArrives();
+  expect(screen.queryByRole("button", { name: "quick check →" })).toBeNull();
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+
+  await scrollTo(2900);
+  expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
+});
+
 it("#2: Contents puts a section's start at the top of the view, where the header names it", async () => {
   const blocks = PAGES.map(([spanId, page]) => ({ spanId, page, bbox: [50, 100, 550, 300], blockType: "Text" }));
   invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) =>
