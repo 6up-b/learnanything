@@ -117,6 +117,11 @@ def record_probe_presentation_forecast(
                         "predictive_information_rate", "redundancy_penalty", "expected_seconds")
             if key in components
         }
+        if components.get("scheduler_exploration"):
+            # Router R1 (mvp-0.15): the Today queue's seeded exploration drew
+            # this probe from a near-tie; it is not the EIG pick the other
+            # selection components describe (R1 review F4's marker, verbatim).
+            body["selection"]["scheduler_exploration"] = components["scheduler_exploration"]
         if components.get("channel_pin"):
             body["channel_pin"] = components["channel_pin"]
         body["presentation_eig_nats"] = presentation.expected_information_gain

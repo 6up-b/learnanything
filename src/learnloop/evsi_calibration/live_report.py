@@ -3,8 +3,10 @@
 Reads ``voi_forecasts`` (EVSI calibration Part B) and joins, at read time:
 
 1. **The realized outcome** of each forecast, through an outcome adapter:
-   R1's ``router_decisions``/``router_outcomes`` when the vault has them (the
-   decision's chosen scheduler candidate -> the attempt that took it), else
+   R1's ``router_decisions``/``router_outcomes`` (migration 181; the
+   decision's chosen scheduler candidate -> the attempt that took it, joined
+   only when R1 says ``taken``: its other statuses judge the offer, and the
+   cache lags until ``learnloop rebuild``), else
    the probe and attempt ledgers (``practice_attempts.probe_presentation_id``
    -> ``probe_observations``; a queued follow-up -> the first attempt on the
    item after its queue, taken only when it answered the offer that queue
@@ -57,7 +59,10 @@ from learnloop.vault.paths import VaultPaths
 #: observation; a follow-up taken only through the offer its own queue
 #: produced; the facet map part of the frozen contract; one repair outcome per
 #: cold verification.
-REPORT_VERSION = "voi_calibration_report_v3"
+#: v4 (merge onto main, R1's live tables): the router adapter joins only an
+#: offer R1 says was ``taken``; a superseded, open or stale offer defers to
+#: the ledgers instead of hiding the presentation's own answer.
+REPORT_VERSION = "voi_calibration_report_v4"
 
 
 def _has(connection: sqlite3.Connection, table: str) -> bool:
@@ -88,19 +93,28 @@ class RouterOutcomeAdapter:
         self.available = _has(connection, "router_decisions") and _has(connection, "router_outcomes")
 
     def attempt_for(self, forecast: Mapping[str, Any]) -> tuple[str | None, str] | None:
+        """The attempt R1 bound to the forecast's offer, or ``None`` to defer.
+
+        Only R1's ``taken`` is an outcome of the forecast. Its other statuses
+        judge the offer, not the check the forecast is about: a queue refresh
+        supersedes an offer whose committed probe presentation stays in front
+        under a new scheduler candidate, and ``router_outcomes`` is a DERIVED
+        cache rebuilt only by ``learnloop rebuild``, so ``open`` can be stale.
+        Those defer to the ledgers, which bind the presentation itself.
+        """
+
         if not self.available or not forecast.get("scheduler_candidate_id"):
             return None
         row = self.connection.execute(
-            "SELECT o.action_status, o.action_attempt_id FROM router_decisions d "
+            "SELECT o.action_attempt_id FROM router_decisions d "
             "JOIN router_outcomes o ON o.decision_id = d.id "
-            "WHERE d.chosen_scheduler_candidate_id = ? ORDER BY d.created_at LIMIT 1",
+            "WHERE d.chosen_scheduler_candidate_id = ? AND o.action_status = 'taken' "
+            "AND o.action_attempt_id IS NOT NULL ORDER BY d.created_at, d.id LIMIT 1",
             (forecast["scheduler_candidate_id"],),
         ).fetchone()
         if row is None:
             return None
-        if row["action_status"] == "taken" and row["action_attempt_id"]:
-            return str(row["action_attempt_id"]), "taken"
-        return None, str(row["action_status"])
+        return str(row["action_attempt_id"]), "taken"
 
 
 def _queues_item(action: Any, item: str) -> bool:

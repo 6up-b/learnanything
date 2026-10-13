@@ -40,7 +40,10 @@ logger = logging.getLogger(__name__)
 #: follow-up forecasts freeze the target facet's scoring contract.
 #: v3 (re-review F9): that contract is ``followup_target_facet_v2`` (the facet
 #: map read from the assessment contract's targets, frozen by hash).
-FORECAST_VERSION = "voi_forecast_v3"
+#: v4 (merge onto main with router R1): a probe selection the Today queue's
+#: seeded exploration drew records R1's ``scheduler_exploration`` marker in
+#: its ``selection`` block.
+FORECAST_VERSION = "voi_forecast_v4"
 
 #: Decision sites that record forecasts. A successor that puts another
 #: decision on value of information (teach-back, project probes, ...) adds its

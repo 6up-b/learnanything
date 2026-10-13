@@ -118,10 +118,13 @@ def test_probe_selection_forecast_joins_its_realized_answer(tmp_path):
     site = report["sites"]["probe_selection"]
     assert site["forecasts"] == 1
     assert site["join_status"] == {"realized": 1}
+    # R1's tables are on every migrated vault (migration 181), so the router
+    # adapter runs first; a presentation committed outside a Today offer has no
+    # scheduler candidate, so the ledgers join it.
     assert site["adapters"] == {"ledgers": 1}
     assert site["outcome_reliability"]["realized_forecasts"] == 1
     assert site["information"]["n"] == 1
-    assert report["outcome_adapter"].startswith("ledgers")
+    assert report["outcome_adapter"] == "router_outcomes then ledgers"
 
 
 def test_robust_gate_forecast_records_the_eig_paths_minutes(tmp_path):

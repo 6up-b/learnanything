@@ -460,8 +460,9 @@ own source instead.
 
 **Join (read time, `learnloop evsi calibration`).** Outcome adapters in order:
 R1's `router_decisions`/`router_outcomes` when the tables exist (the decision's
-chosen scheduler candidate → the attempt that took it; `pending` and
-`not_taken` stay right-censored), else the ledgers:
+chosen scheduler candidate → the attempt that took it; since the merge onto
+main, §15, only R1's `taken` joins: its other statuses judge the offer and
+defer to the ledgers), else the ledgers:
 `practice_attempts.probe_presentation_id` → `probe_observations` for probes;
 for a queued follow-up, the first attempt on the item after its queue, taken
 only when it answered the offer this decision's queue produced (the offer is a
@@ -666,3 +667,51 @@ worktree's `fixtures-local/tmp`.
   staged forecast stays right-censored (`no_attempt_binding`) until the staged
   controller records which attempt administered it. No production caller
   passes a `DiagnosticSelector` today, so nothing is lost yet.
+
+## 15. Merge onto main (2026-10-13)
+
+Merged onto main at `09c9f8d3`, after the Guide fix, docs, router R1
+(mvp-0.15, migration 181), learner-text gaps (mvp-0.16, 182), facet identity
+(183) and the T6 follow-up's output-budget policy. No serving default change
+and no successor: main touched none of the branch's diagnosis or EVSI modules,
+and the only readers of `evsi.measured_loss_enabled` remain the
+zero-authority causal shadow and the offline report. The branch makes no model
+call, so the T6 follow-up's output-budget policy has nothing to govern here.
+
+* Migration 184 kept its number (main's head was 183). `migration_head_184` was
+  rebuilt from main's `migration_head_183` with the backup API and only 184
+  applied (checkpointed, `journal_mode=DELETE`, `integrity_check` ok,
+  `foreign_key_check` clean, no `-wal`/`-shm`); head 183 removed. All eight
+  defaults snapshots (mvp-0.9 to mvp-0.16) recomputed; they move only because
+  the effective config gains `[evsi]`. References regenerated (308 table
+  notes, 758 config leaves, `errors: []`).
+* R1's tables are now on every migrated vault, so the router adapter reads
+  the real `router_decisions`/`router_outcomes`. Composed (report
+  `voi_calibration_report_v4`): the adapter joins only an offer R1 says was
+  `taken`. R1's other statuses judge the offer, not the probe: a queue
+  refresh supersedes an offer whose committed presentation stays in front
+  under a new scheduler candidate, and `router_outcomes` is a DERIVED cache
+  rebuilt only by `learnloop rebuild`, so `open` can be stale. Before the fix
+  either case reported a presentation that had been answered as `superseded`
+  or `open`; now the ledgers' presentation binding decides.
+* A probe the Today queue's seeded exploration drew (R1 admits probe
+  near-ties at mvp-0.15) carries R1 review F4's `scheduler_exploration`
+  marker on its presentation; its forecast now records the same marker in
+  its `selection` block (forecast body `voi_forecast_v4`), so the receipt
+  never presents a drawn check as the EIG choice.
+* Tests: `tests/test_evsi_router_composition.py` (5: the real R1 path end to
+  end through the sidecar's Today offer and the router replayer; the
+  superseded and stale cases and the explored-probe marker failed first);
+  `test_probe_selection_forecast_joins_its_realized_answer` now expects
+  `router_outcomes then ledgers`.
+* Still open (owner): R1 logs every staged P2 decision (`staged_p2`, with
+  `controller_decision_id`) and binds its outcome to the chosen item's next
+  attempt in the session at or after the decision. That is a session rule,
+  not an explicit receipt, so the report does not use it for staged
+  diagnostic forecasts (they stay `no_attempt_binding`, review F3/F6's rule);
+  the owner may accept R1's binding instead.
+* Gate at the composition commit (`TMPDIR` = the worktree's
+  `fixtures-local/tmp`): `lint-imports` 15 kept, 0 broken; full suite
+  `-n auto` 9,047 passed, 0 failed, 0 skipped (325 s); `-m durability` 95
+  passed (27 s); `db_validate_reference.py` `errors: []`; `validate_vault.py`
+  passed; frontend unchanged (not run). No paid call.
