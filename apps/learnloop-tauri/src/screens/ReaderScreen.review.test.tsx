@@ -138,7 +138,7 @@ async function askFollowUp(text = "Why does conditioning work?") {
   fireEvent.click(await screen.findByRole("button", { name: /▸ Why weighted by p\?/ }));
   fireEvent.click(screen.getByRole("button", { name: "ask follow-up" }));
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: text } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   await screen.findByText("Follow-up answer");
 }
 
@@ -348,10 +348,10 @@ it("with the switch off, a search into another passage of a source left earlier 
   render(<ReaderScreen initialSource={{ card: cardA, spanId: "span_symmetric_prose" }} onError={vi.fn()} />);
   await screen.findAllByText(view.blocks[1].markdown);
   await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe("span_symmetric_prose"));
-  fireEvent.click(screen.getByText("← library"));
+  fireEvent.click(screen.getByText("← Library"));
   await searchAndOpen("eigen", { sourceId: "src_b", sourceTitle: "Book B", extractionId: "ext_b", spanId: "b1", snippet: "another way" });
   await screen.findAllByText("Book B explains eigenvalues another way.");
-  fireEvent.click(screen.getByText("← library"));
+  fireEvent.click(screen.getByText("← Library"));
   await searchAndOpen("spectral", { sourceId: view.sourceId, sourceTitle: "Matrices", extractionId: view.extractionId, spanId: "span_spectral_worked", snippet: "the spectral hit" });
   await screen.findAllByText(view.blocks[2].markdown);
   await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe("span_spectral_worked"));
@@ -389,7 +389,7 @@ it("a Guide 'worth a second look' passage is a detour: Alt+← restores the pass
 it("opening another book from its library card after leaving one leaves a way back", async () => {
   render(<ReaderScreen initialSource={{ card: cardA, spanId: "span_spectral_worked" }} onError={vi.fn()} />);
   await screen.findAllByText(view.blocks[2].markdown);
-  fireEvent.click(screen.getByText("← library"));
+  fireEvent.click(screen.getByText("← Library"));
   fireEvent.click(await screen.findByText("Book B"));
   await screen.findAllByText("Book B explains eigenvalues another way.");
   const strip = await screen.findByRole("navigation", { name: "Detour" });
@@ -452,7 +452,7 @@ it("an Ask about an edited capture keeps the book's wording apart from the learn
   fireEvent.change(screen.getByDisplayValue(view.blocks[1].markdown), { target: { value: "My corrected wording" } });
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   fireEvent.change(await screen.findByPlaceholderText("ask about this passage…"), { target: { value: "Is my fix right?" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask · ctrl+↵" }));
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
   expect(api.readerAsk.mock.calls[0][0]).toMatchObject({ selectionQuote: "My corrected wording", selectionSourceQuote: view.blocks[1].markdown });
   await screen.findByText("Answer about the fix");

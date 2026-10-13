@@ -84,7 +84,7 @@ async function askFollowUp(text = "Why does conditioning work?") {
   await openThread();
   fireEvent.click(screen.getByRole("button", { name: "ask follow-up" }));
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: text } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   await screen.findByText("Follow-up answer");
 }
 

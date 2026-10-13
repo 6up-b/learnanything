@@ -46,8 +46,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
+import json
 import math
 import threading
+from typing import Any
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import declared_budgets
@@ -484,3 +486,166 @@ def _reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *
             envelope.unreserve(handle)
         raise
     return tuple(done)
+
+
+# Characters per token for a request's input estimate (the house ~4).
+_CHARS_PER_TOKEN = 4
+
+
+@dataclass(frozen=True)
+class RequestAdmission:
+    """One admitted physical request: what it reserved, priced at its route."""
+
+    key: int
+    provider: str | None
+    tokens: int
+    estimated_usd: float
+    price_per_token: float
+
+
+class MeteredRequestGate:
+    """Per-request admission for one unit of paid work (a job attempt).
+
+    Installed with :func:`learnloop.ai.execution.gate_model_requests`, it is
+    consulted immediately before EACH physical request, transport retries and
+    a provider's JSON repair included, and settled with the usage the request
+    reported. A request is admitted only when what this unit has spent, plus
+    what requests still in flight reserved, plus this request's estimate (its
+    input at ~4 characters a token plus its output ceiling, at the route's
+    price) stays within ``limit_usd``. Reported usage replaces a reservation
+    (the provider's cost, else its tokens at the price); a request that
+    reported nothing keeps its whole reservation. A request is therefore
+    never sent when it could take the unit past its limit, as long as a
+    provider honours its output ceiling; one that overspends stops the next.
+
+    Thread-safe (parallel inventory workers share one gate). Subscription
+    routes are never limited here (Slice A §5 rule 6); unknown prices fail
+    closed. A refusal raises :class:`SpendLimitExceeded` before the request
+    and is kept in :attr:`refusal` for the caller's report.
+
+    ``cancelled``, when given, is consulted before every request made on the
+    thread that created the gate, whatever the route: work that was stopped
+    (cancelled, a book kept on this computer) starts no further request, and
+    :class:`SpendCancelled` is raised instead. Worker threads skip it: they
+    keep SQL off their threads and are stopped by their owner's own poll.
+    """
+
+    def __init__(
+        self,
+        *,
+        limit_usd: float,
+        price_per_token: Callable[[str | None], float | None],
+        is_subscription: Callable[[Any], bool],
+        default_output_tokens: int = 0,
+        spent_before_usd: float = 0.0,
+        cancelled: Callable[[], bool] | None = None,
+    ) -> None:
+        _money("limit_usd", limit_usd)
+        _money("spent_before_usd", spent_before_usd)
+        _count("default_output_tokens", default_output_tokens)
+        self._limit = Decimal(str(limit_usd))
+        self._price = price_per_token
+        self._is_subscription = is_subscription
+        self._default_output = default_output_tokens
+        self._lock = threading.Lock()
+        self._spent = Decimal(str(spent_before_usd))
+        self._in_flight: dict[int, Decimal] = {}
+        self._next_key = 0
+        self._cancelled = cancelled
+        self._owner_thread = threading.get_ident()
+        self.admitted = 0
+        self.refusal: dict[str, Any] | None = None
+
+    @property
+    def spent_usd(self) -> float:
+        with self._lock:
+            return float(self._spent)
+
+    @property
+    def limit_usd(self) -> float:
+        return float(self._limit)
+
+    def estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int:
+        """Input (from the request's text) plus the output ceiling."""
+
+        if prompt is None:
+            text = ""
+        elif isinstance(prompt, str):
+            text = prompt
+        else:
+            text = json.dumps(prompt, ensure_ascii=False, default=str)
+        input_tokens = (len(text) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN
+        output = budget
+        if output is None:
+            profile = getattr(client, "profile", None) or getattr(client, "config", None)
+            output = getattr(profile, "max_tokens", None)
+        if output is None:
+            output = self._default_output
+        return input_tokens + max(int(output), 0)
+
+    def estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float:
+        price = self._price(getattr(client, "provider_name", None))
+        if price is None:
+            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate")
+        return self.estimate_tokens(client, prompt=prompt, budget=budget) * price
+
+    def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None:
+        if (
+            self._cancelled is not None
+            and threading.get_ident() == self._owner_thread
+            and self._cancelled()
+        ):
+            raise SpendCancelled("Paid work cancelled")
+        if self._is_subscription(client):
+            return None
+        provider = getattr(client, "provider_name", None)
+        price = self._price(provider)
+        if price is None:
+            with self._lock:
+                self.refusal = {"reason": "unknown_price", "provider": provider, "purpose": purpose}
+            raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate")
+        _money("price_per_token", price)
+        tokens = self.estimate_tokens(client, prompt=prompt, budget=budget)
+        usd = Decimal(str(tokens * price))
+        with self._lock:
+            committed = self._spent + sum(self._in_flight.values(), Decimal(0))
+            if committed + usd > self._limit:
+                self.refusal = {
+                    "reason": "limit", "provider": provider, "purpose": purpose,
+                    "request_estimate_usd": round(float(usd), 6), "committed_usd": round(float(committed), 6),
+                    "limit_usd": round(float(self._limit), 6),
+                }
+                raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd")
+            key = self._next_key
+            self._next_key += 1
+            self._in_flight[key] = usd
+            self.admitted += 1
+        return RequestAdmission(key=key, provider=provider, tokens=tokens, estimated_usd=float(usd),
+                                price_per_token=price)
+
+    def settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None:
+        if admission is None:
+            return
+        actual = _reported_usd(usage, admission.price_per_token)
+        with self._lock:
+            reserved = self._in_flight.pop(admission.key, Decimal(0))
+            self._spent += reserved if actual is None else actual
+
+
+def _reported_usd(usage: Mapping[str, Any], price_per_token: float) -> Decimal | None:
+    """What a finished request cost: the provider's cost, else its tokens at
+    the price; ``None`` when it reported nothing (the reservation stands)."""
+
+    cost = usage.get("cost")
+    if isinstance(cost, (int, float)) and not isinstance(cost, bool) and math.isfinite(cost) and cost >= 0:
+        return Decimal(str(cost))
+    tokens = 0
+    reported = False
+    for key in ("input_tokens", "output_tokens"):
+        value = usage.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            tokens += value
+            reported = True
+    if not reported:
+        return None
+    return Decimal(str(tokens * price_per_token))

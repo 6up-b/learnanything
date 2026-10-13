@@ -675,6 +675,87 @@ class IngestQueueStoreMixin:
             rows = connection.execute(query, params).fetchall()
         return [_decode_ingest_job(row) for row in rows]
 
+    def ingest_jobs_for_source(
+        self, job_types: Sequence[str], source_id: str
+    ) -> list[dict[str, Any]]:
+        """Every job of ``job_types`` whose payload or result names
+        ``source_id``, newest first. Filtered by source before anything is
+        limited, so a book's whole history stays visible however much other
+        work the library has done since (UX Phase 1 review F10).
+
+        A job is also found through the work it queued: a job whose payload
+        carries ``auto_build.planner_job_id`` and ``auto_build.source_id``
+        (an automatic build, enqueued in one transaction with that
+        association) names its planner. A link's planner learns its book only
+        from the import, so if it dies after queuing its build and before
+        saving its result, that persisted association is what still ties it
+        to the book (UX Phase 1 re-review F3)."""
+
+        placeholders = ",".join("?" for _ in job_types)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM ingest_jobs
+                 WHERE job_type IN ({placeholders})
+                   AND (json_extract(payload_json, '$.source_id') = ?
+                        OR json_extract(result_json, '$.source_id') = ?
+                        OR id IN (
+                          SELECT json_extract(queued.payload_json, '$.auto_build.planner_job_id')
+                            FROM ingest_jobs AS queued
+                           WHERE json_extract(queued.payload_json, '$.auto_build.source_id') = ?
+                        ))
+                 ORDER BY created_at DESC, id DESC
+                """,
+                [*job_types, source_id, source_id, source_id],
+            ).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
+    def latest_ingest_job_per_source(self, job_type: str) -> list[dict[str, Any]]:
+        """The newest ``job_type`` job for every source it names (complete:
+        no window over the whole queue)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM (
+                  SELECT j.*,
+                         ROW_NUMBER() OVER (
+                           PARTITION BY COALESCE(json_extract(j.payload_json, '$.source_id'),
+                                                 json_extract(j.result_json, '$.source_id'))
+                           ORDER BY j.created_at DESC, j.id DESC
+                         ) AS source_rank
+                    FROM ingest_jobs AS j
+                   WHERE j.job_type = ?
+                     AND COALESCE(json_extract(j.payload_json, '$.source_id'),
+                                  json_extract(j.result_json, '$.source_id')) IS NOT NULL
+                ) WHERE source_rank = 1
+                ORDER BY created_at DESC, id DESC
+                """,
+                (job_type,),
+            ).fetchall()
+        decoded = []
+        for row in rows:
+            job = _decode_ingest_job(row)
+            job.pop("source_rank", None)
+            decoded.append(job)
+        return decoded
+
+    def ingest_batches_by_workflow(
+        self, workflow_type: str, *, exclude_statuses: Sequence[str] = ()
+    ) -> list[dict[str, Any]]:
+        """Every batch of one workflow, newest first, optionally without the
+        terminal statuses named (no window over the whole queue)."""
+
+        query = "SELECT * FROM ingest_batches WHERE workflow_type = ?"
+        params: list[Any] = [workflow_type]
+        if exclude_statuses:
+            query += f" AND status NOT IN ({','.join('?' for _ in exclude_statuses)})"
+            params.extend(exclude_statuses)
+        query += " ORDER BY created_at DESC, id DESC"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [_decode_ingest_batch(row) for row in rows]
+
     def active_ingest_jobs(self) -> list[dict[str, Any]]:
         """Return every job that has not reached a terminal state."""
 

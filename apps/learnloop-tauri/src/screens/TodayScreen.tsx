@@ -35,7 +35,7 @@ import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
 import { DailyPlanView } from "./today/DailyPlanView";
 import { planStepAction, useDailyPlan } from "../app/dailyPlan";
-import type { DailyPlanDto, PlanReadingDto, TodayHeadlineDto } from "../api/dto";
+import type { DailyPlanDto, PlanReadingDto, PlanStepDto, TodayHeadlineDto } from "../api/dto";
 
 const HOTKEYS = "123456789abcdef";
 
@@ -145,6 +145,7 @@ export function TodayScreen({
   readerSeedingActive = false,
   onOpenPlanReading,
   onRequireSession,
+  onBeginSession,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -169,8 +170,14 @@ export function TodayScreen({
   readerSeedingActive?: boolean;
   /** Daily-loop DL1: open the reader at a plan reading step's section (§6.10). */
   onOpenPlanReading?: (reading: PlanReadingDto) => void;
-  /** Daily-loop DL1: the plan was asked to serve without a session. */
+  /** Daily-loop DL1: the plan was asked to serve without a session (only
+   *  when this screen cannot begin one itself: no `onBeginSession`). */
   onRequireSession?: () => void;
+  /** Today's begin starts today's plan itself, exactly as Start's does, and
+   *  hands the session and its first step to the shell (UX Phase 1 usability
+   *  round 2: it bounced the learner to Start with "Begin today's plan on Start
+   *  first."). */
+  onBeginSession?: (session: SessionSnapshot, firstStep?: PlanStepDto | null) => void;
   onError: (message: string) => void;
 }) {
   // The scheduler queue is cached by its inputs: returning to Today repaints
@@ -513,7 +520,20 @@ export function TodayScreen({
         return;
       }
       if (!session) {
-        onRequireSession?.();
+        const budget = planData?.plan?.minutesBudget;
+        if (!onBeginSession || budget == null) {
+          onRequireSession?.();
+          return;
+        }
+        // A pick from the full list with no session yet begins today's plan
+        // with that pick as its first step.
+        api
+          .startSession({ availableMinutes: Math.round(budget) })
+          .then(async (started) => {
+            const result = await api.planLearnerPick(practiceItemId, started.sessionId, schedulerCandidateId ?? null);
+            onBeginSession(started, result.step ?? null);
+          })
+          .catch((error) => onError((error as Error).message));
         return;
       }
       api
@@ -527,7 +547,7 @@ export function TodayScreen({
         })
         .catch((error) => onError((error as Error).message));
     },
-    [onError, onOpenPractice, onRequireSession, planEnabled, session]
+    [onBeginSession, onError, onOpenPractice, onRequireSession, planData, planEnabled, session]
   );
 
   useEffect(() => {
@@ -578,7 +598,8 @@ export function TodayScreen({
   // mount read itself.
   async function refreshQueue(_options: { force?: boolean } = {}): Promise<QueueSnapshot | null> {
     try {
-      return await queueQuery.refetch();
+      // Under the plan view the full list is turned off: nothing to refresh.
+      return (await queueQuery.refetch()) ?? null;
     } catch (error) {
       onError((error as Error).message);
       return null;
@@ -619,7 +640,19 @@ export function TodayScreen({
 
   async function continuePlan() {
     if (!session) {
-      onRequireSession?.();
+      const budget = planData?.plan?.minutesBudget;
+      if (!onBeginSession || budget == null) {
+        onRequireSession?.();
+        return;
+      }
+      // Begin today's plan here, as Start's begin does: a session for the
+      // plan's minutes, then its first step (usability round 2).
+      const begun = await runPlan(async () => {
+        const started = await api.startSession({ availableMinutes: Math.round(budget) });
+        const first = await api.nextPlanItem({ sessionId: started.sessionId, serve: true });
+        return { started, step: first.step ?? null };
+      });
+      if (begun) onBeginSession(begun.started, begun.step);
       return;
     }
     const result = await runPlan(() => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));

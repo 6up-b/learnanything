@@ -13,6 +13,10 @@ from learnloop_sidecar.registry import METHOD_REGISTRY, method
 class InitializeParams(ParamsModel):
     vault_path: str
     client_version: str | None = None
+    # UX Phase 1 (§6.1, Q1): the desktop's default library (~/LearnLoop) is
+    # created silently on first launch. Only the shell's default asks for this;
+    # an explicit or remembered path that is missing still fails.
+    create_if_missing: bool = False
 
 
 class RefreshVaultFilesInput(ParamsModel):
@@ -20,8 +24,34 @@ class RefreshVaultFilesInput(ParamsModel):
     paths: list[str] = Field(default_factory=list)
 
 
+def _ensure_default_library(path: str) -> None:
+    """Create the default library (no subject, the default level) unless it
+    already is one; never scaffold into a folder holding someone's files."""
+
+    from pathlib import Path
+
+    from learnloop.bootstrap import BootstrapError, create_vault
+    from learnloop_sidecar.errors import SidecarError
+
+    target = Path(path).expanduser()
+    if (target / "learnloop.toml").is_file():
+        return
+    try:
+        create_vault(target)
+    except BootstrapError as exc:
+        if exc.code == "vault_dir_not_empty":
+            raise SidecarError(
+                "library_folder_in_use",
+                f"LearnLoop couldn't open your library: {target} already has other files in it.",
+                details={"path": str(target)},
+            ) from exc
+        raise SidecarError(exc.code, f"LearnLoop couldn't open your library: {exc}") from exc
+
+
 @method("initialize", InitializeParams)
 def initialize(ctx: SidecarContext, params: InitializeParams) -> dict[str, Any]:
+    if params.create_if_missing:
+        _ensure_default_library(params.vault_path)
     ctx.load(params.vault_path)
     vault, repository = ctx.require_vault()
     return versioned(

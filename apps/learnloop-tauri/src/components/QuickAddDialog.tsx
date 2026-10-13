@@ -3,6 +3,7 @@
 // priority build batch. compose → confirm. The confirm phase is the single
 // consent checkpoint; import/inventory/synthesis run after it.
 
+import { initialConsentTicks } from "./quickAddConsent";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type { QuickAddPlanDto, StudyMapBriefDto } from "../api/dto";
@@ -149,7 +150,7 @@ export function QuickAddDialog({
       const res = await api.planQuickAdd({ source: source.trim(), subjectId, brief: effectiveBrief() });
       setPlan(res.plan);
       setRoleOverride(res.plan.suggestedRole);
-      setConsentTicked(res.plan.confirmation.externalAiConsent.map(() => false));
+      setConsentTicked(initialConsentTicks(res.plan.confirmation.externalAiConsent));
       setPhase("confirm");
     } catch (err: unknown) {
       const command = getCommandError(err);

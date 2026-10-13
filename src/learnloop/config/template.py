@@ -1028,7 +1028,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # recomputed (defaults_fingerprint_for_version) on its branch, and all
     # eleven again from the composed defaults when it landed after the sources
     # track.
-    "mvp-0.9": "02e7da343ab0c5dbe44ef7435050fca2147bdd1b381c197f4465a75c6209fc64",
+    # UX Phase 1 (docs/specs/ux_learnloop_v1.md §6; landed after the facet
+    # reword confirm) adds [ingest] auto_build and auto_apply_passing_builds
+    # (both true: the kill switches of Add's automatic, reading-order question
+    # builds), [ingest.cost_pause] (when an automatic build asks before
+    # spending, Q5), an empty [ai] consent table (the learner's one OK per provider, Q4) and
+    # plan.reading_from_furthest = true (the reading step, U4), all modelled
+    # defaults left out of the decision-only template. Auto-applied study maps
+    # from Add are a content change under the owner's R1 decision, and the
+    # reading step a live serving change behind its kill switch at every
+    # version (the branch's placeholder successor tag was dropped at the
+    # landing: the owner's live-behind-kill-switches ruling, since replay
+    # never reads the selection). No scoring, scheduling or projection change
+    # and no successor. Every snapshot moves only because the effective config
+    # gains the keys; all eleven were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "a610b8ebdd8ffa64fdd19cb585a86d56527e974ea467b6f76e6bd42ea8bbffa8",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1052,7 +1067,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.10": "d5d33b0390b1e7cf340b9019246f40115c555aa1d6d8362c55d9aa9baa349463",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.10": "e0cb429e9eb9fd5f5a70b768fdd151d85937c25e7d97ef3ec332ba05a2b907f1",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1084,7 +1100,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.11": "91b0b095557b1f43adea18a1b8a96437075aacb5ea0f56310ab66a1e4a813505",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.11": "3e9c44053488d5a6ed88e244c2b8e959237a6fa521e6097b26c011c185c39ab4",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1110,7 +1127,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.12": "fa7c35501d0a8cb11c0a06ec25cbafbf452839272e722da16440ccac3b7110e6",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.12": "2f8546b6e76da18c646e59b30595122f0582d3b2c16125dc77a6549900029bdf",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1131,7 +1149,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.13": "343afcd5537946bd1ca4a54cb3805cb96a50c4a79c250faeb60ff06dfeea9b77",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.13": "52ec8d71ee12a1f01d402480cf219d1c4342b52da9b92802836510eae67a7023",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1151,7 +1170,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.14": "fe844e927ffac2dcf78847b2173205611709046de429e1fd261d9c4b894c1ba5",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.14": "9951c61251d4a94b1ee20df97add2ae117a1eda9202a4c465f2a52b652bcb6b4",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1169,7 +1189,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.15": "01c0f36cccadc62433ae6a0e2d1d06976927f425f00078e9035ccda94398e3ab",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.15": "10ecaa46ad5f6525540eb65cb58c8fad261b319d78e3b4a46caa607af2778b69",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1194,7 +1215,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.16": "688b990fa71ad87249e5628adf63f8a26d011a9d568fd3c283ad439c6d8fba2f",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.16": "0fbe163ce4a5c06957416f0d0b6282add3363ac354f63b45f814a168fd1ed4b5",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1212,7 +1234,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.18 merged.
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.17": "1220459e8dae8af9b78ca064c9503a69c26a8dadc29d9482bb7336257fb0c733",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.17": "541ea5da33df18a99bff4e2b2ec9916643e5924bc6ecb156ec493f3c16f6fe46",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1225,7 +1248,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # from mvp-0.17, or from mvp-0.9 to mvp-0.16 through the chain (under
     # mvp-0.12's advisory guard); never retroactive.
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.18": "626d2b00f03cca87686560d1ae4e6ba0d72a70c06efe4fef2d60bdb22c81c78c",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.18": "e1f07de979af5792ce0e262f07047264406ca9f56cb5d997ad0d6fb907cae172",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1237,7 +1261,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.17 through the chain (under mvp-0.12's advisory guard). New
     # vaults start here (the template's LATEST_ALGORITHM_VERSION).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.19": "5847a339a9c2b4772b6c7a57c0c05981aa80e2ab8adbafbf1204bf1882628400",
+    # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
+    "mvp-0.19": "6493d48aac97bf699b24f4cac02a5825b08127eed78db6171d4955b6b494fecd",
 }
 
 

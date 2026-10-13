@@ -10,6 +10,11 @@ import type {
   ReaderReconnectAnswerDto,
   ReaderReconnectAnswerInput,
   ReaderSetInquiryStatusInput,
+  AddSourceInput,
+  AddSourceResultDto,
+  AiConnectionDto,
+  SourceActionKind,
+  SourceActionResultDto,
   AppSnapshot,
   FindPracticeResultDto,
   PracticeCallerDto,
@@ -651,6 +656,15 @@ export const api = {
   getSynthesisCandidate: (batchId: string) =>
     call<SynthesisCandidateSummary>("get_synthesis_candidate", { batchId }),
   getSourceLibrary: () => call<SourceLibrarySnapshot>("get_source_library"),
+  // UX Phase 1 (docs/specs/ux_learnloop_v1.md §6): one Add for any source,
+  // the book card's one action, and connect-once / consent-once.
+  addSource: (input: AddSourceInput) =>
+    mutating([...INGEST_TAGS, TAG.vault], call<AddSourceResultDto>("add_source", { input })),
+  sourceAction: (input: { sourceId?: string | null; batchId?: string | null; action: SourceActionKind }) =>
+    mutating([...INGEST_TAGS, TAG.vault, TAG.queue, TAG.graph, TAG.proposals], call<SourceActionResultDto>("source_action", { input })),
+  getAiConnection: () => call<AiConnectionDto>("get_ai_connection", { input: {} }),
+  connectAi: (input: { provider: "chatgpt" | "openrouter" | "current"; model?: string | null }) =>
+    mutating([TAG.settings, ...INGEST_TAGS], call<AiConnectionDto>("connect_ai", { input })),
   // Read-only impact report; `delete_source` is the destructive half and
   // re-checks the same blockers, so the preview is advisory, not a token.
   previewSourceDeletion: (sourceId: string) =>
@@ -1263,6 +1277,13 @@ export const api = {
     revealed?: boolean;
     completed?: boolean;
   }) => mutatingReader(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input })),
+  /** How far into a section the learner has read (usability round 1, U3):
+   *  only the progress read is stale afterwards, so following the learner
+   *  never makes the Reader re-read its other per-source state. */
+  readerNoteReadingProgress: (input: { extractionId: string; sectionId: string; spansSeen: number; spanCount: number }) =>
+    settled(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input }), () =>
+      invalidate({ key: ["reader_get_progress", input.extractionId] })
+    ),
   readerBlockHealth: (input: { extractionId: string; spanId: string }) =>
     call<Record<string, unknown>>("reader_block_health", { input }),
   readerBlockOriginalRegion: (input: { extractionId: string; spanId: string }) =>

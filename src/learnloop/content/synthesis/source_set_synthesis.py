@@ -1900,6 +1900,7 @@ def create_study_map(
     brief: dict[str, Any] | None = None,
     mode: str = "auto",
     apply: bool = False,
+    apply_gate: Callable[[], bool] | None = None,
     create_goal: bool = False,
     repository: Repository | None = None,
     clock: Clock | None = None,
@@ -1912,7 +1913,11 @@ def create_study_map(
     """``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
     for Slice 2 T5 nominations (tests); used only when nominations are on.
     ``facet_identity_client`` replaces the ``ai.routing.facet_identity_judge``
-    client (tests); used only when facet identity is on."""
+    client (tests); used only when facet identity is on.
+
+    ``apply_gate`` is consulted immediately before an ``apply`` (UX Phase 1:
+    an automatic build re-reads its kill switches and Undo state there); a
+    ``False`` keeps the proposal unapplied."""
 
     vault = load_vault(root)
     if repository is None:
@@ -1920,7 +1925,7 @@ def create_study_map(
         repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     return _create_study_map(
         vault, repository, root, source_set_id,
-        client=client, brief=brief or {}, mode=mode, apply=apply,
+        client=client, brief=brief or {}, mode=mode, apply=apply, apply_gate=apply_gate,
         create_goal=create_goal, clock=clock, budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
         progress=progress,
@@ -1972,6 +1977,10 @@ def facet_identity_result(
     }
 
 
+def _gate_open(apply_gate: Callable[[], bool] | None) -> bool:
+    return apply_gate is None or bool(apply_gate())
+
+
 def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
     """Dry run of one bootstrap synthesis's Slice 2 T5 embedding spend.
 
@@ -2009,6 +2018,7 @@ def _create_study_map(
     progress: ProgressFn | None = None,
     embedding_client_factory: Callable[[], Any] | None = None,
     facet_identity_client: Any = None,
+    apply_gate: Callable[[], bool] | None = None,
 ) -> StudyMapResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -2118,7 +2128,7 @@ def _create_study_map(
             source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
             manifest_hash=manifest_hash, proposal_id=(batch or {}).get("id"), reused=True,
         )
-        if apply and result.proposal_id:
+        if apply and result.proposal_id and _gate_open(apply_gate):
             _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
         return result
 
@@ -2220,7 +2230,7 @@ def _create_study_map(
 
     # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
     #    compilers enforce the bootstrap evidence refusal on a legacy vault).
-    if apply:
+    if apply and _gate_open(apply_gate):
         _apply_and_wire_goal(
             root, repository, result, brief=brief, create_goal=create_goal, clock=clock,
             facet_ids=normalized.facet_ids, progress=progress,
@@ -2509,6 +2519,7 @@ def revalidate_synthesis_candidate(
     repository: Repository | None = None,
     clock: Clock | None = None,
     progress: ProgressFn | None = None,
+    apply_gate: Callable[[], bool] | None = None,
 ) -> StudyMapResult:
     """Re-run normalization, gates, and persistence over a preserved candidate
     with ZERO model calls.
@@ -2599,7 +2610,7 @@ def revalidate_synthesis_candidate(
         item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
         generation_needs=generation_needs, candidate_repairs=repair_log,
     )
-    if apply:
+    if apply and _gate_open(apply_gate):
         _apply_and_wire_goal(
             root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
             clock=clock, facet_ids=normalized.facet_ids, progress=progress,

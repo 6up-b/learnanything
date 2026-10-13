@@ -118,7 +118,7 @@ export function InboxStrip({ subjects, onAsk }: {
   const pendingIds = new Set(pendingDeletes.map((capture) => capture.captureId));
 
   return (
-    <section aria-label="Capture inbox" style={{ padding: "12px 20px", borderBottom: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12 }}>
+    <section aria-label="Capture inbox" className="inbox-strip" style={{ padding: "12px 20px", borderBottom: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12 }}>
       {summary?.vaultMismatch ? (
         <p role="status">Phone captures are pinned to {summary.pinnedVault}, not this vault. Open that vault to see them.</p>
       ) : null}

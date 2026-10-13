@@ -212,3 +212,20 @@ it("shows a photo-only capture's image from its capture id, not a path", async (
   fireEvent.click(screen.getByText("Hide photo"));
   expect(screen.queryByAltText("Captured photo")).toBeNull();
 });
+
+// UX Phase 1 re-test (#10): "Include handled" drew as the browser's own white
+// button with the app's light text on it. jsdom has no computed styles, so this
+// pins the strip's class and the stylesheet rule that paints its buttons.
+it("draws its buttons in the app's colours, not the browser's white box", async () => {
+  const fsModule = "node:fs";
+  const fs = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (path: string, encoding: string) => string };
+  const cwd = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
+  const css = fs.readFileSync(`${cwd}/src/styles/app.css`, "utf8");
+  await show();
+  const button = screen.getByText("Include handled");
+  expect(button.closest("section")?.className).toContain("inbox-strip");
+  const rule = css.match(/(^|\n)\.inbox-strip button\s*\{([^}]*)\}/)?.[2] ?? "";
+  expect(rule).toMatch(/background:\s*transparent/);
+  expect(rule).toMatch(/color:\s*var\(--dim\)/);
+  expect(rule).toMatch(/border:\s*1px solid var\(--border\)/);
+});

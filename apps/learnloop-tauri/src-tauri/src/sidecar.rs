@@ -95,7 +95,9 @@ impl SidecarManager {
         // vault; reinitializing with no vault would fall back to the
         // default/fixture vault.
         let explicit_selection = requested_vault.is_some();
-        let vault = resolve_vault_path(requested_vault, state.vault_path.clone());
+        let resolved = resolve_vault(requested_vault, state.vault_path.clone());
+        let create_if_missing = resolved.create_if_missing;
+        let vault = resolved.path;
         let same_vault = state.vault_path.as_ref() == Some(&vault);
         if state.client.is_none() || state.vault_path.as_ref() != Some(&vault) {
             // Never run two job managers against one vault while switching.
@@ -107,7 +109,13 @@ impl SidecarManager {
             let mut candidate = SidecarClient::spawn()?;
             let initialized = match candidate.call(
                 "initialize",
-                json!({"vaultPath": vault, "clientVersion": env!("CARGO_PKG_VERSION")}),
+                json!({
+                    "vaultPath": vault,
+                    "clientVersion": env!("CARGO_PKG_VERSION"),
+                    // Only the default library (~/LearnLoop) is created when
+                    // missing; a chosen or remembered path must exist.
+                    "createIfMissing": create_if_missing,
+                }),
             ) {
                 Ok(value) => value,
                 Err(error) => {
@@ -136,10 +144,11 @@ impl SidecarManager {
             }
             state.client = Some(candidate);
             state.vault_path = Some(vault.clone());
-            if explicit_selection {
+            if explicit_selection || create_if_missing {
                 // A vault the user chose (header picker, new-vault wizard)
                 // becomes the next launch's default; the fallbacks below only
-                // apply until then.
+                // apply until then. The default library, once created, is
+                // remembered the same way (UX Phase 1, §6.1).
                 remember_vault(&vault);
             }
             {
@@ -693,29 +702,60 @@ fn local_dev_vault_in(root: &Path) -> Option<PathBuf> {
     vaults.into_iter().next()
 }
 
-fn default_vault_path() -> PathBuf {
-    // Dev default order: a personal vault under fixtures-local/, then the
-    // tracked linear-algebra fixture. The fixture is the last resort on
-    // purpose — opening a vault writes to it (state.sqlite, learner profile),
-    // and the tracked one shows up dirty in `git status` every launch.
-    let root = repo_root();
-    if let Some(local) = local_dev_vault_in(&root) {
-        return local;
-    }
-    let fixture = root.join("fixtures").join("linear_algebra");
-    if is_vault(&fixture) {
-        fixture
-    } else {
-        root
+/// Which vault to open, and whether the sidecar may create it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ResolvedVault {
+    path: PathBuf,
+    /// True only for the default library (`~/LearnLoop`), which first launch
+    /// creates silently. Explicit, selected, env and remembered paths never are.
+    create_if_missing: bool,
+}
+
+impl ResolvedVault {
+    fn existing(path: PathBuf) -> Self {
+        Self {
+            path,
+            create_if_missing: false,
+        }
     }
 }
 
-fn resolve_vault_path(requested: Option<PathBuf>, selected: Option<PathBuf>) -> PathBuf {
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .filter(|home| !home.is_empty())
+        .map(PathBuf::from)
+}
+
+/// The fallback when nothing is chosen, set or remembered (UX Phase 1, owner
+/// decisions Q1/Q2): a personal dev vault under `fixtures-local/` for the
+/// owner, else the learner's own library at `~/LearnLoop`, created on first
+/// launch. Never the tracked `fixtures/linear_algebra` (the owner's working
+/// vault; `LEARNLOOP_VAULT=fixtures/linear_algebra` still opens it).
+fn default_vault_in(root: &Path, home: Option<PathBuf>) -> ResolvedVault {
+    if let Some(local) = local_dev_vault_in(root) {
+        return ResolvedVault::existing(local);
+    }
+    match home {
+        Some(home) => ResolvedVault {
+            path: home.join("LearnLoop"),
+            create_if_missing: true,
+        },
+        None => ResolvedVault::existing(root.to_path_buf()),
+    }
+}
+
+fn resolve_vault(requested: Option<PathBuf>, selected: Option<PathBuf>) -> ResolvedVault {
     requested
         .or(selected)
         .or_else(|| std::env::var("LEARNLOOP_VAULT").ok().map(PathBuf::from))
         .or_else(|| last_vault_file().and_then(|file| remembered_vault_from(&file)))
-        .unwrap_or_else(default_vault_path)
+        .map(ResolvedVault::existing)
+        .unwrap_or_else(|| default_vault_in(&repo_root(), home_dir()))
+}
+
+fn resolve_vault_path(requested: Option<PathBuf>, selected: Option<PathBuf>) -> PathBuf {
+    resolve_vault(requested, selected).path
 }
 
 fn python_path(repo_root: &Path) -> String {
@@ -902,6 +942,38 @@ done
         make_vault(&local.join("alpha"));
         assert_eq!(local_dev_vault_in(&root), Some(local.join("alpha")));
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn with_nothing_remembered_the_default_is_a_new_library_in_home() {
+        // UX Phase 1 (Q1/Q2): never the tracked fixture, always ~/LearnLoop,
+        // created by the sidecar on first launch.
+        let root = scratch_dir("default-library");
+        make_vault(&root.join("fixtures").join("linear_algebra"));
+        let home = root.join("home");
+        let resolved = default_vault_in(&root, Some(home.clone()));
+        assert_eq!(resolved.path, home.join("LearnLoop"));
+        assert!(resolved.create_if_missing);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_fixtures_local_vault_still_wins_over_the_default_library() {
+        let root = scratch_dir("default-local");
+        make_vault(&root.join("fixtures-local").join("mine"));
+        let resolved = default_vault_in(&root, Some(root.join("home")));
+        assert_eq!(resolved.path, root.join("fixtures-local").join("mine"));
+        assert!(!resolved.create_if_missing);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn only_the_default_library_is_ever_created() {
+        let explicit = resolve_vault(Some(PathBuf::from("/explicit/vault")), None);
+        assert_eq!(explicit.path, PathBuf::from("/explicit/vault"));
+        assert!(!explicit.create_if_missing);
+        let selected = resolve_vault(None, Some(PathBuf::from("/selected/vault")));
+        assert!(!selected.create_if_missing);
     }
 
     #[test]

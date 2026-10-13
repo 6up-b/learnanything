@@ -1024,8 +1024,12 @@
     "sha256": "f79086ca4300ae8c3f1919f1ccd95498a043eedbf08584936087260a2c2b9e1e"
   },
   "sources": {
-    "bytes": 2777,
-    "sha256": "1b06e7c3abfdb65d393755ee704a805dcfdf8486d5575f36b4820ab248bbee26"
+    "bytes": 3287,
+    "sha256": "b0c3a564c47e5af6d0b26579ef7f82d5750b9c3fc8a9b57f1a93df47d913af78"
+  },
+  "sources build-preview": {
+    "bytes": 2172,
+    "sha256": "aa052d947684482b20ba5100e85e8fe1ca51550238dd0927a6c18235fb35345b"
   },
   "sources exercises": {
     "bytes": 1757,

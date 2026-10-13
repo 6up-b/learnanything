@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_197/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_199/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_197" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_199" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 197
+SCHEMA_HEAD = 199
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -1013,6 +1013,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.enabled": "Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false.",
     "plan.new_admission_enabled": "Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve).",
     "plan.reading_blocks": "Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane.",
+    "plan.reading_from_furthest": "Kill switch for UX Phase 1's reading step (U4), a live change wherever the plan acts (no successor tag; replay never reads the selection): the reading block continues from the furthest section read and skips front matter while a chapter is left; off it is DL1's first unfinished section in book order.",
     "plan.default_minutes": "Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward.",
     "plan.minutes_presets": "The one-tap minute chips on Start and Today.",
     "plan.repair_max_share": "Largest share of the budget the repair lane takes before new and push (D2).",
@@ -1848,7 +1849,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_197/state.sqlite",
+                "fixtures/migration_head_199/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

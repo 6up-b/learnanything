@@ -245,7 +245,8 @@ export function TerminalFrame({
   vaultRoot,
   onSelectVault,
   settingsOpen = false,
-  badges
+  badges,
+  onAdd
 }: {
   active: TopTab;
   onTab: (tab: TopTab) => void;
@@ -256,6 +257,8 @@ export function TerminalFrame({
   onSelectVault: (path: string) => void;
   settingsOpen?: boolean;
   badges?: NavBadgeCounts;
+  /** UX Phase 1 (§6.2): the one verb to start, from anywhere. */
+  onAdd?: () => void;
 }) {
   return (
     <div className="desktop-shell">
@@ -285,6 +288,11 @@ export function TerminalFrame({
             );
           })}
           <div className="nav-status">
+            {onAdd ? (
+              <button type="button" className="nav-add" onClick={onAdd} title="Add a book, paper or video (Ctrl+O)">
+                + Add
+              </button>
+            ) : null}
             {vaultRoot ? <VaultPath root={vaultRoot} onSelect={onSelectVault} /> : null}
             <SettingsChip
               ready={aiReady}

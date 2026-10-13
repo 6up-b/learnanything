@@ -71,6 +71,17 @@ def _require_source_reader(repository, source_id: str) -> dict[str, Any]:
     return artifact
 
 
+def _refuse_kept_local(repository, source_id: str | None) -> None:
+    """A book kept on this computer sends nothing to an AI, from the Reader
+    either (UX Phase 1 review F1): Ask, background requests and section checks."""
+
+    if source_id is not None and repository.source_kept_local(source_id):
+        raise SidecarError(
+            "kept_on_this_computer",
+            "This book is never sent to an AI, so LearnLoop can't ask one about it.",
+        )
+
+
 def _source_id_for_extraction(repository, extraction_id: str) -> str | None:
     run = repository.get_extraction_run(extraction_id)
     if run is None:
@@ -108,6 +119,7 @@ class ReaderAskInput(ParamsModel):
 def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
+    _refuse_kept_local(repository, ask_source_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
@@ -522,15 +534,23 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
 
     vault, repository = _require_reader(ctx)
     resolved = resolve_extraction_id(repository, params.extraction_id)
-    if resolved is None:
-        raise SidecarError(
-            "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
-        )
-    source_id = _source_id_for_extraction(repository, resolved)
+    run = repository.get_extraction_run(resolved) if resolved is not None else None
+    # UX Phase 1 (§6.3): a book added a moment ago has its original stored but
+    # no finished extraction yet. The Reader shows the original PDF at once,
+    # with no block geometry, and says it is still being prepared.
+    preparing = run is None or run.get("status") != "completed"
+    if preparing:
+        revision = _revision_for_ref(repository, params.extraction_id, run)
+        if revision is None:
+            raise SidecarError(
+                "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
+            )
+        source_id = revision["source_id"]
+    else:
+        source_id = _source_id_for_extraction(repository, resolved)
+        revision = repository.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
     if source_id is not None:
         _require_source_reader(repository, source_id)
-    run = repository.get_extraction_run(resolved) or {}
-    revision = repository.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
     digest = (revision or {}).get("asset_hash")
     stored = stored_original_path(vault.root, digest)
     if stored is None and digest:
@@ -539,9 +559,16 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
         )
     available = stored is not None and is_pdf_file(stored)
     blocks: list[dict[str, Any]] = []
-    if available:
+    # Every passage's page, geometry or not (UX Phase 1 usability round 1, U2):
+    # a text-only (pypdf) extraction has no boxes to paint, but the Reader
+    # still needs the page to jump to a section, follow the reading position
+    # through the original and resume it.
+    page_spans: list[dict[str, Any]] = []
+    if available and not preparing:
         ir = repository.load_document_ir(resolved)
         for block in sorted(ir.blocks, key=lambda b: b.ordinal) if ir is not None else []:
+            if block.page is not None:
+                page_spans.append({"span_id": block.span_id, "page": block.page})
             if block.page is None or not block.bbox:
                 continue
             blocks.append(
@@ -560,13 +587,34 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
     return versioned(
         {
             "available": available,
+            "preparing": preparing,
             "file_name": stored.name if available and stored is not None else None,
-            "extraction_id": resolved,
+            "extraction_id": None if preparing else resolved,
             "source_id": source_id,
-            "revision_id": run.get("revision_id"),
+            "revision_id": (revision or {}).get("id"),
             "blocks": blocks,
+            "page_spans": page_spans,
         }
     )
+
+
+def _revision_for_ref(repository, ref: str, run: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The revision behind an extraction / revision / source reference, for a
+    source that has no finished extraction yet."""
+
+    if run is not None and run.get("revision_id"):
+        return repository.get_source_revision(run["revision_id"])
+    revision = repository.get_source_revision(ref)
+    if revision is not None:
+        return revision
+    artifact = repository.get_source_artifact(ref)
+    if artifact is None:
+        return None
+    revision_id = artifact.get("current_revision_id")
+    if revision_id is None:
+        revisions = repository.source_revisions_for(ref)
+        revision_id = revisions[-1]["id"] if revisions else None
+    return repository.get_source_revision(revision_id) if revision_id else None
 
 
 class ReaderTranslateSelectionInput(ParamsModel):
@@ -848,6 +896,7 @@ class ReaderEnqueueRequestInput(ParamsModel):
 @method("reader.enqueue_request", ReaderEnqueueRequestInput)
 def reader_enqueue_request(ctx: SidecarContext, params: ReaderEnqueueRequestInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    _refuse_kept_local(repository, params.source_id)
     try:
         result = RR.enqueue_request(
             repository, source_id=params.source_id, revision_id=params.revision_id,
@@ -880,6 +929,8 @@ def reader_cancel_request(ctx: SidecarContext, params: ReaderRequestStatusInput)
 @method("reader.retry_request", ReaderRequestStatusInput)
 def reader_retry_request(ctx: SidecarContext, params: ReaderRequestStatusInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
+    existing = RR.request_status(repository, request_id=params.request_id) or {}
+    _refuse_kept_local(repository, existing.get("source_id"))
     result = RR.retry_request(repository, request_id=params.request_id)
     ctx.ingest_jobs.kick_reader_drain()
     return versioned({"request": result})
@@ -1386,6 +1437,7 @@ def reader_author_section_question(
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    _refuse_kept_local(repository, source_id)
 
     existing = repository.latest_reader_authored_question(
         extraction_id=resolved, section_id=params.section_id
@@ -1465,6 +1517,26 @@ def reader_mark_section_progress(
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
+    before = repository.reader_section_progress_row(resolved, params.section_id)
+    # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
+    # chapter ahead. The Reader reports how far into each section the learner
+    # has read (``spans_seen``, usability round 1 U4): reaching a section is
+    # reading progress too, not only a reveal or a finished check. Reading on
+    # inside a section it already reached plans nothing new, so only the first
+    # report for a section asks (round-2 review F1), unless the book's reading
+    # request failed and has not settled: then every report asks again with the
+    # newest position (F8), while the ingest worker retries it off this RPC.
+    # Both are read from the book's durable request, so they hold across a
+    # restart (finishing pass, F8).
+    first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
+    keep_ahead = bool(params.revealed or params.completed or first_reach)
+    if not keep_ahead:
+        try:
+            keep_ahead = ctx.ingest_jobs.reading_advance_pending(resolved)
+        except Exception:  # pragma: no cover - a read failure asks, never fails the Reader
+            keep_ahead = True
+    # The ask is recorded as the book's reading request in the same
+    # transaction as the progress, so a saved report never loses it.
     row = repository.upsert_reader_section_progress(
         extraction_id=resolved,
         section_id=params.section_id,
@@ -1472,6 +1544,7 @@ def reader_mark_section_progress(
         span_count=params.span_count,
         revealed=params.revealed,
         completed=params.completed,
+        keep_ahead_request=keep_ahead,
     )
 
     enqueued = False
@@ -1509,6 +1582,18 @@ def reader_mark_section_progress(
         row = repository.upsert_reader_section_progress(
             extraction_id=resolved, section_id=params.section_id
         )
+
+    # Act on the recorded request now. Best effort, like the plan receipt
+    # below: it never fails the Reader (a failure is kept and retried).
+    if keep_ahead:
+        try:
+            from learnloop.content.pipeline import add_source as auto_build
+
+            auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
+        except Exception:  # pragma: no cover - background planning boundary
+            import logging
+
+            logging.getLogger(__name__).warning("failed to keep questions a chapter ahead", exc_info=True)
 
     # Daily-loop DL1 (§6.10): while a plan's reading block is current for this
     # section, the progress is also a `reading_progress` block event, and a

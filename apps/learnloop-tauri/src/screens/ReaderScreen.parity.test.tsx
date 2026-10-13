@@ -111,7 +111,7 @@ async function followUpAndReturn(view: ReaderRenderViewDto) {
   fireEvent.click(await screen.findByRole("button", { name: /▸ Why weighted\?/ }));
   fireEvent.click(screen.getByRole("button", { name: "ask follow-up" }));
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "And the bounds?" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   await screen.findByText("Follow-up answer");
   expect(await screen.findByRole("navigation", { name: "Detour" })).toBeTruthy();
   altLeft();

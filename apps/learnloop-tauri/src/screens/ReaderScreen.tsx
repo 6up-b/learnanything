@@ -42,13 +42,23 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
-import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
+import { PdfReaderPane, type PassageAlign, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
 import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
+import { PreparingView } from "./reader/PreparingView";
+import { readerKeyBarKeys } from "./reader/readerKeys";
+import {
+  pagePositionAt,
+  resumeSpanFromHistory,
+  spanAtPosition,
+  spanOnPage,
+  type ReadingPosition,
+  type SectionHistory,
+} from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
 import { useReaderRequests } from "./reader/useReaderRequests";
 
@@ -127,6 +137,73 @@ const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfConte
 // "unknown" just means no health row was computed for this extraction — badging
 // it on every block reads as an error state; only suspect/failed warrant a pill.
 const BADGED_HEALTH = new Set(["suspect", "failed"]);
+// Following the learner (usability round 1): how long a jump or a resume
+// takes to settle before scrolling counts as reading again, and how long
+// reading positions gather before they are saved.
+const SEEN_SETTLE_MS = 1500;
+const SEEN_REPORT_MS = 1500;
+// Timed retries of a failed progress save (leaving the Reader always retries).
+const SEEN_RETRY_LIMIT = 3;
+// The reading marker sits 70% of the way down the reading area (as the
+// extracted-text view's), and a page-only passage counts as read once the
+// marker is this far through it.
+const READING_MARKER = 0.7;
+const PAGE_READ_THROUGH = 0.85;
+// Usability round 2: reading is the learner moving the page (wheel, keys,
+// touch, the scrollbar). A scroll this soon after their own input is theirs;
+// any other (pages loading, a jump, a resume) is the view settling.
+const USER_SCROLL_MS = 1200;
+const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"]);
+
+/** One book's reading-progress saves (round-2 review F3, re-review F7): the
+ * newest count per section, the counts the backend acknowledged and the ones
+ * on their way, and the book's timed retry. It outlives leaving the book, so a
+ * retry set before the learner left sends that book's newest counts. */
+interface SeenSave {
+  wanted: Record<string, { spansSeen: number; spanCount: number }>;
+  acknowledged: Record<string, number>;
+  sending: Record<string, number>;
+  attempts: number;
+  timer: number | null;
+}
+
+function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave {
+  let save = saves.get(extractionId);
+  if (!save) {
+    save = { wanted: {}, acknowledged: {}, sending: {}, attempts: 0, timer: null };
+    saves.set(extractionId, save);
+  }
+  return save;
+}
+
+/** Send a book's counts that are neither acknowledged nor on their way. A
+ * failed save is tried again a few times (a busy database, a restarting
+ * sidecar) with whatever the book's newest counts are by then; after that it
+ * waits for the next change, or for the learner leaving the book or the Reader. */
+function sendSeenCounts(saves: Map<string, SeenSave>, extractionId: string): void {
+  const save = saves.get(extractionId);
+  if (!save) return;
+  for (const [sectionId, { spansSeen, spanCount }] of Object.entries(save.wanted)) {
+    if (spansSeen <= Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0)) continue;
+    save.sending[sectionId] = spansSeen;
+    api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount })
+      .then(() => {
+        save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, spansSeen);
+        save.attempts = 0;
+      })
+      .catch(() => {
+        if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
+        save.attempts += 1;
+        save.timer = window.setTimeout(() => {
+          save.timer = null;
+          sendSeenCounts(saves, extractionId);
+        }, SEEN_REPORT_MS * 2 ** save.attempts);
+      })
+      .finally(() => {
+        if (save.sending[sectionId] === spansSeen) delete save.sending[sectionId];
+      });
+  }
+}
 
 /** A durably painted annotation region in the PDF surface (one per anchored
  *  segment with geometry). needs_reanchor annotations are never painted. */
@@ -171,12 +248,20 @@ export interface ReaderOpenSource {
 export function ReaderScreen({
   onError,
   initialSource = null,
-  onSourceChange
+  onSourceChange,
+  onOpenLibrary,
+  shelf
 }: {
   onError: (message: string) => void;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
   initialSource?: ReaderOpenSource | null;
   onSourceChange?: (next: ReaderOpenSource | null) => void;
+  /** "← Library" goes to the Library place, the one shelf (spec K5; usability
+   *  round 1: the Reader's own list was a second "Library"). */
+  onOpenLibrary?: () => void;
+  /** With no book open, the Library's own shelf (spec K5, usability round 2:
+   *  the Reader's own list read as a second Library). */
+  shelf?: ReactNode;
 }) {
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
@@ -199,6 +284,10 @@ export function ReaderScreen({
   const library: SourceLibraryCard[] | null = libraryQuery.data?.sources ?? (sidecarDown ? [] : null);
   const [sourceTitle, setSourceTitle] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  // The book being opened, named while its text loads (usability round 2: the
+  // Reader showed a second list of books with "opening…" in it meanwhile).
+  const [openingTitle, setOpeningTitle] = useState<string | null>(null);
+  const openingRef = useRef<string | null>(null);
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
   // A selection may span several blocks (transcript cues are sentence
   // fragments, so in watch mode it almost always does). `nodes` carries one
@@ -212,6 +301,31 @@ export function ReaderScreen({
   const [editingCapture, setEditingCapture] = useState(false);
   const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
   const [readingSpan, setReadingSpan] = useState<string | null>(null);
+  // How far into the reading passage's page the reading marker is, when the
+  // original PDF only knows each passage's page (usability round 1, U2).
+  const [readingOffset, setReadingOffset] = useState<number | null>(null);
+  // How many of each section's passages the learner has read (monotone),
+  // hydrated from and saved to reader.mark_section_progress: a section is
+  // ticked when it was read through, never because the learner jumped past it.
+  const [sectionSeen, setSectionSeen] = useState<Record<string, number>>({});
+  // The quick check the learner asked to open from a section break: shown
+  // above Contents, scrolled to and started (usability round 1, U5).
+  const [focusQuickCheck, setFocusQuickCheck] = useState<string | null>(null);
+  // Section-break offers on the original PDF the learner set aside.
+  const [hiddenPdfOffers, setHiddenPdfOffers] = useState<string[]>([]);
+  // Usability round 2: whether the learner has moved the page themselves since
+  // the book opened (or since their last jump). Until then nothing counts as
+  // read and no quick check is written: a paper opened on its first page was
+  // asked about its Introduction before a word was read.
+  const [readingMoved, setReadingMoved] = useState(false);
+  const userScrollAtRef = useRef(0);
+  // Reading history from before the Reader saved places (usability round 2):
+  // where a book with no saved place reopens.
+  const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
+  const historyResumeRef = useRef(false);
+  // Quick checks the learner answered this visit: the guide stops calling them
+  // "ready, just below" (usability round 2).
+  const [answeredSections, setAnsweredSections] = useState<string[]>([]);
   const [revealedSections, setRevealedSections] = useState<string[]>([]);
   const [dismissedSections, setDismissedSections] = useState<string[]>([]);
   const [completedSections, setCompletedSections] = useState<string[]>([]);
@@ -253,6 +367,11 @@ export function ReaderScreen({
   const [watchLoading, setWatchLoading] = useState(false);
   // Tier-2 embedded PDF: originals-store manifest + which surface is showing.
   const [pdfView, setPdfView] = useState<ReaderPdfViewDto | null>(null);
+  // The manifest is still being asked for: the book may open in its original,
+  // so it is not read as the text view meanwhile (finish re-review F2). Only
+  // the newest request settles it.
+  const [pdfViewPending, setPdfViewPending] = useState(false);
+  const pdfViewRequestRef = useRef(0);
   const [surface, setSurface] = useState<"pdf" | "text">("pdf");
   // Right-click tag menu (selection or whole-block), on either surface.
   const [tagMenu, setTagMenu] = useState<TagMenuRequest | null>(null);
@@ -287,6 +406,17 @@ export function ReaderScreen({
   // plan polls until the question lands), and a per-source once-only guard.
   const [authoringSections, setAuthoringSections] = useState<string[]>([]);
   const authorRequestedRef = useRef<Set<string>>(new Set());
+  // UX Phase 1 (§10 item 1.10): sections whose check took too long to write.
+  // They say so, with Try again, instead of the line silently disappearing.
+  const [timedOutSections, setTimedOutSections] = useState<string[]>([]);
+  const authoringRef = useRef<string[]>([]);
+  authoringRef.current = authoringSections;
+  // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
+  // original PDF in PreparingView; the full Reader takes over when it is ready.
+  const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
+  // Where the learner was in the original when the text became ready: the full
+  // Reader opens there, not at the top (review F8).
+  const handoffRef = useRef<ReadingPosition | null>(null);
   // RW1a (reader_inquiry): the return stack and its detour strip; the
   // reconnect line; each inquiry's passage-scoped quick check; the root
   // commitments made from the status chips; a static "•" on the Ask tab
@@ -355,6 +485,23 @@ export function ReaderScreen({
   const askFindInputRef = useRef<HTMLInputElement | null>(null);
   const askComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const readingRafRef = useRef<number | null>(null);
+  // Following the learner (usability round 1, U2/U3): opening a book, a jump
+  // and a resume move the view without being reading. For a moment after one
+  // the position they set stands (the first layout pass must not overwrite a
+  // restored place) and no section counts as read.
+  const settleUntilRef = useRef(0);
+  // How far each section was read, per book (extraction): the newest counts,
+  // the ones the backend acknowledged and the ones on their way (round-2
+  // review F3: a save that failed was counted as reported and never sent
+  // again). A book's entry is kept after the learner leaves it, so its retry
+  // still sends its newest counts (re-review F7), and a late answer lands in
+  // that book's entry.
+  const seenSavesRef = useRef(new Map<string, SeenSave>());
+  // The book being read now, which leaving it saves first.
+  const activeSeenRef = useRef<string | null>(null);
+  const lastReadRef = useRef<{ id: string; index: number; progress: number } | null>(null);
+  const pageModeRef = useRef(false);
+  const pageSpansRef = useRef<Array<{ spanId: string; page: number }>>([]);
   const modeSaveVersionRef = useRef(0);
   const answerModeSaveVersionRef = useRef(0);
   // Background synthesis is its own lifecycle: the hook keeps global proposal
@@ -465,6 +612,11 @@ export function ReaderScreen({
 
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
+    // Leaving a book for another (or for the Library) saves what was read in
+    // it first, as closing the Reader does (UX round-2 review F3). Its entry
+    // stays: a save still failing is retried with its newest counts (F7).
+    if (activeSeenRef.current) sendSeenCounts(seenSavesRef.current, activeSeenRef.current);
+    activeSeenRef.current = null;
     askEpoch.current += 1;
     askPending.current = false;
     setBusy(false);
@@ -473,6 +625,17 @@ export function ReaderScreen({
     setGuideLoading(false);
     setActiveSpan(null);
     setReadingSpan(null);
+    setReadingOffset(null);
+    setSectionSeen({});
+    lastReadRef.current = null;
+    setFocusQuickCheck(null);
+    setHiddenPdfOffers([]);
+    setReadingMoved(false);
+    userScrollAtRef.current = 0;
+    lastPlaybackSpanRef.current = null;
+    setReadingHistory(null);
+    historyResumeRef.current = false;
+    setAnsweredSections([]);
     setSelection(null);
     setSelectionActions([]);
     setRailTab("guide");
@@ -506,9 +669,12 @@ export function ReaderScreen({
     setWatch(null);
     setWatchLoading(false);
     setPdfView(null);
+    setPdfViewPending(false);
+    pdfViewRequestRef.current += 1;
     setSurface("pdf");
     setTagMenu(null);
     setAuthoringSections([]);
+    setTimedOutSections([]);
     authorRequestedRef.current = new Set();
     setStickyQuestionSections([]);
     setEditingAnnotationId(null);
@@ -528,14 +694,36 @@ export function ReaderScreen({
   }, []);
 
   const openSource = useCallback(
-    async (card: SourceLibraryCard, jumpSpan?: string, options: { via?: "search" | "restore" } = {}) => {
+    async (
+      card: SourceLibraryCard,
+      jumpSpan?: string,
+      options: { via?: "search" | "restore"; handoff?: ReadingPosition | null } = {},
+    ) => {
+      const handoff = options.handoff ?? null;
+      handoffRef.current = handoff;
+      if (card.readiness !== "ready") {
+        // Nothing to render yet: show the original while LearnLoop prepares it.
+        resetSourceState();
+        setRender(null);
+        setPreparingCard(card);
+        onSourceChange?.({ card, spanId: null });
+        return;
+      }
+      // A book handed over from the preparing view keeps its original on screen
+      // until the full Reader is ready (usability round 2: a list of books
+      // with "opening…" flashed in between).
+      openingRef.current = card.sourceId;
       setOpening(card.sourceId);
+      setOpeningTitle(card.title);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
         const view = await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], () =>
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
+        setPreparingCard(null);
+        // Opening restores a position: following starts once it has settled.
+        settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
         // RW1a (reader_inquiry on): opening another source after leaving one
         // -- a search hit or its library card -- is a detour from the passage
         // left a moment ago (Alt+← goes back to it); a restore walks the stack.
@@ -568,11 +756,13 @@ export function ReaderScreen({
         // learner on the passage once; returning to this tab later resumes
         // from the saved reading position, not the original hit.
         onSourceChange?.({ card, spanId: null });
+        let placed = Boolean(handoff);
         try {
           const savedSpan = window.localStorage.getItem(readingPositionKey(view.sourceId));
           if (savedSpan) {
             setReadingSpan(savedSpan);
             setActiveSpan(savedSpan);
+            placed = true;
           }
         } catch {
           /* Reading still works when storage is unavailable. */
@@ -582,7 +772,10 @@ export function ReaderScreen({
         if (jumpSpan) {
           setReadingSpan(jumpSpan);
           setActiveSpan(jumpSpan);
+          placed = true;
         }
+        // No saved place: the reading history decides, once it is read (below).
+        historyResumeRef.current = !placed;
         setGuideLoading(true);
         readGuidePlan(card.sourceId, view.extractionId)
           .then(setGuidePlan)
@@ -593,12 +786,23 @@ export function ReaderScreen({
           api.readerGetProgress({ extractionId: view.extractionId })
         )
           .then((progress) => {
+            // How far each section was read survives a restart (usability round 1, U3).
+            const seen: Record<string, number> = {};
+            for (const row of progress.sections) if (row.spansSeen > 0) seen[row.sectionId] = row.spansSeen;
+            const acknowledged = seenSaveFor(seenSavesRef.current, view.extractionId).acknowledged;
+            for (const [id, count] of Object.entries(seen)) acknowledged[id] = Math.max(acknowledged[id] ?? 0, count);
+            setSectionSeen((current) => {
+              const next = { ...current };
+              for (const [id, count] of Object.entries(seen)) next[id] = Math.max(next[id] ?? 0, count);
+              return next;
+            });
             setRevealedSections((ids) => [
               ...new Set([...ids, ...progress.sections.filter((s) => s.revealedAt).map((s) => s.sectionId)])
             ]);
             setCompletedSections((ids) => [
               ...new Set([...ids, ...progress.sections.filter((s) => s.completedAt).map((s) => s.sectionId)])
             ]);
+            setReadingHistory(progress.sections);
           })
           .catch(() => undefined);
         if (youtubeVideoId(card.canonicalUri ?? "") !== null) {
@@ -609,19 +813,32 @@ export function ReaderScreen({
             .finally(() => setWatchLoading(false));
         } else {
           // Original-PDF surface when the originals store has this revision's bytes.
+          const pdfRequest = ++pdfViewRequestRef.current;
+          const current = () => pdfViewRequestRef.current === pdfRequest;
+          setPdfViewPending(true);
           cachedSourceRead(card.sourceId, ["reader_pdf_view", card.sourceId], () =>
             api.readerPdfView({ extractionId: card.sourceId })
           )
-            .then((manifest) => setPdfView(manifest.available ? manifest : null))
-            .catch(() => setPdfView(null));
+            .then((manifest) => {
+              if (current()) setPdfView(manifest.available ? manifest : null);
+            })
+            .catch(() => {
+              if (current()) setPdfView(null);
+            })
+            .finally(() => {
+              if (current()) setPdfViewPending(false);
+            });
         }
       } catch (error) {
+        setPreparingCard(null);
         onError(errorMessage(error));
         // A source that no longer opens (deleted, re-extracted away) must not
         // be resumed on every return to this tab.
         onSourceChange?.(null);
       } finally {
+        openingRef.current = null;
         setOpening(null);
+        setOpeningTitle(null);
       }
     },
     [onError, onSourceChange, resetSourceState],
@@ -649,6 +866,7 @@ export function ReaderScreen({
       };
     }
     resetSourceState();
+    setPreparingCard(null);
     setRender(null);
     setOffline(false);
     setSourceTitle(null);
@@ -665,7 +883,10 @@ export function ReaderScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const enabled = contract?.readerEnabled ?? false;
+  // While the contract loads the Reader reads as enabled (new libraries have it
+  // on); the "disabled" notice shows only once the config really says so
+  // (UX Phase 1, §10 item 1.10: no flash of a config instruction on every open).
+  const enabled = contract?.readerEnabled ?? true;
   // RW1a's kill switch (reader_inquiry.enabled): the sidecar names it only when
   // on, so an absent flag (switched off, or an older sidecar) is today's rail.
   const inquiry = contract?.inquiryEnabled === true;
@@ -791,6 +1012,18 @@ export function ReaderScreen({
   );
   const activeBlock = useMemo(() => blocks.find((block) => block.spanId === activeSpan) ?? null, [blocks, activeSpan]);
 
+  // The original PDF without block geometry (a text-only extraction): each
+  // passage still knows its page, and that is how the Reader jumps to,
+  // follows and resumes the learner's place (usability round 1, U2).
+  const pageSpans = useMemo(
+    () => (pdfView && pdfView.blocks.length === 0 ? pdfView.pageSpans ?? [] : []),
+    [pdfView],
+  );
+  const pageOfSpan = useMemo(() => new Map(pageSpans.map((entry) => [entry.spanId, entry.page])), [pageSpans]);
+  const pageMode = Boolean(pdfView && surface === "pdf" && !offline && pageSpans.length > 0);
+  pageModeRef.current = pageMode;
+  pageSpansRef.current = pageSpans;
+
   // Durable annotation trails for the PDF surface: one painted region per
   // anchored segment with geometry. needs_reanchor is shown in the rail only —
   // a region we can no longer vouch for is never painted (no false attachment).
@@ -830,18 +1063,54 @@ export function ReaderScreen({
   const currentSectionProgress = useMemo(() => {
     if (!currentGuideSection) return 0;
     const at = currentGuideSection.spanIds.indexOf(readingSpan ?? activeSpan ?? "");
-    return at < 0 ? 0 : (at + 1) / Math.max(1, currentGuideSection.spanIds.length);
-  }, [currentGuideSection, readingSpan, activeSpan]);
+    // A page-only passage is read as the marker moves down its page.
+    const withinPassage = pageMode && readingOffset !== null ? readingOffset : 1;
+    return at < 0 ? 0 : (at + withinPassage) / Math.max(1, currentGuideSection.spanIds.length);
+  }, [currentGuideSection, readingSpan, activeSpan, pageMode, readingOffset]);
+  // How much of the current section the learner has read (not where the
+  // marker stands): the guide's bar under the section's name (finishing pass,
+  // re-test #7: the bar was full on arriving at an unread one-page section).
+  const currentSectionRead = useMemo(() => {
+    if (!currentGuideSection) return 0;
+    if (completedSections.includes(currentGuideSection.id)) return 1;
+    const count = Math.max(1, currentGuideSection.spanIds.length);
+    return Math.min(1, (sectionSeen[currentGuideSection.id] ?? 0) / count);
+  }, [currentGuideSection, completedSections, sectionSeen]);
+  // The original PDF's section break is at the section's last page, reached
+  // by the learner's own reading this visit (finishing pass, re-test #8: a
+  // check came a page before "the table on the next page"; #2: a resume into
+  // Axler's 1.36 offered 1.36's leftover check before it was read again).
+  const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
+  // Whether the original is still on its way: no check is due, and none is
+  // open in the section being read, until the surface it is read on is known
+  // (finish re-review F2: a resume pinned the check by the text view's rule
+  // while the manifest was pending, and the original then offered it).
+  const pdfSurfaceLoading = Boolean(!pdfView && pdfViewPending && surface === "pdf" && !offline);
+  const pageBySpan = useMemo(() => {
+    const pages = new Map<string, number>();
+    for (const entry of pdfView?.pageSpans ?? []) pages.set(entry.spanId, entry.page);
+    for (const block of pdfView?.blocks ?? []) if (block.spanId && !pages.has(block.spanId)) pages.set(block.spanId, block.page);
+    return pages;
+  }, [pdfView]);
+  const atSectionBreak = useMemo(() => {
+    if (!currentGuideSection || !readingMoved) return false;
+    const here = pageBySpan.get(readingSpan ?? activeSpan ?? "");
+    const last = pageBySpan.get(currentGuideSection.endSpanId);
+    if (here === undefined || last === undefined) return currentSectionProgress >= 0.7;
+    return here >= last;
+  }, [currentGuideSection, readingMoved, pageBySpan, readingSpan, activeSpan, currentSectionProgress]);
   const currentQuestionDue = useMemo(() => {
-    const phase = currentGuideSection?.question?.readingPhase;
-    if (!phase) return false;
+    const question = currentGuideSection?.question;
+    const phase = question?.readingPhase;
+    if (!phase || pdfSurfaceLoading) return false;
     if (phase === "before_section") {
       const firstSpan = 1 / Math.max(1, currentGuideSection?.spanIds.length ?? 1);
       return currentSectionProgress <= Math.max(0.3, firstSpan);
     }
     if (phase === "during_section") return currentSectionProgress >= 0.45;
+    if (pdfSurfaceActive) return atSectionBreak;
     return currentSectionProgress >= 0.7;
-  }, [currentGuideSection, currentSectionProgress]);
+  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, pdfSurfaceLoading, atSectionBreak]);
 
   // Pin a question the moment it becomes due; it stays pinned (and rendered)
   // until answered or dismissed, however far playback or scrolling moves on.
@@ -869,13 +1138,20 @@ export function ReaderScreen({
         && !dismissedSections.includes(section.id)
         && !completedSections.includes(section.id)
         && (
-          section.question.placement === "auto_authored"
+          // In the original PDF the section being read waits for its break
+          // (it is pinned from then on, below); elsewhere a written check is
+          // open at once, as before.
+          (section.question.placement === "auto_authored" && ((!pdfSurfaceActive && !pdfSurfaceLoading) || index !== currentIndex))
           || stickyQuestionSections.includes(section.id)
           || (currentIndex >= 0 && index < currentIndex)
         ),
     );
-  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
-  const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.length : 0;
+  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive, pdfSurfaceLoading]);
+  // A check the learner answered is not waiting any more, though its card
+  // stays open to compare (usability round 2).
+  const pendingQuickCheckCount = boundaryChecksAvailable
+    ? openQuestionSections.filter((section) => !answeredSections.includes(section.id)).length
+    : 0;
 
   // Proactive load (UX §9.2): each LearnLoop-started element counts once per
   // visit -- a quick check waiting on the Guide tab, a section-boundary offer
@@ -903,6 +1179,18 @@ export function ReaderScreen({
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
   );
+  // The open check the original PDF offers at its section break: the latest
+  // one at or behind the reading position the learner has not set aside.
+  const pdfOfferSection = useMemo(() => {
+    if (!pdfView || surface !== "pdf" || offline || !boundaryChecksAvailable) return null;
+    const sections = guidePlan?.sections ?? [];
+    const currentIndex = sections.findIndex((section) => section.id === currentGuideSection?.id);
+    const offered = openQuestionSections.filter((section) => {
+      const index = sections.findIndex((entry) => entry.id === section.id);
+      return index >= 0 && index <= currentIndex && !hiddenPdfOffers.includes(section.id) && section.id !== focusQuickCheck;
+    });
+    return offered[offered.length - 1] ?? null;
+  }, [pdfView, surface, offline, boundaryChecksAvailable, guidePlan, currentGuideSection, openQuestionSections, hiddenPdfOffers, focusQuickCheck]);
   const readingProgress = useMemo(() => {
     const at = blocks.findIndex((block) => block.spanId === (readingSpan ?? activeSpan));
     return at < 0 ? 0 : (at + 1) / Math.max(1, blocks.length);
@@ -922,6 +1210,66 @@ export function ReaderScreen({
     }
   }, [inquiry, render, offline, readingSpan, returnStack]);
 
+  // How far each section was read (usability round 1, U3). Scrolling through a
+  // section counts its passages up to the reading marker; leaving it forward
+  // after most of it counts it whole. A jump or a resume moves the view
+  // without being reading, so it never ticks the sections it passes.
+  useEffect(() => {
+    if (!render || offline || !currentGuideSection) return;
+    const sections = guidePlan?.sections ?? [];
+    const index = sections.findIndex((section) => section.id === currentGuideSection.id);
+    const at = currentGuideSection.spanIds.indexOf(readingSpan ?? "");
+    const last = lastReadRef.current;
+    lastReadRef.current = { id: currentGuideSection.id, index, progress: currentSectionProgress };
+    if (Date.now() < settleUntilRef.current || at < 0 || !readingMoved) return;
+    const count = currentGuideSection.spanIds.length;
+    const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1;
+    setSectionSeen((current) => {
+      const next = { ...current };
+      let changed = false;
+      const raise = (id: string, value: number) => {
+        if (value > (next[id] ?? 0)) {
+          next[id] = value;
+          changed = true;
+        }
+      };
+      if (seenHere > 0) raise(currentGuideSection.id, Math.min(count, seenHere));
+      if (last && last.id !== currentGuideSection.id && last.index >= 0 && index === last.index + 1 && last.progress >= 0.6) {
+        raise(sections[last.index].id, sections[last.index].spanIds.length);
+      }
+      return changed ? next : current;
+    });
+  }, [render, offline, guidePlan, currentGuideSection, readingSpan, readingOffset, pageMode, currentSectionProgress, readingMoved]);
+
+  // Save how far each section was read, gathered for a moment, and once more
+  // when the Reader closes: Today's reading step and the next open read it.
+  // A count is reported only once the backend has it; a failed save is tried
+  // again a few times, and again when the learner leaves the book or the
+  // Reader (round-2 review F3). The newest counts are kept in the book's own
+  // entry at once, so every retry and every leaving sends them (F7).
+  useEffect(() => {
+    if (!render || offline) return;
+    const extractionId = render.extractionId;
+    const saves = seenSavesRef.current;
+    const save = seenSaveFor(saves, extractionId);
+    const counts = new Map((guidePlan?.sections ?? []).map((section) => [section.id, section.spanIds.length]));
+    for (const [sectionId, spansSeen] of Object.entries(sectionSeen)) {
+      const spanCount = counts.get(sectionId);
+      if (spanCount === undefined) continue;
+      if (spansSeen > (save.wanted[sectionId]?.spansSeen ?? 0)) save.wanted[sectionId] = { spansSeen, spanCount };
+    }
+    activeSeenRef.current = extractionId;
+    const timer = window.setTimeout(() => sendSeenCounts(saves, extractionId), SEEN_REPORT_MS);
+    return () => window.clearTimeout(timer);
+  }, [render, offline, guidePlan, sectionSeen]);
+  useEffect(() => {
+    const saves = seenSavesRef.current;
+    // Closing the Reader saves every book it still holds counts for.
+    return () => {
+      for (const extractionId of saves.keys()) sendSeenCounts(saves, extractionId);
+    };
+  }, []);
+
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
   // authoring once per section. The RPC only enqueues a durable job — reading
@@ -932,7 +1280,9 @@ export function ReaderScreen({
     const section = currentGuideSection;
     if (!section || section.question || authorRequestedRef.current.has(section.id)) return;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
-    if (currentSectionProgress < 0.6) return;
+    // Only where the learner has read: never on the page a book opened at,
+    // nor where a jump has only just landed.
+    if (!readingMoved || currentSectionProgress < 0.6 || Date.now() < settleUntilRef.current) return;
     authorRequestedRef.current.add(section.id);
     const extractionId = render.extractionId;
     void (async () => {
@@ -945,7 +1295,43 @@ export function ReaderScreen({
         /* Authoring is best-effort (provider may be off); never interrupt reading. */
       }
     })();
-  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections]);
+  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, readingMoved]);
+
+  // "Try again" on a section whose check took too long (UX Phase 1, 1.10).
+  const retryQuickCheck = useCallback(
+    (sectionId: string) => {
+      if (!render || offline) return;
+      setTimedOutSections((ids) => ids.filter((id) => id !== sectionId));
+      authorRequestedRef.current.add(sectionId);
+      const extractionId = render.extractionId;
+      setAuthoringSections((ids) => [...new Set([...ids, sectionId])]);
+      void api.readerAuthorSectionQuestion({ extractionId, sectionId }).catch(() => {
+        setAuthoringSections((ids) => ids.filter((id) => id !== sectionId));
+        setTimedOutSections((ids) => [...new Set([...ids, sectionId])]);
+      });
+    },
+    [render, offline],
+  );
+
+  // "quick check →" at a section break opens that check: the Guide, the check
+  // at the top of it, scrolled to and started (usability round 1, U5: the
+  // button did nothing and the check sat below the whole Contents list).
+  const openQuickCheck = useCallback((sectionId: string) => {
+    // A rail the learner collapsed (RW1a's backslash key) opens for the check they asked for.
+    setRailCollapsed(false);
+    setRailTab("guide");
+    setStickyQuestionSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
+    setHiddenPdfOffers((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
+    setFocusQuickCheck(sectionId);
+  }, []);
+  useEffect(() => {
+    if (!focusQuickCheck) return;
+    const frame = window.requestAnimationFrame(() => {
+      const card = railRef.current?.querySelector(`[data-quick-check="${focusQuickCheck}"]`);
+      if (card instanceof HTMLElement) card.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusQuickCheck]);
 
   // While authoring is in flight, re-fetch the guide plan (a cheap local read)
   // until the section gains its question or a bounded number of polls passes.
@@ -956,6 +1342,8 @@ export function ReaderScreen({
     const timer = window.setInterval(() => {
       attempts += 1;
       if (attempts > 45) {
+        const stalled = authoringRef.current;
+        setTimedOutSections((timedOut) => [...new Set([...timedOut, ...stalled])]);
         setAuthoringSections([]);
         return;
       }
@@ -1025,9 +1413,19 @@ export function ReaderScreen({
 
   const updateReadingPosition = useCallback(() => {
     const container = bodyRef.current;
-    if (!container) return;
+    if (!container || Date.now() < settleUntilRef.current) return;
+    if (pageModeRef.current) {
+      // The original PDF with page-only passages: the page under the marker.
+      const position = pagePositionAt(container, READING_MARKER);
+      const spanId = position ? spanOnPage(pageSpansRef.current, position) : null;
+      if (position && spanId) {
+        setReadingSpan(spanId);
+        setReadingOffset(position.offset);
+      }
+      return;
+    }
     const containerRect = container.getBoundingClientRect();
-    const markerY = containerRect.top + containerRect.height * 0.7;
+    const markerY = containerRect.top + containerRect.height * READING_MARKER;
     const nodes = Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"));
     let best: HTMLElement | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -1044,6 +1442,8 @@ export function ReaderScreen({
   }, []);
 
   const onReadingScroll = useCallback(() => {
+    const now = Date.now();
+    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) setReadingMoved(true);
     if (readingRafRef.current !== null) return;
     readingRafRef.current = window.requestAnimationFrame(() => {
       readingRafRef.current = null;
@@ -1274,7 +1674,6 @@ export function ReaderScreen({
   // PDF pane implements page-anchored. Boxes live in bodyRef content
   // coordinates so they scroll with the text; words are clipped per box
   // against each [data-span-id] block. Escape cancels.
-  const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
   const [domBoxes, setDomBoxes] = useState<number[][]>([]);
   const [domDraft, setDomDraft] = useState<number[] | null>(null);
   const [domArmed, setDomArmed] = useState(false);
@@ -1605,14 +2004,32 @@ export function ReaderScreen({
         return;
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${segment.spanId}"]`);
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // (Optional call: a jump made before layout, as the reading-history resume
+      // can be, must not throw where scrolling is unavailable.)
+      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: "smooth", block: "center" });
     },
     [pdfView, surface, offline],
   );
 
+  // A passage with boxes: the pane keeps it until the document is laid out
+  // and its page drawn, then centres it (usability round 2: a resume asked to
+  // centre a block on a page that did not exist yet; round-2 review F4: only
+  // a delayed page-top scroll survived). A place to read on from (a resume, a
+  // section from Contents) goes to the top of the view instead, so the page
+  // on screen is the one the header names (finishing pass, re-test #2: Axler
+  // reopened on "1.36" with the 1.35 examples filling the screen above it).
+  const revealSegment = useCallback((page: number, spanId: string, align: PassageAlign = "center") => {
+    paneRef.current?.scrollToSegment(page, spanId, align);
+  }, []);
+
   const jumpToSpan = useCallback(
-    (spanId: string) => {
+    (spanId: string, align: PassageAlign = "center") => {
       jumpGuardRef.current = Date.now() + 1200;
+      // A jump is not reading (UX Phase 1): the sections it passes are not
+      // ticked, and nothing is asked about where it lands until the learner
+      // reads on.
+      settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+      setReadingMoved(false);
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -1621,17 +2038,65 @@ export function ReaderScreen({
       if (pdfView && surface === "pdf" && !offline) {
         const geometry = pdfView.blocks.find((block) => block.spanId === spanId);
         if (geometry) {
-          paneRef.current?.scrollToSegment(geometry.page, spanId);
+          revealSegment(geometry.page, spanId, align);
+          return;
+        }
+        // No boxes, only the passage's page (usability round 1, U2).
+        const page = pageOfSpan.get(spanId);
+        if (page !== undefined) {
+          setReadingOffset(0);
+          paneRef.current?.scrollToPage(page, 0);
           return;
         }
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
-      // An explicit jump; instant under reduced motion (UX §7.3).
+      // An explicit jump; instant under reduced motion (UX §7.3). (Optional
+      // call: a jump made before layout, as the reading-history resume can be,
+      // must not throw where scrolling is unavailable.)
       const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "center" });
     },
-    [pdfView, surface, offline],
+    [pdfView, surface, offline, pageOfSpan, revealSegment],
   );
+
+  // A book with no saved place but reading history from before the Reader
+  // saved places reopens where that history leaves off, as Today's reading
+  // step does (usability round 2: Axler, read for months, opened at its first
+  // page while Contents ticked sections into 1C). Once, when both are read.
+  useEffect(() => {
+    if (!historyResumeRef.current || !render || offline || !guidePlan || readingHistory === null) return;
+    if (guidePlan.extractionId && guidePlan.extractionId !== render.extractionId) return;
+    historyResumeRef.current = false;
+    const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory);
+    if (spanId) jumpToSpan(spanId, "start");
+  }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
+
+  // The learner's own hand on the page: what makes a scroll reading (round 2).
+  const noteUserScroll = useCallback(() => {
+    userScrollAtRef.current = Date.now();
+  }, []);
+  // Watching is reading too: playback that moves past the cue a video
+  // resumed at counts, as the learner's own scrolling does on a page. A seek
+  // (a jump, a resume, a click in the transcript) only sets the cue playback
+  // starts from, and nothing counts while the video is paused (round-2
+  // review F5: a paused video taken to a short section counted as watched).
+  const lastPlaybackSpanRef = useRef<string | null>(null);
+  const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean) => {
+    const last = lastPlaybackSpanRef.current;
+    lastPlaybackSpanRef.current = spanId;
+    if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) setReadingMoved(true);
+    setReadingSpan(spanId);
+  }, []);
+  useEffect(() => {
+    if (!render) return;
+    const onKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (SCROLL_KEYS.has(event.key)) userScrollAtRef.current = Date.now();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [render]);
 
   // ── RW1a: the return stack, detours and the reconnect line ─────────────────
 
@@ -1833,11 +2298,18 @@ export function ReaderScreen({
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.
   useEffect(() => {
-    if (!render || offline || !readingSpan) return;
+    if (!render || offline || !readingSpan || handoffRef.current) return;
+    settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
     const frame = window.requestAnimationFrame(() => {
       if (pdfView && surface === "pdf") {
         const geometry = pdfView.blocks.find((block) => block.spanId === readingSpan);
-        if (geometry) paneRef.current?.scrollToSegment(geometry.page, readingSpan);
+        if (geometry) {
+          revealSegment(geometry.page, readingSpan, "start");
+          return;
+        }
+        // The page the learner left off on (usability round 1, U2).
+        const page = (pdfView.pageSpans ?? []).find((entry) => entry.spanId === readingSpan)?.page;
+        if (page !== undefined) paneRef.current?.scrollToPage(page, 0);
         return;
       }
       const element = bodyRef.current?.querySelector(`[data-span-id="${readingSpan}"]`);
@@ -1848,6 +2320,21 @@ export function ReaderScreen({
     // scroll itself back to the marker it just recorded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [render?.renderViewId, pdfView?.available, surface, offline]);
+
+  // The hand-over from the preparing view (UX Phase 1 review F8): the same
+  // page and viewport offset, and the passage there becomes the reading
+  // position, so it is also where the book reopens next time.
+  useEffect(() => {
+    const position = handoffRef.current;
+    if (!render || offline || !position || !pdfView?.available) return;
+    handoffRef.current = null;
+    const spanId = spanAtPosition(pdfView.blocks, position) ?? spanOnPage(pdfView.pageSpans ?? [], position);
+    if (spanId) {
+      setReadingSpan(spanId);
+      setActiveSpan(spanId);
+    }
+    paneRef.current?.scrollToPage(position.page, position.offset);
+  }, [render, offline, pdfView]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -2255,7 +2742,21 @@ export function ReaderScreen({
       // returns to the composer only if the learner was still in it.
       const composerHadFocus = document.activeElement === askComposerRef.current;
       setAskComposerVersion((version) => version + 1);
-      if (composerHadFocus) window.requestAnimationFrame(() => askComposerRef.current?.focus());
+      // On the Ask tab the answer comes into view (UX finishing pass, re-test
+      // #4: it arrived below the fold and the box just emptied), at once, not
+      // animated (G54). Focus stays where it was: the composer keeps it only
+      // if the learner was still in it, without pulling the view back up.
+      const onAskTab = railTab === "ask";
+      if (composerHadFocus || onAskTab) {
+        window.requestAnimationFrame(() => {
+          if (composerHadFocus) askComposerRef.current?.focus({ preventScroll: true });
+          if (!onAskTab) return;
+          const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find(
+            (element) => element.dataset.askId === exchange.id,
+          );
+          card?.scrollIntoView?.({ block: "start" });
+        });
+      }
     } catch (error) {
       if (epoch === askEpoch.current) {
         const phase = phaseForError(error);
@@ -2695,24 +3196,60 @@ export function ReaderScreen({
     return () => window.removeEventListener("keydown", onFind, { capture: true });
   }, [railTab, askFindOpen]);
 
-  // ── Source picker: the Reader's front door is the real library ──
-  if (!render) {
-    const readySources = (library ?? []).filter((c) => c.readiness === "ready");
-    const pendingCount = (library ?? []).length - readySources.length;
+  // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
+  if (!render && preparingCard) {
+    return (
+      <PreparingView
+        key={preparingCard.sourceId}
+        card={preparingCard}
+        onBack={onOpenLibrary ?? backToLibrary}
+        onReady={(next, position) => {
+          // The preparing view stays up through the hand-over and keeps polling.
+          if (openingRef.current !== next.sourceId) void openSource(next, undefined, { handoff: position });
+        }}
+        onError={onError}
+      />
+    );
+  }
+
+  // ── A book being opened: named, not a second list of books (round 2) ──
+  if (!render && opening && openingTitle) {
     return (
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER · LIBRARY</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER</span>
+            <Meta>{openingTitle}</Meta>
+          </div>
+          <Faint style={{ fontSize: 12 }}>◐ Opening {openingTitle}…</Faint>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Source picker: the Reader's front door is the real library ──
+  if (!render) {
+    // Every book is listed and openable; one still being prepared opens on its
+    // original (UX Phase 1) instead of hiding behind "still getting ready".
+    const readySources = library ?? [];
+    // The one shelf, when the shell provides it (spec K5): search stays here.
+    const useShelf = Boolean(shelf) && !sidecarDown;
+    return (
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>
+              {useShelf ? "READER" : "READER · LIBRARY"}
+            </span>
             {sidecarDown ? <Pill color="amber">offline</Pill> : null}
           </div>
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.textDim }}>
-            Pick up where you left off, or open something new.
+            {useShelf ? "Pick a book to read, or search them all." : "Pick up where you left off, or open something new."}
           </span>
         </div>
-        <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 32px", display: "flex", flexDirection: "column", gap: 10, maxWidth: 720 }}>
+        <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: useShelf ? "18px 0 0" : "18px 32px", display: "flex", flexDirection: "column", gap: 10, maxWidth: useShelf ? undefined : 720 }}>
           {enabled && !sidecarDown ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: useShelf ? "0 32px" : undefined, maxWidth: 720 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   value={librarySearch}
@@ -2765,11 +3302,11 @@ export function ReaderScreen({
                   })}
                 </div>
               ) : searchResults && !searchBusy ? (
-                <Faint style={{ fontSize: 11 }}>no matches — this searches the extracted text of every ready source.</Faint>
+                <Faint style={{ fontSize: 11 }}>no matches — this searches the text of every book that is ready.</Faint>
               ) : null}
             </div>
           ) : null}
-          {!enabled && !sidecarDown ? (
+          {contract !== null && !enabled && !sidecarDown ? (
             <Card style={{ borderStyle: "dashed", display: "flex", flexDirection: "column", gap: 6 }}>
               <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
                 the reader is disabled in this vault's config (new vaults have it on by default). Set <Dim>tutor_qa.reader_enabled = true</Dim>
@@ -2777,13 +3314,15 @@ export function ReaderScreen({
               </Faint>
             </Card>
           ) : null}
-          {library === null ? (
+          {useShelf ? (
+            shelf
+          ) : library === null ? (
             <Faint style={{ fontSize: 12 }}>◐ loading source library…</Faint>
           ) : readySources.length === 0 ? (
             <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
               {sidecarDown
                 ? "the sidecar is unreachable — only the offline demo chapter is available."
-                : "no ready sources yet — ingest a source in the Ingest tab, then return here to read it."}
+                : "Nothing to read yet. Add a book, paper or video from the Library."}
             </Faint>
           ) : (
             readySources.map((card) => {
@@ -2809,18 +3348,21 @@ export function ReaderScreen({
                       </span>
                     )}
                   </div>
-                  <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>{card.unitCount} sections</Faint>
+                  <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>
+                    {card.readiness === "ready" ? `${card.unitCount} sections` : card.statusLine?.text ?? "Getting this ready"}
+                  </Faint>
                 </Card>
               );
             })
           )}
-          {pendingCount > 0 ? (
-            <Faint style={{ fontSize: 11 }}>{pendingCount} source{pendingCount === 1 ? " is" : "s are"} still getting ready.</Faint>
+          {/* The demo chapter is for when LearnLoop's background service is
+              down, not a book on the main path (spec §7.3; usability round 1). */}
+          {sidecarDown ? (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <SecondaryButton onClick={openFixture}>open demo chapter (fixture)</SecondaryButton>
+              <Faint style={{ fontSize: 11 }}>offline demo — captures are not persisted.</Faint>
+            </div>
           ) : null}
-          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
-            <SecondaryButton onClick={openFixture}>open demo chapter (fixture)</SecondaryButton>
-            <Faint style={{ fontSize: 11 }}>offline demo — captures are not persisted.</Faint>
-          </div>
         </div>
         <KeyBar keys={[{ key: "click", label: "open source" }]} right={{ key: "^p", label: "palette" }} />
       </div>
@@ -2832,12 +3374,13 @@ export function ReaderScreen({
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER</span>
-          <span
-            onClick={backToLibrary}
-            style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+          <button
+            type="button"
+            onClick={onOpenLibrary ?? backToLibrary}
+            style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
           >
-            ← library
-          </span>
+            ← Library
+          </button>
           <Meta>{sourceTitle ?? "Untitled source"}</Meta>
           {offline ? <Pill color="amber">offline demo</Pill> : null}
           {pdfView && !offline ? (
@@ -2894,8 +3437,13 @@ export function ReaderScreen({
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
           aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
-          onMouseDown={onBodyMouseDown}
+          onMouseDown={(event) => {
+            noteUserScroll();
+            onBodyMouseDown(event);
+          }}
           onMouseUp={onMouseUp}
+          onWheel={noteUserScroll}
+          onTouchMove={noteUserScroll}
           onScroll={onBodyScroll}
           className="ll-scroll"
           style={{
@@ -2955,7 +3503,7 @@ export function ReaderScreen({
               guidanceSpans={revealedGuidanceSpans}
               resumeSpan={readingSpan}
               findShortcutEnabled={railTab !== "ask"}
-              onPlaybackSpan={setReadingSpan}
+              onPlaybackSpan={onPlaybackSpan}
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
               }}
@@ -2986,6 +3534,24 @@ export function ReaderScreen({
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
             />
+          ) : null}
+          {pdfOfferSection ? (
+            // The original PDF's own section break (usability round 1, U5): the
+            // same quiet offer the text view puts between sections, held at
+            // the foot of the page while the check is open.
+            <div style={{ position: "sticky", bottom: 0, zIndex: 5, background: COLOR.bg, paddingTop: 4 }}>
+              <SectionBoundaryOffer
+                section={pdfOfferSection}
+                allowQuestion
+                onOpen={() => openQuickCheck(pdfOfferSection.id)}
+                onReveal={() => {
+                  revealSection(pdfOfferSection.id);
+                  setHiddenPdfOffers((ids) => [...new Set([...ids, pdfOfferSection.id])]);
+                  setRailTab("guide");
+                }}
+                onDismiss={() => setHiddenPdfOffers((ids) => [...new Set([...ids, pdfOfferSection.id])])}
+              />
+            </div>
           ) : null}
           {(pdfView && surface === "pdf" && !offline) || watch || watchLoading ? null : blocks.map((block, i) => {
             const isSection = (block.blockType ?? "") === "Section";
@@ -3055,7 +3621,7 @@ export function ReaderScreen({
                 <SectionBoundaryOffer
                   section={endSection}
                   allowQuestion={endQuestionAvailable}
-                  onOpen={() => setRailTab("guide")}
+                  onOpen={() => openQuickCheck(endSection.id)}
                   onReveal={() => {
                     revealSection(endSection.id);
                     setRailTab("guide");
@@ -3139,11 +3705,20 @@ export function ReaderScreen({
             guideLoading={guideLoading}
             currentGuideSection={currentGuideSection}
             currentSectionProgress={currentSectionProgress}
+            currentSectionRead={currentSectionRead}
+            sectionSeen={sectionSeen}
+            readingMoved={readingMoved}
             currentQuestionOpen={currentQuestionOpen}
             boundaryChecksAvailable={boundaryChecksAvailable}
             authoringSections={authoringSections}
+            timedOutSections={timedOutSections}
+            retryQuickCheck={retryQuickCheck}
             revealedSections={revealedSections}
             completedSections={completedSections}
+            dismissedSections={dismissedSections}
+            answeredSections={answeredSections}
+            setAnsweredSections={setAnsweredSections}
+            focusQuickCheck={focusQuickCheck}
             annotatedSpans={annotatedSpans}
             openQuestionSections={openQuestionSections}
             setDismissedSections={setDismissedSections}
@@ -3333,22 +3908,8 @@ export function ReaderScreen({
 
       <KeyBar
         keys={[
-          ...(pdfSurfaceActive
-            ? [
-                { key: "drag", label: "select text" },
-                { key: "ctrl+drag", label: "draw capture boxes" },
-                { key: "release ctrl", label: "capture box union" },
-                { key: "alt", label: "clear selection" },
-                { key: "alt+drag", label: "sweep blocks" },
-                { key: "right-click", label: "tag" },
-              ]
-            : [
-                { key: "select", label: "capture text" },
-                { key: "ctrl+drag", label: "draw capture boxes" },
-                { key: "release ctrl", label: "capture box union" },
-                { key: "alt", label: "clear selection" },
-                { key: "right-click", label: "tag" },
-              ]),
+          // In plain words (UX Phase 1 re-test #9).
+          ...readerKeyBarKeys(pdfSurfaceActive),
           // RW1a's Reader-wide keys (UX §3.5).
           ...(inquiry
             ? [
@@ -3446,7 +4007,9 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   guidanceSpans: Set<string>;
   resumeSpan: string | null;
   findShortcutEnabled: boolean;
-  onPlaybackSpan: (spanId: string | null) => void;
+  /** The cue playback is at; ``advancing`` is false for a seek's landing
+   *  and while the player is paused (only playing on is watching). */
+  onPlaybackSpan: (spanId: string | null, advancing: boolean) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
   /** RW1a: the reconnect line under the transcript passage holding this cue. */
@@ -3469,6 +4032,14 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const [followTranscript, setFollowTranscript] = useState(true);
   const [playerReady, setPlayerReady] = useState(false);
   const resumeSpanRef = useRef(resumeSpan);
+  // Whether the player is playing (YouTube's playerState 1), once it says;
+  // and until when a seek's landing (and the late reports around it) is not
+  // playback.
+  const playingRef = useRef<boolean | null>(null);
+  const seekUntilRef = useRef(0);
+  const noteSeek = useCallback(() => {
+    seekUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+  }, []);
   // ctrl/cmd+F transcript find (mirrors the PDF pane's find conventions).
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -3510,23 +4081,30 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: "llwatch", channel: "widget" }), YT_ORIGIN);
     const resumeCue = transcriptCues.find((cue) => cue.block.spanId === resumeSpanRef.current);
     if (resumeCue && resumeCue.start > 0) {
+      noteSeek();
       post("seekTo", [resumeCue.start, true]);
       setCurrentTime(resumeCue.start);
     }
     setPlayerReady(true);
-  }, [post, transcriptCues]);
+  }, [post, transcriptCues, noteSeek]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== YT_ORIGIN) return;
-      let data: { event?: string; info?: { currentTime?: number } };
+      let data: { event?: string; info?: number | { currentTime?: number; playerState?: number } };
       try {
         data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
       } catch {
         return;
       }
-      if (data?.event === "infoDelivery" && typeof data.info?.currentTime === "number") {
-        setCurrentTime(data.info.currentTime);
+      // The widget reports only what changed: the player's state when it
+      // changes (also as onStateChange), the time as it moves.
+      if (data?.event === "onStateChange" && typeof data.info === "number") {
+        playingRef.current = data.info === 1;
+      }
+      if (data?.event === "infoDelivery" && typeof data.info === "object" && data.info !== null) {
+        if (typeof data.info.playerState === "number") playingRef.current = data.info.playerState === 1;
+        if (typeof data.info.currentTime === "number") setCurrentTime(data.info.currentTime);
       }
     };
     window.addEventListener("message", onMessage);
@@ -3540,7 +4118,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   useEffect(() => {
     if (!playerReady) return;
     const spanId = activeCue?.block.spanId ?? null;
-    onPlaybackSpan(spanId);
+    onPlaybackSpan(spanId, playingRef.current !== false && Date.now() >= seekUntilRef.current);
     if (!spanId || !followTranscript) return;
     const scroller = transcriptRef.current;
     const cue = scroller?.querySelector(`[data-transcript-span="${spanId}"]`);
@@ -3573,11 +4151,12 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const seekToCue = useCallback((cue: TranscriptCue) => {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
+    noteSeek();
     post("seekTo", [cue.start, true]);
     post("playVideo");
     setFollowTranscript(true);
     onAskSpan(cue.block.spanId);
-  }, [onAskSpan, post]);
+  }, [onAskSpan, post, noteSeek]);
 
   // ── transcript find ──
   const findNeedle = findQuery.trim().toLowerCase();
@@ -3646,12 +4225,13 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     seekToSpan: (spanId: string) => {
       const cue = transcriptCues.find((c) => c.block.spanId === spanId);
       if (!cue) return false;
+      noteSeek();
       post("seekTo", [cue.start, true]);
       setCurrentTime(cue.start);
       setFollowTranscript(true);
       return true;
     },
-  }), [transcriptCues, post]);
+  }), [transcriptCues, post, noteSeek]);
 
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>

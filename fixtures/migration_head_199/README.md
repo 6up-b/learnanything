@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-197. Migration 167 adds the learner-field F1 read model
+199. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -93,11 +93,20 @@ undo; a `proposed` reword is one held for the owner's confirm) and
 save or a confirm that records the owner's manual-authority verdicts, settled
 by recovery from facets.yaml; Codex re-review 2 of the facet authority
 chokepoint, F7).
-Built as a backup-API copy of `migration_head_195` (itself a backup-API copy of
-`migration_head_186` with 187-195 applied) with only 196-197 applied through
+Migrations 198-199 come from UX Phase 1 (`ux/phase1-first-run`; built there as
+186-187 while main's chain held 181-183, and renumbered at their landing after
+main's 184-197): 198 adds `source_artifacts.keep_local` (the learner's "Keep
+this book on this computer") and the WORKFLOW table `source_auto_build_state`
+(a book's automatic-build generation, advanced by Undo, and the reading
+position a running build could not act on yet); 199 makes that position one
+durable request per book, adding `source_auto_build_state.wanted_revision`,
+`wanted_attempts` and `wanted_retry_at`.
+Built as a backup-API copy of `migration_head_197` (itself a backup-API copy of
+`migration_head_195` with only 196-197 applied, and that of
+`migration_head_186` with 187-195 applied) with only 198-199 applied through
 `learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_195` was renamed to this
+`foreign_key_check` clean); `migration_head_197` was renamed to this
 directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.

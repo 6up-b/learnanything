@@ -112,6 +112,21 @@ def plan_active(vault: Any) -> bool:
     )
 
 
+def reading_from_furthest_active(vault: Any) -> bool:
+    """The reading block continues from the furthest section read (UX Phase 1,
+    U4) wherever the plan acts, with its kill switch
+    ``plan.reading_from_furthest`` on; off, it is DL1's selection exactly, the
+    first unfinished section in book order.
+
+    A live change behind a kill switch, not a successor tag (owner ruling at
+    the UX Phase 1 merge, docs/reviews/ux-phase1.md "Landing onto main"): the
+    selection is a serving choice that replay never reads. A plan block
+    records the section it chose as workflow state (``attention_blocks``), and
+    no replayer or projection reads it back."""
+
+    return plan_active(vault) and bool(vault.config.plan.reading_from_furthest)
+
+
 def local_date(clock: Clock | None = None) -> str:
     """The plan's day: the machine's local calendar date, like the streak (D9)."""
 
@@ -659,7 +674,7 @@ def _prepare_plan(
     reading: ReadingTarget | None = None
     reading_full: float | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
-        reading = next_reading_target(env.repository)
+        reading = next_reading_target(env.repository, from_furthest=reading_from_furthest_active(env.vault))
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -2357,6 +2372,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "reading_from_furthest_active",
     "reading_ended",
     "reconcile",
     "register_plan_decision_logger",

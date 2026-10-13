@@ -9,14 +9,10 @@ import { MarkdownMath } from "../../render/MarkdownMath";
 import type { InquiryResolution } from "../../api/dto";
 import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
-import { clip, type ReaderSelection } from "./readerShared";
+import { ANSWER_MODE_OPTIONS, answerModeLabel, clip, type ReaderSelection } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
-export const ANSWER_MODE_OPTIONS = [
-  { value: "answer_directly", label: "answer directly" },
-  { value: "help_me_reason", label: "help me reason" },
-  { value: "ask_me_first", label: "ask me first" },
-];
+export { ANSWER_MODE_OPTIONS, answerModeLabel };
 
 export interface AskRailProps {
   visible: boolean;
@@ -155,8 +151,9 @@ export function AskRail({
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => {
-                  // RW1a: a keyboard path to Ask (the button promised ↵).
-                  if (inquiry && (e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  // A keyboard path to Ask (RW1a), on either rail: Enter is a
+                  // new line, ctrl+Enter sends (UX Phase 1 usability round 1, U6).
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                     e.preventDefault();
                     void ask();
                   }
@@ -164,7 +161,7 @@ export function AskRail({
                 placeholder="ask about this passage…"
                 style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
               />
-              <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up ↵" : "ask ↵"}</PrimaryButton>
+              <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up · ctrl+↵" : "ask · ctrl+↵"}</PrimaryButton>
               {inquiry ? (
                 <ModelActionState
                   phase={askPhase}
@@ -254,7 +251,8 @@ export function AskRail({
           ) : visibleAskHistory.map((exchange) => {
             const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
             return (
-              <Card key={exchange.id} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div key={exchange.id} data-ask-id={exchange.id}>
+              <Card status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
                   type="button"
                   onClick={() => setCollapsedAskIds((ids) => {
@@ -263,21 +261,23 @@ export function AskRail({
                     return next;
                   })}
                   aria-expanded={expanded}
+                  aria-label={expanded ? "hide this ask" : undefined}
                   style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", border: 0, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO, padding: 0, textAlign: "left", cursor: "pointer" }}
                 >
                   <span style={{ color: COLOR.purpleText, flexShrink: 0 }}>{expanded ? "▼" : "▶"}</span>
-                  <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>
+                  {/* The question once (UX Phase 1 usability round 2: it was
+                      printed twice): plain and clipped while collapsed --
+                      clipping mid-$ would break KaTeX -- and in full, with its
+                      maths, in the learner's voice below when open. */}
+                  {expanded ? null : <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>}
                 </button>
                 {expanded ? (
                   <>
-                    {/* Expanded question renders its LaTeX (the collapsed
-                        header stays plain text — clipping mid-$ would
-                        break KaTeX). */}
                     <LearnerVoice label="your question">
                       <MarkdownMath value={exchange.question} />
                     </LearnerVoice>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                      <Pill color="cyan">{exchange.answerMode}</Pill>
+                      <Pill color="cyan">{answerModeLabel(exchange.answerMode)}</Pill>
                       <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
                       {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
                     </div>
@@ -287,6 +287,7 @@ export function AskRail({
                   </>
                 ) : null}
               </Card>
+              </div>
             );
           })}
           <AffectTap />

@@ -722,7 +722,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 **No new tables or fields for intent.** DL2 writes commitment versions and events through the existing API; deadlines use the existing `goal_id` on commitment versions (§5.4).
 
 **Config:**
-- `[plan]`: `enabled`, `new_admission_enabled`, `reading_blocks`, `default_minutes` (25), `minutes_presets`, `repair_max_share` (0.30), `maintain_max_share` (0.60), `keep_going_minutes` (10), `load_horizon_days` (14), `load_ceiling` (0.80), `new_item_reviews_14d` (4), `max_new_items_per_day` (10), `min_new_items_per_day` (1), `latency_cap_minutes` (15), `read_words_per_minute` (120), `pre_questions` (3), `reentry_minutes` (15), `reentry_max_items` (8), `project_probes_max_per_day` (4), `headline` (true).
+- `[plan]`: `enabled`, `new_admission_enabled`, `reading_blocks`, `reading_from_furthest` (true; UX Phase 1's reading step, a live change wherever the plan acts, see §11), `default_minutes` (25), `minutes_presets`, `repair_max_share` (0.30), `maintain_max_share` (0.60), `keep_going_minutes` (10), `load_horizon_days` (14), `load_ceiling` (0.80), `new_item_reviews_14d` (4), `max_new_items_per_day` (10), `min_new_items_per_day` (1), `latency_cap_minutes` (15), `read_words_per_minute` (120), `pre_questions` (3), `reentry_minutes` (15), `reentry_max_items` (8), `project_probes_max_per_day` (4), `headline` (true).
 - `[intent]`: `enabled`, `recall_targets_enabled`, `recall_targets`.
 - `[capture]`: `enabled`, `processor_enabled`, `reader_presets_adopt`, `unverified_adoption` (true), `max_calls_per_capture` (12), `max_daily_cost_usd` (1.00), `auto_import_max_usd` (0.50), `test_me_later_days` (7).
 
@@ -745,6 +745,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 | Certification ignores attempts on unverified keys (§4.4) | `capture_reference_v1`, a projection successor (the next free version at DL3's landing) | None that re-enables certification (C3). `capture.unverified_adoption = false` stops new unverified adoptions, so the gate has nothing to act on | — (with no `unverified` attempts, projections equal the predecessor's) |
 | Reader presets through adoption | None: content path | `capture.reader_presets_adopt` | Reviewable proposals |
 | DL0's UI changes, the headline, the streak label, pre-questions | None: display and formative only | `plan.headline` (the headline only) | — |
+| The reading block continues from the furthest section read and skips front matter while a chapter is left (UX Phase 1 usability round 1, U4; added after DL1) | None: a live change behind its kill switch (owner ruling at the UX Phase 1 landing on main, `docs/reviews/ux-phase1.md` "Landing onto main": live changes behind kill switches, not successors, for serving changes replay never reads, as in the facet-locks F6 ruling). The branch built it as a placeholder successor (`docs/reviews/ux-phase1-round2-codex-review.md`, F2 and its re-review); the landing dropped the tag. No scoring, scheduling or projection change; plans already composed keep their rows, and replay never reads the selection | `plan.reading_from_furthest` | DL1's selection (mvp-0.14's): the first unfinished section in book order, front matter included |
 
 **For each successor** (`docs/algorithm-change-playbook.md`):
 - an upgrade function and a fingerprint entry;
