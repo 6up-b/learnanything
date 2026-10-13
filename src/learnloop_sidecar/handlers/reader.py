@@ -1893,11 +1893,15 @@ def _inquiry_check_job(repository, batch_id: str, root_event_id: str) -> dict[st
     ):
         return None
     error = job.get("error") or {}
+    ended = job.get("status") in ("failed", "cancelled")
+    details = (error.get("details") if isinstance(error, dict) else None) or {}
     return {
         "status": job.get("status"),
         "error_code": error.get("code") if isinstance(error, dict) else None,
-        "message": (error.get("message") if isinstance(error, dict) else None)
-        if job.get("status") in ("failed", "cancelled") else None,
+        "message": (error.get("message") if isinstance(error, dict) else None) if ended else None,
+        # Which spend refusal it was (no_price or over_cap), so the Reader
+        # names the right one (re-review F15).
+        "refusal": (details.get("refusal") if isinstance(details, dict) else None) if ended else None,
     }
 
 

@@ -45,12 +45,15 @@ from learnloop.reader.ai_contracts import (
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgment_claims import (
+    CLAIMED,
     DONE,
     HELD,
     claim_work,
     complete_claim,
     holds_claim,
+    lease_holder,
     release_claim,
+    take_over_claim,
 )
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
@@ -102,13 +105,15 @@ class ReaderQuickCheckError(ValueError):
 class PassageCheckRefused(ReaderQuickCheckError):
     """The spend framework refused the passage check before anything was sent.
 
-    ``reason`` is ``capped`` (today's checks are used) or ``spend_refused``
-    (a metered route with no owner price, or an estimate over the per-check
-    cap)."""
+    ``reason`` is ``capped`` (today's checks are used) or ``spend_refused``.
+    A ``spend_refused`` names its ``refusal`` (re-review F15): ``no_price`` (a
+    metered route with no owner price) or ``over_cap`` (the estimate is over
+    the per-check cap), so the learner is told the right one."""
 
-    def __init__(self, reason: str, message: str) -> None:
+    def __init__(self, reason: str, message: str, *, refusal: str | None = None) -> None:
         super().__init__(message)
         self.reason = reason
+        self.refusal = refusal
 
 
 class InquiryCheckHeld(ReaderQuickCheckError):
@@ -215,18 +220,33 @@ def _admitted_passage_check(
     Refused (``PassageCheckRefused``) before anything is sent when today's
     checks are used, or on a metered route without a price or over the
     per-check cap. Every receipt (owner ``PASSAGE_CHECK_RECEIPT_OWNER``) is
-    written before its request, so a failed call still counts toward the day."""
+    written before its request, so a failed call still counts toward the day.
 
-    if spend.max_checks_per_day is not None:
-        day = parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
-        used = repository.model_call_roots_since(owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, since=day)
-        if used >= spend.max_checks_per_day:
-            raise PassageCheckRefused(
-                "capped", f"Today's quick checks ({spend.max_checks_per_day}) are used."
-            )
+    The daily count is reserved atomically (re-review F2): the root receipt is
+    written in the same write transaction that counts the day's receipts, so
+    two workers (different inquiries, one slot left) can never both read
+    spare capacity and both send. The count up front is only a fast path
+    that skips building the request when the day is plainly used."""
+
+    day = parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
+    limit = spend.max_checks_per_day
+
+    def capped() -> PassageCheckRefused:
+        return PassageCheckRefused("capped", f"Today's quick checks ({limit}) are used.")
+
+    if limit is not None and repository.model_call_roots_since(
+        owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, since=day
+    ) >= limit:
+        raise capped()
     subscription = is_subscription_transport(client=client)
     planned = _estimate_tokens(reading_passage_check_prompt(context)) + spend.output_tokens
     price = spend.price_per_million
+    if price is None and not subscription:
+        raise PassageCheckRefused(
+            "spend_refused",
+            "The quick check was refused before sending: no price is set for this metered model.",
+            refusal="no_price",
+        )
     estimate = SpendEstimate(
         candidates=1, calls=1, total_tokens=planned,
         estimated_usd=(planned * price / 1_000_000) if price is not None else None,
@@ -236,11 +256,24 @@ def _admitted_passage_check(
         budget.check(estimate)
     except SpendLimitExceeded as exc:
         raise PassageCheckRefused(
-            "spend_refused", f"The quick check was refused before sending: {exc}."
+            "spend_refused", f"The quick check was refused before sending: {exc}.", refusal="over_cap",
         ) from exc
     totals: dict[str, Any] = {"input": 0, "output": 0, "cost": None, "root": None}
+    refused: list[PassageCheckRefused] = []
 
     def receipt(action: str, event: dict[str, Any]) -> None:
+        if action == "start" and event.get("parent_call_id") is None and limit is not None:
+            # Count and reserve in one write transaction: raising here stops
+            # the call before its request is sent, with no receipt written.
+            with repository.atomic():
+                if repository.model_call_roots_since(owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, since=day) >= limit:
+                    refused.append(capped())
+                    raise refused[-1]
+                repository.record_model_event(
+                    action, event, owner_kind=PASSAGE_CHECK_RECEIPT_OWNER, owner_id=owner_id
+                )
+            totals["root"] = event.get("id")
+            return
         if action == "start" and event.get("parent_call_id") is None:
             totals["root"] = event.get("id")
         if action == "finish":
@@ -275,6 +308,10 @@ def _admitted_passage_check(
                     stack.enter_context(single_request())
                     stack.enter_context(generation_limit(spend.output_tokens))
                 return request_passage_check(client, context)
+        except BaseException:
+            if refused:
+                raise refused[0] from None
+            raise
         finally:
             if not subscription:
                 reported = totals["input"] + totals["output"]
@@ -430,6 +467,7 @@ def author_inquiry_quick_check(
     clock: Clock | None = None,
     spend: PassageCheckSpend | None = None,
     owner: str | None = None,
+    owner_ended: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
     """Author + persist the reconnect line's quick check for one inquiry (RW1a).
 
@@ -437,7 +475,10 @@ def author_inquiry_quick_check(
     row is reused, a dismissed one included, and the key is claimed durably
     before the model call (``owner``: the claiming job; a live claim held by
     another owner raises ``InquiryCheckHeld`` with no call made; an expired
-    one, or the same owner's after a crash, is taken over). The row lands
+    one, or the same owner's after a crash, is taken over). A claim whose
+    owner has ended is taken over at once, before its lease runs out, when
+    ``owner_ended(holder)`` says so (re-review F13: the job that claimed it
+    is terminal, so it will never land or release it). The row lands
     only while the claim still holds, and the database refuses a second row
     for the key, so a late completion never replaces the check the learner
     saw. The call is admitted through ``spend`` first (W10; default: no
@@ -457,14 +498,25 @@ def author_inquiry_quick_check(
     key = inquiry_claim_key(inquiry_root_event_id)
 
     def claim(*, rerun: bool = False) -> tuple[str, int | None]:
+        now = utc_now_iso(clock)
         with repository.atomic():
-            return claim_work(
-                repository.connection(), claim_key=key, task=INQUIRY_CLAIM_TASK,
+            connection = repository.connection()
+            state, epoch = claim_work(
+                connection, claim_key=key, task=INQUIRY_CLAIM_TASK,
                 producer=INQUIRY_CLAIM_PRODUCER, prompt_version=INQUIRY_PROMPT_VERSION,
                 input_hash=content_key([inquiry_root_event_id, list(anchor_span_ids)]),
-                owner=owner, now=utc_now_iso(clock), lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS,
+                owner=owner, now=now, lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS,
                 rerun=rerun,
             )
+            if state == HELD and owner_ended is not None:
+                holder = lease_holder(connection, claim_key=key)
+                if holder is not None and owner_ended(holder):
+                    epoch = take_over_claim(
+                        connection, claim_key=key, from_owner=holder, owner=owner, now=now,
+                        lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS,
+                    )
+                    state = CLAIMED if epoch is not None else HELD
+            return state, epoch
 
     state, epoch = claim()
     if state == DONE:

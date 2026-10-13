@@ -400,12 +400,20 @@ def test_the_quick_check_read_reports_its_durable_jobs_state(tmp_path, monkeypat
                                        "params": {"extractionId": "ext1", "exchangeId": exchange, "batchId": batch_id}}])[1]["result"]
 
     queued = read(batch)
-    assert queued["question"] is None and queued["job"] == {"status": "queued", "errorCode": None, "message": None}
+    assert queued["question"] is None and queued["job"] == {
+        "status": "queued", "errorCode": None, "message": None, "refusal": None,
+    }
     (job,) = repo.ingest_jobs_for_batch(batch)
     repo.transition_unleased_ingest_job(job["id"], status="failed", phase="failed", message="Today's quick checks (100) are used.",
                                         error={"code": "capped", "message": "Today's quick checks (100) are used."})
     failed = read(batch)["job"]
-    assert failed["status"] == "failed" and failed["errorCode"] == "capped"
+    assert failed["status"] == "failed" and failed["errorCode"] == "capped" and failed["refusal"] is None
+    # A spend refusal names which one it was (re-review F15).
+    repo.transition_unleased_ingest_job(job["id"], status="failed", phase="failed", message="Over the cap.",
+                                        error={"code": "spend_refused", "message": "Over the cap.",
+                                               "details": {"refusal": "over_cap", "max_usd_per_check": 0.25}})
+    refused = read(batch)["job"]
+    assert refused["errorCode"] == "spend_refused" and refused["refusal"] == "over_cap"
     # Another inquiry's job is never reported here.
     assert read(other)["job"] is None
     # Without a batch the read is as before.

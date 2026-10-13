@@ -2224,15 +2224,43 @@ def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
     return RQC.passage_check_spend(vault.config, cancelled=getattr(ctx, "cancelled", None))
 
 
+# A claim another live job holds (re-review F13) is waited on, polled this
+# often, for at most as long as the Reader itself waits (200 polls of 3 s):
+# the job stays running, and ends with the holder's question, its own (when
+# the holder gave the key back or ended), or a retryable "held" failure.
+INQUIRY_HELD_POLL_SECONDS = 5.0
+INQUIRY_HELD_MAX_POLLS = 120
+# A job in one of these states will never land or release a claim it holds.
+_ENDED_JOB_STATUSES = frozenset({"completed", "failed", "cancelled", "blocked"})
+
+
+def _pause_while_inquiry_held(ctx: JobContext, seconds: float) -> None:
+    """Wait between polls of a held inquiry claim (a seam for tests)."""
+
+    threading.Event().wait(seconds)
+
+
+def _inquiry_owner_ended(repo: Repository, owner: str) -> bool:
+    """True when the claim's owner is an ingest job that has finished: it was
+    expired, failed or cancelled after claiming, so its claim is abandoned.
+    An owner that is not a job is left to its lease."""
+
+    job = repo.get_ingest_job(owner)
+    return job is not None and job.get("status") in _ENDED_JOB_STATUSES
+
+
 def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     """RW1a: author the reconnect line's quick check for one inquiry's root
     passage. Same job type, lane and client as the section check, but a paid
     call admitted through the spend framework before it is sent (W10), as an
     isolated turn, under a durable claim on (root exchange, prompt version)
     owned by this job (a re-run of the job after a crash takes it back at
-    once). A refusal fails the job with its reason as the error code
-    (``capped``, ``spend_refused``, ``provider_unavailable``), which the
-    Reader shows in place; a claim another job holds makes no call."""
+    once, and so does any job once the claiming job has ended). A refusal
+    fails the job with its reason as the error code (``capped``,
+    ``spend_refused`` with its ``refusal``, ``provider_unavailable``), which
+    the Reader shows in place. A claim another live job holds makes no call:
+    this job waits for it (still running), so it never completes without a
+    question; past the wait it fails with the retryable code ``held``."""
 
     payload = ctx.payload
     extraction_id = str(payload.get("extraction_id") or "")
@@ -2256,23 +2284,42 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     if callable(bind):
         bind(client)
     spend = _passage_check_spend(ctx)
-    try:
-        row = RQC.author_inquiry_quick_check(
-            ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
-            anchor_span_ids=anchors, clock=ctx.clock, spend=spend,
-            owner=str((getattr(ctx, "job", None) or {}).get("id") or "") or None,
-        )
-    except RQC.PassageCheckRefused as exc:
-        raise IngestRunnerError(str(exc), code=exc.reason, details={
-            "max_checks_per_day": spend.max_checks_per_day,
-            "max_usd_per_check": spend.max_usd_per_check,
-            "price_per_million": spend.price_per_million,
-        }) from exc
-    except RQC.InquiryCheckHeld:
-        return {"question_id": None, "deduplicated": True, "held": True}
-    except AIProviderUnavailable as exc:
-        raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
-    return {"question_id": row["id"], "deduplicated": False}
+    owner = str((getattr(ctx, "job", None) or {}).get("id") or "") or None
+    polls = 0
+    while True:
+        if polls:
+            ctx.report("authoring", message="Authoring a quick check for this passage")
+        try:
+            row = RQC.author_inquiry_quick_check(
+                ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
+                anchor_span_ids=anchors, clock=ctx.clock, spend=spend, owner=owner,
+                owner_ended=lambda holder: _inquiry_owner_ended(ctx.repo, holder),
+            )
+        except RQC.PassageCheckRefused as exc:
+            raise IngestRunnerError(str(exc), code=exc.reason, details={
+                "refusal": exc.refusal,
+                "max_checks_per_day": spend.max_checks_per_day,
+                "max_usd_per_check": spend.max_usd_per_check,
+                "price_per_million": spend.price_per_million,
+            }) from exc
+        except RQC.InquiryCheckHeld:
+            landed = ctx.repo.inquiry_reader_authored_question(
+                inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
+            )
+            if landed is not None:
+                return {"question_id": landed["id"], "deduplicated": True}
+            if polls >= INQUIRY_HELD_MAX_POLLS:
+                raise IngestRunnerError(
+                    "Another job is still writing this quick check.", code="held", retryable=True,
+                ) from None
+            polls += 1
+            # Heartbeats the lease and stops here if the learner cancelled.
+            ctx.report("waiting", message="Waiting for the job already writing this quick check")
+            _pause_while_inquiry_held(ctx, INQUIRY_HELD_POLL_SECONDS)
+            continue
+        except AIProviderUnavailable as exc:
+            raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+        return {"question_id": row["id"], "deduplicated": False}
 
 
 def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:

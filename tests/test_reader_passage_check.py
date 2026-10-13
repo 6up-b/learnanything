@@ -389,3 +389,174 @@ def test_a_second_request_while_one_is_live_joins_its_job(tmp_path):
     # A finished (here: cancelled) job no longer holds the key: a new request queues anew.
     jobs.cancel_batch(first)
     assert jobs.enqueue_reader_inquiry_check(extraction_id="ext1", inquiry_root_event_id="root_a", anchor_span_ids=["s1"]) != first
+
+
+# -- Codex re-review ------------------------------------------------------------------
+#
+# F2 (reopened): the daily count is reserved atomically with the receipt, so two
+# workers on different inquiries can never both read spare capacity and send.
+# F13: a claim left by a job that ended is taken over at once; a claim a live
+# job holds is waited on (the job stays running), never "completed" with no
+# question. F15: a dollar-cap refusal is not reported as a missing price.
+
+def test_concurrent_checks_on_different_inquiries_never_overrun_the_daily_count(tmp_path, monkeypatch):
+    from learnloop.db.repositories import Repository
+
+    vault, repo = _guide_setup(tmp_path)
+    roots = [_root(vault, repo, "First"), _root(vault, repo, "Second")]
+    spend = _spend(price_per_million=1.0, max_checks_per_day=1)
+    # Both workers read the day's count before either has sent (the race window).
+    barrier = threading.Barrier(2, timeout=3)
+    calls = {"n": 0}
+    lock = threading.Lock()
+    original = Repository.model_call_roots_since
+
+    def racing_count(self, **kwargs):
+        value = original(self, **kwargs)
+        with lock:
+            calls["n"] += 1
+            racing = calls["n"] <= 2
+        if racing:
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                pass
+        return value
+
+    monkeypatch.setattr(Repository, "model_call_roots_since", racing_count)
+    clients = [RecordingClient(provider_type="openai_compatible") for _ in roots]
+    outcomes: dict = {}
+
+    def worker(index):
+        try:
+            outcomes[index] = _author(repo, clients[index], roots[index], spend=spend, clock=None, owner=f"job_{index}")
+        except Exception as exc:  # noqa: BLE001 - asserted below
+            outcomes[index] = exc
+
+    threads = [threading.Thread(target=worker, args=(index,)) for index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(20)
+    assert sum(len(client.requests) for client in clients) == 1
+    assert len([r for r in _receipts(repo) if r["parent_call_id"] is None]) == 1
+    refused = [o for o in outcomes.values() if isinstance(o, RQC.PassageCheckRefused)]
+    assert len(refused) == 1 and refused[0].reason == "capped"
+    assert len(_inquiry_rows(repo)) == 1
+
+
+def _bound_jobs(repo, vault, client, clock):
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.runner import RunnerServices
+
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, vault.root, background=False, clock=clock,
+              services=RunnerServices(quick_check_client_factory=lambda ctx: client))
+    jobs._ensure_worker = lambda: None
+    return jobs
+
+
+def test_a_claim_left_by_a_crashed_job_is_taken_over_by_the_next_job_at_once(tmp_path):
+    from learnloop.db.stores.judgment_claims import claim_work
+
+    vault, repo = _guide_setup(tmp_path)
+    root = _root(vault, repo)
+    client = RecordingClient()
+    jobs = _bound_jobs(repo, vault, client, _CLOCK)
+    first = jobs.enqueue_reader_inquiry_check(extraction_id="ext1", inquiry_root_event_id=root, anchor_span_ids=["s1"])
+    # Job A starts, claims the inquiry, and its process dies mid-call.
+    running = repo.claim_next_ingest_job(worker_id="w_dead", now_iso="2026-05-19T12:00:00Z",
+                                         lease_cutoff_iso="2026-05-19T11:58:00Z")
+    (job_a,) = repo.ingest_jobs_for_batch(first)
+    assert running["id"] == job_a["id"]
+    with repo.atomic():
+        claim_work(repo.connection(), claim_key=RQC.inquiry_claim_key(root), task=RQC.INQUIRY_CLAIM_TASK,
+                   producer=RQC.INQUIRY_CLAIM_PRODUCER, prompt_version=RQC.INQUIRY_PROMPT_VERSION,
+                   input_hash="x", owner=job_a["id"], now="2026-05-19T12:00:00Z",
+                   lease_seconds=RQC.INQUIRY_CLAIM_LEASE_SECONDS)
+    # Three minutes on, the runner expires A's lease (well inside the claim's).
+    later = FrozenClock(NOW + timedelta(minutes=3))
+    runner = jobs._require_runner()
+    runner.clock = later
+    assert runner.recover_stale_leases() == [job_a["id"]]
+    assert repo.get_ingest_job(job_a["id"])["status"] == "failed"
+    # The learner presses "try again": a new job, which takes A's claim at once.
+    retry = jobs.enqueue_reader_inquiry_check(extraction_id="ext1", inquiry_root_event_id=root, anchor_span_ids=["s1"])
+    assert retry != first
+    runner.drain()
+    (job_b,) = repo.ingest_jobs_for_batch(retry)
+    assert job_b["status"] == "completed"
+    assert job_b["result"]["question_id"] is not None
+    assert len(client.requests) == 1
+    assert [row["id"] for row in _inquiry_rows(repo)] == [job_b["result"]["question_id"]]
+
+
+def test_a_check_held_by_a_live_job_waits_for_it_and_returns_its_question(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import jobs as pipeline_jobs
+    from learnloop.db.stores.judgment_claims import claim_work
+
+    vault, repo = _guide_setup(tmp_path)
+    root = _root(vault, repo)
+    with repo.atomic():  # a live worker (no job row: only its lease speaks for it) holds the key
+        claim_work(repo.connection(), claim_key=RQC.inquiry_claim_key(root), task=RQC.INQUIRY_CLAIM_TASK,
+                   producer=RQC.INQUIRY_CLAIM_PRODUCER, prompt_version=RQC.INQUIRY_PROMPT_VERSION,
+                   input_hash="x", owner="job_live", now="2026-05-19T12:00:00Z",
+                   lease_seconds=RQC.INQUIRY_CLAIM_LEASE_SECONDS)
+    landed: dict = {}
+
+    def holder_lands(ctx, seconds):
+        # While this job waits, the holder finishes and lands its check.
+        if not landed:
+            landed["row"] = _author(repo, RecordingClient(), root, owner="job_live")
+
+    monkeypatch.setattr(pipeline_jobs, "_pause_while_inquiry_held", holder_lands)
+    waiter = RecordingClient()
+    result = pipeline_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
+    assert result["question_id"] == landed["row"]["id"]
+    assert waiter.requests == []
+
+
+def test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_a_question(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import jobs as pipeline_jobs
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from learnloop.db.stores.judgment_claims import claim_work
+
+    vault, repo = _guide_setup(tmp_path)
+    root = _root(vault, repo)
+    with repo.atomic():
+        claim_work(repo.connection(), claim_key=RQC.inquiry_claim_key(root), task=RQC.INQUIRY_CLAIM_TASK,
+                   producer=RQC.INQUIRY_CLAIM_PRODUCER, prompt_version=RQC.INQUIRY_PROMPT_VERSION,
+                   input_hash="x", owner="job_live", now="2026-05-19T12:00:00Z",
+                   lease_seconds=RQC.INQUIRY_CLAIM_LEASE_SECONDS)
+    pauses: list = []
+    monkeypatch.setattr(pipeline_jobs, "INQUIRY_HELD_MAX_POLLS", 3)
+    monkeypatch.setattr(pipeline_jobs, "_pause_while_inquiry_held", lambda ctx, seconds: pauses.append(seconds))
+    waiter = RecordingClient()
+    with pytest.raises(IngestRunnerError) as raised:
+        pipeline_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
+    assert raised.value.code == "held" and raised.value.retryable is True
+    assert pauses == [pipeline_jobs.INQUIRY_HELD_POLL_SECONDS] * 3
+    assert waiter.requests == [] and _inquiry_rows(repo) == []
+
+
+@pytest.mark.parametrize("over,refusal", [
+    ({"price_per_million": None}, "no_price"),
+    ({"price_per_million": 100.0, "max_usd_per_check": 0.05}, "over_cap"),
+])
+def test_a_spend_refusal_says_whether_the_price_is_missing_or_the_check_is_over_its_cap(
+    tmp_path, monkeypatch, over, refusal,
+):
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import IngestRunnerError
+
+    vault, repo = _guide_setup(tmp_path)
+    client = RecordingClient(provider_type="openai_compatible")
+    root = _root(vault, repo)
+    with pytest.raises(RQC.PassageCheckRefused) as refused:
+        _author(repo, client, root, spend=_spend(**over))
+    assert refused.value.reason == "spend_refused" and refused.value.refusal == refusal
+    monkeypatch.setattr(jobs, "_passage_check_spend", lambda ctx: _spend(**over))
+    with pytest.raises(IngestRunnerError) as raised:
+        jobs.handle_reader_quick_check(_job_ctx(repo, vault, client, root))
+    assert raised.value.code == "spend_refused" and raised.value.details["refusal"] == refusal
+    assert client.requests == []
