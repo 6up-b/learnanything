@@ -92,11 +92,29 @@ def test_failed_attempt_actual_cost_overrun_stops_next_request():
     "candidates", "pairs", "retries", "calls", "total_tokens", "estimated_usd",
 ])
 def test_caps_and_estimates_reject_invalid_numbers(dimension, bad):
+    if dimension == "estimated_usd" and bad is None:
+        # None is a budget with no money cap (an unset per-operation cap of the
+        # source service, owner 2026-10-13; shared envelopes still bound it)
+        # and an unknown estimate: both accepted.
+        assert SpendCaps(max_estimated_usd=None).max_estimated_usd is None
+        assert SpendEstimate(estimated_usd=None).estimated_usd is None
+        return
     with pytest.raises(ValueError):
         SpendCaps(**{f"max_{dimension}": bad})
-    if not (dimension == "estimated_usd" and bad is None):
-        with pytest.raises(ValueError):
-            SpendEstimate(**{dimension: bad})
+    with pytest.raises(ValueError):
+        SpendEstimate(**{dimension: bad})
+
+
+def test_a_budget_without_a_money_cap_never_refuses_dollars_but_keeps_its_counts():
+    budget = SpendBudget(SpendCaps(max_calls=2, max_estimated_usd=None))
+    for _ in range(2):
+        with budget.request(SpendEstimate(calls=1, estimated_usd=1_000.0)):
+            pass
+    assert budget.used.estimated_usd == 2_000.0
+    with pytest.raises(SpendLimitExceeded, match="calls"):
+        budget.check(SpendEstimate(calls=1, estimated_usd=0.0))
+    with pytest.raises(SpendLimitExceeded, match="Unknown price"):
+        SpendBudget(SpendCaps(max_estimated_usd=None)).check(SpendEstimate(calls=1, estimated_usd=None))
 
 
 def test_counts_reject_fractional_values():
