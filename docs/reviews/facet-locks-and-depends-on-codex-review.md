@@ -195,3 +195,132 @@ None. Cost $0.
    stamp the hash server-side and carry a declared `facet_wording`. Should
    LO and practice-item restructures get the same treatment? That changes
    which append proposals can apply, so it was left for a successor.
+
+## Re-review
+
+Codex re-reviewed `d60b0b0a..facets/locks-and-depends-on` (through
+`f84366f1`) and the record above (job `20261013-051444-33a9sK`, source review
+and isolated in-memory checks). It confirmed F1 to F5 fixed and found one new
+High defect, F6, so the stage was reopened. F6 reproduced (first on the
+unfixed tree, then as failing tests). It is fixed in `5a6eeb54`, and the
+references are regenerated in `4f02c092`. No migration, no new RPC, no
+frontend or `src-tauri` change, and no paid call.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Library edits bypass the facet-history guarantee | fixed (confirmed by the re-review) | `1096319f` | the tests listed above |
+| F2 | Medium | Append cannot produce the facet rewords its prompt promises | fixed (confirmed by the re-review) | `1096319f` | the tests listed above; their builder now cites a span (F6) |
+| F3 | Medium | "Grading-neutral" repair also changes failure attribution | fixed (confirmed by the re-review) | `1096319f` | the tests listed above |
+| F4 | Medium | Reword undo records no owner verdict | fixed (confirmed by the re-review) | `1096319f` | the tests listed above |
+| F5 | Medium | An unchanged-meaning payload can lower the version and break undo | fixed (confirmed by the re-review) | `1096319f` | the tests listed above |
+| F6 | High | New facet restructures bypass exam-authority enforcement | fixed | `5a6eeb54` | `tests/test_facet_reword_paths.py`: `test_the_append_schema_lets_a_facet_reword_cite_its_spans`, `test_an_exam_only_facet_reword_hard_fails_the_exam_authority_gate` (schema to gate), `test_an_uncited_facet_reword_is_dropped_because_its_authority_cannot_be_judged[exam, alternate_explanation]`, `test_a_facet_reword_an_explanatory_span_corroborates_passes_the_gate`, `test_a_cited_facet_reword_records_its_spans_in_the_facets_provenance`, `test_a_facet_reword_citation_that_does_not_resolve_is_dropped_not_fatal[False, True]` |
+
+### How F6 reproduced
+
+- **The bypass, on `f84366f1`.** The setup: the bootstrap map, then an
+  appended member with role `exam`. The provider returned a facet restructure
+  of `facet_symmetry_definition` with new wording. It had no citation,
+  because the schema had no field for one. The gates produced only an
+  `adequate_provenance` review diagnostic (`blocked=False`). Accepting the
+  item rewrote the facet's claim. This is Codex's scenario. Exam units never
+  reach the model as text (`_collect_inputs` keeps them in the exam profile),
+  so an exam-driven reword arrives uncited, and `_gate_exam_authority` skips
+  an item with no provenance.
+- **The tests, on `f84366f1`'s `src/`.** All 8 new tests fail. In 7 of them,
+  `AppendReconciliation.model_validate` rejects `facet_wording.provenance`
+  with `extra_forbidden`: the wire shape could not carry a citation. The
+  schema test's assertion fails too.
+
+### What changed (`5a6eeb54`)
+
+**Wire and prompt.**
+- `AppendFacetWording.provenance: list[SynthSpanRef]` holds the provided
+  spans that support the new wording, in the shape a new facet's
+  `provenance` uses. A strict-schema provider can fill it.
+- Prompt rule 6 asks for these citations and says that an uncited reword is
+  dropped. Rule 7 (exam material must not modify a canonical claim) is
+  unchanged.
+
+**Normalization.** `source_append._facet_reword` replaces
+`_facet_restructure_payload`.
+- **A citation that does not resolve is dropped.** It uses the same checks
+  as the `provenance_link` lane (`_span_problem`: extraction run in the
+  source set, span resolves, unit valid). It produces a `facet_restructure`
+  review diagnostic and never hard-fails the paid run.
+- **A reword left with no citation is dropped,** with a `facet_restructure`
+  review diagnostic. The diagnostic points the owner to the Library
+  reword. Keeping an uncited reword as an `adequate_provenance` review was
+  the bypass: its authority cannot be judged.
+- **Roles come from the extraction run** (`_span_refs`, `span_origin`). The
+  model's `role` is never used.
+- **The resolved citations ride on the `GateItem`.** Exam-only support is an
+  `exam_authority` hard-fail, exactly as for a new facet (§8.7: "hard-fail
+  unless explicit manual authority"). Exam plus an explanatory span is
+  corroborated and passes. Support with no semantic-authority role at all
+  (`problem_set`, `notes`, an `exercise` relation) is an
+  `adequate_provenance` review, as for a new facet.
+
+**Persistence.**
+- The citations are added to the facet's `provenance` snapshot in the
+  proposal payload. The existing refs and the origin are kept, and
+  duplicates are skipped. The apply writes the snapshot to `facets.yaml` and
+  links the new spans in `entity_source_links` (the standard
+  `_entity_source_link_rows` path).
+- An exam citation is recorded as `assessment_alignment`, never as semantic
+  support (§9.3 keeps the two apart).
+- The reword's undo restores the old snapshot along with the old wording
+  (tested).
+
+**Manual authority.** For a facet, the explicit and audited override is the
+owner's own reword in the Library (F1). That writes a `reword` action with
+judge `owner` and `detail.via = "library"`, and it is versioned and
+undoable. Nothing in the append lane sets `manual_authority`.
+
+**Docs.**
+- Spec §8.7: "adequate provenance" now covers a reworded facet.
+- Spec §10.3 describes the cited reword.
+- The append prompt versions keep their `mvp-0.10-*` names. As before, both
+  were introduced on this unmerged branch.
+- `4f02c092` regenerates the references. The config reference cites
+  `source_append.py:376` for `ingest.bootstrap_practice_items`, and the new
+  imports shifted it to `:382`. Everything else in that commit is the
+  `source_commit` stamp.
+
+### Residual limits (pre-existing, not changed here)
+
+- **Unit role overrides.** A citation's role is its member's `default_role`
+  (`span_origin` is per extraction run). A unit-level `role_override` is not
+  seen by `_span_refs`. This applies to every new facet and LO citation too.
+  It is pre-existing and shared, so it is left for a successor.
+- **Links after an undo.** After a reword undo, the `entity_source_links` row
+  the reword added stays. That table is a raw ledger, and no proposal revert
+  removes links.
+- **LO and practice-item restructures** still carry no citations. They cannot
+  apply anyway; see open question 1 (their target hash is never stamped).
+
+### Re-review gate
+
+Run on `4f02c092` (the fix and reference commits; only this file changed
+after them), 2026-10-13, with `TMPDIR` set to the worktree's
+`fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (163 packages resolved) |
+| `uv run lint-imports --no-cache` | 15 contracts kept, 0 broken |
+| Bypass reproduction on `f84366f1` (scratch test, exam-role member, uncited reword) | diagnostics `[adequate_provenance: review]`, not blocked; accepting it rewrote the claim. On `5a6eeb54` the same scenario gives `[facet_restructure: review]` and persists no facet update |
+| `tests/test_facet_reword_paths.py` against `f84366f1`'s `source_append.py` and `ai_contracts.py` | 12 failed, 13 passed: the 8 new F6 tests, plus the 4 F2 append tests whose shared builder now carries a citation the old wire shape rejects (`extra_forbidden`) |
+| Targeted: `test_facet_reword_paths.py` | 25 passed |
+| Append-adjacent: `test_codex_output_schema.py`, `test_facet_identity_ingest.py`, `test_ingest_instrument_gates.py`, `test_openai_chat_client.py`, `test_structured_transport_parity.py`, `test_source_append.py`, `test_facet_rewords.py`, `test_synthesis_gates.py` | 411 passed |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8981 passed**, 0 failed, 0 skipped (359 s); 8973 before plus the 8 new tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **95 passed**, 8886 deselected (123 s) |
+| `db_generate_reference.py` | one content change (the `source_append.py:382` citation) plus the `source_commit` stamps, committed in `4f02c092` |
+| `db_validate_reference.py` | ok, `errors: []`, schema head 188 |
+| `module_validate.py` | ok (wikilinks 14712/14712, source/test links 11795/11795) |
+| Frontend, `src-tauri`, schema | unchanged by the fix (no npm, cargo or migration step needed) |
+
+### Paid calls (re-review)
+
+None. Cost $0.
