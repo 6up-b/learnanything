@@ -281,6 +281,49 @@ def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: s
     raise ValueError("That exercise was not proposed by this proposal")
 
 
+def interactive_import_request(vault: LoadedVault, repository: Repository, proposal_id: str,
+                               entry: Mapping[str, Any], *, estimator: Any | None = None) -> dict[str, Any]:
+    """What a learner's pick of a textbook exercise was proposed for, as plain
+    data the import job validates the authored draft against (Codex re-review F7).
+
+    The proposal's own constraints and intent (its receipt), the estimator's
+    minutes per practice mode when the request bounded minutes (the job cannot
+    import the plan's estimator), and, for a ``discriminate`` proposal, the
+    exercise's persisted screen, whose profiles and rubric links the item
+    gets (§8.4). A learner's pick is written whatever the validation says
+    (learner authority); a failed validation is the correction shown, and the
+    item is then served as practice, never as an independent check."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = stored_proposal(connection, proposal_id) or {}
+    constraints = dict(found.get("constraints") or {})
+    intent = str(found.get("intent") or constraints.get("intent") or "practice")
+    request: dict[str, Any] = {"constraints": constraints, "intent": intent,
+                               "provisional": dict(entry.get("provisional") or {})}
+    if constraints.get("max_estimated_minutes") is not None and estimator is not None:
+        from learnloop.practice_index.retrieval import practice_modes
+
+        minutes = {}
+        for mode in practice_modes(vault):
+            try:
+                estimate = estimator(str(entry.get("key") or ""), mode, None)
+            except Exception:  # noqa: BLE001 - a mode with no estimate fails the bound, never passes it
+                continue
+            minutes[mode] = float(getattr(estimate, "minutes", estimate))
+        request["minutes_by_mode"] = minutes
+    if intent == "discriminate":
+        from learnloop.instructional.screen import persisted_screen
+
+        for section in (found.get("valuation") or {}).get("problems") or ():
+            for group in (section.get("groups") or {}).values():
+                for candidate in group:
+                    if candidate.get("ref") == entry.get("key") and candidate.get("screen_judgment_id"):
+                        screen = persisted_screen(repository, str(candidate["screen_judgment_id"]))
+                        if screen is not None:
+                            request["screen"] = screen
+    return request
+
+
 def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Mapping[str, Any],
                          clock: Clock | None = None) -> str:
     """The ``practised`` usage verdict for a picked textbook exercise (idempotent).
@@ -305,21 +348,47 @@ def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Map
 
 
 def imported_exercise_selection(repository: Repository, *, proposal_id: str, import_id: str,
-                                practice_item_id: str) -> dict[str, Any]:
+                                practice_item_id: str, vault: LoadedVault | None = None,
+                                clock: Clock | None = None) -> dict[str, Any]:
     """The selection behind serving an imported textbook exercise: its import
-    must have come from this proposal and written this item (ValueError)."""
+    must have come from this proposal and written this item (ValueError).
+
+    A pick of a ``discriminate`` or ``retention`` proposal is re-checked at
+    serving exactly as an existing item's is (§5.4; Codex re-review F7): the
+    impression made by the originating proposal does not count against it,
+    anything else since does. A draft that failed its validation against the
+    proposal (§8.1) is served as practice too, with its correction."""
 
     from learnloop.db.stores.source_service import import_row
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = import_row(connection, import_id)
+        found = stored_proposal(connection, proposal_id)
     if row is None or row.get("proposal_id") != proposal_id:
         raise ValueError("That import did not come from this proposal")
     if row.get("status") != "written" or row.get("practice_item_id") != practice_item_id:
         raise ValueError("That import has not written this item")
     entry = proposed_exercise(repository, proposal_id, str(row["extraction_id"]), list(row.get("span_ids") or ()))
-    return {"proposal_id": proposal_id, "practice_item_id": practice_item_id, "signal": "practised",
-            "import_id": import_id, "exercise": entry}
+    result: dict[str, Any] = {"proposal_id": proposal_id, "practice_item_id": practice_item_id,
+                              "signal": "practised", "import_id": import_id, "exercise": entry}
+    intent = (found or {}).get("intent")
+    validation = dict(row.get("validation") or {})
+    if vault is not None and intent in ("discriminate", "retention"):
+        from learnloop.instructional.exposure import independent_check_eligibility
+
+        verdict = independent_check_eligibility(vault, repository, {"practice_item_id": practice_item_id},
+                                                intent=intent, picked_proposal_id=proposal_id, clock=clock)
+        if validation.get("ok") is False:
+            verdict = {**verdict, "eligible": False,
+                       "reasons": [*verdict.get("reasons", []), "failed_validation"],
+                       "practice_label": validation.get("correction") or validation.get("reason")}
+        result["independence"] = verdict
+        result["served_as"] = "independent_check" if verdict["eligible"] else "practice"
+        if not verdict["eligible"]:
+            result["label"] = verdict.get("practice_label") or "you've seen this question since it was suggested"
+    if validation.get("correction"):
+        result["correction"] = validation["correction"]
+    return result
 
 
 __all__ = [
@@ -330,6 +399,7 @@ __all__ = [
     "record_proposal_impressions",
     "proposed_exercise",
     "imported_exercise_selection",
+    "interactive_import_request",
     "record_exercise_pick",
     "record_proposal_delivery",
     "record_proposal_pick",

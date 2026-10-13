@@ -82,7 +82,8 @@ def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExercise
     from learnloop.db.stores.source_service import insert_import
     from learnloop.ids import new_ulid
     from learnloop.clock import utc_now_iso
-    from learnloop.instructional.practice import proposed_exercise, record_exercise_pick
+    from learnloop.instructional.practice import interactive_import_request, proposed_exercise, record_exercise_pick
+    from learnloop_sidecar.handlers.practice_index import plan_minutes_estimator
 
     vault, repository = ctx.require_vault()
     service = vault.config.source_service
@@ -99,9 +100,13 @@ def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExercise
                       proposal_id=params.proposal_id, source_id=entry.get("source_id"),
                       revision_id=entry.get("revision_id"), label=entry.get("label"))
     record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry)
+    # What the exercise was proposed for travels with the job, so the authored
+    # draft is validated against it and its correction returned (re-review F7).
+    request = interactive_import_request(vault, repository, params.proposal_id, entry,
+                                         estimator=plan_minutes_estimator(vault, repository))
     batch_id = ctx.ingest_jobs.enqueue_source_exercise_import(
         import_id=import_id, extraction_id=params.extraction_id, span_ids=list(params.span_ids),
-        proposal_id=params.proposal_id, label=entry.get("label"),
+        proposal_id=params.proposal_id, label=entry.get("label"), request=request,
     )
     return versioned({"status": "queued", "import_id": import_id, "batch_id": batch_id})
 

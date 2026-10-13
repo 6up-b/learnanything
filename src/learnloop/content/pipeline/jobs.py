@@ -2317,6 +2317,18 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("source_exercise_import needs extraction_id and span_ids.")
     vault = load_vault(ctx.vault_root)
     ctx.report("authoring", message="Importing the textbook exercise and checking its answer key")
+    request = dict(payload.get("request") or {})
+    validate = None
+    if request:
+        # The draft is validated against what the exercise was proposed for
+        # (§8.1; Codex re-review F7): a learner's pick is written whatever it
+        # says, and a failure is the correction shown on screen.
+        from learnloop.content.authoring.draft_validation import draft_validator
+
+        minutes = dict(request.get("minutes_by_mode") or {})
+        validate = draft_validator(
+            vault, dict(request.get("constraints") or {}), intent=str(request.get("intent") or "practice"),
+            estimator=(lambda _item_id, mode, _expected: minutes.get(str(mode))) if minutes else None)
     result = SEI.import_source_exercise(
         ctx.vault_root, ctx.repo, extraction_id=extraction_id, span_ids=span_ids,
         caller=str(payload.get("caller") or "learner"), proposal_id=payload.get("proposal_id"),
@@ -2324,6 +2336,7 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
         time_box_seconds=float(vault.config.source_service.verify_timeout_seconds),
         import_id=payload.get("import_id"), label=payload.get("label"),
         learning_object_hint=payload.get("learning_object_hint"), clock=ctx.clock,
+        validate=validate, screen=request.get("screen"),
     )
     if result.get("status") != "written":
         raise IngestRunnerError(str(result.get("reason") or "the exercise could not be imported"),
@@ -3060,11 +3073,14 @@ class DurableIngestJobs:
         proposal_id: str | None = None,
         label: str | None = None,
         learning_object_hint: str | None = None,
+        request: dict[str, Any] | None = None,
     ) -> str:
         """Enqueue the import of a picked textbook exercise (canonical sources S1).
 
         Interactive priority on the main single-writer lane, like the Reader's
-        exercise import: the handler writes vault YAML."""
+        exercise import: the handler writes vault YAML. ``request`` is what the
+        exercise was proposed for (plain data: the proposal's constraints and
+        intent, minutes per practice mode, a discriminate proposal's screen)."""
 
         runner = self._require_runner()
         batch_id = runner.enqueue_batch(
@@ -3072,7 +3088,7 @@ class DurableIngestJobs:
             [JobSpec("source_exercise_import", {
                 "import_id": import_id, "extraction_id": extraction_id, "span_ids": list(span_ids),
                 "proposal_id": proposal_id, "label": label, "learning_object_hint": learning_object_hint,
-                "caller": "learner",
+                "caller": "learner", "request": dict(request or {}),
             })],
             priority=QUICK_ADD_PRIORITY,
         )

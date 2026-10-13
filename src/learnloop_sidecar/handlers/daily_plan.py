@@ -318,7 +318,7 @@ def _proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> di
             # The exercise's usage verdict was recorded when it was picked for import.
             return imported_exercise_selection(repository, proposal_id=str(params.proposal_id),
                                                import_id=params.source_exercise_import_id,
-                                               practice_item_id=params.practice_item_id)
+                                               practice_item_id=params.practice_item_id, vault=vault)
         return record_proposal_selection(repository, proposal_id=str(params.proposal_id),
                                          practice_item_id=params.practice_item_id, vault=vault)
     except ValueError as exc:

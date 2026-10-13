@@ -106,6 +106,15 @@ def find_practice_rpc(ctx: SidecarContext, params: FindPracticeRpcInput) -> dict
     return versioned(result)
 
 
+def plan_minutes_estimator(vault: Any, repository: Any) -> Any:
+    """The daily plan's minutes estimator, built by the adapter (the service never imports the plan)."""
+
+    from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+
+    evidence = load_duration_evidence(repository, latency_cap_minutes=vault.config.plan.latency_cap_minutes)
+    return Estimator(evidence, read_words_per_minute=vault.config.plan.read_words_per_minute).estimate
+
+
 def _injected(vault: Any, repository: Any = None) -> dict[str, Any]:
     """The service's arms and valuer, injected (practice_index never imports them),
     with the daily plan's minutes estimator built here (the service never imports
@@ -113,12 +122,7 @@ def _injected(vault: Any, repository: Any = None) -> dict[str, Any]:
 
     from learnloop.instructional.wiring import find_practice_injections
 
-    estimator = None
-    if repository is not None:
-        from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
-
-        evidence = load_duration_evidence(repository, latency_cap_minutes=vault.config.plan.latency_cap_minutes)
-        estimator = Estimator(evidence, read_words_per_minute=vault.config.plan.read_words_per_minute).estimate
+    estimator = plan_minutes_estimator(vault, repository) if repository is not None else None
     return find_practice_injections(vault, estimator=estimator)
 
 

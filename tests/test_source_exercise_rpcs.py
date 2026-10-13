@@ -10,7 +10,7 @@ from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.instructional.exercises import exercise_candidates
 from learnloop.practice_index.retrieval import find_practice
 from learnloop.practice_index.usage import USAGE_TASK
-from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, call, loaded
+from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, call, loaded, service_clients
 
 
 def _proposal(paths, repository):
@@ -113,3 +113,93 @@ def test_a_harvest_says_why_picked_exercises_were_not_imported(tmp_path):
     assert skipped["failed_filters"]["failed_unknown"] >= 1
     assert skipped["reason"].startswith("no exercise passed the exact filters")
     assert "failed_unknown" in skipped["reason"]
+
+
+def _proposal_row(repository, *, proposal_id, constraints, intent, exercise, caller="tutor"):
+    from learnloop.db.stores.practice_index import insert_proposal
+
+    with repository.connection() as connection:
+        insert_proposal(connection, id=proposal_id, created_at="2026-10-12T08:59:00Z", origin="rpc",
+                        query_id="q", query_text="eigenvalues", constraints=constraints, path="direct",
+                        path_reason="test", signals={}, reranked=True, rerank_status="reranked",
+                        rerank_model=None, proposed=[{**exercise, "rank": 1}], exclusions={}, manifest={},
+                        algorithm_version="mvp-0.16", caller=caller, caller_ref="qe_1", intent=intent)
+
+
+def _run_import_job(paths, repository, queued, llm):
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import JobContext, RunnerServices
+
+    ctx = JobContext(repo=repository, vault_root=paths.root,
+                     job={"id": "job_1", "attempt_count": 1, "payload": {**queued, "caller": "learner"}},
+                     clock=None, worker_id="w",
+                     services=RunnerServices(exercise_import_client_factory=lambda ctx: llm,
+                                             background_key_checks=False))
+    ctx.report = lambda *args, **kwargs: None  # type: ignore[method-assign]
+    return jobs.handle_source_exercise_import(ctx)
+
+
+def test_an_interactive_import_is_validated_against_its_proposal_and_corrected(tmp_path, monkeypatch):
+    """Codex re-review F7: the import job had no validator, so a draft that
+    turned out to practise another facet (or to take longer) than the proposal
+    claimed was written with no correction. The job now rehydrates the
+    proposal's constraints; a learner's pick is still written, with the claim
+    corrected."""
+
+    from learnloop.db.stores.source_service import import_row
+    from learnloop.instructional.exercises import exercise_key
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    span = spans["exercises"][1]  # "1. An eigenvalue t satisfies 3t + 5 = 20 ..."
+    exercise = {"kind": "source_exercise", "key": exercise_key("ext_text", [span]), "extraction_id": "ext_text",
+                "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
+                "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
+                "rationale": "fits", "provisional": {"facets": ["facet_determinant"], "practice_mode": "short_answer"}}
+    _proposal_row(repository, proposal_id="pp_pick", constraints={"facet_ids": ["facet_determinant"]},
+                  intent="practice", exercise=exercise)
+    queued = {}
+    monkeypatch.setattr(DurableIngestJobs, "enqueue_source_exercise_import",
+                        lambda self, **kwargs: queued.update(kwargs) or "batch_1")
+    response = call(paths.root, "import_source_exercise", {"proposalId": "pp_pick", "extractionId": "ext_text",
+                                                           "spanIds": [span]})
+    import_id = response["result"]["importId"]
+    assert queued["request"]["constraints"] == {"facet_ids": ["facet_determinant"]}
+    result = _run_import_job(paths, repository, queued, FakeServiceLLM())
+    assert result["status"] == "written"  # learner authority
+    with repository.connection() as connection:
+        row = import_row(connection, import_id)
+    validation = row["validation"]
+    assert validation["checked"] is True and validation["ok"] is False, validation
+    assert validation["correction"].startswith("this exercise turned out to practise")
+    assert "facet_determinant" in validation["correction"]
+    status = call(paths.root, "get_source_exercise_import", {"importId": import_id})["result"]
+    assert status["validation"]["correction"] == validation["correction"]
+
+
+def test_an_imported_exercise_is_rechecked_for_independence_when_served(tmp_path):
+    """Codex re-review F7: serving an imported exercise from a discriminate
+    proposal checked only the import's ownership and status, bypassing the
+    serve-time independence recheck every existing item gets."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from learnloop.instructional.exercises import exercise_key
+    from learnloop.instructional.practice import imported_exercise_selection
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    span = spans["exercises"][1]
+    exercise = {"kind": "source_exercise", "key": exercise_key("ext_text", [span]), "extraction_id": "ext_text",
+                "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
+                "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
+                "rationale": "fits", "provisional": {}}
+    _proposal_row(repository, proposal_id="pp_disc", constraints={}, intent="discriminate", exercise=exercise)
+    written = SEI.import_source_exercise(paths.root, repository, extraction_id="ext_text", span_ids=[span],
+                                         caller="learner", proposal_id="pp_disc", clients=service_clients(FakeServiceLLM()))
+    assert written["status"] == "written"
+    # The learner read the exercise's own source text since it was proposed.
+    repository.insert_source_exposure_event({"context": "reader", "extraction_id": "ext_text", "span_id": span,
+                                             "source_id": "src_text"})
+    selection = imported_exercise_selection(repository, proposal_id="pp_disc", import_id=written["import_id"],
+                                            practice_item_id=written["practice_item_id"], vault=loaded(paths))
+    assert selection["served_as"] == "practice"
+    assert "source_exposed" in selection["independence"]["reasons"]
+    assert selection["label"] == "you've seen this question since it was suggested"
