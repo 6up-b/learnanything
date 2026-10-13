@@ -257,6 +257,9 @@ def _metered(root, price):
 def test_an_expensive_build_pauses_once_with_one_line(tmp_path):
     root = fresh_library(tmp_path)
     authoring = _metered(root, 400_000.0)
+    # The threshold's pause alone: the daily guard (5.00 by default since the
+    # owner's 2026-10-13 caps direction) is raised out of the way.
+    set_config(root, {("ingest", "cost_pause", "daily_cap_usd"): 1_000_000_000.0})
     repo, jobs = _jobs(root, fake_services(authoring))
     item = _add(root, jobs, write_book(tmp_path))
     outcome = latest_auto_outcome(repo, item["source_id"])

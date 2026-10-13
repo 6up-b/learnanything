@@ -512,7 +512,9 @@ class MeteredRequestGate:
     reported. A request is admitted only when what this unit has spent, plus
     what requests still in flight reserved, plus this request's estimate (its
     input at ~4 characters a token plus its output ceiling, at the route's
-    price) stays within ``limit_usd``. Reported usage replaces a reservation
+    price) stays within ``limit_usd`` (``None``: no money limit, for work under
+    no cap; spend is still settled and ``cancelled`` still consulted). Reported
+    usage replaces a reservation
     (the provider's cost, else its tokens at the price); a request that
     reported nothing keeps its whole reservation. A request is therefore
     never sent when it could take the unit past its limit, as long as a
@@ -533,17 +535,18 @@ class MeteredRequestGate:
     def __init__(
         self,
         *,
-        limit_usd: float,
+        limit_usd: float | None,
         price_per_token: Callable[[str | None], float | None],
         is_subscription: Callable[[Any], bool],
         default_output_tokens: int = 0,
         spent_before_usd: float = 0.0,
         cancelled: Callable[[], bool] | None = None,
     ) -> None:
-        _money("limit_usd", limit_usd)
+        if limit_usd is not None:
+            _money("limit_usd", limit_usd)
         _money("spent_before_usd", spent_before_usd)
         _count("default_output_tokens", default_output_tokens)
-        self._limit = Decimal(str(limit_usd))
+        self._limit = None if limit_usd is None else Decimal(str(limit_usd))
         self._price = price_per_token
         self._is_subscription = is_subscription
         self._default_output = default_output_tokens
@@ -562,8 +565,8 @@ class MeteredRequestGate:
             return float(self._spent)
 
     @property
-    def limit_usd(self) -> float:
-        return float(self._limit)
+    def limit_usd(self) -> float | None:
+        return None if self._limit is None else float(self._limit)
 
     def estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int:
         """Input (from the request's text) plus the output ceiling."""
@@ -601,6 +604,8 @@ class MeteredRequestGate:
         provider = getattr(client, "provider_name", None)
         price = self._price(provider)
         if price is None:
+            if self._limit is None:
+                return None  # no limit to price against: nothing to admit or settle
             with self._lock:
                 self.refusal = {"reason": "unknown_price", "provider": provider, "purpose": purpose}
             raise SpendLimitExceeded("Unknown price: supply an explicit finite owner price estimate")
@@ -609,7 +614,7 @@ class MeteredRequestGate:
         usd = Decimal(str(tokens * price))
         with self._lock:
             committed = self._spent + sum(self._in_flight.values(), Decimal(0))
-            if committed + usd > self._limit:
+            if self._limit is not None and committed + usd > self._limit:
                 self.refusal = {
                     "reason": "limit", "provider": provider, "purpose": purpose,
                     "request_estimate_usd": round(float(usd), 6), "committed_usd": round(float(committed), 6),

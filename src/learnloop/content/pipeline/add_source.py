@@ -565,24 +565,29 @@ def default_authoring_route(ctx) -> AuthoringRoute:
     return authoring_route_for(vault.root, vault.config)
 
 
-# -- Money (Q5; review F2) ----------------------------------------------------
+# -- Money (Q5; review F2; the owner's 2026-10-13 caps direction) -------------
 #
 # Two different things, kept apart:
 # * a *confirmation threshold* (``threshold_usd``, ``daily_cap_fraction``): an
 #   automatic build above it asks first ("would cost about $3.10 · Build them"),
 #   and the learner's "Build them" passes it once;
-# * *enforceable limits*: the build's authorization (what the learner allowed,
-#   with headroom for the estimate) and ``daily_cap_usd``. "Build them" never
-#   passes the daily cap. Every paid job of an automatic build is admitted
-#   through ``learnloop.ai.spend.SpendBudget`` against what is left of both,
-#   priced at the route resolved when the job runs (a runtime fallback is
-#   priced as itself) and counted from the receipts of every attempt.
+# * the *daily guard* ``daily_cap_usd`` (5.00), the one enforceable limit.
+#   "Build them" never passes it. Every paid job of an automatic build is
+#   admitted through ``learnloop.ai.spend.SpendBudget`` against what is left of
+#   it today, priced at the route resolved when the job runs (a runtime
+#   fallback is priced as itself) and counted from the receipts of every
+#   attempt, and so is every physical request inside the job.
+# No per-operation money cap by default (owner, 2026-10-13, applied to
+# automatic book preparation when UX Phase 1 landed on main): the branch's
+# per-build authorization (the estimate with headroom, or the threshold) is
+# no longer a limit. Caps sized from estimates refused ordinary work; spend is
+# observed in real use instead (the receipts, and the dry run's
+# ``daily_remaining_usd``), and the provider key's own limit is the hard
+# backstop. A build planned earlier with a recorded authorization keeps it.
 # Spending is counted from ``model_call_receipts`` (every model call LearnLoop
 # makes, whatever started it), not from planner estimates. Subscription routes
 # (Codex, the ChatGPT plan) are never paused or capped (Slice A §5 rule 6);
 # their estimate is kept in tokens, ``cost_basis = estimated_only``.
-
-AUTHORIZATION_HEADROOM = 1.25
 
 
 def _price_per_million(config, provider_name: str | None) -> float:
@@ -738,13 +743,9 @@ def decide_cost(config, repo, provider_name: str, totals: Mapping[str, Any], *,
         if reason is not None:
             return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, pause=reason,
                                 daily_remaining_usd=remaining)
-    threshold = float(pause_config.threshold_usd)
-    # A silent build may spend up to the standing "runs without asking" amount;
-    # an approved one what the learner approved, with headroom for the estimate.
-    authorized = max(usd * AUTHORIZATION_HEADROOM, threshold) if approved else max(threshold, usd)
-    if remaining is not None:
-        authorized = min(authorized, remaining)
-    return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, authorized_usd=authorized,
+    # No per-operation cap (owner, 2026-10-13): the build may spend what the
+    # daily guard leaves, checked again before every job and request.
+    return CostDecision(subscription=False, tokens=tokens, estimate_usd=usd, authorized_usd=None,
                         daily_remaining_usd=remaining)
 
 
@@ -804,13 +805,13 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
         daily_left = max(float(cap) - today, 0.0)
         if limit is None or daily_left < limit:
             limit, reason = daily_left, "daily_cap"
-    if limit is None:
-        # Planned before this rule, or on the subscription (no authorization
-        # recorded): the standing "runs without asking" amount.
-        limit = float(config.ingest.cost_pause.threshold_usd)
-    details = {"reason": reason, "provider": route.provider, "limit_usd": round(limit, 4),
+    # limit None: no per-operation cap and no daily guard set (owner,
+    # 2026-10-13): nothing limits the money, and the gate below still stops
+    # a cancelled build's requests and settles what each one cost.
+    details = {"reason": reason if limit is not None else None, "provider": route.provider,
+               "limit_usd": None if limit is None else round(limit, 4),
                "spent_by_build_usd": round(spent_build, 4)}
-    if not is_subscription_route(config, route.provider):
+    if limit is not None and not is_subscription_route(config, route.provider):
         usd = tokens * _price_per_million(config, route.provider) / 1_000_000
         budget = SpendBudget(
             SpendCaps(max_candidates=10**9, max_pairs=10**9, max_retries=10**9, max_calls=10**9,
@@ -840,7 +841,7 @@ def _request_output_ceiling(config, job_type: str) -> int:
                int(budgets.append_output_tokens))
 
 
-def _request_gate(config, limit_usd: float, default_output_tokens: int, *, cancelled=None):
+def _request_gate(config, limit_usd: float | None, default_output_tokens: int, *, cancelled=None):
     from learnloop.ai.spend import MeteredRequestGate, is_subscription_transport
 
     return MeteredRequestGate(

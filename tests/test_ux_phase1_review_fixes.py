@@ -258,6 +258,12 @@ def test_f1_book_details_can_keep_a_book_local_and_let_it_go_again(tmp_path):
 
 # ---------------------------------------------------------------------------
 # F2 [High] Money: a confirmation threshold, enforceable limits, real spending
+#
+# At the landing on main the owner's 2026-10-13 caps direction applied: no
+# per-operation (per-build) money cap by default, a daily guard
+# (ingest.cost_pause.daily_cap_usd, 5.00), spend observed. The enforceable
+# limit these tests drive is the daily guard; the branch's per-build
+# authorization is no longer one.
 # ---------------------------------------------------------------------------
 
 
@@ -297,7 +303,8 @@ def test_f2_todays_spending_is_what_model_calls_cost_not_planner_estimates(tmp_p
 
 
 def test_f2_each_paid_job_is_admitted_at_the_route_it_really_uses(tmp_path):
-    """A runtime fallback to a pricier route is priced as itself."""
+    """A runtime fallback to a pricier route is priced as itself (against the
+    daily guard: there is no per-build cap)."""
 
     root = fresh_library(tmp_path)
     cheap = _metered(root, 0.01)
@@ -316,9 +323,33 @@ def test_f2_each_paid_job_is_admitted_at_the_route_it_really_uses(tmp_path):
     inventory = next(job for job in repo.ingest_jobs_for_batch(build["id"]) if job["job_type"] == "inventory")
     assert inventory["error"]["code"] == "spend_paused"
     assert inventory["error"]["details"]["provider"] == "openrouter_pricey"
+    assert inventory["error"]["details"]["reason"] == "daily_cap"
     line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Questions for Ch. 1–2 would cost more than expected"
-    assert line["action"] == {"kind": "build_now", "label": "Build them"}
+    assert line["text"] == "Paused — today's AI budget is used"
+    assert line["action"] == {"kind": "open_settings", "label": "Raise it"}
+
+
+def test_f2_no_per_build_cap_by_default(tmp_path):
+    """The owner's 2026-10-13 caps direction: a build has no money cap of its
+    own (only the daily guard), and a silent one is not held to the threshold."""
+
+    root = fresh_library(tmp_path)
+    authoring = _metered(root, 0.01)
+    calls = Calls()
+    repo, jobs = _jobs(root, fake_services(authoring, calls=calls), hold=True)
+    item = _add(root, jobs, write_book(tmp_path))
+    _drain(jobs, max_jobs=2)
+    outcome = latest_auto_outcome(repo, item["source_id"])
+    assert outcome["outcome"] == "building" and outcome["authorized_usd"] is None
+    inventory = next(job for job in repo.ingest_jobs_for_batch(outcome["build_batch_id"])
+                     if job["job_type"] == "inventory")
+    # An earlier attempt already spent more than the threshold's "runs
+    # without asking" amount, still well inside today's guard: it runs again.
+    _receipt(repo, provider="openrouter", cost=float(load_vault(root).config.ingest.cost_pause.threshold_usd) + 0.5,
+             owner_kind="ingest_job", owner_id=inventory["id"])
+    _drain(jobs)
+    assert calls.inventory_calls >= 1
+    assert repo.get_ingest_job(inventory["id"])["error"] is None
 
 
 def test_f2_a_retry_is_admitted_against_what_the_build_already_spent(tmp_path):
@@ -331,19 +362,22 @@ def test_f2_a_retry_is_admitted_against_what_the_build_already_spent(tmp_path):
     outcome = latest_auto_outcome(repo, item["source_id"])
     inventory = next(job for job in repo.ingest_jobs_for_batch(outcome["build_batch_id"])
                      if job["job_type"] == "inventory")
-    # An earlier attempt of this job already spent past the authorization.
-    _receipt(repo, provider="openrouter", cost=outcome["authorized_usd"] + 0.5,
+    # An earlier attempt of this job already spent past today's guard.
+    guard = float(load_vault(root).config.ingest.cost_pause.daily_cap_usd)
+    _receipt(repo, provider="openrouter", cost=guard + 0.5,
              owner_kind="ingest_job", owner_id=inventory["id"])
     _drain(jobs)
     assert calls.inventory_calls == 0
     failed = repo.get_ingest_job(inventory["id"])
     assert failed["error"]["code"] == "spend_paused"
-    assert failed["error"]["details"]["reason"] == "authorization"
+    assert failed["error"]["details"]["reason"] == "daily_cap"
 
 
 def test_f2_the_dry_run_makes_no_call_and_writes_nothing(tmp_path):
     root = fresh_library(tmp_path)
     authoring = _metered(root, 400_000.0)
+    # The threshold's pause alone (the daily guard raised out of the way).
+    set_config(root, {("ingest", "cost_pause", "daily_cap_usd"): 1_000_000_000.0})
     calls = Calls()
     repo, jobs = _jobs(root, fake_services(authoring, calls=calls))
     set_config(root, {("ingest", "auto_build"): False})
@@ -819,8 +853,8 @@ def _openrouter_client():
 
 def test_f2_rereview_a_json_repair_is_admitted_like_any_paid_request(tmp_path, monkeypatch):
     """The provider's own JSON repair is a second paid request: it is admitted
-    against what the first one really cost (its reported cost here is more
-    than the whole build was allowed)."""
+    against what the first one really cost (its reported cost here is all of
+    today's guard)."""
 
     from tests.openai_fakes import install_fake_openai
 
@@ -838,9 +872,9 @@ def test_f2_rereview_a_json_repair_is_admitted_like_any_paid_request(tmp_path, m
     inventory = next(job for job in repo.ingest_jobs_for_batch(outcome["build_batch_id"])
                      if job["job_type"] == "inventory")
     assert inventory["error"]["code"] == "spend_paused"
-    assert inventory["error"]["details"]["reason"] == "authorization"
+    assert inventory["error"]["details"]["reason"] == "daily_cap"
     line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["action"] == {"kind": "build_now", "label": "Build them"}
+    assert line["action"] == {"kind": "open_settings", "label": "Raise it"}
 
 
 def test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included(monkeypatch):

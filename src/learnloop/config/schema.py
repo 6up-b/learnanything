@@ -789,12 +789,18 @@ class IngestRunnerConfig(BaseModel):
 
 
 class IngestCostPauseConfig(BaseModel):
-    """When an automatic question build asks before spending (UX Phase 1, Q5).
+    """When an automatic question build asks before spending (UX Phase 1, Q5),
+    and its daily guard.
 
     A build started by Add or by reading progress runs silently unless its
     estimate exceeds ``threshold_usd`` or ``daily_cap_fraction`` of what is
-    left of ``daily_cap_usd`` today (no daily cap when unset). Routes billed to
-    the ChatGPT subscription (Codex, the ChatGPT plan) cost nothing extra and
+    left of ``daily_cap_usd`` today. ``daily_cap_usd`` is the daily guard
+    (metered spend today, from every model call's receipt): no automatic
+    build, job or request runs past it, "Build them" included; unset, there
+    is none. There is no per-build money cap (owner, 2026-10-13: per-operation
+    caps off by default, a daily guard, spend observed; applied to automatic
+    book preparation when UX Phase 1 landed on main). Routes billed to the
+    ChatGPT subscription (Codex, the ChatGPT plan) cost nothing extra and
     never pause. A metered route is priced at ``prices[<profile>]`` USD per
     million tokens, else ``default_price_per_million_tokens``.
     """
@@ -803,7 +809,8 @@ class IngestCostPauseConfig(BaseModel):
 
     threshold_usd: float = Field(default=1.0, ge=0)
     daily_cap_fraction: float = Field(default=0.25, ge=0, le=1)
-    daily_cap_usd: float | None = Field(default=None, ge=0)
+    # The daily guard, as source_service.max_daily_cost_usd (owner, 2026-10-13).
+    daily_cap_usd: float | None = Field(default=5.0, ge=0)
     default_price_per_million_tokens: float = Field(default=5.0, ge=0)
     prices: dict[str, float] = Field(default_factory=dict)
 
