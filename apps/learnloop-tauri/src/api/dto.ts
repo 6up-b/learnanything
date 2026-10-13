@@ -3089,8 +3089,19 @@ export interface FacetRewordChangeDto {
   after: unknown;
 }
 
+/** The span-support check that held a cited reword (Tier 1, owner 2026-10-13):
+ *  the Decider's top option over the cited passages and the new wording.
+ *  `verdict` is null when it gave no answer (`status` says why). */
+export interface FacetSpanSupportDto {
+  status: "ok" | "unavailable" | "refused" | "failed" | "disabled";
+  verdict: "supports" | "partly supports" | "does not support" | "unrelated" | null;
+  probabilities: Record<string, number>;
+  judgmentId?: string | null;
+}
+
 /** A reword with no textbook, lecture, paper, reference or alternate-explanation
- *  source behind it, held for the owner's one-tap confirm (owner, 2026-10-13).
+ *  source behind it, or one whose cited passages the span-support check did not
+ *  find to support it, held for the owner's one-tap confirm (owner, 2026-10-13).
  *  `decideFacetReword(actionId, "confirm" | "keep")`. */
 export interface FacetRewordConfirmDto {
   actionId: string;
@@ -3110,6 +3121,8 @@ export interface FacetRewordConfirmDto {
   decidedAt: string | null;
   /** Why an earlier confirm did not land (it waits again). */
   interrupted: string | null;
+  /** Set when the span-support check held it (empty otherwise). */
+  spanSupport?: Partial<FacetSpanSupportDto>;
 }
 
 export interface FacetIdentityActionDto {

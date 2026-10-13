@@ -88,7 +88,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.content.facet_identity import authority
+from learnloop.content.facet_identity import authority, span_support
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import facet_identity as store
 from learnloop.ids import new_ulid
@@ -628,6 +628,8 @@ MEANING_FIELDS = (
 )
 #: The ``judgment_ledger`` task of the owner's verdict on a reword (its undo).
 REWORD_TASK = "facet_reword"
+#: How much of each cited span a card the span-support check held shows.
+SPAN_SUPPORT_EXCERPT_CHARS = 1200
 #: What a reword's undo leaves as it was (shown with the undo).
 REWORD_UNDO_LIMITS = (
     "attempts graded while the new wording stood keep the assessment contract they were graded "
@@ -658,6 +660,7 @@ def record_reword(
     sources: Sequence[Mapping[str, Any]] | None = None,
     presentation: bool = False,
     fields: Sequence[str] | None = None,
+    span_support: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> str | None:
     """Record a facet version: ``facet_id``'s meaning changed from ``before`` to ``after``.
@@ -672,6 +675,11 @@ def record_reword(
     history with an undo, unless one of the proposal's own identity actions
     (an attach or in-run consolidation, already on the facet's history with
     its undo) is that change; then nothing is recorded and None is returned.
+
+    ``span_support``: the span-support check that let this cited reword apply
+    (its top option was ``supports``, owner 2026-10-13). The owner's undo of
+    the reword labels that check (``span_support.label``), as the confirm,
+    keep and undo of a reword it held do.
     """
 
     with repository.atomic():
@@ -699,6 +707,7 @@ def record_reword(
                 "proposal_item_id": proposal_item_id,
                 "sources": [dict(source) for source in sources or []],
                 **({"presentation": True} if presentation else {}),
+                **({"span_support": dict(span_support)} if span_support else {}),
             },
             "status": "applied", "created_at": now, "applied_at": now,
         })
@@ -729,6 +738,7 @@ def record_reword_confirm(
     run_id: str,
     proposal_id: str | None,
     proposal_item_id: str | None = None,
+    span_support: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> str:
     """Hold a reword for the owner: a ``proposed`` ``reword`` action with ``detail.confirm``.
@@ -754,6 +764,7 @@ def record_reword_confirm(
             "merge_rows": [], "judgment_ids": [], "judge": "proposal",
             "judge_model": None, "prompt_version": None,
             "detail": {
+                "span_support": dict(span_support or {}),
                 "fields": list(fields),
                 "evidence": facet_evidence(repository, [facet_id]),
                 "proposal_item_id": proposal_item_id,
@@ -852,9 +863,15 @@ def confirm_view(
             *({"field": name, "before": before.get(name), "after": after.get(name)} for name in fields),
             *_other_changes(before, after, fields),
         ],
-        "sources": authority.visible_sources(detail.get("sources") or [], resolver),
+        # A reword the span-support check held shows more of each span: the
+        # owner judges the wording against what the check read.
+        "sources": authority.visible_sources(
+            detail.get("sources") or [], resolver,
+            excerpt_limit=SPAN_SUPPORT_EXCERPT_CHARS if detail.get("span_support") else 280,
+        ),
         "unresolved": list(confirm.get("unresolved") or []),
         "message": str(confirm.get("message") or ""),
+        "span_support": detail.get("span_support") or {},
         "proposal_id": record.get("proposal_id"),
         "proposal_item_id": detail.get("proposal_item_id"),
         "run_id": record.get("run_id"),
@@ -1118,6 +1135,7 @@ def confirm_reword(root: Path, repository: Repository, action_id: str, *, clock:
             _install_source_links(repository, links, created_at=now)
             store.set_status(connection, action_id, "applied", applied_at=utc_now_iso(clock))
             store.settle_registry_save(connection, save_id, "applied", at=utc_now_iso(clock))
+            span_support.label(connection, record, action="confirm")
     record = action_by_id(repository, action_id) or {}
     return {
         "status": "applied", "action_id": action_id, "facet_id": facet_id, "fields": list(fields or changed),
@@ -1187,6 +1205,7 @@ def keep_current_wording(
         now = utc_now_iso(clock)
         with repository.atomic():
             connection = repository.connection()
+            span_support.label(connection, record, action="keep")
             verdict_id = append_judgment(
                 connection, task=REWORD_TASK, left_kind="facet", left_id=facet_id,
                 right_kind="facet_wording", right_id=key, judge="owner",
@@ -1786,6 +1805,9 @@ def append_owner_verdicts(connection: Any, record: Mapping[str, Any], *, created
     survivor, retired, before, _order, after = _record_parts(record)
     action_id = str(record["id"])
     if record.get("action") == "reword":
+        # An undo of a reword the span-support check judged labels that
+        # check: one it held and the owner confirmed, or one it let apply.
+        span_support.label(connection, record, action="undo")
         old = normalized_entry(before.get(survivor)) or {}
         new = normalized_entry(after.get(survivor)) or {}
         wording, _key = _reword_wording_key(old, new)

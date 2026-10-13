@@ -3,7 +3,8 @@
 // A model-proposed change to a facet's meaning with no textbook, lecture,
 // paper, reference or alternate-explanation passage behind it is never written
 // on its own: accepting its proposal holds it here, with the wording before and
-// after and what it cited. "Confirm" applies it as the owner's own edit (an
+// after and what it cited. So is one whose cited passage a quick check (the
+// Decider, Tier 1) did not find to support the new wording. "Confirm" applies it as the owner's own edit (an
 // owner verdict, with an undo in the facet's history); "keep current wording"
 // closes it. Exam material never reaches this list (it is refused), and an
 // exam citation never shows its text. Shown in registry review and in the
@@ -54,8 +55,19 @@ export function valueText(value: unknown): string {
   return String(value);
 }
 
+const SPAN_SUPPORT_LINE: Record<string, string> = {
+  "partly supports": "The cited passage supports only part of the new wording.",
+  "does not support": "The cited passage does not back the new wording.",
+  unrelated: "The cited passage is about something else."
+};
+
 /** One plain sentence on what the reword rests on. */
 export function supportLine(confirm: FacetRewordConfirmDto): string {
+  const check = confirm.spanSupport;
+  if (check?.status) {
+    // The quick check against the cited passage (Tier 1) held it.
+    return (check.verdict && SPAN_SUPPORT_LINE[check.verdict]) || "The new wording could not be checked against the cited passage just now.";
+  }
   if (!confirm.sources.length) {
     return confirm.unresolved.length
       ? "None of its citations counts (they are outside the units you selected)."

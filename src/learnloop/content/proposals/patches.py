@@ -565,6 +565,7 @@ def _compile_facet(
     )
     data, side_effect = _facet_version(
         vault, item, entity_id, data, sources=authority.source_views(verdict, facet_authority.resolver),
+        span_support=verdict.span_support,
     )
     facet_authority.record(entity_id, authority.overlay(before, data))
     return CompiledPatch(
@@ -630,6 +631,7 @@ def _held_for_confirm(
                 "unresolved": list(verdict.problems),
                 "meaning_support": authority.support_entries(contributed),
                 "message": verdict.message,
+                "span_support": verdict.span_support,
                 "proposal_item_id": item["id"],
             },
         },
@@ -640,7 +642,7 @@ def _held_for_confirm(
 
 def _facet_version(
     vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any], *,
-    sources: list[dict[str, Any]] | None = None,
+    sources: list[dict[str, Any]] | None = None, span_support: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """A write that changes an existing facet's meaning becomes a facet version.
 
@@ -663,7 +665,9 @@ def _facet_version(
     A change to a registered facet's title or worked examples only
     (``authority.PRESENTATION_FIELDS``) is not a version, but it is recorded on
     the facet's history with its ``sources`` (owner, 2026-10-13): a ``reword``
-    row marked ``presentation``, with the same undo.
+    row marked ``presentation``, with the same undo. ``span_support``: the
+    span-support check that let a cited reword apply, kept on the row so the
+    owner's undo labels it.
     """
 
     from learnloop.content.facet_identity.actions import meaning_changes
@@ -696,6 +700,7 @@ def _facet_version(
             "sources": list(sources or []),
             "presentation": bool(presentation),
             "fields": fields or presentation,
+            **({"span_support": dict(span_support)} if span_support else {}),
         },
     }
 

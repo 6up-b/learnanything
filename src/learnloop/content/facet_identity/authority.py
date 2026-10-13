@@ -124,7 +124,10 @@ AUTHORITY_FIELDS = (
 PRESENTATION_FIELDS = ("title", "positive_examples", "negative_examples")
 #: The verdict code of a change the owner may confirm (it is never written
 #: without the owner's confirm, an audited owner edit).
-CONFIRMABLE_CODES = frozenset({"unsupported_reword"})
+CONFIRMABLE_CODES = frozenset({"unsupported_reword", "span_support"})
+#: The Decider's option that lets a cited reword apply (the span-support check,
+#: owner 2026-10-13): any other option, or no answer, holds it for the confirm.
+SPAN_SUPPORTS = "supports"
 
 
 @dataclass(frozen=True)
@@ -329,6 +332,12 @@ class CitationResolver:
         load_revision: Callable[[str], str | None] | None = None,
         load_held_out: Callable[[str], Iterable[str]] | None = None,
     ) -> None:
+        #: The span-support check (``span_support.check``), attached only for a
+        #: proposal's apply (:meth:`ProposalAuthority.for_proposal`): a
+        #: model-proposed reword is the only write it judges. A resolver for an
+        #: owner's action (confirm, undo, the Library) or for synthesis never
+        #: carries one.
+        self.span_checker: Callable[..., Mapping[str, Any]] | None = None
         self._members = list(members)
         self._load_ir = load_ir
         self._load_overrides = load_overrides
@@ -371,6 +380,19 @@ class CitationResolver:
     @classmethod
     def for_vault(cls, repository: Any, vault: Any) -> CitationResolver:
         return cls.for_source_sets(repository, vault.source_sets)
+
+    def with_span_support(self, vault: Any, repository: Any) -> CitationResolver:
+        """Attach the span-support check (switch ``decider_routes.facet_span_support``)."""
+
+        if vault.config.decider_routes.facet_span_support:
+            from learnloop.content.facet_identity.span_support import check
+
+            def checker(facet_id: str, after: Mapping[str, Any],
+                        citations: Sequence[ResolvedCitation]) -> Mapping[str, Any]:
+                return check(vault, repository, self, facet_id, after, citations)
+
+            self.span_checker = checker
+        return self
 
     def _index(self, extraction_id: str) -> _Units | None:
         if extraction_id not in self._units:
@@ -674,6 +696,7 @@ class MeaningVerdict:
     #: :data:`REWORD_CONFIRM` policy (owner, 2026-10-13). Exam-only support is
     #: never confirmable: only the owner's own Library edit overrides it.
     confirmable: bool = False
+    span_support: dict[str, Any] = field(default_factory=dict)
 
     def diagnostic(self, *, entity_refs: Sequence[str] | None = None, severity: str = "review",
                    suggested_action: str | None = None) -> dict[str, Any]:
@@ -701,6 +724,23 @@ class MeaningVerdict:
                 "with an undo)"
             ),
         }
+
+
+#: What a span-support verdict says, in the owner's words (no jargon).
+_SPAN_SUPPORT_TEXT = {
+    "partly supports": "the cited passages support only part of it",
+    "does not support": "the cited passages do not back it",
+    "unrelated": "the cited passages are about something else",
+}
+
+
+def span_support_text(support: Mapping[str, Any]) -> str:
+    """One plain clause on a span-support check that did not say ``supports``."""
+
+    verdict = support.get("verdict")
+    if verdict in _SPAN_SUPPORT_TEXT:
+        return _SPAN_SUPPORT_TEXT[str(verdict)]
+    return "the cited passages could not be checked against it just now"
 
 
 def _verdict(facet_id: str, allowed: bool, code: str, message: str = "", **kwargs: Any) -> MeaningVerdict:
@@ -810,6 +850,32 @@ def check_meaning_write(
                 f"your confirm before it changes the facet{detail}",
                 confirmable=True, **extra,
             )
+        meaning = [name for name in fields if name not in PRESENTATION_FIELDS]
+        if explained and meaning and resolver is not None and resolver.span_checker is not None:
+            # The span-support check (owner, 2026-10-13): one typed question
+            # to the Decider over the validated explanatory spans (never exam
+            # text) and the new wording. Only "supports" as its top option
+            # applies the reword; any other option, or a Decider that is
+            # unavailable, refused for spend or failing, holds it for the
+            # owner's one-tap confirm with the verdict and the spans shown.
+            support = dict(resolver.span_checker(facet_id, after, tuple(resolved_all)))
+            extra["span_support"] = support
+            if support.get("verdict") != SPAN_SUPPORTS:
+                if not policy.hold_unsupported:
+                    # The confirm's kill switch: nothing can hold it, so it is refused.
+                    return _verdict(
+                        facet_id, False, "span_support",
+                        f"the cited passages do not clearly support the new wording of facet {facet_id} "
+                        f"({', '.join(meaning)}): {span_support_text(support)}",
+                        **extra,
+                    )
+                return _verdict(
+                    facet_id, False, "span_support",
+                    f"The new wording of facet {facet_id} ({', '.join(meaning)}) cites a textbook, lecture, "
+                    f"paper, reference or alternate-explanation passage, but {span_support_text(support)}, "
+                    "so it waits for your confirm before it changes the facet",
+                    confirmable=True, **extra,
+                )
         return _verdict(facet_id, True, "explanatory" if explained or core else "presentation", **extra)
     return _verdict(facet_id, True, "explanatory" if explained else "new_unsupported", **extra)
 
@@ -842,7 +908,7 @@ def source_views(verdict: MeaningVerdict, resolver: CitationResolver | None = No
 
 
 def visible_sources(
-    sources: Iterable[Mapping[str, Any]], resolver: CitationResolver | None,
+    sources: Iterable[Mapping[str, Any]], resolver: CitationResolver | None, *, excerpt_limit: int = 280,
 ) -> list[dict[str, Any]]:
     """Recorded source views as the owner may see them now (Codex review F3).
 
@@ -868,7 +934,7 @@ def visible_sources(
         if isinstance(result, ResolvedCitation):
             assessment = result.role in ASSESSMENT_ONLY_ROLES
             view.update(role=result.role, relation=result.relation, assessment_only=assessment,
-                        excerpt=None if assessment else resolver.excerpt(result))
+                        excerpt=None if assessment else resolver.excerpt(result, limit=excerpt_limit))
         elif resolver.exam_material(citation):
             view.update(role="exam", relation="assessment_alignment", assessment_only=True)
         out.append(view)
@@ -1202,9 +1268,11 @@ class ProposalAuthority:
     def for_proposal(cls, vault: Any, repository: Any, patch_id: str) -> ProposalAuthority:
         def factory() -> CitationResolver:
             source_set = _proposal_source_set(vault, repository, patch_id)
-            if source_set is not None:
-                return CitationResolver.for_source_set(repository, source_set)
-            return CitationResolver.for_vault(repository, vault)
+            resolver = (CitationResolver.for_source_set(repository, source_set) if source_set is not None
+                        else CitationResolver.for_vault(repository, vault))
+            # A proposal's facet item is the model-proposed write the
+            # span-support check judges (owner, 2026-10-13).
+            return resolver.with_span_support(vault, repository)
 
         return cls(factory)
 
@@ -1254,6 +1322,7 @@ __all__ = [
     "CONFIRMABLE_CODES",
     "EXPLANATORY_ONLY",
     "HELD_OUT_EVALUATION",
+    "SPAN_SUPPORTS",
     "PRESENTATION_FIELDS",
     "REWORD_CONFIRM",
     "Basis",
@@ -1276,6 +1345,7 @@ __all__ = [
     "authority_changes",
     "authority_meaning",
     "check_meaning_write",
+    "span_support_text",
     "check_registry_text",
     "contributions",
     "contributions_from_support",
