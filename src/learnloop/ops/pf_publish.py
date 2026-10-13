@@ -57,6 +57,17 @@ PF_TAG = "pf_generated"
 # Relations that keep the parent's trace contract: each needs a passing
 # checkpoint-preservation (structure) check.
 TRACE_RELATIONS = frozenset({"same_target", "isomorph"})
+#: Canonical sources (Codex review F11): PF's own verification of a published
+#: variant, as the reference-key status the C3 gate reads. The same reading as
+#: the import ladder: a passing symbolic check is ``checked``, panel agreement
+#: on a non-symbolic answer ``panel_agrees``, a quote-verified supported span
+#: ``book_solution``. Anything else records no check (the honest default).
+PF_KEY_STATUS = {
+    "execution_cas": "checked",
+    "panel_agreement+sympy": "checked",
+    "panel_agreement": "panel_agrees",
+    "quote_verified_span+support": "book_solution",
+}
 
 
 class PublishRefused(ValueError):
@@ -216,6 +227,9 @@ def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: st
         # initialization: initialize only when absent, never overwrite.
         item = vault.practice_items.get(row["published_item_id"])
         if item is not None:
+            with repository.connection() as connection:
+                _record_variant_key_check(connection, item, row, now_iso=utc_now_iso(clock))
+                connection.commit()
             _initialize_scheduling(repository, item, clock)
         return vault, row["published_item_id"]
     if row["verification"] != "verified":
@@ -274,6 +288,9 @@ def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: st
             action="add", proposal_id="pfpub_" + candidate_id, judgment_id=decision_id,
             created_at=now_iso,
         )
+        # The variant's own verification, bound to the content it was
+        # published with, commits with the published mark (F11).
+        _record_variant_key_check(connection, item, row, now_iso=now_iso, decision_id=decision_id)
         update_candidate(connection, candidate_id, status="published", published_item_id=item_id,
                          published_at=now_iso, updated_at=now_iso)
     _initialize_scheduling(repository, item, clock)
@@ -282,6 +299,39 @@ def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: st
     except Exception:  # noqa: BLE001 - queue nudging never blocks publication
         _LOGGER.warning("failed to bump queue revision after PF publication", exc_info=True)
     return vault, item_id
+
+
+def _record_variant_key_check(connection: Any, item: PracticeItem, row: Mapping[str, Any], *, now_iso: str,
+                              decision_id: str | None = None) -> str | None:
+    """A published variant of a textbook exercise records PF's verification of
+    it as a reference-key check bound to its own content (idempotent).
+
+    The variant carries ``canonical_exercise`` (``variant_of``), so the C3
+    gate reads it as an exercise import; without this row its key would read
+    ``model_answer``. The parent's checks are never inherited: what is bound
+    is this candidate's verification and this item's content hash."""
+
+    from learnloop.db.stores.source_service import insert_key_check, reference_content_hash
+
+    if getattr(item, "canonical_exercise", None) is None or row.get("verification") != "verified":
+        return None
+    check = str(row.get("verification_check") or "")
+    status = PF_KEY_STATUS.get(check)
+    if status is None or connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reference_key_checks'").fetchone() is None:
+        return None
+    content_hash = reference_content_hash(item)
+    check_id = "rkc_pf_" + content_key([row["id"], content_hash])[:32]
+    if connection.execute("SELECT 1 FROM reference_key_checks WHERE id=?", (check_id,)).fetchone() is not None:
+        return check_id
+    insert_key_check(
+        connection, id=check_id, practice_item_id=item.id, content_hash=content_hash, key_status=status,
+        rung=f"pf:{check}", trigger="verify", started_at=now_iso, created_at=now_iso,
+        verification={"source": "pf_publish", "candidate_id": row["id"], "verification_check": check,
+                      "candidate_content_hash": row.get("content_hash"), "publish_decision_id": decision_id},
+        ledger_ids=[decision_id] if decision_id else [],
+    )
+    return check_id
 
 
 def _refuse_stale(repository: Repository, row: Mapping[str, Any], changed: list[str], now_iso: str) -> None:
