@@ -281,3 +281,224 @@ were not opened.
 4. **F4: links after an undo.** Undoing a confirmed reword leaves the source
    links it installed, as undoing any reword does (`entity_source_links` is a
    raw ledger). Recommended default: keep.
+
+## Re-review
+
+Codex re-reviewed `9a0d38e5..merge/facet-locks` (through `b5a6af01`; job
+`20261013-125019-aiThKm`: static review and guarded in-memory checks, no
+filesystem-backed or durability suites). It confirmed F1 to F5 fixed, found no
+new defects in the fix commits, and reopened F6: the kill switch works, but
+"the required successor and isolated rebuild validation remain absent", and
+the rejection "does not establish an exception to handoff §0's serving-change
+requirement" (`docs/specs/implementation_handoffs.md` §0 rule 5: "A change to
+what is served is an algorithm successor with a kill switch, checked by a
+shadow rebuild on a backup-API copy").
+
+This step runs the isolated rebuild validation, which was missing, and rejects
+the successor again. This time the reason rests on what rule 5 covers, as the
+specs that state it define it. No code changed: no migration, no config key, no
+RPC, frontend or `src-tauri` change, and no paid call.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Absorbing a mis-cited exam candidate bypasses the authority block | confirmed fixed by Codex | `d79a24af` | no action |
+| F2 | Medium | Confirmation silently overwrites intervening alias edits | confirmed fixed by Codex | `d79a24af` | no action |
+| F3 | Medium | Reclassified exam sources retain visible cached excerpts | confirmed fixed by Codex | `d79a24af` | no action |
+| F4 | Medium | Confirmed rewords never install their authoritative provenance links | confirmed fixed by Codex | `d79a24af` | no action |
+| F5 | Medium | The append producer cannot deliver title or example-only updates | confirmed fixed by Codex | `d79a24af` | no action |
+| F6 | Medium (reopened) | Admission behaviour changes without a successor (and its rebuild validation) | **rejected** (the successor); the isolated rebuild validation is now run and shows zero delta | this commit (record only) | Shadow rebuilds on backup-API copies of all three tracked fixtures: predecessor, switch on and switch off agree exactly (below). Successor: rule 5 covers changes to the rule that serves, not content writes the rule reads, in the specs that state it (below) |
+
+### F6: reproduction
+
+The finding reproduces as stated. At `b5a6af01`, `SUCCESSOR_CHAIN` still ends at
+`mvp-0.16` (the stage left it unchanged), and the review recorded that no
+shadow rebuild had been run. This is a process requirement, not a behaviour
+defect, so no test can fail on it. What can be checked is rule 5's rebuild,
+and that is run below.
+
+### F6: the isolated rebuild validation (now run)
+
+**Method.**
+
+- **Copies.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`)
+  of the worktree's three tracked fixtures (`linear_algebra`, `probability`,
+  `arxiv_v2`), under `fixtures-local/f6rebuild/`.
+- **Migration.** Each copy was migrated to schema head 186 with
+  `db.migrate.apply_migrations`: 155 → 186 for `linear_algebra` and
+  `probability`, 152 → 186 for `arxiv_v2`. The stage added no migration, so
+  the predecessor and HEAD share that head.
+- **Runs.** `learnloop rebuild --shadow --json` ran four times on each copy:
+  1. HEAD (`b5a6af01`) with the copy's own config (the switch at its default,
+     `true`);
+  2. HEAD with `--set facet_identity.reword_confirm=false` (the kill switch);
+  3. HEAD with `--set facet_identity.reword_confirm=true`;
+  4. the predecessor `da3d5585` (the commit before the stage).
+- **The predecessor's code.** A `git archive` of `da3d5585`'s `src/` and
+  `migrations/` under `fixtures-local/tmp/f6pre`, put first on `PYTHONPATH`. A
+  probe confirmed what was imported: `learnloop.__file__` resolved to the
+  archive, and its `authority` module has no `meaning_policy`.
+
+**Results.**
+
+| Copy | Version | Replayed attempts | Rebuilt LOs | Unaccounted | Live vs replay rows (facet / mastery / schedule) | Four runs identical | Live DB sha256 (before = after) |
+|---|---|---|---|---|---|---|---|
+| `linear_algebra` | `mvp-0.8` | 70 | 8 | 0 | 22 / 6 / 47 | yes | `6d1927bb41eaa035…` |
+| `probability` | `mvp-0.8` | 2 | 1 | 0 | 2 / 1 / 1 | yes | `f849f97f09919223…` |
+| `arxiv_v2` | `mvp-0.8` | 3 | 3 | 0 | 2 / 34 / 3 | yes | `ae51cfff9e293730…` |
+
+- **The diff rows are the baseline gap, not the stage.** They compare the
+  projections stored in each fixture's committed `state.sqlite` with a replay
+  today. The predecessor reports the same rows with the same values, so the
+  stage and its switch add zero mastery, facet and schedule delta.
+- **What differs between runs.** Only the surrogate ULIDs the replay mints:
+  the shadow marker id and the replayed family ids. Playbook step 6 ignores
+  these.
+- **Live databases.** Each copy's database hash is the same before and after
+  its four runs, and every run reported `live_database.unchanged: true`.
+- **Tracked fixtures.** The worktree's fixtures were opened only by the copy,
+  and `git status` stayed clean.
+
+**The served set, statically.**
+
+- **Where the switch is read.** Only through `authority.meaning_policy`,
+  which is called in four places, all content writers:
+  - the proposal compiler (`content/proposals/patches.py:557`);
+  - bootstrap, consolidation and attach (`content/synthesis/source_set_synthesis.py:940`
+    and `:1100`);
+  - the append producer (`content/synthesis/source_append.py:884`).
+- **Serving code doesn't call it.** No module under `scheduling`,
+  `daily_plan`, `substrate`, `placement`, `router`, `learner`, `attempts`,
+  `goals`, `diagnosis` or `field` calls these functions.
+- **Changed modules the serving code loads.** In a fresh interpreter, importing
+  the scheduler, the daily plan, the rebuild orchestrator, placement, the
+  router and both graders loads only three of the stage's changed modules:
+  - `config.schema` and `config.template`: the new key;
+  - `db.stores.facet_identity`: a docstring and `update_action`, a writer only
+    the confirm calls. These consumers use `settled_merge_rows`, which is
+    unchanged.
+- **The one static import chain** from those packages to the authority module
+  is `attempts.attempts` → `content.proposals.proposals`
+  (`maybe_promote_self_tagged_fatal_error`). That function queues a
+  `review_required` rubric proposal and never compiles a facet item.
+- **What does change.** Grading and tutor prompts read a facet's wording from
+  `facets.yaml`. A confirmed reword, or an uncited title or example change,
+  therefore changes the text they read, as a Library edit or an
+  explanatory-cited reword already does. That is a content change, the
+  category the specs below keep out of rule 5.
+
+### F6: why the successor is still rejected
+
+The first rejection argued from the playbook's trigger, persisted meaning.
+The re-review is right that this did not answer rule 5. But the specs that
+state rule 5 also say what it covers, and each one keeps content writes
+outside it:
+
+1. **Slice A §0.3.** This is the spec whose owner decision 2 is "each serving
+   change is its own algorithm successor". It says: "Publishing verified PF
+   items is a content change, like writing a card, not an algorithm change."
+   That holds even though publication puts new items in the queue. PF-b
+   shipped that way: kill switch `pf.generation_enabled`, no successor
+   (`docs/reviews/slice-a-phase-5a.md`).
+2. **The handoff itself, in the same document as rule 5.**
+   - **The facet identity prompt.** Merge and absorb ("a special case or
+     worked instance becomes an example or precondition of the general
+     facet") "apply live", behind kill switch `facet_identity.enabled`. It
+     adds: "If merging facets changes evidence projections, follow the
+     algorithm-change playbook, but a vault-content merge the owner can undo
+     is the expected shape." The one automatic difference this stage makes is
+     of that class: a registered facet's title or worked examples grow
+     without an explanatory citation, on the facet's history with an undo.
+     A meaning change without explanatory support is still never written
+     without the owner's tap.
+   - **Learner-text gaps (§4).** A missing prerequisite's concept, LO, edge
+     and seeded practice item are "created live … behind a kill switch". Only
+     bringing a check forward "changes scheduling, so it ships as an algorithm
+     successor". As merged, `algorithm_versions.py` (`mvp-0.16`) says the
+     same: "The rest of the pipeline (names, matches, edges, created
+     prerequisites, holding-pen sightings) is a live change behind its own
+     switches, not version-gated."
+3. **Daily loop §11, the successor table.** "Capture adoption | None:
+   content, like writing a card" and "Reader presets through adoption | None:
+   content path". Each has a kill switch only.
+4. **Reader workbench §3.** "Tier-2 inputs to content … take no successor. A
+   tier-2 signal that changes serving, such as … feeding Phase 6's fast-track
+   rule or reading paths steering the plan, is an algorithm successor."
+
+Across these, a serving change alters the rule that chooses, schedules or
+projects: the plan, the queue, fast-track, probe ties, placement, check
+dates. A content write that the rule then reads is gated by a kill switch,
+not a version. This stage changes which facet writes reach `facets.yaml`, and
+makes a meaning change without explanatory support wait for the owner's tap
+instead of being refused. The validation above shows the rule side unchanged.
+
+A successor here would put a version gate in front of a content writer:
+
+- **It would delay what the owner asked for.** Every vault below the tag
+  (all of the owner's vaults, at `mvp-0.9` to `mvp-0.16`) would keep refusing
+  such rewords until `learnloop upgrade`. That is the shadow-stage shape the
+  owner's standing decision rules out ("live changes behind kill switches, no
+  shadow stages by default"; handoff §0 rule 7: "Prefer decisive live changes
+  behind kill switches over shadow stages"). And it would apply to the change
+  the owner asked for in this stage.
+- **It would version nothing that replay reads.** Replay and rebuild never
+  consult the policy (above), so two versions would replay the same vault
+  identically.
+- **It wouldn't add an audit trail.** Each write the new policy admits is
+  already identifiable on the facet's history:
+  - an uncited title or example change is a `reword` action with
+    `detail.presentation = true` and its `sources` (each with its role);
+  - a held reword is a `proposed` reword;
+  - a confirm appends the owner's `granted` verdict to `judgment_ledger`.
+
+The kill switch restores the predecessor exactly, and is tested through the
+compiler, the producers and the attach path (`d79a24af`). Open question 1
+stands: the owner may still ask for a tag at the checkpoint, and it would be
+the next free tag after `main`'s `mvp-0.17` at landing.
+
+### Noticed, not changed: `lint-imports` never sees `learnloop.content`
+
+While trying to pin F6's boundary as an import contract, I found that
+`src/learnloop/content/` has no `__init__.py`, on this branch and on `main`.
+It is a namespace package, so grimp leaves its 72 modules out of the graph
+(`grimp.build_graph("learnloop")` has no `learnloop.content.*` module).
+
+- **The effect.** The four contracts that forbid `learnloop.content`
+  (`pyproject.toml` lines 91, 115, 141 and 221: "Persistence and AI stay below
+  domain policy", "Router R1 logging…", "Project understanding M1…",
+  "Primitive modules stay dependency free") cannot detect an import of it.
+- **The test.** A contract that forbade
+  `learnloop.content.facet_identity.authority` stayed KEPT with a direct
+  import planted in `scheduling/scheduler.py`. The probe was reverted.
+- **Why it is not fixed here.** The gap predates this branch, and adding the
+  `__init__.py` could break contracts across the codebase, so it is outside
+  this stage (open question 5).
+
+### Open questions for the owner (added)
+
+5. **`learnloop.content` is invisible to the import contracts** (above).
+   Recommended default: add `src/learnloop/content/__init__.py` in a separate
+   change and fix or explicitly ignore whatever the four contracts then
+   report.
+
+### Re-review gate
+
+Run on `b5a6af01`'s code, 2026-10-13, with `TMPDIR` set to the worktree's
+`fixtures-local/tmp`. This step changed only these two review files.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (163 packages resolved; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 15 contracts kept, 0 broken (the probe contract was reverted before this run) |
+| Shadow rebuilds (F6): 3 copies × 4 runs | 12 runs, all exit 0; per copy, the four runs are identical apart from replay-minted ULIDs, and the live DB hash is unchanged |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **9,218 passed**, 0 failed, 0 skipped, 46 warnings (the existing fork and deprecation warnings), 327 s (queued 13:03:54, lock 13:03:54, done 13:09:25) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **95 passed**, 9,123 deselected, 1 warning, 95 s (queued 13:09:25, lock 13:14:39, done 13:16:16) |
+| Frontend (`npm install`, `typecheck`, `test`, `frontend:build`) | not run: nothing under `apps/` changed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py` / `db_validate_reference.py` | not run: no schema or config change since `112094e8` |
+| Tracked fixture vaults | the worktree's copies were opened only by `copy_tree_with_databases`; `git status` was clean after the copies, the rebuilds, the full suite and the durability lane. The owner's checkout was never touched |
+
+### Paid calls (re-review)
+
+None. Cost $0. Shadow rebuilds make no model or embedding call.

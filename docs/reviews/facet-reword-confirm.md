@@ -21,6 +21,10 @@ facet authority chokepoint after its second Codex re-review). Owner-directed,
   (`learnloop facets confirm|keep`), frontend and `src-tauri` changes.
 - No algorithm successor: a content path (which facet writes are admitted,
   and when). Scoring, scheduling, projections and replay are unchanged.
+  Checked at the Codex re-review: on backup-API copies of the three tracked
+  fixtures, shadow rebuilds under the predecessor, and under this stage with
+  the switch on and off, agree exactly. Why rule 5 of handoff §0 takes no
+  successor here: `facet-reword-confirm-codex-review.md`, "Re-review".
 - No paid call.
 
 **Corrected by the Codex review** (`d79a24af`;
