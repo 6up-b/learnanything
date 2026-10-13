@@ -79,7 +79,7 @@ Items 1, 2, 7 and 11 are no longer deviations; the review fixes F10, F17, F5 and
 1. ~~**Episode instruments are valued as `item_point` tables**, not through the compiled probe-card path (`probe_robust.robust_selection`), so the "instrument-only parity" test of §8.3.4 item 2 is not built. The live robust probe path itself is unchanged.~~ Fixed by F10.
 2. ~~**Retention's prior** is the LO's mastery mean; the spec's "recent success, assisted only" condition is not enforced.~~ Fixed by F17.
 3. **Greedy branch truncation** uses its own floor and cap (`BRANCH_MASS_FLOOR = 0.01`, `MAX_BRANCHES = 64`) rather than `plan_precommitted_block`'s. It bounds compute, not the number of checks.
-4. **An unjudged studied worked example** (judge unavailable) counts as `related`: conservative for `retention`, a label for `discriminate`.
+4. **An unjudged studied worked example** (judge unavailable or over budget) excludes the candidate from every independent intent (`worked_example_unjudged`) until a verdict resolves it; practice keeps it, labelled "LearnLoop couldn't yet check whether a worked example you studied gives this one away" (Codex re-review F4; it used to count as `related`, which left `discriminate` eligible).
 5. **`post_attempt`'s reveal** is recorded when `find_sources` returns the solution, not when the surface displays it.
 6. **Misconception targets** are read from the `misconceptions` table (active ones); there is no separate overlay.
 7. ~~**The Reader import's background check** runs in a daemon thread inside the job handler.~~ Made durable by F5 (write-ahead marker, resumed at startup).

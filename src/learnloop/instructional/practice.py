@@ -198,7 +198,7 @@ def record_proposal_selection(repository: Repository, *, proposal_id: str, pract
         result["independence"] = verdict
         result["served_as"] = "independent_check" if verdict["eligible"] else "practice"
         if not verdict["eligible"]:
-            result["label"] = "you've seen this question since it was suggested"
+            result["label"] = verdict.get("practice_label") or "you've seen this question since it was suggested"
     return result
 
 

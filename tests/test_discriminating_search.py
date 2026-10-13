@@ -426,3 +426,50 @@ def test_an_unverified_import_is_excluded_from_value_intents_but_not_practice(te
     assert "unverified_key" in receipt["excluded"][item_id]
     practice = find_practice(loaded(paths), repository, "eigenvalues diagonal matrix", {}, rerank_client=llm)
     assert practice["admission"]["excluded"].get("unverified_key") is None
+
+
+def test_an_unjudged_studied_worked_example_excludes_every_independent_intent(textbook):
+    """Codex re-review F4: the learner studied a worked example and the
+    equivalence judge could not run. Unknown equivalence is a typed exclusion
+    from independence until it is resolved, for ``discriminate`` too; ordinary
+    practice keeps the candidate, honestly labelled."""
+
+    paths, repository, spans, _m = textbook
+    _study_worked_example(repository, spans)
+    vault = loaded(paths)
+    candidate = {"kind": "source_exercise", "extraction_id": "ext_text", "span_ids": [spans["exercises"][1]],
+                 "statement": "1. An eigenvalue t satisfies 3t + 5 = 20; solve 3x + 5 = 20 for x to find the eigenvalue.",
+                 "learning_object_ids": ["lo_matrices"], "key": "srcex:1"}
+    down = FakeServiceLLM(fail_purposes={"EquivalenceVerdicts"})
+    for intent in ("discriminate", "retention"):
+        verdict = independent_check_eligibility(vault, repository, candidate, intent=intent, judge_client=down)
+        assert verdict["worked_example"]["verdict"] == "unjudged"
+        assert not verdict["eligible"] and "worked_example_unjudged" in verdict["reasons"], verdict
+    practice = independent_check_eligibility(vault, repository, candidate, intent="practice", judge_client=down)
+    assert practice["eligible"]
+
+
+def test_a_pick_with_an_unjudged_worked_example_is_served_as_labelled_practice(textbook):
+    """The learner-pick recheck uses the same rule: never ``independent_check``."""
+
+    from learnloop.db.stores.practice_index import insert_proposal
+    from learnloop.instructional.practice import record_proposal_selection
+
+    paths, repository, spans, _m = textbook
+    _study_worked_example(repository, spans)
+    with repository.connection() as connection:
+        insert_proposal(connection, id="pp_disc", created_at="2026-10-12T08:59:00Z", origin="rpc",
+                        query_id="q", query_text="eigenvalues", constraints={}, path="direct",
+                        path_reason="test", signals={}, reranked=True, rerank_status="reranked",
+                        rerank_model=None,
+                        proposed=[{"practice_item_id": "pi_eigen_1", "rank": 1, "relevance": "relevant",
+                                   "kind": "item", "rationale": "fits"}],
+                        exclusions={}, manifest={}, algorithm_version="mvp-0.14",
+                        caller="tutor", caller_ref="qe_1", intent="discriminate")
+    selection = record_proposal_selection(repository, proposal_id="pp_disc", practice_item_id="pi_eigen_1",
+                                          vault=loaded(paths))
+    verdict = selection["independence"]
+    assert verdict["worked_example"]["verdict"] == "unjudged", verdict
+    assert selection["served_as"] == "practice"
+    assert "worked_example_unjudged" in verdict["reasons"]
+    assert selection["label"] != "you've seen this question since it was suggested"

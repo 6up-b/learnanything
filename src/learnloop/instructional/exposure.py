@@ -187,13 +187,42 @@ def independent_check_eligibility(
     verdict = worked.get("verdict")
     if verdict == "equivalent":
         result["reasons"].append("equivalent_worked_example")
-    elif verdict in ("related", "unjudged") and intent in ("retention", "need"):
-        result["reasons"].append("related_worked_example" if verdict == "related" else "worked_example_unjudged")
-    elif verdict in ("related", "unjudged"):
+    elif verdict == "unjudged":
+        # A studied worked example nobody could judge (the judge unavailable or
+        # over budget) may be a near-copy: unknown equivalence excludes every
+        # independent intent until a verdict resolves it (Codex re-review F4).
+        result["reasons"].append("worked_example_unjudged")
+    elif verdict == "related" and intent in ("retention", "need"):
+        result["reasons"].append("related_worked_example")
+    elif verdict == "related":
         result["label"] = "you read a worked example like this one"
         result["dominance"] = "below_unrelated_with_overlapping_value"
     result["eligible"] = not result["reasons"]
+    if not result["eligible"]:
+        result["practice_label"] = practice_label(result["reasons"])
     return result
+
+
+#: What a learner is told when a candidate is served as practice because it no
+#: longer stands as an independent check (§5.4): one honest label per reason.
+_PRACTICE_LABELS = (
+    ("worked_example_unjudged", "LearnLoop couldn't yet check whether a worked example you studied gives this one away"),
+    ("equivalent_worked_example", "you studied a worked example almost identical to this one"),
+    ("related_worked_example", "you read a worked example like this one"),
+)
+SEEN_SINCE_LABEL = "you've seen this question since it was suggested"
+
+
+def practice_label(reasons: Sequence[str]) -> str:
+    """The label for a candidate served as practice, not as an independent check."""
+
+    exposure = {"attempted", "revealed", "family_revealed", "source_exposed", "seen_in_proposal"}
+    if exposure & set(reasons):
+        return SEEN_SINCE_LABEL
+    for reason, label in _PRACTICE_LABELS:
+        if reason in reasons:
+            return label
+    return SEEN_SINCE_LABEL
 
 
 def _seconds_since(now: Any, created_at: str) -> float | None:
@@ -316,5 +345,7 @@ __all__ = [
     "INDEPENDENT_INTENTS",
     "apply_dominance",
     "independent_check_eligibility",
+    "practice_label",
+    "SEEN_SINCE_LABEL",
     "studied_worked_examples",
 ]
