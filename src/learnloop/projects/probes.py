@@ -61,17 +61,16 @@ from learnloop.projects.ai_contracts import (
     probe_authoring_prompt,
     probe_grading_prompt,
 )
-from learnloop.projects.ai_runtime import PaidCalls, PlannedCall, ProjectRoute
+from learnloop.ai.output_budget import output_budget
+from learnloop.projects.ai_runtime import ROLE_TASK, PaidCalls, PlannedCall, ProjectRoute
 from learnloop.projects.capture import BundleIntegrityError, estimate_tokens, load_bundle, parse_hunks
 from learnloop.projects.experiment_store import ProjectStore, store_path
 
-AUTHORING_OUTPUT_TOKENS = 6_000
-CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION = 250
-GRADING_OUTPUT_TOKENS_PER_ITEM = 250
-# Every call's output budget also covers reasoning: on metered routes the budget
-# is the request's enforced generation limit, and a reasoning model spends its
-# thinking from the same limit.
-REASONING_HEADROOM_TOKENS = 4_000
+# Output budgets come from the shared policy (learnloop.ai.output_budget,
+# owner 2026-10-12): the project route's (authoring, closed book) or the
+# grading route's budget, which also covers a reasoning model's thinking. On a
+# metered route it is the request's enforced generation limit; a truncated
+# answer is logged and retried once at double the budget, never accepted.
 GRADING_ITEM_TOKENS_ESTIMATE = 500
 CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE = 120
 PROMPT_OVERHEAD_TOKENS = 900
@@ -83,16 +82,18 @@ _HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 DECLARATIONS = ("unassisted", "looked", "used_ai")
 
 
-def authoring_output_tokens() -> int:
-    return AUTHORING_OUTPUT_TOKENS + REASONING_HEADROOM_TOKENS
+def authoring_output_tokens(config: LearnLoopConfig | None = None) -> int:
+    return output_budget(config, ROLE_TASK["authoring"])
 
 
-def closed_book_output_tokens(questions: int) -> int:
-    return CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION * questions + REASONING_HEADROOM_TOKENS
+def closed_book_output_tokens(questions: int, config: LearnLoopConfig | None = None) -> int:
+    del questions  # one generous budget covers the batch (the policy, not a per-question cap)
+    return output_budget(config, ROLE_TASK["closed_book"])
 
 
-def grading_output_tokens(items: int) -> int:
-    return GRADING_OUTPUT_TOKENS_PER_ITEM * items + REASONING_HEADROOM_TOKENS
+def grading_output_tokens(items: int, config: LearnLoopConfig | None = None) -> int:
+    del items
+    return output_budget(config, ROLE_TASK["grading"])
 
 
 class SealedProbeError(ValueError):
@@ -525,7 +526,7 @@ def grade_items(
         purpose=PROBE_GRADING_PURPOSE,
         prompt=prompt,
         result_model=ProbeGrades,
-        output_tokens=grading_output_tokens(len(items)),
+        output_tokens=route.output_tokens or grading_output_tokens(len(items)),
         diff_id=diff_id,
         disclosure={
             "files_sent": sorted({c.get("path") for item in items for c in item["citations"] if c.get("path")}),
@@ -612,11 +613,12 @@ def plan_generation(
                 bundle = load_bundle(vault_root, diff["bundle_hash"])
                 planned += plan_for_bundle(bundle, repo_name=repo["name"], config=config)
             except BundleIntegrityError:
-                planned += _plan_stages(int(diff["token_estimate"]) + PROMPT_OVERHEAD_TOKENS, count, count, count)
+                planned += _plan_stages(int(diff["token_estimate"]) + PROMPT_OVERHEAD_TOKENS, count, count, count,
+                                        config=config)
             continue
         closed_book = sum(probe["status"] == "pending_closed_book" for probe in existing)
         grading = closed_book + sum(probe["status"] == "pending_closed_book_grade" for probe in existing)
-        planned += _plan_stages(None, 0, closed_book, grading)
+        planned += _plan_stages(None, 0, closed_book, grading, config=config)
     return planned
 
 
@@ -625,19 +627,20 @@ def plan_for_bundle(bundle: dict[str, Any], *, repo_name: str, config: LearnLoop
 
     count = config.project.candidates_per_diff
     prompt = probe_authoring_prompt(authoring_context(bundle, repo_name=repo_name, config=config))
-    return _plan_stages(estimate_tokens(prompt), count, count, count)
+    return _plan_stages(estimate_tokens(prompt), count, count, count, config=config)
 
 
-def _plan_stages(authoring_input: int | None, candidates: int, closed_book: int, grading: int) -> list[PlannedCall]:
+def _plan_stages(authoring_input: int | None, candidates: int, closed_book: int, grading: int, *,
+                 config: LearnLoopConfig | None = None) -> list[PlannedCall]:
     planned: list[PlannedCall] = []
     if authoring_input is not None:
-        planned.append(PlannedCall("authoring", authoring_input, authoring_output_tokens(), candidates=candidates))
+        planned.append(PlannedCall("authoring", authoring_input, authoring_output_tokens(config), candidates=candidates))
     if closed_book:
         planned.append(
             PlannedCall(
                 "closed_book",
                 PROMPT_OVERHEAD_TOKENS + CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE * closed_book,
-                closed_book_output_tokens(closed_book),
+                closed_book_output_tokens(closed_book, config),
             )
         )
     if grading:
@@ -645,7 +648,7 @@ def _plan_stages(authoring_input: int | None, candidates: int, closed_book: int,
             PlannedCall(
                 "grading",
                 PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE * grading,
-                grading_output_tokens(grading),
+                grading_output_tokens(grading, config),
             )
         )
     return planned
@@ -669,7 +672,7 @@ def _author(
         purpose=PROBE_AUTHORING_PURPOSE,
         prompt=prompt,
         result_model=ProbeCandidates,
-        output_tokens=authoring_output_tokens(),
+        output_tokens=route.output_tokens or authoring_output_tokens(config),
         candidates=config.project.candidates_per_diff,
         diff_id=diff["id"],
         disclosure=_disclosure_for_bundle(bundle, diff, repo, prompt),
@@ -741,7 +744,7 @@ def _closed_book(
         purpose=CLOSED_BOOK_PURPOSE,
         prompt=prompt,
         result_model=ClosedBookAnswers,
-        output_tokens=closed_book_output_tokens(len(keys)),
+        output_tokens=route.output_tokens or closed_book_output_tokens(len(keys)),
         diff_id=diff["id"],
         disclosure={
             "files_sent": [],

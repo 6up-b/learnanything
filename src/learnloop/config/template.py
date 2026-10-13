@@ -887,7 +887,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # gates it), so mvp-0.9 to mvp-0.12 serving is unchanged. Built as
     # mvp-0.11 and relabelled mvp-0.13 at its merge after Slice 2 T6, where
     # every snapshot was recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "a602f1e4125a593991918a20f8294a2f94ab8def490447eddc71a5274ec286e1",
+    # The T6 follow-up (owner decisions 2026-10-12) adds the output-budget
+    # policy (ai.output_tokens = 16384, ai.route_output_tokens,
+    # ai.route_reasoning_effort with low for source_query_rewrite and
+    # source_rerank), source_retrieval.pool = "dense_plus_bm25" (chosen by the
+    # follow-up evaluation), pool_keyword_extras and tutor_deadline_cancels,
+    # and raises three per-question reservation caps (rewrite 0.15, rerank
+    # 0.30, practice rerank 0.30). Modelled defaults only, none in the
+    # decision-only template. Retrieval and output budgets are context: no
+    # scoring, scheduling, projection or serving change, so no successor;
+    # every snapshot was recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "95c181f4f214bcd4a454677b4a34496f0fa78bea462f45e8149a8c3927bcef10",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -900,7 +910,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "70df33c561f1d050f19031c62af7f6a01634cd3c902675320437dd58712102fc",
+    "mvp-0.10": "c83d3c5f10ca783448b555bccaf30eaeaedbfc44423c578c7b5ea25ca7e9808e",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -921,7 +931,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "8149195c18eec939b8e4069e03a18ad1d4b0b05e58b56a46471e344dd741be37",
+    "mvp-0.11": "195426486d8dbecbe1ab2e11dc8c3e2791f1c9e4ad40f36be12e570420d46a11",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -935,7 +945,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # only from the judge's and the diagnoser's verdicts on their own history.
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "3e29ee7a1585b85c655a5fb296e5797cb80db8b2fa25c1c33a9fb9e318d33554",
+    "mvp-0.12": "c235f26e783cc5184fde8ee2a6cb0150c06a60e3a30755b6f20a9bd10e595adf",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -946,7 +956,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # upgrade` (default target) from mvp-0.12, or from mvp-0.9 to mvp-0.11
     # through the chain (under mvp-0.12's guard). New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "b05a086c81640b1f5b39e263ee823a415d48f3a45d040ceb4ac2090a823dae12",
+    "mvp-0.13": "8ae6b37a71831882749ead261d57677e19b26934f31ae696ec8949e3708421ed",
 }
 
 

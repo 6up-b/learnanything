@@ -34,7 +34,7 @@ class Judge:
 
     def complete(self, request):
         self.calls.append(request)
-        assert request.output_budget_tokens == 1024
+        assert request.output_budget_tokens == 16_384  # the shared policy budget
         report_call_usage({"input_tokens": 10, "output_tokens": 20, "resolved_model": "fake-resolved"})
         if self.after_call:
             self.after_call()
@@ -390,7 +390,7 @@ def test_codex_estimate_falls_back_to_input_plus_output_tokens(vault, monkeypatc
     assert report["status"] == "complete"
     usage = [json.loads(r["usage_json"]) for r in _receipts(vault[1])]
     assert {u["estimated_token_source"] for u in usage} == {"input_plus_output_estimate"}
-    assert all(u["estimated_total_tokens"] > 1024 and u["estimated_usd"] > 0 for u in usage)
+    assert all(u["estimated_total_tokens"] > 16_384 and u["estimated_usd"] > 0 for u in usage)
 
 
 def test_metered_route_keeps_the_physical_request_bound_and_full_caps(vault):

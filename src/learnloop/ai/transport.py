@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.usage import TokenUsage
-from learnloop.ai.execution import model_call, output_limit
+from learnloop.ai.execution import model_call, output_limit, reasoning_effort_request
 
 WireResult = TypeVar("WireResult", bound=WireModel)
 
@@ -62,6 +62,9 @@ class StructuredRequest(Generic[WireResult]):
     #: The turn must be isolated (:data:`ISOLATED_TURN`): only a transport that
     #: declares the capability may receive it. Implied by ``workspace``.
     isolated: bool = False
+    #: A route's requested reasoning effort (``ai.route_reasoning_effort``);
+    #: None keeps the profile's. Transports without an effort control ignore it.
+    reasoning_effort: str | None = None
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -194,6 +197,7 @@ def execute_structured_operation(
         output_budget_tokens=output_limit(),
         workspace=Path(workspace) if workspace is not None else None,
         isolated=isolated,
+        reasoning_effort=reasoning_effort_request(),
     )
     with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens) as metadata:
         result = _execute_request(transport, request, legacy_context, legacy_capability)

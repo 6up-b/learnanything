@@ -91,7 +91,6 @@ RERANK_PROMPT_VERSION = "practice_rerank.v1"
 #: The live query embedding: one request, never retried, at most a cent.
 QUERY_EMBEDDING_CAPS = SpendCaps(max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
                                  max_total_tokens=20_000, max_estimated_usd=0.01)
-RERANK_OUTPUT_TOKENS = 2500
 CANDIDATE_PROMPT_CHARS = 700
 MAX_QUERY_CHARS = 2000
 
@@ -480,7 +479,9 @@ def _rerank_prompt(query_text: str, pick_at_most: int, context: list[dict[str, A
 RERANK_TASK = ListwiseTask(
     route_task="practice_rerank", ledger_task="practice_relevance", left_kind="practice_query",
     right_kind="practice_item", id_prefix="prr_", prompt_version=RERANK_PROMPT_VERSION,
-    output_tokens=RERANK_OUTPUT_TOKENS, result_model=PracticeRerank, verdict_field="relevance",
+    # The route's policy budget (learnloop.ai.output_budget; the 2,500-token
+    # cap is retired, owner 2026-10-12).
+    output_tokens=None, result_model=PracticeRerank, verdict_field="relevance",
     scores=RELEVANCE_SCORE, price_setting="practice_index.rerank_price_per_million",
     route_label="rerank ",
 )
@@ -634,16 +635,16 @@ def _plan_rerank(vault: LoadedVault, repository: Repository, text: str, pool: Se
             if all(ids[item_id] in cached for item_id in pool):
                 return {**base, "status": "cached"}
             key = checkpoint_key(route, purpose="practice_rerank", prompt=prompt,
-                                 result_model=PracticeRerank, output_tokens=RERANK_OUTPUT_TOKENS)
+                                 result_model=PracticeRerank, output_tokens=route.output_tokens)
             if checkpointed_keys(connection, [key]) or receipt_answer(
                 connection, route, purpose="practice_rerank", prompt=prompt,
-                result_model=PracticeRerank, output_tokens=RERANK_OUTPUT_TOKENS,
+                result_model=PracticeRerank, output_tokens=route.output_tokens,
                 validate=lambda value: _validate_rerank(value, refs),
             ) is not None:
                 return {**base, "status": "recoverable"}
     else:
         prompt = _largest_rerank_prompt(vault, text, corpus, size, pick_at_most)
-    tokens = estimated_call_tokens(prompt, PracticeRerank, RERANK_OUTPUT_TOKENS)
+    tokens = estimated_call_tokens(prompt, PracticeRerank, route.output_tokens)
     calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price,
                       repository=None, owner_kind="practice_rerank", owner_id="dry_run")
     view = calls.plan([tokens], candidates=size, pairs=size)

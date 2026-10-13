@@ -38,7 +38,6 @@ from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
     QUERY_EMBEDDING_CAPS,
     QUERY_RECORD_KIND,
-    REWRITE_OUTPUT_TOKENS,
     is_conceptual,
     query_id,
     rewrite_caps,
@@ -195,17 +194,22 @@ def plan_library_search(vault: LoadedVault, repository: Repository, *, query: st
         if skip is not None:
             rewrite = {"status": skip, "calls": 0, "route": route.as_dict()}
         else:
-            tokens = estimated_call_tokens(rewrite_prompt(needle, None), QueryRewrite, REWRITE_OUTPUT_TOKENS)
-            paid = PaidCalls(route=route, budget=SpendBudget(caps or rewrite_caps(vault)),
+            tokens = estimated_call_tokens(rewrite_prompt(needle, None), QueryRewrite, route.output_tokens)
+            paid = PaidCalls(route=route, budget=SpendBudget(caps or rewrite_caps(vault, route.output_tokens)),
                              price_per_million=config.llm_price_per_million, repository=None,
                              owner_kind="source_query_rewrite", owner_id="dry_run")
             view = paid.plan([tokens], candidates=1)
+            # Worst case: the call, then one retry at twice the output budget
+            # (a truncation retry; output_budget policy).
+            retry = paid.plan([tokens + route.output_tokens])
             rewrite = {"status": "would_call", "route": route.as_dict(), "billing": view["billing"],
                        "cost_basis": view["cost_basis"], "calls": 1, "max_calls_with_retry": 2,
+                       "output_tokens": route.output_tokens, "reasoning_effort": route.reasoning_effort,
                        "estimated_tokens": view["estimated_tokens"], "estimated_usd": view["estimated_usd"],
                        "marginal_usd": view["marginal_usd"]}
             calls += 2
-            total_usd = None if view["marginal_usd"] is None else total_usd + 2 * view["marginal_usd"]
+            total_usd = (None if view["marginal_usd"] is None or retry["marginal_usd"] is None
+                         else total_usd + view["marginal_usd"] + retry["marginal_usd"])
     plan["rewrite"] = rewrite
     meaning = plan["meaning_search"]
     if meaning["status"] in {"ready", "partial"}:

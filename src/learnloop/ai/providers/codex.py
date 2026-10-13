@@ -270,8 +270,12 @@ class SdkCodexClient(TokenUsageAccounting):
 
         marker = object()
         previous_timeout = self.__dict__.get("_request_timeout_seconds", marker)
+        previous_effort = self.__dict__.get("_request_reasoning_effort", marker)
         if request.timeout_seconds is not None:
             self._request_timeout_seconds = request.timeout_seconds
+        # A route's requested effort (ai.route_reasoning_effort) replaces the
+        # profile's for this turn only.
+        self._request_reasoning_effort = request.reasoning_effort
         try:
             with generation_limit(request.output_budget_tokens):
                 return self._complete_validated(
@@ -286,6 +290,10 @@ class SdkCodexClient(TokenUsageAccounting):
                 self.__dict__.pop("_request_timeout_seconds", None)
             else:
                 self._request_timeout_seconds = previous_timeout
+            if previous_effort is marker:
+                self.__dict__.pop("_request_reasoning_effort", None)
+            else:
+                self._request_reasoning_effort = previous_effort
 
     def supports(self, capability: str) -> bool:
         return capability in {
@@ -542,7 +550,8 @@ class SdkCodexClient(TokenUsageAccounting):
 
         launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if sandbox is not None else None
         try:
-            effort = _sdk_reasoning_effort(ReasoningEffort, self.config.reasoning_effort)
+            effort = _sdk_reasoning_effort(
+                ReasoningEffort, self.__dict__.get("_request_reasoning_effort") or self.config.reasoning_effort)
             summary = _sdk_reasoning_summary(ReasoningSummary, self.config.reasoning_summary)
             codex_bin = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
             if sandbox is not None and launcher_dir is not None:
@@ -566,7 +575,7 @@ class SdkCodexClient(TokenUsageAccounting):
                 isolated=isolated,
                 sandboxed=sandbox is not None,
                 service_name=f"learnloop:{purpose}",
-                reasoning_effort=self.config.reasoning_effort,
+                reasoning_effort=self.__dict__.get("_request_reasoning_effort") or self.config.reasoning_effort,
                 reasoning_summary=self.config.reasoning_summary,
                 prompt=prompt,
                 prompt_length=len(prompt),

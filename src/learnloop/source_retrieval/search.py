@@ -11,10 +11,24 @@ Lists, each restricted to the scope before fusion:
   query, when a conceptual question was rewritten;
 * caller lists (the tutor adds its learning objects' linked spans).
 
-Fusion is Phase 5b's ``reciprocal_rank_fusion``: ranks only, so no BM25 or
-cosine cutoff is ever hand-set (R4). Each hit keeps its rank in every list, and
-the result says which kinds of evidence were used (``basis``), so consumers can
-label it honestly.
+Two ways to turn the lists into one candidate pool (``source_retrieval.pool``,
+owner 2026-10-12):
+
+* ``hybrid_rrf``: Phase 5b's ``reciprocal_rank_fusion`` of every list: ranks
+  only, so no BM25 or cosine cutoff is ever hand-set (R4).
+* ``dense_plus_bm25``: the dense top ``k`` (``meaning``, fused with
+  ``rewrite_meaning`` when the question was rewritten), then the BM25 top ``m``
+  that dense did not already return, then the same for each caller list (the
+  tutor's linked spans). Ranked dense first for display; BM25 only widens the
+  pool, and on consequential paths the verification picks from all of it. The
+  T6 evaluation found dense alone at least as good as the fusion on generated
+  questions; BM25's job is the exact terms dense can miss. When the scope's
+  dense index is not complete (or no query vector exists) the search falls
+  back to ``hybrid_rrf`` and says so.
+
+Each hit keeps its rank in every list, and the result says which kinds of
+evidence were used (``basis``) and how the pool was built (``pool``), so
+consumers can label it honestly. Paid steps are timed (``timings_ms``).
 """
 from __future__ import annotations
 
@@ -53,6 +67,13 @@ from learnloop.vault.models import LoadedVault
 #: Each list contributes at most this many candidates to the fusion.
 LIST_DEPTH = 200
 SpanKey = tuple[str, str]
+#: Candidate-pool modes (``source_retrieval.pool``).
+POOL_HYBRID_RRF = "hybrid_rrf"
+POOL_DENSE_PLUS_BM25 = "dense_plus_bm25"
+POOL_MODES = (POOL_DENSE_PLUS_BM25, POOL_HYBRID_RRF)
+#: Lists that never widen a dense_plus_bm25 pool (they are the dense side, or
+#: the typing search's literal match).
+_NON_WIDENING = frozenset({"meaning", "rewrite_meaning", "rewrite_keyword", "substring"})
 
 
 @dataclass
@@ -67,6 +88,10 @@ class SpanHit:
     page: int | None
     ordinal: int
     ranks: dict[str, int] = field(default_factory=dict)
+    #: In a dense_plus_bm25 pool: ``dense``, or the list that widened it with
+    #: this hit (``keyword``, a caller list such as ``provenance``). None in a
+    #: hybrid_rrf pool.
+    pool_role: str | None = None
 
     @property
     def key(self) -> SpanKey:
@@ -91,6 +116,10 @@ class SpanSearch:
     query_embedding: dict[str, Any] = field(default_factory=dict)
     rewrite: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    #: How the candidate pool was built: mode, fallback reason, counts.
+    pool: dict[str, Any] = field(default_factory=dict)
+    #: Wall time of each step in milliseconds (rewrite, query_embedding, total).
+    timings_ms: dict[str, int] = field(default_factory=dict)
 
     @property
     def basis(self) -> str:
@@ -110,17 +139,58 @@ class SpanSearch:
     def describe(self) -> dict[str, Any]:
         return {"basis": self.basis, "lists": list(self.lists), "scope": self.scope,
                 "dense": self.dense, "query_embedding": self.query_embedding,
-                "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits)}
+                "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits),
+                "pool": dict(self.pool), "timings_ms": dict(self.timings_ms)}
 
 
-def _hit(block: BlockRow, scope: Scope, ranks: Mapping[str, int], titles: Mapping[str, str]) -> SpanHit:
+def _hit(block: BlockRow, scope: Scope, ranks: Mapping[str, int], titles: Mapping[str, str],
+         pool_role: str | None = None) -> SpanHit:
     source = scope.extractions[block.extraction_id]
     return SpanHit(
         extraction_id=block.extraction_id, span_id=block.span_id, source_id=source.source_id,
         source_title=source.title, text=block.text, block_type=block.block_type,
         section_path=section_path(block, titles), page=block.page, ordinal=block.ordinal,
-        ranks=dict(ranks),
+        ranks=dict(ranks), pool_role=pool_role,
     )
+
+
+def _ms(started: float) -> int:
+    return int(round((time.monotonic() - started) * 1000))
+
+
+def dense_plus_bm25(
+    lists: Mapping[str, Sequence[str]], *, dense_k: int, extras_m: int, rrf_k: int,
+    widening: Sequence[str] = ("keyword",),
+) -> tuple[list[str], dict[str, str], dict[str, dict[str, int]]]:
+    """The dense top ``dense_k`` then each widening list's top ``extras_m`` not
+    already in the pool (deduplicated), in that order.
+
+    Returns ``(order, roles, ranks)``: the pool's record ids, each id's pool
+    role (``dense`` or the list that added it) and its rank in every list.
+    The dense side is ``meaning``, fused by rank with ``rewrite_meaning`` when
+    both exist.
+    """
+
+    dense_lists = {name: lists[name] for name in ("meaning", "rewrite_meaning") if lists.get(name)}
+    if len(dense_lists) > 1:
+        dense_order, _ = reciprocal_rank_fusion(dense_lists, k=rrf_k)
+    else:
+        dense_order = list(next(iter(dense_lists.values()), []))
+    order = list(dict.fromkeys(dense_order))[: max(0, dense_k)]
+    roles = {record_id: "dense" for record_id in order}
+    seen = set(order)
+    for name in widening:
+        for record_id in list(lists.get(name) or [])[: max(0, extras_m)]:
+            if record_id not in seen:
+                seen.add(record_id)
+                order.append(record_id)
+                roles[record_id] = name
+    ranks: dict[str, dict[str, int]] = {}
+    for name, ranking in sorted(lists.items()):
+        for position, record_id in enumerate(ranking, start=1):
+            if record_id in seen:
+                ranks.setdefault(record_id, {}).setdefault(name, position)
+    return order, roles, ranks
 
 
 def search_spans(
@@ -143,6 +213,9 @@ def search_spans(
     owner_id: str = "",
     deadline: float | None = None,
     budget: SpendBudget | None = None,
+    pool: str | None = None,
+    pool_dense: int | None = None,
+    pool_extras: int | None = None,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
@@ -153,9 +226,17 @@ def search_spans(
     query embedding's requests carry the remaining time as their timeout, and
     neither starts after it.
     ``budget`` puts both paid steps under one caller's caps.
+
+    ``pool`` (None: ``source_retrieval.pool``) chooses how the lists become
+    one pool; a ``dense_plus_bm25`` pool takes the dense top ``pool_dense``
+    (default ``limit`` minus the extras) and up to ``pool_extras`` (default
+    ``source_retrieval.pool_keyword_extras``) from each widening list. It
+    needs a deep search over a complete dense index, else it falls back to
+    ``hybrid_rrf`` (``result.pool["fallback"]`` says why).
     """
 
     config = vault.config.source_retrieval
+    started = time.monotonic()
     text = normalize_query(query)[:MAX_QUERY_CHARS]
     result = SpanSearch(query=text, scope=scope.describe())
     if len(text) < 2 or not scope.extractions:
@@ -183,9 +264,11 @@ def search_spans(
         wants_rewrite = (config.query_rewrite and is_conceptual(text)) if rewrite is None else rewrite
         rewrite_result = rewritten
         if wants_rewrite and rewrite_result is None:
+            step = time.monotonic()
             rewrite_result = rewrite_query(vault, repository, text, context=context_text,
                                            client=rewrite_client, owner_id=owner_id,
                                            deadline=deadline, budget=budget)
+            result.timings_ms["rewrite"] = _ms(step)
         if rewrite_result is not None:
             result.rewrite = rewrite_result.describe()
         elif rewrite is None and not config.query_rewrite:
@@ -218,9 +301,11 @@ def search_spans(
                 vectors = {}
                 result.query_embedding = {"status": "timed_out", "reason": "the retrieval time box ran out"}
             else:
+                step = time.monotonic()
                 vectors, result.query_embedding = embed_query_texts(
                     vault, repository, texts, embedder=embedder, owner_id=owner_id, budget=budget,
                     deadline=deadline)
+                result.timings_ms["query_embedding"] = _ms(step)
 
             def permit(record_id: str) -> bool:
                 return scope.allows(*split_record_id(record_id))
@@ -244,24 +329,61 @@ def search_spans(
         if extra:
             lists[name] = extra
 
-    order, ranks = reciprocal_rank_fusion(
-        {name: [block_record_id(*key) for key in keys] for name, keys in lists.items()},
-        k=config.rrf_k,
-    )
+    by_id = {name: [block_record_id(*key) for key in keys] for name, keys in lists.items()}
+    mode = pool or config.pool
+    if mode not in POOL_MODES:
+        raise ValueError(f"Unknown source_retrieval pool {mode!r}; expected one of {', '.join(POOL_MODES)}")
+    fallback = None
+    if mode == POOL_DENSE_PLUS_BM25 and deep:  # a typing search is keyword only either way
+        dense_status = (result.dense or {}).get("status")
+        if dense_status != "ready":
+            fallback = f"the dense index is {dense_status or 'unused'}, not complete"
+        elif not by_id.get("meaning"):
+            fallback = "no query vector, so no meaning list"
+    roles: dict[str, str] = {}
+    if mode == POOL_DENSE_PLUS_BM25 and deep and fallback is None:
+        extras_m = config.pool_keyword_extras if pool_extras is None else pool_extras
+        dense_k = pool_dense if pool_dense is not None else max(1, limit - extras_m)
+        widening = ["keyword", *sorted(name for name in by_id if name not in _NON_WIDENING | {"keyword"})]
+        order, roles, ranks = dense_plus_bm25(by_id, dense_k=dense_k, extras_m=extras_m,
+                                              rrf_k=config.rrf_k, widening=widening)
+        result.pool = {"mode": POOL_DENSE_PLUS_BM25, "fallback": None, "dense_k": dense_k,
+                       "extras_m": extras_m, "dense": sum(1 for role in roles.values() if role == "dense"),
+                       "extras": {name: sum(1 for role in roles.values() if role == name)
+                                  for name in widening if any(role == name for role in roles.values())}}
+        wanted_ids = order
+    else:
+        order, ranks = reciprocal_rank_fusion(by_id, k=config.rrf_k)
+        result.pool = {"mode": POOL_HYBRID_RRF, "requested": mode,
+                       "fallback": fallback if mode == POOL_DENSE_PLUS_BM25 else None}
+        wanted_ids = order[: max(limit * 2, limit + 20)]
     result.lists = sorted(lists)
-    wanted = [split_record_id(record_id) for record_id in order[: max(limit * 2, limit + 20)]]
+    wanted = [split_record_id(record_id) for record_id in wanted_ids]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, wanted)
         titles = {extraction_id: section_header_titles(connection, extraction_id)
                   for extraction_id in sorted({key[0] for key in blocks})}
+    cap = len(wanted) if roles else limit
     for key in wanted:
         block = blocks.get(key)
         if block is None:  # an index row whose block is gone: never shown
             continue
-        result.hits.append(_hit(block, scope, ranks[block_record_id(*key)], titles[key[0]]))
-        if len(result.hits) >= limit:
+        record_id = block_record_id(*key)
+        result.hits.append(_hit(block, scope, ranks[record_id], titles[key[0]], roles.get(record_id)))
+        if len(result.hits) >= cap:
             break
+    result.timings_ms["total"] = _ms(started)
     return result
 
 
-__all__ = ["LIST_DEPTH", "SpanHit", "SpanKey", "SpanSearch", "search_spans"]
+__all__ = [
+    "LIST_DEPTH",
+    "POOL_DENSE_PLUS_BM25",
+    "POOL_HYBRID_RRF",
+    "POOL_MODES",
+    "SpanHit",
+    "SpanKey",
+    "SpanSearch",
+    "dense_plus_bm25",
+    "search_spans",
+]

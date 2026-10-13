@@ -60,9 +60,11 @@ class FakeMultimodalEmbedder(HashingEmbedder):
         return super().embed(texts, task_prefix)
 
 
-def _ledger(repository, task="source_relevance") -> int:
+def _ledger(repository, task="source_relevance", *, verify: bool | None = None) -> int:
+    where = "" if verify is None else (" AND id LIKE 'ssv_%'" if verify else " AND id NOT LIKE 'ssv_%'")
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE task = ?", (task,)).fetchone()[0]
+        return connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE task = ?" + where,
+                                  (task,)).fetchone()[0]
 
 
 def _receipts(repository) -> int:
@@ -84,12 +86,13 @@ def test_source_retrieval_dry_run_plans_every_paid_step_and_writes_nothing(tmp_p
     llm = FakeSourceLLM()
     request = CompareRequest(suite="source_retrieval", output_dir=tmp_path / "out", max_cases=6, dry_run=True)
     report = run_compare(loaded(paths), request=request, caps=CAPS,
-                         clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm},
+                         clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm,
+                                  "source_verify": llm},
                          embedding_clients={QWEN: HashingEmbedder()})
     assert report["status"] == "dry_run"
     plan = report["plan"]
     assert plan["questions"] == 6 and plan["dense_index"]["status"] == "incomplete"
-    assert set(plan["roles"]) == {"source_question_writer", "source_rewrite", "source_relevance"}
+    assert set(plan["roles"]) == {"source_question_writer", "source_rewrite", "source_relevance", "source_verify"}
     assert report["estimate"]["llm_calls"] > 0 and report["estimate"]["embedding_calls"] >= 1
     assert llm.calls == [] and _receipts(repository) == receipts and not (tmp_path / "out").exists()
 
@@ -102,22 +105,31 @@ def test_source_retrieval_report_compares_against_todays_substring_search(tmp_pa
     llm = FakeSourceLLM()
     request = CompareRequest(suite="source_retrieval", output_dir=tmp_path / "out", max_cases=8)
     report = run_compare(loaded(paths), request=request, caps=CAPS, price_per_million=1.0,
-                         clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm},
+                         clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm,
+                                  "source_verify": llm},
                          embedding_clients={QWEN: HashingEmbedder()})
     assert report["status"] == "complete", report.get("reason")
     results = report["results"]
-    assert results["systems"] == ["substring", "keyword", "meaning", "hybrid", "hybrid_rewrite"]
-    assert results["scored_questions"] == results["questions"] == 8
+    assert results["systems"] == ["substring", "keyword", "meaning", "hybrid", "hybrid_rewrite", "pool_rewrite",
+                                  "hybrid_verify", "pool_verify", "dense_verify"]
+    # Every query type is asked; the tiny vault has too few distant blocks for
+    # two compositional pairs, so it gets fewer than eight questions.
+    assert results["scored_questions"] == results["questions"] and 6 <= results["questions"] <= 8
+    assert set(results["question_types"]) == {"conceptual", "keyword", "compositional", "procedural"}
     assert set(results["summary"]["differences"]) >= {"hybrid - substring", "keyword - substring"}
     assert results["label_agreement"]["pairs"] > 0
     assert results["seed_hit@10"]["hybrid"] >= results["seed_hit@10"]["substring"]
-    assert _ledger(repository) == 2 * results["label_agreement"]["pairs"]
+    # Two label passes per pair; the production verification ledgers its own
+    # verdicts (ids ssv_...) beside them.
+    assert _ledger(repository, verify=False) == 2 * results["label_agreement"]["pairs"]
+    assert _ledger(repository, verify=True) > 0
     markdown = (tmp_path / "out" / report["report_files"][1]).read_text(encoding="utf-8")
     assert "| hybrid |" in markdown and "Label agreement" in markdown
     # A rerun pays for nothing: questions, rewrites and labels come from checkpoints.
     calls = len(llm.calls)
     again = run_compare(loaded(paths), request=request, caps=CAPS, price_per_million=1.0,
-                        clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm},
+                        clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm,
+                                 "source_verify": llm},
                         embedding_clients={QWEN: HashingEmbedder()})
     assert again["status"] == "complete" and len(llm.calls) == calls
     assert again["results"]["summary"] == results["summary"]

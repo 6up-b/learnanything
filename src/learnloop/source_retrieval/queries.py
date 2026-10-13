@@ -39,7 +39,9 @@ from learnloop.vault.models import LoadedVault
 
 QUERY_RECORD_KIND = "source_query"
 REWRITE_PROMPT_VERSION = "source_query_rewrite.v1"
-REWRITE_OUTPUT_TOKENS = 1200
+#: An upper bound on one rewrite prompt's input tokens (UTF-8 bytes of the
+#: longest question and context plus instructions, schema and framing).
+REWRITE_INPUT_TOKENS_BOUND = 6_000
 MAX_QUERY_CHARS = 2000
 MAX_CONTEXT_CHARS = 700
 MAX_KEYWORDS = 12
@@ -93,9 +95,18 @@ class Rewrite:
                 "keywords": len(self.keywords)}
 
 
-def rewrite_caps(vault: LoadedVault) -> SpendCaps:
+def rewrite_output_tokens(vault: LoadedVault, client: Any | None = None) -> int:
+    """The rewrite's output budget: the route's under the shared policy."""
+
+    return plan_route(vault, "source_query_rewrite", client).output_tokens
+
+
+def rewrite_caps(vault: LoadedVault, output_tokens: int | None = None) -> SpendCaps:
+    """One call and one retry; a truncation retry asks for twice the budget."""
+
+    budget = output_tokens if output_tokens is not None else rewrite_output_tokens(vault)
     return SpendCaps(max_candidates=1, max_pairs=0, max_retries=1, max_calls=2,
-                     max_total_tokens=40_000,
+                     max_total_tokens=REWRITE_INPUT_TOKENS_BOUND * 2 + budget * 3,
                      max_estimated_usd=vault.config.source_retrieval.rewrite_max_cost_usd)
 
 
@@ -148,14 +159,17 @@ def rewrite_query(
     if client is None or reason is not None:
         return Rewrite("unavailable", reason=reason)
     prompt = rewrite_prompt(question, context)
-    input_hash = content_key({"prompt": prompt, "schema": QueryRewrite.model_json_schema(),
-                              "model": route.model, "output_tokens": REWRITE_OUTPUT_TOKENS})
-    calls = PaidCalls(route=route, budget=budget or SpendBudget(rewrite_caps(vault)), price_per_million=price,
-                      repository=repository, owner_kind=owner_kind, owner_id=owner_id)
+    identity: dict[str, Any] = {"prompt": prompt, "schema": QueryRewrite.model_json_schema(),
+                                "model": route.model, "output_tokens": route.output_tokens}
+    if route.reasoning_effort:
+        identity["reasoning_effort"] = route.reasoning_effort
+    input_hash = content_key(identity)
+    calls = PaidCalls(route=route, budget=budget or SpendBudget(rewrite_caps(vault, route.output_tokens)),
+                      price_per_million=price, repository=repository, owner_kind=owner_kind, owner_id=owner_id)
     try:
         result = calls.call(
             client, purpose="source_query_rewrite", prompt=prompt, result_model=QueryRewrite,
-            output_tokens=REWRITE_OUTPUT_TOKENS, candidates=1,
+            output_tokens=route.output_tokens, candidates=1,
             metadata={"prompt_version": REWRITE_PROMPT_VERSION, "input_hash": input_hash},
             validate=_validate, deadline=deadline,
         )
@@ -208,12 +222,14 @@ __all__ = [
     "MAX_QUERY_CHARS",
     "QUERY_EMBEDDING_CAPS",
     "QUERY_RECORD_KIND",
+    "REWRITE_INPUT_TOKENS_BOUND",
     "REWRITE_PROMPT_VERSION",
     "Rewrite",
     "embed_query_texts",
     "is_conceptual",
     "query_id",
     "rewrite_caps",
+    "rewrite_output_tokens",
     "rewrite_prompt",
     "rewrite_query",
     "rewritten_text",

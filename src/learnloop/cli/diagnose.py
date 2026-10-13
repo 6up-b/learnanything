@@ -221,7 +221,7 @@ def diagnose_run(
         raise typer.Exit(code=1)
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     if dry_run:
-        spend = ReviewSpend(caps, price_per_million=price_per_million)
+        spend = ReviewSpend(caps, price_per_million=price_per_million, config=loaded.config)
         profiles = route_profiles(loaded)
         for route, profile in profiles.items():
             if profile["enabled"]:
@@ -727,7 +727,7 @@ def diagnose_pfc_report(
 
     repository = Repository.attach(sqlite_path, read_only=dry_run) if dry_run else open_vault_repository(loaded.root, sqlite_path)
     plan = plan_pfc(loaded, repository, max_items=max_items, max_real=max_real, seed=seed)
-    spend = ReviewSpend(caps, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, price_per_million=price_per_million, config=loaded.config)
     profiles = route_profiles(loaded)
     for route in ("diagnosis_generator", "grading"):
         profile = profiles[route]

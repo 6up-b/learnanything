@@ -36,7 +36,8 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.errors import AIProviderUnavailable
-from learnloop.ai.execution import declared_budgets, generation_limit, observe_model_calls
+from learnloop.ai.execution import declared_budgets, generation_limit, observe_model_calls, truncation_retry_allowed
+from learnloop.ai.output_budget import output_budget
 from learnloop.ai.isolation import ToolIsolation, isolation_mode, tool_isolation
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
@@ -71,6 +72,9 @@ class ProjectRoute:
     # the sandbox) or "none" (project.require_tool_isolation = false).
     tool_isolation: str | None = None
     isolation: ToolIsolation | None = None
+    #: The role's output budget (``learnloop.ai.output_budget``), resolved
+    #: with the route; None is the policy's code default.
+    output_tokens: int | None = None
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -174,6 +178,7 @@ def resolve_route(workdir: Path, config: LearnLoopConfig, role: str) -> ProjectR
         message=resolved.runtime.message,
         client=resolved.client,
         reasoning_effort=getattr(profile, "reasoning_effort", None),
+        output_tokens=output_budget(config, task, provider=resolved.provider_name),
     )
 
 
@@ -391,6 +396,10 @@ class PaidCalls:
                 # request (and its JSON repair, which spends from the same
                 # budget) must not be allowed to produce more.
                 stack.enter_context(generation_limit(max(1, int(output_tokens))))
+                # A further physical request is admitted as a retry when it
+                # starts, so a truncated answer may be retried once at double
+                # the budget (output-budget policy).
+                stack.enter_context(truncation_retry_allowed())
 
             def observe(action: str, event: dict[str, Any]) -> None:
                 if action == "start":

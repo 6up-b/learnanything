@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
+from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient, _request_options
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY"
@@ -30,6 +30,12 @@ class OpenRouterProviderClient(OpenAIChatProviderClient):
         return headers
 
     def _reasoning_kwargs(self) -> dict[str, Any]:
+        # A route's requested effort (ai.route_reasoning_effort) wins over the
+        # profile's, including a profile that disables thinking: the route is
+        # the more specific setting.
+        requested = (_request_options.get()[2] or "").strip().lower()
+        if requested:
+            return {"extra_body": {"reasoning": {"effort": requested}}}
         thinking = (self.profile.thinking or "").strip().lower()
         effort = (self.profile.reasoning_effort or "").strip().lower()
         if thinking == "disabled" or not effort:

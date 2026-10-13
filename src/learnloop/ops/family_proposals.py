@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager, nullcontext
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from itertools import combinations
 import json
 import math
@@ -27,8 +27,10 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls
+from learnloop.ai.output_budget import TruncationRetry, output_budget
+from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
@@ -52,7 +54,9 @@ from learnloop.vault.paths import VaultPaths
 
 
 PROMPT_VERSIONS = FAMILY_JUDGE_PROMPTS
-OUTPUT_TOKENS = 1024
+#: The judge's output budget is the shared policy's (learnloop.ai.output_budget;
+#: the 1,024-token cap is retired, owner 2026-10-12), resolved per pass.
+JUDGE_ROUTE = "pf_family_judge"
 METERED_JUDGE_TYPES = frozenset({"openai_chat", "openrouter"})
 
 
@@ -71,6 +75,7 @@ class PairPass:
     prompt_version: str
     prompt: str
     input_hash: str
+    output_tokens: int = DEFAULT_OUTPUT_TOKENS
 
     @property
     def judgment_id(self) -> str:
@@ -104,6 +109,7 @@ def pair_passes(
     vault: LoadedVault, pairs: list[tuple[str, str]], settings: dict[str, Any],
 ) -> list[PairPass]:
     result = []
+    output_tokens = output_budget(vault.config, JUDGE_ROUTE, provider=settings.get("provider"))
     for left, right in pairs:
         context = {
             "left": _item_context(vault, vault.practice_items[left]),
@@ -135,9 +141,9 @@ def pair_passes(
             )
             key = content_key({
                 "prompt": prompt, "schema": FamilyVerdict.model_json_schema(),
-                "settings": settings, "output_tokens": OUTPUT_TOKENS,
+                "settings": settings, "output_tokens": output_tokens,
             })
-            result.append(PairPass(left, right, version, prompt, key))
+            result.append(PairPass(left, right, version, prompt, key, output_tokens))
     return result
 
 
@@ -207,7 +213,7 @@ def _estimate(passes: list[PairPass], price: float | None) -> SpendEstimate:
     # UTF-8 bytes safely upper-bound ordinary tokenizer input, with schema and
     # framing included. Output is bounded at the actual provider request.
     schema_bytes = len(json.dumps(FamilyVerdict.model_json_schema()).encode())
-    tokens = sum(len(p.prompt.encode()) + schema_bytes + 512 + OUTPUT_TOKENS for p in passes)
+    tokens = sum(len(p.prompt.encode()) + schema_bytes + 512 + p.output_tokens for p in passes)
     return SpendEstimate(
         candidates=len({i for p in passes for i in (p.left, p.right)}),
         pairs=len({(p.left, p.right) for p in passes}),
@@ -428,8 +434,12 @@ def propose_families(
             with observe_model_calls(observer):
                 for current in pending:
                     attempts = 0
+                    truncation = TruncationRetry(current.output_tokens, role=JUDGE_ROUTE, provider=provider,
+                                                 model=settings["model"], owner_kind="family_proposals",
+                                                 owner_id=run_id)
                     while True:
-                        estimate = _estimate([current], price_per_million)
+                        estimate = _estimate([replace(current, output_tokens=truncation.budget)],
+                                             price_per_million)
                         pair = (current.left, current.right)
                         estimate = SpendEstimate(
                             candidates=len(set(pair) - seen_items),
@@ -448,7 +458,7 @@ def propose_families(
                                 # metered routes must (one request, no repair).
                                 bound = nullcontext() if subscription else single_request()
                                 try:
-                                    with bound, generation_limit(OUTPUT_TOKENS):
+                                    with bound, generation_limit(truncation.budget), truncation.receipts():
                                         verdict = execute_structured_operation(
                                             client, purpose="pf_family_judge",
                                             prompt=current.prompt, result_model=FamilyVerdict,
@@ -479,6 +489,14 @@ def propose_families(
                                 raise AIProviderUnavailable("Missing shared retrieval target")
                         except AIInterrupted:
                             raise
+                        except AIOutputTruncated:
+                            # Never accepted: logged, retried once at double the budget.
+                            retry = truncation.after_truncation(allowed=budget.used.retries < caps.max_retries)
+                            report.setdefault("truncations", []).append(truncation.events[-1])
+                            if not retry:
+                                raise
+                            attempts += 1
+                            continue
                         except AIProviderUnavailable:
                             if budget.used.retries >= caps.max_retries:
                                 raise

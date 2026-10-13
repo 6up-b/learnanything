@@ -570,7 +570,7 @@ def vault_content_hash(vault: LoadedVault) -> str:
     )
 
 
-def route_bindings(clients: ReviewClients) -> dict[str, dict[str, Any] | None]:
+def route_bindings(clients: ReviewClients, config: Any | None = None) -> dict[str, dict[str, Any] | None]:
     """Per review route, the settings that change what its requests produce.
 
     Besides the model settings this binds the profile's ``max_tokens`` and
@@ -593,7 +593,7 @@ def route_bindings(clients: ReviewClients) -> dict[str, dict[str, Any] | None]:
             "model": getattr(client, "model", None) or getattr(client, "model_id", None),
             "max_tokens": max_tokens,
             # Subscription routes are not held to an output limit (F3).
-            "output_limit": None if is_subscription_client(client) else admitted_output_limit(route, max_tokens),
+            "output_limit": None if is_subscription_client(client) else admitted_output_limit(route, max_tokens, config),
         }
     return bindings
 
@@ -602,7 +602,7 @@ def run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]:
     return {
         "vault_root": str(Path(vault.root).resolve()),
         "vault_content_hash": vault_content_hash(vault),
-        "routes": route_bindings(clients),
+        "routes": route_bindings(clients, vault.config),
         "prompt_versions": prompt_versions(),
     }
 
@@ -1773,7 +1773,7 @@ def run_review(
             "estimate": None,
             "manifest": None,
         }
-    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     for route, client in (
         ("grading", clients.grading),
         ("diagnosis", clients.diagnosis),

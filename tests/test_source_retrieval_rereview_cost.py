@@ -101,15 +101,27 @@ class TimeoutRecordingEmbedder(HashingEmbedder):
         return super().embed(inputs, task_prefix)
 
 
-def test_the_tutors_query_embedding_request_carries_the_time_left(tmp_path):
+def test_the_tutors_query_embedding_request_carries_the_time_left_when_the_time_box_is_restored(tmp_path):
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    _backfill(paths)
+    append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 7\n"
+                                   "tutor_deadline_cancels = true\n")
+    embedder = TimeoutRecordingEmbedder()
+    _ask(paths, repository, CitingTutor(), _provider(embedder=embedder)[0],
+         question="Why are eigenvalues the roots of the characteristic polynomial?")
+    assert embedder.timeouts and all(timeout is not None and 0 < timeout <= 7 for timeout in embedder.timeouts)
+    assert current_embedding_timeout() is None  # restored after the request
+
+
+def test_by_default_the_tutors_query_embedding_has_no_time_box(tmp_path):
+    # Owner, 2026-10-12: no deadline cancellation for the tutor; the time is logged.
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     _backfill(paths)
     append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 7\n")
     embedder = TimeoutRecordingEmbedder()
     _ask(paths, repository, CitingTutor(), _provider(embedder=embedder)[0],
          question="Why are eigenvalues the roots of the characteristic polynomial?")
-    assert embedder.timeouts and all(timeout is not None and 0 < timeout <= 7 for timeout in embedder.timeouts)
-    assert current_embedding_timeout() is None  # restored after the request
+    assert embedder.timeouts == [None]
 
 
 def test_the_deep_library_search_query_embedding_carries_the_time_left(tmp_path):

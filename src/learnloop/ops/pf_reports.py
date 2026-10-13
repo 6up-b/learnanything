@@ -177,8 +177,7 @@ class _Judge:
         verdicts = []
         for order in ((left, right), (right, left)):
             call = self.caller.call(self.entry, prompt=C.pairwise_prompt(a=side(order[0]), b=side(order[1])),
-                                    prompt_version=C.PAIRWISE_PROMPT, result_model=C.PairwiseVerdict,
-                                    output_tokens=800)
+                                    prompt_version=C.PAIRWISE_PROMPT, result_model=C.PairwiseVerdict)
 
             def mapped(value: str) -> str:
                 return "tie" if value == "tie" else ("left" if (value == "A") == (order[0] is left) else "right")

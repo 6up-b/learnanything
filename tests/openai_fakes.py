@@ -19,6 +19,10 @@ class FakeAPIConnectionError(Exception):
     """Stands in for the SDK's wrapper around transport failures."""
 
 
+class FakeTruncated(str):
+    """A queued response that stopped for length (``finish_reason = "length"``)."""
+
+
 def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=(), usages=(), embeddings=()):
     """``usages`` optionally supplies one usage object per queued response, in
     order, attached to the returned completion as ``.usage`` (A7 token
@@ -55,8 +59,10 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
             content = self._responses.pop(0)
             if isinstance(content, Exception):
                 raise content
-            message = types.SimpleNamespace(content=content)
+            message = types.SimpleNamespace(content=str(content))
             choice = types.SimpleNamespace(message=message)
+            if isinstance(content, FakeTruncated):
+                choice.finish_reason = "length"
             if self._usages:
                 return types.SimpleNamespace(choices=[choice], usage=self._usages.pop(0))
             return types.SimpleNamespace(choices=[choice])

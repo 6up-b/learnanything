@@ -36,7 +36,8 @@ import time
 from typing import Any
 
 from learnloop.ai.decisions import DecisionResponseInvalid, NoulQuestion, request_body
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
+from learnloop.ai.output_budget import TruncationRetry
 from learnloop.ai.execution import (
     call_labels, generation_limit, observe_model_calls, single_request,
 )
@@ -410,12 +411,13 @@ def _call_decider(client: Any, request: RenderedRequest) -> tuple[float | None, 
     return answer.p_yes, verdict
 
 
-def _call_llm(client: Any, route: JudgeRoute, request: RenderedRequest) -> tuple[float | None, dict[str, Any]]:
+def _call_llm(client: Any, route: JudgeRoute, request: RenderedRequest,
+              output_tokens: int | None = None) -> tuple[float | None, dict[str, Any]]:
     # Codex turns cannot bound physical requests; metered routes must
     # (one request, no hidden repair or retry). Every turn is isolated: the
     # model sees the prompt only, never the vault or its files.
     bound = nullcontext() if route.subscription else single_request()
-    with bound, generation_limit(route.output_tokens):
+    with bound, generation_limit(output_tokens or route.output_tokens):
         result = execute_structured_operation(
             client, purpose=TASK, prompt=llm_prompt(request.state),
             result_model=ProbabilityJudgment, isolated=True,
@@ -544,10 +546,18 @@ def prepare_judge(
         for request in pending:
             current_digest = request.request_digest
             attempt = 0
+            truncation = TruncationRetry(route.output_tokens, role=TASK, provider=route.provider,
+                                         model=route.model, owner_kind=TASK, owner_id=current_digest)
             while True:
                 current.usage.clear()
                 current.physical_calls = 0
                 planned = per_request[request.request_digest]
+                extra = truncation.budget - route.output_tokens
+                if extra:
+                    # A truncation retry reserves its doubled output budget.
+                    planned = replace(planned, total_tokens=planned.total_tokens + extra, estimated_usd=(
+                        None if planned.estimated_usd is None
+                        else planned.estimated_usd + extra * (route.price_per_million or 0.0) / 1_000_000))
                 reservation = replace(planned, candidates=int(attempt == 0), retries=int(attempt > 0))
                 try:
                     with budget.request(reservation) as charge, observe_model_calls(observe), call_labels(
@@ -557,7 +567,8 @@ def prepare_judge(
                             if route.judge == "decider":
                                 p, verdict = _call_decider(client, request)
                             else:
-                                p, verdict = _call_llm(client, route, request)
+                                with truncation.receipts():
+                                    p, verdict = _call_llm(client, route, request, truncation.budget)
                         finally:
                             tokens = int(current.usage.get("input_tokens", 0) or 0) + int(
                                 current.usage.get("output_tokens", 0) or 0)
@@ -577,6 +588,17 @@ def prepare_judge(
                     # A paid 200 in an undocumented shape: the API moved.
                     # Fail closed rather than pay again for the same answer.
                     raise
+                except AIOutputTruncated:
+                    # Never accepted: logged, retried once at double the budget
+                    # (the Decider's typed answers are exempt: no chat output).
+                    retry = route.judge == "llm" and truncation.after_truncation(
+                        allowed=budget.used.retries < caps.max_retries)
+                    report.setdefault("truncations", []).extend(truncation.events[-1:])
+                    if not retry:
+                        raise
+                    attempt += 1
+                    report["retries"] += 1
+                    continue
                 except AIProviderUnavailable as exc:
                     retry_after = getattr(exc, "retry_after", None)
                     status = getattr(exc, "status", None)

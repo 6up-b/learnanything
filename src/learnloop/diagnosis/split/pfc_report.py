@@ -243,7 +243,7 @@ def run_pfc(
     cancelled: Callable[[], bool] | None = None,
     record_judgments: bool = True,
 ) -> dict[str, Any]:
-    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     spend.register("diagnosis_generator", generator_client)
     spend.register("grading", grading_client)
     statuses: Counter = Counter()

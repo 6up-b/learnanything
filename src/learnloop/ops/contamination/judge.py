@@ -34,8 +34,10 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
+from learnloop.ai.output_budget import TruncationRetry, output_budget
+from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendEstimate, subscription_usage_estimate,
@@ -50,7 +52,9 @@ from learnloop.vault.models import LoadedVault
 
 PROMPT_VERSIONS = {"leak": "contamination-leak-v1", "reveal": "contamination-reveal-v1"}
 OPERATIONS = {"leak": "contamination_leak_judgment", "reveal": "contamination_reveal_judgment"}
-OUTPUT_TOKENS = 1024
+#: The judge's route; its output budget is the shared policy's
+#: (learnloop.ai.output_budget; the 1,024-token cap is retired, owner 2026-10-12).
+JUDGE_ROUTE = "contamination_judge"
 METERED_JUDGE_TYPES = frozenset({"openai_chat", "openrouter"})
 
 _COMMON = (
@@ -115,6 +119,7 @@ class JudgeRequest:
     prompt_version: str
     input_hash: str
     pass_index: int = PRIMARY_PASS
+    output_tokens: int = DEFAULT_OUTPUT_TOKENS
 
     @property
     def judgment_id(self) -> str:
@@ -137,6 +142,7 @@ def judge_settings(vault: LoadedVault, provider: str, model: str | None, revisio
         "model": model or (profile.model if profile else None),
         "profile": profile.model_dump(mode="json") if profile else None,
         "judge_revision": revision,
+        "output_tokens": output_budget(vault.config, JUDGE_ROUTE, provider=provider),
     }
 
 
@@ -149,6 +155,7 @@ def build_requests(
     Repeats come last, so caps that cut a run short spend on decisions first."""
 
     schema = ContaminationJudgment.model_json_schema()
+    output_tokens = int(settings.get("output_tokens") or DEFAULT_OUTPUT_TOKENS)
     requests = []
     for candidate in candidates:
         version = PROMPT_VERSIONS[candidate.task]
@@ -158,9 +165,9 @@ def build_requests(
         )
         key = content_key({
             "prompt": prompt, "schema": schema, "settings": settings,
-            "output_tokens": OUTPUT_TOKENS,
+            "output_tokens": output_tokens,
         })
-        requests.append(JudgeRequest(candidate, prompt, version, key))
+        requests.append(JudgeRequest(candidate, prompt, version, key, output_tokens=output_tokens))
     wanted = set(repeats)
     requests += [replace(request, pass_index=REPEAT_PASS) for request in requests
                  if request.candidate.question in wanted]
@@ -213,7 +220,7 @@ def estimate(requests: list[JudgeRequest], price_per_million: float | None) -> S
     """UTF-8 bytes bound ordinary tokenizer input; output is bounded per request."""
 
     schema_bytes = len(json.dumps(ContaminationJudgment.model_json_schema()).encode())
-    tokens = sum(len(r.prompt.encode()) + schema_bytes + 512 + OUTPUT_TOKENS for r in requests)
+    tokens = sum(len(r.prompt.encode()) + schema_bytes + 512 + r.output_tokens for r in requests)
     return SpendEstimate(
         candidates=len({(r.candidate.left_kind, r.candidate.left_id) for r in requests}),
         pairs=len({r.candidate.question for r in requests}),
@@ -284,8 +291,11 @@ def run_judgments(
             candidate = current.candidate
             subject = (candidate.left_kind, candidate.left_id)
             attempts = 0
+            truncation = TruncationRetry(current.output_tokens, role=JUDGE_ROUTE,
+                                         provider=settings.get("provider"), model=settings.get("model"),
+                                         owner_kind="contamination_report", owner_id=run_id)
             while True:
-                planned = estimate([current], price_per_million)
+                planned = estimate([replace(current, output_tokens=truncation.budget)], price_per_million)
                 request = SpendEstimate(
                     candidates=int(subject not in seen_subjects),
                     pairs=int(candidate.question not in seen_pairs), calls=1,
@@ -299,7 +309,7 @@ def run_judgments(
                         seen_pairs.add(candidate.question)
                         bound = nullcontext() if subscription else single_request()
                         try:
-                            with bound, generation_limit(OUTPUT_TOKENS):
+                            with bound, generation_limit(truncation.budget), truncation.receipts():
                                 verdict = execute_structured_operation(
                                     client, purpose=OPERATIONS[candidate.task], prompt=current.prompt,
                                     result_model=ContaminationJudgment, isolated=True,
@@ -315,6 +325,12 @@ def run_judgments(
                     verdict = ContaminationJudgment.model_validate(verdict)
                 except AIInterrupted:
                     raise
+                except AIOutputTruncated:
+                    # Never accepted: logged, retried once at double the budget.
+                    if not truncation.after_truncation(allowed=budget.used.retries < budget.caps.max_retries):
+                        raise
+                    attempts += 1
+                    continue
                 except AIProviderUnavailable:
                     if budget.used.retries >= budget.caps.max_retries:
                         raise

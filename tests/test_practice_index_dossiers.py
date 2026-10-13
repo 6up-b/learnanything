@@ -348,17 +348,18 @@ def test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered(pra
     # The same request, but an answer that no longer validates.
     vault = load_vault(paths.root)
     plan = next(p for p in build_plans(vault, repository) if p.facet_id == "facet_span")
-    from learnloop.practice_index.dossiers import DOSSIER_OUTPUT_TOKENS, _checkpoint_key
+    from learnloop.practice_index.dossiers import _checkpoint_key
     from learnloop.practice_index.paid import plan_route
 
-    key = _checkpoint_key(plan_route(vault, "practice_dossier", llm), plan)
+    route = plan_route(vault, "practice_dossier", llm)
+    key = _checkpoint_key(route, plan)
     with repository.connection() as connection:
         connection.execute(
             "UPDATE model_call_receipts SET status='completed', output_text='{\"covers\": 3}', "
             "budget_json=json_set(budget_json, '$.practice_index.request_key', ?) " + where, (key,))
         assert connection.execute(
             f"SELECT input_text, output_budget_tokens FROM model_call_receipts {where}",
-        ).fetchone()[:] == (plan.prompt, DOSSIER_OUTPUT_TOKENS)
+        ).fetchone()[:] == (plan.prompt, route.output_tokens)
     planned = generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True, client=llm)
     assert planned["recoverable"] == 0
     report = generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
