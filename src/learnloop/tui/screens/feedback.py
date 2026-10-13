@@ -351,6 +351,10 @@ class FeedbackScreen(Screen):
                 line = f"Diagnosis: {summary}"
         try:
             self.query_one("#grading-status", TextStatic).update(Content(line))
+            if status["status"] == DONE:
+                # The error attributions were rendered with the blind grade;
+                # the diagnoser's statements are laid over them only now.
+                self.query_one("#error-attributions", TextStatic).update(self._error_content(result))
         except Exception:  # noqa: BLE001 - the widget may be gone
             pass
 
@@ -522,9 +526,11 @@ class FeedbackScreen(Screen):
         ids = set(result.error_event_ids)
         if not ids:
             return Content("No error attributions.").stylize("$text-muted")
+        # Display only: the diagnosis overlay supplies a blind grade's
+        # misconception statement and verdict once its diagnosis completes.
         events = [
             event
-            for event in self.state.repository.active_errors_by_learning_object(result.learning_object_id)
+            for event in self.state.repository.active_errors_by_learning_object_overlaid(result.learning_object_id)
             if event.id in ids
         ]
         if not events:

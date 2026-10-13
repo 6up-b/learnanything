@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { invalidate } from "../api/queryCache";
+import { TAG } from "../api/queryTags";
 import type {
   DiagnosisCardDto,
   DiagnosisCardResponse,
@@ -96,6 +98,9 @@ export function DiagnosisCard({
             if (shownAt.current === null) shownAt.current = new Date().toISOString();
             if (!readyFired.current) {
               readyFired.current = true;
+              // The diagnosis overlay changed: cached reads that show it (the
+              // Reader Guide's reasons) re-read on their next open.
+              invalidate({ tags: [TAG.errors] });
               onDiagnosisReady?.();
             }
           }

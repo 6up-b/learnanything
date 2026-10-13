@@ -133,6 +133,8 @@ def test_reader_guide_plan_rpc_returns_real_section_boundaries(tmp_path):
     result = resp[1]["result"]
     assert result["sourceId"] == "src1"
     assert result["selectionBasis"] == "reviewed boundary placements + local learner state + active goal + source provenance"
+    # No passage waits on a diagnosis, so the Reader has nothing to poll for.
+    assert result["pendingDiagnosisAttemptIds"] == []
     assert result["sections"] == [{
         "id": "u1",
         "label": "Sym",

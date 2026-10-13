@@ -6152,6 +6152,11 @@ export interface ReaderGuidePlanDto {
     targetContractVersionId: string | null;
   } | null;
   sections: ReaderGuideSectionDto[];
+  /** Attempts whose live diagnosis is still pending behind a shown
+   *  "Revisit this to resolve" reason: the reason names the error type until
+   *  it lands. The Reader re-reads the plan while this is non-empty. Absent
+   *  from a sidecar that predates it (nothing to wait on). */
+  pendingDiagnosisAttemptIds?: string[];
 }
 
 /** One block's geometry in the original PDF (points, origin top-left). */

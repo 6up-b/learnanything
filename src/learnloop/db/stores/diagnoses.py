@@ -409,11 +409,51 @@ class DiagnosisStoreMixin:
                 return None
             return self._live_views(connection, [attempt_id]).get(attempt_id)
 
-    def live_causal_views(self) -> dict[str, tuple[str, dict[str, Any]]]:
+    def live_causal_views(
+        self, attempt_ids: Iterable[str] | None = None
+    ) -> dict[str, tuple[str, dict[str, Any]]]:
+        """(diagnosis id, causal view) in force per attempt: for every attempt,
+        or only for ``attempt_ids`` (batched: one diagnoses read and one
+        blind-grade read for the whole batch, not one pair per attempt)."""
+
+        ids = None if attempt_ids is None else sorted({str(value) for value in attempt_ids if value})
+        if ids is not None and not ids:
+            return {}
         with self.connection() as connection:
             if not _has_table(connection, "attempt_diagnoses"):
                 return {}
-            return self._live_views(connection, None)
+            return self._live_views(connection, ids)
+
+    def pending_live_diagnoses_for_active_errors(self, learning_object_ids: Iterable[str]) -> list[str]:
+        """Attempts behind these LOs' active error events whose live diagnosis is pending.
+
+        Pending is ``diagnosis_status``'s rule: an open (queued or leased)
+        ``diagnose`` job in live mode. When it completes, the diagnosis overlay
+        on those events changes, so a display that shows them (the Reader
+        Guide) re-reads then. Shadow jobs never lay an overlay and failed ones
+        never will, so neither is pending here. Sorted attempt ids, one read.
+        """
+
+        ids = sorted({str(value) for value in learning_object_ids if value})
+        if not ids:
+            return []
+        with self.connection() as connection:
+            if not _has_table(connection, "post_attempt_jobs"):
+                return []
+            rows = connection.execute(
+                "SELECT DISTINCT job.attempt_id, job.payload_json FROM post_attempt_jobs AS job "
+                "JOIN error_events AS event ON event.attempt_id = job.attempt_id "
+                "WHERE job.kind = 'diagnose' AND job.state IN ('queued', 'leased') "
+                "AND event.status = 'active' "
+                f"AND event.learning_object_id IN ({', '.join('?' for _ in ids)})",
+                tuple(ids),
+            ).fetchall()
+        pending: set[str] = set()
+        for attempt_id, payload_json in rows:
+            payload = _loads(payload_json, {})
+            if (payload if isinstance(payload, dict) else {}).get("mode", "live") == "live":
+                pending.add(str(attempt_id))
+        return sorted(pending)
 
     def diagnosis_context_receipt(self, diagnosis_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:

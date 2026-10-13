@@ -129,9 +129,17 @@ def goal_for_item(vault: LoadedVault, learning_object: Any, item: Any) -> Any | 
 
 def _learner_signal(repository: Repository, learning_object_id: str,
                     *, goal_match: bool) -> tuple[float, str, str]:
-    """Return a local ranking boost and a learner-facing, non-numeric reason."""
+    """Return a local ranking boost and a learner-facing, non-numeric reason.
 
-    errors = repository.active_errors_by_learning_object(learning_object_id)
+    The misconception statement is read through the diagnosis overlay: under
+    the Slice 1 split a blind-graded event stores only the grader's
+    localization, and the statement comes from the attempt's live diagnosis.
+    Until that diagnosis completes (or if it fails) the reason names the error
+    type. The overlay changes no grader-owned field, so the ranking is the
+    same as the raw read's; joint-graded vaults read exactly as stored.
+    """
+
+    errors = repository.active_errors_by_learning_object_overlaid(learning_object_id)
     if errors:
         strongest = max(errors, key=lambda error: (error.severity, error.created_at))
         detail = strongest.misconception_statement or strongest.error_type.replace("_", " ")
@@ -346,7 +354,27 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
         "selection_basis": "reviewed boundary placements + local learner state + active goal + source provenance",
         "goal_context": _goal_context([*passage_goal_candidates, *placement_goal_candidates]),
         "sections": sections,
+        "pending_diagnosis_attempt_ids": _pending_diagnoses(repository, sections),
     }
+
+
+def _pending_diagnoses(repository: Repository, sections: list[dict[str, Any]]) -> list[str]:
+    """Attempts whose pending live diagnosis can still change a shown reason.
+
+    Under the Slice 1 split a ``recent_misunderstanding`` reason names the
+    error type until the attempt's diagnosis lands and the overlay supplies
+    the statement. The Reader re-reads the plan while this list is non-empty,
+    so the Guide catches up without a reopen. A joint-graded vault, a failed
+    diagnosis and a shadow diagnosis never lay an overlay: the list is empty.
+    """
+
+    learning_object_ids = {
+        passage["learning_object_id"]
+        for section in sections
+        for passage in section["suggested_passages"]
+        if passage["learner_signal"] == "recent_misunderstanding"
+    }
+    return repository.pending_live_diagnoses_for_active_errors(learning_object_ids)
 
 
 def _goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]:
