@@ -146,6 +146,19 @@ def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extr
     return report
 
 
+def _answer_signal_pairs(arms) -> tuple[tuple[str, str], ...]:
+    """The duel's (base, base+signal) pairs whose two arms are both selected.
+
+    Offline answer-signal arms (owner 2026-10-13): each stack is compared with
+    its own base on the attempts that carry the signal.
+    """
+    from learnloop.field.answer_signals import default_pairs
+    from learnloop.field.predictors import registered_predictors
+
+    selected = set(arms) if arms else set(registered_predictors(include_sweeps=True))
+    return tuple(pair for pair in default_pairs() if set(pair) <= selected)
+
+
 def field_eval(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault copy; replay never calls a model.")],
     section: Annotated[str, typer.Option("--section", help="all (legacy calibration: predictions|coverage|gates|retention|propensity), field (reports 1-2), or a comma list such as all,field")] = "all",
@@ -240,6 +253,7 @@ def field_eval(
         elif dry_run:
             _emit({"status": "dry_run", "calls": 0, "data_check": inputs["data_check"]}, json_output)
             return
+        pairwise = (*pairwise, *_answer_signal_pairs(arms))
         report = _replay(loaded, inputs, arms=arms, bootstrap_samples=bootstrap_samples,
                          seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms,
                          pairwise=pairwise)

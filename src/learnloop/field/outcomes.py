@@ -32,7 +32,7 @@ from learnloop.db.stores.families import family_judge_models
 from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
 from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
-from learnloop.field.types import AttemptRow, FacetRow, ItemFeatures
+from learnloop.field.types import AnswerSignals, AttemptRow, FacetRow, ItemFeatures
 from learnloop.field.signals import enrich_attempts, load_interaction_signals
 from learnloop.learner.assessment_contracts import compile_assessment_contract, rubric_from_contract
 from learnloop.learner.mastery import resolve_item_irt_params
@@ -251,6 +251,75 @@ def _unverified(record) -> bool:
     )
 
 
+def _hedging_readings(connection) -> dict[str, tuple[int, int]]:
+    """Per attempt, (hedged, read): the grader's reading of the learner's tone.
+
+    ``grading_evidence.learner_confidence`` on each attempt's current
+    (unsuperseded) criterion rows; ``read`` counts the criteria read as
+    ``confident`` or ``hedged`` (``absent`` and unknown say nothing). Offline
+    answer-signal arms only; a vault without the column has none.
+    """
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(grading_evidence)")}
+    if not {"learner_confidence", "superseded_at"} <= columns:
+        return {}
+    counts: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for attempt_id, reading in connection.execute(
+        "SELECT attempt_id, learner_confidence FROM grading_evidence "
+        "WHERE superseded_at IS NULL AND learner_confidence IN ('hedged', 'confident') "
+        "ORDER BY attempt_id, id"
+    ):
+        counts[str(attempt_id)][1] += 1
+        if reading == "hedged":
+            counts[str(attempt_id)][0] += 1
+    return {key: (value[0], value[1]) for key, value in counts.items()}
+
+
+def _answer_signal_counts(attempts) -> dict[str, Any]:
+    graded = len(attempts)
+    eligible = [r for r in attempts if r.effective_mass > 0]
+
+    def present(rows, attribute):
+        return sum(
+            r.answer_signals is not None and getattr(r.answer_signals, attribute) is not None
+            for r in rows
+        )
+
+    confidence, hedging = present(attempts, "confidence"), present(attempts, "hedged_share")
+    return {
+        "graded_attempts": graded,
+        "confidence_present": confidence,
+        "confidence_share": confidence / graded if graded else None,
+        "hedging_read": hedging,
+        "hedging_share": hedging / graded if graded else None,
+        "eligible_attempts": len(eligible),
+        "eligible_confidence_present": present(eligible, "confidence"),
+        "eligible_hedging_read": present(eligible, "hedged_share"),
+        "confidence_levels": {
+            str(level): count for level, count in sorted(Counter(
+                r.answer_signals.confidence for r in attempts
+                if r.answer_signals is not None and r.answer_signals.confidence is not None
+            ).items())
+        },
+    }
+
+
+def _answer_signals(attempt: dict, hedging: dict[str, tuple[int, int]]) -> AnswerSignals:
+    """The attempt's own pre-outcome signals (offline answer-signal arms only)."""
+    tap = attempt.get("answer_confidence")
+    try:
+        confidence = int(tap) if tap is not None else None
+    except (TypeError, ValueError):
+        confidence = None
+    if confidence is not None and not 1 <= confidence <= 5:
+        confidence = None
+    hedged, read = hedging.get(str(attempt["id"]), (0, 0))
+    return AnswerSignals(
+        confidence=confidence,
+        hedged_share=(hedged / read) if read else None,
+        hedging_read=read,
+    )
+
+
 def _grader_models(connection) -> dict[str, str]:
     """Latest raw grade event of each attempt's latest observation (no text)."""
     rows = connection.execute(
@@ -336,6 +405,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
     families = getattr(vault, "activity_families", {}) or {}
     judge_models = family_judge_models(connection) if families else {}
     grader_models = _grader_models(connection) if retrieval else {}
+    hedging = _hedging_readings(connection)
     attempts, facets = [], []
     recent_by_lo = defaultdict(list)
     prior_item_attempt: dict[str, str] = {}
@@ -550,6 +620,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             grader_model=grader_models.get(attempt["id"], "unknown"),
             calibration_status=calibration_status,
             family_judge_models=judge_models.get(family_id, ()) if family_id else (),
+            answer_signals=_answer_signals(attempt, hedging),
         )
         attempts.append(row)
         merged = defaultdict(lambda: [0.0, 0.0])
@@ -701,6 +772,10 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
         )),
         "separate_measurement_definition": "Conservative lower bound: facets measured alone in an attempt.",
         "zero_mass_attempts": sum(r.effective_mass == 0 for r in attempts),
+        # The offline answer-signal arms' coverage: how often the learner
+        # tapped a pre-answer confidence, and how often the grader read the
+        # answer's tone (confident or hedged) on at least one criterion.
+        "answer_signals": _answer_signal_counts(attempts),
         "missing_covariates": {
             "historical_retrievability": sum(r.features.retrievability is None for r in attempts),
             "historical_empirical_bayes_difficulty": len(attempts),

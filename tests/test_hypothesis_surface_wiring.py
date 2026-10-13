@@ -122,6 +122,14 @@ def test_review_remediation_and_track_record_rpcs_are_frontend_ready(tmp_path):
         "n": 0,
         "learnerBrier": None,
         "modelBrier": None,
+        "learnerReliability": None,
+        "learnerResolution": None,
+        "modelReliability": None,
+        "modelResolution": None,
+        "uncertainty": None,
+        "confidencePresent": 0,
+        "confidenceEligible": 0,
+        "confidenceShare": None,
     }
 
     prescribed = _rpc(

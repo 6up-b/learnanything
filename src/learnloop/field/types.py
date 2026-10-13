@@ -69,6 +69,42 @@ class ItemFeatures:
 # ``far`` variants are prediction-only transfer probes (PF-a P11 default).
 MEMORY_TRAINING_RELATIONS = frozenset({"same_target", "isomorph"})
 
+#: The learner's pre-answer confidence tap (``practice_attempts.answer_confidence``,
+#: 1-5) as a probability, the explicit consumption-time mapping of the
+#: calibration duel (spec_hypothesis_surfaces §4.6). Stored taps stay 1-5.
+ANSWER_CONFIDENCE_PROBABILITY: Mapping[int, float] = {1: 0.10, 2: 0.30, 3: 0.50, 4: 0.70, 5: 0.90}
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerSignals:
+    """What the learner's own answer says about its chance, before its grade.
+
+    Only the offline answer-signal arms read this (``uses_answer_signals``);
+    it never reaches ``ItemFeatures``, so no other arm or cache key changes.
+
+    * ``confidence``: the pre-answer tap (1-5), taken after the learner
+      composed the answer and before submit/reveal; None when skipped.
+    * ``hedged_share``: of the criteria the grader read the learner's tone on
+      (``grading_evidence.learner_confidence`` = confident or hedged), the
+      share it read as hedged; None when it read none. The grader reads the
+      answer text in the same call that grades it, so this signal shares that
+      call (the report labels it so).
+    """
+
+    confidence: int | None = None
+    hedged_share: float | None = None
+    hedging_read: int = 0
+
+    def __post_init__(self) -> None:
+        if self.confidence is not None and self.confidence not in ANSWER_CONFIDENCE_PROBABILITY:
+            raise ValueError("answer confidence must be 1-5 or None")
+        if self.hedged_share is not None and not (
+            isfinite(self.hedged_share) and 0.0 <= self.hedged_share <= 1.0
+        ):
+            raise ValueError("hedged_share must be in [0, 1] or None")
+        if self.hedging_read < 0:
+            raise ValueError("hedging_read must be nonnegative")
+
 
 @dataclass(frozen=True, slots=True)
 class AttemptRow:
@@ -99,6 +135,9 @@ class AttemptRow:
     grader_model: str = "unknown"
     calibration_status: str = "unknown"
     family_judge_models: tuple[str, ...] = ()
+    # Offline answer-signal arms only (confidence tap, grader-read hedging).
+    # None: no signal was loaded for this row (every arm but those ignores it).
+    answer_signals: AnswerSignals | None = None
 
     @property
     def observed_at(self) -> str:

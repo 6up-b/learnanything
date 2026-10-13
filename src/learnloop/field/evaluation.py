@@ -23,10 +23,11 @@ import numpy as np
 
 from learnloop.clock import parse_utc
 from learnloop.field import memory as _memory_arms  # noqa: F401 - registers the PF-a memory arms
+from learnloop.field import answer_signals as _answer_signal_arms  # noqa: F401 - registers the answer-signal arms
 from learnloop.field.predictors import create_predictor, registered_predictors
 from learnloop.field.signals import blocks_fast_track
 from learnloop.field.types import AttemptRow, FacetRow, ObservationRow, SignalRow
-from learnloop.numeric import student_t_quantile
+from learnloop.numeric import brier_decomposition, student_t_quantile
 
 
 HARNESS_VERSION = "field-prequential-v2"
@@ -45,6 +46,15 @@ MEMORY_LIMITATIONS = (
     "Current authored family assignments are a retrospective grouping, not historical family knowledge.",
     "Missing skeleton distances receive no invented discount; compare distance coverage before "
     "interpreting the distance arms.",
+)
+
+ANSWER_SIGNAL_LIMITATIONS = (
+    "Answer-signal arms (answer_confidence, answer_hedging and their stacks) are offline only: "
+    "they never feed serving, mastery, certification or FSRS. Each abstains where its signal "
+    "is absent, so it is scored, and compared with its base, only on attempts that carry it "
+    "(counts: answer_confidence_present / answer_hedging_read).",
+    "answer_hedging is the grader's reading of the learner's tone, written by the same call "
+    "that grades the answer: a shared judgment, not an independent pre-answer signal.",
 )
 
 
@@ -77,6 +87,15 @@ def family_arms() -> tuple[str, ...]:
 def _hash(value: object) -> str:
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
                              allow_nan=False).encode()).hexdigest()
+
+
+def _snapshot_row(row) -> dict:
+    """A row as the data snapshot hashes it. A row without answer signals
+    hashes exactly as before they existed (the field is left out when None)."""
+    values = asdict(row)
+    if values.get("answer_signals", 0) is None:
+        values.pop("answer_signals")
+    return values
 
 
 def report_digest(report: Mapping) -> str:
@@ -271,6 +290,7 @@ def _metrics(y, p, samples, seed, clusters=None):
         "log_loss": paired_bootstrap(loss, samples=samples, seed=seed, clusters=clusters),
         "brier": paired_bootstrap(brier, samples=samples, seed=seed, clusters=clusters),
         "auc": auc, "auc_binary_n": auc_n, "reliability": reliability,
+        "brier_decomposition": brier_decomposition(y.tolist(), p.tolist()),
     }
 
 
@@ -471,6 +491,11 @@ def evaluate(
             blocked.add(row.lo_id)  # unknown initial answers cannot establish fast-track
             continue
         counts["ability_scored"] += ability
+        signals = row.answer_signals
+        confidence_present = signals is not None and signals.confidence is not None
+        hedging_read = signals is not None and signals.hedged_share is not None
+        counts["answer_confidence_present"] += ability and confidence_present
+        counts["answer_hedging_read"] += ability and hedging_read
         values = {}
         for arm in predictors:
             if arm.name in memory_names:
@@ -493,6 +518,13 @@ def evaluate(
                 if any(not isfinite(p) or not 0 < p < 1 for p in ps):
                     raise ValueError("Arms must predict finite probabilities in (0, 1)")
                 p = sum(f.facet_share * p for f, p in zip(facets, ps))
+            elif getattr(arm, "uses_answer_signals", False):
+                # Offline answer-signal arms (owner 2026-10-13) read the
+                # attempt's own pre-outcome signals and abstain without them.
+                if not arm.covers_answer(row.answer_signals):
+                    values[arm.name] = float("nan")
+                    continue
+                p = arm.predict_answer(row.features, row.answer_signals)
             else:
                 covers = getattr(arm, "covers", None)
                 if covers is not None and not covers(row.features):
@@ -526,6 +558,8 @@ def evaluate(
             "calibration_status": row.calibration_status,
             "family_judge_model": "+".join(row.family_judge_models) or (
                 "authored" if family_id else "unfamilied"),
+            "answer_confidence": "present" if confidence_present else "absent",
+            "answer_hedging": "read" if hedging_read else "unread",
         })
         clean_correct = (ability and row.outcome == 1 and row.features.cold and not row.features.primed
                          and not row.assisted and not row.hints_used and not row.help_before_work)
@@ -578,6 +612,14 @@ def evaluate(
                 for dimension, groups in sorted(splits.items())
             },
         }
+        if getattr(arm, "uses_answer_signals", False):
+            # Offline only (owner 2026-10-13): never serving, mastery,
+            # certification or FSRS; the report names the signal's source.
+            report1[name]["answer_signal"] = {
+                "signal": arm.signal, "source": arm.signal_source,
+                "base": arm.base_name, "offline_only": True,
+                "scores": "attempts where the learner gave this signal",
+            }
         failures = [v for _, v in later[name]]
         report2[name] = {
             "eligible_uncertainty": bool(getattr(predictors[names.index(name)], "calibrated_uncertainty", False)),
@@ -667,7 +709,7 @@ def evaluate(
         "harness": HARNESS_VERSION, "algorithm": config.get("algorithms", {}).get("algorithm_version", "unspecified"),
         "kernel": "not_used", "embedding_model": "not_used",
         "config_hash": _hash(config), "data_snapshot": _hash([
-            {"row_type": type(r).__name__, "row": asdict(r), "facets": [asdict(f) for f in fs]}
+            {"row_type": type(r).__name__, "row": _snapshot_row(r), "facets": [_snapshot_row(f) for f in fs]}
             for r, fs in events]),
         "arm_hashes": {a.name: a.version_hash for a in predictors},
         "arm_models": {a.name: getattr(a, "model", "not_used") for a in predictors},
@@ -699,10 +741,22 @@ def evaluate(
                    "missing_variant_distance": counts["missing_variant_distance"],
                    "zero_ability_mass": counts["zero_ability_mass"],
                    "excluded_attempts": counts["excluded"], "signals": counts["signals"],
+                   # How often the answer-signal arms have a signal to read
+                   # (ability-scored attempts; the arms abstain elsewhere).
+                   "answer_confidence_present": counts["answer_confidence_present"],
+                   "answer_hedging_read": counts["answer_hedging_read"],
+                   "answer_confidence_share": (
+                       counts["answer_confidence_present"] / counts["ability_scored"]
+                       if counts["ability_scored"] else None),
+                   "answer_hedging_share": (
+                       counts["answer_hedging_read"] / counts["ability_scored"]
+                       if counts["ability_scored"] else None),
                    "revision_status": dict(sorted(revisions.items()))},
         "report1": {"arms": report1, "comparisons": comparisons, **({"pairwise": pairs} if pairs else {}),
                     "validity": "One learner; only large differences are detectable. Sweep results are exploratory.",
-                    "limitations": list(MEMORY_LIMITATIONS) if memory_names else []},
+                    "limitations": [*(MEMORY_LIMITATIONS if memory_names else ()),
+                                    *(ANSWER_SIGNAL_LIMITATIONS if any(
+                                        getattr(a, "uses_answer_signals", False) for a in predictors) else ())]},
         "report2": {"arms": report2, "bias": "History shows only what was actually served; not a causal off-policy estimate.",
                     "failure_definition": "Any later rubric fraction below 1; triggering initial answers excluded.",
                     "thin_data_conservative": fast_track_q == .9},
@@ -729,13 +783,28 @@ def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field
         "Prequential: only past observations predict each outcome. No activation is performed.", "",
         *preamble, *([""] if preamble else []),
         "## Report 1: prequential replay", "",
-        "| Arm | Scores | Attempts | Log loss | Brier | AUC (binary outcomes) |",
-        "|---|---|---:|---:|---:|---:|",
+        "Reliability (miscalibration, lower is better) and resolution (sorting outcomes away "
+        "from the base rate, higher is better) are Murphy's split of the Brier score.", "",
+        "| Arm | Scores | Attempts | Log loss | Brier | Reliability | Resolution | AUC (binary outcomes) |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for name, values in report["report1"]["arms"].items():
         m = values["overall"]
-        lines.append(f"| {name} | {values['scores']} | {m['n']} | {m['log_loss']['mean']} | "
-                     f"{m['brier']['mean']} | {m['auc']} |")
+        split = m.get("brier_decomposition") or {}
+        scores = values["scores"]
+        if values.get("answer_signal"):
+            scores = f"offline only: {values['answer_signal']['signal']} present"
+        lines.append(f"| {name} | {scores} | {m['n']} | {m['log_loss']['mean']} | "
+                     f"{m['brier']['mean']} | {split.get('reliability')} | {split.get('resolution')} | "
+                     f"{m['auc']} |")
+    counts = report.get("counts") or {}
+    if "answer_confidence_present" in counts:
+        lines.extend([
+            "", f"Answer signals on {counts.get('ability_scored_attempts')} ability-scored attempts: "
+            f"pre-answer confidence present on {counts['answer_confidence_present']} "
+            f"(share {counts.get('answer_confidence_share')}), grader-read hedging on "
+            f"{counts['answer_hedging_read']} (share {counts.get('answer_hedging_share')}).",
+        ])
     lines.extend(["", report["report1"]["validity"], ""])
     lines.extend(f"- {value}" for value in report["report1"].get("limitations", ()))
     pairwise = report["report1"].get("pairwise") or {}

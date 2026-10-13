@@ -179,6 +179,15 @@ def test_duel_excludes_assisted_primed_and_unmatched_attempts(tmp_path):
     # Learner tap 4 maps to 0.70 at consumption time; stored values stay 1-5.
     assert duel["learner_brier"] == pytest.approx((0.70 - 1.0) ** 2)
     assert duel["model_brier"] == pytest.approx((0.90 - 1.0) ** 2)
+    # Owner 2026-10-13: Murphy's split of each Brier, reported separately; with
+    # one pair there is no resolution and the Brier is all miscalibration.
+    assert duel["learner_reliability"] == pytest.approx((0.70 - 1.0) ** 2)
+    assert duel["model_reliability"] == pytest.approx((0.90 - 1.0) ** 2)
+    assert duel["learner_resolution"] == duel["model_resolution"] == pytest.approx(0.0)
+    # How often the learner tapped at all: the ordinary, unprimed, unhinted
+    # graded attempts (att_ok, att_notap, att_nomodel, att_nocand).
+    assert (duel["confidence_present"], duel["confidence_eligible"]) == (3, 4)
+    assert duel["confidence_share"] == pytest.approx(0.75)
 
 
 def test_duel_is_empty_when_no_matched_attempt_exists(tmp_path):
@@ -188,6 +197,11 @@ def test_duel_is_empty_when_no_matched_attempt_exists(tmp_path):
     _insert_attempt(repository, "att_hint", candidate_id="cand1", answer_confidence=4, hints_used=1)
 
     report = calibration_report(vault, repository)
-    assert report["duel"] == {"n": 0, "learner_brier": None, "model_brier": None}
+    assert report["duel"] == {
+        "n": 0, "learner_brier": None, "model_brier": None,
+        "learner_reliability": None, "learner_resolution": None,
+        "model_reliability": None, "model_resolution": None, "uncertainty": None,
+        "confidence_present": 0, "confidence_eligible": 0, "confidence_share": None,
+    }
     # The minimum-N gate keeps the reliability curve honest at this volume.
     assert report["items"]["curve_available"] is False
