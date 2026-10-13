@@ -221,7 +221,11 @@ def classify_item(
             if probe_value.get("decision") != "continue":
                 return PoolItem(
                     lane=None,
-                    reason="a due project probe whose value does not pay for its minutes today",
+                    reason=(
+                        "a due project probe that does not fit today's minutes"
+                        if probe_value.get("reason") == "does_not_fit_plan_minutes"
+                        else "a due project probe whose value does not pay for its minutes today"
+                    ),
                     check_kind=check.kind,
                     check_priority=check.priority,
                     **base,

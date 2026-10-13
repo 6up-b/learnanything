@@ -731,6 +731,18 @@ _reg_const("voi_stopping:_RECONSTRUCTION_TOLERANCE", "numerical", kind="structur
            rationale="mvp-0.17 greedy conditional valuation: relative tolerance for 'the decomposed "
            "terms reproduce the logged probe_eig_total'; a body that does not is valued on its total "
            "alone and labelled conditioning: unavailable. A floating-point check, never a decision.")
+_reg_const("voi_stopping:_BRANCH_MERGE_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.17 conditional hypothesis valuation (Codex re-review F2): two expected "
+           "posteriors that agree to 12 decimals are one belief branch; floating-point identity, "
+           "not a decision knob.")
+_reg_const("voi_stopping:_MAX_BELIEF_BRANCHES", "operational", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.17 conditional hypothesis valuation (Codex re-review F2): a bound on the "
+           "arithmetic of the expected posterior branches kept per hypothesis variable (4096), never "
+           "on how many checks are admitted; past it the branches merge at fewer decimals (keeping "
+           "their mean) and the receipt says hypothesis_branches: coarsely_merged.")
+_reg_const("voi_stopping:_COARSE_MERGE_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.17 conditional hypothesis valuation: the coarser decimal places tried, in "
+           "order, once _MAX_BELIEF_BRANCHES is passed; arithmetic only, labelled in the receipt.")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",

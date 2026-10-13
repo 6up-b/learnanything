@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-187. Migration 167 adds the learner-field F1 read model
+188. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -54,9 +54,14 @@ merge); migration 187 rebuilds `probe_episodes` (same columns, indexes and
 data) so its `completion_reason` CHECK also accepts
 `value_of_information_stop`, and adds the nullable `completion_detail_json`
 (mvp-0.17's value-of-information stop with its forecast; numbered 187 as a
-placeholder while 184-186 are held by other branches in flight).
-Built from `migration_head_183` with only 187 applied in place
-(rollback journal, `foreign_key_check` clean). It pins
+placeholder while 184-186 are held by other branches in flight); migration
+188 adds `followup_value_decisions` (RECEIPT, append-only by trigger: one row
+per follow-up value decision, with its own id and per-attempt ordinal and its
+source-attempt link; mvp-0.17, the Codex re-review's F1, numbered 188 as a
+placeholder).
+Built from `migration_head_183` with only 187 applied in place, then from
+`migration_head_187` with only 188 applied in place (rollback journal,
+`foreign_key_check` clean, `integrity_check` ok). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

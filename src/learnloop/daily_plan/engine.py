@@ -76,6 +76,7 @@ from learnloop.daily_plan.reentry import ReentryGap, reentry_gap
 from learnloop.daily_plan.split import redistribute, split_v1
 from learnloop.daily_plan.types import (
     AFTER_REENTRY_LANE_PRIORITY,
+    BLOCK_MAX_MINUTES,
     CONTINUE_CURRENT,
     LANE_ACTIONS,
     LANES,
@@ -485,7 +486,7 @@ def _classified_pool(
         probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
         deadline_learning_object_ids=deadlines,
         open_problem_learning_object_ids=open_problems,
-        project_probe_admission=_project_probe_admission(env, probes_planned),
+        project_probe_admission=_project_probe_admission(env, probes_planned, minutes_budget=minutes),
     )
     if reentry:
         pool = reentry_order(pool)
@@ -496,7 +497,7 @@ def _classified_pool(
 
 
 def _project_probe_admission(
-    env: PlanEnv, probes_planned: int
+    env: PlanEnv, probes_planned: int, *, minutes_budget: float | None = None
 ) -> Callable[[Sequence[tuple[Any, float]]], list[tuple[str, Mapping[str, Any]]]] | None:
     """mvp-0.17 (``voi_stopping``, site ``project_probe``): value today's due
     project probes instead of counting them; ``None`` keeps the former daily
@@ -512,6 +513,15 @@ def _project_probe_admission(
     best remaining one pays (``voi_stopping.greedy_information_admission``),
     the first included. The former cap's counterfactual counts the probes
     already planned today plus those admitted before each step.
+
+    Feasibility is part of the selection (review F10): with the plan's
+    ``minutes_budget``, a probe is admissible only while it fits the minutes
+    the probes admitted before it leave, and only when it fits one block
+    (``BLOCK_MAX_MINUTES``, never more than the budget), so a probe the plan
+    could not hold neither takes a slot nor discounts the probes after it.
+    These are the constraints known before the split: the lanes' shares come
+    from the classified pool, and the maintain lane can receive the plan's
+    whole minutes when the other lanes are idle.
     """
 
     from learnloop.diagnosis import voi_stopping as voi
@@ -534,7 +544,10 @@ def _project_probe_admission(
                     minutes=voi.MinutesEstimate(float(est_minutes), "plan_estimate"),
                     predicted_correct=components.get("predicted_correctness"),
                     terms=voi.InformationTerms.from_reward_debug(
-                        scheduled.learning_object_id, getattr(scheduled, "reward_debug", None), total_nats=eig
+                        scheduled.learning_object_id,
+                        getattr(scheduled, "reward_debug", None),
+                        total_nats=eig,
+                        hypothesis_channel=getattr(scheduled, "hypothesis_channel", None),
                     ),
                     detail={"former_order": order},
                 )
@@ -546,6 +559,10 @@ def _project_probe_admission(
             cap_value=cap,
             cap_count=int(probes_planned),
             context={"probes_planned_today": int(probes_planned)},
+            minutes_budget=minutes_budget,
+            max_item_minutes=(
+                None if minutes_budget is None else min(float(BLOCK_MAX_MINUTES), float(minutes_budget))
+            ),
         )
         admitted = set(admission.admitted)
         ordered = list(admission.admitted) + [entry.ref for entry in entries if entry.ref not in admitted]

@@ -542,33 +542,114 @@ def test_a_cheaper_follow_up_that_pays_is_queued_when_the_old_winner_does_not(tm
     assert stopped.triggered is False and stopped.gate_diagnostics["voi_stopping"]["candidate_count"] == 2
 
 
-def test_the_follow_up_forecast_survives_rebuilds_and_replay_unrevalued(tmp_path, monkeypatch):
-    """Review F1: the decision-time forecast lives on the immutable
-    ``decision_features`` receipt (keyed by the source attempt), which neither
-    a rebuild nor a regrade's LO replay clears, and nothing re-values it."""
+def _receipts(repository, attempt_id):
+    return [
+        (row["decision_ordinal"], row["decision_outcome"], row["verdict"], row["manual_override"], row["served_ref"])
+        for row in voi.followup_receipts(repository, attempt_id)
+    ]
 
+
+def _rebuild_and_replay(loaded, repository, learning_object_id):
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from learnloop.substrate.replay import replay_learning_object
+
+    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
+    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
+    replay_learning_object(loaded, repository, learning_object_id)
+
+
+def test_each_follow_up_decision_keeps_its_own_receipt_through_rebuilds(tmp_path, monkeypatch):
+    """Review F1: the decision-time forecast lives on an immutable receipt of
+    its own (``followup_value_decisions``, one row per decision with its
+    source-attempt link), which neither a rebuild nor a regrade's LO replay
+    clears, and which a later decision on the same attempt never overwrites."""
 
     loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
     _minutes(monkeypatch, 0.01)
     decision = _further(loaded, repository, result)
     assert decision.triggered is True
-    receipt = voi.followup_receipt(repository, result.attempt_id)
-    assert receipt == decision.gate_diagnostics["voi_stopping"]
-    assert receipt["served"]["forecast"]["predicted_outcomes"]
-    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
+    (first,) = voi.followup_receipts(repository, result.attempt_id)
+    assert first["decision"] == decision.gate_diagnostics["voi_stopping"]
+    assert first["decision"]["served"]["forecast"]["predicted_outcomes"]
+    assert (first["source_attempt_id"], first["decision_ordinal"], first["verdict"]) == (
+        result.attempt_id, 1, voi.CONTINUE,
+    )
+    _rebuild_and_replay(loaded, repository, result.learning_object_id)
     # The derived copy is gone (attempt_surprise is rebuilt without it) ...
     assert "voi_stopping" not in (repository.latest_attempt_surprise(result.attempt_id).get("gate_diagnostics") or {})
-    # ... the receipt is not, through a second rebuild and a regrade's replay.
-    rebuild_all_derived_state(loaded, repository, clock=CLOCK)
-    replay_learning_object(loaded, repository, result.learning_object_id)
-    assert voi.followup_receipt(repository, result.attempt_id) == receipt
-    # A later evaluation of the same attempt never re-values the receipt.
+    # ... the receipt is not.
+    assert voi.followup_receipts(repository, result.attempt_id) == [first]
+    # A later decision on the same attempt is a new receipt; the first stays.
     _minutes(monkeypatch, 10_000.0)
     later = _further(loaded, repository, result)
     assert later.gate_diagnostics["voi_stopping"]["decision"] == voi.STOP
-    assert voi.followup_receipt(repository, result.attempt_id) == receipt
+    receipts = voi.followup_receipts(repository, result.attempt_id)
+    assert receipts[0] == first and len(receipts) == 2
+    assert receipts[1]["decision"] == later.gate_diagnostics["voi_stopping"] and receipts[1]["id"] != first["id"]
+    assert voi.followup_receipt(repository, result.attempt_id) == receipts[1]["decision"]
+    # Immutable: the table refuses an update or a delete.
+    with repository.connection() as connection, pytest.raises(Exception, match="immutable"):
+        connection.execute("UPDATE followup_value_decisions SET verdict = 'stop'")
+    with repository.connection() as connection, pytest.raises(Exception, match="immutable"):
+        connection.execute("DELETE FROM followup_value_decisions")
+
+
+def test_a_need_then_a_queue_on_one_attempt_keeps_both_decisions(tmp_path, monkeypatch):
+    """Review F1 reopened: a generation need is recorded (no candidate), a
+    candidate becomes available, the follow-up is queued. The queue's forecast
+    is durable across rebuilds, beside the need's receipt."""
+
+    from tests.test_followups import _surprising_attempt
+
+    root = tmp_path / "need"
+    paths = create_basic_vault(root)
+    repository = Repository(paths.sqlite_path)
+    loaded, result = _surprising_attempt(root, repository)
+    loaded.config.algorithms.algorithm_version = "mvp-0.17"
+    _minutes(monkeypatch, 0.01)
+    need = _further(loaded, repository, result)
+    assert need.triggered is False and need.need_id is not None
+    add_followup_item(root)
+    loaded = load_vault(root)
+    loaded.config.algorithms.algorithm_version = "mvp-0.17"
+    queued = _further(loaded, repository, result)
+    assert queued.triggered is True and queued.practice_item_id == "pi_svd_define_002"
+    _rebuild_and_replay(loaded, repository, result.learning_object_id)
+    assert _receipts(repository, result.attempt_id) == [
+        (1, "created_need_for_generation", None, False, None),
+        (2, "queued_non_diagnostic_review", voi.CONTINUE, False, "pi_svd_define_002"),
+    ]
+    rows = voi.followup_receipts(repository, result.attempt_id)
+    assert rows[0]["need_id"] == need.need_id and rows[0]["decision"] is None
+    assert rows[1]["decision"] == queued.gate_diagnostics["voi_stopping"]
+    assert rows[1]["decision"]["served"]["forecast"]["likelihood"]
+    assert voi.followup_receipt(repository, result.attempt_id) == rows[1]["decision"]
+
+
+def test_an_automatic_suppression_then_a_manual_follow_up_keeps_both_decisions(tmp_path, monkeypatch):
+    """Review F1 reopened: value suppresses the automatic follow-up, then the
+    learner asks for one. Both decisions keep their receipts across rebuilds,
+    and the manual one's features row is written (the suppression no longer
+    takes the attempt's one decision_features slot)."""
+
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.17")
+    _minutes(monkeypatch, 10_000.0)
+    auto = _further(loaded, repository, result)
+    assert auto.triggered is False
+    assert repository.decision_features(decision_id=result.attempt_id, decision_type="followup") is None
+    forced = _further(loaded, repository, result, manual_override=True)
+    assert forced.triggered is True
+    _rebuild_and_replay(loaded, repository, result.learning_object_id)
+    assert _receipts(repository, result.attempt_id) == [
+        (1, "suppressed_voi_value_below_minutes_cost", voi.STOP, False, None),
+        (2, "queued_non_diagnostic_review", voi.STOP, True, forced.practice_item_id),
+    ]
+    suppression, manual = (row["decision"] for row in voi.followup_receipts(repository, result.attempt_id))
+    assert suppression == auto.gate_diagnostics["voi_stopping"] and suppression["best"]["forecast"]
+    assert manual["served_by"] == {"mechanism": "manual_override"} and manual["served"]["forecast"]["likelihood"]
+    features = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
+    assert features["context"]["decision_outcome"] == "queued_non_diagnostic_review"
+    assert "voi_stopping" not in features["context"]
 
 
 def test_a_value_suppressed_follow_up_keeps_its_receipt(tmp_path, monkeypatch):
@@ -578,8 +659,9 @@ def test_a_value_suppressed_follow_up_keeps_its_receipt(tmp_path, monkeypatch):
     assert decision.triggered is False
     receipt = voi.followup_receipt(repository, result.attempt_id)
     assert receipt is not None and receipt["decision"] == voi.STOP and receipt["best"]["forecast"]
-    row = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
-    assert row["context"]["decision_outcome"] == "suppressed_voi_value_below_minutes_cost"
+    assert _receipts(repository, result.attempt_id) == [
+        (1, "suppressed_voi_value_below_minutes_cost", voi.STOP, False, None),
+    ]
 
 
 def test_below_the_successor_no_follow_up_receipt_carries_a_value_decision(tmp_path):
@@ -588,6 +670,7 @@ def test_below_the_successor_no_follow_up_receipt_carries_a_value_decision(tmp_p
     row = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
     assert row is not None and "voi_stopping" not in row["context"]
     assert voi.followup_receipt(repository, result.attempt_id) is None
+    assert voi.followup_receipts(repository, result.attempt_id) == []
 
 
 def test_value_suppressions_never_label_the_trigger(tmp_path, monkeypatch):
@@ -753,9 +836,10 @@ def _lanes(pool):
     return {item.practice_item_id: item.lane for item in pool}
 
 
-def _probe(item_id, lo, facets, *, lo_variance=0.5, facet_variance=0.2, mass=0.5):
+def _probe(item_id, lo, facets, *, lo_variance=0.5, facet_variance=0.2, mass=0.5, hypothesis_eig=0.0, channel=None):
     """A due project probe carrying the scheduler's reward body, so its
-    ``probe_eig_total`` decomposes and it can be valued conditionally."""
+    ``probe_eig_total`` decomposes and it can be valued conditionally
+    (``channel``: its likelihood rows over an open episode's hypotheses)."""
 
     from dataclasses import replace
 
@@ -777,15 +861,16 @@ def _probe(item_id, lo, facets, *, lo_variance=0.5, facet_variance=0.2, mass=0.5
         retrieval_demand=0.5, transfer_distance=0.0, scaffold_level=0.0, surface_family=None,
         misconception_targets=[], repair_targets=list(facets), bad_item_suspicion=0.0,
     )
-    probe_eig = probe_information_gain_components(ability, demand, hypothesis_eig=0.0)
+    probe_eig = probe_information_gain_components(ability, demand, hypothesis_eig=hypothesis_eig)
     item = scheduled(item_id, lo, probe_eig_total=float(probe_eig["total_reduction"]))
     return replace(
         item,
         reward_debug={"ability_vector": ability.as_dict(), "item_demand_vector": demand.as_dict(), "probe_eig": probe_eig},
+        hypothesis_channel=channel,
     )
 
 
-def _admission(probes_planned=0, version="mvp-0.17"):
+def _admission(probes_planned=0, version="mvp-0.17", minutes_budget=None):
     """The plan engine's own admission (greedy, conditional), as the plan calls it."""
 
     from types import SimpleNamespace
@@ -794,12 +879,13 @@ def _admission(probes_planned=0, version="mvp-0.17"):
 
     config = _config(version)
     env = SimpleNamespace(vault=SimpleNamespace(config=config), repository=None, plan_config=config.plan)
-    return _project_probe_admission(env, probes_planned)
+    return _project_probe_admission(env, probes_planned, minutes_budget=minutes_budget)
 
 
 def _classify(items, *, minutes=3.0, checks=None, admission=None):
+    estimate = minutes if callable(minutes) else (lambda _id: minutes)
     return classify_pool(
-        items, item_states={}, requested_ids=[], now=NOW, estimate=lambda _id: minutes,
+        items, item_states={}, requested_ids=[], now=NOW, estimate=estimate,
         checks=checks or _checks([item.practice_item_id for item in items]), probe_cap_left=4,
         project_probe_admission=admission or _admission(),
     )
@@ -850,6 +936,204 @@ def test_a_project_probe_that_duplicates_an_admitted_one_is_not_admitted():
     assert pool["pi_a"].lane == pool["pi_c"].lane == "maintain"
     assert pool["pi_b"].lane is None and pool["pi_b"].voi["decision"] == voi.STOP
     assert pool["pi_b"].voi["subject"]["detail"]["unconditioned_eig_nats"] * voi.VALUE_PER_NAT_MINUTES > minutes
+
+
+# Four equally likely hypotheses over two bits: a check reveals bit 1 or bit 2.
+_FOUR = {"h00": 0.25, "h01": 0.25, "h10": 0.25, "h11": 0.25}
+
+
+def _bit(index, *, accuracy=1.0):
+    """Likelihood rows of a check that reports bit ``index`` (noisily below 1)."""
+
+    return {
+        label: {"one": accuracy if label[1 + index] == "1" else 1.0 - accuracy,
+                "zero": 1.0 - accuracy if label[1 + index] == "1" else accuracy}
+        for label in _FOUR
+    }
+
+
+def _channel(likelihood, belief="episode_1"):
+    return {"belief_key": belief, "prior": dict(_FOUR), "likelihood": likelihood, "objective": "hypothesis_eig"}
+
+
+def _bit_terms(likelihood, *, term=None, lo="lo_bits"):
+    """A check whose only information is its hypothesis term (``term`` as the
+    reward logs it; the check's EIG in nats when None)."""
+
+    hypothesis = voi.expected_information_gain(likelihood, _FOUR) if term is None else term
+    return voi.InformationTerms(
+        learning_object_id=lo, hypothesis_nats=hypothesis, lo_prior_variance=1.0, lo_posterior_variance=1.0,
+        discount=1.0, facets=(),
+        hypothesis=voi.HypothesisChannel.from_mapping(_channel(likelihood), hypothesis_term=hypothesis),
+    )
+
+
+def test_hypothesis_information_is_valued_over_the_expected_posterior_branches():
+    """Review F2 reopened: four equally likely hypotheses; two checks that
+    reveal independent bits each keep ln 2 after the other; a check repeating
+    an earlier one adds nothing; a noisy earlier check leaves the expected
+    residual entropy of its bit."""
+
+    import math
+
+    bit1, bit2 = _bit_terms(_bit(0)), _bit_terms(_bit(1))
+    assert bit1.conditional_nats(voi.InformationState())["hypothesis"] == pytest.approx(math.log(2))
+    after_bit1 = voi.InformationState().after(bit1)
+    assert bit2.conditional_nats(after_bit1)["hypothesis"] == pytest.approx(math.log(2))  # independent
+    assert bit1.conditional_nats(after_bit1)["hypothesis"] == pytest.approx(0.0, abs=1e-12)  # the same bit
+    after_both = after_bit1.after(bit2)
+    assert bit2.conditional_nats(after_both)["hypothesis"] == pytest.approx(0.0, abs=1e-12)
+    # A 90%-accurate report of bit 1 leaves h(0.1) nats about it.
+    noisy = _bit_terms(_bit(0, accuracy=0.9))
+    residual = -(0.9 * math.log(0.9) + 0.1 * math.log(0.1))
+    assert bit1.conditional_nats(voi.InformationState().after(noisy))["hypothesis"] == pytest.approx(residual)
+    # The reward's own scale (here a normalized term of 0.5 for ln 2 nats) is
+    # kept: the first check reproduces its logged term, the second scales.
+    scaled1, scaled2 = _bit_terms(_bit(0), term=0.5), _bit_terms(_bit(1), term=0.5)
+    state = voi.InformationState().after(scaled1)
+    assert scaled1.conditional_nats(voi.InformationState())["hypothesis"] == pytest.approx(0.5)
+    assert scaled2.conditional_nats(state)["hypothesis"] == pytest.approx(0.5)
+    assert scaled1.conditional_nats(state)["hypothesis"] == pytest.approx(0.0, abs=1e-12)
+    # Checks on another hypothesis variable (another episode) are independent.
+    other = voi.InformationTerms(
+        learning_object_id="lo_bits", hypothesis_nats=math.log(2), lo_prior_variance=1.0,
+        lo_posterior_variance=1.0, discount=1.0, facets=(),
+        hypothesis=voi.HypothesisChannel.from_mapping(_channel(_bit(0), "episode_2"), hypothesis_term=math.log(2)),
+    )
+    assert other.conditional_nats(after_bit1)["hypothesis"] == pytest.approx(math.log(2))
+
+
+def test_past_the_branch_bound_posteriors_merge_and_the_receipt_says_so(monkeypatch):
+    """The bound is on arithmetic, never on checks: past it the expected
+    posteriors merge at fewer decimals (keeping total probability and the
+    mean belief) and later receipts label the coarse merge."""
+
+    monkeypatch.setattr(voi, "_MAX_BELIEF_BRANCHES", 2)
+    noisy = [_bit_terms(_bit(index % 2, accuracy=accuracy)) for index, accuracy in enumerate((0.9, 0.8, 0.7))]
+    state = voi.InformationState()
+    for terms in noisy:
+        state = state.after(terms)
+    branches = state.beliefs["episode_1"]
+    assert "episode_1" in state.coarse_beliefs
+    assert sum(weight for weight, _posterior in branches) == pytest.approx(1.0)
+    mean = {label: sum(weight * dict(posterior)[label] for weight, posterior in branches) for label in _FOUR}
+    assert mean == pytest.approx(_FOUR)  # merging keeps the prior as the mean posterior
+    entries = [
+        voi.InformationEntry(
+            ref=f"pi_noisy_{index}", learning_object_id="lo_bits", eig_nats=terms.hypothesis_nats,
+            minutes=voi.MinutesEstimate(0.01, "authored_prior"), terms=terms,
+        )
+        for index, terms in enumerate(noisy + [_bit_terms(_bit(0))])
+    ]
+    admission = voi.greedy_information_admission(_ctx(), voi.SITE_PROJECT_PROBE, entries, cap_value=4)
+    assert len(admission.steps) >= 3
+    labels = [value.detail.get("hypothesis_branches") for value in admission.steps[-1].candidates]
+    assert labels and set(labels) == {"coarsely_merged"}
+    assert all(
+        value.detail.get("hypothesis_branches") is None for step in admission.steps[:2] for value in step.candidates
+    )
+
+
+def test_greedy_admission_keeps_independent_checks_and_drops_a_repeat():
+    import math
+
+    def entry(ref, likelihood):
+        terms = _bit_terms(likelihood)
+        return voi.InformationEntry(
+            ref=ref, learning_object_id="lo_bits", eig_nats=terms.hypothesis_nats,
+            minutes=voi.MinutesEstimate(1.0, "authored_prior"), terms=terms,
+        )
+
+    admission = voi.greedy_information_admission(
+        _ctx(), voi.SITE_PROJECT_PROBE,
+        [entry("pi_bit1", _bit(0)), entry("pi_bit1_again", _bit(0)), entry("pi_bit2", _bit(1))],
+        cap_value=4,
+    )
+    assert set(admission.admitted) == {"pi_bit1", "pi_bit2"}
+    second = admission.receipt_for(admission.admitted[1])["subject"]
+    assert second["eig_nats"] == pytest.approx(math.log(2))
+    assert second["detail"]["hypothesis_conditioning"] == "expected_posterior_branches"
+    dropped = admission.receipt_for("pi_bit1_again")
+    assert dropped["decision"] == voi.STOP and dropped["subject"]["eig_nats"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_the_plan_values_probes_on_one_episode_over_its_hypotheses():
+    """Review F2 reopened, through the plan's admission: two project probes on
+    one open episode revealing independent bits are both admitted; one that
+    repeats an admitted probe's bit is not (each alone pays)."""
+
+    import math
+
+    def probe(item_id, likelihood):
+        return _probe(item_id, "lo_bits", {}, lo_variance=1.0, hypothesis_eig=math.log(2), channel=_channel(likelihood))
+
+    items = [probe("pi_bit1", _bit(0)), probe("pi_bit1_again", _bit(0)), probe("pi_bit2", _bit(1))]
+    pool = {item.practice_item_id: item for item in _classify(items, minutes=1.0)}
+    assert pool["pi_bit1"].lane == pool["pi_bit2"].lane == "maintain"
+    assert pool["pi_bit1_again"].lane is None
+    assert pool["pi_bit1_again"].voi["subject"]["detail"]["unconditioned_eig_nats"] * voi.VALUE_PER_NAT_MINUTES > 1.0
+    later = pool["pi_bit2"].voi["subject"]
+    assert later["detail"]["conditioning"] == "chosen_before"
+    assert later["detail"]["conditional_parts_nats"]["hypothesis"] == pytest.approx(math.log(2))
+
+
+def test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows(tmp_path):
+    """The rows the conditional valuation needs ride on the scheduled item at
+    the successor (never persisted); the decomposed terms still reproduce the
+    reward's total. Below the successor nothing is attached."""
+
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.17")
+    probes = [item for item in _build(vault, repository) if item.components.get("probe_eig", 0.0) > 0.0]
+    assert probes
+    episode = repository.open_probe_episode(LO)
+    for item in probes:
+        channel = item.hypothesis_channel
+        assert channel["belief_key"] == episode.id and set(channel["likelihood"]) <= set(channel["prior"])
+        terms = voi.InformationTerms.from_reward_debug(
+            item.learning_object_id, item.reward_debug,
+            total_nats=item.components["probe_eig_total"], hypothesis_channel=channel,
+        )
+        assert terms is not None and terms.hypothesis is not None
+        assert terms.hypothesis_conditioning.startswith("expected_posterior_branches")
+    _old, old_vault, old_repository = _probe_vault(tmp_path / "old", "mvp-0.16")
+    assert all(item.hypothesis_channel is None for item in _build(old_vault, old_repository))
+
+
+def test_a_probe_the_plan_cannot_fit_neither_takes_a_slot_nor_discounts_another():
+    """Review F10: five minutes to spend. Probe A (twelve minutes) is worth
+    more per minute but cannot fit; B (five minutes) pays alone but adds little
+    after A. Feasibility is part of the greedy selection, so A is not admitted
+    (labelled), B is valued without A, and the plan has its five-minute block."""
+
+    from learnloop.daily_plan.lanes import LegacyLanesSource
+    from learnloop.daily_plan.types import LANES, PlanState
+
+    items = [
+        _probe("pi_a", "lo_same", {"facet_x": 2.0, "facet_y": 1.0}, mass=0.0),
+        _probe("pi_b", "lo_same", {"facet_x": 1.0}, mass=0.0),
+    ]
+    minutes = {"pi_a": 12.0, "pi_b": 5.0}.__getitem__
+    unbounded = {item.practice_item_id: item for item in _classify(items, minutes=minutes)}
+    # Without the plan's minutes, A is admitted first and B no longer pays.
+    assert unbounded["pi_a"].lane == "maintain" and unbounded["pi_b"].lane is None
+    pool = _classify(items, minutes=minutes, admission=_admission(minutes_budget=5.0))
+    by_id = {item.practice_item_id: item for item in pool}
+    assert by_id["pi_a"].lane is None and by_id["pi_a"].reason == "a due project probe that does not fit today's minutes"
+    assert by_id["pi_a"].voi["reason"] == voi.REASON_DOES_NOT_FIT
+    assert by_id["pi_b"].lane == "maintain" and by_id["pi_b"].voi["subject"]["detail"]["conditioning"] == "none_chosen"
+    state = PlanState(
+        plan_id="p", kind="normal", minutes_budget=5.0, minutes_left=5.0,
+        lane_minutes_left={lane: 5.0 if lane == "maintain" else 0.0 for lane in LANES},
+        days_since_last_activity=0, streak_days=0, current_block_id=None,
+    )
+    assert [c.item_ids for c in LegacyLanesSource(pool=pool).candidates(state)] == [("pi_b",)]
+    # The admitted probes' minutes are spent from the budget: two one-minute
+    # probes and a two-minute budget plan two, never a third.
+    three = [_probe(f"pi_{i}", f"lo_{i}", {f"facet_{i}": 1.0}) for i in range(3)]
+    fitted = _classify(three, minutes=1.0, admission=_admission(minutes_budget=2.0))
+    assert [item.lane for item in fitted].count("maintain") == 2
+    (left,) = [item for item in fitted if item.lane is None]
+    assert left.voi["reason"] == voi.REASON_DOES_NOT_FIT and left.voi["context"]["minutes_admitted"] == 2.0
 
 
 def test_the_block_chooser_plans_the_best_probe_per_minute_first():
@@ -926,6 +1210,8 @@ def test_the_plan_values_project_probes_at_the_successor_and_counts_them_below(t
     assert not any("voi_decisions" in detail for detail in before_details + off_details)
     logged = [d for detail in after_details for d in detail.get("voi_decisions", [])]
     assert logged and {d["site"] for d in logged} == {voi.SITE_PROJECT_PROBE}
+    # Review F10: the plan's own minutes bound the admission.
+    assert {d["context"]["minutes_budget"] for d in logged} == {40.0}
 
 
 # ── Part 2: the probe hypothesis lane reads the diagnoser's verdict ──────────
@@ -1224,11 +1510,14 @@ def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
     other = ({"pi_svd_define_001", "pi_svd_define_002"} - {recommended}).pop()
     assert decision["decision"] == voi.CONTINUE and other in {c["ref"] for c in decision["candidates"]}
 
-    def explore(queue, session, config, now):
-        target = next(item for item in queue if item.practice_item_id == other)
-        return S._explore_to_front(queue, target, 0.25)
+    def support(queue, session, config):
+        # The seeded draw's design puts a quarter on ``other`` and the roll
+        # below lands there, so the realized outcome matches the design.
+        target = next((item for item in queue[1:] if item.practice_item_id == other), None)
+        return None if target is None else (0.25, [target])
 
-    monkeypatch.setattr(S, "_apply_seeded_exploration", explore)
+    monkeypatch.setattr(S, "_exploration_support", support)
+    monkeypatch.setattr(S, "_exploration_draws", lambda queue, session, now, alternatives: (0.0, 0.0))
     S.build_due_queue(
         vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), persist_explanations=True,
     )
@@ -1241,7 +1530,53 @@ def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
     assert served["ref"] == other and served["decision"] == voi.CONTINUE
     assert served["forecast"]["likelihood"] and sum(served["forecast"]["predicted_outcomes"].values()) == pytest.approx(1.0)
     assert body["served_by"]["mechanism"] == "scheduler_seeded_exploration"
-    assert body["served_by"]["exploration_rate"] == 0.25 and "selection_propensity" in body["served_by"]
+    assert body["served_by"]["exploration_rate"] == 0.25
+    assert body["served_by"]["selection_propensity"] == pytest.approx(0.25)
+    assert body["served_by"]["selection_propensity_kind"] == "composed_outcomes"
+    assert body["served_by"]["base_draw_propensity"] == pytest.approx(0.25)
+
+
+def test_a_served_probe_records_its_probability_over_the_composed_queue(tmp_path, monkeypatch):
+    """Review F11: exploration off, a teach-back heads the greedy order (draw
+    probability one) and the probe follows (zero). Value drops the teach-back,
+    so the probe is served deterministically: its receipt records probability
+    one over the composed outcomes, and keeps the draw's zero apart."""
+
+    from learnloop.scheduling import scheduler as S
+    from tests.test_teach_back import _teach_item_payload
+
+    paths, vault, repository = _probe_vault(
+        tmp_path, "mvp-0.17", toml="[scheduler]\nselection_exploration_rate = 0.0\n"
+    )
+    upsert_practice_item(paths.root, _teach_item_payload("pi_svd_teach_001"), clock=CLOCK)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    monkeypatch.setattr(
+        voi.VoiContext,
+        "item_minutes",
+        lambda self, item, authored_minutes=None: voi.MinutesEstimate(
+            10_000.0 if item.id == "pi_svd_teach_001" else 0.01, "authored_prior"
+        ),
+    )
+    trace = OfferTrace()
+    session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
+    queue = S.build_due_queue(
+        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id),
+        persist_explanations=True, offer_trace=trace,
+    )
+    assert trace.greedy_item_ids[0] == "pi_svd_teach_001"  # the draw's sure pick
+    assert "pi_svd_teach_001" not in [item.practice_item_id for item in queue]  # value dropped it
+    presentation = repository.active_probe_presentation_for_session(session_id)
+    assert presentation is not None and presentation.practice_item_id == queue[0].practice_item_id
+    served_by = presentation.selection_components["voi_stopping"]["served_by"]
+    assert served_by["mechanism"] == "scheduler_greedy_order"
+    assert served_by["selection_propensity"] == 1.0 and served_by["selection_propensity_kind"] == "composed_outcomes"
+    assert served_by["base_draw_propensity"] == 0.0 and served_by["greedy_item_id"] == "pi_svd_teach_001"
+    # The same probability the offer-trace machinery gives the composed head.
+    assert sum(
+        outcome.probability for outcome in trace.outcomes
+        if outcome.composed and outcome.composed[0].practice_item_id == presentation.practice_item_id
+    ) == served_by["selection_propensity"]
 
 
 # ── every earlier version is unchanged ───────────────────────────────────────

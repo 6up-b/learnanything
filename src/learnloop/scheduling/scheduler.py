@@ -87,6 +87,13 @@ class ScheduledItem:
     followup_kind: str | None = None
     scheduler_slate_id: str | None = None
     scheduler_candidate_id: str | None = None
+    #: mvp-0.17 (voi_stopping): an in-episode probe's likelihood rows over its
+    #: open episode's hypotheses (``{belief_key, prior, likelihood,
+    #: objective}``), so checks chosen together (teach-backs, project probes)
+    #: value its hypothesis information over the expected posterior branches
+    #: the others leave (``voi_stopping.HypothesisChannel``). Never persisted,
+    #: never compared; None below mvp-0.17 and for every other item.
+    hypothesis_channel: Mapping[str, Any] | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -209,6 +216,12 @@ def build_due_queue(
     voi_context = voi.VoiContext(vault, repository)
     voi_probe_active = voi.voi_stopping_active(config, voi.SITE_PROBE_EPISODE) and not cap_lifted
     voi_probe_decisions: dict[str, voi.SiteDecision] = {}
+    # Checks chosen together (teach-backs here, project probes in the plan)
+    # need an in-episode probe's likelihood rows to value its hypothesis
+    # information conditionally (review F2 reopened).
+    carry_hypothesis_channels = voi.voi_stopping_active(config, voi.SITE_TEACH_BACK) or voi.voi_stopping_active(
+        config, voi.SITE_PROJECT_PROBE
+    )
     item_states = repository.practice_item_states()
     quality_states = repository.practice_item_quality_states()
     # The routine-serving exclusions, shared with the quick check
@@ -481,6 +494,7 @@ def build_due_queue(
             goal_frontier_component *= exposure
         components["goal_frontier"] = goal_frontier_component
         probe_familiarity_discount = 1.0
+        hypothesis_channel: dict[str, Any] | None = None
 
         probe_surface_repeat = False
         if in_probe and episode.hypothesis_set_id is not None:
@@ -581,6 +595,13 @@ def build_due_queue(
                     components["probe_eig_familiarity_discount"] = probe_familiarity_discount
                     probe_item_ids[item.id] = episode.hypothesis_set_id
                     probe_entropy_before[item.id] = entropy_before
+                    if carry_hypothesis_channels:
+                        hypothesis_channel = voi.hypothesis_channel_body(
+                            str(episode.id),
+                            eligible_entry,
+                            posterior,
+                            objective="predictive_eig" if predictive_primary else "hypothesis_eig",
+                        )
 
         if item.practice_mode == "diagnostic_probe" and components.get("probe_eig", 0.0) <= 0.0:
             # In an open probe episode but not servable as a probe this refresh
@@ -685,6 +706,7 @@ def build_due_queue(
                 selected_mode=item.practice_mode,
                 plain_english=plain_english,
                 reward_debug=reward.as_debug(),
+                hypothesis_channel=hypothesis_channel,
             )
         )
 
@@ -884,7 +906,21 @@ def build_due_queue(
                                 "mechanism": (
                                     "scheduler_seeded_exploration" if explored else "scheduler_greedy_order"
                                 ),
-                                "selection_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
+                                # Review F11: the probability this item heads
+                                # the COMPOSED queue (every draw outcome
+                                # recomposed as the build composes), not the
+                                # pre-composition draw's, which is kept apart.
+                                "selection_propensity": _composed_head_probability(
+                                    selected.practice_item_id,
+                                    greedy_queue=greedy_queue,
+                                    considered=considered_queue,
+                                    session=session,
+                                    config=config,
+                                    compose=compose,
+                                    pinned_item_id=None,
+                                ),
+                                "selection_propensity_kind": "composed_outcomes",
+                                "base_draw_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
                                 "greedy_item_id": greedy_queue[0].practice_item_id,
                             }
                             if explored:
@@ -1187,12 +1223,31 @@ def _fill_offer_trace(
             ).hexdigest()[:32],
         }
     )
+    outcomes = _support_outcomes(greedy_queue, support, compose, pinned_item_id)
+    realized = next(
+        (index for index, outcome in enumerate(outcomes) if outcome.explored_item_id == realized_item_id),
+        0,
+    )
+    trace.exploration = exploration
+    trace.outcomes = tuple(outcomes)
+    trace.realized = realized
+
+
+def _support_outcomes(
+    greedy_queue: list[ScheduledItem],
+    support: tuple[float, list[ScheduledItem]],
+    compose,
+    pinned_item_id: str | None,
+) -> list[ExplorationOutcome]:
+    """Every outcome of the seeded draw, each recomposed through ``compose``
+    (the live build's own composition, without audit writes) and the committed
+    presentation pin: the greedy order (when ``1 - rate > 0``) first, then one
+    outcome per near-tie alternative."""
+
+    support_rate, alternatives = support
     outcomes: list[ExplorationOutcome] = []
-    realized = 0
     greedy_probability = 1.0 - support_rate
     if greedy_probability > 0:
-        if realized_item_id is None:
-            realized = len(outcomes)
         outcomes.append(
             ExplorationOutcome(
                 None,
@@ -1202,8 +1257,6 @@ def _fill_offer_trace(
         )
     share = support_rate / len(alternatives)
     for alternative in alternatives:
-        if alternative.practice_item_id == realized_item_id:
-            realized = len(outcomes)
         pre = _explore_to_front(list(greedy_queue), alternative, support_rate)
         outcomes.append(
             ExplorationOutcome(
@@ -1212,9 +1265,38 @@ def _fill_offer_trace(
                 tuple(_pin_presentation(compose(pre, record=False), pinned_item_id)),
             )
         )
-    trace.exploration = exploration
-    trace.outcomes = tuple(outcomes)
-    trace.realized = realized
+    return outcomes
+
+
+def _composed_head_probability(
+    practice_item_id: str,
+    *,
+    greedy_queue: list[ScheduledItem],
+    considered: list[ScheduledItem],
+    session: SchedulerSession,
+    config: LearnLoopConfig,
+    compose,
+    pinned_item_id: str | None,
+) -> float:
+    """``P(practice_item_id heads the composed queue)`` over the seeded draw's
+    whole support: each outcome recomposed exactly as the live build composes
+    (router R1's offer-trace machinery), so a teach-back value dropped, a
+    requested floor or a follow-up insertion is accounted for. Review F11: the
+    pre-composition draw probability (``_selection_propensities``) is the
+    probability of the draw, not of the item served."""
+
+    support = _exploration_support(greedy_queue, session, config)
+    if support is None:
+        outcomes = [ExplorationOutcome(None, 1.0, tuple(considered))]
+    else:
+        outcomes = _support_outcomes(greedy_queue, support, compose, pinned_item_id)
+    return float(
+        sum(
+            outcome.probability
+            for outcome in outcomes
+            if outcome.composed and outcome.composed[0].practice_item_id == practice_item_id
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -2118,7 +2200,10 @@ def _teach_back_value_admission(
                 minutes=context.item_minutes(item),
                 predicted_correct=scheduled.components.get("predicted_correctness"),
                 terms=voi.InformationTerms.from_reward_debug(
-                    scheduled.learning_object_id, scheduled.reward_debug, total_nats=eig
+                    scheduled.learning_object_id,
+                    scheduled.reward_debug,
+                    total_nats=eig,
+                    hypothesis_channel=scheduled.hypothesis_channel,
                 ),
                 detail={"greedy_rank": index},
             )

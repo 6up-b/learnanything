@@ -12,13 +12,14 @@ decisions in force: recommended defaults accepted; frictionless defaults
 stage).
 
 **Revised by the Codex review fixes** (`docs/reviews/voi-stopping-codex-review.md`,
-findings F1 to F9): the sections below describe the stage as fixed; where the
-first build differed, the fix is named inline.
+findings F1 to F9, and the re-review's F1, F2, F10 and F11): the sections
+below describe the stage as fixed; where the first build differed, the fix is
+named inline.
 
 Both parts change what is served, so they ship as one algorithm successor,
 **`mvp-0.17` (a placeholder label: expect relabelling at the merge)**, with
-**migration 187 (a placeholder number: 184 to 186 are held by branches in
-flight)**.
+**migrations 187 and 188 (placeholder numbers: 184 to 186 are held by
+branches in flight)**.
 
 ## 1. What changed
 
@@ -34,7 +35,7 @@ former cap stays in config and is exactly the switched-off path.
 | `probe_episode` | `probe.episode.session_qualifying_observation_cap` (4 qualifying observations per session) and `probe.episode.maximum_observations` (4 per episode; lifted with it, review F3: kept off the value rule and in a calibration session) | Each next observation of an episode is served while its value pays. When it no longer does, the sequential block closes (the learner's deferred feedback is released) and the episode completes with the new `completion_reason = 'value_of_information_stop'`, its decision kept in the new `probe_episodes.completion_detail_json` (migration 187) | every observation |
 | `followup_intervention` | `scheduler.followup.max_interventions_per_lo_per_session` (1) | Every intervention on an LO, the first included (review F7), once the trigger gate fires: the whole eligible slate is valued and the best candidate whose value pays is queued (review F4); when none pays, suppressed `voi_value_below_minutes_cost`. With no candidate the need is recorded as for any first intervention. A learner's manual override still wins (value's best candidate is queued); the log says what value would have done | every intervention |
 | `teach_back` | `teach_back.session_cap` (1 per built queue) | Every teach-back, the first included (review F7): admitted greedily, each valued conditionally on those already admitted (review F2), while its value pays; kept teach-backs stay in the queue's own order (a teach-back is a valued probe, router D11) | every teach-back |
-| `project_probe` | `plan.project_probes_max_per_day` (4) | No count: due project probes are admitted greedily and conditionally (review F2) while their value pays, take the maintain lane in that order and carry it as `plan_rank`, which the block score and the chooser read (review F5); the plan's finite minutes bound how many are planned. A probe whose value does not pay stays "later" with that reason | every due probe |
+| `project_probe` | `plan.project_probes_max_per_day` (4) | No count: due project probes are admitted greedily and conditionally (review F2) while their value pays and while they fit the plan's minutes (re-review F10: a probe is admissible only while it fits the minutes the probes admitted before it leave, and one block), take the maintain lane in that order and carry it as `plan_rank`, which the block score and the chooser read (review F5). A probe whose value does not pay, or that does not fit, stays "later" with that reason | every due probe |
 
 Gates: `voi_stopping_active(config, site)` is true only at a
 `VOI_STOPPING_VERSIONS` member with the switch and the site's sub-switch on. A
@@ -77,8 +78,13 @@ for the sidecar and TUI commit doors; the completion policy),
   remaining check given the belief the admitted ones are expected to leave
   (the reward's `probe_eig_total` decomposed from its own body: the LO-mastery
   Gaussian adds the check's precision, a facet's variance shrinks by the
-  evidence the earlier checks add, the hypothesis EIG counts once per LO), and
-  adding stops when the best remaining check does not pay.
+  evidence the earlier checks add, and the hypothesis term is valued over the
+  expected posterior branches the earlier checks on the same open episode
+  leave, from the check's own `P(E | H)` rows, which the scheduler hands each
+  in-episode probe as `ScheduledItem.hypothesis_channel`; re-review F2), and
+  adding stops when the best remaining check does not pay. A project probe
+  that does not fit the plan's minutes is never admitted nor conditioned on
+  (re-review F10).
 * **Otherwise** (no decision at stake, a route missing, or `rank_feasible`
   abstaining on an action flip or excluding an input) the robust EIG is
   converted to minutes with `robust_composition.VALUE_PER_NAT_MINUTES`, as
@@ -157,7 +163,11 @@ diagnoser `learner_state` over a blind prior of False, now enters the lane).
   became `migration_head_187` (only 187 applied, rollback journal,
   `foreign_key_check` clean, `integrity_check` ok); its README and every
   hard-coded path (12 existing test files, the two reference scripts and
-  their `SCHEMA_HEAD`) follow. A VOI-stopped episode is not a "trusted" hypothesis
+  their `SCHEMA_HEAD`) follow. **Migration 188** (re-review F1) adds
+  `followup_value_decisions` (RECEIPT, append-only by trigger): one row per
+  follow-up value decision, with its own id and per-attempt ordinal and its
+  source-attempt link; the head fixture became `migration_head_188` (only 188
+  applied in place, same checks). A VOI-stopped episode is not a "trusted" hypothesis
   conclusion for depth-rung entry (`curriculum/depth_rungs.py` keeps its
   list): a stop because more minutes do not pay is not a demonstration.
 * Import contracts: the module sits in `diagnosis` beside the probe machinery
@@ -224,9 +234,9 @@ hash and its duration sources), every parameter with its provenance
 
 | Site | Recorded on |
 |---|---|
-| probe episode (continue) | the committed presentation's `selection_components.voi_stopping`; the Today offer's `router_decisions.detail_json.voi_decisions`; the scheduler slate candidate's components (`voi_value_minutes`, `voi_cost_minutes`, `voi_stop`) |
+| probe episode (continue) | the committed presentation's `selection_components.voi_stopping` (its `served_by.selection_propensity` is the served item's probability over the composed queue, every draw outcome recomposed as the build composes, with `base_draw_propensity` kept apart; re-review F11); the Today offer's `router_decisions.detail_json.voi_decisions`; the scheduler slate candidate's components (`voi_value_minutes`, `voi_cost_minutes`, `voi_stop`) |
 | probe episode (stop) | `probe_episodes.completion_detail_json` (migration 187); the offer's `voi_decisions`; the withheld item's exclusion `voi_value_below_minutes_cost` |
-| follow-up | the follow-up's `decision_features` receipt (`decision_type = 'followup'`, keyed by the source attempt, immutable), `context.voi_stopping`, queued or suppressed (review F1: a rebuild never clears it); a copy rides on `attempt_surprise.gate_diagnostics_json.voi_stopping` (DERIVED, for the feedback screen) |
+| follow-up | `followup_value_decisions` (migration 188, RECEIPT, immutable): one row per decision, queued, value-suppressed or a recorded need, each with its own id and ordinal and its source attempt (re-review F1: a later decision on the same attempt, such as the learner's manual follow-up, never overwrites an earlier one; a rebuild never clears them); read with `voi_stopping.followup_receipts`. A copy rides on `attempt_surprise.gate_diagnostics_json.voi_stopping` (DERIVED, for the feedback screen). The follow-up's `decision_features` row is mvp-0.16's again (a queue or a need only) |
 | teach-back | the Today offer's `voi_decisions`, one receipt per teach-back (its greedy step, its own valuation as `subject`); a dropped teach-back's exclusion is now `teach_back_value_below_minutes_cost` |
 | project probe | the plan-block `router_decisions.detail_json.voi_decisions` (and the block decision detail) |
 
@@ -429,9 +439,9 @@ real `codex sandbox` under load (16 of 16 pass alone).
 7. **The `decision_features` marker** is written on every new selection row
    at every version (logging only; joint vaults log the same posterior as
    before plus the marker). Fine, or gate it on the successor?
-8. **Placeholders and the calibration branch.** `mvp-0.17` and migration 187
-   will be renumbered at the merge (the head fixture is now
-   `migration_head_187`). When `evsi/calibration`'s `voi_forecasts` table
+8. **Placeholders and the calibration branch.** `mvp-0.17` and migrations
+   187 and 188 will be renumbered at the merge (the head fixture is now
+   `migration_head_188`; main's 184 `voi_forecasts` may absorb 188's rows). When `evsi/calibration`'s `voi_forecasts` table
    lands, should these four sites also write there (they already carry its
    field names), and should the sidecar/TUI commit door's value refusal be
    persisted (today only the scheduler's offer and the episode's completion

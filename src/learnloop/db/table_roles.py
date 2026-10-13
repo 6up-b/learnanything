@@ -187,6 +187,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),
     ("followup_tasks", TableRole.WORKFLOW),
+    # mvp-0.17 (migration 188): one immutable receipt per follow-up value
+    # decision, keyed per decision with its source-attempt link.
+    ("followup_value_decisions", TableRole.RECEIPT),
     ("forecasts", TableRole.WORKFLOW),
     ("goal_contract_drafts", TableRole.WORKFLOW),
     ("goal_contract_heads", TableRole.WORKFLOW),

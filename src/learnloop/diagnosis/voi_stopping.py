@@ -68,7 +68,8 @@ are heuristic decision parameters (``robust_composition``, ``evsi``,
 **Every stop/continue decision is a forecast**, recorded beside the decision
 in a table no rebuild clears (router R1's ``router_decisions`` detail for
 Today offers and plan blocks, the probe presentation's selection components,
-the follow-up's ``decision_features`` receipt): the predicted outcome
+the follow-up's own ``followup_value_decisions`` receipt, one row per
+decision): the predicted outcome
 distribution, the EIG, the EVSI point and robust value, the predicted
 probability of an action change, the parameters with their provenance, and
 the former cap's counterfactual (would it have bound?). Where the serving path
@@ -80,8 +81,11 @@ score these too.
 
 **Several checks chosen together** (teach-backs in one queue, project probes
 in one plan) are admitted greedily, each valued conditionally on those
-already admitted (:func:`greedy_information_admission`), so two checks that
-would tell LearnLoop the same thing are not both admitted.
+already admitted (:func:`greedy_information_admission`; the hypothesis term
+over the expected posterior branches, :class:`HypothesisChannel`), so two
+checks that would tell LearnLoop the same thing are not both admitted, while
+two that tell independent things are. A check the plan cannot fit is never
+admitted, so nothing is conditioned on it.
 """
 
 from __future__ import annotations
@@ -474,6 +478,9 @@ class Candidate:
     the independent-evidence discount on the members' EIG; ``extra_eig_nats``
     is information from an adapter outside the members (the follow-up slate's
     facet EIG, a reward's ``probe_eig_total``), already discounted.
+    ``infeasible_reason`` marks a candidate the site cannot serve within its
+    constraints (a project probe that does not fit the plan's minutes): it is
+    valued for its receipt but never continues.
     """
 
     ref: str
@@ -482,6 +489,7 @@ class Candidate:
     eig_scale: float = 1.0
     extra_eig_nats: float = 0.0
     detail: Mapping[str, Any] = field(default_factory=dict)
+    infeasible_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -784,6 +792,11 @@ def value_candidates(
                 # the same stop, labelled as such (reader spec §9.3 item 3).
                 value_uncertain = True
                 reason = f"{reason}:evsi_{'excluded' if candidate.ref in excluded_refs else rank.reason}"
+        if candidate.infeasible_reason:
+            # Valued for the receipt, never admitted: it cannot be served
+            # within the site's constraints (review F10).
+            continues = False
+            reason = str(candidate.infeasible_reason)
         forecast = (
             _forecast(
                 members[0], _normalized(prior_n, [label for label in prior_n if label in members[0]]),
@@ -875,6 +888,7 @@ def information_candidate(
     minutes: MinutesEstimate,
     predicted_correct: float | None = None,
     detail: Mapping[str, Any] | None = None,
+    infeasible_reason: str | None = None,
 ) -> Candidate:
     """A candidate valued only through an adapter's EIG (no hypothesis members).
 
@@ -888,7 +902,13 @@ def information_candidate(
     if predicted_correct is not None and math.isfinite(float(predicted_correct)):
         p = min(max(float(predicted_correct), 0.0), 1.0)
         body["predicted_outcomes"] = {"correct": round(p, _ROUND_DIGITS), "incorrect": round(1.0 - p, _ROUND_DIGITS)}
-    return Candidate(ref=ref, minutes=minutes, extra_eig_nats=max(float(eig_nats), 0.0), detail=body)
+    return Candidate(
+        ref=ref,
+        minutes=minutes,
+        extra_eig_nats=max(float(eig_nats), 0.0),
+        detail=body,
+        infeasible_reason=infeasible_reason,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -903,10 +923,162 @@ _VARIANCE_FLOOR = 1e-6
 _DEFAULT_FACET_VARIANCE = 0.25
 #: Relative tolerance for "the decomposition reproduces the logged total".
 _RECONSTRUCTION_TOLERANCE = 1e-6
+#: Decimal places two expected posteriors must share to be one belief branch.
+_BRANCH_MERGE_DIGITS = 12
+#: Belief branches kept per hypothesis variable before coarser merging. A
+#: bound on arithmetic, never on checks: past it, posteriors are merged at
+#: fewer decimals (each merge keeps the branches' mean) and the receipt says so.
+_MAX_BELIEF_BRANCHES = 4096
+#: The coarser decimal places tried, in order, once the bound is passed.
+_COARSE_MERGE_DIGITS = (9, 6, 4, 3, 2, 1)
+
+#: A check the plan cannot fit (review F10): it is never admitted, and never
+#: conditioned on.
+REASON_DOES_NOT_FIT = "does_not_fit_plan_minutes"
+
+_Branches = tuple[tuple[float, tuple[tuple[str, float], ...]], ...]
 
 
 def _clamp01(value: float) -> float:
     return min(max(float(value), 0.0), 1.0)
+
+
+def _merge_branches(branches: Iterable[tuple[float, Mapping[str, float]]], digits: int) -> list[tuple[float, dict[str, float]]]:
+    """Branches whose posteriors agree to ``digits`` places become one, with
+    their total weight and their weighted mean posterior."""
+
+    merged: dict[tuple[tuple[str, float], ...], list[Any]] = {}
+    for weight, posterior in branches:
+        if weight <= 0:
+            continue
+        key = tuple((label, round(float(posterior[label]), digits)) for label in sorted(posterior))
+        slot = merged.get(key)
+        if slot is None:
+            merged[key] = [float(weight), {label: float(weight) * float(value) for label, value in posterior.items()}]
+        else:
+            slot[0] += float(weight)
+            for label, value in posterior.items():
+                slot[1][label] = slot[1].get(label, 0.0) + float(weight) * float(value)
+    return [
+        (total, {label: mass / total for label, mass in sums.items()})
+        for total, sums in merged.values()
+    ]
+
+
+@dataclass(frozen=True)
+class HypothesisChannel:
+    """What one check tells about the learner's rival hypotheses: its
+    likelihood rows ``P(E | H)`` over one hypothesis variable (``belief_key``,
+    an open probe episode's locked set) with that variable's current belief.
+
+    The selection reward's hypothesis term is ``scale`` times the check's
+    hypothesis EIG in nats (the reward normalizes it by the set's maximum
+    entropy, or uses the §7.4 predictive objective, and discounts it for
+    familiarity): ``scale`` is read back as term / standalone EIG, so the
+    first check reproduces the logged term exactly. Valued after earlier
+    checks on the same variable, the information is the expected EIG over the
+    posterior branches their outcomes leave, ``I(E; H | E_earlier)`` (outcomes
+    independent given ``H``): two checks revealing independent bits each keep
+    their information; a check that repeats an earlier one adds none. A label
+    the check has no row for is one it says nothing about (its outcome
+    distribution is the check's predictive over the labels it covers).
+    """
+
+    belief_key: str
+    prior: tuple[tuple[str, float], ...]
+    likelihood: Mapping[str, Mapping[str, float]]
+    scale: float
+    objective: str = "hypothesis_eig"
+
+    @classmethod
+    def from_mapping(cls, body: Mapping[str, Any] | None, *, hypothesis_term: float) -> "HypothesisChannel | None":
+        """``{belief_key, prior, likelihood, objective}`` (the scheduler's
+        ``ScheduledItem.hypothesis_channel``), or None when it carries no
+        information or the reward logged no hypothesis term."""
+
+        if not isinstance(body, Mapping) or hypothesis_term <= 0:
+            return None
+        try:
+            likelihood = _keyed(body["likelihood"])
+            raw_prior = {str(label): max(float(value), 0.0) for label, value in dict(body["prior"]).items()}
+            belief_key = str(body["belief_key"])
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return None
+        total = sum(raw_prior.values())
+        if total <= 0 or not likelihood:
+            return None
+        prior = {label: value / total for label, value in raw_prior.items() if value > 0}
+        standalone = expected_information_gain(likelihood, prior)
+        if standalone <= 0:
+            return None
+        return cls(
+            belief_key=belief_key,
+            prior=tuple(sorted(prior.items())),
+            likelihood=likelihood,
+            scale=float(hypothesis_term) / standalone,
+            objective=str(body.get("objective") or "hypothesis_eig"),
+        )
+
+    @property
+    def labelled(self) -> str:
+        """How the conditional hypothesis term is computed, for the receipt."""
+
+        if self.objective == "predictive_eig":
+            # The reward's term is the §7.4 predictive objective: it is scaled
+            # by the conditional hypothesis information (an approximation).
+            return "expected_posterior_branches:predictive_term_scaled_by_hypothesis_eig"
+        return "expected_posterior_branches"
+
+    def root(self) -> _Branches:
+        return ((1.0, self.prior),)
+
+    def information(self, branches: _Branches) -> float:
+        """The check's hypothesis EIG in nats, expected over ``branches``."""
+
+        return sum(
+            weight * expected_information_gain(self.likelihood, dict(posterior))
+            for weight, posterior in branches
+        )
+
+    def split(self, branches: _Branches) -> tuple[_Branches, bool]:
+        """The posterior branches after this check's outcome, merged; the flag
+        says whether coarser merging was needed (the bound was passed)."""
+
+        children: list[tuple[float, dict[str, float]]] = []
+        for weight, posterior_items in branches:
+            posterior = dict(posterior_items)
+            covered = {label: mass for label, mass in posterior.items() if label in self.likelihood}
+            covered_mass = sum(covered.values())
+            if covered_mass <= 0:
+                children.append((weight, posterior))
+                continue
+            predictive: dict[str, float] = {}
+            for label, mass in covered.items():
+                for outcome, probability in self.likelihood[label].items():
+                    predictive[outcome] = predictive.get(outcome, 0.0) + (mass / covered_mass) * float(probability)
+            for outcome, probability in predictive.items():
+                if probability <= 0:
+                    continue
+                child = {
+                    label: (
+                        mass * float(self.likelihood[label].get(outcome, 0.0)) / probability
+                        if label in covered
+                        else mass
+                    )
+                    for label, mass in posterior.items()
+                }
+                children.append((weight * probability, child))
+        merged = _merge_branches(children, _BRANCH_MERGE_DIGITS)
+        coarse = False
+        for digits in _COARSE_MERGE_DIGITS:
+            if len(merged) <= _MAX_BELIEF_BRANCHES:
+                break
+            merged = _merge_branches(merged, digits)
+            coarse = True
+        return (
+            tuple((weight, tuple(sorted(posterior.items()))) for weight, posterior in merged),
+            coarse,
+        )
 
 
 @dataclass(frozen=True)
@@ -928,10 +1100,11 @@ class InformationTerms:
       so each "expected belief branch" is this one deterministic update);
     * a facet's term shrinks the variance the earlier checks left, against
       the evidence mass they added (``w d`` each);
-    * the hypothesis EIG is counted once per learning object: an episode's
-      observations are served one at a time and each next one is valued again
-      on the observed posterior (the ``probe_episode`` site), so a second check
-      in the same plan cannot claim the same hypothesis information.
+    * the hypothesis term is valued over the expected posterior branches the
+      earlier checks on the same hypothesis variable leave, from the check's
+      own likelihood rows (:class:`HypothesisChannel`; review F2 reopened).
+      Only when a check with a hypothesis term carries no rows is it counted
+      once per learning object (labelled ``once_per_learning_object``).
 
     For the first check chosen the terms reproduce ``probe_eig_total``
     exactly (:meth:`from_reward_debug` refuses a body they do not reproduce).
@@ -944,13 +1117,21 @@ class InformationTerms:
     discount: float
     #: ``(facet id, evidence weight, prior variance, prior evidence mass)``.
     facets: tuple[tuple[str, float, float, float], ...]
+    hypothesis: HypothesisChannel | None = None
 
     @classmethod
     def from_reward_debug(
-        cls, learning_object_id: str, debug: Mapping[str, Any] | None, *, total_nats: float | None = None
+        cls,
+        learning_object_id: str,
+        debug: Mapping[str, Any] | None,
+        *,
+        total_nats: float | None = None,
+        hypothesis_channel: Mapping[str, Any] | None = None,
     ) -> "InformationTerms | None":
         """The terms behind a scheduled item's ``reward_debug``, or None when the
-        body is missing or does not reproduce ``total_nats``."""
+        body is missing or does not reproduce ``total_nats``.
+        ``hypothesis_channel`` is the item's likelihood rows over its open
+        probe episode's hypotheses, when it has a hypothesis term."""
 
         if not isinstance(debug, Mapping):
             return None
@@ -986,6 +1167,7 @@ class InformationTerms:
             lo_posterior_variance=min(posterior_variance, prior_variance),
             discount=discount,
             facets=facets,
+            hypothesis=HypothesisChannel.from_mapping(hypothesis_channel, hypothesis_term=hypothesis),
         )
         if total_nats is not None:
             alone = terms.conditional_nats(InformationState())["total"]
@@ -997,10 +1179,30 @@ class InformationTerms:
     def lo_precision(self) -> float:
         return max(1.0 / self.lo_posterior_variance - 1.0 / self.lo_prior_variance, 0.0)
 
+    @property
+    def hypothesis_conditioning(self) -> str:
+        if self.hypothesis_nats <= 0:
+            return "none"
+        if self.hypothesis is not None:
+            return self.hypothesis.labelled
+        return "once_per_learning_object"
+
+    def _hypothesis_nats(self, state: "InformationState") -> float:
+        if self.hypothesis_nats <= 0:
+            return 0.0
+        channel = self.hypothesis
+        if channel is None:
+            # No likelihood rows: counted once per learning object (labelled).
+            return 0.0 if self.learning_object_id in state.hypothesis_learning_objects else self.hypothesis_nats
+        branches = state.beliefs.get(channel.belief_key)
+        if branches is None:
+            return self.hypothesis_nats
+        return max(0.0, channel.scale * channel.information(branches))
+
     def conditional_nats(self, state: "InformationState") -> dict[str, float]:
         """This check's information given the checks already in ``state``."""
 
-        hypothesis = 0.0 if self.learning_object_id in state.hypothesis_learning_objects else self.hypothesis_nats
+        hypothesis = self._hypothesis_nats(state)
         variance = state.lo_variance.get(self.learning_object_id, self.lo_prior_variance)
         precision = self.lo_precision
         after = max(1.0 / (1.0 / variance + precision), _VARIANCE_FLOOR) if precision > 0 else variance
@@ -1022,11 +1224,18 @@ class InformationTerms:
 
 @dataclass(frozen=True)
 class InformationState:
-    """The belief the checks chosen so far are expected to leave behind."""
+    """The belief the checks chosen so far are expected to leave behind.
+
+    ``beliefs`` holds, per hypothesis variable, the expected posterior
+    branches ``(probability, posterior)`` the chosen checks' outcomes leave;
+    ``coarse_beliefs`` names the variables whose branches needed coarser
+    merging (receipt label)."""
 
     lo_variance: Mapping[str, float] = field(default_factory=dict)
     facets: Mapping[str, tuple[float, float]] = field(default_factory=dict)
     hypothesis_learning_objects: frozenset[str] = frozenset()
+    beliefs: Mapping[str, _Branches] = field(default_factory=dict)
+    coarse_beliefs: frozenset[str] = frozenset()
 
     def after(self, terms: InformationTerms) -> "InformationState":
         lo_variance = dict(self.lo_variance)
@@ -1040,10 +1249,23 @@ class InformationState:
             fraction = _clamp01((weight * terms.discount) / (mass + 2.0))
             facets[facet] = (max(facet_variance * (1.0 - fraction), _VARIANCE_FLOOR), mass + weight * terms.discount)
         hypothesis = set(self.hypothesis_learning_objects)
+        beliefs = dict(self.beliefs)
+        coarse = set(self.coarse_beliefs)
         if terms.hypothesis_nats > 0:
-            hypothesis.add(terms.learning_object_id)
+            channel = terms.hypothesis
+            if channel is None:
+                hypothesis.add(terms.learning_object_id)
+            else:
+                branches, coarsened = channel.split(beliefs.get(channel.belief_key, channel.root()))
+                beliefs[channel.belief_key] = branches
+                if coarsened:
+                    coarse.add(channel.belief_key)
         return InformationState(
-            lo_variance=lo_variance, facets=facets, hypothesis_learning_objects=frozenset(hypothesis)
+            lo_variance=lo_variance,
+            facets=facets,
+            hypothesis_learning_objects=frozenset(hypothesis),
+            beliefs=beliefs,
+            coarse_beliefs=frozenset(coarse),
         )
 
 
@@ -1091,8 +1313,13 @@ class GreedyAdmission:
         # The step's own verdict is about its best candidate; this receipt is
         # about ``ref``: admitted at this step, or never admitted (the stop).
         body["decision"] = CONTINUE if admitted else STOP
-        if not admitted and step.decision == CONTINUE:
-            body["reason"] = "not_reached"
+        if not admitted:
+            subject = step.value_for(ref)
+            if subject is not None and not subject.continues:
+                # Its own reason: its value does not pay, or it does not fit.
+                body["reason"] = subject.reason
+            elif step.decision == CONTINUE:
+                body["reason"] = "not_reached"
         body["greedy_step"] = index
         body["admitted"] = admitted
         return body
@@ -1114,6 +1341,8 @@ def greedy_information_admission(
     cap_value: int,
     cap_count: int = 0,
     context: Mapping[str, Any] | None = None,
+    minutes_budget: float | None = None,
+    max_item_minutes: float | None = None,
 ) -> GreedyAdmission:
     """Admit checks greedily, each valued conditionally on those already chosen.
 
@@ -1130,13 +1359,26 @@ def greedy_information_admission(
     (``cap_count`` checks of this kind were already counted before step 0).
     A check whose reward body is missing is valued on its logged total alone,
     and its receipt says ``conditioning: unavailable``.
+
+    Feasibility (review F10): with ``minutes_budget`` (the plan's minutes) a
+    check is admissible only while it fits the minutes the admitted ones leave,
+    and with ``max_item_minutes`` (the longest block a check can sit in) only
+    when it fits one block. A check that does not fit is valued for its receipt
+    (``does_not_fit_plan_minutes``) but never admitted, so later checks are
+    conditioned only on checks the plan can actually hold.
     """
 
     remaining = list(entries)
     state = InformationState()
     admitted: list[str] = []
     steps: list[SiteDecision] = []
+    spent = 0.0
     while remaining:
+        limit = math.inf
+        if minutes_budget is not None:
+            limit = min(limit, float(minutes_budget) - spent)
+        if max_item_minutes is not None:
+            limit = min(limit, float(max_item_minutes))
         candidates = []
         for entry in remaining:
             if entry.terms is not None:
@@ -1145,10 +1387,15 @@ def greedy_information_admission(
                 conditioning = {
                     "conditioning": "chosen_before" if admitted else "none_chosen",
                     "conditional_parts_nats": {key: round(value, _ROUND_DIGITS) for key, value in parts.items()},
+                    "hypothesis_conditioning": entry.terms.hypothesis_conditioning,
                 }
+                channel = entry.terms.hypothesis
+                if channel is not None and channel.belief_key in state.coarse_beliefs:
+                    conditioning["hypothesis_branches"] = "coarsely_merged"
             else:
                 eig = max(float(entry.eig_nats), 0.0)
                 conditioning = {"conditioning": "unavailable"}
+            fits = float(entry.minutes.minutes) <= limit + 1e-9
             candidates.append(
                 information_candidate(
                     entry.ref,
@@ -1160,7 +1407,13 @@ def greedy_information_admission(
                         "learning_object_id": entry.learning_object_id,
                         "unconditioned_eig_nats": round(max(float(entry.eig_nats), 0.0), _ROUND_DIGITS),
                         **conditioning,
+                        **(
+                            {"minutes_left": round(limit, 6)}
+                            if math.isfinite(limit)
+                            else {}
+                        ),
                     },
+                    infeasible_reason=None if fits else REASON_DOES_NOT_FIT,
                 )
             )
         by_ref = {entry.ref: entry for entry in remaining}
@@ -1171,7 +1424,17 @@ def greedy_information_admission(
             prior={},
             learning_object_id=None,
             former_cap=former_cap(site, value=cap_value, count=int(cap_count) + len(admitted)),
-            context={**dict(context or {}), "greedy_step": len(steps), "chosen_before": list(admitted)},
+            context={
+                **dict(context or {}),
+                "greedy_step": len(steps),
+                "chosen_before": list(admitted),
+                **(
+                    {"minutes_budget": round(float(minutes_budget), 6), "minutes_admitted": round(spent, 6)}
+                    if minutes_budget is not None
+                    else {}
+                ),
+                **({"max_item_minutes": round(float(max_item_minutes), 6)} if max_item_minutes is not None else {}),
+            },
             evsi_enabled=False,
         )
         steps.append(decision)
@@ -1180,6 +1443,7 @@ def greedy_information_admission(
             break
         picked = by_ref[chosen.ref]
         admitted.append(picked.ref)
+        spent += float(picked.minutes.minutes)
         if picked.terms is not None:
             state = state.after(picked.terms)
         remaining = [entry for entry in remaining if entry.ref != picked.ref]
@@ -1200,6 +1464,28 @@ def label_conditionals(
             continue
         out[label] = {outcome: float(probability) for outcome, probability in conditionals[slot].items()}
     return out
+
+
+def hypothesis_channel_body(
+    belief_key: str,
+    eligible: Any,
+    posterior: Mapping[str, float],
+    *,
+    objective: str,
+) -> dict[str, Any]:
+    """An in-episode probe's likelihood rows over its episode's hypotheses
+    (``{belief_key, prior, likelihood, objective}``), the input of
+    :meth:`HypothesisChannel.from_mapping`: the instrument's composed
+    ``P(E | H)`` keyed by episode label, as the probe-episode site reads it."""
+
+    from learnloop.diagnosis.probe_families import instrument_conditionals
+
+    return {
+        "belief_key": str(belief_key),
+        "prior": {str(label): float(value) for label, value in posterior.items()},
+        "likelihood": label_conditionals(instrument_conditionals(eligible.instrument), eligible.slot_map, posterior),
+        "objective": str(objective),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1302,21 +1588,78 @@ def probe_episode_decision(
 # ---------------------------------------------------------------------------
 
 
-def followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None:
-    """The decision-time follow-up value decision for ``attempt_id``, or None.
+def record_followup_decision(
+    repository: Any,
+    *,
+    attempt_id: str,
+    learning_object_id: str,
+    session_id: str | None,
+    outcome: str,
+    decision: Mapping[str, Any] | None,
+    manual_override: bool,
+    need_id: str | None,
+    algorithm_version: str,
+    clock: Any = None,
+) -> str:
+    """Append one follow-up value decision to its immutable receipt table.
 
-    It rides on the follow-up's ``decision_features`` row (``decision_type =
-    'followup'``, keyed by the source attempt): a RECEIPT written once, never
-    updated (immutable by trigger) and never cleared by a rebuild or a
-    regrade's replay, unlike ``attempt_surprise.gate_diagnostics_json``
-    (DERIVED), which a replay recreates without it.
+    Each decision on a source attempt gets its own id and ordinal (an automatic
+    decision, then the learner's manual follow-up; a generation need, then a
+    queue once a candidate exists), so none overwrites another and none is
+    dropped (review F1 reopened). ``decision`` is ``SiteDecision.as_dict``
+    (None when there was no candidate to value).
     """
 
-    row = repository.decision_features(decision_id=str(attempt_id), decision_type="followup")
-    if row is None:
-        return None
-    body = (row.get("context") or {}).get("voi_stopping")
-    return dict(body) if isinstance(body, Mapping) else None
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores.followup_value import insert_decision
+
+    body = dict(decision) if decision is not None else None
+    with repository.atomic(), repository.connection() as connection:
+        return insert_decision(
+            connection,
+            {
+                "source_attempt_id": str(attempt_id),
+                "learning_object_id": str(learning_object_id),
+                "session_id": session_id,
+                "decision_outcome": outcome,
+                "verdict": body.get("decision") if body is not None else None,
+                "manual_override": bool(manual_override),
+                "recommended_ref": body.get("recommended_ref") if body is not None else None,
+                "served_ref": body.get("served_ref") if body is not None else None,
+                "need_id": need_id,
+                "candidate_count": int(body.get("candidate_count") or 0) if body is not None else 0,
+                "forecast_version": body.get("forecast_version") if body is not None else None,
+                "decision_json": body,
+                "algorithm_version": algorithm_version,
+                "created_at": utc_now_iso(clock),
+            },
+        )
+
+
+def followup_receipts(repository: Any, attempt_id: str) -> list[dict[str, Any]]:
+    """Every follow-up value decision on ``attempt_id``, in decision order.
+
+    Each row is a RECEIPT (``followup_value_decisions``): written once by the
+    live follow-up path, never updated (immutable by trigger) and never
+    cleared by a rebuild or a regrade's replay, unlike
+    ``attempt_surprise.gate_diagnostics_json`` (DERIVED). ``decision`` is the
+    value decision with its forecasts (None when nothing was valued).
+    """
+
+    from learnloop.db.stores.followup_value import decisions_for_attempt
+
+    with repository.connection() as connection:
+        return decisions_for_attempt(connection, str(attempt_id))
+
+
+def followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None:
+    """The latest valued follow-up decision on ``attempt_id`` (its
+    ``SiteDecision`` body), or None."""
+
+    for row in reversed(followup_receipts(repository, attempt_id)):
+        if isinstance(row.get("decision"), Mapping):
+            return dict(row["decision"])
+    return None
 
 
 __all__ = [
@@ -1331,12 +1674,14 @@ __all__ = [
     "FORECAST_VERSION",
     "FORMER_CAPS",
     "GreedyAdmission",
+    "HypothesisChannel",
     "InformationEntry",
     "InformationState",
     "InformationTerms",
     "METHOD_EIG_VALUE",
     "METHOD_ROBUST_EVSI",
     "MinutesEstimate",
+    "REASON_DOES_NOT_FIT",
     "SITES",
     "SITE_FOLLOWUP",
     "SITE_PROBE_EPISODE",
@@ -1346,13 +1691,16 @@ __all__ = [
     "SiteDecision",
     "VoiContext",
     "followup_receipt",
+    "followup_receipts",
     "former_cap",
     "greedy_information_admission",
     "heuristic_parameters",
+    "hypothesis_channel_body",
     "information_candidate",
     "label_conditionals",
     "probe_lane_holds_out_pending",
     "probe_lane_reads_diagnosis",
+    "record_followup_decision",
     "value_candidates",
     "voi_stopping_active",
 ]

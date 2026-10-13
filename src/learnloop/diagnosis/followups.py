@@ -410,17 +410,14 @@ def evaluate_intervention_followup(
             repository.update_attempt_surprise_actions(
                 attempt_id, triggered_actions=triggered, suppressed_actions=suppressed, gate_diagnostics=gate
             )
-            _record_followup_decision_features(
-                vault,
-                repository,
-                attempt_id=attempt_id,
-                learning_object_id=learning_object_id,
-                selection=selection,
-                outcome=f"suppressed_{reason}",
-                need_id=None,
-                selected_item_id=None,
-                voi=voi_body,
-                clock=clock,
+            # The decision's own immutable receipt (one row per decision on
+            # this attempt; review F1 reopened). The follow-up's
+            # decision_features row stays mvp-0.16's: written only for a queue
+            # or a need, so a later manual follow-up still writes it.
+            _record_followup_value_decision(
+                vault, repository, attempt_id=attempt_id, learning_object_id=learning_object_id,
+                session_id=session_id, outcome=f"suppressed_{reason}", decision=voi_body,
+                manual_override=manual_override, need_id=None, clock=clock,
             )
             return _decision(
                 False, None, suppressed[0], triggered, suppressed, intent=intent, gate_diagnostics=gate
@@ -487,6 +484,14 @@ def evaluate_intervention_followup(
             manual_trigger=gate if manual_override else None,
             clock=clock,
         )
+        if voi_active:
+            # No candidate to value: the receipt records the decision (the
+            # need) so a later decision on this attempt is told apart from it.
+            _record_followup_value_decision(
+                vault, repository, attempt_id=attempt_id, learning_object_id=learning_object_id,
+                session_id=session_id, outcome=need_outcome, decision=None,
+                manual_override=manual_override, need_id=need_id, clock=clock,
+            )
         return _decision(
             False, None, suppressed[0], triggered, suppressed,
             intent=intent, need_id=need_id, gate_diagnostics=gate,
@@ -496,23 +501,29 @@ def evaluate_intervention_followup(
     gate = _gate("queued", triggered_reasons[0], would_suppress)
     if voi_body is not None:
         # mvp-0.17: the decision that queued this intervention, with the
-        # served candidate's forecast (also kept on the decision_features
+        # served candidate's forecast (also kept on its own immutable
         # receipt below, which a rebuild never clears).
         gate["voi_stopping"] = voi_body
     repository.update_attempt_surprise_actions(attempt_id, triggered_actions=triggered, gate_diagnostics=gate)
+    queued_outcome = "queued_diagnostic" if selection.open_facets else "queued_non_diagnostic_review"
     _record_followup_decision_features(
         vault,
         repository,
         attempt_id=attempt_id,
         learning_object_id=learning_object_id,
         selection=selection,
-        outcome="queued_diagnostic" if selection.open_facets else "queued_non_diagnostic_review",
+        outcome=queued_outcome,
         need_id=None,
         selected_item_id=candidate.id,
         manual_trigger=gate if manual_override else None,
-        voi=voi_body,
         clock=clock,
     )
+    if voi_body is not None:
+        _record_followup_value_decision(
+            vault, repository, attempt_id=attempt_id, learning_object_id=learning_object_id,
+            session_id=session_id, outcome=queued_outcome, decision=voi_body,
+            manual_override=manual_override, need_id=None, clock=clock,
+        )
     return _decision(
         True, candidate.id, triggered_reasons[0], triggered, [],
         intent=intent, gate_diagnostics=gate,
@@ -2346,7 +2357,6 @@ def _record_followup_decision_features(
     need_id: str | None,
     selected_item_id: str | None,
     manual_trigger: dict[str, Any] | None = None,
-    voi: dict[str, Any] | None = None,
     clock: Clock | None,
 ) -> None:
     uncertainties = facet_uncertainty_states_for_lo(
@@ -2400,13 +2410,6 @@ def _record_followup_decision_features(
             ),
             "diagnostic_focus": selection.diagnostic_focus,
             "manual_trigger": manual_trigger,
-            # mvp-0.17 (voi_stopping): the value decision behind this follow-up
-            # (queued or suppressed), with the served candidate's forecast.
-            # This RECEIPT row is written once per source attempt and never
-            # rewritten, so the decision-time forecast survives every rebuild
-            # and regrade (``attempt_surprise``, where the gate diagnostics
-            # also carry it, is DERIVED). Absent below mvp-0.17.
-            **({"voi_stopping": voi} if voi is not None else {}),
             # Meas §3.A2/§3.A3: present only when something was actually refused,
             # so every pre-existing decision record is byte-identical and a
             # non-empty key is a real signal rather than noise on every row.
@@ -2438,6 +2441,38 @@ def _record_followup_decision_features(
                 else {}
             ),
         },
+        algorithm_version=vault.config.algorithms.algorithm_version,
+        clock=clock,
+    )
+
+
+def _record_followup_value_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    learning_object_id: str,
+    session_id: str | None,
+    outcome: str,
+    decision: dict[str, Any] | None,
+    manual_override: bool,
+    need_id: str | None,
+    clock: Clock | None,
+) -> None:
+    """mvp-0.17 (voi_stopping): this follow-up decision's own immutable
+    receipt, with its forecast (``voi_stopping.record_followup_decision``)."""
+
+    from learnloop.diagnosis.voi_stopping import record_followup_decision
+
+    record_followup_decision(
+        repository,
+        attempt_id=attempt_id,
+        learning_object_id=learning_object_id,
+        session_id=session_id,
+        outcome=outcome,
+        decision=decision,
+        manual_override=manual_override,
+        need_id=need_id,
         algorithm_version=vault.config.algorithms.algorithm_version,
         clock=clock,
     )

@@ -79,6 +79,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/router.py",
         # Learner-text gaps: the gap ledger, reversals, queue and receipts.
         "src/learnloop/db/stores/learner_gaps.py",
+        # mvp-0.17 value-of-information stopping: the follow-up value
+        # decisions' append-only receipts (one row per decision).
+        "src/learnloop/db/stores/followup_value.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",
