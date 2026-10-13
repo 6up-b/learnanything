@@ -276,6 +276,12 @@ otherwise.
 - The doctor run also shows the new `config:retired_setting` warning for
   `[locks]` on these copies (expected).
 
+**Facet versions on real data.** On the arxiv_v2 copy I applied a proposal
+rewording the claim of 9 facets, one at a time (every 8th registered facet;
+one of them carries graded evidence). Each apply wrote `version: 2` and a
+`reword` action. Each undo restored `facets.yaml` exactly (normalized
+entries equal before and after, 9 of 9).
+
 ## 5. The broken YAML file in probability (reported, not fixed)
 
 `subjects/counting/practice-items/pi_exercise_01kyn22qcffk7sae9ttxvz4j5n.yaml`
@@ -340,6 +346,28 @@ trace-checkpoint keys can break the same way on their next write.
   - `FacetIdentityPanel.test.tsx`: evidence label and a reword row with undo;
   - `KnowledgeWellView.test.tsx`: fixture.
 - `tests/cli_help_snapshot.json` regenerated (`doctor`, `facets*`).
+
+## 6a. Gate
+
+Run on `5d136445` (clean tree; the commit after it adds only this section
+and the real-data reword note in §4).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **15 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8,951 passed**, 0 failed, 46 warnings (existing: mobile host tests, fork and sqlite datetime deprecations), 334 s of test time (1,132 s including waiting for the lock) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **95 passed**, 8,856 deselected, 1 warning, 92 s |
+| Frontend (`npm install`, `npm run typecheck`, `npm test`, `npm run frontend:build`) | typecheck clean; **36 files, 184 tests passed**; build ok |
+| `cargo check` | not needed: nothing under `src-tauri` changed |
+| DB/config references (`db_generate_reference.py`, `db_validate_reference.py`) | schema head 188, 307 table notes, 749 config leaves (723 ACTIVE, 7 COMPAT, 15 DORMANT, 4 LEGACY), **0 errors**; docs-vault validator passed (1,083 notes) |
+
+The first full-suite run on `cf077450` failed one test,
+`test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`.
+The owner merge and `--fix-content` had added function-local cross-domain
+imports, and removing locks left two stale inventory entries. `5d136445`
+moves those imports to module level (import-linter still kept, a fresh
+import of every touched module works) and shrinks the ratchet.
 
 ## 7. Deviations
 
