@@ -307,6 +307,19 @@ def test_attributions_on_restored_criteria_leave_the_grade_and_stay_on_the_recor
     assert gate.withdrawn_attributions[0]["target_criterion_ids"] == ["setup"]
 
 
+def test_the_reading_decides_which_items_are_checked():
+    """The LLM's reading, not a word list: any kind whose rubric credits the
+    learner's reasoning is checked (a computation crediting the working
+    included); recall and labelling never are."""
+
+    def reading(kind, graded):
+        return ItemKindReading(response_kind=kind, reasoning_is_graded=graded)
+
+    assert reading("proof", True).proof_like and reading("computation", True).proof_like
+    assert not reading("proof", False).proof_like
+    assert not reading("recall", True).proof_like and not reading("classification", True).proof_like
+
+
 def test_prompts_withhold_the_reference_and_the_grade():
     from learnloop.vault.models import PracticeItem
 
@@ -382,7 +395,7 @@ def test_a_validated_alternative_route_is_restored_live(tmp_path, checker):
     # setup restored (2/2); result unassessed: the grade is over setup alone.
     assert (attempt["rubric_score"], attempt["correctness"]) == (4, 1.0)
     rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
-    assert rows["setup"].points_awarded == 2.0 and "Restored" in rows["setup"].evidence
+    assert rows["setup"].points_awarded == 2.0 and rows["setup"].evidence.startswith("Restored: an independent check")
     assert unassessed_evidence_row(rows["result"].attribution_json)
     assert support["unverified_criterion_ids"] == ["result"]
     assert support["valid_alternative_gate"] == {"final_answer": False, "proof_route": True}

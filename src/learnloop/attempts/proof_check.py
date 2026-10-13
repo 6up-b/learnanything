@@ -9,8 +9,11 @@ model, and showing the reference did not help (arXiv 2605.16207). This module
 adds the smallest sound path for those items (owner decision 2026-10-13):
 
 * **Which items.** An LLM reads the item's prompt, rubric and metadata (never
-  a keyword list) and says whether credit depends on the validity of the
-  learner's own reasoning (``proof_like``). The reading is cached per item
+  a keyword list) and says what it asks for and whether its rubric credits
+  the validity of the learner's own reasoning. ``proof_like`` follows that
+  judgment (proofs, derivations, justifications, explanations, and
+  computations whose rubric credits the working); recall and labelling items
+  are never checked. The reading is cached per item
   content in ``judgment_ledger`` (task :data:`ITEM_KIND_TASK`), so each item
   version is classified once.
 * **An independent re-derivation.** On a proof-like item every blind grade is
@@ -91,7 +94,11 @@ CLARIFICATION_TRIGGER = "route_check_disagreement"
 RESTORED_CRITERION_LABEL = "restored: an independent check found your route valid"
 #: Support key on the blind record.
 SUPPORT_KEY = "proof_route_check"
-PROOF_LIKE_KINDS = frozenset({"proof", "derivation", "justification", "explanation"})
+#: Kinds whose credit can never rest on the learner's reasoning; any other kind
+#: whose rubric credits the reasoning is checked (a computation whose rubric
+#: credits the working included: its final-answer check rarely verifies a
+#: different route).
+NEVER_CHECKED_KINDS = frozenset({"recall", "classification"})
 #: Clarification reasons that are learner-resident (A8): what the learner
 #: meant, not whether a written step is valid.
 _LEARNER_RESIDENT_REASONS = frozenset({"ambiguous_notation", "skipped_step", "method_ambiguity"})
@@ -131,7 +138,7 @@ class ItemKindReading(WireModel):
 
     @property
     def proof_like(self) -> bool:
-        return self.response_kind in PROOF_LIKE_KINDS and self.reasoning_is_graded
+        return self.reasoning_is_graded and self.response_kind not in NEVER_CHECKED_KINDS
 
 
 class CriterionRouteVerdict(WireModel):
@@ -403,7 +410,7 @@ def apply_proof_route_gate(
             row = row.model_copy(update={
                 "points_awarded": maxima[cid],
                 "evidence": (
-                    f"Restored by an independent check of the learner's route ({model}): "
+                    f"{RESTORED_CRITERION_LABEL[0].upper()}{RESTORED_CRITERION_LABEL[1:]} ({model}): "
                     f"{reason or 'each step it depends on is valid on its own terms.'}"
                 ),
                 "notes": f"Grader's mark-down, which named no step in the answer: {row.evidence}",
