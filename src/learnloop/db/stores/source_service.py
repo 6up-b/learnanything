@@ -694,10 +694,14 @@ def _intervention(row: sqlite3.Row) -> dict[str, Any]:
     return value
 
 
-def interventions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+def interventions(connection: sqlite3.Connection, *, proposal_id: str | None = None) -> list[dict[str, Any]]:
     if not table_exists(connection, "retrieval_interventions"):
         return []
-    rows = connection.execute("SELECT * FROM retrieval_interventions ORDER BY created_at, id").fetchall()
+    if proposal_id is None:
+        rows = connection.execute("SELECT * FROM retrieval_interventions ORDER BY created_at, id").fetchall()
+    else:
+        rows = connection.execute("SELECT * FROM retrieval_interventions WHERE proposal_id=? ORDER BY created_at, id",
+                                  (proposal_id,)).fetchall()
     return [_intervention(row) for row in rows]
 
 

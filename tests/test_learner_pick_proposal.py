@@ -209,3 +209,31 @@ def test_an_import_that_has_not_written_the_item_is_refused_before_serving(ctx, 
         _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_2", "sessionId": session_id,
                                              "proposalId": "pp_ex", "sourceExerciseImportId": "sei_test"})
     assert _interventions(repository) == []
+
+
+@pytest.mark.parametrize("kind", ["item", "imported_exercise"])
+def test_with_the_plan_off_delivery_is_recorded_when_the_item_is_opened(ctx, kind):
+    """Codex re-review F10: with the plan off, clicking a proposal recorded
+    S5's delivery at once, although the item is served only when the learner
+    opens it from the open list. The pick records the selection; the open
+    (``get_practice_item`` with the proposal identity) records the delivery,
+    once however often the item is loaded."""
+
+    context, paths = ctx
+    set_config(paths, "plan", enabled=False)
+    context.load(paths.root)
+    _vault, repository = context.require_vault()
+    pick = {"practiceItemId": "pi_extra_1", "proposalId": "pp_test"}
+    if kind == "imported_exercise":
+        _exercise_proposal(repository)
+        pick = {"practiceItemId": "pi_extra_2", "proposalId": "pp_ex", "sourceExerciseImportId": "sei_test"}
+    result = _call(context, "plan_learner_pick", pick)
+    assert result["enabled"] is False and result["proposalPick"]["delivery"] == "on_open"
+    assert _interventions(repository) == []  # selected, not delivered: the learner may never open it
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    opened = _call(context, "get_practice_item", {**pick, "sessionId": session_id})
+    assert opened["proposalDelivery"]["interventionId"]
+    _call(context, "get_practice_item", {**pick, "sessionId": session_id})  # reloaded: still one delivery
+    [row] = _interventions(repository)
+    assert row["kind"] == ("practice_pick" if kind == "item" else "source_exercise")
+    assert row["session_id"] == session_id

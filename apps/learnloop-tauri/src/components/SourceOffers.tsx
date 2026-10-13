@@ -45,7 +45,7 @@ const IMPORT_DONE = new Set(["written", "rejected", "failed"]);
 type PickState =
   | { state: "picking" }
   | { state: "added"; note?: string }
-  | { state: "open"; practiceItemId: string; note?: string }
+  | { state: "open"; practiceItemId: string; proposalId: string | null; importId: string | null; note?: string }
   | { state: "importing"; importId?: string }
   | { state: "slow"; importId: string }
   | { state: "failed"; reason: string };
@@ -129,8 +129,9 @@ export function SourceOffers({
   answer: SourceOffersAnswer;
   sessionId?: string;
   onExplainWithWork?: (spanKey: string) => void;
-  /** The open-list path (DL0's open), used when the daily plan is off. */
-  onOpenPractice?: (practiceItemId: string) => void;
+  /** The open-list path (DL0's open), used when the daily plan is off. The
+   *  proposal (and import) ride along: opening the item records its delivery. */
+  onOpenPractice?: (practiceItemId: string, origin?: { proposalId: string; importId: string | null }) => void;
   onToast: (message: string) => void;
   importPollMs?: number;
 }) {
@@ -216,13 +217,21 @@ export function SourceOffers({
 
   /** After the serving path answered: the plan serves the item (`added`), or,
    *  with the plan off, the open list does when the learner opens it. */
-  function delivered(key: string, result: DailyPlanDto, practiceItemId: string, note?: string) {
+  function delivered(
+    key: string,
+    result: DailyPlanDto,
+    practiceItemId: string,
+    origin: { proposalId: string | null; importId: string | null },
+    note?: string
+  ) {
     if (result.enabled) {
       setPick(key, { state: "added", note });
       onToast(note ? `Added to today's practice. ${note}` : "Added to today's practice.");
       return;
     }
-    setPick(key, { state: "open", practiceItemId, note });
+    // Plan off: only the selection is recorded now; opening the item serves it,
+    // and that serve records the delivery (Codex re-review F10).
+    setPick(key, { state: "open", practiceItemId, proposalId: origin.proposalId, importId: origin.importId, note });
     onToast(
       onOpenPractice
         ? "Your daily plan is off: open it from here when you're ready."
@@ -234,7 +243,7 @@ export function SourceOffers({
     setPick(practiceItemId, { state: "picking" });
     try {
       const result = await api.planLearnerPick(practiceItemId, sessionId ?? null, null, offer.proposalId);
-      delivered(practiceItemId, result, practiceItemId);
+      delivered(practiceItemId, result, practiceItemId, { proposalId: offer.proposalId ?? null, importId: null });
     } catch (error) {
       setPick(practiceItemId, { state: "failed", reason: message(error) });
       onToast(message(error));
@@ -264,9 +273,11 @@ export function SourceOffers({
       onToast(`Couldn't bring this exercise into your practice: ${reason}`);
       return;
     }
-    const note = done.keyLabel ? `Answer key: ${done.keyLabel}.` : undefined;
+    const correction = done.validation?.correction ? `Note: ${done.validation.correction}.` : "";
+    const keyNote = done.keyLabel ? `Answer key: ${done.keyLabel}.` : "";
+    const note = [keyNote, correction].filter(Boolean).join(" ") || undefined;
     const result = await api.planLearnerPick(done.practiceItemId, sessionId ?? null, null, offer.proposalId, importId);
-    delivered(key, result, done.practiceItemId, note);
+    delivered(key, result, done.practiceItemId, { proposalId: offer.proposalId ?? null, importId }, note);
   }
 
   async function importExercise(offer: PracticeOffer, exercise: PracticeOffer["exercises"][number]) {
@@ -312,7 +323,15 @@ export function SourceOffers({
         return <Faint>added</Faint>;
       case "open":
         return onOpenPractice ? (
-          <span style={actionStyle} onClick={() => onOpenPractice(pick.practiceItemId)}>
+          <span
+            style={actionStyle}
+            onClick={() =>
+              onOpenPractice(
+                pick.practiceItemId,
+                pick.proposalId ? { proposalId: pick.proposalId, importId: pick.importId } : undefined
+              )
+            }
+          >
             ❯ open
           </span>
         ) : (

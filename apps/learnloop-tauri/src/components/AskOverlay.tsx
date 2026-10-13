@@ -124,8 +124,9 @@ export function AskOverlay({
   target: AskTarget | null;
   onClose: () => void;
   onToast: (message: string) => void;
-  /** The open-list path for a picked offer while the daily plan is off. */
-  onOpenPractice?: (practiceItemId: string) => void;
+  /** The open-list path for a picked offer while the daily plan is off; the
+   *  proposal it came from rides along so opening it records its delivery. */
+  onOpenPractice?: (practiceItemId: string, origin?: { proposalId: string; importId: string | null }) => void;
 }) {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   // ING M8 (§9.2): the citation span currently open in the source viewer.

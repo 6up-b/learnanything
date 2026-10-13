@@ -74,7 +74,10 @@ it("runs eager offers, records impressions and picks through the plan", async ()
 
 // Codex sources-build review F6: a pick is followed to delivery, not just enqueued.
 
-function renderOffers(extra: { onOpenPractice?: (id: string) => void; toast?: (message: string) => void } = {}) {
+function renderOffers(extra: {
+  onOpenPractice?: (id: string, origin?: { proposalId: string; importId: string | null }) => void;
+  toast?: (message: string) => void;
+} = {}) {
   const toast = extra.toast ?? vi.fn();
   render(<SourceOffers answer={{ eventId: "e1", toolRequests: [REQUESTS[0]] }} sessionId="s1" onToast={toast}
                        onOpenPractice={extra.onOpenPractice} importPollMs={1} />);
@@ -115,7 +118,8 @@ it("with the plan off, an item pick offers the open-list path instead of claimin
   expect(toast).not.toHaveBeenCalledWith("Added to today's practice.");
   expect(toast).toHaveBeenCalledWith("Your daily plan is off: open it from here when you're ready.");
   fireEvent.click(action);
-  expect(open).toHaveBeenCalledWith("pi_det_2");
+  // Codex re-review F10: the proposal rides along; opening the item records its delivery.
+  expect(open).toHaveBeenCalledWith("pi_det_2", { proposalId: "pp_1", importId: null });
 });
 
 it("with the plan off, an imported exercise opens its new item", async () => {
@@ -125,7 +129,18 @@ it("with the plan off, an imported exercise opens its new item", async () => {
   fireEvent.click(await screen.findByText("❯ practise from your book"));
   fireEvent.click(await screen.findByText("❯ open"));
   expect(api.planLearnerPick).toHaveBeenCalledWith("pi_new", "s1", null, "pp_1", "imp");
-  expect(open).toHaveBeenCalledWith("pi_new");
+  expect(open).toHaveBeenCalledWith("pi_new", { proposalId: "pp_1", importId: "imp" });
+});
+
+it("an imported exercise that turned out different from its proposal says so (F7)", async () => {
+  api.getSourceExerciseImport.mockResolvedValue({ version: 1, importId: "imp", status: "written",
+    practiceItemId: "pi_new", keyStatus: "book_solution", keyLabel: "checked against the book's solution",
+    validation: { ok: false, correction: "this exercise turned out to practise facet_eigen, not facet_det" } });
+  const toast = renderOffers();
+  fireEvent.click(await screen.findByText("❯ practise from your book"));
+  await waitFor(() => expect(toast).toHaveBeenCalledWith(
+    "Added to today's practice. Answer key: checked against the book's solution. " +
+    "Note: this exercise turned out to practise facet_eigen, not facet_det."));
 });
 
 it("a pick the plan refuses is shown, not announced as added", async () => {

@@ -37,7 +37,12 @@ import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
 import type { PlanReadingDto, PlanStepDto } from "../api/dto";
-import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
+import {
+  proposalOriginForServe,
+  schedulerCandidateForServe,
+  type PracticeOffer,
+  type ProposalOrigin
+} from "./practiceOffer";
 import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft";
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
@@ -477,8 +482,8 @@ export function App() {
     setTodayStage("queue");
   }
 
-  function openPractice(id: string, schedulerCandidateId?: string | null) {
-    setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null });
+  function openPractice(id: string, schedulerCandidateId?: string | null, proposalOrigin?: ProposalOrigin | null) {
+    setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null, proposalOrigin: proposalOrigin ?? null });
     if (!session) {
       setTab("start");
       setToast("Start a session before opening practice.");
@@ -912,6 +917,13 @@ export function App() {
               guidedRedo: redoContext !== null,
               restoredSubmissionId: restored.submissionId
             })}
+            proposalOrigin={proposalOriginForServe({
+              offer: practiceOffer,
+              practiceItemId,
+              primedRetry,
+              guidedRedo: redoContext !== null,
+              restoredSubmissionId: restored.submissionId
+            })}
             primed={primedRetry}
             redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}
             gradingReady={gradingReady}
@@ -1187,7 +1199,7 @@ export function App() {
         target={askTarget}
         onClose={() => setAskTarget(null)}
         onToast={setToast}
-        onOpenPractice={(practiceItemId) => openPractice(practiceItemId)}
+        onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}
       />
       {openSource ? (
         <OpenInSource

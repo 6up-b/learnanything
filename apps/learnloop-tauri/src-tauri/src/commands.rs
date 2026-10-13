@@ -198,12 +198,21 @@ pub async fn open_queue_item(
 pub async fn get_practice_item(
     practice_item_id: String,
     session_id: Option<String>,
+    proposal_id: Option<String>,
+    source_exercise_import_id: Option<String>,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
+    // Canonical sources (Codex re-review F10): the proposal (and import) a
+    // plan-off pick came from; this serve records its delivery.
     blocking_sidecar_call(
         sidecar,
         "get_practice_item",
-        json!({"practiceItemId": practice_item_id, "sessionId": session_id}),
+        json!({
+            "practiceItemId": practice_item_id,
+            "sessionId": session_id,
+            "proposalId": proposal_id,
+            "sourceExerciseImportId": source_exercise_import_id
+        }),
     )
     .await
 }

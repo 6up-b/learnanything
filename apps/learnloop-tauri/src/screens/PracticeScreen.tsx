@@ -94,6 +94,7 @@ export function PracticeScreen({
   session,
   practiceItemId,
   schedulerCandidateId = null,
+  proposalOrigin = null,
   gradingReady,
   gradingProvider,
   restoredAnswer,
@@ -118,6 +119,9 @@ export function PracticeScreen({
   session: SessionSnapshot;
   practiceItemId: string;
   schedulerCandidateId?: string | null;
+  /** The proposal a plan-off pick of this item came from: this serve records
+   *  the pick's delivery (canonical sources, Codex re-review F10). */
+  proposalOrigin?: { proposalId: string; importId: string | null } | null;
   /** This item is a primed retry launched from the feedback source panel. */
   primed?: boolean;
   /** Fix 3 guided partial redo: the preserved learner work is rendered locked
@@ -208,6 +212,9 @@ export function PracticeScreen({
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const mountedRef = useRef(true);
+  // Read at serve time, not an effect dependency: the item's serve happens once.
+  const proposalOriginRef = useRef(proposalOrigin);
+  proposalOriginRef.current = proposalOrigin;
   const submissionId = useRef(restoredSubmissionId?.trim() || crypto.randomUUID());
   const latestDraft = useRef({
     sessionId: session.sessionId,
@@ -425,8 +432,9 @@ export function PracticeScreen({
       }
 
       // No committed result exists, so this really is an item serve. The
-      // session id lets the sidecar decide (and bound) the §3.A6 elicitation.
-      api.getPracticeItem(practiceItemId, session.sessionId)
+      // session id lets the sidecar decide (and bound) the §3.A6 elicitation;
+      // a plan-off pick's proposal records its delivery with this serve.
+      api.getPracticeItem(practiceItemId, session.sessionId, proposalOriginRef.current)
         .then((detail) => {
           if (cancelled) return;
           teachBackRef.current = detail.practiceMode === "teach_back";

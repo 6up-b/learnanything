@@ -431,3 +431,12 @@ it("shows a textbook exercise's provenance and key label, and passes the draft t
   fireEvent.keyDown(window, { key: "?" });
   expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({ draftMd: "x = 5" }));
 });
+
+// Codex re-review F10: with the plan off, opening a picked proposal's item is
+// its serve; the serve carries the proposal so the sidecar records the delivery.
+it("serves a plan-off pick with its proposal so the open records the delivery", async () => {
+  const origin = { proposalId: "pp_1", importId: "imp" };
+  render(<PracticeScreen {...props()} proposalOrigin={origin} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(api.getPracticeItem).toHaveBeenCalledWith("old-item", "old-session", origin);
+});

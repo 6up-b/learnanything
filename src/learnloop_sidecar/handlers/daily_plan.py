@@ -275,12 +275,15 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     selection = _proposal_selection(ctx, params) if params.proposal_id else None
     required = _require(ctx, params.session_id)
     if required is None:
-        # The plan is off: the open-list pick serves the item (DL0's open, which
-        # the response tells the surface to take); the delivery is recorded
-        # with no router decision.
+        # The plan is off: nothing is served here. The open list serves the
+        # item when the learner opens it (DL0's open, which the response tells
+        # the surface to take, carrying the proposal's identity); that serve
+        # records the delivery (Codex re-review F10). Only the selection is
+        # recorded now: the learner may never open it.
         off = _off(ctx)
         if selection is not None:
-            off["proposalPick"] = to_camel(_proposal_delivery(ctx, params, selection, router_decision_id=None))
+            selection.pop("exercise", None)
+            off["proposalPick"] = to_camel({**selection, "delivery": "on_open"})
         return off
     _vault, _repository, env = required
     try:
@@ -323,6 +326,18 @@ def _proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> di
                                          practice_item_id=params.practice_item_id, vault=vault)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+
+
+def deliver_on_open(ctx: SidecarContext, *, practice_item_id: str, session_id: str, proposal_id: str,
+                    source_exercise_import_id: str | None = None) -> dict[str, Any]:
+    """The open list served a picked proposal's item (the plan off): its
+    selection, re-checked at this serve, and its delivery, recorded once
+    (Codex re-review F10)."""
+
+    params = PlanLearnerPickInput(practice_item_id=practice_item_id, session_id=session_id,
+                                  proposal_id=proposal_id, source_exercise_import_id=source_exercise_import_id)
+    selection = _proposal_selection(ctx, params)
+    return _proposal_delivery(ctx, params, selection, router_decision_id=None)
 
 
 def _proposal_delivery(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any], *,

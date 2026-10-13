@@ -2147,6 +2147,9 @@ export interface SourceExerciseImportDto {
   keyStatus?: string | null;
   keyLabel?: string;
   reason?: string | null;
+  /** The authored draft checked against what it was proposed for (§8.1). A
+   *  learner's pick is imported anyway; `correction` corrects the claim. */
+  validation?: { ok?: boolean; correction?: string | null; reason?: string | null } | null;
 }
 
 export interface CanonicalExerciseDto {

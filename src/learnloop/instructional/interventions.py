@@ -19,7 +19,7 @@ off writes nothing. Reports only: nothing reads these rows to serve.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 import json
 import math
@@ -61,17 +61,42 @@ def interventions_active(vault: LoadedVault) -> bool:
 
 
 def record_intervention(vault: LoadedVault, repository: Repository, *, kind: str,
-                        clock: Clock | None = None, **fields: Any) -> str | None:
-    """Append one intervention row; None (nothing written) when the switch is off."""
+                        clock: Clock | None = None,
+                        existing: Callable[[Any], str | None] | None = None, **fields: Any) -> str | None:
+    """Append one intervention row; None (nothing written) when the switch is off.
+
+    ``existing`` makes the write idempotent: a row it finds (inside the same
+    write transaction) is returned instead of writing another (a delivery is
+    recorded once however often its item is served)."""
 
     if not interventions_active(vault):
         return None
-    intervention_id = "rti_" + new_ulid()
-    with repository.connection() as connection:
+    with repository.atomic():
+        connection = repository.connection()
+        found = existing(connection) if existing is not None else None
+        if found is not None:
+            return found
+        intervention_id = "rti_" + new_ulid()
         insert_intervention(connection, id=intervention_id, created_at=utc_now_iso(clock), kind=kind,
                             algorithm_version=vault.config.algorithms.algorithm_version, **fields)
-        connection.commit()
     return intervention_id
+
+
+def _pick_delivery(proposal_id: str, practice_item_id: str | None,
+                   import_id: str | None) -> Callable[[Any], str | None]:
+    """One delivery per picked proposal candidate (Codex re-review F10)."""
+
+    def find(connection: Any) -> str | None:
+        for row in stored_interventions(connection, proposal_id=proposal_id):
+            if row["kind"] not in ("practice_pick", "source_exercise"):
+                continue
+            assets = row.get("assets") or {}
+            if (list(assets.get("practice_item_ids") or []) == ([practice_item_id] if practice_item_id else [])
+                    and assets.get("import_id") == import_id):
+                return str(row["id"])
+        return None
+
+    return find
 
 
 def _revision_ids(repository: Repository, extraction_ids: Sequence[str]) -> dict[str, Any]:
@@ -186,7 +211,8 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
                 seconds.append(float(value))
     since = min(seconds) if seconds else None
     return record_intervention(
-        vault, repository, kind=kind, clock=clock, caller_kind=found.get("caller") or "learner",
+        vault, repository, kind=kind, clock=clock, existing=_pick_delivery(proposal_id, practice_item_id, import_id),
+        caller_kind=found.get("caller") or "learner",
         caller_ref=found.get("caller_ref"), intent=found.get("intent") or constraints.get("intent") or "practice",
         policy="reading", proposal_id=proposal_id, router_decision_id=router_decision_id, assets=assets,
         targets={"facets": facets, "learning_object_ids": list(constraints.get("learning_object_ids") or ()),

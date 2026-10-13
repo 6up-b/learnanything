@@ -451,8 +451,17 @@ export const api = {
   // `sessionId` marks this as a serve rather than a read: it is what lets the
   // sidecar spend (and bound) the Meas §3.A6 per-session elicitation budget.
   // Omit it for read-only opens — the detail then carries `elicitation: null`.
-  getPracticeItem: (practiceItemId: string, sessionId?: string | null) =>
-    call<PracticeItemDetail>("get_practice_item", { practiceItemId, sessionId: sessionId ?? null }),
+  getPracticeItem: (
+    practiceItemId: string,
+    sessionId?: string | null,
+    origin?: { proposalId: string; importId: string | null } | null
+  ) =>
+    call<PracticeItemDetail>("get_practice_item", {
+      practiceItemId,
+      sessionId: sessionId ?? null,
+      // A plan-off pick's proposal: this serve records its delivery (F10).
+      ...(origin ? { proposalId: origin.proposalId, sourceExerciseImportId: origin.importId ?? null } : {})
+    }),
   getProbeContract: (practiceItemId: string, sessionId?: string) =>
     call<ProbeContractDto>("get_probe_contract", { practiceItemId, sessionId: sessionId ?? null }),
   stopProbeDiagnosing: (practiceItemId: string) =>

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { schedulerCandidateForServe } from "./practiceOffer";
+import { proposalOriginForServe, schedulerCandidateForServe } from "./practiceOffer";
 
 const freshServe = {
   offer: { itemId: "item-x", candidateId: "candidate-2" },
@@ -26,4 +26,15 @@ it("sends no candidate for an offer that belongs to another item", () => {
 it("sends no candidate for primed retries or guided redos", () => {
   expect(schedulerCandidateForServe({ ...freshServe, primedRetry: true })).toBeNull();
   expect(schedulerCandidateForServe({ ...freshServe, guidedRedo: true })).toBeNull();
+});
+
+// Codex re-review F10: a plan-off pick's proposal rides with the serve that records its delivery.
+it("passes a plan-off pick's proposal to the serve of that item only", () => {
+  const origin = { proposalId: "pp_1", importId: "imp" };
+  const offered = { ...freshServe, offer: { itemId: "item-x", candidateId: null, proposalOrigin: origin } };
+  expect(proposalOriginForServe(offered)).toEqual(origin);
+  expect(proposalOriginForServe({ ...offered, practiceItemId: "item-y" })).toBeNull();
+  expect(proposalOriginForServe({ ...offered, restoredSubmissionId: "retry-key-1" })).toBeNull();
+  expect(proposalOriginForServe({ ...offered, primedRetry: true })).toBeNull();
+  expect(proposalOriginForServe(freshServe)).toBeNull();
 });
