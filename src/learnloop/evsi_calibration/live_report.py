@@ -39,11 +39,12 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis.causal_attribution import SUPPORT_BASIS_AUTHORITY
-from learnloop.diagnosis.probes import score_bucket
 from learnloop.evsi_calibration.metrics import reliability
 from learnloop.field.outcomes import borrowed_repository
+from learnloop.learner.facet_diagnostics import facet_outcome_bucket
 from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
 from learnloop.scheduling.voi_forecasts import FORECAST_VERSION, entropy, posterior
+from learnloop.substrate.canonical_projection import unassessed_evidence_row
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -215,6 +216,82 @@ def _observation(connection: sqlite3.Connection, attempt_id: str) -> dict[str, A
     return {"grader_channel": _loads(row["grader_channel_json"], {}), "features": _loads(row["features_json"], {})}
 
 
+def _target_facet_emission(
+    connection: sqlite3.Connection, body: Mapping[str, Any], attempt_id: str
+) -> tuple[str | None, str]:
+    """A follow-up answer read as its TARGET facet's outcome (review F5).
+
+    Scored under the contract the forecast froze (``target_facet_contract``):
+    the attempt's surviving grading evidence on the criteria mapped to the
+    facet, weighted as ``recall_coverage.derive_facet_outcomes`` weights them,
+    bucketed as the facet updater buckets them. Never the whole-item grade and
+    never today's rubric: an answer graded under another contract, a facet no
+    assessed criterion measured, or a forecast without a frozen contract stays
+    unmapped with its reason.
+    """
+
+    alphabet = set(body.get("emission_alphabet") or [])
+    contract = body.get("target_facet_contract")
+    if not isinstance(contract, Mapping):
+        return None, "no_frozen_facet_contract"
+    criteria = contract.get("criteria") or {}
+    if not criteria:
+        return None, "facet_unmapped"
+    attempt = connection.execute(
+        "SELECT attempt_type, declared_dont_know, error_type FROM practice_attempts WHERE id = ?", (attempt_id,)
+    ).fetchone()
+    if attempt is None:
+        return None, "no_attempt"
+    if attempt["attempt_type"] == "dont_know" or attempt["declared_dont_know"]:
+        outcome = 0.0  # a don't-know answer is a failure on every facet it covers
+    else:
+        latest: dict[str, sqlite3.Row] = {}
+        for row in connection.execute(
+            "SELECT criterion_id, points_awarded, attribution_json, assessment_contract_version_id, "
+            "grading_revision FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL",
+            (attempt_id,),
+        ):
+            current = latest.get(str(row["criterion_id"]))
+            if current is None or (row["grading_revision"] or -1) >= (current["grading_revision"] or -1):
+                latest[str(row["criterion_id"])] = row
+        if not latest:
+            return None, "ungraded"
+        versions = {row["assessment_contract_version_id"] for row in latest.values()}
+        if len(versions) != 1 or None in versions:
+            return None, "graded_contract_unknown"
+        graded = connection.execute(
+            "SELECT contract_json FROM assessment_contract_versions WHERE id = ?", (next(iter(versions)),)
+        ).fetchone()
+        if graded is None:
+            return None, "graded_contract_unknown"
+        graded_contract = _loads(graded["contract_json"], {}) or {}
+        if any(graded_contract.get(key) != contract.get(key) for key in ("item_content_hash", "rubric_content_hash")):
+            return None, "graded_under_another_contract"
+        max_points = max(float(contract.get("max_points") or 1.0), 1.0)
+        numerator = denominator = 0.0
+        for criterion_id, spec in criteria.items():
+            row = latest.get(str(criterion_id))
+            if row is None or unassessed_evidence_row(row["attribution_json"]):
+                continue  # not assessed: contributes nothing (never a zero-point failure)
+            points = float(spec.get("points") or 0.0)
+            weight = points / max_points * float(spec.get("facet_share") or 0.0)
+            correctness = min(max(float(row["points_awarded"]) / max(points, 1.0), 0.0), 1.0)
+            numerator += weight * correctness
+            denominator += weight
+        if denominator <= 0:
+            return None, "facet_unassessed"
+        outcome = numerator / denominator
+    bucket = facet_outcome_bucket(outcome)
+    # As the facet updater reads it: only a fatal error of the frozen rubric.
+    error = str(attempt["error_type"] or "")
+    if error not in set(contract.get("fatal_error_ids") or []):
+        error = ""
+    emission = f"{bucket}|{error}"
+    if emission not in alphabet:
+        emission = f"{bucket}|"
+    return emission, "realized"
+
+
 def realized_emission(
     connection: sqlite3.Connection,
     vault: LoadedVault,
@@ -237,18 +314,9 @@ def realized_emission(
             return None, "no_probe_observation"
         emission = ((observation["features"] or {}).get("robust") or {}).get("observed_emission")
     elif site == "followup_selection":
-        row = connection.execute(
-            "SELECT rubric_score, error_type, practice_item_id FROM practice_attempts WHERE id = ?", (attempt_id,)
-        ).fetchone()
-        if row is None or row["rubric_score"] is None:
-            return None, "ungraded"
-        item = vault.practice_items.get(str(row["practice_item_id"]))
-        rubric = vault.rubric_for_item(item) if item is not None else None
-        bucket = score_bucket(int(row["rubric_score"]), rubric.max_points if rubric is not None else 4)
-        error = str(row["error_type"] or "")
-        emission = f"{bucket}|{error}"
-        if emission not in alphabet:
-            emission = f"{bucket}|"
+        emission, why = _target_facet_emission(connection, body, attempt_id)
+        if emission is None:
+            return None, why
     elif site == "causal_shadow_selection":
         if not _has(connection, "causal_discriminating_observations"):
             return None, "no_discriminating_observation"

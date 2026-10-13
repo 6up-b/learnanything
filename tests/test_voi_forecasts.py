@@ -602,23 +602,115 @@ def test_untimed_recurrence_is_not_a_measured_zero(tmp_path):
     assert imputed.personal_mean_minutes == pytest.approx((4.0 + 2.0) / 2)
 
 
-def test_followup_outcome_maps_into_the_forecasts_alphabet(tmp_path):
-    vault, repository = _vault(tmp_path)
-    with repository.connection() as connection:
+def _multi_facet_followup(tmp_path):
+    """A two-facet follow-up item (recall, method), one criterion per facet."""
+
+    from learnloop.vault.yaml_io import write_yaml
+
+    from tests.helpers import NOW_ISO, create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_two_facets"), {
+        "schema_version": 1, "id": "pi_two_facets", "learning_object_id": LO_ID, "subjects": None,
+        "practice_mode": "short_answer", "attempt_types_allowed": ["independent_attempt"],
+        "evidence_facets": ["recall", "method"], "evidence_weights": {"recall": 0.5, "method": 0.5},
+        "criterion_facet_weights": {"recall_criterion": {"recall": 1.0}, "method_criterion": {"method": 1.0}},
+        "prompt": "State SVD and compute one.", "expected_answer": "U Sigma V^T; the worked factorization.",
+        "difficulty": 0.5, "tags": [],
+        "grading_rubric": {
+            "max_points": 4,
+            "criteria": [{"id": "recall_criterion", "points": 2, "description": "States SVD."},
+                         {"id": "method_criterion", "points": 2, "description": "Computes it."}],
+            "fatal_errors": [{"id": "conceptual_slip", "description": "Wrong decomposition.", "max_grade": 1}],
+        },
+        "provenance": {"origin": "human", "source_refs": []}, "created_at": NOW_ISO, "updated_at": NOW_ISO,
+    })
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    item = vault.practice_items["pi_two_facets"]
+    marginal = {"facet_solid:recall": 0.4, "facet_absent:recall": 0.4, "misconception:conceptual_slip": 0.2}
+    selection = SimpleNamespace(
+        candidate=item,
+        slate=[{"practice_item_id": item.id, "rank_score": 0.4, "total_facet_eig": 0.3,
+                "facet_eig_by_facet": {"recall": 0.3}, "predictive_eig_by_facet": {}}],
+        diagnostic_focus={"primary_target_facet": "recall", "target_facet_marginals": {"recall": marginal}},
+        dominant_target_facet="recall",
+        eligible_slate_size=1,
+    )
+    assert DV.record_followup_forecast(vault, repository, attempt_id="att_gate", learning_object_id=LO_ID,
+                                       selection=selection, clock=CLOCK) is not None
+    return vault, repository, _forecasts(repository)[0], item
+
+
+def _graded_attempt(connection, vault, item, attempt_id: str, points: dict[str, float], *, rubric_score: int,
+                    contract_overrides: dict | None = None) -> None:
+    from learnloop.learner.assessment_contracts import compile_assessment_contract
+
+    contract = {**compile_assessment_contract(vault, item, rubric=vault.rubric_for_item(item)),
+                **(contract_overrides or {})}
+    version_id = f"acv_{attempt_id}"
+    connection.execute(
+        "INSERT INTO assessment_contract_versions (id, practice_item_id, contract_hash, contract_json, "
+        "schema_version, created_at) VALUES (?, ?, ?, ?, 1, '2026-05-20T12:00:00Z')",
+        (version_id, item.id, f"hash_{attempt_id}", json.dumps(contract)),
+    )
+    connection.execute(
+        "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+        "rubric_score, created_at) VALUES (?, ?, ?, 'short_answer', 'independent_attempt', ?, "
+        "'2026-05-20T12:00:00Z')",
+        (attempt_id, item.id, LO_ID, rubric_score),
+    )
+    for criterion, awarded in points.items():
         connection.execute(
-            "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-            "rubric_score, error_type, created_at) VALUES ('att_f', 'pi_svd_define_001', ?, 'short_answer', "
-            "'independent_attempt', 0, 'conceptual_slip', '2026-05-20T12:00:00Z')",
-            (LO_ID,),
+            "INSERT INTO grading_evidence (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id, grading_revision) VALUES (?, ?, ?, ?, 1, '2026-05-20T12:00:00Z', ?, 1)",
+            (f"ge_{attempt_id}_{criterion}", attempt_id, criterion, awarded, version_id),
         )
-        connection.commit()
-        forecast = {"site": "followup_selection", "forecast": {"emission_alphabet": ["low|", "low|conceptual_slip",
-                                                                                     "high|"]}}
+
+
+def test_followup_outcome_is_the_target_facets_not_the_whole_items(tmp_path):
+    # Review F5: the forecast models the TARGET facet's outcome, so the realized
+    # answer is that facet's assessed outcome under the contract frozen when the
+    # follow-up was chosen, never the aggregate rubric score and never today's rubric.
+    vault, repository, forecast, item = _multi_facet_followup(tmp_path)
+    frozen = forecast["forecast"]["target_facet_contract"]
+    assert frozen["facet_id"] == "recall" and set(frozen["criteria"]) == {"recall_criterion"}
+    with repository.connection() as connection:
+        # Recall fully right, method wrong: the item's grade is mid (2/4), recall is high.
+        _graded_attempt(connection, vault, item, "att_split", {"recall_criterion": 2.0, "method_criterion": 0.0},
+                        rubric_score=2)
+        assert LR.realized_emission(connection, vault, forecast, "att_split") == ("high|", "realized")
+        # Only the other facet's criterion was assessed: the target facet is unassessed.
+        _graded_attempt(connection, vault, item, "att_other_only", {"method_criterion": 2.0}, rubric_score=2)
+        assert LR.realized_emission(connection, vault, forecast, "att_other_only") == (None, "facet_unassessed")
+        # Graded under a different rubric revision than the forecast froze.
+        _graded_attempt(connection, vault, item, "att_edited", {"recall_criterion": 2.0}, rubric_score=4,
+                        contract_overrides={"rubric_content_hash": "a-later-rubric"})
+        assert LR.realized_emission(connection, vault, forecast, "att_edited") == (
+            None, "graded_under_another_contract")
+        # A forecast recorded without a frozen facet contract is never scored on the whole item.
+        legacy = {**forecast, "forecast": {k: v for k, v in forecast["forecast"].items()
+                                           if k != "target_facet_contract"}}
+        assert LR.realized_emission(connection, vault, legacy, "att_split") == (None, "no_frozen_facet_contract")
+
+
+def test_followup_outcome_maps_into_the_forecasts_alphabet(tmp_path):
+    vault, repository, forecast, item = _multi_facet_followup(tmp_path)
+    with repository.connection() as connection:
+        _graded_attempt(connection, vault, item, "att_f", {"recall_criterion": 0.0, "method_criterion": 2.0},
+                        rubric_score=1)
+        connection.execute("UPDATE practice_attempts SET error_type = 'conceptual_slip' WHERE id = 'att_f'")
+        alphabet = forecast["forecast"]["emission_alphabet"]
+        assert "low|conceptual_slip" in alphabet
         assert LR.realized_emission(connection, vault, forecast, "att_f") == ("low|conceptual_slip", "realized")
-        other = {"site": "followup_selection", "forecast": {"emission_alphabet": ["low|", "high|"]}}
+        narrower = {**forecast, "forecast": {**forecast["forecast"],
+                                             "emission_alphabet": [e for e in alphabet if e != "low|conceptual_slip"]}}
         # An error the forecast did not model reads as the bucket's null-error outcome.
-        assert LR.realized_emission(connection, vault, other, "att_f") == ("low|", "realized")
-        assert LR.realized_emission(connection, vault, {"site": "staged_diagnostic_selection"}, "att_f")[1] == (
+        assert LR.realized_emission(connection, vault, narrower, "att_f") == ("low|", "realized")
+        # A non-fatal error is not a facet error (the facet updater ignores it too).
+        connection.execute("UPDATE practice_attempts SET error_type = 'arithmetic_slip' WHERE id = 'att_f'")
+        assert LR.realized_emission(connection, vault, forecast, "att_f") == ("low|", "realized")
+        assert LR.realized_emission(connection, vault, {"site": "not_a_site"}, "att_f")[1] == (
             "site_without_outcome_mapping"
         )
 

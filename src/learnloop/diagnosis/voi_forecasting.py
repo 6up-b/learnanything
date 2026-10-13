@@ -29,7 +29,9 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import robust_composition as rc
 from learnloop.diagnosis.probes import facet_conditional_distribution, resolve_item_irt
+from learnloop.learner.assessment_contracts import compile_assessment_contract
 from learnloop.learner.facet_diagnostics import candidate_facet_support
+from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
 from learnloop.diagnosis.probe_families import (
     GRADER_CHANNEL_RELIABILITY,
     ORDINAL_VOCABULARY,
@@ -255,6 +257,48 @@ def record_robust_selection_forecast(
         return None
 
 
+#: Version of the frozen target-facet scoring contract a follow-up forecast
+#: carries (``target_facet_contract``).
+FACET_OUTCOME_CONTRACT_VERSION = "followup_target_facet_v1"
+
+
+def target_facet_contract(vault: Any, item: Any, rubric: Any, facet: str) -> dict[str, Any] | None:
+    """How the chosen item's answer measures ``facet``, frozen at selection time.
+
+    The follow-up forecast predicts the TARGET facet's outcome bucket, so its
+    realized answer is that facet's assessed outcome (review F5), computed the
+    way ``recall_coverage.derive_facet_outcomes`` computes it: each criterion
+    mapped to the facet, weighted by its points and the facet's share of its
+    mapping. The map and the contract hashes are frozen here so a later edit to
+    the item or rubric can never reinterpret an answer given before it.
+    """
+
+    if rubric is None:
+        return None
+    weights = criterion_facet_weights_for_item(item, rubric)
+    criteria: dict[str, dict[str, float]] = {}
+    for criterion in rubric.criteria:
+        mapped = {
+            str(mapped_facet): max(0.0, float(weight))
+            for mapped_facet, weight in (weights.get(criterion.id) or {}).items()
+            if mapped_facet in item.evidence_facets
+        }
+        total = sum(mapped.values())
+        share = mapped.get(facet, 0.0) / total if total > 0 else 0.0
+        if share > 0:
+            criteria[str(criterion.id)] = {"points": float(criterion.points), "facet_share": round(share, 8)}
+    contract = compile_assessment_contract(vault, item, rubric=rubric)
+    return {
+        "version": FACET_OUTCOME_CONTRACT_VERSION,
+        "facet_id": facet,
+        "criteria": criteria,
+        "max_points": float(rubric.max_points),
+        "fatal_error_ids": sorted(str(fatal.id) for fatal in rubric.fatal_errors),
+        "item_content_hash": contract.get("item_content_hash"),
+        "rubric_content_hash": contract.get("rubric_content_hash"),
+    }
+
+
 def record_followup_forecast(
     vault: Any,
     repository: Repository,
@@ -308,6 +352,7 @@ def record_followup_forecast(
 
             body.update(VF.forecast_block(likelihood, marginal, action_of=action_of, action_proxy="map_hypothesis"))
             body["facet_id"] = facet
+            body["target_facet_contract"] = target_facet_contract(vault, candidate, rubric, facet)
             body["item_irt"] = {"a": item_a, "b": item_b}
             eig = (row.get("facet_eig_by_facet") or {}).get(facet)
         followup = vault.config.scheduler.followup
