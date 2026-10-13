@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.routing import AITask
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -178,6 +178,7 @@ def judge_listwise(
     validate: Callable[[Any], Any] | None = None,
     clock: Clock | None = None,
     budget: SpendBudget | None = None,
+    admit: Callable[[SpendEstimate], None] | None = None,
 ) -> ListwiseOutcome[Key]:
     """Judge the pool ``refs`` (prompt ref -> candidate key) and pick at most ``pick_at_most``.
 
@@ -185,7 +186,9 @@ def judge_listwise(
     readiness check before paying for retrieval); ``deadline`` is a
     ``time.monotonic()`` bound on the call (see ``PaidCalls.call``);
     ``validate`` defaults to :func:`validate_all_judged`; ``budget`` replaces
-    the per-call caps with a caller's (a benchmark's command budget).
+    the per-call caps with a caller's (a benchmark's command budget), and
+    ``admit`` also admits each attempt under the caller's shared caps (after
+    the ledger and checkpoints were found not to answer it).
     """
 
     keys = list(refs.values())
@@ -210,7 +213,7 @@ def judge_listwise(
     if client is None or reason is not None:
         return ListwiseOutcome("unavailable", reason=reason)
     calls = PaidCalls(route=route, budget=budget or SpendBudget(caps), price_per_million=price,
-                      repository=repository, owner_kind=task.route_task, owner_id=owner_id)
+                      repository=repository, owner_kind=task.route_task, owner_id=owner_id, admit=admit)
     try:
         result = calls.call(
             client, purpose=task.route_task, prompt=prompt, result_model=task.result_model,

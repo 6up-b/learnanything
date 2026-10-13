@@ -17,12 +17,12 @@ appends to ``judgment_ledger`` (task ``source_relevance``). Never raises.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.ai.errors import AIInvalidOutput
-from learnloop.ai.spend import SpendBudget, SpendCaps
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -166,12 +166,14 @@ def verify_spans(
     owner_id: str = "", clock: Clock | None = None, ready: VerificationRoute | None = None,
     deadline: float | None = None, budget: SpendBudget | None = None,
     price_per_million: float | None = None,
+    admit: Callable[[SpendEstimate], None] | None = None,
 ) -> Verification:
     """Judge ``pool`` for ``question`` and pick at most ``pick_at_most`` spans.
 
     ``ready`` is a :func:`verification_route` the caller already resolved;
-    ``deadline`` (``time.monotonic()``) time-boxes the call. ``budget`` and
-    ``price_per_million`` let a benchmark run the production step under its
+    ``deadline`` (``time.monotonic()``) time-boxes the call. ``budget``,
+    ``price_per_million`` and ``admit`` (each attempt's admission under the
+    benchmark's shared caps) let a benchmark run the production step under its
     own command budget and price.
     """
 
@@ -194,7 +196,7 @@ def verify_spans(
         id_parts=lambda key: list(key), pick_at_most=pick_at_most,
         caps=verify_caps(vault, len(pool), route.output_tokens),
         price=price, owner_id=owner_id, client=client, route=route, deadline=deadline,
-        validate=lambda value: _validate(value, refs), clock=clock, budget=budget,
+        validate=lambda value: _validate(value, refs), clock=clock, budget=budget, admit=admit,
     )
     if not outcome.judged:
         status = outcome.status

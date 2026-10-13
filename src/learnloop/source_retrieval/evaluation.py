@@ -50,7 +50,7 @@ from typing import Any
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import content_key
-from learnloop.ai.spend import SpendEstimate, SpendLimitExceeded
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
@@ -665,11 +665,14 @@ class SourceRetrievalSuite:
 
         entry = ctx.role(bench.VERIFY_ROLE)[0]
         budget = ctx.caller.subscription if entry.subscription else ctx.caller.metered
-        ctx.caller.check_shared(SpendEstimate(calls=1, estimated_usd=0.0))
         started = time.monotonic()
+        # Every attempt (the call, its retries, their candidates and pairs) is
+        # admitted under the harness's shared caps across billing classes, and
+        # only once the ledger and checkpoints did not answer it (review F2).
         outcome = verify_spans(vault, ctx.caller.repository, question=text, pool=list(hits),
                                pick_at_most=vault.config.source_retrieval.tutor_spans, client=entry.client,
-                               owner_id=ctx.caller.run_id, budget=budget, price_per_million=ctx.caller.price)
+                               owner_id=ctx.caller.run_id, budget=budget, price_per_million=ctx.caller.price,
+                               admit=ctx.caller.check_shared)
         seconds = time.monotonic() - started
         if outcome.status == "cancelled":
             raise AIInterrupted("Verification cancelled")

@@ -280,9 +280,14 @@ class PaidCalls:
 
     def __init__(self, *, route: PaidRoute, budget: SpendBudget,
                  price_per_million: float | None, repository: Repository | None,
-                 owner_kind: str, owner_id: str):
+                 owner_kind: str, owner_id: str,
+                 admit: Callable[[SpendEstimate], None] | None = None):
         self.route = route
         self.budget = budget
+        #: A caller's own admission of each attempt (a benchmark's shared caps
+        #: across billing classes): called with the attempt's estimate before
+        #: ``budget`` charges it; raises ``SpendLimitExceeded`` to refuse.
+        self.admit = admit
         self.price = price_per_million
         self.repository = repository
         self.owner_kind = owner_kind
@@ -388,6 +393,8 @@ class PaidCalls:
             )
             events: list[dict[str, Any]] = []
             try:
+                if self.admit is not None:
+                    self.admit(estimate)
                 with self.budget.request(estimate) as charge:
                     # Metered: exactly one physical request per admitted attempt.
                     bound = nullcontext() if self.subscription else single_request()
@@ -415,16 +422,27 @@ class PaidCalls:
             except AIOutputTruncated:
                 # Never accepted: logged, then retried once at double the budget
                 # (admitted and charged like any retry), else the call fails.
-                allowed = self.budget.used.retries < self.budget.caps.max_retries
-                retry = truncation.after_truncation(allowed=allowed)
+                retry = truncation.after_truncation(allowed=self._retry_allowed())
                 self.totals.truncations.append(truncation.events[-1])
                 if not retry:
                     raise
                 attempt += 1
             except AIProviderUnavailable:
-                if self.budget.used.retries >= self.budget.caps.max_retries:
+                if not self._retry_allowed():
                     raise
                 attempt += 1
+
+    def _retry_allowed(self) -> bool:
+        """Whether one more attempt fits the retry caps (this budget's and the caller's)."""
+        if self.budget.used.retries >= self.budget.caps.max_retries:
+            return False
+        if self.admit is None:
+            return True
+        try:
+            self.admit(SpendEstimate(calls=1, retries=1, estimated_usd=0.0))
+        except SpendLimitExceeded:
+            return False
+        return True
 
     def _recover(self, key: str, result_model: type[BaseModel],
                  validate: Callable[[Any], Any] | None) -> Any:
