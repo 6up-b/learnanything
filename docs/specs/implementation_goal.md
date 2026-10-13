@@ -42,6 +42,17 @@ The prompts for each stage are in `implementation_handoffs.md`. This file says w
 
 ## 1a. Deployment end condition (owner, 2026-10-12)
 
+> **Met 2026-10-12 (main `3ef44a8b`).** Every Slice 2 track is merged and pushed, each after an adversarial review and fix (Codex, then Opus 5.5 once Codex usage ran out):
+> - PF-a (Phase 3), PF-b (Phases 5a and 5b) and PF-c (in Slice 1 M2, plus the unassessed fix);
+> - T1, T4, T5, T6, T7 and T8;
+> - their prerequisites: the Phase 2/3 integration and Slice 1 M1 and M2.
+>
+> Also merged: Phase 6 with the owner's decisions, router R0, mobile M1, project understanding M1 and daily-loop DL0.
+>
+> Built and waiting to merge: "I'm stuck", DL1, router R1 and facet identity. Learner-text gaps is building.
+>
+> Owner items: see each stage's review file. In short: vault upgrades, paid runs, the guard before mvp-0.12 on existing vaults, phone acceptance A1–A3, and the Rust toolchain.
+
 **When the workflow deployment finishes, all of Slice 2 is finished.** Every Slice 2 track is built, Codex-reviewed, fixed, merged into `main` and pushed:
 - **PF-a** (Phase 3);
 - **PF-b** (Phases 5a and 5b);
