@@ -42,7 +42,7 @@ def test_unknown_ids_are_dropped_and_reported(tmp_path):
                               {"kind": "lo", "id": "lo_matrices"}]})
     kept, dropped = drop_unknown_ids(loaded(paths), repository, args)
     assert kept.facet_ids == ["facet_eigen"] and kept.learning_object_ids == ["lo_matrices"]
-    assert [ref.kind for ref in kept.target_hypotheses] == ["lo"]
+    assert [ref.kind for ref in kept.target_hypotheses] == ["learning_object"]  # aliases canonical (F13)
     reasons = {(entry["field"], entry["why"]) for entry in dropped}
     assert ("facet_ids", "unknown facet") in reasons
     assert ("target_hypotheses", "unavailable: learner-text gaps not merged") in reasons

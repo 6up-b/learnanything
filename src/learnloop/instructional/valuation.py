@@ -52,8 +52,14 @@ from learnloop.scheduling import evsi as EV
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 VALUATION_VERSION = "source_valuation.v1"
+#: The one hypothesis-reference contract (Codex review F13): the tool schemas
+#: publish exactly these kinds (plus the aliases) and every adapter reads them.
 HYPOTHESIS_KINDS = ("misconception", "causal_hypothesis", "episode_label", "unresolved_cause", "facet_state",
-                    "named_gap", "retention")
+                    "learning_object", "named_gap", "retention")
+#: Short names a model or a client may use; parsing maps them to the kind.
+HYPOTHESIS_ALIASES = {"facet": "facet_state", "lo": "learning_object"}
+#: Every kind a published schema accepts.
+REFERENCE_KINDS = (*HYPOTHESIS_KINDS, *HYPOTHESIS_ALIASES)
 #: Regimes, and what each may license (§8.3.3).
 LICENSES_SYSTEM_CHECK = frozenset({"pinned_channel"})
 VALUED_REGIMES = frozenset({"pinned_channel", "item_point"})
@@ -74,8 +80,9 @@ class HypothesisRef:
         if isinstance(value, HypothesisRef):
             return value
         kind, ident = str(value.get("kind") or ""), str(value.get("id") or "")
+        kind = HYPOTHESIS_ALIASES.get(kind, kind)
         if kind not in HYPOTHESIS_KINDS or not ident:
-            raise ValueError(f"a hypothesis ref needs kind in {', '.join(HYPOTHESIS_KINDS)} and an id")
+            raise ValueError(f"a hypothesis ref needs kind in {', '.join(REFERENCE_KINDS)} and an id")
         return cls(kind, ident)
 
 
@@ -162,7 +169,7 @@ def lo_problem(vault: LoadedVault, repository: Repository, lo_id: str,
     joined = []
     for ref in refs:
         label = f"misconception:{ref.id}"
-        if ref.kind in ("misconception", "named_gap") and label not in labels:
+        if ref.kind == "misconception" and label not in labels:
             unavailable.append({"ref": asdict(ref), "reason": "not_in_hypothesis_set"})
         else:
             joined.append(ref)
@@ -321,13 +328,89 @@ def retention_problem(vault: LoadedVault, repository: Repository, lo_id: str, fa
                                "practice_item_id": str(success["practice_item_id"])}}), []
 
 
-def named_gaps_available(repository: Repository) -> bool:
-    """The learner-text gaps branch's table, feature-detected (§8.2)."""
+NAMED_GAPS_MODULE = "learnloop.diagnosis.text_gaps.pipeline"
 
+
+def _named_gaps_reader() -> Callable[..., Any] | None:
+    """``named_gaps_for_card`` from the learner-text gaps branch, once merged."""
+
+    import importlib
+
+    try:
+        module = importlib.import_module(NAMED_GAPS_MODULE)
+    except ImportError:
+        return None
+    return getattr(module, "named_gaps_for_card", None)
+
+
+def named_gaps_available(repository: Repository) -> bool:
+    """The learner-text gaps branch, feature-detected: its card reader and its table (§8.2)."""
+
+    if _named_gaps_reader() is None:
+        return False
     with repository.connection() as connection:
         return connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name IN ('named_gaps', 'learner_text_gaps')"
-        ).fetchone() is not None
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='learner_text_gaps'").fetchone() is not None
+
+
+def named_gap_target(repository: Repository, gap_id: str) -> tuple[HypothesisRef | None, str | None]:
+    """A named gap's target as the hypothesis it names, through
+    ``named_gaps_for_card()`` (the router card's typed events), or why not.
+
+    A ``durable`` belief target is that misconception; a ``learning_object``
+    target (a missing prerequisite) is that LO's hypothesis set. A gap the
+    learner reversed ("not what I meant", an undone creation or edge) names
+    nothing any more; a holding-pen ``candidate`` or a gap with no target is
+    ``unmapped_named_gap``."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    reader = _named_gaps_reader()
+    if reader is None or not named_gaps_available(repository):
+        return None, "unavailable: learner-text gaps not merged"
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        events = reader(connection)
+    event = next((row for row in events if str(row.get("event_id")) == gap_id), None)
+    if event is None:
+        return None, "unknown_named_gap"
+    if event.get("reversals"):
+        return None, "named_gap_reversed"
+    target = event.get("target") or {}
+    kind, ident = target.get("kind"), target.get("id")
+    if kind == "durable" and ident:
+        return HypothesisRef("misconception", str(ident)), None
+    if kind == "learning_object" and ident:
+        return HypothesisRef("learning_object", str(ident)), None
+    return None, "unmapped_named_gap"
+
+
+def resolve_hypothesis_refs(vault: LoadedVault, repository: Repository,
+                            refs: Sequence[Mapping[str, Any] | HypothesisRef],
+                            ) -> tuple[list[HypothesisRef], list[dict[str, Any]]]:
+    """Parse refs under the one contract and map each named gap to its target.
+
+    Returns the refs every adapter reads (aliases canonical, named gaps
+    replaced by what they name) and, per ref that names nothing usable, its
+    typed reason. A mapped gap's notes say what it was mapped to."""
+
+    resolved: list[HypothesisRef] = []
+    notes: list[dict[str, Any]] = []
+    for value in refs:
+        ref = HypothesisRef.parse(value)
+        if ref.kind != "named_gap":
+            if ref not in resolved:
+                resolved.append(ref)
+            continue
+        target, reason = named_gap_target(repository, ref.id)
+        if target is None:
+            notes.append({"ref": asdict(ref), "reason": reason})
+            continue
+        notes.append({"ref": asdict(ref), "mapped_to": asdict(target)})
+        if target not in resolved:
+            resolved.append(target)
+    return resolved, notes
 
 
 def _facet_los(vault: LoadedVault, facet_id: str) -> list[str]:
@@ -345,9 +428,10 @@ def open_hypotheses(vault: LoadedVault, repository: Repository, *, facet_ids: Se
                     ) -> tuple[list[ValuationProblem], list[dict[str, Any]]]:
     """The rival-hypothesis spaces a request bears on, one problem each. Reads, never writes."""
 
-    parsed = [HypothesisRef.parse(ref) for ref in refs]
+    parsed, notes = resolve_hypothesis_refs(vault, repository, refs)
     problems: dict[str, ValuationProblem] = {}
-    unavailable: list[dict[str, Any]] = []
+    unavailable: list[dict[str, Any]] = [note for note in notes if "reason" in note]
+    named = [note for note in notes if "mapped_to" in note]
 
     def add(result: tuple[ValuationProblem | None, list[dict[str, Any]]]) -> None:
         problem, missing = result
@@ -371,11 +455,11 @@ def open_hypotheses(vault: LoadedVault, repository: Repository, *, facet_ids: Se
                 unavailable.append({"ref": asdict(ref), "reason": "unknown_misconception"})
             else:
                 by_lo.setdefault(record.learning_object_id, []).append(ref)
-        elif ref.kind == "named_gap":
-            if not named_gaps_available(repository):
-                unavailable.append({"ref": asdict(ref), "reason": "unavailable: learner-text gaps not merged"})
+        elif ref.kind == "learning_object":
+            if ref.id not in vault.learning_objects:
+                unavailable.append({"ref": asdict(ref), "reason": "unknown_learning_object"})
             else:
-                unavailable.append({"ref": asdict(ref), "reason": "unmapped_named_gap"})
+                by_lo.setdefault(ref.id, []).append(ref)
         elif ref.kind == "facet_state":
             for lo_id in _facet_los(vault, ref.id) or list(learning_object_ids):
                 add(facet_problem(vault, repository, lo_id, vault.canonical_facet_id(ref.id), [ref]))
@@ -387,7 +471,13 @@ def open_hypotheses(vault: LoadedVault, repository: Repository, *, facet_ids: Se
             add(retention_problem(vault, repository, ref.id))
     for lo_id, lo_refs in by_lo.items():
         add(lo_problem(vault, repository, lo_id, lo_refs))
-    if not parsed:
+    for note in named:
+        # A named gap joins the space of the target it maps to (§8.3.1).
+        target = HypothesisRef(**note["mapped_to"])
+        for problem in problems.values():
+            if target in problem.refs:
+                problem.context.setdefault("named_gaps", []).append(note)
+    if not parsed and not notes:
         los = list(learning_object_ids) or sorted({lo for facet in facet_ids for lo in _facet_los(vault, facet)})
         for lo_id in los:
             add(lo_problem(vault, repository, lo_id))
@@ -897,8 +987,11 @@ def refuse_mixed_decision(problems: Sequence[ValuationProblem], action_by_slot: 
 
 __all__ = [
     "CandidateInput",
+    "HYPOTHESIS_ALIASES",
     "HYPOTHESIS_KINDS",
     "HypothesisRef",
+    "NAMED_GAPS_MODULE",
+    "REFERENCE_KINDS",
     "LICENSES_SYSTEM_CHECK",
     "PendingDecision",
     "SCALE_LABEL",
@@ -913,8 +1006,11 @@ __all__ = [
     "facet_problem",
     "item_input",
     "lo_problem",
+    "named_gap_target",
+    "named_gaps_available",
     "open_hypotheses",
     "refuse_mixed_decision",
+    "resolve_hypothesis_refs",
     "retention_members",
     "retention_problem",
     "value_candidates",

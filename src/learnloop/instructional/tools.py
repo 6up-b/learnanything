@@ -37,7 +37,7 @@ from learnloop.instructional.exercises import exercise_region_count
 from learnloop.instructional.policy import caller_for_question_event, cold_administration_open
 from learnloop.instructional.practice import propose_practice
 from learnloop.instructional.sources import propose_comparison, propose_sources
-from learnloop.instructional.valuation import named_gaps_available
+from learnloop.instructional.valuation import HYPOTHESIS_ALIASES, REFERENCE_KINDS, named_gap_target
 from learnloop.practice_index.retrieval import (
     INTENTS as PRACTICE_INTENTS,
     IntentUnavailable,
@@ -61,7 +61,8 @@ EAGER_TOOLS = frozenset({"find_practice", "find_sources", "find_facets", "practi
 PROMPT_CHARS = 400
 STATEMENT_CHARS = 1200
 PASSAGE_CHARS = 900
-HYPOTHESIS_KINDS = ("misconception", "named_gap", "causal_hypothesis", "lo", "facet")
+#: The published reference kinds: the valuation's own contract (F13).
+HYPOTHESIS_KINDS = REFERENCE_KINDS
 
 
 class ToolArgumentsInvalid(ValueError):
@@ -76,7 +77,7 @@ class _Args(BaseModel):
 
 
 class HypothesisRefArg(_Args):
-    kind: Literal["misconception", "named_gap", "causal_hypothesis", "lo", "facet"]
+    kind: Literal[REFERENCE_KINDS]  # type: ignore[valid-type]
     id: str = Field(min_length=1, max_length=200)
 
 
@@ -188,26 +189,29 @@ def drop_unknown_ids(vault: LoadedVault, repository: Repository,
         values["learning_object_ids"] = kept
     if "target_hypotheses" in values:
         kept_refs = []
-        gaps = None
         for ref in values["target_hypotheses"]:
-            kind, ref_id = ref["kind"], ref["id"]
-            known = True
+            kind, ref_id = HYPOTHESIS_ALIASES.get(ref["kind"], ref["kind"]), ref["id"]
+            if kind == "named_gap":
+                # A named gap is passed on as the hypothesis it names (F13).
+                target, reason = named_gap_target(repository, ref_id)
+                if target is None:
+                    dropped.append({"field": "target_hypotheses", "id": ref_id, "why": str(reason)})
+                    continue
+                kind, ref_id = target.kind, target.id
             if kind == "misconception":
                 known = repository.misconception(ref_id) is not None
-            elif kind == "causal_hypothesis":
+            elif kind in ("causal_hypothesis", "unresolved_cause"):
                 known = repository.fetch_hypothesis_set(ref_id) is not None
-            elif kind == "lo":
+            elif kind in ("learning_object", "retention"):
                 known = ref_id in vault.learning_objects
-            elif kind == "facet":
+            elif kind == "facet_state":
                 known = vault.canonical_facet_id(ref_id) in vault.evidence_facets
-            elif kind == "named_gap":
-                gaps = named_gaps_available(repository) if gaps is None else gaps
-                if not gaps:
-                    dropped.append({"field": "target_hypotheses", "id": ref_id,
-                                    "why": "unavailable: learner-text gaps not merged"})
-                    continue
+            elif kind == "episode_label":
+                known = repository.probe_episode(ref_id) is not None
+            else:
+                known = False
             if known:
-                kept_refs.append(ref)
+                kept_refs.append({"kind": kind, "id": ref_id})
             else:
                 dropped.append({"field": "target_hypotheses", "id": ref_id, "why": f"unknown {kind}"})
         values["target_hypotheses"] = kept_refs

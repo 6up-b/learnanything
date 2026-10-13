@@ -48,13 +48,20 @@ def active_misconceptions(repository: Repository, learning_object_id: str) -> li
 
 def resolve_misconceptions(repository: Repository, target_hypotheses: Sequence[Mapping[str, Any]], *,
                            item: PracticeItem | None) -> list[Any]:
-    """Remediation targets: named misconception refs, else the item's LO's active ones."""
+    """Remediation targets: named misconception refs (a named gap counts as the
+    belief it names), else the item's LO's active ones."""
+
+    from learnloop.instructional.valuation import named_gap_target
 
     found: list[Any] = []
     for ref in target_hypotheses or ():
-        if str(ref.get("kind")) == "misconception" and ref.get("id"):
-            record = repository.misconception(str(ref["id"]))
-            if record is not None:
+        kind, ident = str(ref.get("kind") or ""), str(ref.get("id") or "")
+        if kind == "named_gap" and ident:
+            target, _reason = named_gap_target(repository, ident)
+            kind, ident = (target.kind, target.id) if target is not None else ("", "")
+        if kind == "misconception" and ident:
+            record = repository.misconception(ident)
+            if record is not None and all(getattr(other, "id", None) != record.id for other in found):
                 found.append(record)
     if not found and item is not None:
         found = active_misconceptions(repository, item.learning_object_id)

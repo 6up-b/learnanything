@@ -75,6 +75,16 @@ def propose_practice(vault: LoadedVault, repository: Repository, query: str,
 
     if not isinstance(constraints, PracticeConstraints):
         constraints = PracticeConstraints.from_mapping(constraints)
+    notes: list[dict[str, Any]] = []
+    if constraints.target_hypotheses:
+        # One reference contract (F13): aliases canonical, a named gap passed
+        # on as what it names; refs naming nothing usable are reported.
+        from dataclasses import asdict, replace
+
+        from learnloop.instructional.valuation import resolve_hypothesis_refs
+
+        refs, notes = resolve_hypothesis_refs(vault, repository, constraints.target_hypotheses)
+        constraints = replace(constraints, target_hypotheses=tuple(asdict(ref) for ref in refs))
     if constraints.intent != "practice" and not vault.config.source_service.discriminating_search:
         raise IntentUnavailable("discriminating_search_off",
                                 "source_service.discriminating_search is off: only the practice intent is served")
@@ -85,6 +95,8 @@ def propose_practice(vault: LoadedVault, repository: Repository, query: str,
     if caller is not None:
         policy, reason = derive_policy(caller)
         result["caller"] = {**caller_block, "policy": policy, "policy_reason": reason}
+    if notes:
+        result["hypothesis_refs"] = notes
     return result
 
 
