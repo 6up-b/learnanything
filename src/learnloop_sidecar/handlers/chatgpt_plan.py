@@ -3,7 +3,9 @@
 ``chatgpt_plan_signin_start`` starts the loopback listener and returns the
 authorization URL; the desktop opens it in the system browser and polls
 ``chatgpt_plan_status`` until the attempt ends. One attempt at a time; a new
-start cancels the previous one. The sign-in is machine-global (it lives in
+start cancels the previous one. Cancel waits briefly for the attempt to end, so
+its reply is usually final; a callback that is already being finished is
+refused at commit, so a cancelled attempt never saves. The sign-in is machine-global (it lives in
 the LearnLoop config directory, never in a vault), so none of these needs a
 vault, and none returns a token. Desktop only: never phone-allowed.
 """
@@ -26,6 +28,9 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
 
+CANCEL_WAIT_SECONDS = 2.0
+
+
 @dataclass
 class _Attempt:
     id: str
@@ -35,6 +40,7 @@ class _Attempt:
     error: dict[str, str] | None = None
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
+    done: threading.Event = field(default_factory=threading.Event)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -73,16 +79,20 @@ class SignInAttempts:
             with self._lock:
                 attempt.status, attempt.result, attempt.error = outcome
                 attempt.finished_at = time.time()
+            attempt.done.set()
 
         threading.Thread(target=run, name="learnloop-chatgpt-signin", daemon=True).start()
         return attempt
 
-    def cancel(self) -> bool:
+    def cancel(self, *, wait: float = CANCEL_WAIT_SECONDS) -> bool:
         with self._lock:
             attempt = self._attempt
         if attempt is None or attempt.status != "waiting":
             return False
         attempt.pending.cancel()
+        # Usually immediate; a code exchange in flight may take longer, and the
+        # desktop keeps polling until the attempt reports its end.
+        attempt.done.wait(wait)
         return True
 
     def snapshot(self) -> dict[str, Any] | None:

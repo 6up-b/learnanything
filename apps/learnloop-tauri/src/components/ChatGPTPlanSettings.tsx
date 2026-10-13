@@ -1,12 +1,14 @@
 // Settings → ChatGPT plan: "Continue with ChatGPT" (Sign in with ChatGPT for
 // open-source apps). The sign-in is machine-wide and never reaches a vault;
 // the sidecar runs the loopback listener and this screen opens OpenAI's page
-// in the system browser, then polls until the attempt ends. Copy follows
+// in the system browser. Polling follows the attempt itself: it runs while the
+// current attempt is "waiting" (also after Settings reopens mid-sign-in, and
+// after cancel until the sidecar reports the attempt ended). Copy follows
 // OpenAI's UI/UX guidelines: "Continue with ChatGPT" starts sign-in, a
 // one-time "You're using your ChatGPT plan" confirmation, "Using ChatGPT plan"
 // with a "Manage usage" link while a route uses it, and "Usage limit reached"
 // with "Manage usage" as the primary action.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ChatGPTPlanDto } from "../api/dto";
 import { errorMessage } from "../errors";
@@ -50,32 +52,50 @@ export function ChatGPTPlanSettings({
 }) {
   const [plan, setPlan] = useState<ChatGPTPlanDto>(initial);
   const [busy, setBusy] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The callbacks may change identity on every parent render; polling must not restart for that.
+  const notify = useRef({ onToast, onError });
+  useEffect(() => {
+    notify.current = { onToast, onError };
+  });
+  // The attempt this screen saw waiting: only its end is announced (never an old one).
+  const watched = useRef<string | null>(null);
 
   useEffect(() => setPlan(initial), [initial]);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current !== null) clearInterval(pollRef.current);
-    pollRef.current = null;
-  }, []);
-  useEffect(() => stopPolling, [stopPolling]);
+  const attemptId = plan.attempt?.id ?? null;
+  const waiting = plan.attempt?.status === "waiting";
 
-  const poll = useCallback(() => {
-    stopPolling();
-    pollRef.current = setInterval(() => {
+  useEffect(() => {
+    if (!waiting || attemptId === null) return;
+    watched.current = attemptId;
+    let active = true;
+    let reported = false;
+    const timer = setInterval(() => {
       api.chatgptPlanStatus().then((next) => {
-        setPlan(next);
-        const attempt = next.attempt;
-        if (!attempt || attempt.status === "waiting") return;
-        stopPolling();
-        if (attempt.status === "succeeded") onToast(`signed in with ChatGPT${next.email ? ` as ${next.email}` : ""}`);
-        else if (attempt.status === "failed" && attempt.error) onError(attempt.error.message);
+        if (active) setPlan(next);
       }, (error: unknown) => {
-        stopPolling();
-        onError(errorMessage(error));
+        // Keep polling (the sidecar may recover); report the failure once.
+        if (!active || reported) return;
+        reported = true;
+        notify.current.onError(errorMessage(error));
       });
     }, POLL_MS);
-  }, [onError, onToast, stopPolling]);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [attemptId, waiting]);
+
+  useEffect(() => {
+    const attempt = plan.attempt;
+    if (!attempt || attempt.status === "waiting" || watched.current !== attempt.id) return;
+    watched.current = null;
+    if (attempt.status === "succeeded") {
+      notify.current.onToast(`signed in with ChatGPT${plan.email ? ` as ${plan.email}` : ""}`);
+    } else if (attempt.status === "failed" && attempt.error) {
+      notify.current.onError(attempt.error.message);
+    }
+  }, [plan]);
 
   const run = async (label: string, action: () => Promise<ChatGPTPlanDto>) => {
     setBusy(label);
@@ -99,14 +119,13 @@ export function ChatGPTPlanSettings({
     } catch (error) {
       onError(`Open this address in your browser to sign in: ${next.authorizeUrl} (${errorMessage(error)})`);
     }
-    poll();
+    // Polling starts from the waiting attempt in `next` (see the effect above).
   };
 
   const manageUsage = () => {
     openExternal(plan.manageUsageUrl).catch((error: unknown) => onError(errorMessage(error)));
   };
 
-  const waiting = plan.attempt?.status === "waiting";
   const line = stateLine(plan);
   const needsSignIn = plan.state === "signed_out" || plan.state === "plan_usage_disabled" || plan.state === "store_error";
   const continueStyle = {
@@ -168,10 +187,7 @@ export function ChatGPTPlanSettings({
               type="button"
               style={styles.button(busy === null)}
               disabled={busy !== null}
-              onClick={() => {
-                stopPolling();
-                void run("cancel", () => api.chatgptPlanSigninCancel());
-              }}
+              onClick={() => void run("cancel", () => api.chatgptPlanSigninCancel())}
             >
               cancel
             </button>

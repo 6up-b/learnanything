@@ -82,6 +82,7 @@ def test_cancel_and_failure_are_reported(server):
     rpc.chatgpt_plan_signin_start(ctx, rpc.SignInStartParams())
     cancelled = rpc.chatgpt_plan_signin_cancel(ctx, EmptyParams())
     assert cancelled["cancelled"] is True
+    assert cancelled["attempt"]["status"] == "cancelled"  # the reply already reports the end
     assert _wait_for(ctx, "cancelled")["attempt"]["error"]["code"] == "cancelled"
     server.deny = True
     started = rpc.chatgpt_plan_signin_start(ctx, rpc.SignInStartParams())

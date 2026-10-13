@@ -130,3 +130,51 @@ it("signs out and says whether revocation was confirmed", async () => {
   await waitFor(() => expect(onToast).toHaveBeenCalledWith("Signed out."));
   expect(screen.getByRole("button", { name: "Continue with ChatGPT" })).toBeTruthy();
 });
+
+// Codex review (2026-10-12): polling follows the attempt, not the button that started it.
+const waitingAttempt = { id: "a", status: "waiting" as const, result: null, error: null, startedAt: 1, finishedAt: null };
+
+it("keeps polling after cancel until the attempt has actually ended", async () => {
+  api.chatgptPlanSigninStart.mockResolvedValue(plan({ authorizeUrl: "https://auth.example/a", attempt: waitingAttempt }));
+  api.chatgptPlanStatus.mockResolvedValue(plan({ attempt: waitingAttempt }));
+  // The worker ends asynchronously: the cancel reply still says "waiting".
+  api.chatgptPlanSigninCancel.mockResolvedValue(plan({ attempt: waitingAttempt, cancelled: true }));
+  const { onToast, onError } = show(plan());
+  fireEvent.click(screen.getByRole("button", { name: "Continue with ChatGPT" }));
+  await waitFor(() => expect(screen.getByText("waiting for the browser…")).toBeTruthy());
+  api.chatgptPlanStatus.mockResolvedValue(plan({
+    attempt: { ...waitingAttempt, status: "cancelled", error: { code: "cancelled", message: "Sign-in cancelled." }, finishedAt: 2 }
+  }));
+  fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+  await waitFor(() => expect(api.chatgptPlanSigninCancel).toHaveBeenCalled());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Continue with ChatGPT" })).toBeTruthy(), {
+    timeout: 3000
+  });
+  expect(screen.queryByText("waiting for the browser…")).toBeNull();
+  expect(onToast).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+});
+
+it("resumes polling when Settings reopens during a sign-in", async () => {
+  api.chatgptPlanStatus.mockResolvedValue({
+    ...ready,
+    attempt: { ...waitingAttempt, status: "succeeded", finishedAt: 2 }
+  });
+  const { onToast } = show(plan({ attempt: waitingAttempt }));
+  expect(screen.getByText("waiting for the browser…")).toBeTruthy();
+  await waitFor(() => expect(onToast).toHaveBeenCalledWith("signed in with ChatGPT as learner@example.com"), {
+    timeout: 3000
+  });
+  expect(screen.queryByText("waiting for the browser…")).toBeNull();
+});
+
+it("does not announce an attempt that had already ended before Settings opened", async () => {
+  const { onToast, onError } = show({
+    ...ready,
+    attempt: { ...waitingAttempt, status: "failed", error: { code: "x", message: "old failure" }, finishedAt: 2 }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 1300));
+  expect(api.chatgptPlanStatus).not.toHaveBeenCalled();
+  expect(onToast).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+});
