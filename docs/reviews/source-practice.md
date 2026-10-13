@@ -5,13 +5,15 @@
 **Commits:** `80132615` S0 · `9cbc0eac` S1 · `1124b863` S3 · `f4ea3468` S2a · `efea1e0c` S2b · `d9ea71ce` S4 · `208a17e4` S5 · `98990c3d` frontend · `fa7586b9` snapshots, head fixture, references · `73e5b721` and `b6e71f22` fixes found by the live run · `c3179ebf` the first version of this record.
 **After the first record:** the Codex review's 17 findings, each reproduced and fixed (`4849ecd2` … `a2da0362`; record in `docs/reviews/sources-build-codex-review.md`). Then, after the stage resumed on 2026-10-13: the spec stage's final verify (F13, regrades) and three defects the second live run found (§2a): `724bca0f` · `108f636f` · `cdbe526f` · `6777d42d`, and the references `1a3fe61d`, `7e7ef832`.
 
+**After the second Codex review (2026-10-13):** 11 more findings (F1–F11 of the re-review), each reproduced and fixed (`8b9bbad1` … `06d90dbe`, references `a565f617`; record in `docs/reviews/sources-build-codex-review.md`, section "Re-review"). They add migration 191 (`source_service_spend`). The §17 evaluation extensions are still not built (an open item in that record).
+
 **Status at the end of the stage.** Every phase S0–S5 is built (S4 without the router's live R2 wiring), every review finding is fixed, and the gate passes at `7e7ef832` (§5). Four of the build's deviations (§3: 1, 2, 7, 11) were removed by the review fixes. The second live run, on the fixed code, imported and verified a textbook exercise end to end; its quality notes are in §4.
 
 ## 1. Plan
 
 Every behaviour was built with fakes first (`tests/source_service_fakes.py`: `FakeServiceLLM` answers every role the service calls from the prompt's own JSON; `build_textbook_vault` seeds a Marker-shaped textbook with exercises, solutions and worked examples whose role hints come from the real classifier). Each phase landed with its tests, `lint-imports` and the affected suites; the full suite and the durability lane ran at the end. The router's live R2 wiring stays deferred (spec §10.6). The track builds no Reader UI (SC11); the Reader context gets the backend fields only.
 
-Two algorithm successors were needed and take the next free tags on this branch, expecting relabelling at merge: **mvp-0.15** (S1's certification gate, C3) and **mvp-0.16** (S2b's source-first needs). Migrations are **184–190**, expecting renumbering (main already has `181_router_decisions`, which R1 labelled mvp-0.15).
+Two algorithm successors were needed and take the next free tags on this branch, expecting relabelling at merge: **mvp-0.15** (S1's certification gate, C3) and **mvp-0.16** (S2b's source-first needs). Migrations are **184–191** (191 added by the second review's F2), expecting renumbering (main already has `181_router_decisions`, which R1 labelled mvp-0.15).
 
 ## 2. What was built
 
@@ -83,7 +85,7 @@ Items 1, 2, 7 and 11 are no longer deviations; the review fixes F10, F17, F5 and
 5. **`post_attempt`'s reveal** is recorded when `find_sources` returns the solution, not when the surface displays it.
 6. **Misconception targets** are read from the `misconceptions` table (active ones); there is no separate overlay.
 7. ~~**The Reader import's background check** runs in a daemon thread inside the job handler.~~ Made durable by F5 (write-ahead marker, resumed at startup).
-8. **The daily money cap** sums the leaf receipts of the service's owner kinds since UTC midnight.
+8. **The daily money cap** is shared by every process through `source_service_spend` (migration 191; Codex re-review F2): each metered request reserves its estimate in one BEGIN IMMEDIATE transaction against the day's total (every process's reservations, never less than the service's own receipts); once the request finished it counts its reported cost, else its estimate. Every complete service operation (retrieval, embeddings, verification, valuation, imports, comparisons, needs and the batches) runs under it.
 9. **S2b decision mode** needs an open probe episode whose locked hypothesis set covers the factor's hypotheses; otherwise the factor is "unpriced" and the need goes to generation.
 10. **S5's hypothesis movement** is derived from persisted rows (Codex re-review F11): the record keeps the problem's prior and state hash, the check's member-0 likelihood, EVSI and the decision's per-outcome actions, and the outcome replayer (`retrieval_outcomes.v3`) computes the Bayes posterior over that table for the observed bucket (`bayes_update_member0`, the model's implied movement) and the action after the observation. It does not read the diagnoser's own replayed posterior.
 11. ~~**S5's "imported source exercise served"** is recorded at the learner's pick of the exercise (before the import finishes).~~ Fixed by F16: recorded when the imported item is served.

@@ -295,6 +295,7 @@ They never include `expected_answer`, `grading_rubric`, hints, discrimination pr
    - One listwise call (route `worked_example_equivalence`) judges each shortlisted example as `equivalent` (the exercise would be a near-copy), `related` or `unrelated`. Every verdict goes to `judgment_ledger`.
    - `equivalent` excludes the candidate from both independent intents; it stays available for `practice`.
    - `related` excludes it from `retention` (a cold retention check must not follow a closely related worked example) and keeps it for `discriminate` under the reading-exposure adjustment below;
+   - a studied example the judge could not judge (no route, over budget, a failed call) may be a near-copy, so the candidate is excluded from both independent intents (`worked_example_unjudged`) until a verdict resolves it; it stays available for `practice`, labelled;
 5. **an impression of its prompt or statement** (§6.5's `instructional_impressions`), from any proposal other than the one being picked: the learner has already read the question, so it no longer tests unaided retrieval.
 
 **The reading-exposure adjustment** (`exposure_rule_version = "reading_exposure_v1"`). `familiarity_discount` (`learner/recall_coverage.py:293`) cannot express a reading exposure: it reads the LO's recent attempts only, and attempts are never fabricated to feed it. So a `related` verdict does not discount the candidate's value; nothing has measured how much a related example changes these likelihoods, and inventing a factor would be a hand-set constant. Instead:
