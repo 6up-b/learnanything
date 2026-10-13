@@ -9,6 +9,7 @@ is cleared and rebuilt only by its replayer.
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
+from datetime import datetime, timezone
 import json
 import sqlite3
 from typing import Any
@@ -773,6 +774,25 @@ def _receipt_billing(connection: sqlite3.Connection, receipt_id: str, parent_id:
     return "subscription" if provider and provider in subscription_providers else "metered"
 
 
+def receipt_time_floor(since: str) -> str:
+    """``since`` as the earliest string a receipt stamp of that UTC second sorts at or after.
+
+    Receipts are stamped ``…52.822906+00:00`` and run starts ``…52Z``; compared
+    as strings, ``.`` sorts before ``Z``, so a request in a run's first second
+    went uncounted. The floor is the second itself with no suffix, which every
+    stamp of that second (any fraction, ``Z`` or ``+00:00``) sorts at or after.
+    It may count a request from earlier in the same second, never miss one.
+    """
+
+    try:
+        moment = datetime.fromisoformat(since.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return since
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
+    return moment.replace(microsecond=0).isoformat(timespec="seconds")
+
+
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                 price_per_million: float | None = None,
@@ -793,6 +813,7 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
              "estimated_only": {"requests": 0, "tokens": 0, "usd": 0.0 if price_per_million is not None else None}}
     if not table_exists(connection, "model_call_receipts"):
         return empty
+    since = receipt_time_floor(since)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
     usage = "r.usage_json" if "usage_json" in columns else "NULL"
     budget = "r.budget_json" if "budget_json" in columns else "NULL"
@@ -845,6 +866,7 @@ __all__ = [
     "insert_comparison",
     "SERVICE_OWNER_KINDS",
     "spend_since",
+    "receipt_time_floor",
     "CHECK_STATUSES",
     "KEY_STATUS_LABELS",
     "VERIFIED_STATUSES",

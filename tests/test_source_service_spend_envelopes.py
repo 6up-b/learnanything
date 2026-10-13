@@ -174,3 +174,29 @@ def test_spend_since_estimates_subscription_tokens_and_prices_unreported_metered
     assert spent["metered"]["requests"] == 2
     assert spent["usd"] == pytest.approx(0.002 + 0.004)
     assert Decimal(str(spent["usd"])) > 0
+
+
+@pytest.mark.parametrize("since", ["2026-10-13T12:05:52Z", "2026-10-13T12:05:52+00:00",
+                                   "2026-10-13T12:05:52.400000+00:00", "2026-10-13T08:05:52-04:00"])
+def test_spend_since_counts_a_request_in_the_first_second_of_a_run(tmp_path, since):
+    """Live sanity run: a harvest stamps its start ``…52Z`` and the rerank's
+    receipt ``…52.822906+00:00``; compared as strings ``.`` sorts before
+    ``Z``, so the run's first request was missing from its spend report (and
+    from a daily cap starting that second). Requests from that second on count,
+    whatever the stamp's suffix; earlier ones never do."""
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    with repository.connection() as connection:
+        for receipt_id, started_at in (("r_same_second", "2026-10-13T12:05:52.822906+00:00"),
+                                       ("r_same_second_z", "2026-10-13T12:05:52Z"),
+                                       ("r_before", "2026-10-13T12:05:51.999999+00:00")):
+            connection.execute(
+                "INSERT INTO model_call_receipts(id, owner_kind, owner_id, purpose, provider, status, started_at, "
+                "input_tokens, output_tokens, cost, budget_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (receipt_id, "practice_rerank", "x", "p", "openrouter", "completed", started_at, 100, 100, 0.001,
+                 json.dumps({"billing": "metered"})))
+        connection.commit()
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        spent = spend_since(connection, since, owner_kinds=None, price_per_million=1.0)
+    assert spent["requests"] == 2
+    assert spent["usd"] == pytest.approx(0.002)
