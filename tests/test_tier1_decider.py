@@ -597,3 +597,28 @@ def test_a_tied_gap_pair_goes_to_the_llm(tmp_path):
     assert result["selected"]["b"] == "different" and result["selected_judges"]["b"] == "llm"
     assert [(row["judge"], row["verdict"]) for row in _rows(repo, SAME_PREREQUISITE.task)] == [
         ("decider", "tied"), ("llm", "different")]
+
+
+def test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict(tmp_path):
+    """Review F9: a pair's mvp-0.19 Decider row took the choice field; at mvp-0.20 the argmax decides."""
+
+    from learnloop.diagnosis.text_gaps.kinds import SAME_PREREQUISITE
+    from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, _judge_all
+    from tests.text_gap_fakes import GapLLMFake, always
+
+    config = _config()
+    config.algorithms.algorithm_version = "mvp-0.19"
+    vault, repo, pairs, budget = _gap_pair(tmp_path, config)
+    decider = Decider()  # choice field "same", argmax "unsure"
+    clients = PipelineClients(judge=lambda: GapLLMFake(decide=always("different")), decider=lambda: decider)
+    before = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
+                        decider_on=True)
+    assert before["decider"]["b"] == "same"  # the predecessor's logged second opinion
+    config.algorithms.algorithm_version = "mvp-0.20"
+    after = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
+                       decider_on=True)
+    assert after["selected"]["b"] == "unsure" and after["selected_judges"]["b"] == "decider"
+    assert len(decider.calls) == 2
+    again = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
+                       decider_on=True)
+    assert again["selected"]["b"] == "unsure" and len(decider.calls) == 2  # the Tier-1 verdict is reused

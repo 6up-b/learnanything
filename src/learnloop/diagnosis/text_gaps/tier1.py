@@ -83,8 +83,23 @@ JUDGE_SWITCH = "learner_gap_judge"
 KIND_SWITCH = "learner_gap_kind"
 
 
+#: Marks a pair verdict the Tier-1 executor took as the argmax (review F9).
+ARGMAX_PRODUCER_SUFFIX = "#argmax"
+
+
 class ArgmaxPairExecutor(DeciderPairExecutor):
-    """The Decider as the authoritative pair judge: the argmax of its distribution decides."""
+    """The Decider as the authoritative pair judge: the argmax of its distribution decides.
+
+    Its producer (the ledger's ``judge_model``, which ``judge_pairs`` keys its
+    claims and reuse on) is the model marked :data:`ARGMAX_PRODUCER_SUFFIX`:
+    a predecessor second opinion on the same pair took the response's choice
+    field, so it is never reused as a deciding verdict (review F9); the pair
+    is asked once more under Tier 1, and that verdict is reused from then on.
+    """
+
+    def __init__(self, budget: TextBudget, client: Any) -> None:
+        super().__init__(budget, client)
+        self.producer = f"{self.producer}{ARGMAX_PRODUCER_SUFFIX}"
 
     def __call__(self, prompt: str, result_model: type[SameOrDifferent], purpose: str) -> tuple[SameOrDifferent, str]:
         with self.budget.request(DECIDER_ROUTE, purpose, input_tokens=estimate_tokens(prompt) + 200,
@@ -287,4 +302,4 @@ def decide_kind(
     return reading, decider, chooser, kind
 
 
-__all__ = ["ArgmaxPairExecutor", "JUDGE_SWITCH", "KIND_SWITCH", "ask_needed", "decide_kind", "judge_all"]
+__all__ = ["ARGMAX_PRODUCER_SUFFIX", "ArgmaxPairExecutor", "JUDGE_SWITCH", "KIND_SWITCH", "ask_needed", "decide_kind", "judge_all"]
