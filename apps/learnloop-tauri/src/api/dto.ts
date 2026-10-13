@@ -5968,6 +5968,8 @@ export interface ReaderPromptContractDto {
   manifestNeverIncludes: string[];
   citations: string;
   exposureOnCommit: string;
+  /** RW1a: reader_inquiry.enabled (present only when on; absent means off). */
+  inquiryEnabled?: boolean;
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -5976,6 +5978,8 @@ export interface ReaderAskInput {
   extractionId: string;
   spanId: string;
   question: string;
+  /** Completed reader-answer event ID; omitted/null starts a new root. */
+  parentExchangeId?: string | null;
   answerMode?: ReaderAnswerMode;
   targetKey?: string | null;
   revealedSurfaceIds?: string[];
@@ -5988,6 +5992,8 @@ export interface ReaderAskInput {
 export interface ReaderAnswerDto {
   eventId: string;
   readerAnswerEventId: string;
+  /** RW1a branches (absent while reader_inquiry is off). */
+  parentExchangeId?: string | null;
   answerMd: string;
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
@@ -6007,14 +6013,23 @@ export interface ReaderAnswerDto {
 /** A completed Reader Ask restored from the durable interaction-event log. */
 export interface ReaderAskHistoryExchangeDto {
   eventId: string;
+  /** Older saved exchanges have no parent and remain readable as roots. */
+  parentExchangeId?: string | null;
+  selectionSpanIds?: string[];
+  selectionQuoteMd?: string | null;
+  /** RW1a: the exchange's tutor question and its learner-owned resolution
+   *  (a root's resolution is its inquiry's status). */
+  questionEventId?: string | null;
+  resolution?: InquiryResolution | null;
   extractionId: string;
   spanId: string;
   questionMd: string;
   answerMd: string;
   answerMode: ReaderAnswerMode;
-  citations: unknown[];
+  citations: TutorCitationDto[];
   createdAt: string | null;
 }
+export type InquiryResolution = "open" | "resolved" | "dismissed";
 export interface ReaderAskHistoryDto {
   version?: number;
   exchanges: ReaderAskHistoryExchangeDto[];

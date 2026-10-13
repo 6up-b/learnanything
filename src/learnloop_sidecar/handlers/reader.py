@@ -90,6 +90,9 @@ class ReaderAskInput(ParamsModel):
     # widen the tutor's citable context to every selected block + exact quote.
     selection_span_ids: list[str] = []
     selection_quote: str | None = None
+    # RW1a branches: the parent's ``readerAnswerEventId``; omitted or null
+    # starts a new root. Refused while reader_inquiry.enabled is off.
+    parent_exchange_id: str | None = None
     cold_active: bool = False
     cold_attempt_id: str | None = None
 
@@ -120,6 +123,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             revealed_surface_ids=params.revealed_surface_ids,
             selection_span_ids=params.selection_span_ids,
             selection_quote_md=params.selection_quote,
+            parent_exchange_id=params.parent_exchange_id,
             cold_active=params.cold_active,
             cold_attempt_id=params.cold_attempt_id,
             # Slice 2 T6: a labelled nearest-LO suggestion for an unmapped span.
@@ -142,6 +146,11 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": result["reader_answer_event_id"],
+    }
+    if "parent_exchange_id" in result:
+        # RW1a branches (absent with reader_inquiry off, so the wire is unchanged).
+        response["parent_exchange_id"] = result["parent_exchange_id"]
+    response.update({
         "answer_md": result["answer_md"],
         "answer_mode": result["answer_mode"],
         "citations": result["citations"],
@@ -154,7 +163,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         "learner_gap": queue_tutor_question_gap(
             ctx, vault, repository, result["event_id"], result.get("learner_gap")
         ),
-    }
+    })
     if result.get("suggested_learning_objects"):
         # Slice 2 T6: labelled nearest-LO suggestions, shown in the Ask overlay
         # (absent when there are none, so the kill switch changes nothing).
@@ -170,11 +179,13 @@ class ReaderAskHistoryInput(ParamsModel):
 def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> dict[str, Any]:
     """List the durable, completed Ask exchanges for the open source."""
 
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     source_id = _source_id_for_extraction(repository, params.extraction_id)
     if source_id is not None:
         _require_source_reader(repository, source_id)
-    return versioned({"exchanges": RD.ask_history(repository, extraction_id=params.extraction_id)})
+    return versioned({"exchanges": RD.ask_history(
+        repository, extraction_id=params.extraction_id, branches=RD.inquiry_enabled(vault),
+    )})
 
 
 class ReaderSetAnswerModeInput(ParamsModel):
@@ -342,8 +353,12 @@ def reader_routing_prior(ctx: SidecarContext, params: ReaderRoutingPriorInput) -
 @method("reader.prompt_contract")
 def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
-    contract = RD.reader_prompt_contract()
+    inquiry = RD.inquiry_enabled(vault)
+    contract = RD.reader_prompt_contract(branches=inquiry)
     contract["reader_enabled"] = RD.reader_enabled(vault)
+    if inquiry:
+        # RW1a's switch, read by the Reader (absent when off: the wire is unchanged).
+        contract["inquiry_enabled"] = True
     return versioned(contract)
 
 

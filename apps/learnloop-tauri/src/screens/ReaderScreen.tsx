@@ -54,6 +54,8 @@ import {
   useReaderRequests,
 } from "./reader/useReaderRequests";
 
+import { ReaderAskBranches, type ReaderExchange } from "./reader/ReaderAskBranches";
+
 const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },
   { value: "help_me_reason", label: "help me reason" },
@@ -143,15 +145,6 @@ function selectionNodes(sel: {
   nodes?: SelectionNode[];
 }): SelectionNode[] {
   return sel.nodes && sel.nodes.length ? sel.nodes : [{ spanId: sel.spanId, quote: sel.quote }];
-}
-
-interface ReaderExchange {
-  id: string;
-  spanId: string;
-  question: string;
-  answerMd: string;
-  answerMode: ReaderAnswerMode;
-  createdAt: string | null;
 }
 
 type ReaderRailTab = "guide" | "ask" | "notes";
@@ -279,6 +272,11 @@ export function ReaderScreen({
   const [question, setQuestion] = useState("");
   const [askComposerVersion, setAskComposerVersion] = useState(0);
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
+  // RW1a branches: the exchange a follow-up continues (null starts a new root).
+  const [parentExchange, setParentExchange] = useState<ReaderExchange | null>(null);
+  const askEpoch = useRef(0);
+  const askPending = useRef(false);
+  useEffect(() => () => { askEpoch.current += 1; }, []);
   const [history, setHistory] = useState<ReaderExchange[]>([]);
   const [collapsedAskIds, setCollapsedAskIds] = useState<Set<string>>(new Set());
   const [askFindOpen, setAskFindOpen] = useState(false);
@@ -457,6 +455,10 @@ export function ReaderScreen({
 
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
+    askEpoch.current += 1;
+    askPending.current = false;
+    setBusy(false);
+    setParentExchange(null);
     setGuidePlan(null);
     setGuideLoading(false);
     setActiveSpan(null);
@@ -605,6 +607,9 @@ export function ReaderScreen({
   }, []);
 
   const enabled = contract?.readerEnabled ?? false;
+  // RW1a's kill switch (reader_inquiry.enabled): the sidecar names it only when
+  // on, so an absent flag (switched off, or an older sidecar) is today's rail.
+  const inquiry = contract?.inquiryEnabled === true;
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
 
   // Reader Ask answers already live durably in interaction_events. Rehydrate
@@ -620,6 +625,13 @@ export function ReaderScreen({
         if (cancelled) return;
         const restored: ReaderExchange[] = result.exchanges.map((exchange) => ({
           id: exchange.eventId,
+          parentExchangeId: exchange.parentExchangeId ?? null,
+          extractionId: exchange.extractionId,
+          selectionSpanIds: exchange.selectionSpanIds ?? [],
+          selectionQuoteMd: exchange.selectionQuoteMd ?? null,
+          citations: exchange.citations ?? [],
+          questionEventId: exchange.questionEventId ?? null,
+          resolution: exchange.resolution ?? null,
           spanId: exchange.spanId,
           question: exchange.questionMd,
           answerMd: exchange.answerMd,
@@ -1756,49 +1768,77 @@ export function ReaderScreen({
   );
 
   const ask = useCallback(async () => {
-    // Grounding span = the capture selection's primary block (the same
-    // selection Notes>Capture acts on); activeSpan is the jump/resume fallback.
-    const groundingSpan = selection?.spanId ?? activeSpan;
-    if (!groundingSpan || !question.trim() || !render) return;
+    // A follow-up keeps its saved anchor even when the current selection moves.
+    // New roots use the capture selection (the same selection Notes>Capture
+    // acts on), then the jump/resume fallback.
+    const parent = inquiry ? parentExchange : null;
+    const groundingSpan = parent?.spanId ?? selection?.spanId ?? activeSpan;
+    if (!groundingSpan || !question.trim() || !render || askPending.current) return;
+    if (inquiry && offline) return;
+    const epoch = askEpoch.current;
+    askPending.current = true;
     const asked = question.trim();
+    // The full capture selection widens the tutor's citable context to every
+    // selected block, not just the primary one; a follow-up inherits its
+    // parent's saved selection instead.
+    const selectionSpanIds = parent
+      ? parent.selectionSpanIds
+      : selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [];
+    const selectionQuote = parent
+      ? parent.selectionQuoteMd
+      : selection ? (selection.editedText ?? selection.quote).trim() || null : null;
     setBusy(true);
     try {
       const answer = await api.readerAsk({
         extractionId: render.extractionId,
         spanId: groundingSpan,
         question: asked,
+        ...(inquiry ? { parentExchangeId: parent?.id ?? null } : {}),
         answerMode,
-        // The full capture selection widens the tutor's citable context to
-        // every selected block, not just the primary one.
-        selectionSpanIds: selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [],
-        selectionQuote: selection ? (selection.editedText ?? selection.quote).trim() || null : null,
+        selectionSpanIds,
+        selectionQuote,
       });
+      if (epoch !== askEpoch.current) return;
       const exchange: ReaderExchange = {
         id: answer.readerAnswerEventId,
+        parentExchangeId: answer.parentExchangeId ?? null,
+        extractionId: render.extractionId,
+        selectionSpanIds,
+        selectionQuoteMd: selectionQuote,
+        citations: answer.citations ?? [],
+        questionEventId: answer.eventId ?? null,
+        resolution: "open",
         spanId: groundingSpan,
         question: asked,
         answerMd: answer.answerMd,
         answerMode: answer.answerMode,
         createdAt: new Date().toISOString(),
       };
+      if (inquiry) setParentExchange(exchange);
       setHistory((items) => [exchange, ...items.filter((item) => item.id !== exchange.id)]);
       setCollapsedAskIds((ids) => {
         const next = new Set(ids);
         next.delete(exchange.id);
+        if (parent) next.delete(parent.id);
         return next;
       });
       setQuestion("");
       // WebKit can retain the submitted textarea's stale compositing layer when
       // the completed exchange mounts below it. Remounting gives the next Ask a
-      // fresh input surface; focus restoration makes repeated questions fluid.
+      // fresh input surface. A landed answer never moves focus (W12): focus
+      // returns to the composer only if the learner was still in it.
+      const composerHadFocus = document.activeElement === askComposerRef.current;
       setAskComposerVersion((version) => version + 1);
-      window.requestAnimationFrame(() => askComposerRef.current?.focus());
+      if (composerHadFocus) window.requestAnimationFrame(() => askComposerRef.current?.focus());
     } catch (error) {
-      onError(errorMessage(error));
+      if (epoch === askEpoch.current) onError(errorMessage(error));
     } finally {
-      setBusy(false);
+      if (epoch === askEpoch.current) {
+        askPending.current = false;
+        setBusy(false);
+      }
     }
-  }, [selection, activeSpan, question, answerMode, render, onError]);
+  }, [inquiry, parentExchange, selection, activeSpan, question, answerMode, render, offline, onError]);
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -2955,11 +2995,18 @@ export function ReaderScreen({
             </Card>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {activeSpan ? (
+              {(inquiry && parentExchange) || activeSpan ? (
                 <>
                   {/* The Ask grounding is the SAME selection Capture uses —
                       the learner never targets extraction blocks directly. */}
-                  {selection ? (
+                  {inquiry && parentExchange ? (
+                    <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <Faint>FOLLOW-UP TO: {clip(parentExchange.question, 120)}</Faint>
+                      <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
+                      <SecondaryButton onClick={() => jumpToSpan(parentExchange.spanId)}>show inherited passage</SecondaryButton>
+                      <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
+                    </Card>
+                  ) : selection ? (
                     <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
                       <Faint style={{ fontSize: 10 }}>ASKING ABOUT YOUR SELECTION</Faint>
                       <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
@@ -2991,13 +3038,13 @@ export function ReaderScreen({
                     placeholder="ask about this passage…"
                     style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
                   />
-                  <PrimaryButton onClick={ask} disabled={busy || !question.trim()}>ask ↵</PrimaryButton>
+                  <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up ↵" : "ask ↵"}</PrimaryButton>
                 </>
               ) : (
                 <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
               )}
 
-              <SectionHeader>Previous asks</SectionHeader>
+              <SectionHeader>{inquiry ? "Clarification threads" : "Previous asks"}</SectionHeader>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Faint style={{ fontSize: 10 }}>{history.length} saved</Faint>
                 {!askFindOpen ? (
@@ -3028,6 +3075,39 @@ export function ReaderScreen({
                 <Faint style={{ fontSize: 11 }}>No saved asks for this source yet.</Faint>
               ) : visibleAskHistory.length === 0 ? (
                 <Faint style={{ fontSize: 11 }}>No questions or answers match “{askFindQuery}”.</Faint>
+              ) : inquiry ? (
+                <ReaderAskBranches
+                  exchanges={history}
+                  collapsedIds={collapsedAskIds}
+                  query={askFindQuery}
+                  busy={busy || offline}
+                  onToggle={(id) => setCollapsedAskIds((ids) => {
+                    const next = new Set(ids);
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                    return next;
+                  })}
+                  onFollowUp={(exchange) => {
+                    setParentExchange(exchange);
+                    // A search can expose a descendant of collapsed ancestors.
+                    // Keep the chosen path visible when the search is cleared.
+                    setCollapsedAskIds((ids) => {
+                      const next = new Set(ids);
+                      const seen = new Set<string>();
+                      let cursor: ReaderExchange | undefined = exchange;
+                      while (cursor && !seen.has(cursor.id)) {
+                        seen.add(cursor.id);
+                        next.delete(cursor.id);
+                        cursor = history.find((item) => item.id === cursor?.parentExchangeId);
+                      }
+                      return next;
+                    });
+                    window.requestAnimationFrame(() => {
+                      askComposerRef.current?.scrollIntoView({ block: "nearest" });
+                      askComposerRef.current?.focus();
+                    });
+                  }}
+                  onShowPassage={jumpToSpan}
+                />
               ) : visibleAskHistory.map((exchange) => {
                 const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
                 return (
