@@ -792,3 +792,48 @@ def test_links_the_decider_answered_are_never_paid_for_again_when_the_fallback_f
     assert len(decider.calls) == 3 and not llm
     assert {row.label: row.verdict for row in result.links} == {"L1": "different", "L2": "different"}
     assert producers["L1"][0] == producers["L2"][0] == "decider"
+
+
+def test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm(tmp_path, monkeypatch):
+    """The record's claim, checked: a cancellation is never an LLM fallback.
+
+    It propagates out of the decision; matching handles it as it always
+    handled its LLM's cancellation (grading never stops on it): the
+    deterministic text match.
+    """
+
+    from learnloop import decider_judgments as tier1
+    from learnloop.ai.errors import AIInterrupted
+    from learnloop.diagnosis import misconceptions as m
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root, load_environment=False)
+    vault.config.algorithms.algorithm_version = "mvp-0.20"
+    repo = Repository(paths.sqlite_path)
+    monkeypatch.setattr(tier1, "client_for", lambda *a: Decider(AIInterrupted("stop")))
+
+    from learnloop.diagnosis.ai_contracts import MisconceptionMatch
+    from tests.structured_ai import StructuredClientFake
+
+    class LLM(StructuredClientFake):
+        model = "fake/llm"
+
+        def __init__(self):
+            self.calls = []
+
+        def run_misconception_match(self, context):
+            self.calls.append(context)
+            return MisconceptionMatch(decision="new")
+
+    llm = LLM()
+    candidates = [SimpleNamespace(id="candidate", statement="Same belief!")]
+    assert m._match_misconception("same belief", candidates, llm, learning_object_id="lo", vault=vault,
+                                  repository=repo) == "candidate"
+    assert not llm.calls
+    # The same LLM answers when the Decider is merely unavailable (so the fake is reachable).
+    monkeypatch.setattr(tier1, "client_for", _no_decider)
+    assert m._match_misconception("same belief", candidates, llm, learning_object_id="lo", vault=vault,
+                                  repository=repo) is None
+    assert len(llm.calls) == 1
