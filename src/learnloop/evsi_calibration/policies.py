@@ -6,13 +6,20 @@
 * ``eig``: :func:`learnloop.diagnosis.robust_composition.evaluate_selection`
   (robust EIG per second, the ``VALUE_PER_NAT_MINUTES`` stop rule, the 90%
   agreement gate). No count cap.
-* ``caps``: today's probe-episode rules: the highest hypothesis-EIG question,
-  stopped by ``probe.episode`` defaults (maximum observations, the posterior
-  stop and ambiguity thresholds after the minimum independent observations,
-  and the action-equivalence stop). The thresholds are read from
-  :class:`learnloop.config.schema.ProbeEpisodeConfig`, never copied.
+* ``incumbent``: today's serving probe episode: the highest hypothesis-EIG
+  question, stopped as ``probe_episodes._evaluate_completion`` stops it, in its
+  order: the observation budget; on an unstable posterior the action
+  equivalence stop, then (from the minimum independent observations on) the
+  mvp-0.8 robust completion gate, which ends the episode when
+  ``robust_composition.evaluate_selection`` over the remaining instruments
+  abstains (``couldnt_reliably_distinguish``); on a stable one the decision
+  stable stop after the minimum, else action equivalence. The thresholds are
+  read from :class:`learnloop.config.schema.ProbeEpisodeConfig`, never copied.
+* ``caps_only``: a simplified cap-only comparator: the same chooser and caps
+  WITHOUT the robust completion gate (what a legacy, unpinned episode does).
+  It is not today's serving.
 * ``random`` and ``max_entropy``: a random question / the question whose
-  predicted answer is most uncertain, under the same caps.
+  predicted answer is most uncertain, under the cap-only rules.
 
 Every policy ends by taking ``loss_table.argmin_action(belief)``.
 """
@@ -30,7 +37,7 @@ from learnloop.diagnosis import robust_composition as rc
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
-POLICIES = ("evsi", "eig", "caps", "random", "max_entropy")
+POLICIES = ("evsi", "eig", "incumbent", "caps_only", "random", "max_entropy")
 #: What-if readings of the same real modules' outputs (no reimplementation):
 #: ``evsi_lcb_only`` measures whenever the robust LCB clears the minutes cost,
 #: ignoring the flip abstentions; ``eig_no_gate`` measures whenever the robust
@@ -219,28 +226,78 @@ def decide_eig(state: EpisodeState, settings: PolicySettings, *, obey_gate: bool
     return Decision("stop", None, decision.verdict, "robust_eig_stop" if decision.should_stop else "abstain")
 
 
+def _stable(state: EpisodeState, config: ProbeEpisodeConfig) -> bool:
+    ordered = sorted(state.belief.values(), reverse=True)
+    top = ordered[0] if ordered else 0.0
+    second = ordered[1] if len(ordered) > 1 else 0.0
+    return top >= config.posterior_stop_threshold and (top <= 0 or second / top <= config.ambiguity_threshold)
+
+
+def _action_equivalent(state: EpisodeState, config: ProbeEpisodeConfig) -> bool:
+    if not config.action_equivalence_enabled or state.observations < 1:
+        return False
+    plausible = [h for h, p in state.belief.items() if p >= config.action_equivalence_plausible_threshold]
+    return len(plausible) >= 2 and len({state.actions_by_hypothesis[h] for h in plausible}) == 1
+
+
 def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig) -> str | None:
-    """Today's probe-episode stop rules (probe_episodes._evaluate_completion)."""
+    """The cap-only stop rules (``_evaluate_completion`` without the robust gate)."""
 
     n = state.observations
     if n >= config.maximum_observations:
         return "observation_budget_exhausted"
-    ordered = sorted(state.belief.values(), reverse=True)
-    top = ordered[0] if ordered else 0.0
-    second = ordered[1] if len(ordered) > 1 else 0.0
-    stable = top >= config.posterior_stop_threshold and (top <= 0 or second / top <= config.ambiguity_threshold)
-    if stable and n >= config.minimum_independent_observations:
+    if _stable(state, config) and n >= config.minimum_independent_observations:
         return "decision_stable"
-    if config.action_equivalence_enabled and n >= 1:
-        plausible = [h for h, p in state.belief.items() if p >= config.action_equivalence_plausible_threshold]
-        if len(plausible) >= 2 and len({state.actions_by_hypothesis[h] for h in plausible}) == 1:
-            return "action_equivalent"
+    if _action_equivalent(state, config):
+        return "action_equivalent"
     return None
 
 
-def decide_capped(state: EpisodeState, settings: PolicySettings, *, chooser: str) -> Decision:
+def _robust_gate_abstains(state: EpisodeState, settings: PolicySettings) -> bool:
+    """``probe_episodes._robust_completion_override``: the robust selector over
+    the remaining instruments abstains (the episode-pinned channel here is the
+    simulation's identity channel)."""
+
+    candidates = [
+        (q, state.ensemble_objects[q], settings.check_minutes * 60.0) for q in _prefilter(state, settings)
+    ]
+    if not candidates:
+        return False
+    decision = rc.evaluate_selection(
+        candidates=candidates,
+        posterior=dict(state.belief),
+        lambda_time=settings.lambda_time,
+        burden_cost=settings.burden_cost,
+        value_per_nat_minutes=settings.value_per_nat_minutes,
+        agreement_threshold=settings.agreement_threshold,
+    )
+    return bool(decision.abstained)
+
+
+def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig) -> str | None:
+    """``probe_episodes._evaluate_completion`` in its own order (review F8)."""
+
+    n = state.observations
+    if n >= config.maximum_observations:
+        return "observation_budget_exhausted"
+    if not _stable(state, config):
+        if _action_equivalent(state, config):
+            return "action_equivalent"
+        if n >= config.minimum_independent_observations and _robust_gate_abstains(state, settings):
+            return "couldnt_reliably_distinguish"
+        return None
+    if n >= config.minimum_independent_observations:
+        return "decision_stable"
+    if _action_equivalent(state, config):
+        return "action_equivalent"
+    return None
+
+
+def decide_capped(
+    state: EpisodeState, settings: PolicySettings, *, chooser: str, robust_gate: bool = False
+) -> Decision:
     config = ProbeEpisodeConfig()
-    reason = _cap_stop(state, config)
+    reason = _incumbent_stop(state, settings, config) if robust_gate else _cap_stop(state, config)
     if reason is not None:
         return Decision("stop", None, "stop", reason)
     pool = list(state.remaining)
@@ -270,7 +327,9 @@ def decide(policy: str, state: EpisodeState, settings: PolicySettings) -> Decisi
         return decide_eig(state, settings)
     if policy == "eig_no_gate":
         return decide_eig(state, settings, obey_gate=False)
-    if policy == "caps":
+    if policy == "incumbent":
+        return decide_capped(state, settings, chooser="eig", robust_gate=True)
+    if policy == "caps_only":
         return decide_capped(state, settings, chooser="eig")
     if policy in ("random", "max_entropy"):
         return decide_capped(state, settings, chooser=policy)

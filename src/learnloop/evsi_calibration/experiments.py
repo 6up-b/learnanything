@@ -46,12 +46,13 @@ from learnloop.evsi_calibration.world import (
     hand_set_row,
     misconception_hypothesis,
     model_misfit,
+    system_rows,
     with_truth,
 )
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
-EXPERIMENTS_VERSION = "evsi_calibration_experiments_v1"
+EXPERIMENTS_VERSION = "evsi_calibration_experiments_v2"
 
 
 @dataclass(frozen=True)
@@ -170,6 +171,30 @@ def _compact(summary: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def starting_truth_probability(
+    world: Sequence[Any], learners: Sequence[Any], *, system_model: str = "eedi_fitted"
+) -> dict[str, Any]:
+    """Mean probability the system's starting belief puts on each learner's truth.
+
+    The start is the system's posterior after every answer before the episode,
+    so it is only right when those answers were generated in the same world
+    the episode runs in (review F2). Reported per truth class.
+    """
+
+    by_class: dict[str, list[float]] = {}
+    for spec in learners:
+        scenario = world[spec.scenario_index]
+        belief = dict(scenario.prior)
+        for question_id, option in spec.history:
+            belief = rc.observed_update(system_rows(system_model, scenario, scenario.question(question_id)), belief, option)
+        truth_class = "knows" if spec.truth == HYP_KNOWS else ("other" if spec.truth == HYP_OTHER else "holds")
+        by_class.setdefault(truth_class, []).append(float(belief.get(spec.truth, 0.0)))
+    return {
+        cls: {"n": len(values), "mean_probability_on_truth": round(float(np.mean(values)), 4)}
+        for cls, values in sorted(by_class.items())
+    }
+
+
 def _first_rankings(run: Any, policy: str) -> dict[int, tuple[str, ...]]:
     return {e.learner: e.first_ranking for e in run.episodes if e.policy == policy and e.first_ranking}
 
@@ -190,7 +215,27 @@ def run_experiments(
         learners=settings.learners, seed=settings.seed, workers=settings.workers,
         policy=P.PolicySettings(draw_count=settings.draw_count),
     )
-    learners = draw_learners(scenarios, base)
+    # Review F2: every response world draws its OWN pre-episode histories (the
+    # answers that opened the episode and fed the starting belief), with the same
+    # per-learner seeds, so a learner's truth, subject and question order (and the
+    # uniforms behind every answer) are common across worlds and shared by every
+    # policy inside a world, while the answers themselves follow that world.
+    worlds: dict[float | None, list[Any]] = {}
+    learners_by_world: dict[float | None, list[Any]] = {}
+
+    def world_for(consistency: float | None) -> list[Any]:
+        if consistency not in worlds:
+            worlds[consistency] = (
+                list(scenarios) if consistency is None else with_truth(scenarios, consistency=consistency)
+            )
+        return worlds[consistency]
+
+    def learners_for(consistency: float | None) -> list[Any]:
+        if consistency not in learners_by_world:
+            learners_by_world[consistency] = draw_learners(world_for(consistency), base)
+        return learners_by_world[consistency]
+
+    learners = learners_for(None)
     report: dict[str, Any] = {
         "version": EXPERIMENTS_VERSION,
         "simulation_version": SIMULATION_VERSION,
@@ -231,12 +276,12 @@ def run_experiments(
     say("regimes")
     regimes: list[dict[str, Any]] = []
     for consistency in settings.regime_consistencies:
-        world = scenarios if consistency is None else with_truth(scenarios, consistency=consistency)
+        world = world_for(consistency)
         for repair in settings.regime_repairs:
             run = run_simulation(
                 world,
                 with_policy(replace(base, system_model="eedi_fitted"), repair_minutes=repair),
-                learners=learners,
+                learners=learners_for(consistency),
             )
             summary = M.summarize(run.checks, run.episodes, seed=settings.seed, draws=settings.bootstrap)
             regimes.append({
@@ -254,12 +299,12 @@ def run_experiments(
 
     # 4. sensitivity
     say("sensitivity")
-    world = with_truth(scenarios, consistency=settings.sensitivity_consistency)
+    world = world_for(settings.sensitivity_consistency)
     sens_base = with_policy(
         replace(base, system_model="eedi_fitted", learners=settings.sensitivity_learners),
         repair_minutes=settings.sensitivity_repair,
     )
-    sens_learners = learners[: settings.sensitivity_learners]
+    sens_learners = learners_for(settings.sensitivity_consistency)[: settings.sensitivity_learners]
     sensitivity: dict[str, Any] = {
         "regime": {"consistency": settings.sensitivity_consistency, "repair_minutes": settings.sensitivity_repair},
         "parameters": {},
@@ -321,17 +366,17 @@ def run_experiments(
     }
     if excess is not None:
         for consistency in (None, settings.sensitivity_consistency):
-            world_c = scenarios if consistency is None else with_truth(scenarios, consistency=consistency)
+            world_c = world_for(consistency)
             for encounters in settings.unresolved_encounters:
                 true_u = float(excess.median) * encounters * settings.minutes_per_repeat_error
                 arms = {}
                 for label, system_u in (("minutes_only", 0.0), ("measured_unresolved", true_u)):
                     arm = with_policy(
                         replace(base, system_model="eedi_fitted", truth_unresolved_minutes=true_u,
-                                policies=("evsi_lcb_only", "evsi_lookahead", "caps")),
+                                policies=("evsi_lcb_only", "evsi_lookahead", "incumbent")),
                         unresolved_minutes=system_u,
                     )
-                    arms[label] = run_simulation(world_c, arm, learners=learners)
+                    arms[label] = run_simulation(world_c, arm, learners=learners_for(consistency))
                 for policy in ("evsi_lcb_only", "evsi_lookahead"):
                     left = [e for e in arms["minutes_only"].episodes if e.policy == policy]
                     right = [e for e in arms["measured_unresolved"].episodes if e.policy == policy]
@@ -347,6 +392,13 @@ def run_experiments(
                         "difference": M.paired_difference(left, right, seed=settings.seed, draws=settings.bootstrap),
                     })
     report["part_c"] = part_c
+    report["flagged_learners_by_world"] = {
+        "fitted" if c is None else str(c): len(specs) for c, specs in learners_by_world.items()
+    }
+    report["starting_belief"] = {
+        "fitted" if c is None else str(c): starting_truth_probability(world_for(c), specs)
+        for c, specs in learners_by_world.items()
+    }
     report["recommendations"] = recommendations(report)
     report["elapsed_seconds"] = round(time.time() - started, 1)
     return report

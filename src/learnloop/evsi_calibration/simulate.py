@@ -12,7 +12,11 @@ not yet answered until it stops, and the system acts on
 
 Common random numbers: learner ``i`` has the same truth, the same trigger, and
 the same answer to any given question under every policy and every swept
-setting, so differences between arms are paired, not noise.
+setting, so differences between arms are paired, not noise. A different
+response world (``world.with_truth``) answers differently, before the episode
+as well as during it, so it draws its own learners with the same seeds
+(:func:`draw_learners` on that world; ``experiments.run_experiments`` does
+this per world): never reuse one world's histories in another.
 """
 
 from __future__ import annotations
@@ -39,7 +43,7 @@ from learnloop.evsi_calibration.world import (
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
-SIMULATION_VERSION = "evsi_calibration_sim_v1"
+SIMULATION_VERSION = "evsi_calibration_sim_v2"
 #: Quantiles of the per-member EVSI recorded for each administered check, so
 #: the robust-quantile choice can be calibrated after the fact.
 MEMBER_QUANTILES = (0.05, 0.10, 0.25, 0.50)

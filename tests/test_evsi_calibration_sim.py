@@ -203,13 +203,93 @@ def test_simulation_runs_every_policy_on_common_random_numbers(eedi, monkeypatch
         truths.setdefault(episode.learner, set()).add(episode.truth)
     assert all(len(values) == 1 for values in truths.values())
     cap = ProbeEpisodeConfig().maximum_observations
-    assert all(e.checks <= cap for e in run.episodes if e.policy in ("caps", "random", "max_entropy"))
+    assert all(e.checks <= cap for e in run.episodes if e.policy in ("incumbent", "caps_only", "random", "max_entropy"))
     for record in run.checks:
         assert abs(sum(record.predicted.values()) - 1.0) < 1e-5  # rounded to 6 places
         assert 0.0 <= record.p_action_change <= 1.0 + 1e-9
     # Same learners, same answers: a rerun is identical.
     again = run_simulation(scenarios, settings, learners=draw_learners(scenarios, settings))
     assert [e.total_minutes for e in again.episodes] == [e.total_minutes for e in run.episodes]
+
+
+def _episode_state(scenario, belief, *, observations, identical: bool):
+    from learnloop.diagnosis import robust_composition as rc
+
+    channel = P.identity_channel(OPTIONS)
+    ensembles, objects = {}, {}
+    for index, question in enumerate(scenario.questions[:3]):
+        # Identical instruments (same rows, same context hash) have no robust
+        # winner: the robust selector abstains on them.
+        rows_question = scenario.questions[0] if identical else question
+        ensemble = rc.build_ensemble(
+            joint_alpha=channel, instrument_rows=system_rows("eedi_fitted", scenario, rows_question),
+            calibration_model_hash="test", decision_context_hash="same" if identical else f"q{index}",
+            draw_count=8, quantile=0.10, perturbation_concentration=40.0,
+        )
+        objects[question.question_id] = ensemble
+        ensembles[question.question_id] = (ensemble.mean_member, tuple(ensemble.members))
+    return P.EpisodeState(
+        hypotheses=scenario.hypotheses, belief=dict(belief), remaining=sorted(ensembles),
+        observations=observations, loss_table=loss_table_for(scenario, P.PolicySettings(), unresolved=0.0),
+        ensembles=ensembles, ensemble_objects=objects, rng=np.random.default_rng(0),
+        actions_by_hypothesis={h: ("continue" if h == HYP_KNOWS else f"route:{h}") for h in scenario.hypotheses},
+    )
+
+
+def test_the_incumbent_arm_includes_todays_robust_completion_gate(eedi):
+    # Review F8: after the minimum independent observations, an unstable
+    # posterior whose remaining instruments the robust selector cannot tell
+    # apart ends the live episode (probe_episodes._robust_completion_override).
+    # The incumbent arm does the same; the cap-only comparator keeps checking.
+    scenario = build_scenarios(eedi["bank"], eedi["fit"])[0]
+    belief = {h: 1.0 / len(scenario.hypotheses) for h in scenario.hypotheses}  # unstable, not action-equivalent
+    minimum = ProbeEpisodeConfig().minimum_independent_observations
+    settings = P.PolicySettings(draw_count=8)
+    gated = _episode_state(scenario, belief, observations=minimum, identical=True)
+    incumbent = P.decide("incumbent", gated, settings)
+    assert (incumbent.action, incumbent.reason) == ("stop", "couldnt_reliably_distinguish")
+    assert P.decide("caps_only", gated, settings).action == "measure"
+    # Before the minimum the gate does not run, exactly as in serving.
+    early = _episode_state(scenario, belief, observations=minimum - 1, identical=True)
+    assert P.decide("incumbent", early, settings).action == "measure"
+    # Distinguishable instruments: no abstention, the incumbent keeps measuring.
+    distinct = _episode_state(scenario, belief, observations=minimum, identical=False)
+    from learnloop.diagnosis import robust_composition as rc
+
+    verdict = rc.evaluate_selection(
+        candidates=[(q, distinct.ensemble_objects[q], 60.0) for q in distinct.remaining], posterior=belief)
+    assert P.decide("incumbent", distinct, settings).action == ("stop" if verdict.abstained else "measure")
+
+
+def test_each_response_world_simulates_histories_generated_in_that_world(eedi, monkeypatch):
+    # Review F2: a stronger instrument changes how learners answered BEFORE the
+    # episode too; reusing histories drawn under the fitted world misstates the
+    # starting belief. Every simulated world runs on its own histories (same
+    # seeds, so the learners and their uniforms stay common across worlds).
+    from learnloop.evsi_calibration import experiments as X
+
+    calls = []
+    real = X.run_simulation
+
+    def recording(world, settings, *, learners=None):
+        calls.append((world, list(learners)))
+        return real(world, settings, learners=learners)
+
+    monkeypatch.setattr(X, "run_simulation", recording)
+    settings = X.ExperimentSettings(
+        learners=12, sensitivity_learners=10, workers=1, regime_consistencies=(None, 0.95), regime_repairs=(3.0,),
+        unresolved_encounters=(6.0,), bootstrap=20, sweeps=("evsi.PERTURBATION_DELTA",), draw_count=4,
+    )
+    report = X.run_experiments(eedi["bank"], eedi["fit"], settings)
+    base = SimulationSettings(learners=settings.learners, seed=settings.seed)
+    fitted = {s.index: s.history for s in draw_learners(build_scenarios(eedi["bank"], eedi["fit"]), base)}
+    differs = False
+    for world, learners in calls:
+        own = {s.index: s.history for s in draw_learners(world, base)}
+        assert [s.history for s in learners] == [own[s.index] for s in learners]
+        differs = differs or any(own[s.index] != fitted.get(s.index) for s in learners)
+    assert differs  # the stronger world really did answer differently
+    assert set(report["starting_belief"]) >= {"fitted", "0.95"}
 
 
 def test_the_measured_loss_charges_unresolved_minutes_off_the_diagonal(eedi):
