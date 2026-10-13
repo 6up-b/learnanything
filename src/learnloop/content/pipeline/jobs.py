@@ -2195,6 +2195,8 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     call, so a duplicate enqueue or a retry never double-authors."""
 
     payload = ctx.payload
+    if payload.get("scope_kind") == "inquiry":
+        return _handle_reader_inquiry_check(ctx)
     extraction_id = str(payload.get("extraction_id") or "")
     section_id = str(payload.get("section_id") or "")
     if not extraction_id or not section_id:
@@ -2208,6 +2210,33 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     client = ctx.services.quick_check_client(ctx)
     row = RQC.author_quick_check(
         ctx.repo, client, extraction_id=extraction_id, section_id=section_id, clock=ctx.clock
+    )
+    return {"question_id": row["id"], "deduplicated": False}
+
+
+def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
+    """RW1a: author the reconnect line's quick check for one inquiry's root
+    passage. Same job type, lane and client as the section check; idempotent
+    per (root exchange, prompt version) through the service."""
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    root_event_id = str(payload.get("inquiry_root_event_id") or "")
+    anchors = [str(span_id) for span_id in payload.get("anchor_span_ids") or [] if span_id]
+    if not extraction_id or not root_event_id or not anchors:
+        raise IngestRunnerError(
+            "an inquiry quick check needs extraction_id, inquiry_root_event_id and anchor_span_ids."
+        )
+    existing = ctx.repo.inquiry_reader_authored_question(
+        inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
+    )
+    if existing is not None:
+        return {"question_id": existing["id"], "deduplicated": True}
+    ctx.report("authoring", message="Authoring a quick check for this passage")
+    client = ctx.services.quick_check_client(ctx)
+    row = RQC.author_inquiry_quick_check(
+        ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
+        anchor_span_ids=anchors, clock=ctx.clock,
     )
     return {"question_id": row["id"], "deduplicated": False}
 
@@ -2922,6 +2951,28 @@ class DurableIngestJobs:
         batch_id = runner.enqueue_batch(
             "reader_quick_check",
             [JobSpec("reader_quick_check", {"extraction_id": extraction_id, "section_id": section_id})],
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_reader_inquiry_check(
+        self, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str]
+    ) -> str:
+        """Enqueue the reconnect line's passage-scoped quick check (RW1a).
+
+        The section check's job type, priority and parallel lane; the handler
+        is idempotent per (root exchange, prompt version)."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "reader_quick_check",
+            [JobSpec("reader_quick_check", {
+                "scope_kind": "inquiry",
+                "extraction_id": extraction_id,
+                "inquiry_root_event_id": inquiry_root_event_id,
+                "anchor_span_ids": list(anchor_span_ids),
+            })],
             priority=QUICK_ADD_PRIORITY,
         )
         self._ensure_worker()

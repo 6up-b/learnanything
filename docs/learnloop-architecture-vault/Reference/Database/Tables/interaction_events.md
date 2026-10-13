@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "fb3b8493d3c74ac85368b4208e56a57210cf43ab"
+source_commit_timestamp: "2026-10-13T03:00:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 183
+schema_head: 189
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/pf_reports.py`
+- `src/learnloop/reader/reader_report.py`
 - `src/learnloop/scheduling/action_loss.py`
 
 ### Direct SQL writers
@@ -158,13 +159,18 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_grading_cli.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_reader_branches.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_reader_inquiry_status.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_p3_journeys.py`
+- `tests/test_reader_activity.py`
 - `tests/test_reader_authoring.py`
+- `tests/test_reader_inquiry_kill_switch.py`
+- `tests/test_reader_reconnect.py`
 - `tests/test_reader_restoration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

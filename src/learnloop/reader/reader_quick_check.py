@@ -24,8 +24,10 @@ from typing import Any
 
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.reader.ai_contracts import (
+    READING_PASSAGE_CHECK_PROMPT_VERSION,
     ReadingQuickCheck,
     ReadingQuickCheckContext,
+    reading_passage_check_prompt,
     reading_quick_check_prompt,
 )
 from learnloop.clock import Clock, utc_now_iso
@@ -43,6 +45,16 @@ MAX_SECTION_CHARS = 24_000
 
 QUESTION_ACTIONS = ("answered", "dismissed")
 
+# RW1a: the reconnect line's passage-scoped check (spec_reader_workbench_v1 §4.1).
+# The passage is the inquiry's anchor plus a little context on each side,
+# inside the anchor's section (the producer never reads past it).
+INQUIRY_PROMPT_VERSION = READING_PASSAGE_CHECK_PROMPT_VERSION
+PASSAGE_BLOCKS_BEFORE = 1
+PASSAGE_BLOCKS_AFTER = 2
+MAX_PASSAGE_CHARS = 8_000
+INQUIRY_ACTIONS = ("answered", "self_checked", "dismissed")
+SELF_CHECKS = ("matches", "partly", "no")
+
 
 class ReaderQuickCheckError(ValueError):
     """Domain error for the reader quick-check producer."""
@@ -57,6 +69,22 @@ def request_reading_quick_check(
         client,
         purpose="reading_quick_check",
         prompt=reading_quick_check_prompt(context),
+        result_model=ReadingQuickCheck,
+    )
+
+
+def request_passage_check(
+    client: StructuredTransport, context: ReadingQuickCheckContext
+) -> ReadingQuickCheck:
+    """Author one passage-scoped quick check (RW1a) through the shared transport.
+
+    The same operation and contract as the section check, so the producer's
+    route and caps apply unchanged; only the prompt says "passage"."""
+
+    return execute_structured_operation(
+        client,
+        purpose="reading_quick_check",
+        prompt=reading_passage_check_prompt(context),
         result_model=ReadingQuickCheck,
     )
 
@@ -151,6 +179,165 @@ def author_quick_check(
     row = repository.get_reader_authored_question(question_id)
     assert row is not None
     return row
+
+
+def passage_view(
+    repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...]
+) -> dict[str, Any]:
+    """The bounded view of one inquiry's root passage (RW1a): its anchor spans
+    and up to ``PASSAGE_BLOCKS_BEFORE``/``AFTER`` neighbours, inside the anchor's
+    guide section (the same section derivation as the guide plan).
+
+    ``{section_id, label, scope: "passage", anchor_span_ids, blocks}``."""
+
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        raise ReaderQuickCheckError(f"extraction has no IR: {extraction_id!r}")
+    section_rows, block_by_span, span_to_section = extraction_sections(ir)
+    anchors = [span_id for span_id in dict.fromkeys(anchor_span_ids) if span_id in span_to_section]
+    if not anchors:
+        raise ReaderQuickCheckError(f"the passage has no readable anchor: {list(anchor_span_ids)!r}")
+    section_id = span_to_section[anchors[0]]
+    section = next(row for row in section_rows if row["id"] == section_id)
+    order = list(section["span_ids"])
+    anchors = [span_id for span_id in anchors if span_id in order]
+    positions = [order.index(span_id) for span_id in anchors]
+    window = order[max(0, min(positions) - PASSAGE_BLOCKS_BEFORE):max(positions) + 1 + PASSAGE_BLOCKS_AFTER]
+    blocks: list[dict[str, str]] = []
+    total_chars = 0
+    for span_id in window:
+        block = block_by_span[span_id]
+        text = " ".join((block.text or "").split())
+        if not text:
+            continue
+        total_chars += len(text)
+        if total_chars > MAX_PASSAGE_CHARS and span_id not in anchors:
+            continue
+        blocks.append({"span_id": span_id, "kind": str(block.block_type or ""), "text": text})
+    if not any(block["span_id"] in anchors for block in blocks):
+        raise ReaderQuickCheckError("the passage has no readable text")
+    return {
+        "section_id": section_id,
+        "label": section["label"],
+        "scope": "passage",
+        "anchor_span_ids": anchors,
+        "blocks": blocks,
+    }
+
+
+def author_inquiry_quick_check(
+    repository: Repository,
+    client: Any,
+    *,
+    extraction_id: str,
+    inquiry_root_event_id: str,
+    anchor_span_ids: list[str] | tuple[str, ...],
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Author + persist the reconnect line's quick check for one inquiry (RW1a).
+
+    Idempotent per (``inquiry_root_event_id``, prompt version): any existing
+    row is reused, a dismissed one included. Formative only (W1 tier 2): the
+    row is the record, answering it writes no attempt. Span citations are
+    validated against the passage before anything is persisted."""
+
+    existing = repository.inquiry_reader_authored_question(
+        inquiry_root_event_id=inquiry_root_event_id, prompt_version=INQUIRY_PROMPT_VERSION
+    )
+    if existing is not None:
+        return existing
+
+    view = passage_view(repository, extraction_id=extraction_id, anchor_span_ids=anchor_span_ids)
+    result = request_passage_check(
+        client, ReadingQuickCheckContext(extraction_id=extraction_id, section=view)
+    )
+    question_md = (result.question_md or "").strip()
+    expected_answer_md = (result.expected_answer_md or "").strip()
+    if not question_md or not expected_answer_md:
+        raise ReaderQuickCheckError("the model returned an empty question or answer")
+    valid_spans = {block["span_id"] for block in view["blocks"]}
+    span_ids = [span_id for span_id in result.span_ids if span_id in valid_spans]
+    if not span_ids:
+        raise ReaderQuickCheckError(
+            f"the model cited no valid passage spans: {list(result.span_ids)!r}"
+        )
+
+    run = repository.get_extraction_run(extraction_id) or {}
+    revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+    question_id = repository.insert_reader_authored_question(
+        fields={
+            "extraction_id": extraction_id,
+            "section_id": view["section_id"],
+            "source_id": revision.get("source_id"),
+            "question_md": question_md,
+            "expected_answer_md": expected_answer_md,
+            "span_ids": span_ids,
+            "prompt_version": INQUIRY_PROMPT_VERSION,
+            "provider": getattr(getattr(client, "config", None), "provider", None)
+            or getattr(client, "provider_name", None),
+            "model": getattr(getattr(client, "config", None), "model", None)
+            or getattr(client, "model", None),
+            "scope_kind": "inquiry",
+            "question_style": "recall",
+            "anchor_span_ids": view["anchor_span_ids"],
+            "inquiry_root_event_id": inquiry_root_event_id,
+        },
+        clock=clock,
+    )
+    row = repository.get_reader_authored_question(question_id)
+    assert row is not None
+    return row
+
+
+def record_inquiry_action(
+    repository: Repository,
+    *,
+    question_id: str,
+    action: str,
+    response_md: str | None = None,
+    self_check: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Record the learner's act on an inquiry-scoped quick check (RW1a).
+
+    ``answered`` stamps their response (the expected answer is then shown
+    beside it); ``self_checked`` records their own verdict -- matches, partly
+    or no -- in ``self_check``; ``dismissed`` is the durable "don't bring this
+    back". Formative only: the row is updated in place and nothing else is
+    written (no attempt, observation, mastery or FSRS row). A "partly" or "no"
+    becomes reader_formative learner text in RW1b, not here."""
+
+    if action not in INQUIRY_ACTIONS:
+        raise ReaderQuickCheckError(f"unknown question action: {action!r}")
+    row = repository.get_reader_authored_question(question_id)
+    if row is None:
+        raise ReaderQuickCheckError(f"unknown authored question: {question_id!r}")
+    if row.get("scope_kind") != "inquiry":
+        raise ReaderQuickCheckError("not an inquiry quick check")
+    if row["status"] == "escalated":
+        raise ReaderQuickCheckError("this question was already added to practice")
+    if action == "self_checked":
+        if self_check not in SELF_CHECKS:
+            raise ReaderQuickCheckError(f"unknown self-check: {self_check!r}")
+        if row["status"] != "answered":
+            raise ReaderQuickCheckError("answer the question before comparing")
+        repository.transition_reader_authored_question(
+            question_id=question_id, status="answered", self_check=self_check, clock=clock
+        )
+    elif action == "answered":
+        response = (response_md or "").strip()
+        if not response:
+            raise ReaderQuickCheckError("an answer is needed to compare with the source")
+        repository.transition_reader_authored_question(
+            question_id=question_id, status="answered", response_md=response, clock=clock
+        )
+    else:
+        repository.transition_reader_authored_question(
+            question_id=question_id, status="dismissed", clock=clock
+        )
+    refreshed = repository.get_reader_authored_question(question_id)
+    assert refreshed is not None
+    return refreshed
 
 
 def record_action(

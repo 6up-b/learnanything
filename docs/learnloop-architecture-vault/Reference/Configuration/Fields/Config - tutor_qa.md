@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "fb3b8493d3c74ac85368b4208e56a57210cf43ab"
+source_commit_timestamp: "2026-10-13T03:00:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -60,7 +60,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `tutor_qa.max_questions_feedback` | `5` | integer | modeled default or validator seed | Caps questions feedback allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:541`; `src/learnloop/tutor/tutor_qa.py:178` |
 | `tutor_qa.max_questions_library` | `8` | integer | modeled default or validator seed | Caps questions library allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:542`; `src/learnloop/tutor/tutor_qa.py:185` |
 | `tutor_qa.max_questions_reader` | `8` | integer | modeled default or validator seed | Caps questions reader allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:544`; `src/learnloop/tutor/tutor_qa.py:193` |
-| `tutor_qa.reader_enabled` | `true` | boolean | modeled default or validator seed | Turns reader behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:550`; `src/learnloop/reader/reader_dialogue.py:139` |
+| `tutor_qa.reader_enabled` | `true` | boolean | modeled default or validator seed | Turns reader behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:550`; `src/learnloop/reader/reader_dialogue.py:156` |
 | `tutor_qa.adopt_reference_questions` | `true` | boolean | modeled default or validator seed | Turns adopt reference questions behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:556`; `src/learnloop/reader/reader_authoring.py:309`; `src/learnloop/vault/lifecycle.py:157` |
 | `tutor_qa.apply_uncertainty_effect` | `true` | boolean | modeled default or validator seed | Turns uncertainty effect behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:557`; `src/learnloop/learner/facet_diagnostics.py:679` |
 | `tutor_qa.uncertainty_evidence_mass` | `0.15` | number | modeled default or validator seed | Controls uncertainty evidence mass in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:558`; `src/learnloop/learner/facet_diagnostics.py:701` |

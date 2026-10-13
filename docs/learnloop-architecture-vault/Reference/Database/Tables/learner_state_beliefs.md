@@ -3,13 +3,13 @@ title: "learner_state_beliefs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "fb3b8493d3c74ac85368b4208e56a57210cf43ab"
+source_commit_timestamp: "2026-10-13T03:00:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_state_beliefs"
   - "table learner_state_beliefs"
-schema_head: 183
+schema_head: 189
 table_name: "learner_state_beliefs"
 table_role: "compat"
 functionality_status: "legacy-preserved"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_probe_belief_posterior.py`
+- `tests/test_reader_branches.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

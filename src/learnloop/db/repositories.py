@@ -12726,32 +12726,78 @@ class Repository(
     def insert_reader_authored_question(
         self, *, fields: Mapping[str, Any], clock: Clock | None = None
     ) -> str:
+        """Insert one authored question. Section rows (the default) write the
+        same columns as before migration 189 and take its defaults; scoped rows
+        (RW1a's inquiry checks) also carry their scope, style and anchors."""
+
         now = utc_now_iso(clock)
         question_id = f"raq_{new_ulid()}"
+        columns = [
+            "id", "extraction_id", "section_id", "source_id", "question_md",
+            "expected_answer_md", "span_ids_json", "prompt_version", "provider",
+            "model", "status", "created_at", "updated_at",
+        ]
+        values: list[Any] = [
+            question_id,
+            fields["extraction_id"],
+            fields["section_id"],
+            fields.get("source_id"),
+            fields["question_md"],
+            fields["expected_answer_md"],
+            _json(list(fields.get("span_ids") or [])),
+            fields.get("prompt_version", ""),
+            fields.get("provider"),
+            fields.get("model"),
+            "proposed",
+            now,
+            now,
+        ]
+        scope_kind = fields.get("scope_kind") or "section"
+        if scope_kind != "section":
+            columns += ["scope_kind", "question_style", "anchor_span_ids_json", "inquiry_root_event_id"]
+            values += [
+                scope_kind,
+                fields.get("question_style") or "recall",
+                _json(list(fields.get("anchor_span_ids") or [])),
+                fields.get("inquiry_root_event_id"),
+            ]
         with self.connection() as connection:
             connection.execute(
-                "INSERT INTO reader_authored_questions("
-                "  id, extraction_id, section_id, source_id, question_md,"
-                "  expected_answer_md, span_ids_json, prompt_version, provider,"
-                "  model, status, created_at, updated_at"
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)",
-                (
-                    question_id,
-                    fields["extraction_id"],
-                    fields["section_id"],
-                    fields.get("source_id"),
-                    fields["question_md"],
-                    fields["expected_answer_md"],
-                    _json(list(fields.get("span_ids") or [])),
-                    fields.get("prompt_version", ""),
-                    fields.get("provider"),
-                    fields.get("model"),
-                    now,
-                    now,
-                ),
+                f"INSERT INTO reader_authored_questions({', '.join(columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)})",
+                tuple(values),
             )
             connection.commit()
         return question_id
+
+    def inquiry_reader_authored_question(
+        self, *, inquiry_root_event_id: str, prompt_version: str
+    ) -> dict[str, Any] | None:
+        """RW1a: the newest inquiry-scoped question for one root exchange and
+        prompt version, any status -- its reuse key (a dismissed row suppresses
+        re-authoring for its own key)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_authored_questions "
+                "WHERE scope_kind = 'inquiry' AND inquiry_root_event_id = ? AND prompt_version = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (inquiry_root_event_id, prompt_version),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def inquiry_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
+        """Every inquiry-scoped question (oldest first), for the reader report."""
+
+        query = "SELECT * FROM reader_authored_questions WHERE scope_kind = 'inquiry'"
+        params: list[Any] = []
+        if since is not None:
+            query += " AND created_at >= ?"
+            params.append(since)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
     def get_reader_authored_question(self, question_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -12857,9 +12903,12 @@ class Repository(
     ) -> list[dict[str, Any]]:
         """All authored questions for an extraction, newest first per section."""
 
+        # Section rows only (migration 189): a passage-scoped row never stands
+        # in for its section's quick check.
         with self.connection() as connection:
             rows = connection.execute(
                 "SELECT * FROM reader_authored_questions WHERE extraction_id = ? "
+                "AND scope_kind = 'section' "
                 "ORDER BY section_id, created_at DESC, id DESC",
                 (extraction_id,),
             ).fetchall()
@@ -12869,12 +12918,14 @@ class Repository(
         self, *, extraction_id: str, section_id: str
     ) -> dict[str, Any] | None:
         """The newest authored question for one section, any status — the
-        idempotency anchor: a dismissed row suppresses re-authoring."""
+        idempotency anchor: a dismissed row suppresses re-authoring. Section
+        rows only (migration 189): an inquiry row carries its anchor's section
+        but must never shadow the section's own quick check."""
 
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM reader_authored_questions "
-                "WHERE extraction_id = ? AND section_id = ? "
+                "WHERE extraction_id = ? AND section_id = ? AND scope_kind = 'section' "
                 "ORDER BY created_at DESC, id DESC LIMIT 1",
                 (extraction_id, section_id),
             ).fetchone()
@@ -12956,10 +13007,13 @@ class Repository(
         status: str,
         response_md: str | None = None,
         practice_item_id: str | None = None,
+        self_check: str | None = None,
         clock: Clock | None = None,
     ) -> bool:
         """Row-status transition (proposed -> answered | dismissed | escalated).
-        ``answered`` stamps the response; ``escalated`` pins the minted item."""
+        ``answered`` stamps the response; ``escalated`` pins the minted item;
+        ``self_check`` (RW1a) records the learner's own verdict and leaves the
+        status and answer time as they are."""
 
         now = utc_now_iso(clock)
         sets = ["status = ?", "updated_at = ?"]
@@ -12967,7 +13021,10 @@ class Repository(
         if response_md is not None:
             sets.append("response_md = ?")
             params.append(response_md)
-        if status == "answered":
+        if self_check is not None:
+            sets.append("self_check = ?")
+            params.append(self_check)
+        elif status == "answered":
             sets.append("answered_at = ?")
             params.append(now)
         if practice_item_id is not None:

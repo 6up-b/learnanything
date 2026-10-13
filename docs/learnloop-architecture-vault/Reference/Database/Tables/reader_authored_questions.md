@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "fb3b8493d3c74ac85368b4208e56a57210cf43ab"
+source_commit_timestamp: "2026-10-13T03:00:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 183
+schema_head: 189
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_guidance.py"
   - "src/learnloop/reader/reader_quick_check.py"
+  - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -51,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/105_reader_authored_questions.sql`.
-- **Schema touched by:** `105_reader_authored_questions.sql`.
+- **Schema touched by:** `105_reader_authored_questions.sql`, `189_reader_authored_question_scopes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -76,6 +77,11 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `practice_item_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `scope_kind` | `TEXT` | yes | `'section'` | — | Stored value |
+| `question_style` | `TEXT` | yes | `'recall'` | — | Stored value |
+| `anchor_span_ids_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `inquiry_root_event_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `self_check` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -83,6 +89,7 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 
 Indexes and uniqueness:
 
+- `idx_reader_authored_questions_inquiry` on `inquiry_root_event_id`, `prompt_version`.
 - `idx_reader_authored_questions_section` on `extraction_id`, `section_id`, `status`.
 - `sqlite_autoindex_reader_authored_questions_1` on `id` (unique).
 
@@ -92,6 +99,8 @@ Indexes and uniqueness:
 
 - `Repository.delete_source_artifact()`
 - `Repository.get_reader_authored_question()`
+- `Repository.inquiry_reader_authored_question()`
+- `Repository.inquiry_reader_authored_questions()`
 - `Repository.insert_reader_authored_question()`
 - `Repository.latest_reader_authored_question()`
 - `Repository.reader_authored_questions_for_extraction()`
@@ -100,6 +109,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
 
@@ -118,6 +128,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_reconnect.py`
 - `tests/test_reader_quick_check.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -153,7 +164,10 @@ CREATE TABLE reader_authored_questions (
   practice_item_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-);
+, scope_kind TEXT NOT NULL DEFAULT 'section'
+  CHECK (scope_kind IN ('section', 'inquiry', 'selection')), question_style TEXT NOT NULL DEFAULT 'recall'
+  CHECK (question_style IN ('recall', 'next_step', 'why_step', 'assumptions', 'reconstruct')), anchor_span_ids_json TEXT, inquiry_root_event_id TEXT, self_check TEXT
+  CHECK (self_check IS NULL OR self_check IN ('matches', 'partly', 'no')));
 ```
 
 ## Related notes

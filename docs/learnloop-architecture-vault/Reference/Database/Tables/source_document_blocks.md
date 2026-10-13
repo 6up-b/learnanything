@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "fb3b8493d3c74ac85368b4208e56a57210cf43ab"
+source_commit_timestamp: "2026-10-13T03:00:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 183
+schema_head: 189
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -138,6 +138,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_migrations.py`
+- `tests/test_reader_branches.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_daily_plan_reading.py`

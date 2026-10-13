@@ -59,6 +59,12 @@ READING_EVENT_KINDS: tuple[str, ...] = (
     "reader_answer_mode_set",
     "reader_disposition_chosen",
     "reader_source_restored",
+    # Reader workbench RW1a: model-backed actions' queue and completion rows
+    # (status, latency, model wait, the learner's activity while waiting) for
+    # the reader report's funnel. Kinds already in the envelope's CHECK since
+    # migration 091; first written by RW1a.
+    "reader_job_queued",
+    "reader_job_completed",
 )
 
 # Salience projections a versioned projector may emit (§8.2). All salience-only.

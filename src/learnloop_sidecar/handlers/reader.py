@@ -33,7 +33,11 @@ from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.handlers.ai_providers import provider_label, ready_tutor_qa_provider
+from learnloop_sidecar.handlers.ai_providers import (
+    provider_label,
+    ready_canonical_ingest_provider,
+    ready_tutor_qa_provider,
+)
 from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 from learnloop_sidecar.registry import method
 
@@ -1304,7 +1308,7 @@ def _authored_question_payload(row: dict[str, Any]) -> dict[str, Any]:
         span_ids = _json_mod.loads(row.get("span_ids_json") or "[]")
     except (TypeError, ValueError):
         span_ids = []
-    return {
+    payload = {
         "id": row["id"],
         "extraction_id": row["extraction_id"],
         "section_id": row["section_id"],
@@ -1315,6 +1319,21 @@ def _authored_question_payload(row: dict[str, Any]) -> dict[str, Any]:
         "practice_item_id": row.get("practice_item_id"),
         "answered_at": row.get("answered_at"),
     }
+    if (row.get("scope_kind") or "section") != "section":
+        # RW1a scoped rows only: section quick checks stay byte-identical.
+        try:
+            anchors = _json_mod.loads(row.get("anchor_span_ids_json") or "[]")
+        except (TypeError, ValueError):
+            anchors = []
+        payload.update({
+            "scope_kind": row.get("scope_kind"),
+            "question_style": row.get("question_style"),
+            "anchor_span_ids": [str(span_id) for span_id in anchors if isinstance(span_id, str)],
+            "inquiry_root_event_id": row.get("inquiry_root_event_id"),
+            "response_md": row.get("response_md"),
+            "self_check": row.get("self_check"),
+        })
+    return payload
 
 
 class ReaderAuthorSectionQuestionInput(ParamsModel):
@@ -1715,3 +1734,197 @@ def reader_manual_anchor(ctx: SidecarContext, params: ReaderManualAnchorInput) -
     except ANN.AnnotationError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(result)
+
+
+# ---------------------------------------------------------------------------
+# Reader workbench RW1a: inquiry status, reconnect and its passage-scoped quick
+# check, and the reader activity the funnel report reads
+# (spec_reader_workbench_v1 §4.1, §4.3). Every RPC here is gated on
+# reader_inquiry.enabled as well as the reader: switched off, the feature is
+# absent (no RPC answers), and every RPC RW1a extends answers as before.
+# Desktop only (pinned in tests/test_mobile_allowlist.py).
+# ---------------------------------------------------------------------------
+
+from learnloop.reader import reader_inquiry as RI  # noqa: E402
+from learnloop.tutor import question_queue as _QQ  # noqa: E402
+
+
+def _require_inquiry(ctx: SidecarContext):
+    vault, repository = _require_reader(ctx)
+    if not RD.inquiry_enabled(vault):
+        raise SidecarError(
+            "inquiry_disabled",
+            "Reader inquiries are switched off (reader_inquiry.enabled = false).",
+        )
+    return vault, repository
+
+
+def _inquiry_question_payload(vault, repository, row: dict[str, Any]) -> dict[str, Any]:
+    """An inquiry check's wire shape, with the Learning Object "add to
+    practice" would file it under (the anchor's provenance-linked LO, if any)."""
+
+    from learnloop.reader.reader_progression import learning_objects_for_span
+
+    payload = _authored_question_payload(row)
+    anchors = payload.get("anchor_span_ids") or payload.get("span_ids") or []
+    learning_object_id = None
+    for span_id in anchors:
+        linked = learning_objects_for_span(
+            vault, repository, extraction_id=row["extraction_id"], span_id=span_id
+        )
+        if linked:
+            learning_object_id = linked[0]
+            break
+    payload["escalation_learning_object_id"] = learning_object_id
+    return payload
+
+
+class ReaderSetInquiryStatusInput(ParamsModel):
+    extraction_id: str
+    # Any exchange in the inquiry; the status lands on its root's question.
+    exchange_id: str
+    resolution: str
+    trigger: str = "chip"
+
+
+@method("reader.set_inquiry_status", ReaderSetInquiryStatusInput)
+def reader_set_inquiry_status(ctx: SidecarContext, params: ReaderSetInquiryStatusInput) -> dict[str, Any]:
+    """Open, resolve, dismiss or reopen an inquiry (its root question's resolution)."""
+
+    _vault, repository = _require_inquiry(ctx)
+    try:
+        result = RI.set_inquiry_status(
+            repository,
+            extraction_id=params.extraction_id,
+            exchange_id=params.exchange_id,
+            resolution=params.resolution,
+            trigger=params.trigger,
+        )
+    except RI.InquiryError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned({**result, "open_count": _QQ.count_open_questions(repository)})
+
+
+class ReaderReconnectAnswerInput(ParamsModel):
+    extraction_id: str
+    exchange_id: str
+    answer: str
+    via: str = "rail"
+
+
+@method("reader.reconnect_answer", ReaderReconnectAnswerInput)
+def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerInput) -> dict[str, Any]:
+    """The reconnect line's answer: yes resolves the root; quick check queues the
+    passage-scoped question (never on the request path: a durable job writes it)."""
+
+    vault, repository = _require_inquiry(ctx)
+    try:
+        result = RI.answer_reconnect(
+            repository,
+            extraction_id=params.extraction_id,
+            exchange_id=params.exchange_id,
+            answer=params.answer,
+            via=params.via,
+        )
+    except RI.InquiryError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    response: dict[str, Any] = {
+        "root_exchange_id": result["root_exchange_id"],
+        "question_event_id": result["question_event_id"],
+        "answer": result["answer"],
+        "resolution": result["resolution"],
+        "status": None,
+        "batch_id": None,
+        "message": None,
+        "question": None,
+    }
+    if params.answer == "quick_check":
+        existing = repository.inquiry_reader_authored_question(
+            inquiry_root_event_id=result["root_exchange_id"], prompt_version=RQC.INQUIRY_PROMPT_VERSION
+        )
+        if existing is not None:
+            response["status"] = "exists"
+            response["question"] = _inquiry_question_payload(vault, repository, existing)
+        else:
+            _provider, runtime, client = ready_canonical_ingest_provider(vault)
+            if client is None:
+                response["status"] = "provider_unavailable"
+                response["message"] = (
+                    getattr(runtime, "message", None)
+                    or "LearnLoop's model is unavailable for a quick check."
+                )
+            else:
+                response["status"] = "queued"
+                response["batch_id"] = ctx.ingest_jobs.enqueue_reader_inquiry_check(
+                    extraction_id=params.extraction_id,
+                    inquiry_root_event_id=result["root_exchange_id"],
+                    anchor_span_ids=result["anchor_span_ids"],
+                )
+    return versioned(response)
+
+
+class ReaderInquiryQuestionInput(ParamsModel):
+    extraction_id: str
+    exchange_id: str
+
+
+@method("reader.inquiry_question", ReaderInquiryQuestionInput)
+def reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionInput) -> dict[str, Any]:
+    """The inquiry's passage-scoped quick check, once authored (a cheap local read)."""
+
+    vault, repository = _require_inquiry(ctx)
+    try:
+        root = RI.resolve_inquiry_root(
+            repository, extraction_id=params.extraction_id, exchange_id=params.exchange_id
+        )
+    except RI.InquiryError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    row = repository.inquiry_reader_authored_question(
+        inquiry_root_event_id=root["event_id"], prompt_version=RQC.INQUIRY_PROMPT_VERSION
+    )
+    return versioned({"question": _inquiry_question_payload(vault, repository, row) if row else None})
+
+
+class ReaderInquiryQuestionActionInput(ParamsModel):
+    question_id: str
+    action: str
+    response: str | None = None
+    self_check: str | None = None
+
+
+@method("reader.inquiry_question_action", ReaderInquiryQuestionActionInput)
+def reader_inquiry_question_action(
+    ctx: SidecarContext, params: ReaderInquiryQuestionActionInput
+) -> dict[str, Any]:
+    """Answer, self-check (matches · partly · no) or dismiss an inquiry check.
+    Formative: the row is the record; no attempt is written."""
+
+    vault, repository = _require_inquiry(ctx)
+    try:
+        row = RQC.record_inquiry_action(
+            repository,
+            question_id=params.question_id,
+            action=params.action,
+            response_md=params.response,
+            self_check=params.self_check,
+        )
+    except RQC.ReaderQuickCheckError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned({"question": _inquiry_question_payload(vault, repository, row)})
+
+
+class ReaderLogActivityInput(ParamsModel):
+    events: list[dict[str, Any]]
+
+
+@method("reader.log_activity", ReaderLogActivityInput)
+def reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> dict[str, Any]:
+    """Record the Reader's funnel events (salience only; ids, kinds and timings,
+    never learner text). All-or-nothing per call."""
+
+    _vault, repository = _require_inquiry(ctx)
+    try:
+        ids = RI.record_activity(repository, params.events)
+    except RI.InquiryError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned({"recorded": len(ids)})
