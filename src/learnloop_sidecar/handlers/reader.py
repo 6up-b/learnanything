@@ -1932,6 +1932,12 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
     passage-scoped question (never on the request path: a durable job writes it)."""
 
     vault, repository = _require_inquiry(ctx)
+    if params.answer == "quick_check":
+        # The passage check sends the passage to an AI: never for a book kept
+        # on this computer (UX Phase 1 review F1, extended to RW1a's check at
+        # the landing on main), refused before anything is recorded.
+        resolved = resolve_extraction_id(repository, params.extraction_id)
+        _refuse_kept_local(repository, _source_id_for_extraction(repository, resolved) if resolved else None)
     try:
         result = RI.answer_reconnect(
             repository,

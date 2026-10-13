@@ -1185,6 +1185,9 @@ class BuildPlanChoice:
     stages: dict[str, int]
     totals: dict[str, Any]
     outline: Any
+    #: Units of the book that are exam material (main's exam predicate:
+    #: ``held_out_evaluation`` units, exam roles): never built as teaching.
+    withheld_unit_ids: frozenset[str] = frozenset()
 
     @property
     def info(self) -> dict[str, Any]:
@@ -1201,7 +1204,10 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
 
     revision_id, extraction_id = resolved
     outline = build_source_outline(repo, extraction_id)
-    chapters = outline_chapters(outline)
+    withheld = exam_material_units(vault, repo, source_id, revision_id, extraction_id)
+    if withheld is None:
+        return None  # the whole book is exam material: nothing is built from it
+    chapters = _without_units(outline_chapters(outline), withheld)
     covered = coverage(repo, source_id, exclude_job_id=exclude_job_id).covered
     whole = False
     if chapter_ids:
@@ -1229,9 +1235,52 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
     stages = {str(stage.get("stage")): int(stage.get("input_tokens") or 0) + int(stage.get("max_output_tokens") or 0)
               for stage in plan.get("stages") or []}
     return BuildPlanChoice(
-        extraction_id=extraction_id, revision_id=revision_id, chapters=picked, whole=whole,
+        extraction_id=extraction_id, revision_id=revision_id, chapters=picked, whole=whole and not withheld,
         unit_ids=unit_ids, stages=stages, totals=dict(plan["totals"]), outline=outline,
+        withheld_unit_ids=frozenset(withheld),
     )
+
+
+def exam_material_units(vault, repo, source_id: str, revision_id: str | None,
+                        extraction_id: str) -> frozenset[str] | None:
+    """The book's units that are exam material, by main's exam predicate
+    (``source_retrieval.corpus``: exam-role members and unit overrides, and
+    every ``held_out_evaluation`` unit whatever its member's role, including
+    the book's own before its first study map). ``None``: the whole extraction
+    is exam material. An automatic build never takes them as teaching (the
+    exam composition check at UX Phase 1's landing on main)."""
+
+    from learnloop.db.stores.source_block_fts import extraction_units
+    from learnloop.source_retrieval.corpus import source_exam_exclusions
+
+    exam = source_exam_exclusions(vault, repo, source_id=source_id, revision_id=revision_id)
+    if extraction_id in exam.extractions:
+        return None
+    if not exam.spans:
+        return frozenset()
+    with repo.connection() as connection:
+        units = extraction_units(connection, extraction_id)
+    return frozenset(
+        unit.unit_id for unit in units
+        if any((extraction_id, span_id) in exam.spans for span_id in unit.span_ids)
+    )
+
+
+def _without_units(chapters: Sequence[Chapter], withheld: frozenset[str]) -> list[Chapter]:
+    """Chapters minus their withheld units; a chapter left with none is dropped."""
+
+    if not withheld:
+        return list(chapters)
+    kept: list[Chapter] = []
+    for chapter in chapters:
+        unit_ids = tuple(unit_id for unit_id in chapter.unit_ids if unit_id not in withheld)
+        if not unit_ids:
+            continue
+        if len(unit_ids) == len(chapter.unit_ids):
+            kept.append(chapter)
+        else:
+            kept.append(replace(chapter, unit_ids=unit_ids))
+    return kept
 
 
 def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bool = False,
@@ -1374,7 +1423,9 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
             for entry in member.scope
         ]
         order = {unit.unit_id: index for index, unit in enumerate(choice.outline.units)}
-        scope = sorted(set(previous) | set(unit_ids), key=lambda unit_id: order.get(unit_id, len(order)))
+        # Exam material marked since an earlier build leaves the scope too.
+        scope = sorted((set(previous) | set(unit_ids)) - choice.withheld_unit_ids,
+                       key=lambda unit_id: order.get(unit_id, len(order)))
         upsert_source_set(
             ctx.vault_root,
             {

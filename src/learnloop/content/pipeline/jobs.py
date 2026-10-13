@@ -2426,6 +2426,10 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     )
     if existing is not None:
         return {"question_id": existing["id"], "deduplicated": True}
+    # A book kept on this computer sends nothing to an AI (UX Phase 1 review
+    # F1), RW1a's passage check included: read when the job runs, so a book
+    # kept local after the check was queued is never sent.
+    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
     ctx.report("authoring", message="Authoring a quick check for this passage")
     try:
         client = ctx.services.quick_check_client(ctx)
