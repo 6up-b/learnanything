@@ -62,7 +62,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_184"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_185"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 LEARNER_GAP_TABLES = {
     "learner_text_gaps",
@@ -73,10 +73,13 @@ LEARNER_GAP_TABLES = {
 }
 
 
-def test_learner_text_gap_successor_is_the_latest_and_keeps_every_predecessor():
+def test_learner_text_gap_successor_keeps_every_predecessor():
     assert LEARNER_TEXT_GAP_ALGORITHM_VERSION == "mvp-0.16"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16"})
+    # The proofs-and-explanations route check (mvp-0.17, the latest successor,
+    # tests/test_mvp017_upgrade.py) followed it and keeps the sooner check.
+    assert SUCCESSOR_CHAIN[-2] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.17"
+    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16", "mvp-0.17"})
     # The chain is linear: mvp-0.16 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check.
@@ -99,6 +102,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.14": (True, True, True, False, False),
         "mvp-0.15": (True, True, True, True, False),
         "mvp-0.16": (True, True, True, True, True),
+        "mvp-0.17": (True, True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -107,6 +111,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
             split_grading_active(vault), placement_active(vault), plan_active(vault),
             probe_ties_admitted(vault.config), gap_sooner_checks_active(vault),
         ) == flags, version
+    set_algorithm_version(paths, "mvp-0.16")
     vault = load_vault(paths.root)
     assert recurrence_active(vault) and stuck_prompt_active(vault)
     append_config_toml(paths.root, "[learner_text_gaps]\nsooner_check_enabled = false\n")
@@ -207,14 +212,17 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     assert result.exit_code == 0, result.output
 
 
-def test_new_vaults_start_at_the_learner_text_gap_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
+def test_new_vaults_start_at_a_successor_with_sooner_checks(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
+    (mvp-0.17 since the proofs route check merged), which keeps the sooner
+    check."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.16"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION in LEARNER_TEXT_GAP_VERSIONS
     assert gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config) and plan_active(fresh)
 
 

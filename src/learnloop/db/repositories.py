@@ -3116,6 +3116,30 @@ class Repository(
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def answer_confidence_presence(self) -> dict[str, int]:
+        """How often an ordinary graded attempt carries a pre-answer confidence tap.
+
+        The duel's denominator: graded, unprimed, unhinted ordinary attempts
+        (the duel's own exclusions, without its scheduler-candidate match).
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS graded,
+                       COALESCE(SUM(a.answer_confidence IS NOT NULL), 0) AS with_confidence
+                FROM practice_attempts a
+                WHERE a.correctness IS NOT NULL
+                  AND COALESCE(a.primed, 0) = 0
+                  AND COALESCE(a.hints_used, 0) = 0
+                  AND a.attempt_type NOT IN (
+                    'hinted_attempt', 'guided_walkthrough', 'self_report',
+                    'dont_know', 'skip'
+                  )
+                """
+            ).fetchone()
+        return {"graded_attempts": int(row["graded"]), "with_confidence": int(row["with_confidence"])}
+
     def pending_followup_practice_item_ids(self, *, clock: Clock | None = None) -> list[str]:
         """Return queued follow-up item ids that have not yet been attempted."""
 

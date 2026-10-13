@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 184
+schema_head: 185
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/substrate/canonical_projection.py`
@@ -161,6 +162,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_answer_signal_arms.py`
 - `tests/test_assumed_known.py`
 - `tests/test_characterization_certification_ledger.py`
 - `tests/test_cli_attempt.py`
@@ -180,7 +182,6 @@ Indexes and uniqueness:
 - `tests/test_show.py`
 - `tests/test_teach_back.py`
 - `tests/test_voi_forecasts.py`
-- `tests/test_agent_runs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

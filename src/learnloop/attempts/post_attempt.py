@@ -127,7 +127,15 @@ def run_post_attempt_pipeline(
         applied_episode = (
             repository.probe_episode(applied_episode_id) if applied_episode_id else None
         )
-        blind = repository.latest_blind_grade_record(result.attempt_id) is not None
+        blind_row = repository.latest_blind_grade_record(result.attempt_id)
+        blind = blind_row is not None
+        if suppress_insertion_reason is None:
+            from learnloop.attempts.proof_check import HELD_FOR_REVIEW_SUPPRESSION, record_held_for_review
+
+            # mvp-0.17 (re-review F9): a grade held for review schedules
+            # nothing, follow-ups included, until it is settled.
+            if record_held_for_review(blind_row):
+                suppress_insertion_reason = HELD_FOR_REVIEW_SUPPRESSION
         deferred = _defers_to_block_end(repository, result, applied_episode)
         if not deferred and not blind:
             normalize_and_resolve_attempt(

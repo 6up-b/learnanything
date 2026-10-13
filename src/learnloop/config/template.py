@@ -968,7 +968,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change and no successor. Every snapshot moves only because the effective
     # config gains the section; all eight were recomputed
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "7c54958de0749771c53b489def2967f59de0d0af7cf9300ad80e66f7ac8b2671",
+    # The proofs-and-explanations route check (grading/proof-alternatives,
+    # built as mvp-0.15, a placeholder tag, and relabelled mvp-0.17 at its
+    # merge after EVSI calibration) adds [proof_check] enabled = true
+    # (modelled default, left out of the decision-only template) and the unset
+    # ai.routing.proof_check route. Both are dormant below mvp-0.17 (the
+    # algorithm version gates the check), so mvp-0.9 to mvp-0.16 grading is
+    # unchanged; every snapshot moves only because the effective config gains
+    # them, and all nine were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "1982d170c8842e5595fe4bb2aff0f701d3d7e2a50eb64cb59b11897220710587",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -988,7 +996,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "9525cb495a0cae1427dafecc7d596a1090ce700207d5391be88d0aecbd9833f5",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.10": "ea0999608965e5394902bb414559eec247d8440d499b92d4b7688763b582f6c9",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1016,7 +1025,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "96f868c53e72ccbfa1ae4eaa8b75f793431196a54a74271842fbdca17cfc9f4d",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.11": "a117a0dd72c739d4bd81e47821c232733141737a61a3f85b736e506f3648cdcb",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1038,7 +1048,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "7f02a2cf99719a3e723132dc9bc1fd0e8e3b775282e240a962dca159c1cea05e",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.12": "a8f0268cff95f6f53523917ba93fb4a4ee3788f6cc2143a2cc8e329aadf3ffef",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1055,7 +1066,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "3706c9a4e280b68159dfd51d9e4483c7a0075297ce81081c371d0eff1edeedaa",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.13": "683b8d4c84b75388591ff0aead126a7451d45201cbe5c1d7b257a7797bdc6268",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1071,7 +1083,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "879f0103f138b537f4e7f3ba4f458412aa2bb93121ef91034af1252419416e5c",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.14": "9d55701b3189bcdb8847d91cf79e9c03d168e2a2fd6be83561cef9a4a7a7f02e",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1085,7 +1098,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "40ce994137088d5a5d46dc1a48a34d613869fe2da3424ec2c089d98e7abf3848",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.15": "5018e39f4b634a27d933346c5e5470662edbbd2acd2eddb897c29676ae88f5c4",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1094,8 +1108,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # learner_text_gaps.sooner_check_enabled. Built as mvp-0.13 and relabelled
     # at its merge. Existing vaults reach it by `learnloop upgrade` (default
     # target) from mvp-0.15, or from mvp-0.9 to mvp-0.14 through the chain
-    # (under mvp-0.12's advisory guard). New vaults start here (the template's
-    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12). The rest of
+    # (under mvp-0.12's advisory guard). New vaults started here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.17 merged. The rest of
     # [learner_text_gaps] (modelled defaults only, left out of the
     # decision-only template) and the unset learner_gap_judge /
     # learner_gap_reader / learner_gap_decider routes are live at every
@@ -1105,7 +1120,23 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "96cc56eecfacd308043fa25f91a638a7e0000eb76e3a20e7526899d469f9bf52",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.16": "d8a4bc9b4c642fc9cc99f821deceda324fa9acc301905032da4b3fa244a79ee2",
+    # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
+    # placeholder tag, and relabelled at its merge): mvp-0.16's split,
+    # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
+    # check plus the valid-alternative gate for proofs and explanations
+    # (proof_check.enabled = true; ai.routing.proof_check unset = the first
+    # configured route with a model other than the grader's): on an item an
+    # LLM reads as proof-like, an independent re-derivation of the learner's
+    # route restores a criterion marked down without a located error, records
+    # one disputed on a located step unassessed, flags an accepted step it
+    # refutes, and holds for review a grade with nothing assessed and nothing
+    # validated. Existing vaults reach it by `learnloop upgrade` (default
+    # target) from mvp-0.16, or from mvp-0.9 to mvp-0.15 through the chain
+    # (under mvp-0.12's advisory guard). New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.17": "fcd35e7e7c563cbe66b4ce632b533b06a19bd97d8fcf7da404c16b7ff77c938a",
 }
 
 
