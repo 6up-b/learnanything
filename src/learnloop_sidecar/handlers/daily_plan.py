@@ -11,6 +11,7 @@ them to its allowlist later).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal
 
 from learnloop.daily_plan.engine import (
@@ -95,6 +96,10 @@ class PlanLearnerPickInput(ParamsModel):
     #: A ``find_practice`` proposal the learner picked this item from (canonical
     #: sources S0): the pick appends the proposal's ``practised`` usage signal.
     proposal_id: str | None = None
+    #: The ``import_source_exercise`` import that wrote this item from a
+    #: proposed textbook exercise (with ``proposal_id``): serving it delivers
+    #: that exercise.
+    source_exercise_import_id: str | None = None
 
 
 def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> PlanEnv:
@@ -257,16 +262,25 @@ def plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, An
 
 @method("plan_learner_pick", PlanLearnerPickInput)
 def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
-    """Open an item from the full list: a one-item learner-pick block (L3, G12)."""
+    """Open an item from the full list: a one-item learner-pick block (L3, G12).
 
-    pick = _record_proposal_pick(ctx, params) if params.proposal_id else None
+    A proposal's pick is two records on either side of serving: the learner's
+    selection (the usage signal, validated before anything is served) and, once
+    the item was served, its delivery (S5's intervention, with the exact router
+    decision of the block that served it)."""
+
+    if params.source_exercise_import_id and not params.proposal_id:
+        raise SidecarError("validation_error", "An imported exercise is delivered with its proposal.",
+                           details={"field": "proposalId"})
+    selection = _proposal_selection(ctx, params) if params.proposal_id else None
     required = _require(ctx, params.session_id)
     if required is None:
-        # The plan is off: the open-list pick serves the item (DL0's open); the
-        # proposal's pick is still recorded.
+        # The plan is off: the open-list pick serves the item (DL0's open, which
+        # the response tells the surface to take); the delivery is recorded
+        # with no router decision.
         off = _off(ctx)
-        if pick is not None:
-            off["proposalPick"] = to_camel(pick)
+        if selection is not None:
+            off["proposalPick"] = to_camel(_proposal_delivery(ctx, params, selection, router_decision_id=None))
         return off
     _vault, _repository, env = required
     try:
@@ -276,23 +290,54 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     except KeyError as exc:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.") from exc
     result = {"enabled": True, "step": step, **_current_view(env)}
-    if pick is not None:
-        result["proposal_pick"] = pick
+    if selection is not None:
+        result["proposal_pick"] = _proposal_delivery(ctx, params, selection,
+                                                     router_decision_id=_served_decision(record, step))
     return versioned(result)
 
 
-def _record_proposal_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
-    """The ``practised`` usage signal for a picked proposal (S0, §6.3)."""
+def _served_decision(record: Any, step: Mapping[str, Any]) -> str | None:
+    """The router decision of the block that served the pick (its ``decision_ref``,
+    R1's row when R1 logs plan decisions), or None."""
 
-    from learnloop.instructional.practice import record_proposal_pick
+    block_id = (step or {}).get("block_id")
+    if record is None or not block_id:
+        return None
+    block = next((block for block in record.blocks if block.id == block_id), None)
+    return getattr(block, "decision_ref", None)
+
+
+def _proposal_selection(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
+    """The learner's selection, validated before serving (S0, §6.3)."""
+
+    from learnloop.instructional.practice import imported_exercise_selection, record_proposal_selection
 
     vault, repository = ctx.require_vault()
     try:
-        return record_proposal_pick(repository, proposal_id=str(params.proposal_id),
-                                    practice_item_id=params.practice_item_id, vault=vault,
-                                    session_id=params.session_id)
+        if params.source_exercise_import_id:
+            # The exercise's usage verdict was recorded when it was picked for import.
+            return imported_exercise_selection(repository, proposal_id=str(params.proposal_id),
+                                               import_id=params.source_exercise_import_id,
+                                               practice_item_id=params.practice_item_id)
+        return record_proposal_selection(repository, proposal_id=str(params.proposal_id),
+                                         practice_item_id=params.practice_item_id, vault=vault)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+
+
+def _proposal_delivery(ctx: SidecarContext, params: PlanLearnerPickInput, selection: dict[str, Any], *,
+                       router_decision_id: str | None) -> dict[str, Any]:
+    """S5's intervention for a served pick (after serving succeeded)."""
+
+    from learnloop.instructional.practice import record_proposal_delivery
+
+    vault, repository = ctx.require_vault()
+    exercise = selection.pop("exercise", None)
+    selection["intervention_id"] = record_proposal_delivery(
+        vault, repository, selection, session_id=params.session_id, router_decision_id=router_decision_id,
+        exercise=exercise, import_id=selection.get("import_id"))
+    selection["router_decision_id"] = router_decision_id
+    return selection
 
 
 @method("get_today_headline", PlanSessionInput)

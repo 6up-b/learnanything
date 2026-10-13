@@ -73,9 +73,11 @@ class GetSourceExerciseImportInput(ParamsModel):
 def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExerciseInput) -> dict[str, Any]:
     """A learner picked a textbook exercise proposal: queue its import (S1, §6.3).
 
-    The pick is recorded at once; the job authors the exercise around its
-    verbatim statement, checks the key within the time box and writes the
-    item. The frontend follows it with ``get_source_exercise_import``."""
+    The selection (the usage verdict) is recorded at once; the job authors the
+    exercise around its verbatim statement, checks the key within the time box
+    and writes the item. The frontend follows it with
+    ``get_source_exercise_import`` and, once written, serves the item through
+    ``plan_learner_pick`` with this import's id, which records its delivery."""
 
     from learnloop.db.stores.source_service import insert_import
     from learnloop.ids import new_ulid
@@ -96,8 +98,7 @@ def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExercise
                       extraction_id=params.extraction_id, span_ids=list(params.span_ids), status="authoring",
                       proposal_id=params.proposal_id, source_id=entry.get("source_id"),
                       revision_id=entry.get("revision_id"), label=entry.get("label"))
-    record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry, vault=vault,
-                         session_id=params.session_id)
+    record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry)
     batch_id = ctx.ingest_jobs.enqueue_source_exercise_import(
         import_id=import_id, extraction_id=params.extraction_id, span_ids=list(params.span_ids),
         proposal_id=params.proposal_id, label=entry.get("label"),

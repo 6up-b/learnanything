@@ -37,7 +37,6 @@ from learnloop.db.stores.source_service import (
     insert_intervention,
     interventions as stored_interventions,
     outcomes as stored_outcomes,
-    router_pick_decision,
     tool_call,
     tool_call_runs,
 )
@@ -113,18 +112,22 @@ def _state_ref(valuation: Mapping[str, Any] | None) -> dict[str, Any]:
 
 def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str, practice_item_id: str | None = None,
                 exercise: Mapping[str, Any] | None = None, serve_verdict: Mapping[str, Any] | None = None,
-                session_id: str | None = None, clock: Clock | None = None) -> str | None:
-    """A proposal picked: an item (``practice_pick``) or a textbook exercise (``source_exercise``)."""
+                session_id: str | None = None, router_decision_id: str | None = None,
+                import_id: str | None = None, clock: Clock | None = None) -> str | None:
+    """A picked proposal delivered: an item (``practice_pick``) or an imported
+    textbook exercise (``source_exercise``, with the item it became).
+
+    Called after the serving path succeeded. ``router_decision_id`` is the
+    decision that path returned (R1's row for the block that served it); the
+    current decision is never inferred from a "latest matching row"."""
 
     if not interventions_active(vault):
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         found = stored_proposal(connection, proposal_id) or {}
         impressions = [row["id"] for row in impressions_for_proposal(connection, proposal_id)]
-        router_id = (router_pick_decision(connection, practice_item_id=practice_item_id, session_id=session_id)
-                     if practice_item_id else None)
     valuation = found.get("valuation")
-    ref = practice_item_id or str((exercise or {}).get("key") or "")
+    ref = str((exercise or {}).get("key") or "") if exercise is not None else (practice_item_id or "")
     check = _check_entry(valuation, ref)
     eligibility = None
     valuation_time = ((valuation or {}).get("eligibility") or {}).get(ref)
@@ -135,7 +138,7 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
         if verdict and verdict.get("label"):
             label = verdict["label"]
     constraints = found.get("constraints") or {}
-    if practice_item_id:
+    if exercise is None and practice_item_id:
         item = vault.practice_items.get(practice_item_id)
         assets = {"practice_item_ids": [practice_item_id],
                   "family_ids": [item.family_id] if item is not None and item.family_id else []}
@@ -146,6 +149,10 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
         assets = {"exercise_key": entry.get("key"),
                   "span_keys": [f"{entry.get('extraction_id')}:{span}" for span in entry.get("span_ids") or ()],
                   "source_versions": {str(entry.get("extraction_id")): entry.get("revision_id")}}
+        if practice_item_id:
+            assets["practice_item_ids"] = [practice_item_id]
+        if import_id:
+            assets["import_id"] = import_id
         facets = list(constraints.get("facet_ids") or (entry.get("provisional") or {}).get("facets") or [])
         kind = "source_exercise"
     since = None
@@ -155,7 +162,7 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
     return record_intervention(
         vault, repository, kind=kind, clock=clock, caller_kind=found.get("caller") or "learner",
         caller_ref=found.get("caller_ref"), intent=found.get("intent") or constraints.get("intent") or "practice",
-        policy="reading", proposal_id=proposal_id, router_decision_id=router_id, assets=assets,
+        policy="reading", proposal_id=proposal_id, router_decision_id=router_decision_id, assets=assets,
         targets={"facets": facets, "learning_object_ids": list(constraints.get("learning_object_ids") or ()),
                  "hypotheses": list(constraints.get("target_hypotheses") or ())},
         state_ref=_state_ref(valuation), valuation=check, impression_ids=impressions,

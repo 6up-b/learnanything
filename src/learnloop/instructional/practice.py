@@ -161,15 +161,17 @@ def record_proposal_impressions(vault: LoadedVault, repository: Repository, *, p
             "dropped": dropped}
 
 
-def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_item_id: str,
-                         clock: Clock | None = None, vault: LoadedVault | None = None,
-                         session_id: str | None = None) -> dict[str, Any]:
-    """The ``practised`` usage signal at the pick (idempotent).
+def record_proposal_selection(repository: Repository, *, proposal_id: str, practice_item_id: str,
+                              clock: Clock | None = None, vault: LoadedVault | None = None) -> dict[str, Any]:
+    """The learner's selection of a proposed item: the ``practised`` usage
+    signal (idempotent), recorded before serving so a bad proposal is refused
+    before anything is served.
 
     A pick of a ``discriminate`` or ``retention`` proposal re-checks
-    independence first (§5.4): if the candidate was exposed since it was
-    valued, the pick still proceeds, as practice, with the independent label
-    dropped and the reason shown."""
+    independence (§5.4): if the candidate was exposed since it was valued,
+    the pick still proceeds, as practice, with the independent label dropped
+    and the reason shown. Nothing here says the item was delivered: that is
+    :func:`record_proposal_delivery`, after the serving path succeeded."""
 
     result = dict(record_practice_usage(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
                                         signal="practised", clock=clock))
@@ -185,14 +187,38 @@ def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_i
         result["served_as"] = "independent_check" if verdict["eligible"] else "practice"
         if not verdict["eligible"]:
             result["label"] = "you've seen this question since it was suggested"
-    if vault is not None:
-        # S5: a picked proposal is an intervention (shown and served).
-        from learnloop.instructional.interventions import record_pick
+    return result
 
-        result["intervention_id"] = record_pick(vault, repository, proposal_id=proposal_id,
-                                                practice_item_id=practice_item_id,
-                                                serve_verdict=result.get("independence"), session_id=session_id,
-                                                clock=clock)
+
+def record_proposal_delivery(vault: LoadedVault, repository: Repository, selection: Mapping[str, Any], *,
+                             session_id: str | None = None, router_decision_id: str | None = None,
+                             exercise: Mapping[str, Any] | None = None, import_id: str | None = None,
+                             clock: Clock | None = None) -> str | None:
+    """S5: the picked proposal was delivered (shown and served), after the
+    serving path succeeded. ``router_decision_id`` is the exact decision the
+    serving path returned (R1's row for the block that served it), never a
+    "latest matching row" lookup; ``exercise`` and ``import_id`` name the
+    textbook exercise an imported item came from."""
+
+    from learnloop.instructional.interventions import record_pick
+
+    return record_pick(vault, repository, proposal_id=str(selection["proposal_id"]),
+                       practice_item_id=str(selection["practice_item_id"]), exercise=exercise, import_id=import_id,
+                       serve_verdict=selection.get("independence"), session_id=session_id,
+                       router_decision_id=router_decision_id, clock=clock)
+
+
+def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_item_id: str,
+                         clock: Clock | None = None, vault: LoadedVault | None = None,
+                         session_id: str | None = None, router_decision_id: str | None = None) -> dict[str, Any]:
+    """Selection and delivery together, for a caller that has already served
+    the item (the sidecar's pick records them on either side of serving)."""
+
+    result = record_proposal_selection(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
+                                       clock=clock, vault=vault)
+    if vault is not None:
+        result["intervention_id"] = record_proposal_delivery(vault, repository, result, session_id=session_id,
+                                                             router_decision_id=router_decision_id, clock=clock)
     return result
 
 
@@ -212,12 +238,14 @@ def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: s
 
 
 def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Mapping[str, Any],
-                         clock: Clock | None = None, vault: LoadedVault | None = None,
-                         session_id: str | None = None) -> str:
+                         clock: Clock | None = None) -> str:
     """The ``practised`` usage verdict for a picked textbook exercise (idempotent).
 
-    The exercise is not an item until imported, so the verdict names its stable
-    exercise key (``right_kind = source_exercise``)."""
+    The learner's selection only: the exercise is not an item until imported,
+    so the verdict names its stable exercise key (``right_kind =
+    source_exercise``). Its delivery is recorded once the import has written
+    the item and the serving path served it (:func:`record_proposal_delivery`
+    with the exercise and the import)."""
 
     key = str(entry.get("key") or "")
     judgment_id = "pus_" + content_key([proposal_id, key, "practised"])[:40]
@@ -229,11 +257,25 @@ def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Map
                 input_hash=content_key([proposal_id, key]), verdict="practised",
                 rationale="learner pick of a textbook exercise proposal", created_at=utc_now_iso(clock),
             )
-    if vault is not None:
-        from learnloop.instructional.interventions import record_pick
-
-        record_pick(vault, repository, proposal_id=proposal_id, exercise=entry, session_id=session_id, clock=clock)
     return judgment_id
+
+
+def imported_exercise_selection(repository: Repository, *, proposal_id: str, import_id: str,
+                                practice_item_id: str) -> dict[str, Any]:
+    """The selection behind serving an imported textbook exercise: its import
+    must have come from this proposal and written this item (ValueError)."""
+
+    from learnloop.db.stores.source_service import import_row
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = import_row(connection, import_id)
+    if row is None or row.get("proposal_id") != proposal_id:
+        raise ValueError("That import did not come from this proposal")
+    if row.get("status") != "written" or row.get("practice_item_id") != practice_item_id:
+        raise ValueError("That import has not written this item")
+    entry = proposed_exercise(repository, proposal_id, str(row["extraction_id"]), list(row.get("span_ids") or ()))
+    return {"proposal_id": proposal_id, "practice_item_id": practice_item_id, "signal": "practised",
+            "import_id": import_id, "exercise": entry}
 
 
 __all__ = [
@@ -242,7 +284,10 @@ __all__ = [
     "propose_practice",
     "record_proposal_impressions",
     "proposed_exercise",
+    "imported_exercise_selection",
     "record_exercise_pick",
+    "record_proposal_delivery",
     "record_proposal_pick",
+    "record_proposal_selection",
     "service_enabled",
 ]

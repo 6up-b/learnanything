@@ -10,7 +10,8 @@ from learnloop.instructional.interventions import (
 )
 from learnloop.instructional.policy import caller_for, caller_for_question_event
 from learnloop.instructional.practice import (
-    propose_practice, proposed_exercise, record_exercise_pick, record_proposal_impressions, record_proposal_pick,
+    propose_practice, proposed_exercise, record_exercise_pick, record_proposal_delivery, record_proposal_impressions,
+    record_proposal_pick,
 )
 from learnloop.instructional.tools import run_tool
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, insert_question, loaded, set_config
@@ -56,15 +57,19 @@ def test_an_exercise_pick_and_a_need_served_are_source_exercise_rows(textbook):
                               caller=caller_for(repository, "plan"), rerank_client=llm,
                               exercise_arm=exercise_candidates)
     entry = result["source_exercises"][0]
-    record_exercise_pick(repository, proposal_id=result["proposal_id"],
-                         entry=proposed_exercise(repository, result["proposal_id"], entry["extraction_id"],
-                                                 entry["span_ids"]), vault=vault)
+    proposed = proposed_exercise(repository, result["proposal_id"], entry["extraction_id"], entry["span_ids"])
+    record_exercise_pick(repository, proposal_id=result["proposal_id"], entry=proposed)
+    assert _rows(repository) == []  # the selection alone: nothing delivered yet
+    record_proposal_delivery(vault, repository, {"proposal_id": result["proposal_id"],
+                                                 "practice_item_id": "pi_eigen_1"},
+                             exercise=proposed, import_id="sei_1")
     record_need_served(vault, repository, {"id": "need_1", "target_facets": ["facet_eigen"],
                                            "learning_object_id": "lo_matrices", "attempt_id": None},
                        practice_item_id="pi_eigen_1")
     rows = _rows(repository)
     assert [row["kind"] for row in rows] == ["source_exercise", "source_exercise"]
     assert rows[0]["assets"]["exercise_key"] == entry["key"] and rows[1]["caller_kind"] == "need"
+    assert rows[0]["assets"]["practice_item_ids"] == ["pi_eigen_1"] and rows[0]["assets"]["import_id"] == "sei_1"
 
 
 def test_passages_and_comparisons_are_recorded_when_shown(textbook):

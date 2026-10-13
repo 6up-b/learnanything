@@ -102,3 +102,110 @@ def test_not_what_i_asked_keeps_the_learner_text(ctx):
             "SELECT rationale FROM judgment_ledger WHERE task=? AND verdict='not_what_i_asked'",
             (USAGE_TASK,)).fetchone()[0]
     assert "I wanted a proof, not a computation" in rationale
+
+
+# -- Codex sources-build review F16: selection before serving, delivery after it ----------------
+
+
+def _interventions(repository):
+    from learnloop.db.stores.source_service import interventions
+
+    with repository.connection() as connection:
+        return interventions(connection)
+
+
+def test_a_failed_pick_leaves_no_delivered_intervention(ctx, monkeypatch):
+    from learnloop_sidecar.handlers import daily_plan as handler
+
+    context, _paths = ctx
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("serving failed")
+
+    monkeypatch.setattr(handler, "learner_pick", broken)
+    with pytest.raises(RuntimeError):
+        _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
+                                             "proposalId": "pp_test"})
+    _vault, repository = context.require_vault()
+    assert _interventions(repository) == []
+    # The learner's selection is kept apart from delivery.
+    assert len(_usage(repository)) == 1
+
+
+def test_the_delivery_carries_the_exact_decision_of_the_block_that_served_it(ctx):
+    from learnloop.daily_plan.engine import register_plan_decision_logger, unregister_plan_decision_logger
+
+    context, _paths = ctx
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    written: list[str] = []
+
+    def logger(_connection, decision):
+        written.append(f"rd_{decision.block_id}")
+        return written[-1]
+
+    register_plan_decision_logger(logger)
+    try:
+        result = _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
+                                                       "proposalId": "pp_test"})
+    finally:
+        unregister_plan_decision_logger(logger)
+    _vault, repository = context.require_vault()
+    [row] = _interventions(repository)
+    assert row["router_decision_id"] == f"rd_{result['step']['blockId']}" and row["router_decision_id"] in written
+    assert result["proposalPick"]["routerDecisionId"] == row["router_decision_id"]
+
+
+def test_without_a_logged_decision_none_is_recorded(ctx):
+    context, _paths = ctx
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
+                                         "proposalId": "pp_test"})
+    _vault, repository = context.require_vault()
+    [row] = _interventions(repository)
+    assert row["router_decision_id"] is None and row["kind"] == "practice_pick"
+
+
+def _exercise_proposal(repository, *, status="written", item="pi_extra_2"):
+    from learnloop.db.stores.source_service import insert_import
+
+    entry = {"kind": "source_exercise", "key": "srcex:ext_text:t9", "extraction_id": "ext_text", "span_ids": ["t9"],
+             "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1", "rank": 1,
+             "statement": "Solve 3x + 5 = 20.", "relevance": "relevant", "rationale": "fits"}
+    with repository.connection() as connection:
+        insert_proposal(connection, id="pp_ex", created_at="2026-10-12T08:59:00Z", origin="rpc",
+                        query_id="q", query_text="extra practice", constraints={}, path="direct",
+                        path_reason="test", signals={}, reranked=True, rerank_status="reranked",
+                        rerank_model=None, proposed=[entry], exclusions={}, manifest={},
+                        algorithm_version="mvp-0.14", caller="tutor", caller_ref="qe_1", intent="practice")
+        insert_import(connection, id="sei_test", created_at="2026-10-12T09:00:00Z", caller="learner",
+                      extraction_id="ext_text", span_ids=["t9"], status=status, proposal_id="pp_ex",
+                      source_id="src_text", revision_id="rev_text", label="Exercise 1")
+        if status == "written":
+            connection.execute("UPDATE source_exercise_imports SET practice_item_id=? WHERE id='sei_test'", (item,))
+        connection.commit()
+
+
+def test_an_imported_exercise_is_delivered_when_its_item_is_served(ctx):
+    context, _paths = ctx
+    _vault, repository = context.require_vault()
+    _exercise_proposal(repository)
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    result = _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_2", "sessionId": session_id,
+                                                   "proposalId": "pp_ex", "sourceExerciseImportId": "sei_test"})
+    assert result["step"]["practiceItemId"] == "pi_extra_2"
+    [row] = _interventions(repository)
+    assert row["kind"] == "source_exercise" and row["assets"]["import_id"] == "sei_test"
+    assert row["assets"]["practice_item_ids"] == ["pi_extra_2"] and row["assets"]["exercise_key"] == "srcex:ext_text:t9"
+
+
+@pytest.mark.parametrize("status", ["authoring", "rejected"])
+def test_an_import_that_has_not_written_the_item_is_refused_before_serving(ctx, status):
+    context, _paths = ctx
+    _vault, repository = context.require_vault()
+    _exercise_proposal(repository, status=status)
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    with pytest.raises(SidecarError):
+        _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_2", "sessionId": session_id,
+                                             "proposalId": "pp_ex", "sourceExerciseImportId": "sei_test"})
+    assert _interventions(repository) == []

@@ -657,22 +657,6 @@ def interventions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     return [_intervention(row) for row in rows]
 
 
-def router_pick_decision(connection: sqlite3.Connection, *, practice_item_id: str,
-                         session_id: str | None) -> str | None:
-    """R1's ``learner_pick`` row for a pick, feature-detected (the table may not exist yet)."""
-
-    if not column_exists(connection, "router_decisions", "chosen_practice_item_id"):
-        return None
-    clauses, parameters = ["decision_kind='learner_pick'", "chosen_practice_item_id=?"], [practice_item_id]
-    if session_id is not None:
-        clauses.append("session_id=?")
-        parameters.append(session_id)
-    row = connection.execute(
-        f"SELECT id FROM router_decisions WHERE {' AND '.join(clauses)} ORDER BY rowid DESC LIMIT 1",
-        parameters).fetchone()
-    return None if row is None else str(row[0])
-
-
 OUTCOME_COLUMNS = ("intervention_id", "as_of", "next_attempt_id", "next_correctness", "next_assisted",
                    "next_window", "cold_attempt_id", "cold_outcome_state", "cold_correctness", "observed_bucket",
                    "predicted_outcomes_json", "predicted_minutes", "actual_minutes", "hypothesis_movement_json",
