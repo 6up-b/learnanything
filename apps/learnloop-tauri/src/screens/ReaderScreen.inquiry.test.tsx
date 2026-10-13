@@ -178,6 +178,23 @@ it("a branch marked done asks the reconnect line in the rail only", async () => 
   expect(lines.map((line) => line.getAttribute("data-reconnect"))).toEqual(["rail"]);
 });
 
+it("a resume offers no passage quick check: only a reconnect line the learner raises in this visit has one", async () => {
+  // Reading-hardening, part 2: RW1a's passage-scoped check asks the Reader's
+  // one check-offer rule too (an open inquiry the learner raised this visit).
+  api.readerAskHistory.mockResolvedValue({ exchanges: [
+    { ...root, eventId: "child", parentExchangeId: "root", questionMd: "Coin flip?", questionEventId: "q_child" }, root,
+  ] });
+  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  await openThread();
+  expect(screen.queryAllByRole("group", { name: "Does this make sense now?" })).toEqual([]);
+  expect(screen.queryByRole("button", { name: "quick check" })).toBeNull();
+
+  fireEvent.click(await screen.findByRole("button", { name: /▸ Coin flip\?/ }));
+  fireEvent.click(screen.getByRole("button", { name: "done" }));
+  const [line] = await screen.findAllByRole("group", { name: "Does this make sense now?" });
+  expect(within(line).getByRole("button", { name: "quick check" })).toBeTruthy();
+});
+
 it("the reconnect quick check lands in the rail, then compares and records the self-check", async () => {
   render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
   await askFollowUp();
@@ -196,10 +213,13 @@ it("the reconnect quick check lands in the rail, then compares and records the s
 });
 
 it("the quick-check marker on the Guide tab is static: no pulse, no blink, no pinned strip", async () => {
+  // A check offered where the page opens: one asked during the section. (A
+  // check after a section that a jump or a resume lands on waits for the
+  // learner's reading since reading-hardening part 2.)
   guide.plan = { sections: [{
     id: "u1", label: "Symmetric matrices", startSpanId: view.blocks[0].spanId, endSpanId: view.blocks[2].spanId,
     spanIds: view.blocks.map((b) => b.spanId), suggestedPassages: [],
-    question: { authoredQuestionId: "raq_s", placement: "auto_authored", readingPhase: "after_section", prompt: "Q?", expectedAnswer: "A.", spanIds: [], reason: "r" },
+    question: { placementEventId: "pe_s", placement: "owner_reviewed", readingPhase: "during_section", prompt: "Q?", spanIds: [], reason: "r" },
   }] };
   const { container } = render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));

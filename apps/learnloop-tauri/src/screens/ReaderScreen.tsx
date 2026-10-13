@@ -65,6 +65,7 @@ import { useReaderRequests } from "./reader/useReaderRequests";
 import { type InquiryCommitment, type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
 import { InquiryQuickCheck } from "./reader/InquiryQuickCheck";
+import { checkOffer, type CheckSurface } from "./reader/checkOffer";
 import { phaseForError, type ModelActionPhase } from "./reader/ModelActionState";
 import { ReconnectLine } from "./reader/ReconnectLine";
 import {
@@ -319,6 +320,9 @@ export function ReaderScreen({
   // asked about its Introduction before a word was read.
   const [readingMoved, setReadingMoved] = useState(false);
   const userScrollAtRef = useRef(0);
+  // A scroll of the learner's own, waiting for the frame that reads where it
+  // took them (``onReadingScroll``).
+  const movedPendingRef = useRef(false);
   // Reading history from before the Reader saved places (usability round 2):
   // where a book with no saved place reopens.
   const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
@@ -631,6 +635,7 @@ export function ReaderScreen({
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
     setReadingMoved(false);
+    movedPendingRef.current = false;
     userScrollAtRef.current = 0;
     lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
@@ -1092,61 +1097,69 @@ export function ReaderScreen({
     for (const block of pdfView?.blocks ?? []) if (block.spanId && !pages.has(block.spanId)) pages.set(block.spanId, block.page);
     return pages;
   }, [pdfView]);
-  const atSectionBreak = useMemo(() => {
-    if (!currentGuideSection || !readingMoved) return false;
+  // The original PDF: whether the reading position's page reached the
+  // current section's last page (D22); null without page information.
+  const atLastPage = useMemo(() => {
+    if (!currentGuideSection) return null;
     const here = pageBySpan.get(readingSpan ?? activeSpan ?? "");
     const last = pageBySpan.get(currentGuideSection.endSpanId);
-    if (here === undefined || last === undefined) return currentSectionProgress >= 0.7;
+    if (here === undefined || last === undefined) return null;
     return here >= last;
-  }, [currentGuideSection, readingMoved, pageBySpan, readingSpan, activeSpan, currentSectionProgress]);
-  const currentQuestionDue = useMemo(() => {
-    const question = currentGuideSection?.question;
-    const phase = question?.readingPhase;
-    if (!phase || pdfSurfaceLoading) return false;
-    if (phase === "before_section") {
-      const firstSpan = 1 / Math.max(1, currentGuideSection?.spanIds.length ?? 1);
-      return currentSectionProgress <= Math.max(0.3, firstSpan);
-    }
-    if (phase === "during_section") return currentSectionProgress >= 0.45;
-    if (pdfSurfaceActive) return atSectionBreak;
-    return currentSectionProgress >= 0.7;
-  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, pdfSurfaceLoading, atSectionBreak]);
+  }, [currentGuideSection, pageBySpan, readingSpan, activeSpan]);
+  // What a section is read on, for the check-offer rule: the original PDF,
+  // the original still on its way (the manifest is pending), a video, or the
+  // text view (also where a manifest that failed or is unavailable leaves it).
+  const checkSurface: CheckSurface = watch || watchLoading
+    ? "watch"
+    : pdfSurfaceActive ? "pdf" : pdfSurfaceLoading ? "loading" : "text";
 
-  // Pin a question the moment it becomes due; it stays pinned (and rendered)
-  // until answered or dismissed, however far playback or scrolling moves on.
-  useEffect(() => {
-    if (!boundaryChecksAvailable || !currentGuideSection?.question || !currentQuestionDue) return;
-    const sectionId = currentGuideSection.id;
-    if (dismissedSections.includes(sectionId) || completedSections.includes(sectionId)) return;
-    setStickyQuestionSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
-  }, [boundaryChecksAvailable, currentGuideSection, currentQuestionDue, dismissedSections, completedSections]);
-
-  // A quick check is open once it has been *earned*, not only while the
-  // learner stands in its section: pinned when due (above), or already behind
-  // the reading position, or auto-authored — the producer only writes those
-  // after ~60% of the section, so their phase gate is spent by construction.
-  // Without the latter two, a video (one IR unit for the whole transcript, so
-  // one 200+ span section) counted a check in the rail badge that the Guide
-  // tab refused to render until 70% of playback; passed-over sections in a PDF
-  // failed the same way. The rail badge counts exactly what the tab renders.
-  const openQuestionSections = useMemo(() => {
+  // ONE rule decides whether a section's quick check is offered (reading-
+  // hardening, part 2; screens/reader/checkOffer.ts): the guide's cards and
+  // the rail badge, the original PDF's section-break offer and the text
+  // view's section-break buttons all read this set. A check left from an
+  // earlier visit that a resume or a jump placed the learner at waits for the
+  // learner's own reading in this visit; a section reached by reading follows
+  // the normal rules; nothing is offered while the original is on its way.
+  // Once offered a check is pinned (below) until answered or set aside, so
+  // playback or scrolling moving the "current" section never hides it.
+  const offeredCheckSections = useMemo(() => {
     const sections = guidePlan?.sections ?? [];
     const currentIndex = sections.findIndex((section) => section.id === currentGuideSection?.id);
-    return sections.filter(
-      (section, index) =>
-        section.question !== null
-        && !dismissedSections.includes(section.id)
-        && !completedSections.includes(section.id)
-        && (
-          // In the original PDF the section being read waits for its break
-          // (it is pinned from then on, below); elsewhere a written check is
-          // open at once, as before.
-          (section.question.placement === "auto_authored" && ((!pdfSurfaceActive && !pdfSurfaceLoading) || index !== currentIndex))
-          || stickyQuestionSections.includes(section.id)
-          || (currentIndex >= 0 && index < currentIndex)
-        ),
-    );
-  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive, pdfSurfaceLoading]);
+    const offered = new Set<string>();
+    sections.forEach((section, index) => {
+      const decision = checkOffer({
+        kind: "section",
+        readingPhase: section.question?.readingPhase ?? null,
+        available: boundaryChecksAvailable,
+        settled: dismissedSections.includes(section.id) || completedSections.includes(section.id),
+        pinned: stickyQuestionSections.includes(section.id),
+        position: index === currentIndex ? "current" : currentIndex >= 0 && index < currentIndex ? "behind" : "ahead",
+        readingMoved,
+        surface: checkSurface,
+        progress: index === currentIndex ? currentSectionProgress : 0,
+        atLastPage: index === currentIndex ? atLastPage : null,
+        firstPassageShare: 1 / Math.max(1, section.spanIds.length),
+      });
+      if (decision.offer) offered.add(section.id);
+    });
+    return offered;
+  }, [guidePlan, currentGuideSection, boundaryChecksAvailable, dismissedSections, completedSections,
+    stickyQuestionSections, readingMoved, checkSurface, currentSectionProgress, atLastPage]);
+
+  // Pin a check the moment it is offered; it stays offered until answered or
+  // dismissed, however far playback or scrolling (or a jump) moves on.
+  useEffect(() => {
+    const unpinned = [...offeredCheckSections].filter((id) => !stickyQuestionSections.includes(id));
+    if (unpinned.length === 0) return;
+    setStickyQuestionSections((ids) => [...new Set([...ids, ...unpinned])]);
+  }, [offeredCheckSections, stickyQuestionSections]);
+
+  // The open checks, in the guide's order: the rail's cards and badge count
+  // exactly what is offered.
+  const openQuestionSections = useMemo(
+    () => (guidePlan?.sections ?? []).filter((section) => section.question !== null && offeredCheckSections.has(section.id)),
+    [guidePlan, offeredCheckSections],
+  );
   // A check the learner answered is not waiting any more, though its card
   // stays open to compare (usability round 2).
   const pendingQuickCheckCount = boundaryChecksAvailable
@@ -1169,12 +1182,13 @@ export function ReaderScreen({
     if (!inquiry || muted || !currentGuideSection || currentSectionProgress < 0.7) return;
     const section = currentGuideSection;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
-    const offered = (boundaryChecksAvailable && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0;
+    const offered = (offeredCheckSections.has(section.id) && section.question?.readingPhase === "after_section")
+      || section.suggestedPassages.length > 0;
     const key = `section_offer:${section.id}`;
     if (!offered || proactiveSeenRef.current.has(key)) return;
     proactiveSeenRef.current.add(key);
     logReaderAction("proactive_shown", { ...visitPayload(), element: "section_offer" });
-  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, boundaryChecksAvailable, visitPayload]);
+  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, offeredCheckSections, visitPayload]);
   const currentQuestionOpen = useMemo(
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
@@ -1443,11 +1457,19 @@ export function ReaderScreen({
 
   const onReadingScroll = useCallback(() => {
     const now = Date.now();
-    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) setReadingMoved(true);
+    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) movedPendingRef.current = true;
     if (readingRafRef.current !== null) return;
     readingRafRef.current = window.requestAnimationFrame(() => {
       readingRafRef.current = null;
       updateReadingPosition();
+      // The learner's movement counts together with where it took them, in
+      // one render: never as reading at the place a resume or jump left the
+      // page (reading-hardening, part 2: a first scroll away from a resumed
+      // section's last page offered that section's check).
+      if (movedPendingRef.current) {
+        movedPendingRef.current = false;
+        setReadingMoved(true);
+      }
     });
   }, [updateReadingPosition]);
 
@@ -2030,6 +2052,7 @@ export function ReaderScreen({
       // reads on.
       settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
       setReadingMoved(false);
+      movedPendingRef.current = false;
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -3097,6 +3120,22 @@ export function ReaderScreen({
     }
   }, [inquiryChecks, onError]);
 
+  // RW1a's passage-scoped quick check is offered by the same one rule as a
+  // section's (screens/reader/checkOffer.ts): only on the reconnect line of an
+  // open inquiry the learner raised in this visit (a return to it, a branch
+  // marked done), never while skimming. The reconnect line is visit state, so
+  // a resume never brings one back.
+  const passageCheckOffered = useMemo(() => {
+    if (!reconnect) return false;
+    const root = history.find((exchange) => exchange.id === reconnect.rootId);
+    return checkOffer({
+      kind: "passage",
+      raisedThisVisit: true,
+      inquiryOpen: (root?.resolution ?? "open") === "open",
+      muted: Boolean(muted),
+    }).offer;
+  }, [reconnect, history, muted]);
+
   /** What sits at the top of an inquiry in the rail: the reconnect line and
    *  the quick check (each only when there is one). */
   const renderInquiryTop = useCallback((root: ReaderExchange) => {
@@ -3109,7 +3148,7 @@ export function ReaderScreen({
         busy={busy}
         onYes={() => void answerReconnect("yes")}
         onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-        onQuickCheck={() => void answerReconnect("quick_check")}
+        onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
       />
     ) : null;
     const check = inquiryChecks[root.id];
@@ -3140,7 +3179,7 @@ export function ReaderScreen({
         ) : null}
       </div>
     ) : null;
-  }, [reconnect, muted, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
+  }, [reconnect, muted, busy, answerReconnect, passageCheckOffered, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
 
   /** The reconnect line drawn under the root passage (a return the learner started). */
   const inlineReconnect = reconnect && reconnect.inline && !muted ? (
@@ -3150,7 +3189,7 @@ export function ReaderScreen({
       busy={busy}
       onYes={() => void answerReconnect("yes")}
       onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-      onQuickCheck={() => void answerReconnect("quick_check")}
+      onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
     />
   ) : null;
 
@@ -3558,8 +3597,10 @@ export function ReaderScreen({
             const active = activeSpan === block.spanId;
             const guidePassage = block.spanId ? revealedPassages.get(block.spanId) : undefined;
             const endSection = block.spanId ? guideSectionByEnd.get(block.spanId) : undefined;
-            const endQuestionAvailable = boundaryChecksAvailable
-              && endSection?.question?.readingPhase === "after_section";
+            // The section-break button asks the one check-offer rule too.
+            const endQuestionAvailable = Boolean(endSection
+              && endSection.question?.readingPhase === "after_section"
+              && offeredCheckSections.has(endSection.id));
             const offerSection = endSection
               && !muted
               && !dismissedSections.includes(endSection.id)
