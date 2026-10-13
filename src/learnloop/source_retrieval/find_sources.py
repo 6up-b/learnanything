@@ -191,13 +191,23 @@ def _provenance_list(vault: LoadedVault, repository: Repository, lo_ids: Sequenc
 FACET_LINK_RELATIONS = ("primary", "support", "alternate")
 
 
+def _locator_span_id(locator: str | None) -> str | None:
+    """A source link's span id: its ``block_span_v1`` locator, or the early-v2
+    ``span:<id>`` form (as the cross-source grounding reads them)."""
+
+    if not locator:
+        return None
+    parsed = parse_block_span(locator)
+    if parsed is not None:
+        return parsed[1]
+    return locator[len("span:"):] if locator.startswith("span:") else locator
+
+
 def facet_lists(vault: LoadedVault, repository: Repository,
                 facet_ids: Sequence[str]) -> tuple[dict[str, list[SpanKey]], list[dict[str, str]]]:
     """Facet targeting (§9.1): one ranked list of the spans the facets' teaching
     source links cite (primary first), and each facet's label for the
     verification context. Unknown facets contribute nothing."""
-
-    from learnloop.content.authoring.practice_leakage import _span_id_from_locator
 
     order = {relation: index for index, relation in enumerate(FACET_LINK_RELATIONS)}
     keys: list[tuple[int, SpanKey]] = []
@@ -212,7 +222,7 @@ def facet_lists(vault: LoadedVault, repository: Repository,
             relation = link.get("relation")
             if relation not in order or link.get("status") not in (None, "current"):
                 continue
-            span_id = _span_id_from_locator(link.get("locator"))
+            span_id = _locator_span_id(link.get("locator"))
             if link.get("extraction_id") and span_id:
                 keys.append((order[relation], (str(link["extraction_id"]), str(span_id))))
     ranked = [key for _rank, key in sorted(keys, key=lambda entry: entry[0])]
