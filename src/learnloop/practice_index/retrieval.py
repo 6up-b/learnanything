@@ -107,9 +107,44 @@ _RERANK_INSTRUCTIONS = (
 )
 
 
+#: What a request is for (spec_source_practice_and_probes_v1 §8.1). ``practice``
+#: is today's relevance ranking; the value intents are ranked by value of
+#: information through an injected valuer and refused without one.
+INTENTS = ("practice", "discriminate", "retention", "remediate")
+VALUE_INTENTS = frozenset({"discriminate", "retention"})
+#: The Reader spec's names for the same intents (its §9.3); receipts store the
+#: canonical name.
+INTENT_ALIASES = {"diagnostic_probe": "discriminate", "retention_check": "retention"}
+KINDS = ("items", "source_exercises", "both")
+
+
+def canonical_intent(value: str | None) -> str:
+    intent = INTENT_ALIASES.get(value or "practice", value or "practice")
+    if intent not in INTENTS:
+        raise ValueError(f"intent must be one of {', '.join(INTENTS + tuple(INTENT_ALIASES))}")
+    return intent
+
+
+#: Constraint fields added by the canonical-sources track, with the defaults
+#: that leave a request exactly as Phase 5b handled it.
+_LATER_FIELD_DEFAULTS: dict[str, Any] = {"intent": "practice", "kinds": None}
+
+
+class IntentUnavailable(ValueError):
+    """A typed refusal: the intent needs something this call was not given."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 @dataclass(frozen=True)
 class PracticeConstraints:
-    """Exact filters applied before ranking; ``limit`` caps the proposals."""
+    """Exact filters applied before ranking; ``limit`` is a display page.
+
+    ``intent`` and ``kinds`` choose what the request is for and which arms
+    answer it; every other field is an exact filter.
+    """
 
     limit: int | None = None
     learning_object_ids: tuple[str, ...] = ()
@@ -120,8 +155,13 @@ class PracticeConstraints:
     min_difficulty: float | None = None
     max_difficulty: float | None = None
     rerank: bool | None = None
+    intent: str = "practice"
+    kinds: str | None = None
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "intent", canonical_intent(self.intent))
+        if self.kinds is not None and self.kinds not in KINDS:
+            raise ValueError(f"kinds must be one of {', '.join(KINDS)}")
         if self.limit is not None and not 1 <= self.limit <= 20:
             raise ValueError("limit must be between 1 and 20")
         for name in ("min_difficulty", "max_difficulty"):
@@ -143,8 +183,15 @@ class PracticeConstraints:
                       for key, value in values.items()})
 
     def as_dict(self) -> dict[str, Any]:
-        return {key: list(value) if isinstance(value, tuple) else value
-                for key, value in asdict(self).items()}
+        """The receipt form. Fields added after Phase 5b are left out at their
+        defaults, so a request that uses none of them writes the receipt Phase
+        5b wrote."""
+        values = {key: list(value) if isinstance(value, tuple) else value
+                  for key, value in asdict(self).items()}
+        for key, default in _LATER_FIELD_DEFAULTS.items():
+            if values.get(key) == default:
+                values.pop(key, None)
+        return values
 
     def matches(self, vault: LoadedVault, item_id: str) -> bool:
         item = vault.practice_items[item_id]
@@ -724,6 +771,18 @@ def plan_find_practice(
     }
 
 
+def _proposed_entry(entry: Mapping[str, Any], *, with_rationale: bool) -> dict[str, Any]:
+    """One proposed candidate as the receipt keeps it. A service caller's
+    receipt also keeps the learner-visible rationale, so an impression can
+    record exactly what was shown (Phase 5b's receipts are unchanged)."""
+    value = {"practice_item_id": entry["practice_item_id"], "rank": entry["rank"],
+             "relevance": entry["relevance"]}
+    if with_rationale:
+        value["kind"] = "item"
+        value["rationale"] = entry.get("rationale")
+    return value
+
+
 def find_practice(
     vault: LoadedVault,
     repository: Repository,
@@ -734,8 +793,14 @@ def find_practice(
     embedder: Any | None = None,
     rerank_client: Any | None = None,
     clock: Clock | None = None,
+    caller: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Propose practice items for a natural-language request. Never serves."""
+    """Propose practice items for a natural-language request. Never serves.
+
+    ``caller`` (``{"kind", "ref"}``) is the server-derived caller context of
+    the canonical-sources service (its S0): it is recorded on the receipt so
+    usage signals, impressions and later outcomes can be joined to who asked.
+    """
     config = vault.config.practice_index
     if not config.enabled:
         return {"status": "disabled", "reason": "practice_index.enabled is false", "items": []}
@@ -746,6 +811,12 @@ def find_practice(
         raise ValueError(f"query must be at most {MAX_QUERY_CHARS} characters")
     if not isinstance(constraints, PracticeConstraints):
         constraints = PracticeConstraints.from_mapping(constraints)
+    if constraints.intent != "practice":
+        raise IntentUnavailable(
+            "intent_unavailable",
+            f"intent {constraints.intent!r} is valued by value of information and needs the "
+            "valuation, which this call was not given",
+        )
     limit = constraints.limit or config.proposals
     proposal_id = "pp_" + new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock)
@@ -801,14 +872,16 @@ def find_practice(
             query_id=query_id(text), query_text=text, constraints=constraints.as_dict(),
             path=path, path_reason=path_reason, signals=signals, reranked=reranked,
             rerank_status=outcome.status, rerank_model=outcome.model,
-            proposed=[{"practice_item_id": entry["practice_item_id"], "rank": entry["rank"],
-                       "relevance": entry["relevance"]} for entry in items],
+            proposed=[_proposed_entry(entry, with_rationale=caller is not None) for entry in items],
             exclusions={"admitted": len(corpus), "excluded": exclusions,
                         "pool": len(pool), "facets": ranking.facets},
             manifest=manifest, algorithm_version=vault.config.algorithms.algorithm_version,
+            caller=(caller or {}).get("kind"), caller_ref=(caller or {}).get("ref"),
+            intent=constraints.intent if caller is not None else None,
         )
     return {
         "status": "ok", "proposal_id": proposal_id, "query_id": query_id(text),
+        "intent": constraints.intent,
         "path": path, "path_reason": path_reason, "signals": signals,
         "reranked": reranked, "rerank_status": outcome.status, "rerank_model": outcome.model,
         "items": items,
@@ -821,8 +894,14 @@ def find_practice(
 
 __all__ = [
     "DOSSIER_RECIPES",
+    "INTENTS",
+    "INTENT_ALIASES",
     "IndexSnapshot",
+    "IntentUnavailable",
+    "KINDS",
     "PracticeConstraints",
+    "VALUE_INTENTS",
+    "canonical_intent",
     "RERANK_PROMPT_VERSION",
     "Ranking",
     "RerankOutcome",

@@ -31,7 +31,7 @@ from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
 from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.goals import _nearest_active_goal
 from learnloop_sidecar.handlers.queue import prepare_queue_build
@@ -92,6 +92,9 @@ class PlanLearnerPickInput(ParamsModel):
     #: (``get_today_queue`` published that list as shown). Without it the pick
     #: is served with the plan build's candidate for the item.
     scheduler_candidate_id: str | None = None
+    #: A ``find_practice`` proposal the learner picked this item from (canonical
+    #: sources S0): the pick appends the proposal's ``practised`` usage signal.
+    proposal_id: str | None = None
 
 
 def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> PlanEnv:
@@ -256,9 +259,15 @@ def plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, An
 def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
     """Open an item from the full list: a one-item learner-pick block (L3, G12)."""
 
+    pick = _record_proposal_pick(ctx, params) if params.proposal_id else None
     required = _require(ctx, params.session_id)
     if required is None:
-        return _off(ctx)
+        # The plan is off: the open-list pick serves the item (DL0's open); the
+        # proposal's pick is still recorded.
+        off = _off(ctx)
+        if pick is not None:
+            off["proposalPick"] = to_camel(pick)
+        return off
     _vault, _repository, env = required
     try:
         record, step = learner_pick(
@@ -266,7 +275,23 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
         )
     except KeyError as exc:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.") from exc
-    return versioned({"enabled": True, "step": step, **_current_view(env)})
+    result = {"enabled": True, "step": step, **_current_view(env)}
+    if pick is not None:
+        result["proposal_pick"] = pick
+    return versioned(result)
+
+
+def _record_proposal_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict[str, Any]:
+    """The ``practised`` usage signal for a picked proposal (S0, §6.3)."""
+
+    from learnloop.instructional.practice import record_proposal_pick
+
+    _vault, repository = ctx.require_vault()
+    try:
+        return record_proposal_pick(repository, proposal_id=str(params.proposal_id),
+                                    practice_item_id=params.practice_item_id)
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
 
 
 @method("get_today_headline", PlanSessionInput)

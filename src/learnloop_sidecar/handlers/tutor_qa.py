@@ -262,8 +262,25 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             # ING M8 (§9.2): source-span citations; chips open Open-in-source.
             "citations": result.get("citations", []),
             "remaining": result["remaining"],
+            # Canonical sources S0 (§6.2): a deterministic "Practice this"
+            # request the frontend runs once the answer is on screen.
+            "practice_request": tutor_practice_request(vault, repository, result["event_id"]),
         }
     )
+
+
+def tutor_practice_request(vault: Any, repository: Any, event_id: str) -> dict[str, Any] | None:
+    """The answer's practice request, or None when the offer is switched off."""
+
+    from learnloop.instructional.offers import practice_request_for_answer
+
+    service = vault.config.source_service
+    if not (service.enabled and service.tutor_offers and vault.config.practice_index.enabled):
+        return None
+    event = repository.question_event(event_id)
+    if event is None:
+        return None
+    return practice_request_for_answer(vault, event, exercise_arm=bool(service.exercise_arm))
 
 
 class PreviewTutorOpeningInput(ParamsModel):

@@ -154,6 +154,13 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         # Slice 2 T6: labelled nearest-LO suggestions, shown in the Ask overlay
         # (absent when there are none, so the kill switch changes nothing).
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    # Canonical sources S0 (§6.1): the reader context gets the same practice
+    # request; the Reader spec renders it (absent when the offer is off).
+    from learnloop_sidecar.handlers.tutor_qa import tutor_practice_request
+
+    practice_request = tutor_practice_request(vault, repository, result["event_id"])
+    if practice_request is not None:
+        response["practice_request"] = practice_request
     return versioned(response)
 
 

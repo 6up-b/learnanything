@@ -123,11 +123,34 @@ CHATGPT_PLAN_RPCS = (
 )
 
 
+# Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
+# own RPCs and the ones it extends (find_practice's caller and intents,
+# record_practice_usage's learner text, plan_learner_pick's proposal link,
+# ask_tutor_question's practice request and tool requests, reader.ask's
+# practice request, edit_practice_item's re-check, reader.import_exercise's
+# import row). Desktop only.
+SOURCE_SERVICE_RPCS = (
+    "record_proposal_impressions",
+)
+SOURCE_SERVICE_EXTENDED_RPCS = (
+    "find_practice",
+    "record_practice_usage",
+    "plan_learner_pick",
+    "ask_tutor_question",
+)
+
+
+def test_the_pinned_source_service_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.source_service import SOURCE_SERVICE_RPCS as registered
+
+    assert set(SOURCE_SERVICE_RPCS) == set(registered)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS
-    + CHATGPT_PLAN_RPCS,
+    + CHATGPT_PLAN_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

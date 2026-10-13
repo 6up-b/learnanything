@@ -208,6 +208,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
+    # Canonical sources S0: rendered proposals (append-only facts of what
+    # reached the screen; never the activity_exposure_events burn boundary).
+    ("instructional_impressions", TableRole.RAW_LEDGER),
     ("interaction_events", TableRole.RAW_LEDGER),
     ("intervention_needs", TableRole.WORKFLOW),
     # A measured calibration artifact which may include provider trials and

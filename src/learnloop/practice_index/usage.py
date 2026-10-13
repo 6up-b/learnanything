@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import timedelta
+import json
 from typing import Any
 
 from learnloop.ai.execution import content_key
@@ -36,9 +37,18 @@ LEARNER_SIGNALS = ("practised", "skipped", "too_easy", "not_what_i_asked")
 JOIN_PROMPT_VERSION = "practice_usage_join.v1"
 
 
+#: Characters of the learner's own words kept on a tap's rationale.
+LEARNER_TEXT_CHARS = 2000
+
+
 def record_practice_usage(repository: Repository, *, proposal_id: str, practice_item_id: str,
-                          signal: str, clock: Clock | None = None) -> dict[str, Any]:
-    """Append one learner tap on a proposed item. Repeating a tap is a no-op."""
+                          signal: str, clock: Clock | None = None,
+                          text: str | None = None) -> dict[str, Any]:
+    """Append one learner tap on a proposed item. Repeating a tap is a no-op.
+
+    ``text`` is the learner's optional words with the tap ("not what I asked:
+    I wanted proofs, not computations"); learner text over skip buttons. It is
+    kept on the verdict's rationale for a later learner-text adapter."""
     if signal not in LEARNER_SIGNALS:
         raise ValueError(f"signal must be one of {', '.join(LEARNER_SIGNALS)}")
     with repository.connection() as connection:
@@ -55,11 +65,19 @@ def record_practice_usage(repository: Repository, *, proposal_id: str, practice_
                 left_kind="practice_proposal", left_id=proposal_id,
                 right_kind="practice_item", right_id=practice_item_id,
                 judge="learner_card", input_hash=content_key([proposal_id, practice_item_id]),
-                verdict=signal, rationale="learner tap on a find_practice proposal",
+                verdict=signal, rationale=_tap_rationale(text),
                 created_at=utc_now_iso(clock),
             )
     return {"judgment_id": judgment_id, "proposal_id": proposal_id,
             "practice_item_id": practice_item_id, "signal": signal}
+
+
+def _tap_rationale(text: str | None) -> str:
+    words = " ".join((text or "").split())[:LEARNER_TEXT_CHARS]
+    if not words:
+        return "learner tap on a find_practice proposal"
+    return json.dumps({"text": "learner tap on a find_practice proposal", "learner_text": words},
+                      ensure_ascii=False, sort_keys=True)
 
 
 def sweep_practice_usage(repository: Repository, *, window_hours: int,

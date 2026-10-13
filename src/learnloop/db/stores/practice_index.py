@@ -112,18 +112,39 @@ def insert_proposal(connection: sqlite3.Connection, *, id: str, created_at: str,
                     path: str, path_reason: str, signals: Mapping[str, Any],
                     reranked: bool, rerank_status: str, rerank_model: str | None,
                     proposed: list[Mapping[str, Any]], exclusions: Mapping[str, Any],
-                    manifest: Mapping[str, Any], algorithm_version: str) -> None:
+                    manifest: Mapping[str, Any], algorithm_version: str,
+                    caller: str | None = None, caller_ref: str | None = None,
+                    intent: str | None = None,
+                    valuation: Mapping[str, Any] | None = None,
+                    provisional: Mapping[str, Any] | None = None) -> None:
+    """One receipt per call. The canonical-sources columns (migrations 184 and
+    187) are written only when given, so a caller that names none writes the
+    row Phase 5b wrote."""
+    columns = ["id", "created_at", "origin", "query_id", "query_text", "constraints_json",
+               "path", "path_reason", "signals_json", "reranked", "rerank_status",
+               "rerank_model", "proposed_json", "exclusions_json", "manifest_json",
+               "algorithm_version"]
+    values: list[Any] = [
+        id, created_at, origin, query_id, query_text,
+        json.dumps(constraints, sort_keys=True), path, path_reason,
+        json.dumps(signals, sort_keys=True), int(reranked), rerank_status, rerank_model,
+        json.dumps(list(proposed), sort_keys=True, ensure_ascii=False),
+        json.dumps(exclusions, sort_keys=True), json.dumps(manifest, sort_keys=True),
+        algorithm_version,
+    ]
+    extra = {"caller": caller, "caller_ref": caller_ref, "intent": intent,
+             "valuation_json": None if valuation is None else json.dumps(valuation, sort_keys=True,
+                                                                          ensure_ascii=False),
+             "provisional_json": None if provisional is None else json.dumps(
+                 provisional, sort_keys=True, ensure_ascii=False)}
+    for name, value in extra.items():
+        if value is not None:
+            columns.append(name)
+            values.append(value)
     connection.execute(
-        "INSERT INTO practice_index_proposals (id,created_at,origin,query_id,query_text,"
-        "constraints_json,path,path_reason,signals_json,reranked,rerank_status,rerank_model,"
-        "proposed_json,exclusions_json,manifest_json,algorithm_version) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (id, created_at, origin, query_id, query_text,
-         json.dumps(constraints, sort_keys=True), path, path_reason,
-         json.dumps(signals, sort_keys=True), int(reranked), rerank_status, rerank_model,
-         json.dumps(list(proposed), sort_keys=True, ensure_ascii=False),
-         json.dumps(exclusions, sort_keys=True), json.dumps(manifest, sort_keys=True),
-         algorithm_version),
+        f"INSERT INTO practice_index_proposals ({','.join(columns)}) "
+        f"VALUES ({','.join('?' for _ in columns)})",
+        tuple(values),
     )
 
 
@@ -132,6 +153,10 @@ def _proposal(row: sqlite3.Row) -> dict[str, Any]:
     for key in ("constraints_json", "signals_json", "proposed_json",
                 "exclusions_json", "manifest_json"):
         value[key[:-5]] = json.loads(value.pop(key))
+    for key in ("valuation_json", "provisional_json"):
+        if key in value:
+            raw = value.pop(key)
+            value[key[:-5]] = json.loads(raw) if raw else None
     value["reranked"] = bool(value["reranked"])
     return value
 

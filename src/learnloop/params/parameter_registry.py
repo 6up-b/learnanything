@@ -866,6 +866,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "find_practice retrieval/proposal sizes, rank-fusion constant, coverage "
                 "threshold and rerank spend; it proposes and never serves, so no "
                 "measurement or serving authority."),
+    _ConfigRule(_prefix("source_service."), "structural", "operational",
+                "Canonical-sources service kill switches, time and prompt-size bounds and "
+                "spend caps; tools propose and existing serving paths serve, verdicts go to "
+                "judgment_ledger, and value of information (never a count) decides how many "
+                "checks, so no measurement or serving authority."),
     _ConfigRule(_prefix("graph_nomination."), "structural", "operational",
                 "Slice 2 T5 nomination rank limit and ingest-time embedding caps; "
                 "nominations only (the structuring/append model or the owner decides), "
