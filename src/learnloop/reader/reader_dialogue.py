@@ -425,9 +425,13 @@ def ask(
     selection_quote_md: str | None = None,
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
+    learning_object_suggester: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``learning_object_suggester`` (Slice 2 T6, injected by the adapter) records
+    a labelled nearest-LO suggestion when the span has no provenance-linked LO.
 
     ``selection_span_ids``/``selection_quote_md`` carry the learner's full
     multi-block capture selection: ``span_id`` stays the primary grounding
@@ -493,6 +497,7 @@ def ask(
         answer_mode=answer_mode,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        learning_object_suggester=learning_object_suggester,
         clock=clock,
     )
 
@@ -583,7 +588,7 @@ def ask(
             clock=clock,
         )
 
-    return {
+    response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": submitted_event_id,
         "answer_md": result["answer_md"],
@@ -596,6 +601,10 @@ def ask(
         "cold_hint_event_id": cold_hint_event_id,
         "remaining": result["remaining"],
     }
+    if result.get("suggested_learning_objects"):
+        # Slice 2 T6: labelled nearest-LO suggestions (absent when there are none).
+        response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    return response
 
 
 def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str, Any]]:

@@ -41,7 +41,9 @@ def embeddings_backfill(
             "A record kind (facet, item, concept, facet_repair) or one recipe (facet/definition, "
             "facet/dossier_scope, item/stem, item/skeleton, concept/definition, ...); "
             "repeatable. Default: all vault recipes. Slice 1 adds hypothesis, misconception and attempt "
-            "(attempt/divergence, for history_mode=hybrid), embedded only when named."
+            "(attempt/divergence, for history_mode=hybrid), embedded only when named. Slice 2 T6 adds "
+            "source_block (source_block/text: every source's current blocks), also only when named, "
+            "and alone."
         ),
     )] = None,
     batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
@@ -68,6 +70,8 @@ def embeddings_backfill(
     """
     # Imported here: the vector store needs numpy, which no other command loads.
     from learnloop.diagnosis.split.embeddings import backfill_with_db_recipes
+    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from learnloop.source_retrieval.recipes import SOURCE_RETRIEVAL_RECIPES
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -82,13 +86,29 @@ def embeddings_backfill(
             raise ValueError(
                 f"Vault has {len(loaded.issues)} validation issues; run doctor before embedding."
             )
+        selectors = tuple(record_kind or ())
+        source_kinds = {name for recipe in SOURCE_RETRIEVAL_RECIPES.values()
+                        for name in (recipe.name, recipe.record_kind)}
+        source_selected = [value for value in selectors if value in source_kinds]
+        if source_selected and len(source_selected) != len(selectors):
+            raise ValueError("Select source_block on its own (its corpus has its own caps); "
+                             "run the other recipes in a separate backfill.")
         with _cancellation() as stop:
-            report = backfill_with_db_recipes(
-                loaded, caps=caps, dry_run=dry_run,
-                recipes=tuple(record_kind) if record_kind else None,
-                batch_size=batch_size, price_per_million=price_per_million,
-                cancelled=stop.is_set,
-            )
+            if source_selected:
+                # Slice 2 T6: the source library is never in the default
+                # backfill; it is embedded only when named.
+                report = backfill_embeddings(
+                    loaded, caps=caps, dry_run=dry_run, recipes=selectors,
+                    batch_size=batch_size, price_per_million=price_per_million,
+                    cancelled=stop.is_set, registry=SOURCE_RETRIEVAL_RECIPES,
+                )
+            else:
+                report = backfill_with_db_recipes(
+                    loaded, caps=caps, dry_run=dry_run,
+                    recipes=selectors if record_kind else None,
+                    batch_size=batch_size, price_per_million=price_per_million,
+                    cancelled=stop.is_set,
+                )
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     if json_output:
@@ -161,16 +181,16 @@ def embeddings_nomination_report(
 @embeddings_app.command("compare")
 def embeddings_compare(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root (routes, ledger, checkpoints); use a fixtures-local copy.")],
-    suite: Annotated[str, typer.Option("--suite", help="Registered suite: b2 (isomorph/near-duplicate), valid_alternative, b1 (Eedi 2024 misconception retrieval) or b3 (recurrence vault replay).")],
+    suite: Annotated[str, typer.Option("--suite", help="Registered suite: b2 (isomorph/near-duplicate), valid_alternative, b1 (Eedi 2024 misconception retrieval), b3 (recurrence vault replay), source_retrieval (Slice 2 T6 report) or b4 (PDF page images vs text chunks).")],
     output_dir: Annotated[Path, typer.Option("--output", "--output-dir", help="Report and vector-cache directory (outside the vault).")] = Path("fixtures-local/reports/compare"),
     benchmark: Annotated[Path | None, typer.Option("--benchmark", help="Benchmark directory: manifest.json (source, version, licence) and pairs.jsonl (b2), or the Eedi train.csv and misconception_mapping.csv (b1).")] = None,
     model: Annotated[list[str] | None, typer.Option("--model", help="Embedding model id (OpenRouter); repeatable. Default: embedding.model.")] = None,
     dims: Annotated[list[int] | None, typer.Option("--dims", min=1, help="MRL dimension sweep; repeatable. Default: embedding.dimensions (b1: 1024, a width every candidate reaches).")] = None,
-    view: Annotated[list[str] | None, typer.Option("--view", help="b2 views: stem, skeleton, fingerprint, judge; b1 views: raw, hypothesis; repeatable. Default: all.")] = None,
+    view: Annotated[list[str] | None, typer.Option("--view", help="b2 views: stem, skeleton, fingerprint, judge; b1 views: raw, hypothesis. source_retrieval systems: substring, keyword, meaning, hybrid, hybrid_rewrite. b4 systems: text, image, keyword, hybrid. Repeatable. Default: all.")] = None,
     family: Annotated[list[str] | None, typer.Option("--family", help="valid_alternative: activity family id; repeatable.")] = None,
     target_recall: Annotated[float, typer.Option("--target-recall", min=0.5, max=1.0, help="Recall on positives that sets each blocking cutoff (b3: on confirmed matches, also top_k).")] = 0.95,
-    max_cases: Annotated[int | None, typer.Option("--max-cases", min=1)] = None,
-    max_items: Annotated[int, typer.Option("--max-items", min=1, help="valid_alternative: family items to cover.")] = 20,
+    max_cases: Annotated[int | None, typer.Option("--max-cases", min=1, help="b2: pairs; source_retrieval and b4: questions (default 40 and 30).")] = None,
+    max_items: Annotated[int, typer.Option("--max-items", min=1, help="valid_alternative: family items to cover; b4: pages per PDF source in the corpus.")] = 20,
     alternatives: Annotated[int, typer.Option("--alternatives", min=1, max=6, help="valid_alternative: alternative traces per item.")] = 2,
     tier: Annotated[str | None, typer.Option("--tier", help="Run the PF roles at a [pf.scaling] tier (cheap or frontier); B2's judge view then measures that tier's judge on labelled pairs.")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls and tokens; no client, request or write.")] = False,
@@ -198,14 +218,18 @@ def embeddings_compare(
     from learnloop.diagnosis.recurrence.benchmarks import register_suites as register_recurrence_suites
     from learnloop.ops.embedding_compare import SUITES, CompareRequest, run_compare
     from learnloop.ops.pf_calls import ROLE_TASKS
+    from learnloop.source_retrieval.suites import register_suites as register_source_retrieval_suites
 
     # This command is the shared harness's composition root: every consumer
-    # suite (Phase 5a's b2 and valid_alternative; Slice 2 T1's B1/B3 and T6's
-    # B4 later) joins `embedding_compare.SUITES`, and any extra LLM role joins
+    # suite (Phase 5a's b2 and valid_alternative; Slice 2 T1's B1/B3; T6's
+    # source_retrieval report and B4) joins `embedding_compare.SUITES`, and any
+    # extra LLM role joins
     # `pf_calls.ROLE_TASKS`, here before run_compare, through the consumer's
     # `register_suites(SUITES, role_tasks=ROLE_TASKS)`. Registration lives here,
-    # not in ops, because ops -> diagnosis would be a new import back-edge.
+    # not in ops, because ops -> diagnosis (or source_retrieval) would be a new
+    # import back-edge.
     register_recurrence_suites(SUITES, role_tasks=ROLE_TASKS)
+    register_source_retrieval_suites(SUITES, role_tasks=ROLE_TASKS)
     try:
         if not (vault / "learnloop.toml").is_file():
             raise ValueError("--vault must name a vault containing learnloop.toml")

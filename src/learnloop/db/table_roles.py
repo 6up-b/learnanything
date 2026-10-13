@@ -17,6 +17,7 @@ for existing vaults.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -342,6 +343,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_annotation_versions", TableRole.RAW_LEDGER),
     ("source_annotations", TableRole.RAW_LEDGER),
     ("source_artifacts", TableRole.RAW_LEDGER),
+    # Slice 2 T6 (migration 177): FTS5 keyword index over
+    # source_document_blocks, kept in step by triggers and rebuilt by its one
+    # replayer. Its FTS5 shadow tables are owned by the virtual table (see
+    # ``fts5_shadow_table_names``).
+    ("source_block_fts", TableRole.DERIVED),
     # Migration 089 defines an additive, versioned analyzer artifact.  Some
     # analyzer inputs (for example equation confidence) live only in this row.
     ("source_block_health", TableRole.RAW_LEDGER),
@@ -424,8 +430,33 @@ def tables_for_role(role: TableRole) -> frozenset[str]:
     return frozenset(name for name, declared_role in TABLE_ROLES.items() if declared_role is role)
 
 
+#: The storage tables SQLite's FTS5 module creates for every FTS5 virtual table.
+FTS5_SHADOW_SUFFIXES = ("_data", "_idx", "_content", "_docsize", "_config")
+
+
+def fts5_shadow_table_names(connection: sqlite3.Connection) -> frozenset[str]:
+    """FTS5 shadow tables: implementation storage of a registered virtual table.
+
+    They are created, written and cleared only through their virtual table
+    (``DELETE FROM`` the virtual table clears them), so the virtual table alone
+    carries the role and they are not separate policy decisions.
+    """
+
+    rows = connection.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND sql IS NOT NULL"
+    ).fetchall()
+    shadows: set[str] = set()
+    for name, sql in rows:
+        if re.match(r"\s*CREATE\s+VIRTUAL\s+TABLE\b.*\bUSING\s+fts5\b", str(sql), re.I | re.S):
+            shadows.update(f"{name}{suffix}" for suffix in FTS5_SHADOW_SUFFIXES)
+    return frozenset(shadows)
+
+
 def user_table_names(connection: sqlite3.Connection) -> frozenset[str]:
-    """Read the non-SQLite table names from an open database connection."""
+    """Read the non-SQLite table names from an open database connection.
+
+    FTS5 shadow tables are excluded: their virtual table is the registered one.
+    """
 
     rows = connection.execute(
         """
@@ -435,7 +466,7 @@ def user_table_names(connection: sqlite3.Connection) -> frozenset[str]:
            AND name NOT LIKE 'sqlite_%'
         """
     )
-    return frozenset(str(row[0]) for row in rows)
+    return frozenset(str(row[0]) for row in rows) - fts5_shadow_table_names(connection)
 
 
 def registry_mismatch(table_names: Iterable[str]) -> TableRoleMismatch:
@@ -467,7 +498,9 @@ __all__ = [
     "TABLE_ROLES",
     "TableRole",
     "TableRoleMismatch",
+    "FTS5_SHADOW_SUFFIXES",
     "assert_complete_registry",
+    "fts5_shadow_table_names",
     "registry_mismatch",
     "role_for_table",
     "tables_for_role",

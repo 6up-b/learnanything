@@ -1221,6 +1221,7 @@ sidecar_passthrough!(
     "reader.exercise_import_status"
 );
 sidecar_passthrough!(reader_search_sources, "reader.search_sources");
+sidecar_passthrough!(reader_span_learning_objects, "reader.span_learning_objects");
 sidecar_passthrough!(reader_manual_anchor, "reader.manual_anchor");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");

@@ -83,7 +83,9 @@ def test_metric_helpers():
     assert (abstaining["tn"], abstaining["fn"], abstaining["abstained"]) == (1, 0, 2)
     assert abstaining["accuracy"] == round(1 / 3, 6) and abstaining["recall"] == 0.0
     assert abstaining["coverage"] == round(1 / 3, 6)
-    assert set(SUITES) == {"b2", "valid_alternative"}
+    # Phase 5a's own suites; consumers (Slice 2 T6's source_retrieval and b4,
+    # T1's B1/B3) join at the CLI composition root through register_suites.
+    assert {"b2", "valid_alternative"} <= set(SUITES)
 
 
 def test_b2_reports_views_and_recall_oriented_cutoffs_and_caches_vectors(tmp_path):

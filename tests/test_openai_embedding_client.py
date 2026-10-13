@@ -248,3 +248,27 @@ def test_embedding_route_defaults_but_a_vault_that_never_enables_embeddings_send
     config = LearnLoopConfig.model_validate({"ai": {"routing": {}}, "embedding": {"enabled": True}})
     assert ready_client_for_task(tmp_path, config, "embedding").ready
     assert len(module.instances) == 1
+
+
+def test_gemini_embedding_2_embeds_page_images_through_openrouter_multimodal_input(monkeypatch):
+    # Slice 2 T6's B4: an image is one {"content": [image_url part]} input; the
+    # receipt hashes only a digest of the image, never the bytes.
+    built, sdk = client(monkeypatch, response([0, 2], [3, 4]), model="google/gemini-embedding-2")
+    assert built.modalities == {"text", "image"}
+    events = []
+    with observe_model_calls(lambda action, event: events.append((action, event))):
+        vectors = built.embed(["a question", ("image/png", b"\x89PNG fake")], "retrieval-document")
+    assert vectors == [[0.0, 1.0], [0.6, 0.8]]
+    sent = sdk.embedding_requests[0]["input"]
+    assert sent[0] == "Represent this document for retrieval:\na question"
+    assert sent[1] == {"content": [{"type": "image_url",
+                                    "image_url": {"url": "data:image/png;base64,iVBORyBmYWtl"}}]}
+    assert events[0][1]["input_text"] is None  # a list prompt is hashed, not stored
+
+
+@pytest.mark.parametrize("value", [("image/gif", b"x"), ("image/png", b""), ("image/png", "not bytes")])
+def test_image_inputs_are_validated_before_any_request(monkeypatch, value):
+    built, sdk = client(monkeypatch, model="google/gemini-embedding-2")
+    with pytest.raises(ValueError):
+        built.embed([value], "retrieval-document")
+    assert sdk.embedding_requests == []

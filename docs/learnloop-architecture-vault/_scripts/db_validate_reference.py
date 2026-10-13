@@ -36,15 +36,15 @@ TABLES_ROOT = DATABASE_ROOT / "Tables"
 CONFIG_ROOT = VAULT_ROOT / "Reference" / "Configuration"
 CONFIG_FIELDS_ROOT = CONFIG_ROOT / "Fields"
 INITIALIZATION_NOTE = VAULT_ROOT / "Reference" / "CLI" / "Initialization.md"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_176" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_177" / "state.sqlite"
 CONFIG_SCHEMA_SOURCE = REPOSITORY_ROOT / "src" / "learnloop" / "config" / "schema.py"
-SCHEMA_HEAD = 176
+SCHEMA_HEAD = 177
 
 sys.path.insert(0, str(SRC_ROOT))
 
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
-from learnloop.db.table_roles import TABLE_ROLES, TableRole  # noqa: E402
+from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
 from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
     derived_table_owners,
     validate_replayer_registry,
@@ -585,13 +585,8 @@ def validate_frontmatter(
 def migration_head_tables() -> tuple[set[str], int]:
     connection = sqlite3.connect(f"file:{SCHEMA_PATH}?mode=ro", uri=True)
     try:
-        tables = {
-            str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-            )
-        }
+        # FTS5 shadow tables belong to their registered virtual table.
+        tables = set(user_table_names(connection))
         head = int(connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0])
     finally:
         connection.close()

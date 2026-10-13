@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
+source_commit_timestamp: "2026-10-12T20:11:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 176
+schema_head: 177
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,11 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
-  - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -48,7 +50,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/032_source_layer.sql`.
-- **Schema touched by:** `032_source_layer.sql`.
+- **Schema touched by:** `032_source_layer.sql`, `177_source_block_fts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -82,6 +84,12 @@ Indexes and uniqueness:
 - `idx_source_document_blocks_hash` on `extraction_id`, `content_hash`.
 - `sqlite_autoindex_source_document_blocks_1` on `extraction_id`, `span_id` (unique).
 
+Database triggers:
+
+- `source_block_fts_after_delete` — schema-enforced lifecycle or immutability constraint.
+- `source_block_fts_after_insert` — schema-enforced lifecycle or immutability constraint.
+- `source_block_fts_after_update` — schema-enforced lifecycle or immutability constraint.
+
 ## Who calls it
 
 ### Repository access surface
@@ -95,6 +103,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_block_fts.py`
 
 ### Direct SQL writers
 
@@ -105,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
@@ -121,7 +131,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_review.py`
 - `src/learnloop/reader/source_search.py`
-- `src/learnloop/reader/span_view.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -129,6 +138,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_migrations.py`
+- `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_ingest_runner.py`

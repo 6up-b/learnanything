@@ -45,6 +45,7 @@ import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "..
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
 import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
+import { searchBasisLabel } from "./reader/searchBasis";
 import {
   parseRequestError,
   parseRequestResult,
@@ -334,6 +335,8 @@ export function ReaderScreen({
   } | null>(null);
   // Across-source search on the library screen ("where did I read that?").
   const [librarySearch, setLibrarySearch] = useState("");
+  // Enter asks for a deep search (meaning + rewritten question); typing resets it.
+  const [searchDeep, setSearchDeep] = useState(false);
   const [searchResults, setSearchResults] = useState<ReaderSourceSearchDto | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -435,7 +438,7 @@ export function ReaderScreen({
     setSearchError(null);
     const timer = window.setTimeout(() => {
       api
-        .readerSearchSources({ query })
+        .readerSearchSources({ query, deep: searchDeep })
         .then((result) => {
           if (!cancelled) setSearchResults(result);
         })
@@ -448,12 +451,12 @@ export function ReaderScreen({
         .finally(() => {
           if (!cancelled) setSearchBusy(false);
         });
-    }, 300);
+    }, searchDeep ? 0 : 300);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [librarySearch, render, sidecarDown]);
+  }, [librarySearch, searchDeep, render, sidecarDown]);
 
   useEffect(() => {
     try {
@@ -1874,9 +1877,16 @@ export function ReaderScreen({
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   value={librarySearch}
-                  onChange={(e) => setLibrarySearch(e.target.value)}
+                  onChange={(e) => {
+                    setLibrarySearch(e.target.value);
+                    setSearchDeep(false);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Escape") setLibrarySearch("");
+                    if (e.key === "Escape") {
+                      setLibrarySearch("");
+                      setSearchDeep(false);
+                    }
+                    if (e.key === "Enter") setSearchDeep(true);
                   }}
                   placeholder="search all sources…"
                   style={{ fontFamily: FONT_MONO, fontSize: 12, width: 280, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "5px 10px" }}
@@ -1884,6 +1894,7 @@ export function ReaderScreen({
                 {searchBusy ? <Faint style={{ fontSize: 11 }}>◐ searching…</Faint> : searchResults ? (
                   <Faint style={{ fontSize: 11 }}>
                     {searchResults.hits.length} hit{searchResults.hits.length === 1 ? "" : "s"} across {searchResults.searchedSources} source{searchResults.searchedSources === 1 ? "" : "s"}
+                    {searchBasisLabel(searchResults)}
                   </Faint>
                 ) : null}
               </div>

@@ -44,11 +44,12 @@ from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
 import sqlite3
+import time
 from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable, AITurnTimeout
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
 from learnloop.ai.routing import MANUAL_PROVIDER, AITask, provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
@@ -310,13 +311,19 @@ class PaidCalls:
              result_model: type[BaseModel], output_tokens: int,
              metadata: Mapping[str, Any], candidates: int = 0, pairs: int = 0,
              validate: Callable[[Any], Any] | None = None,
-             context: Mapping[str, Any] | None = None) -> Any:
+             context: Mapping[str, Any] | None = None,
+             deadline: float | None = None) -> Any:
         """One logical call, retried on provider failure within the retry cap.
 
         ``validate`` may raise ``AIInvalidOutput`` for a semantically unusable
         answer; it is then retried like a provider failure. A validated answer
         is checkpointed (with ``context``) before it is returned, and an
         existing checkpoint for the same request is returned without a request.
+
+        ``deadline`` (a ``time.monotonic()`` value) time-boxes a live caller:
+        each attempt's request carries the remaining time as its timeout (every
+        transport enforces ``StructuredRequest.timeout_seconds``), and no attempt
+        starts once it has passed (``AITurnTimeout``, never a retry).
         """
         key = self.checkpoint_key(purpose=purpose, prompt=prompt, result_model=result_model,
                                   output_tokens=output_tokens)
@@ -334,6 +341,11 @@ class PaidCalls:
         tokens = estimated_call_tokens(prompt, result_model, output_tokens)
         attempt = 0
         while True:
+            timeout_seconds = None
+            if deadline is not None:
+                timeout_seconds = deadline - time.monotonic()
+                if timeout_seconds <= 0:
+                    raise AITurnTimeout(f"{purpose}: the time box ran out before the request")
             estimate = self.estimate(
                 tokens, candidates=0 if attempt else candidates,
                 pairs=0 if attempt else pairs, retries=1 if attempt else 0,
@@ -348,6 +360,7 @@ class PaidCalls:
                                 generation_limit(output_tokens), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
+                                timeout_seconds=timeout_seconds,
                             )
                     finally:
                         self._reconcile(charge, tokens, events)

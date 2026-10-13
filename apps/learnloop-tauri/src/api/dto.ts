@@ -5830,6 +5830,9 @@ export interface ReaderAnswerDto {
   burnedSurfaceIds: string[];
   hintEquivalent: boolean;
   remaining: number | null;
+  /** Slice 2 T6: labelled nearest-LO suggestions when the span has no
+   *  provenance-linked LO (absent otherwise). */
+  suggestedLearningObjects?: SuggestedLearningObjectDto[];
 }
 
 /** A completed Reader Ask restored from the durable interaction-event log. */
@@ -5999,6 +6002,43 @@ export interface ReaderSourceSearchDto {
   query: string;
   hits: ReaderSourceSearchHitDto[];
   searchedSources: number;
+  /** Slice 2 T6: which evidence ranked the hits, e.g. "keyword",
+   *  "keyword+meaning", "keyword+meaning+rewrite"; absent when retrieval is off
+   *  (plain substring search). */
+  basis?: string;
+  deep?: boolean;
+  /** Whether Enter would also search by meaning: "ready" or "partial" (some
+   *  sources not embedded yet) when it would; absent when retrieval is off. */
+  meaningSearch?: ReaderMeaningSearchDto;
+}
+
+export interface ReaderMeaningSearchDto {
+  status: "ready" | "partial" | "incomplete" | "disabled" | "empty" | "unavailable" | string;
+  reason?: string | null;
+  sources: number;
+  sourcesCovered: number;
+  blocks: number;
+  blocksCovered: number;
+}
+
+/** Slice 2 T6: a nearest learning object for a reader span without
+ *  provenance. Always a labelled suggestion, never a filing or a target. */
+export interface SuggestedLearningObjectDto {
+  learningObjectId: string;
+  title: string;
+  label: "suggestion";
+  basis: string[];
+}
+
+/** reader.span_learning_objects: provenance-linked LOs, else suggestions. */
+export interface ReaderSpanLearningObjectsDto {
+  version?: number;
+  extractionId: string;
+  spanId: string;
+  status: string;
+  provenance: string[];
+  suggestions: SuggestedLearningObjectDto[];
+  meaning?: string;
 }
 
 // Durable per-section reading progress (reader-first seeding).

@@ -322,6 +322,33 @@ def _check_database_state(
         _check_bad_item_suspicion(vault, repository, issues)
     if "post_attempt_jobs" in database_tables:
         _check_post_attempt_jobs(repository, issues)
+    if _has_tables(database_tables, "source_block_fts", "source_document_blocks"):
+        _check_source_block_fts(repository, issues)
+
+
+def _check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None:
+    """Slice 2 T6: the DERIVED keyword index matches the source blocks.
+
+    The index is keyed by the blocks' implicit rowid; a table rebuild that
+    renumbered rowids or dropped the triggers leaves stale or missing rows,
+    which the source_block_fts replayer repairs.
+    """
+
+    from learnloop.db.stores.source_block_fts import fts_drift
+
+    with repository.connection() as connection:
+        drift = fts_drift(connection)
+    if drift["stale"] or drift["missing"]:
+        issues.append(
+            _issue(
+                "warning",
+                "sql:source_block_fts_drift",
+                f"The source keyword index (source_block_fts) has drifted from the source blocks: "
+                f"{drift['stale']} stale and {drift['missing']} missing rows. Run "
+                "`learnloop rebuild-derived-state` to rebuild it.",
+                details=drift,
+            )
+        )
 
 
 #: A queued diagnosis older than this is reported stale (the worker, a drain or

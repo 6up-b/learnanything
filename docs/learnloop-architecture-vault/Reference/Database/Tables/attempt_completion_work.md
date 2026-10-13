@@ -3,13 +3,13 @@ title: "attempt_completion_work"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
+source_commit_timestamp: "2026-10-12T20:11:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_completion_work"
   - "table attempt_completion_work"
-schema_head: 176
+schema_head: 177
 table_name: "attempt_completion_work"
 table_role: "workflow"
 functionality_status: "active"

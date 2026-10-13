@@ -53,10 +53,25 @@ ROUTER_R0_SETTINGS_RPCS = ("get_settings", "update_ai_settings")
 # and get_feedback (an escalated repair leads the repairs shown). The first
 # two are pinned above; get_feedback is pinned here.
 SLICE2_T1_RPCS = ("get_feedback",)
+# Slice 2 T6 (source retrieval) adds reader.span_learning_objects (the labelled
+# nearest-LO suggestion) and extends five desktop ones: reader.search_sources
+# (the deep search on Enter), reader.ask (suggested_learning_objects),
+# ask_tutor_question (question-dependent, verified source spans) and the
+# Quick Add plan (the retrieved scope, through plan_quick_add and
+# confirm_quick_add). Desktop only.
+SLICE2_T6_RPCS = (
+    "reader.span_learning_objects",
+    "reader.search_sources",
+    "reader.ask",
+    "ask_tutor_question",
+    "plan_quick_add",
+    "confirm_quick_add",
+)
 
 
 @pytest.mark.parametrize(
-    "method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS
+    "method",
+    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

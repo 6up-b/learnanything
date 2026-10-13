@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
+source_commit_timestamp: "2026-10-12T20:11:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/vault/lifecycle.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/tutor/question_signal.py"
+  - "tests/source_retrieval_fakes.py"
   - "tests/test_daily_loop_reader_authored_practice.py"
   - "tests/test_daily_loop_reader_retire.py"
   - "tests/test_daily_loop_reference_adoption.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/test_sidecar_reader_p3.py"
   - "tests/test_sidecar_reader_p3_slice3.py"
   - "tests/test_sidecar_serializer_snapshot.py"
-  - "tests/test_tutor_promotion_w2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -56,10 +56,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `tutor_qa.max_questions_practice` | `3` | integer | modeled default or validator seed | Caps questions practice allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:540`; `src/learnloop/tutor/tutor_qa.py:162` |
-| `tutor_qa.max_questions_feedback` | `5` | integer | modeled default or validator seed | Caps questions feedback allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:541`; `src/learnloop/tutor/tutor_qa.py:167` |
-| `tutor_qa.max_questions_library` | `8` | integer | modeled default or validator seed | Caps questions library allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:542`; `src/learnloop/tutor/tutor_qa.py:174` |
-| `tutor_qa.max_questions_reader` | `8` | integer | modeled default or validator seed | Caps questions reader allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:544`; `src/learnloop/tutor/tutor_qa.py:182` |
+| `tutor_qa.max_questions_practice` | `3` | integer | modeled default or validator seed | Caps questions practice allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:540`; `src/learnloop/tutor/tutor_qa.py:172` |
+| `tutor_qa.max_questions_feedback` | `5` | integer | modeled default or validator seed | Caps questions feedback allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:541`; `src/learnloop/tutor/tutor_qa.py:177` |
+| `tutor_qa.max_questions_library` | `8` | integer | modeled default or validator seed | Caps questions library allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:542`; `src/learnloop/tutor/tutor_qa.py:184` |
+| `tutor_qa.max_questions_reader` | `8` | integer | modeled default or validator seed | Caps questions reader allowed by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:544`; `src/learnloop/tutor/tutor_qa.py:192` |
 | `tutor_qa.reader_enabled` | `true` | boolean | modeled default or validator seed | Turns reader behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:550`; `src/learnloop/reader/reader_dialogue.py:139` |
 | `tutor_qa.adopt_reference_questions` | `true` | boolean | modeled default or validator seed | Turns adopt reference questions behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:556`; `src/learnloop/reader/reader_authoring.py:309`; `src/learnloop/vault/lifecycle.py:74` |
 | `tutor_qa.apply_uncertainty_effect` | `true` | boolean | modeled default or validator seed | Turns uncertainty effect behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:557`; `src/learnloop/learner/facet_diagnostics.py:679` |
@@ -76,6 +76,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/source_retrieval_fakes.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
@@ -87,7 +88,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_sidecar_reader_p3.py`
 - `tests/test_sidecar_reader_p3_slice3.py`
 - `tests/test_sidecar_serializer_snapshot.py`
-- `tests/test_tutor_promotion_w2.py`
 
 ## Extension and modification guidance
 

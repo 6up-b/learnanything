@@ -31,7 +31,7 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.errors import AIInvalidOutput
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
@@ -39,7 +39,6 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import retrieve
-from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import (
     DossierRow,
     checkpointed_keys,
@@ -52,6 +51,14 @@ from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_label, item_facets, registered_facets
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, PracticeRerank
 from learnloop.practice_index.dossiers import select_current_dossiers
+from learnloop.practice_index.listwise import (
+    ListwiseTask,
+    judge_listwise,
+    ledger_ids,
+    listwise_caps,
+    request_input_hash,
+    route_skip,
+)
 from learnloop.ops.embedding_backfill import estimated_tokens
 from learnloop.practice_index.paid import (
     PaidCalls,
@@ -59,8 +66,6 @@ from learnloop.practice_index.paid import (
     estimated_call_tokens,
     plan_route,
     receipt_answer,
-    resolve_client,
-    transport_problem,
 )
 from learnloop.practice_index.query_vectors import (
     cached_query_vectors,
@@ -471,32 +476,36 @@ def _rerank_prompt(query_text: str, pick_at_most: int, context: list[dict[str, A
     )
 
 
+#: The practice rerank on the shared listwise judge (``practice_index.listwise``).
+RERANK_TASK = ListwiseTask(
+    route_task="practice_rerank", ledger_task="practice_relevance", left_kind="practice_query",
+    right_kind="practice_item", id_prefix="prr_", prompt_version=RERANK_PROMPT_VERSION,
+    output_tokens=RERANK_OUTPUT_TOKENS, result_model=PracticeRerank, verdict_field="relevance",
+    scores=RELEVANCE_SCORE, price_setting="practice_index.rerank_price_per_million",
+    route_label="rerank ",
+)
+
+
 def _rerank_request(vault: LoadedVault, route, query_text: str, pool: Sequence[str],
                     pick_at_most: int) -> tuple[str, dict[str, str], str, dict[str, str]]:
     """The rerank prompt, its candidate refs, input hash and per-item ledger ids."""
     context = _candidate_context(vault, pool)
     refs = {entry["ref"]: item_id for entry, item_id in zip(context, pool, strict=True)}
     prompt = _rerank_prompt(query_text, pick_at_most, context)
-    model_key = route.model or "unspecified"
-    input_hash = content_key({"prompt": prompt, "schema": PracticeRerank.model_json_schema(),
-                              "model": model_key, "output_tokens": RERANK_OUTPUT_TOKENS})
-    ids = {item_id: "prr_" + content_key([input_hash, item_id])[:40] for item_id in pool}
+    input_hash = request_input_hash(RERANK_TASK, route, prompt)
+    ids = ledger_ids(RERANK_TASK, input_hash, list(pool), lambda item_id: [item_id])
     return prompt, refs, input_hash, ids
 
 
 def rerank_caps(vault: LoadedVault, pool_size: int) -> SpendCaps:
     """One rerank request and at most one retry, under the configured dollar cap."""
-    return SpendCaps(max_candidates=pool_size, max_pairs=pool_size, max_retries=1, max_calls=2,
-                     max_total_tokens=400_000,
-                     max_estimated_usd=vault.config.practice_index.rerank_max_cost_usd)
+    return listwise_caps(pool_size, max_total_tokens=400_000,
+                         max_estimated_usd=vault.config.practice_index.rerank_max_cost_usd)
 
 
 def _rerank_skip(route, price: float | None, *, injected: bool) -> str | None:
-    if not injected and not route.available:
-        return "unavailable: no provider routed for practice_rerank"
-    if route.billing == "metered" and price is None:
-        return "skipped: metered rerank route without practice_index.rerank_price_per_million"
-    return None
+    return route_skip(route, price, injected=injected, price_setting=RERANK_TASK.price_setting,
+                      route_label=RERANK_TASK.route_label)
 
 
 def rerank_pool(
@@ -504,90 +513,33 @@ def rerank_pool(
     pick_at_most: int, owner_id: str, client: Any | None = None,
 ) -> RerankOutcome:
     """The live LLM rerank: judge the pool, pick the best few, ledger every verdict."""
-    config = vault.config.practice_index
     if not pool:
         return RerankOutcome("empty_pool")
     route = plan_route(vault, "practice_rerank", client)
-    price = config.rerank_price_per_million
-    skip = _rerank_skip(route, price, injected=client is not None)
-    if skip is not None:
-        return RerankOutcome(skip)
-    prompt, refs, input_hash, ids = _rerank_request(vault, route, query_text, pool, pick_at_most)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        cached = judgments_by_ids(connection, ids.values())
-    if cached and all(ids[item_id] in cached for item_id in pool):
-        return _from_ledger(pool, ids, cached, "cached", pick_at_most)
-    if client is None:
-        client, reason = resolve_client(vault, route)
-    else:
-        reason = transport_problem(route, client)
-    if client is None or reason is not None:
-        return RerankOutcome(f"unavailable: {reason}")
-    calls = PaidCalls(route=route, budget=SpendBudget(rerank_caps(vault, len(pool))),
-                      price_per_million=price, repository=repository,
-                      owner_kind="practice_rerank", owner_id=owner_id)
-    try:
-        result = calls.call(
-            client, purpose="practice_rerank", prompt=prompt, result_model=PracticeRerank,
-            output_tokens=RERANK_OUTPUT_TOKENS, candidates=len(pool), pairs=len(pool),
-            metadata={"prompt_version": RERANK_PROMPT_VERSION, "input_hash": input_hash},
-            validate=lambda value: _validate_rerank(value, refs),
-        )
-    except AIInterrupted:
-        return RerankOutcome("cancelled", usage=calls.report())
-    except SpendLimitExceeded as exc:
-        return RerankOutcome(f"over_budget: {exc}", usage=calls.report())
-    except AIProviderUnavailable as exc:
-        return RerankOutcome(f"failed: {type(exc).__name__}", usage=calls.report())
-    model = calls.last_resolved_model or route.model or "unspecified"
-    picks = []
-    for ref in result.picks:
-        item_id = refs.get(ref)
-        if item_id is not None and item_id not in picks:
-            picks.append(item_id)
-    picks = picks[:pick_at_most]
-    with repository.connection() as connection:
-        for judgment in result.judgments:
-            item_id = refs.get(judgment.ref)
-            if item_id is None:
-                continue
-            judgment_id = ids[item_id]
-            if judgments_by_ids(connection, [judgment_id]):
-                continue
-            rank = picks.index(item_id) + 1 if item_id in picks else None
-            append_judgment(
-                connection, id=judgment_id, task="practice_relevance",
-                left_kind="practice_query", left_id=query_id(query_text),
-                right_kind="practice_item", right_id=item_id, judge="llm",
-                judge_model=model, prompt_version=RERANK_PROMPT_VERSION, input_hash=input_hash,
-                verdict=judgment.relevance, score=RELEVANCE_SCORE[judgment.relevance],
-                rationale=json.dumps({"text": judgment.rationale.strip()[:600], "pick_rank": rank},
-                                     ensure_ascii=False, sort_keys=True),
-            )
-        cached = judgments_by_ids(connection, ids.values())
-    outcome = _from_ledger(pool, ids, cached, "reranked", pick_at_most)
-    outcome.usage = calls.report()
-    return outcome
-
-
-def _from_ledger(pool: Sequence[str], ids: Mapping[str, str],
-                 rows: Mapping[str, Mapping[str, Any]], status: str,
-                 pick_at_most: int) -> RerankOutcome:
-    judgments: dict[str, dict[str, Any]] = {}
-    ranked: list[tuple[int, str]] = []
-    model = None
-    for item_id in pool:
-        row = rows.get(ids[item_id])
-        if row is None:
-            continue
-        details = json.loads(row["rationale"] or "{}")
-        judgments[item_id] = {"relevance": row["verdict"], "rationale": details.get("text", ""),
-                              "judgment_id": row["id"]}
-        model = row["judge_model"]
-        if details.get("pick_rank"):
-            ranked.append((int(details["pick_rank"]), item_id))
-    picks = [item_id for _, item_id in sorted(ranked)][:pick_at_most]
-    return RerankOutcome(status, picks, judgments, model)
+    context = _candidate_context(vault, pool)
+    refs = {entry["ref"]: item_id for entry, item_id in zip(context, pool, strict=True)}
+    outcome = judge_listwise(
+        vault, repository, RERANK_TASK, prompt=_rerank_prompt(query_text, pick_at_most, context),
+        refs=refs, left_id=query_id(query_text), right_id=lambda item_id: item_id,
+        id_parts=lambda item_id: [item_id], pick_at_most=pick_at_most,
+        caps=rerank_caps(vault, len(pool)), price=vault.config.practice_index.rerank_price_per_million,
+        owner_id=owner_id, client=client, route=route,
+        validate=lambda value: _validate_rerank(value, refs),
+    )
+    if outcome.status in {"cached", "judged"}:
+        judgments = {
+            item_id: {"relevance": row["verdict"],
+                      "rationale": json.loads(row["rationale"] or "{}").get("text", ""),
+                      "judgment_id": row["id"]}
+            for item_id, row in outcome.rows.items()
+        }
+        status = "reranked" if outcome.status == "judged" else "cached"
+        return RerankOutcome(status, list(outcome.picks), judgments, outcome.model, outcome.usage)
+    if outcome.status == "unavailable":
+        return RerankOutcome(f"unavailable: {outcome.reason}")
+    if outcome.status in {"over_budget", "failed"}:
+        return RerankOutcome(f"{outcome.status}: {outcome.reason}", usage=outcome.usage)
+    return RerankOutcome(outcome.status, usage=outcome.usage)
 
 
 def admissible_corpus(vault: LoadedVault, repository: Repository,

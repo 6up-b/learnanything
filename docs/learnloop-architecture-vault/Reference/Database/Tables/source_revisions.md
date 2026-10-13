@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
+source_commit_timestamp: "2026-10-12T20:11:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 176
+schema_head: 177
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/capture/inbox.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
@@ -97,6 +98,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/capture/inbox.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
@@ -123,14 +125,15 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
-- `src/learnloop_sidecar/handlers/ingest.py`
-- `src/learnloop_sidecar/handlers/reader.py`
+- `src/learnloop/source_retrieval/b4.py`
+- `src/learnloop/source_retrieval/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/source_retrieval_fakes.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
@@ -138,6 +141,8 @@ Indexes and uniqueness:
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
+- `tests/test_source_retrieval_guards.py`
+- `tests/test_source_retrieval_rereview.py`
 - `tests/test_span_view.py`
 - `tests/test_source_layer.py`
 

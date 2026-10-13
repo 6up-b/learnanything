@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import math
 import os
 
-from learnloop.ai.embedding import EmbedInput, TASK_PREFIXES, Vector
+from learnloop.ai.embedding import EmbedInput, TASK_PREFIXES, Vector, current_embedding_timeout
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.transport import EMBEDDING
@@ -14,6 +16,16 @@ from learnloop.config import AIProviderConfig
 
 DEFAULT_MODEL = "qwen/qwen3-embedding-8b"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+#: Models that also embed images through OpenRouter's multimodal input
+#: (``{"content": [{"type": "image_url", ...}]}``); Slice 2 T6's B4 page images.
+IMAGE_EMBEDDING_MODELS = ("google/gemini-embedding-2",)
+IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
+#: A rendered page is a few hundred kilobytes; anything far larger is refused.
+MAX_IMAGE_BYTES = 8_000_000
+
+
+def image_capable(model_id: str) -> bool:
+    return model_id.startswith(IMAGE_EMBEDDING_MODELS)
 
 
 def prefixed_text(text: str, task_prefix: str, model_id: str) -> str:
@@ -36,7 +48,6 @@ def prefixed_text(text: str, task_prefix: str, model_id: str) -> str:
 class OpenAIEmbeddingProviderClient:
     provider_type = "openai_embedding"
     default_base_url = DEFAULT_BASE_URL
-    modalities = frozenset({"text"})
 
     def __init__(self, provider_name: str, profile: AIProviderConfig):
         from openai import OpenAI
@@ -45,6 +56,7 @@ class OpenAIEmbeddingProviderClient:
         self.profile = profile
         self.model_id = profile.model or DEFAULT_MODEL
         self.model = self.model_id
+        self.modalities = frozenset({"text", "image"} if image_capable(self.model_id) else {"text"})
         self.dims = getattr(profile, "dimensions", 4096)
         self.max_input_tokens = getattr(profile, "max_input_tokens", 32768)
         if self.dims <= 0 or self.max_input_tokens <= 0:
@@ -66,25 +78,35 @@ class OpenAIEmbeddingProviderClient:
     def embed(self, inputs: list[EmbedInput], task_prefix: str) -> list[Vector]:
         if task_prefix not in TASK_PREFIXES:
             raise ValueError(f"Unsupported embedding task prefix: {task_prefix!r}")
-        texts = []
+        texts: list = []
+        # What the receipt hashes: the texts, and only a digest per image.
+        described: list[str] = []
         for value in inputs:
             if not isinstance(value, str):
-                raise ValueError("This embedding client supports text only")
+                texts.append(self._image_input(value))
+                described.append(f"<{value[0]} sha256:{hashlib.sha256(value[1]).hexdigest()}>")
+                continue
             text = prefixed_text(value, task_prefix, self.model_id)
             # UTF-8 bytes conservatively bound byte-level tokenizer tokens.
             # Do not silently truncate canonical text or split into extra paid calls.
             if not value.strip() or len(text.encode("utf-8")) > self.max_input_tokens:
                 raise ValueError("Embedding input is empty or exceeds the conservative input limit")
             texts.append(text)
+            described.append(text)
         if not texts:
             return []
-        with model_call(self, purpose="embedding", prompt=texts):
+        # A caller's time box (embedding_request_timeout) bounds this request;
+        # otherwise the client's own timeout applies.
+        timeout = current_embedding_timeout()
+        options = {} if timeout is None else {"timeout": max(float(timeout), 0.001)}
+        with model_call(self, purpose="embedding", prompt=described):
             try:
                 response = self._client.embeddings.create(
                     model=self.model_id,
                     input=texts,
                     encoding_format="float",
                     extra_body={"provider": {"data_collection": "deny"}},
+                    **options,
                 )
             except Exception as exc:
                 # Normalize SDK errors for the bounded retry owner. Provider
@@ -102,6 +124,17 @@ class OpenAIEmbeddingProviderClient:
                 # A paid 200 without the documented shape (no data, no index,
                 # no embedding): the contract's error for an invalid response.
                 raise ValueError("Embedding response is malformed") from None
+
+    def _image_input(self, value) -> dict:
+        """One image as an OpenRouter multimodal input (image-capable models only)."""
+
+        if "image" not in self.modalities:
+            raise ValueError("This embedding client supports text only")
+        if (not isinstance(value, tuple) or len(value) != 2 or value[0] not in IMAGE_MEDIA_TYPES
+                or not isinstance(value[1], bytes) or not value[1] or len(value[1]) > MAX_IMAGE_BYTES):
+            raise ValueError("Image inputs must be (png/jpeg/webp media type, nonempty bytes) within the size limit")
+        encoded = base64.b64encode(value[1]).decode("ascii")
+        return {"content": [{"type": "image_url", "image_url": {"url": f"data:{value[0]};base64,{encoded}"}}]}
 
     def _vectors(self, response, count: int) -> list[Vector]:
         rows = sorted(response.data, key=lambda row: row.index)

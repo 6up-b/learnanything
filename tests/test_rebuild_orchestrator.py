@@ -22,7 +22,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_176"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_177"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
@@ -323,6 +323,13 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "registry_hash": "stale",
             "finding_count": 1,
             "checked_at": at,
+        },
+        # Slice 2 T6: an index row whose block no longer exists.
+        "source_block_fts": {
+            "rowid": 987654321,
+            "text": "stale orphan block",
+            "extraction_id": "stale_extraction",
+            "span_id": "stale_span",
         },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))

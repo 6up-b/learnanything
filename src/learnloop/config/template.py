@@ -871,7 +871,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.12 (the algorithm version gates the recurrence groups), so
     # mvp-0.9, mvp-0.10 and mvp-0.11 serving are unchanged. Every snapshot
     # was recomputed at its merge (defaults_fingerprint_for_version).
-    "mvp-0.9": "fdaf91151e4c5ef9693d6954f35f19e0c952f32123e5cf808fae89e534fcc395",
+    # Slice 2 T6 adds [source_retrieval] (modelled defaults only, left out of
+    # the decision-only template) and four unset source_* routes: retrieval is
+    # context for the library search, tutor spans, the Quick Add preview and
+    # labelled LO suggestions. No scoring, scheduling, projection or serving
+    # change, so no successor; enabled = false is its kill switch. All three
+    # snapshots were recomputed for it (each moves only because the effective
+    # config gains the section and routes), and again for the T6 review fixes
+    # (tutor_query_rewrite, retrieval_timeout_seconds, tutor_spans at most 4).
+    # At its merge after Slice 2 T1 every snapshot, mvp-0.12's included, was
+    # recomputed (defaults_fingerprint_for_version); no serving change.
+    "mvp-0.9": "a12da8c2d2eacdce8aa131740a15f84679374736194a271001135f93382d4388",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -882,7 +892,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Phase 5a's [pf] section and routes move it too (no serving change).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "f026cfb3114612a9d05edd85567f7822836e389d6d75a21c3516152fadd4f1fa",
+    # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "4d1e72372a2c214fae0b63c114bc5c3b6fee4908b80b615e5b3f3200e1e05351",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -901,7 +912,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the diagnosis, and unanswered opening episodes are ignored under
     # placement.
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "952394d5412f9cc88f9ae30e15631b53fe179c0d0218bef4be50b614fdc08e64",
+    # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "1e58dd6709fc82cdb2803910f72faf18be899af87a460412b22607bc6fffaffc",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -913,7 +925,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
     # groups are active from the first answer, built only from the judge's and
     # the diagnoser's verdicts on their own history.
-    "mvp-0.12": "650592b462d9690de8ee81d8f28de0e71efefe8ba49fc3e4faa44cf7645b3d2c",
+    # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "d6c9d70d61dd543c51de6c34c168def87361684e8c2807699ad88e9afab0e68b",
 }
 
 
