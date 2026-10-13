@@ -409,11 +409,19 @@ class DiagnosisStoreMixin:
                 return None
             return self._live_views(connection, [attempt_id]).get(attempt_id)
 
-    def live_causal_views(self) -> dict[str, tuple[str, dict[str, Any]]]:
+    def live_causal_views(
+        self, attempt_ids: Iterable[str] | None = None
+    ) -> dict[str, tuple[str, dict[str, Any]]]:
+        """(diagnosis id, causal view) in force per attempt: for every attempt,
+        or only for ``attempt_ids`` (one query for the batch)."""
+
+        ids = None if attempt_ids is None else sorted({str(value) for value in attempt_ids if value})
+        if ids is not None and not ids:
+            return {}
         with self.connection() as connection:
             if not _has_table(connection, "attempt_diagnoses"):
                 return {}
-            return self._live_views(connection, None)
+            return self._live_views(connection, ids)
 
     def diagnosis_context_receipt(self, diagnosis_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:

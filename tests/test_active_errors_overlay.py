@@ -78,15 +78,11 @@ def test_overlaid_read_takes_the_diagnosers_not_a_misconception_verdict(tmp_path
 
     raw = repository.active_errors_by_learning_object("lo_svd_compute")
     overlaid = repository.active_errors_by_learning_object_overlaid("lo_svd_compute")
-    # The test vault's taxonomy marks conceptual errors as misconceptions; the
-    # diagnoser called this one a slip.
-    assert [event.is_misconception for event in raw] == [
-        vault.error_types[event.error_type].is_misconception
-        if event.error_type in vault.error_types
-        else False
-        for event in raw
-    ]
-    assert not any(event.is_misconception for event in overlaid)
+    # The stored flag is the grader's taxonomy prior (a conceptual error is a
+    # misconception prior here); the diagnoser called this one a slip.
+    assert raw and all(event.is_misconception for event in raw)
+    assert overlaid and not any(event.is_misconception for event in overlaid)
+    assert {event.misconception_statement for event in overlaid} == {_DIAGNOSED}
 
 
 def test_overlaid_read_keeps_events_of_other_attempts_and_without_an_attempt(tmp_path):

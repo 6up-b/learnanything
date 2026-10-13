@@ -129,9 +129,17 @@ def goal_for_item(vault: LoadedVault, learning_object: Any, item: Any) -> Any | 
 
 def _learner_signal(repository: Repository, learning_object_id: str,
                     *, goal_match: bool) -> tuple[float, str, str]:
-    """Return a local ranking boost and a learner-facing, non-numeric reason."""
+    """Return a local ranking boost and a learner-facing, non-numeric reason.
 
-    errors = repository.active_errors_by_learning_object(learning_object_id)
+    The misconception statement is read through the diagnosis overlay: under
+    the Slice 1 split a blind-graded event stores only the grader's
+    localization, and the statement comes from the attempt's live diagnosis.
+    Until that diagnosis completes (or if it fails) the reason names the error
+    type. The overlay changes no grader-owned field, so the ranking is the
+    same as the raw read's; joint-graded vaults read exactly as stored.
+    """
+
+    errors = repository.active_errors_by_learning_object_overlaid(learning_object_id)
     if errors:
         strongest = max(errors, key=lambda error: (error.severity, error.created_at))
         detail = strongest.misconception_statement or strongest.error_type.replace("_", " ")
