@@ -46,6 +46,9 @@ class UpgradeResult:
     # The explicit mvp-0.7 -> mvp-0.8 reinterpretation delta over the projected
     # facet-capability cells (F2). None when no cutover happened.
     compatibility_delta: "CompatibilityDelta | None" = None
+    # Advisory lines printed with the result (the mvp-0.12 guard's status
+    # when it does not gate the upgrade). Never a refusal reason.
+    notes: list[str] = field(default_factory=list)
 
 
 def validate_mvp07_readiness(vault: LoadedVault) -> list[str]:

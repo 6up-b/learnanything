@@ -7,11 +7,13 @@ same-cause judge decides every pair under the live prompt version; its
 verdicts go to ``judgment_ledger`` (task ``same_cause``, subject kind
 ``planted_hypothesis``, which never touches a vault's groups).
 
-**Any false merge blocks the switch**: ``learnloop upgrade --to mvp-0.12``
-refuses unless every REQUIRED negative pair has a verdict from the CONFIGURED
-judge (its model AND reasoning effort, ``model@effort``) under the current
-prompt version and input, and none of that
-model's standing verdicts on them is ``same``. Verdicts from another model
+**The switch check.** The guard passes when every REQUIRED negative pair
+has a verdict from the CONFIGURED judge (its model AND reasoning effort,
+``model@effort``) under the current prompt version and input, and none of
+that model's standing verdicts on them is ``same``. Since owner batch 2
+(2026-10-12) the check is advisory: ``learnloop upgrade --to mvp-0.12``
+reports it and proceeds; with ``recurrence.require_guard = true`` any false
+merge blocks the switch again (§3.6). Verdicts from another model
 never count (a route change needs a rerun, which asks the new model: reuse is
 per producer), and ``--rerun`` asks the same model again, superseding its
 previous verdicts.

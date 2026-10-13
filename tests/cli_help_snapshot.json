@@ -312,8 +312,8 @@
     "sha256": "2b4806fd4c81d12006fa27ccb43a359d3ec4fa21396c18989959b6eabf567fa5"
   },
   "embeddings compare": {
-    "bytes": 10783,
-    "sha256": "e9a895e219e1a192f76c921790976b7b4a694a271c717e5d0d5d91438c954d87"
+    "bytes": 13339,
+    "sha256": "a5f01932ded30069f3113c4b5615c8a6988aa3599c3a29b9f8d29f0330cd0552"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
@@ -752,16 +752,16 @@
     "sha256": "873a37c3a43b9964f9531e646a14f35aae3aaa9297c698ba132bfb034764d8dd"
   },
   "recurrence bench": {
-    "bytes": 6616,
-    "sha256": "150dab5736a37e3d0fcc28743502f2b0e6737bc0b2f92ddc7379cbdf7dc92085"
+    "bytes": 8735,
+    "sha256": "f0b8aece735ee13292803bb136e909b897118f59f1cf68d23703e909857ee644"
   },
   "recurrence groups": {
     "bytes": 1295,
     "sha256": "d26be1fb471fd258c506fd18818b0a45fd9fe0c0ae24931ad222eae8edb93356"
   },
   "recurrence guard": {
-    "bytes": 3981,
-    "sha256": "876ace2979831be7c42cf10a083b8edf45535d608dda475533e19869ac53401e"
+    "bytes": 4143,
+    "sha256": "a3f6c873626dbd3c4558b5e64a55600592ea2c9942b16ab1b5fa9cbe42c98d08"
   },
   "recurrence report": {
     "bytes": 1716,
@@ -956,8 +956,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 2758,
-    "sha256": "eeb83a9e285a9a8673c287be7c27e06545d33ebc3e9a2f99e315d58ee38d4613"
+    "bytes": 2920,
+    "sha256": "9bf970ed1cf54726e47481f62a9963e6792e82b969e2079d7b3c04fc231720f4"
   },
   "usage": {
     "bytes": 1546,

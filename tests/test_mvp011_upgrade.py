@@ -184,14 +184,19 @@ def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
     sync_vault_state(vault, Repository(paths.sqlite_path), clock=FrozenClock(NOW))
     assert (paths.root / "learnloop.toml").read_text(encoding="utf-8") == before
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.9"
-    # The default target is the latest (mvp-0.12), which the same-cause
-    # guard gates (tests/test_recurrence_commands.py): refused, nothing moves.
-    refused = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
-    assert refused.exit_code == 1, refused.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.9"
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.11"])
     assert result.exit_code == 0, result.output
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.11"
+    # The default target is the latest (LATEST_ALGORITHM_VERSION). The chain
+    # runs through mvp-0.12, whose same-cause guard is advisory (owner,
+    # 2026-10-12; tests/test_recurrence_commands.py): the upgrade reports the
+    # guard's status and proceeds.
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+
+    latest = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert latest.exit_code == 0, latest.output
+    assert "advisory" in latest.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_placement_successor():

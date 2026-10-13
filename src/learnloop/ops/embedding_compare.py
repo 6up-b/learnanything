@@ -61,7 +61,8 @@ from learnloop.content.authoring.pf_sandbox import (
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
-    PFCaller, PFUnavailable, RoleClient, estimate_tokens, planned_role_clients, resolve_role_clients,
+    PFCaller, PFUnavailable, RoleClient, estimate_tokens, planned_role_clients, pricing_basis,
+    resolve_role_clients, validate_pricing,
 )
 from learnloop.substrate.item_fingerprints import final_answer_text, fingerprint_keys, shared_keys
 from learnloop.vault.models import LoadedVault
@@ -92,6 +93,9 @@ class CompareRequest:
     max_cases: int | None = None
     alternatives: int = 2
     max_items: int = 20
+    # B1: the hypothesis writer's output budget per case (None: the suite's
+    # default, 2000). Part of the writer's cache identity.
+    writer_output_tokens: int | None = None
     # A [pf.scaling] tier ("cheap" | "frontier"): PF roles resolve through that
     # tier's routes and verdicts record it, so the scaling check can compare
     # the tiers' judges on identical labelled pairs.
@@ -686,8 +690,16 @@ def run_compare(
     vault: LoadedVault, *, request: CompareRequest, caps: SpendCaps, price_per_million: float | None = None,
     embedding_price_per_million: float | None = None, cancelled: Callable[[], bool] | None = None,
     clients: Mapping[str, Any] | None = None, embedding_clients: Mapping[str, Any] | None = None,
+    input_price_per_million: float | None = None, output_price_per_million: float | None = None,
 ) -> dict[str, Any]:
-    """Plan (or run) one registered suite and write an aggregate report."""
+    """Plan (or run) one registered suite and write an aggregate report.
+
+    Metered LLM roles are priced by ``price_per_million`` (one rate for input
+    and output tokens: an upper bound) or by the input/output pair; a plan
+    role's ``output_tokens`` share is priced at the output rate, the rest (or
+    all of a role that does not split) at the input rate (or the higher one).
+    """
+    validate_pricing(price_per_million, input_price_per_million, output_price_per_million)
     suite = SUITES.get(request.suite)
     if suite is None:
         raise ValueError(f"Unknown suite {request.suite!r}; registered: {', '.join(sorted(SUITES))}")
@@ -697,11 +709,14 @@ def run_compare(
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     repository = Repository.attach(sqlite_path, read_only=True) if request.dry_run else Repository(sqlite_path)
     caller = PFCaller(vault, repository, caps=caps, price_per_million=price_per_million, run_id=new_ulid(),
-                      owner_kind="embeddings_compare", cancelled=cancelled)
+                      owner_kind="embeddings_compare", cancelled=cancelled,
+                      input_price_per_million=input_price_per_million,
+                      output_price_per_million=output_price_per_million)
     report: dict[str, Any] = {
         "status": "dry_run" if request.dry_run else "pending", "suite": suite.name, "tier": request.tier,
         "description": suite.description, "harness_version": HARNESS_VERSION, "plan": plan,
         "caps": caps.as_dict(), "price_per_million": price_per_million,
+        "pricing": pricing_basis(price_per_million, input_price_per_million, output_price_per_million),
         "embedding_price_per_million": embedding_price_per_million,
         "manifest": {"algorithm_version": vault.config.algorithms.algorithm_version,
                      "config_hash": content_key(vault.config.model_dump(mode="json")),
@@ -724,10 +739,18 @@ def run_compare(
                           if clients and role in clients else planned_role_clients(vault, role, tier_routes=routes))
                    for role in roles_plan}
         totals = {False: [0, 0], True: [0, 0]}  # subscription -> [calls, tokens]
+        metered_llm_usd: float | None = 0.0
         for role, info in roles_plan.items():
             subscription = billing[role][0].subscription
             totals[subscription][0] += int(info.get("calls", 0))
             totals[subscription][1] += int(info.get("tokens", 0))
+            if not subscription and int(info.get("calls", 0)):
+                output_share = info.get("output_tokens")
+                role_usd = caller.estimate(int(info.get("tokens", 0)), subscription=False,
+                                           calls=int(info.get("calls", 0)),
+                                           output_tokens=int(output_share) if output_share is not None else None
+                                           ).estimated_usd
+                metered_llm_usd = None if role_usd is None or metered_llm_usd is None else metered_llm_usd + role_usd
         embed_usd: float | None = 0.0
         for model, entry in plan.get("embedding", {}).items():
             if not isinstance(entry, dict) or not entry.get("calls"):
@@ -737,8 +760,7 @@ def run_compare(
             if price is None:
                 raise SpendLimitExceeded(f"Unknown embedding price for {model}: pass --embedding-price-per-million")
             embed_usd += int(entry.get("tokens", 0)) * price / 1_000_000
-        llm_usd = (totals[False][1] * price_per_million / 1_000_000 if price_per_million is not None
-                   else (None if totals[False][0] else 0.0))
+        llm_usd = metered_llm_usd
         metered = SpendEstimate(
             calls=totals[False][0] + embed_calls, total_tokens=totals[False][1] + embed_tokens,
             pairs=int(roles_plan.get("freshness", {}).get("pairs", 0)),
@@ -782,9 +804,54 @@ def run_compare(
     return report
 
 
+def _usd(value: Any) -> str:
+    return "unknown" if value is None else f"${float(value):.6f}"
+
+
+def spend_lines(report: Mapping[str, Any]) -> list[str]:
+    """The bill first, then cap accounting (owner batch 2: in the owner's B1 run
+    "charged" overstated the provider's bill about 17x)."""
+    usage = report.get("usage") or {}
+    billed, charged = usage.get("billed") or {}, usage.get("charged") or {}
+    if not billed and not charged:
+        return []
+    lines = ["## Spend", ""]
+    metered = billed.get("metered") or {}
+    if metered:
+        unreported = int(metered.get("requests", 0)) - int(metered.get("requests_reporting_cost", 0))
+        lines.append(
+            f"- **Billed (provider-reported):** {_usd(metered.get('usd'))} metered, from "
+            f"{metered.get('requests_reporting_cost', 0)} of {metered.get('requests', 0)} requests"
+            + (f"; {unreported} reported no cost (the bill is at least this)." if unreported > 0 else ".")
+        )
+    subscription = billed.get("subscription") or {}
+    if subscription.get("requests"):
+        lines.append(f"- Subscription (Codex): {subscription['requests']} requests on the owner's plan, no "
+                     "marginal bill; cost estimated only.")
+    meter = charged.get("metered") or {}
+    if meter:
+        caps = report.get("caps") or {}
+        lines.append(
+            f"- Charged (cap accounting, reservation-based: the input bound plus the full output budget per "
+            f"request, never refunded): {_usd(meter.get('estimated_usd'))} and {meter.get('total_tokens', 0)} "
+            f"tokens against the {_usd(caps.get('max_estimated_usd'))} cap."
+        )
+    pricing = report.get("pricing") or usage.get("pricing") or {}
+    if pricing.get("basis") == "input_output":
+        lines.append(f"- Pricing: input ${pricing['input_per_million']} / output ${pricing['output_per_million']} "
+                     "per million tokens.")
+    elif pricing.get("basis") == "single_rate_upper_bound":
+        lines.append(f"- Pricing: one rate, ${pricing['per_million']} per million, for input and output tokens "
+                     "(an upper bound; pass --input-price-per-million and --output-price-per-million to split).")
+    return lines + [""]
+
+
 def _markdown(report: dict[str, Any]) -> str:
     lines = [f"# `learnloop embeddings compare` — {report['suite']}", "",
              f"Status: {report['status']}; harness {report['harness_version']}.", ""]
+    if report.get("reason"):
+        lines += [f"Reason: {report['reason']}", ""]
+    lines += spend_lines(report)
     results = report.get("results") or {}
     render = getattr(SUITES.get(report["suite"]), "markdown_lines", None)
     if render is not None:
@@ -817,5 +884,5 @@ def _markdown(report: dict[str, Any]) -> str:
 __all__ = [
     "B2Suite", "B2_CASE_IDENTITY_VERSION", "CompareContext", "CompareRequest", "CompareSuite", "HARNESS_VERSION",
     "SUITES", "ValidAlternativeSuite", "VectorCache", "b2_case_identity", "binary_metrics", "blocking_cutoff",
-    "centered_cosines", "judge_prediction", "roc_auc", "run_compare",
+    "centered_cosines", "judge_prediction", "roc_auc", "run_compare", "spend_lines",
 ]

@@ -112,11 +112,13 @@ def test_upgrade_refuses_older_and_repeated_targets(tmp_path):
 
 
 def test_an_earlier_vault_goes_through_mvp012s_guard(tmp_path):
-    """The chain keeps T1's guard: from mvp-0.10 with the guard unrun the
-    upgrade refuses and the vault stays where it was; once the guard passes it
+    """The chain keeps T1's guard: with ``recurrence.require_guard = true``
+    and the guard unrun, from mvp-0.10 the upgrade refuses and the vault stays where it was; once the guard passes it
     walks mvp-0.11 and mvp-0.12 (each freezing and rebuilding) to mvp-0.13."""
 
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.10", seed=False)
+    # The guard refuses only when required (owner batch 2: advisory by default).
+    paths, vault, repository = split_vault(tmp_path, version="mvp-0.10", seed=False,
+                                           config="[recurrence]\nrequire_guard = true")
     refused = upgrade_to_mvp013(paths.root, clock=CLOCK)
     assert refused.upgraded is False
     assert refused.problems and all(problem.startswith("mvp-0.12 step refused: ") for problem in refused.problems)
@@ -214,3 +216,14 @@ def test_head_fixture_predecessor_to_successor_path(tmp_path):
     second = snapshot()
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert snapshot() == second
+
+
+def test_by_default_the_chain_reports_the_advisory_guard_and_proceeds(tmp_path):
+    """Owner batch 2 (2026-10-12): the guard is advisory by default, so the
+    chained upgrade from mvp-0.10 goes through and passes the guard's status on."""
+
+    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.10", seed=False)
+    result = upgrade_to_mvp013(paths.root, clock=CLOCK)
+    assert (result.upgraded, result.to_version) == (True, "mvp-0.13"), result.problems
+    assert any("advisory" in note for note in result.notes)
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.13"

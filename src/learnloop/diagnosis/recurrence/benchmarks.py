@@ -28,7 +28,13 @@ joins 5a's ``ROLE_TASKS``, so 5a's whole-plan admission prices it and
   LLM-written hypothesis (the Eedi efficiency-prize pattern, written on the
   diagnoser's route); the corpus is the misconception names. Methods: each
   embedding model (raw and mean-centred cosine), BM25 and a BM25 + embedding
-  hybrid (reciprocal rank). Metrics: recall@25 and MAP@25.
+  hybrid (reciprocal rank). Metrics: recall@25 and MAP@25. Owner batch 2
+  (2026-10-12): hypotheses are cached in the output directory under the
+  writer's identity (model, generation settings, output budget), so a rerun
+  with another writer never reuses old text; the writer's output budget is
+  ``writer_output_tokens`` (default 16000; owner 2026-10-12: never cut the writer off early); a truncated or invalid output is a
+  failed case (not retried, not cached, a miss in the hypothesis view), and
+  the suite renders its own Markdown table (``markdown_lines``).
 * **B3**: the vault's own labelled hypothesis pairs (owner verdicts imported
   from M1, the same-cause judge, validated diagnoser citations, card taps),
   re-scored under each candidate model: AUC, recall@k of confirmed matches
@@ -64,9 +70,10 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, field_validator
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.execution import generation_limit
 from learnloop.ai.execution import content_key, record_model_calls
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
@@ -114,7 +121,13 @@ EMBEDDING_ROUTE = "embedding"
 #: Published per-million input prices (estimates for admission, not quotes).
 #: Models without one need ``--embedding-price-per-million``.
 EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
-WRITER_OUTPUT_TOKENS = 300
+#: The writer's output budget per hypothesis (``--writer-output-tokens``).
+#: Owner batch 2: 300 truncated current writers (a reasoning model's
+#: reasoning tokens count against it; one model failed on its first call).
+B1_DEFAULT_WRITER_OUTPUT_TOKENS = 16000
+#: The profile settings that change what the writer writes: part of every
+#: hypothesis cache key, with the model and the output budget.
+WRITER_SETTING_KEYS = ("type", "base_url", "reasoning_effort", "thinking", "response_format", "max_tokens")
 #: B3 reports a cutoff and top_k for every model, but RECOMMENDS a config line
 #: only once this many confirmed matches back it; below it the report says to
 #: keep top-k only (a reporting rule, not a decision threshold: R6).
@@ -138,6 +151,7 @@ class BenchRequest:
     views: tuple[str, ...] = ()
     target_recall: float = DEFAULT_TARGET_RECALL
     max_cases: int | None = None
+    writer_output_tokens: int | None = None
     dry_run: bool = False
 
 
@@ -258,7 +272,7 @@ class BenchContext:
                 cache.put_many(batch, vectors)
         return {text: cache.get(text) for text in texts}
 
-    def complete(self, role: str, prompt: str, result_model: type[WireModel], purpose: str) -> Any:
+    def writer_client(self, role: str) -> Any:
         if self._writer is None:
             from learnloop.ai.routing import ready_client_for_task
 
@@ -267,32 +281,119 @@ class BenchContext:
             if not resolved.ready:
                 raise AIProviderUnavailable(f"the {task} route ({role}) is not ready")
             self._writer = resolved.client
+        return self._writer
+
+    def complete(self, role: str, prompt: str, result_model: type[WireModel], purpose: str,
+                 output_tokens: int | None = None) -> Any:
+        writer = self.writer_client(role)
         if role not in self._registered:
             # Billed as the client actually built (the plan classified it from config).
-            self.spend.register(role, self._writer)
+            self.spend.register(role, writer)
             self._registered.add(role)
         with self.spend.collector.observing():
-            with self.spend.request(role, purpose, input_tokens=estimate_tokens(prompt)):
-                return execute_structured_operation(
-                    self._writer, purpose=purpose, prompt=prompt, result_model=result_model, isolated=True
-                )
+            with self.spend.request(role, purpose, input_tokens=estimate_tokens(prompt), output_tokens=output_tokens):
+                with generation_limit(output_tokens):
+                    return execute_structured_operation(
+                        writer, purpose=purpose, prompt=prompt, result_model=result_model, isolated=True
+                    )
 
 
-def _complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], purpose: str, prompt_version: str) -> Any:
-    """Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``)."""
+def _complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], purpose: str, prompt_version: str,
+              output_tokens: int) -> tuple[Any, str | None]:
+    """Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``).
+
+    Returns the result and the resolved model when the caller reports one. An
+    invalid output (truncated, malformed or blank) is not retried: the suite
+    records the case as failed, and no retry reserves work the plan did not
+    admit (Codex review F2). Transport failures are still retried.
+    """
 
     if hasattr(ctx, "complete"):
-        return ctx.complete(role, prompt, result_model, purpose)
+        return ctx.complete(role, prompt, result_model, purpose, output_tokens=output_tokens), None
     entry = ctx.role(role)[0]
-    return ctx.caller.call(entry, prompt=prompt, prompt_version=prompt_version, result_model=result_model,
-                           output_tokens=WRITER_OUTPUT_TOKENS).result
+    call = ctx.caller.call(entry, prompt=prompt, prompt_version=prompt_version, result_model=result_model,
+                           output_tokens=output_tokens, retry_invalid_output=False)
+    return call.result, getattr(call, "model", None)
 
 
-def writer_tokens(prompt: str, result_model: type[WireModel]) -> int:
+def writer_tokens(prompt: str, result_model: type[WireModel],
+                  output_tokens: int = B1_DEFAULT_WRITER_OUTPUT_TOKENS) -> int:
     """One writer call's input-plus-output bound, as 5a's harness counts it."""
 
     schema = len(json.dumps(result_model.model_json_schema()).encode("utf-8"))
-    return len(prompt.encode("utf-8")) + schema + 512 + WRITER_OUTPUT_TOKENS
+    return len(prompt.encode("utf-8")) + schema + 512 + int(output_tokens)
+
+
+def requested_writer_output_tokens(request: Any) -> int:
+    """The writer's output budget a request asks for (default 16000)."""
+
+    value = getattr(request, "writer_output_tokens", None)
+    if value is None:
+        return B1_DEFAULT_WRITER_OUTPUT_TOKENS
+    if int(value) <= 0:
+        raise ValueError("writer_output_tokens must be positive")
+    return int(value)
+
+
+def _settings_view(profile: Any) -> dict[str, Any]:
+    if profile is None:
+        return {key: None for key in WRITER_SETTING_KEYS}
+    if isinstance(profile, Mapping):
+        return {key: profile.get(key) for key in WRITER_SETTING_KEYS}
+    return {key: getattr(profile, key, None) for key in WRITER_SETTING_KEYS}
+
+
+def _client_settings(client: Any) -> dict[str, Any]:
+    """An injected or resolved client's generation settings (its profile or config)."""
+
+    view = _settings_view(getattr(client, "profile", None) or getattr(client, "config", None))
+    if not view.get("type"):
+        view["type"] = getattr(client, "provider_type", None)
+    return view
+
+
+def writer_identity(model: str | None, settings: Mapping[str, Any], output_tokens: int) -> dict[str, Any]:
+    """Who writes B1's hypotheses: part of every hypothesis cache key (owner batch 2).
+
+    A rerun with another model, another generation setting (reasoning effort,
+    thinking, response format, endpoint, profile output cap) or another
+    output budget never reuses text another writer wrote.
+    """
+
+    return {
+        "prompt_version": B1_PROMPT_VERSION,
+        "model": model,
+        "settings": {key: settings.get(key) for key in WRITER_SETTING_KEYS},
+        "output_tokens": int(output_tokens),
+    }
+
+
+def configured_writer(vault: LoadedVault, output_tokens: int) -> dict[str, Any]:
+    """The writer identity from config alone, as the harness plans the role.
+
+    The same route resolution as ``pf_calls.planned_role_clients`` (the writer
+    is not a tiered role), so the dry run's cached count matches the run.
+    """
+
+    from learnloop.ai.routing import provider_for_task
+
+    selection = provider_for_task(vault.config, B1_WRITER_TASK)  # type: ignore[arg-type]
+    profile = vault.config.ai.providers.get(selection.provider_name)
+    dump = profile.model_dump(mode="json") if profile is not None else None
+    return writer_identity(getattr(profile, "model", None), _settings_view(dump), output_tokens)
+
+
+def _run_writer(ctx: Any, output_tokens: int) -> dict[str, Any]:
+    """The writer identity of the client this run actually calls."""
+
+    if hasattr(ctx, "role"):
+        entry = ctx.role(B1_WRITER_ROLE)[0]
+        settings = getattr(entry, "settings", None)
+        profile = settings.get("profile") if isinstance(settings, Mapping) else None
+        view = _settings_view(profile) if profile is not None else _client_settings(entry.client)
+        return writer_identity(getattr(entry, "model", None), view, output_tokens)
+    client = ctx.writer_client(B1_WRITER_ROLE)
+    return writer_identity(getattr(client, "model", None), _client_settings(client), output_tokens)
 
 
 # -- metrics --------------------------------------------------------------------------------
@@ -402,6 +503,22 @@ class MisconceptionHypothesis(WireModel):
     misconception: str = Field(
         description="The belief that leads a student to this wrong answer, stated as what the student thinks is true."
     )
+
+    @field_validator("misconception")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        """A blank hypothesis breaks the contract (Codex review F1).
+
+        Rejected where the provider's output is parsed, so it is invalid
+        output (one failed case) and never checkpointed; a blank checkpoint
+        saved before this check no longer validates and is discarded. A
+        validator, not ``min_length``: the JSON schema, and with it every
+        valid checkpoint's key, is unchanged.
+        """
+
+        if not value.strip():
+            raise ValueError("misconception is blank")
+        return value
 
 
 def b1_prompt(case: Mapping[str, Any]) -> str:
@@ -524,22 +641,32 @@ class B1Suite:
         return request.output_dir / "b1_hypotheses.jsonl"
 
     def _cached_hypotheses(self, request: BenchRequest) -> dict[str, str]:
+        """Cached hypotheses by key. Rows that name no writer (written before
+        owner batch 2) are ignored, never reused."""
+
         path = self._hypothesis_cache(request)
         if not path.exists():
             return {}
         out: dict[str, str] = {}
         for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
             row = json.loads(line)
+            writer = row.get("writer")
+            if not isinstance(writer, Mapping) or not writer.get("model"):
+                continue
             out[str(row["key"])] = str(row["misconception"])
         return out
 
     @staticmethod
-    def _case_key(case: Mapping[str, Any]) -> str:
-        return content_key({"prompt_version": B1_PROMPT_VERSION, "case": dict(case)})
+    def _case_key(case: Mapping[str, Any], writer: Mapping[str, Any]) -> str:
+        return content_key({"prompt_version": B1_PROMPT_VERSION, "case": dict(case), "writer": dict(writer)})
 
     def plan(self, vault: LoadedVault, data: B1Data, request: BenchRequest) -> dict[str, Any]:
-        cached = self._cached_hypotheses(request) if "hypothesis" in data.views else {}
-        to_write = [case for case in data.cases if self._case_key(case) not in cached] if "hypothesis" in data.views else []
+        output_tokens = requested_writer_output_tokens(request)
+        writer = configured_writer(vault, output_tokens) if "hypothesis" in data.views else None
+        cached = self._cached_hypotheses(request) if writer is not None else {}
+        to_write = [case for case in data.cases if self._case_key(case, writer) not in cached] if writer is not None else []
         corpus_tokens = sum(estimate_tokens(name) + 32 for _id, name in data.misconceptions)
         query_tokens = sum(estimate_tokens(raw_query(case)) + 32 for case in data.cases) if "raw" in data.views else 0
         hypothesis_tokens = 100 * len(data.cases) if "hypothesis" in data.views else 0
@@ -554,56 +681,109 @@ class B1Suite:
             "views": list(data.views),
             "models": list(data.models),
             "dims": list(data.dims),
+            # The configured writer (the run uses the resolved client's identity).
+            "writer": writer,
             "roles": {
                 B1_WRITER_ROLE: {
                     "calls": len(to_write),
                     # Input plus output of every call not cached yet.
-                    "tokens": sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis) for case in to_write),
-                    "cached": len(data.cases) - len(to_write) if "hypothesis" in data.views else 0,
+                    "tokens": sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis, output_tokens)
+                                  for case in to_write),
+                    # The output share of ``tokens`` (priced at the output rate).
+                    "output_tokens": output_tokens * len(to_write),
+                    "cached": len(data.cases) - len(to_write) if writer is not None else 0,
                 }
             },
             "embedding": {model: {"calls": requests, "tokens": per_model_tokens} for model in data.models},
             "note": "embedding calls are an upper bound; texts already in the output directory's cache are not sent",
         }
 
+    def _write_hypotheses(self, data: B1Data, request: BenchRequest, ctx: Any) -> tuple[dict[str, str], dict[str, Any]]:
+        """Each case's hypothesis, written or reused, and the writer's summary.
+
+        A truncated, malformed or blank output is a failed case: recorded, not
+        retried, never cached or checkpointed (a rerun asks again), and a miss
+        in the hypothesis view. Provider outages that outlast the retry cap,
+        caps and cancellation still stop the run.
+        """
+
+        output_tokens = requested_writer_output_tokens(request)
+        writer = _run_writer(ctx, output_tokens)
+        cached = self._cached_hypotheses(request)
+        path = self._hypothesis_cache(request)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        hypotheses: dict[str, str] = {}
+        written = reused = 0
+        failures: Counter[str] = Counter()
+        resolved: Counter[str] = Counter()
+        for case in data.cases:
+            key = self._case_key(case, writer)
+            if key in cached:
+                reused += 1
+                hypotheses[case["id"]] = cached[key]
+                continue
+            try:
+                result, model = _complete(ctx, B1_WRITER_ROLE, b1_prompt(case), MisconceptionHypothesis,
+                                          B1_WRITER_PURPOSE, B1_PROMPT_VERSION, output_tokens)
+            except AIInvalidOutput as exc:
+                failures[type(exc).__name__] += 1
+                continue
+            text = str(result.misconception).strip()
+            if not text:
+                failures["EmptyHypothesis"] += 1
+                continue
+            cached[key] = text
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"key": key, "writer": writer, "resolved_model": model, "misconception": text}) + "\n")
+            if model:
+                resolved[model] += 1
+            written += 1
+            hypotheses[case["id"]] = text
+        summary = {
+            "model": writer["model"],
+            "settings": writer["settings"],
+            "output_tokens": output_tokens,
+            "resolved_models": dict(resolved),
+            "written": written,
+            "cached": reused,
+            "failed_cases": sum(failures.values()),
+            "failed_by_error": dict(failures),
+            "failed_case_scoring": "a failed case has no hypothesis; it counts as a miss in the hypothesis view",
+        }
+        return hypotheses, summary
+
     def run(self, data: B1Data, request: BenchRequest, ctx: Any) -> dict[str, Any]:
         hypotheses: dict[str, str] = {}
+        writer_summary: dict[str, Any] | None = None
         if "hypothesis" in data.views:
-            cached = self._cached_hypotheses(request)
-            path = self._hypothesis_cache(request)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            for case in data.cases:
-                key = self._case_key(case)
-                if key not in cached:
-                    result = _complete(ctx, B1_WRITER_ROLE, b1_prompt(case), MisconceptionHypothesis, B1_WRITER_PURPOSE, B1_PROMPT_VERSION)
-                    cached[key] = str(result.misconception).strip()
-                    with path.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps({"key": key, "misconception": cached[key]}) + "\n")
-                hypotheses[case["id"]] = cached[key]
+            hypotheses, writer_summary = self._write_hypotheses(data, request, ctx)
         ids = [identifier for identifier, _name in data.misconceptions]
         names = [name for _identifier, name in data.misconceptions]
         position = {identifier: index for index, identifier in enumerate(ids)}
         k = B1_K
         bm25 = BM25(names)
-        queries = {
-            view: [raw_query(case) if view == "raw" else hypotheses.get(case["id"], "") for case in data.cases]
+        # None: the writer failed on this case (a miss in the hypothesis view).
+        queries: dict[str, list[str | None]] = {
+            view: [raw_query(case) if view == "raw" else hypotheses.get(case["id"]) for case in data.cases]
             for view in data.views
         }
         gold = [position[case["gold"]] for case in data.cases]
         results: dict[str, Any] = {"bm25": {}, "embedding": {}, "hybrid": {}}
-        bm25_ranks: dict[str, list[np.ndarray]] = {}
+        bm25_ranks: dict[str, list[np.ndarray | None]] = {}
         for view, texts in queries.items():
-            scored = [bm25.scores(text) for text in texts]
-            bm25_ranks[view] = [_ranks_from_order(scores) for scores in scored]
+            scored = [bm25.scores(text) if text is not None else None for text in texts]
+            bm25_ranks[view] = [_ranks_from_order(scores) if scores is not None else None for scores in scored]
             results["bm25"][view] = rank_metrics(
-                [_rank_of(scores, gold_index) for scores, gold_index in zip(scored, gold, strict=True)], k
+                [_rank_of(scores, gold_index) if scores is not None else None
+                 for scores, gold_index in zip(scored, gold, strict=True)], k
             )
         widest = max(data.dims)
         for model in data.models:
             # Embedded once at the widest width; narrower widths are MRL truncations.
             corpus_vectors = ctx.vectors(model, list(names), dims=widest, task_prefix="retrieval-document")
             query_vectors = {
-                view: ctx.vectors(model, list(texts), dims=widest, task_prefix="retrieval-query")
+                view: ctx.vectors(model, [text for text in texts if text is not None], dims=widest,
+                                  task_prefix="retrieval-query")
                 for view, texts in queries.items()
             }
             for dims in data.dims:
@@ -611,21 +791,65 @@ class B1Suite:
                 corpus = _matrix(corpus_vectors, names, dims)
                 corpus_centred = _centred(corpus)
                 for view, texts in queries.items():
-                    matrix = _matrix(query_vectors[view], texts, dims)
-                    for variant, (left, right) in {"cosine": (matrix, corpus), "centred": (_centred(matrix), corpus_centred)}.items():
-                        scores = left @ right.T
-                        ranks = [_rank_of(row, gold_index) for row, gold_index in zip(scores, gold, strict=True)]
+                    present = [index for index, text in enumerate(texts) if text is not None]
+                    variants: dict[str, list[int | None]] = {"cosine": [None] * len(texts), "centred": [None] * len(texts)}
+                    fused: list[int | None] = [None] * len(texts)
+                    if present:
+                        matrix = _matrix(query_vectors[view], [texts[index] for index in present], dims)
+                        for variant, (left, right) in {"cosine": (matrix, corpus), "centred": (_centred(matrix), corpus_centred)}.items():
+                            scores = left @ right.T
+                            for row, index in zip(scores, present, strict=True):
+                                variants[variant][index] = _rank_of(row, gold[index])
+                                if variant == "centred":
+                                    emb_rank = _ranks_from_order(row)
+                                    rrf = 1.0 / (60 + emb_rank) + 1.0 / (60 + bm25_ranks[view][index])
+                                    fused[index] = _rank_of(rrf, gold[index])
+                    for variant, ranks in variants.items():
                         results["embedding"].setdefault(label, {}).setdefault(view, {})[variant] = rank_metrics(ranks, k)
-                        if variant == "centred":
-                            fused = []
-                            for row, bm, gold_index in zip(scores, bm25_ranks[view], gold, strict=True):
-                                emb_rank = _ranks_from_order(row)
-                                rrf = 1.0 / (60 + emb_rank) + 1.0 / (60 + bm)
-                                fused.append(_rank_of(rrf, gold_index))
-                            results["hybrid"].setdefault(label, {})[view] = rank_metrics(fused, k)
+                    results["hybrid"].setdefault(label, {})[view] = rank_metrics(fused, k)
         results["dims"] = list(data.dims)
         results["k"] = k
+        if writer_summary is not None:
+            results["writer"] = writer_summary
         return results
+
+    def markdown_lines(self, results: Mapping[str, Any]) -> list[str]:
+        """The aggregate table the harness's Markdown report renders (owner batch 2)."""
+
+        return b1_markdown_lines(results)
+
+
+def b1_markdown_lines(results: Mapping[str, Any]) -> list[str]:
+    if not results:
+        return []
+    k = results.get("k", B1_K)
+    lines = [f"| Method | Model | View | recall@{k} | MAP@{k} |", "|---|---|---|---|---|"]
+    for view, metrics in (results.get("bm25") or {}).items():
+        lines.append(f"| BM25 | - | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
+    for model, views in (results.get("embedding") or {}).items():
+        for view, variants in views.items():
+            for variant, metrics in variants.items():
+                lines.append(f"| embedding ({variant}) | {model} | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
+    for model, views in (results.get("hybrid") or {}).items():
+        for view, metrics in views.items():
+            lines.append(f"| hybrid | {model} | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
+    writer = results.get("writer")
+    if writer:
+        cases = int(writer.get("written", 0)) + int(writer.get("cached", 0)) + int(writer.get("failed_cases", 0))
+        settings = writer.get("settings") or {}
+        lines += [
+            "",
+            f"Hypothesis writer: {writer.get('model')} (effort {settings.get('reasoning_effort') or 'default'}, "
+            f"output budget {writer.get('output_tokens')} tokens); {writer.get('written')} written, "
+            f"{writer.get('cached')} reused from this writer's cache.",
+        ]
+        if writer.get("failed_cases"):
+            errors = ", ".join(f"{name} {count}" for name, count in sorted((writer.get("failed_by_error") or {}).items()))
+            lines.append(
+                f"{writer['failed_cases']} of {cases} hypothesis cases failed ({errors}); each counts as a miss in "
+                "the hypothesis view. A rerun asks the writer again for them only."
+            )
+    return lines
 
 
 # -- B3: vault replay -----------------------------------------------------------------------
@@ -674,6 +898,11 @@ def _episode_labels(build: Any, *, exclude_nominations: Sequence[str] = (), only
 class B3Suite:
     name = "b3"
     description = "Vault replay: re-scores the vault's labelled same-cause pairs under candidate models; sets T1's blocking cutoff."
+
+    def markdown_lines(self, results: Mapping[str, Any]) -> list[str]:
+        """The aggregate table the harness's Markdown report renders (owner batch 2)."""
+
+        return b3_markdown_lines(results)
 
     def load(self, vault: LoadedVault, request: BenchRequest) -> B3Data:
         sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
@@ -1077,38 +1306,38 @@ def plan_admission(
     }
 
 
+def b3_markdown_lines(results: Mapping[str, Any]) -> list[str]:
+    if not results:
+        return []
+    lines = ["| Model | AUC | recall@1 | recall@3 | recall@10 | top_k | cutoff | pairs to judge |", "|---|---|---|---|---|---|---|---|"]
+    for model, metrics in (results.get("models") or {}).items():
+        cutoff = metrics["blocking_cutoff"]
+        lines.append(
+            f"| {model} | {metrics['auc']} | {metrics['recall@1']} | {metrics['recall@3']} | {metrics['recall@10']} | "
+            f"{metrics['recommended_top_k']} | {cutoff.get('cutoff')} | {metrics['judge_load']['pairs_reaching_judge']} |"
+        )
+    lines += ["", "Recommended config (per model; recall-oriented, R4):", ""]
+    for _model, metrics in (results.get("models") or {}).items():
+        lines += ["```toml", *metrics["config"], "```", ""]
+    lines += ["Merge replay:", "", "```json", json.dumps(results.get("merge_replay"), indent=2, sort_keys=True), "```"]
+    return lines
+
+
 def render_markdown(report: Mapping[str, Any]) -> str:
+    """The local runner's report (the harness renders through ``markdown_lines``)."""
+
     lines = [f"# Recurrence benchmark {report['suite']}", "", f"Status: {report['status']}.", ""]
     results = report.get("results") or {}
-    if report["suite"] == "b1" and results:
-        k = results.get("k", 25)
-        lines += [f"| Method | Model | View | recall@{k} | MAP@{k} |", "|---|---|---|---|---|"]
-        for view, metrics in (results.get("bm25") or {}).items():
-            lines.append(f"| BM25 | - | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
-        for model, views in (results.get("embedding") or {}).items():
-            for view, variants in views.items():
-                for variant, metrics in variants.items():
-                    lines.append(f"| embedding ({variant}) | {model} | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
-        for model, views in (results.get("hybrid") or {}).items():
-            for view, metrics in views.items():
-                lines.append(f"| hybrid | {model} | {view} | {metrics.get(f'recall@{k}')} | {metrics.get(f'map@{k}')} |")
-    elif report["suite"] == "b3" and results:
-        lines += ["| Model | AUC | recall@1 | recall@3 | recall@10 | top_k | cutoff | pairs to judge |", "|---|---|---|---|---|---|---|---|"]
-        for model, metrics in (results.get("models") or {}).items():
-            cutoff = metrics["blocking_cutoff"]
-            lines.append(
-                f"| {model} | {metrics['auc']} | {metrics['recall@1']} | {metrics['recall@3']} | {metrics['recall@10']} | "
-                f"{metrics['recommended_top_k']} | {cutoff.get('cutoff')} | {metrics['judge_load']['pairs_reaching_judge']} |"
-            )
-        lines += ["", "Recommended config (per model; recall-oriented, R4):", ""]
-        for model, metrics in (results.get("models") or {}).items():
-            lines += ["```toml", *metrics["config"], "```", ""]
-        lines += ["Merge replay:", "", "```json", json.dumps(results.get("merge_replay"), indent=2, sort_keys=True), "```"]
+    if report["suite"] == "b1":
+        lines += b1_markdown_lines(results)
+    elif report["suite"] == "b3":
+        lines += b3_markdown_lines(results)
     lines += ["", "Aggregates only; every call is in model_call_receipts."]
     return "\n".join(lines) + "\n"
 
 
 __all__ = [
+    "B1_DEFAULT_WRITER_OUTPUT_TOKENS",
     "B1_WRITER_ROLE",
     "B1Suite",
     "B3Suite",
@@ -1116,12 +1345,18 @@ __all__ = [
     "BenchRequest",
     "SUITES",
     "VectorCache",
+    "b1_markdown_lines",
+    "b3_markdown_lines",
     "blocking_cutoff",
+    "configured_writer",
     "load_eedi",
     "plan_admission",
     "rank_metrics",
     "register_suites",
     "requested_dims",
+    "requested_writer_output_tokens",
     "roc_auc",
     "run_bench",
+    "writer_identity",
+    "writer_tokens",
 ]

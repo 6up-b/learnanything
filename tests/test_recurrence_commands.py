@@ -139,8 +139,14 @@ def test_a_blocking_cutoff_must_be_a_cosine_and_name_what_it_was_measured_on():
 # -- the guard and the switch -------------------------------------------------------------
 
 
-def _mvp010(tmp_path):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.10", seed=False)
+#: The owner made the guard advisory (2026-10-12); this switch restores the
+#: refusal, which the guard-and-switch tests below exercise.
+REQUIRE_GUARD = "[recurrence]\nrequire_guard = true"
+
+
+def _mvp010(tmp_path, *, require_guard: bool = True):
+    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.10", seed=False,
+                                            config=REQUIRE_GUARD if require_guard else "")
     return paths, load_vault(paths.root), repository
 
 
@@ -420,7 +426,7 @@ def test_the_upgrade_accepts_the_chain_and_refuses_older_versions(tmp_path):
 def test_a_failing_guard_leaves_every_predecessor_where_it_was(tmp_path, start):
     """The guard is checked before any chained step: a refusal moves nothing."""
 
-    paths, _vault, _repository = split_vault(tmp_path, version=start, seed=False)
+    paths, _vault, _repository = split_vault(tmp_path, version=start, seed=False, config=REQUIRE_GUARD)
     refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
     assert not refused.upgraded and "has not judged" in refused.problems[0]
     assert load_vault(paths.root).config.algorithms.algorithm_version == start
@@ -458,6 +464,82 @@ def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
     # The latest is mvp-0.13 (the stuck prompt) since it merged; the chain
     # still passes through mvp-0.12 and its guard.
     assert "mvp-0.10 -> mvp-0.13" in result.output
+
+
+# -- the advisory guard (owner, 2026-10-12) ---------------------------------------------------
+#
+# The guard checked whether same-cause grouping is worth pursuing; the owner
+# considers that validated. By default `learnloop upgrade` reports the guard's
+# status and proceeds; `recurrence.require_guard = true` restores the refusal.
+
+
+def test_the_guard_is_advisory_by_default(tmp_path):
+    paths, _vault, repository = _mvp010(tmp_path, require_guard=False)
+    assert load_vault(paths.root).config.recurrence.require_guard is False
+    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert result.upgraded and result.problems == [], result.problems
+    assert (result.from_version, result.to_version) == ("mvp-0.10", "mvp-0.12")
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.12"
+    assert repository.recurrence_state()["active"] is True
+    notes = "\n".join(result.notes)
+    assert "advisory" in notes and "has not judged" in notes, notes
+    # What an M1 run with planted cases would add, and how to restore the refusal.
+    assert "--from-run" in notes and "citation" in notes
+    assert "require_guard" in notes
+
+
+def test_an_advisory_guard_reports_a_recorded_false_merge_and_still_upgrades(tmp_path):
+    paths, vault, repository = _mvp010(tmp_path, require_guard=False)
+    bad = BUILTIN_SUITE[0].case_id
+    _pass_guard(tmp_path, vault, repository, judge=_guard_judge(false_merge=bad, model=_judge_model(vault)))
+    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert result.upgraded, result.problems
+    assert any("false merge" in note for note in result.notes), result.notes
+
+
+def test_an_advisory_guard_that_passed_says_so(tmp_path):
+    paths, vault, repository = _mvp010(tmp_path, require_guard=False)
+    _pass_guard(tmp_path, vault, repository)
+    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert result.upgraded, result.problems
+    assert any("passed" in note for note in result.notes), result.notes
+    assert not any("false merge" in note or "has not judged" in note for note in result.notes)
+
+
+@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.11"])
+def test_the_advisory_upgrade_chains_without_a_guard_run(tmp_path, start):
+    paths, _vault, repository = split_vault(tmp_path, version=start, seed=False)
+    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert (result.upgraded, result.from_version, result.to_version) == (True, start, "mvp-0.12"), result.problems
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.12"
+    assert repository.recurrence_state()["active"] is True
+
+
+def test_require_guard_restores_the_refusal(tmp_path):
+    paths, _vault, _repository = _mvp010(tmp_path, require_guard=True)
+    assert load_vault(paths.root).config.recurrence.require_guard is True
+    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert not refused.upgraded and "has not judged" in refused.problems[0]
+    assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.10"
+
+
+def test_a_judge_route_without_a_model_is_advisory_too(tmp_path, monkeypatch):
+    monkeypatch.setattr("learnloop.diagnosis.recurrence.upgrade.configured_judge_model", lambda _vault: None)
+    paths, _vault, _repository = _mvp010(tmp_path, require_guard=True)
+    refused = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert not refused.upgraded and "cannot tell which model" in refused.problems[0]
+    paths, _vault, _repository = _mvp010(tmp_path / "advisory", require_guard=False)
+    result = upgrade_to_mvp012(paths.root, clock=CLOCK)
+    assert result.upgraded, result.problems
+    assert any("cannot tell which model" in note for note in result.notes), result.notes
+
+
+def test_the_upgrade_command_prints_the_advisory_guard_status(tmp_path):
+    paths, _vault, _repository = _mvp010(tmp_path, require_guard=False)
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    assert "mvp-0.10 -> mvp-0.13" in result.output
+    assert "advisory" in result.output and "--from-run" in result.output
 
 
 def test_guard_verdicts_from_another_judge_model_do_not_open_the_switch(tmp_path):

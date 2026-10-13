@@ -200,6 +200,8 @@ Slice 1 already retired `misconception_match`; the diagnoser's `registry_match` 
 
 The planted pairs from Slice 1 S1.0 are a standing regression suite. **Any false merge blocks the `mvp-0.11` switch.**
 
+> **Owner decision (2026-10-12): the guard is advisory.** It was there to check whether same-cause grouping is worth pursuing; the owner considers that validated, and new vaults already start at the recurrence version (`mvp-0.12`, the label T1 took) without it. `learnloop upgrade` now prints the guard's status (judged, missing, false merges on the judge and citation paths) and what an M1 run with planted cases would add, and proceeds. `recurrence.require_guard = true` restores the refusal described above. The suite and `learnloop recurrence guard` are unchanged. See `docs/reviews/owner-batch-2.md`.
+
 ### 3.7 Learner-facing deliverable and M3 signals
 
 **Deliverable.** When a recurrence group reaches K=3, the escalated repair is shown with its evidence:

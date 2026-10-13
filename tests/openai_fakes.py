@@ -5,7 +5,8 @@
 ``FakeOpenAI`` instance records its constructor kwargs and every
 ``chat.completions.create(**kwargs)`` request, replaying the queued responses
 in order. A queued response may be an ``Exception`` instance, which is raised
-instead of returned — used to exercise the retry path.
+instead of returned — used to exercise the retry path — or a ready-made
+completion object, returned as it is (a ``finish_reason`` or a reported cost).
 """
 
 from __future__ import annotations
@@ -55,6 +56,9 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
             content = self._responses.pop(0)
             if isinstance(content, Exception):
                 raise content
+            if not isinstance(content, str):
+                # A ready-made completion (finish_reason, usage, model).
+                return content
             message = types.SimpleNamespace(content=content)
             choice = types.SimpleNamespace(message=message)
             if self._usages:

@@ -79,10 +79,14 @@ def upgrade_to_mvp013(root: Path, *, clock: Clock | None = None) -> UpgradeResul
                 f"{REVEAL_LEDGER_ALGORITHM_VERSION!r}, through it) may activate {target}"
             ],
         )
+    chained_notes: list[str] = []
     if original != RECURRENCE_GROUP_ALGORITHM_VERSION:
         # The chain's mvp-0.12 step checks T1's guard before it takes any
         # step of its own; a refusal there leaves the vault where it was.
+        # The guard is advisory by default (owner batch 2), so its status
+        # comes back as notes, which this result passes on.
         chained = upgrade_to_mvp012(root, clock=clock)
+        chained_notes = list(chained.notes or [])
         if not chained.upgraded:
             return UpgradeResult(
                 upgraded=False, from_version=original, to_version=target,
@@ -103,7 +107,7 @@ def upgrade_to_mvp013(root: Path, *, clock: Clock | None = None) -> UpgradeResul
     activate_p0_projection(vault, repository, from_version=current, clock=clock)
     registry_service.refresh(vault, repository, clock=clock)
     rewrite_algorithm_version(root / "learnloop.toml", current, target)
-    return UpgradeResult(upgraded=True, from_version=original, to_version=target)
+    return UpgradeResult(upgraded=True, from_version=original, to_version=target, notes=chained_notes)
 
 
 __all__ = ["upgrade_to_mvp013"]
