@@ -18,8 +18,7 @@ import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useM
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
-import { getOrFetch, type QueryKey } from "../api/queryCache";
-import { TAG, readerTag } from "../api/queryTags";
+import { TAG } from "../api/queryTags";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
@@ -46,6 +45,8 @@ import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
 import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
+import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
+import { cachedSourceRead } from "./reader/readerCache";
 import {
   parseRequestError,
   parseRequestResult,
@@ -204,19 +205,6 @@ function newKey(): string {
 
 function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
-}
-
-// Per-source reads the Reader opens imperatively (render view, guide plan,
-// progress, PDF/watch manifests, ask history, annotations) go through the
-// query cache with a freshness window instead of a hook: openSource is a
-// sequence with side effects, not a render-time subscription. Reader mutation
-// wrappers invalidate the `reader:<sourceId>` tag, so a re-read after a
-// mutation always fetches; within the window a re-open (returning to this
-// tab) is served from memory.
-const READER_CACHE_MS = 10 * 60_000;
-
-function cachedSourceRead<T>(sourceId: string, key: QueryKey, fetcher: () => Promise<T>): Promise<T> {
-  return getOrFetch(key, fetcher, { tags: [readerTag(sourceId)], staleAfterMs: READER_CACHE_MS });
 }
 
 export interface ReaderOpenSource {
@@ -546,9 +534,7 @@ export function ReaderScreen({
           setActiveSpan(jumpSpan);
         }
         setGuideLoading(true);
-        cachedSourceRead(card.sourceId, ["reader_guide_plan", view.extractionId], () =>
-          api.readerGuidePlan({ extractionId: view.extractionId })
-        )
+        readGuidePlan(card.sourceId, view.extractionId)
           .then(setGuidePlan)
           .catch(() => setGuidePlan(null))
           .finally(() => setGuideLoading(false));
@@ -821,6 +807,16 @@ export function ReaderScreen({
     }, 4000);
     return () => window.clearInterval(timer);
   }, [render, offline, authoringSections.length]);
+
+  // A "Revisit this to resolve" reason names the error type until the
+  // attempt's diagnosis lands; re-read the plan while it waits on one so the
+  // Guide names the diagnoser's statement without a reopen. Like the
+  // authoring poll, a refresh never blanks a complete Guide.
+  const refreshGuidePlan = useCallback((plan: ReaderGuidePlanDto) => {
+    setGuidePlan((current) => (current && current.sections.length > 0 && plan.sections.length === 0 ? current : plan));
+  }, []);
+  useGuideDiagnosisRefresh(render && !offline ? render : null, guidePlan, refreshGuidePlan);
+
   const revealedPassages = useMemo(() => {
     const revealed = new Set(revealedSections);
     const map = new Map<string, { section: ReaderGuideSectionDto; reason: string }>();

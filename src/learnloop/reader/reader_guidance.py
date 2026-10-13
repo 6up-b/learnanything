@@ -354,7 +354,27 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
         "selection_basis": "reviewed boundary placements + local learner state + active goal + source provenance",
         "goal_context": _goal_context([*passage_goal_candidates, *placement_goal_candidates]),
         "sections": sections,
+        "pending_diagnosis_attempt_ids": _pending_diagnoses(repository, sections),
     }
+
+
+def _pending_diagnoses(repository: Repository, sections: list[dict[str, Any]]) -> list[str]:
+    """Attempts whose pending live diagnosis can still change a shown reason.
+
+    Under the Slice 1 split a ``recent_misunderstanding`` reason names the
+    error type until the attempt's diagnosis lands and the overlay supplies
+    the statement. The Reader re-reads the plan while this list is non-empty,
+    so the Guide catches up without a reopen. A joint-graded vault, a failed
+    diagnosis and a shadow diagnosis never lay an overlay: the list is empty.
+    """
+
+    learning_object_ids = {
+        passage["learning_object_id"]
+        for section in sections
+        for passage in section["suggested_passages"]
+        if passage["learner_signal"] == "recent_misunderstanding"
+    }
+    return repository.pending_live_diagnoses_for_active_errors(learning_object_ids)
 
 
 def _goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]:

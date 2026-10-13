@@ -30,6 +30,8 @@ export const TAG = {
   maintenance: "maintenance",
   /** Review log and answer calibration. */
   review: "review",
+  /** Active error events and the diagnoses laid over them (the Reader Guide's reasons). */
+  errors: "errors",
   /** Reader surfaces that are not tied to one source (prompt contract). */
   reader: "reader"
 } as const;

@@ -331,7 +331,7 @@ function normalizeError(error: unknown): CommandError {
 // ---------------------------------------------------------------------------
 
 /** Reads affected by any attempt, grade, remediation, or claim response. */
-const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance];
+const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance, TAG.errors];
 /** Reads affected by ingest/source-set/study-map work. */
 const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintenance];
 /** Reads affected when a new revision or appended source reshapes the map. */
@@ -518,7 +518,7 @@ export const api = {
     })),
   triggerRegrade: (attemptId: string) => mutating(ATTEMPT_TAGS, call<FeedbackBundle>("trigger_regrade", { input: { attemptId } })),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
-    mutating([TAG.review, TAG.maintenance], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
+    mutating([TAG.review, TAG.maintenance, TAG.errors], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
   // A forced follow-up queues a diagnostic item ahead of the rest, so Today's
   // queue (and feedback's auto-advance, which reads the same entry) is stale.
   triggerFollowup: (attemptId: string) =>
