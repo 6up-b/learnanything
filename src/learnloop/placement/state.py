@@ -1077,6 +1077,8 @@ def _resolve(
         quick_check_session_id=decision.get("quick_check_session_id"),
         algorithm_version=str(decision["algorithm_version"]),
         created_at=str(decision["created_at"]),
+        advanced_from=decision.get("advanced_from"),
+        advance_id=decision.get("advance_id"),
     )
     decided = _order(base.created_at, base.id)
     returned = min(

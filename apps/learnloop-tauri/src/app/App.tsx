@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
-import type { AppSnapshot, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
@@ -192,6 +192,16 @@ export function App() {
   const onPracticeAskAllowed = useCallback((allowed: boolean) => {
     practiceAskAllowedRef.current = allowed;
   }, []);
+  // The open practice screen's ask state (opened-at and whether an answer was
+  // started), so the command-palette ask carries it too: help before work
+  // holds there as it does for the screen's own ask.
+  const practiceAskStateRef = useRef<(() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null>(null);
+  const onPracticeAskState = useCallback(
+    (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null) => {
+      practiceAskStateRef.current = reader;
+    },
+    []
+  );
 
   const onError = useCallback((message: string) => setToast(message), []);
   const onPaletteEntities = useCallback((ids: { inspectIds: string[]; practiceItemIds: string[] }) => {
@@ -674,7 +684,8 @@ export function App() {
       setAskTarget({
         context: "practice",
         practiceItemId,
-        sessionId: session.sessionId
+        sessionId: session.sessionId,
+        ...(practiceAskStateRef.current?.() ?? {})
       });
       return true;
     }
@@ -890,6 +901,7 @@ export function App() {
             onAskAvailabilityChange={onPracticeAskAllowed}
             onInspect={setInspectorId}
             onAsk={setAskTarget}
+            onAskState={onPracticeAskState}
             onError={onError}
           />
         );

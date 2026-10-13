@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22907,
-    "sha256": "f4800f99f9e485e02ab9d7254595bf856cc289f953a5d66d47a9d7a55e549211"
+    "bytes": 23162,
+    "sha256": "35384151a6d8ea073a3c1f01162ca88e9cf2a117969dc05c9d6aae28c1fdeb0c"
   },
   "accept": {
     "bytes": 1593,
@@ -430,6 +430,26 @@
   "fit show": {
     "bytes": 1210,
     "sha256": "1d970309395eaeccc7af3df787e09e5e4d340aa396a74e869d30fef65e8e6ff8"
+  },
+  "gaps": {
+    "bytes": 2008,
+    "sha256": "548e38172f45810c49edfe046acc74741c4ec1ad1a33cc42d8b2b243d7c2f6ff"
+  },
+  "gaps list": {
+    "bytes": 1295,
+    "sha256": "c9dcbecc44870c690e5a3e6fb9013bca6894aea48a63b0385c70841353495d65"
+  },
+  "gaps report": {
+    "bytes": 1465,
+    "sha256": "7e600d5a692e89d0b233a68a5a0ace1f550342b68daa9e1bbc7603332bec694c"
+  },
+  "gaps run": {
+    "bytes": 3408,
+    "sha256": "f775887ccc3b7b1514864c70d5088be820ee29db4cac9248672304b9492368c9"
+  },
+  "gaps undo": {
+    "bytes": 1840,
+    "sha256": "f640e503ef0edc75e4cc6531731c0c09d750430627292f70cd9a69f79900e42f"
   },
   "generate-diagnostics": {
     "bytes": 2153,
@@ -944,8 +964,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 2430,
-    "sha256": "d625ab986783c14f07aebd386c12ec8ea50dc56b62a80fff6220321fb275291e"
+    "bytes": 2758,
+    "sha256": "e1e5e68b78bef27b700e001940dc6e80c34902a6fdf5c9998ffec55c66d923a0"
   },
   "usage": {
     "bytes": 1546,

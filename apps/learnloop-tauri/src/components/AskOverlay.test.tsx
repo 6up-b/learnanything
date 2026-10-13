@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AskOverlay, type AskTarget } from "./AskOverlay";
 
 const { api } = vi.hoisted(() => ({ api: {
-  getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), previewTutorOpening: vi.fn()
+  getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), previewTutorOpening: vi.fn(),
+  getLearnerTextGap: vi.fn(), reverseLearnerTextGap: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: () => null }));
@@ -50,4 +51,51 @@ it("keeps the draft state off other contexts", async () => {
   const payload = await ask({ context: "feedback", attemptId: "attempt-1", attemptProgress: "no_draft" });
   expect(payload).not.toHaveProperty("attemptProgress");
   expect(payload).not.toHaveProperty("secondsIntoAttempt");
+});
+
+// Learner-text gaps: the question is read off the request path; the overlay
+// shows only what actually happened, with its one-tap undo.
+const CREATED_GAP = {
+  gapId: "gap-1", kind: "prerequisite", action: "created_prerequisite",
+  named: { prerequisiteName: "Eigenvectors" }, target: { kind: "learning_object", id: "lo_x", title: "Define an eigenvector" },
+  edgeId: "edge_1", seedPracticeItemId: "pi_seed", seedStatus: "auto_apply",
+  label: "Added from your question: Define an eigenvector", reversals: [], allowedReversals: ["undo_creation"]
+};
+
+it("shows what the question was read as and undoes it in one tap", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.askTutorQuestion.mockResolvedValue({
+    version: 1, eventId: "event-1", answerMd: "Start from the definition.", questionType: "prerequisite",
+    facets: [], hintEquivalent: true, leakSuspected: false, citations: [], remaining: 2,
+    learnerGap: { status: "queued", kind: "prerequisite" }
+  });
+  api.getLearnerTextGap
+    .mockResolvedValueOnce({ version: 1, status: "pending", gap: null })
+    .mockResolvedValueOnce({ version: 1, status: "done", gap: CREATED_GAP });
+  api.reverseLearnerTextGap.mockResolvedValue({
+    version: 1, status: "reversed",
+    gap: { ...CREATED_GAP, label: "Removed: Define an eigenvector (undone)", reversals: ["undo_creation"], allowedReversals: [] }
+  });
+  await ask({ context: "practice", practiceItemId: "pi_diag", sessionId: "session-1" });
+  await vi.advanceTimersByTimeAsync(2_100);
+  await vi.advanceTimersByTimeAsync(2_100);
+  expect(await screen.findByText("Added from your question: Define an eigenvector")).toBeTruthy();
+  expect(api.getLearnerTextGap).toHaveBeenCalledWith({ sourceKind: "tutor_question", sourceId: "event-1" });
+  fireEvent.click(screen.getByText("undo"));
+  await waitFor(() => expect(api.reverseLearnerTextGap).toHaveBeenCalledWith({ gapId: "gap-1", reversal: "undo_creation" }));
+  expect(await screen.findByText("Removed: Define an eigenvector (undone)")).toBeTruthy();
+  expect(screen.queryByText("undo")).toBeNull();
+});
+
+it("shows nothing when the reading did nothing the learner should see", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.askTutorQuestion.mockResolvedValue({
+    version: 1, eventId: "event-1", answerMd: "ok", questionType: "other", facets: [], hintEquivalent: false,
+    leakSuspected: false, citations: [], remaining: 2, learnerGap: { status: "queued", kind: "none" }
+  });
+  api.getLearnerTextGap.mockResolvedValue({ version: 1, status: "done", gap: { ...CREATED_GAP, action: "none", label: null, allowedReversals: [] } });
+  await ask({ context: "feedback", attemptId: "attempt-1" });
+  await vi.advanceTimersByTimeAsync(2_100);
+  await waitFor(() => expect(api.getLearnerTextGap).toHaveBeenCalledOnce());
+  expect(screen.queryByTestId("learner-gap")).toBeNull();
 });

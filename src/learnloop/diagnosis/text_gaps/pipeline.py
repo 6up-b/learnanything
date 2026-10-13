@@ -65,6 +65,7 @@ from learnloop.diagnosis.text_gaps.kinds import (
     prerequisite_query,
 )
 from learnloop.matching.judge import JudgedPair, judge_pairs
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -293,8 +294,6 @@ def _maybe_edge(
     outcome.edge_id = edge_id
     outcome.detail["edge"] = status
     if edge_id:
-        from learnloop.substrate.state_sync import sync_vault_state
-
         sync_vault_state(load_vault(root), repository, clock=clock)
 
 

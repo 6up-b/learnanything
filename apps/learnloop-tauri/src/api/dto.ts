@@ -441,9 +441,12 @@ export interface KnowledgeItemTextNeighbors {
 export interface KnowledgeMapPlacement {
   active: boolean;
   assumed: Array<{ learningObjectId: string; source: AssumptionSource; firstReviewDue: IsoTimestamp }>;
+  /** Learner-text gaps: prerequisites created from the learner's own text
+   *  whose one check is pending (listed apart: never assumed known). */
+  addedFromQuestion?: Array<{ learningObjectId: string; firstReviewDue: IsoTimestamp }>;
 }
 
-export type AssumptionSource = "self_report" | "fast_track" | "predictor" | "quick_check";
+export type AssumptionSource = "self_report" | "fast_track" | "predictor" | "quick_check" | "learner_text_gap";
 
 export interface KnowledgeMapSnapshot {
   version: number;
@@ -1927,6 +1930,46 @@ export interface TutorAnswerDto {
   leakSuspected: boolean;
   citations: TutorCitationDto[];
   remaining: number;
+  /** Learner-text gaps: the question is read for a named gap off the request
+   *  path ("queued"); the overlay polls getLearnerTextGap for the result. */
+  learnerGap?: LearnerGapQueuedDto;
+}
+
+export interface LearnerGapQueuedDto {
+  status: "queued" | "off" | "failed";
+  kind?: string | null;
+}
+
+/** The learner's one-tap reversals of what a gap reading did. */
+export type LearnerTextGapReversal = "undo_edge" | "undo_creation" | "not_this_belief";
+
+/** What one learner text was read as, and what was done (honest labels only:
+ *  `label` is null when nothing the learner should see happened). */
+export interface LearnerTextGapViewDto {
+  gapId: string;
+  kind: string;
+  action: string;
+  named: { prerequisiteName?: string | null; prerequisiteLine?: string | null; beliefStatement?: string | null };
+  target: { kind: string | null; id: string | null; title: string | null } | null;
+  edgeId: string | null;
+  seedPracticeItemId: string | null;
+  seedStatus: string | null;
+  label: string | null;
+  reversals: string[];
+  allowedReversals: LearnerTextGapReversal[];
+  edge?: string | null;
+}
+
+export interface LearnerTextGapStatusDto {
+  version: number;
+  status: "pending" | "done" | "off" | "none" | "skipped";
+  gap: LearnerTextGapViewDto | null;
+}
+
+export interface LearnerTextGapReversalDto {
+  version: number;
+  status: string;
+  gap: LearnerTextGapViewDto | null;
 }
 
 /** §12.1 proactive handoff: a tutor opening generated with no learner
@@ -2501,6 +2544,12 @@ export interface PlacementLearningObjectDto {
   /** A miss whose diagnosis has not landed yet: the decision waits on it. */
   awaitingDiagnosis?: boolean;
   assumed: boolean;
+  /** Learner-text gaps: a prerequisite created from the learner's own text,
+   *  its one delayed check pending (never "assumed known"). */
+  addedFromQuestion?: boolean;
+  /** mvp-0.13: the first review a learner-text gap brought forward, and the
+   *  due date it replaced. */
+  firstReviewBroughtForwardFrom?: IsoTimestamp | null;
   label: string | null;
   source: AssumptionSource | null;
   firstReviewDue: IsoTimestamp | null;
@@ -5830,6 +5879,7 @@ export interface ReaderAnswerDto {
   burnedSurfaceIds: string[];
   hintEquivalent: boolean;
   remaining: number | null;
+  learnerGap?: LearnerGapQueuedDto;
 }
 
 /** A completed Reader Ask restored from the durable interaction-event log. */

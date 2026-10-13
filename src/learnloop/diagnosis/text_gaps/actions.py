@@ -38,6 +38,8 @@ from learnloop.db.stores import learner_gaps as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.diagnosis.text_gaps.contract import PROVENANCE_MECHANISM, SAME_BELIEF_TASK, LearnerText
 from learnloop.ids import new_ulid
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.tutor.promotions import PromotionNoItemError, promote_tutor_question
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault_lock import vault_mutation_lock
@@ -188,7 +190,6 @@ def write_created_prerequisite(
     (job payload): those are reused, never written twice.
     """
 
-    from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.writer import upsert_concept, upsert_learning_object
 
     done = dict(progress or {})
@@ -262,8 +263,6 @@ def seed_from_question(
     ``already_promoted`` | ``no_item``).
     """
 
-    from learnloop.tutor.promotions import PromotionNoItemError, promote_tutor_question
-
     try:
         row = promote_tutor_question(
             root, tutor_client, event_id=question_event_id, intent="practice",
@@ -287,7 +286,6 @@ def seed_from_question(
 def undo_creation(root: Path, repository: Repository, gap: Mapping[str, Any], *, clock: Clock | None = None) -> dict[str, Any]:
     """The created LO goes dormant (its items are no longer served); its edge goes."""
 
-    from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.writer import upsert_learning_object
 
     vault = load_vault(root)
@@ -477,8 +475,6 @@ def reverse_gap(
         return {"gap_id": gap_id, "reversal": reversal, "status": "already_reversed"}
     if reversal == "undo_edge":
         detail = {"edge_deleted": delete_edge(root, str(gap["edge_id"]))}
-        from learnloop.substrate.state_sync import sync_vault_state
-
         sync_vault_state(load_vault(root), repository, clock=clock)
     elif reversal == "undo_creation":
         detail = undo_creation(root, repository, gap, clock=clock)

@@ -4,6 +4,7 @@ named prerequisites and misconceptions. Every model is a fake."""
 from __future__ import annotations
 
 from contextlib import closing
+import json
 
 import pytest
 
@@ -412,3 +413,94 @@ def test_a_text_is_read_once(tmp_path):
 def test_the_draft_contract_is_strict():
     with pytest.raises(Exception):
         PrerequisiteDraft.model_validate({"concept_title": "x"})
+
+
+# -- the shortlist -----------------------------------------------------------------------------
+
+
+def test_the_learning_object_recipe_is_canonical_and_active_only(tmp_path):
+    from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES
+
+    root, _repository = _vault(tmp_path)
+    vault = load_vault(root)
+    recipe = EMBEDDING_RECIPES["learning_object/statement"]
+    texts = dict(recipe.texts(vault))
+    assert texts["lo_eigen_basics"] == "Title: Eigenvalues\nConcept: Eigenvalues\nStatement: About eigenvalues."
+    vault.learning_objects["lo_diag"].status = "dormant"
+    assert "lo_diag" not in dict(recipe.texts(vault))
+
+
+class _Embedder:
+    model_id = model = "fake/embed"
+    dims = 3
+    provider_name = "fake_embed"
+    provider_type = "openai_embedding"
+
+    def __init__(self, vectors):
+        self.vectors = vectors
+        self.calls = []
+
+    def embed(self, inputs, task_prefix):
+        self.calls.append((list(inputs), task_prefix))
+        return [self.vectors(text) for text in inputs]
+
+
+def test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide(tmp_path):
+    import numpy as np
+
+    from learnloop.db.stores.embedding_vectors import put_vector
+    from learnloop.diagnosis.text_gaps.kinds import LO_RECIPE
+
+    root, repository = _vault(tmp_path, toml="[learner_text_gaps]\ntop_k = 1\nmetered_price_per_million = 0.01\n")
+    toml = root / "learnloop.toml"
+    toml.write_text(toml.read_text().replace(
+        'enabled = false\nbackfill_enabled = false\nmodel = "qwen/qwen3-embedding-8b"\ndimensions = 4096',
+        'enabled = true\nbackfill_enabled = false\nmodel = "fake/embed"\ndimensions = 3'))
+    assert load_vault(root).config.embedding.enabled
+    vault = load_vault(root)
+    directions = {"lo_eigen_basics": [1.0, 0.0, 0.0], "lo_spectral": [0.0, 1.0, 0.0], "lo_svd_definition": [0.0, 0.0, 1.0]}
+    with closing(connect(repository.sqlite_path)) as connection, connection:
+        for lo_id, direction in directions.items():
+            text = dict(LO_RECIPE.texts(vault))[lo_id]
+            put_vector(connection, record_kind="learning_object", record_id=lo_id, field="statement",
+                       content_hash=LO_RECIPE.content_hash(text), model_id="fake/embed",
+                       task_prefix="retrieval-document", vector=np.asarray(direction))
+    embedder = _Embedder(lambda _text: [0.9, 0.1, 0.0])
+    event_id = _ask(root, repository, GapTutor(EIGEN_GAP))["event_id"]
+    llm = GapLLMFake(decide=word_match("eigenvalues"), needed="no")
+    clients = PipelineClients(judge=lambda: llm, decider=None, drafter=lambda: llm, embedder=lambda: embedder)
+    row = process_learner_text(root, repository, tutor_question_text(load_vault(root), repository, event_id),
+                               clients=clients, clock=FrozenClock(NOW))
+    assert embedder.calls == [(["Eigenvalues\nScalars a matrix scales its eigenvectors by."], "retrieval-query")]
+    summary = row["detail"]["candidates"]
+    assert summary["shortlist_basis"] == "knn" and summary["by_basis"].get("shortlist") == 1
+    assert row["action"] == "matched_prerequisite" and row["target_id"] == "lo_eigen_basics"
+    judged = " ".join(str(payload) for purpose, payload in llm.calls if purpose == "learner_gap_same_prerequisite")
+    assert "SVD definition" not in judged  # top-1: the far LO is never shown to the judge
+
+
+# -- the CLI --------------------------------------------------------------------------------------
+
+
+def test_the_cli_dry_runs_send_and_write_nothing(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.diagnosis.text_gaps.jobs import enqueue
+
+    root, repository = _vault(tmp_path)
+    event_id = _ask(root, repository, GapTutor(EIGEN_GAP))["event_id"]
+    enqueue(repository, source_kind="tutor_question", source_id=event_id)
+    runner = CliRunner()
+    planned = runner.invoke(app, ["gaps", "run", "--vault", str(root), "--dry-run", "--json"])
+    assert planned.exit_code == 0, planned.output
+    payload = json.loads(planned.output)
+    assert payload["dry_run"] is True and payload["plan"]["queued"] == 1
+    assert payload["plan"]["routes"]["learner_gap_decider"] == "openrouter_decider"
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert [job["state"] for job in store.jobs(connection)] == ["queued"]
+        assert store.gaps(connection) == []
+    report = runner.invoke(app, ["gaps", "report", "--vault", str(root), "--dry-run", "--json"])
+    assert report.exit_code == 0 and json.loads(report.output)["calls"] == 0
+    listed = runner.invoke(app, ["gaps", "list", "--vault", str(root), "--json"])
+    assert listed.exit_code == 0 and json.loads(listed.output) == {"gaps": []}

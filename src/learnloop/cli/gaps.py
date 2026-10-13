@@ -77,6 +77,12 @@ def gaps_run(
     ] = None,
     json_output: JsonOption = False,
 ) -> None:
+    """Read queued learner texts for named gaps (paid; --dry-run first).
+
+    Every request of the run is admitted on one budget (the caps below); a
+    metered chat route without a published price needs --price-per-million.
+    """
+
     from learnloop.diagnosis.offline_review.spend import ReviewSpend
     from learnloop.diagnosis.text_gaps.jobs import plan, run_pending, sweep_backlog
     from learnloop.diagnosis.text_gaps.judges import TextBudget
@@ -109,6 +115,8 @@ def gaps_list(
     show_text: Annotated[bool, typer.Option("--show-text", help="Include the learner's text.")] = False,
     json_output: JsonOption = False,
 ) -> None:
+    """List what each learner text was read as and what was done (no call)."""
+
     from contextlib import closing
 
     from learnloop.db.connection import connect
@@ -142,6 +150,8 @@ def gaps_undo(
     reversal: Annotated[str, typer.Option("--reversal", help="undo_edge | undo_creation | not_this_belief")],
     json_output: JsonOption = False,
 ) -> None:
+    """Reverse one gap's action as the owner: an edge, a creation or a belief."""
+
     from learnloop.diagnosis.text_gaps.actions import UndoError, reverse_gap
 
     loaded = _load(vault)
@@ -161,6 +171,8 @@ def gaps_report(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Population sizes only; write nothing.")] = False,
     json_output: JsonOption = False,
 ) -> None:
+    """Per kind and chooser: matched, created, undone, first checks, taps (no call)."""
+
     from learnloop.diagnosis.text_gaps.report import build_report, plan_report, write_report
 
     loaded = _load(vault)

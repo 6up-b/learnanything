@@ -830,6 +830,8 @@ pub async fn list_concept_animations(
 }
 
 sidecar_passthrough!(ask_tutor_question, "ask_tutor_question");
+sidecar_passthrough!(get_learner_text_gap, "get_learner_text_gap");
+sidecar_passthrough!(reverse_learner_text_gap, "reverse_learner_text_gap");
 
 sidecar_passthrough!(preview_tutor_opening, "preview_tutor_opening");
 

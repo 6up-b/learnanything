@@ -110,6 +110,7 @@ export function PracticeScreen({
   onAskAvailabilityChange,
   onInspect,
   onAsk,
+  onAskState,
   onError,
   primed = false,
   redo = null
@@ -153,6 +154,10 @@ export function PracticeScreen({
     attemptProgress: AttemptProgress;
     proactiveOpen?: boolean;
   }) => void;
+  /** Registers a reader of this screen's ask state (when the item opened, and
+   *  whether an answer was started) so App's command-palette ask carries the
+   *  same state the in-screen ask does; null when the screen unmounts. */
+  onAskState?: (reader: (() => { openedAtMs: number; attemptProgress: AttemptProgress }) | null) => void;
   onError: (message: string) => void;
 }) {
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
@@ -241,6 +246,14 @@ export function PracticeScreen({
     submissionId.current = restoredSubmissionId?.trim() || crypto.randomUUID();
     setAnswerConfidence(null);
   }, [practiceItemId, restoredSubmissionId]);
+  // The command-palette ask (App) reads the same state at the moment it opens.
+  const attemptProgressRef = useRef<AttemptProgress>("no_draft");
+  attemptProgressRef.current = answer.trim() || whyLine.trim() ? "draft_started" : "no_draft";
+  useEffect(() => {
+    if (!onAskState) return undefined;
+    onAskState(() => ({ openedAtMs: openedAtMs.current, attemptProgress: attemptProgressRef.current }));
+    return () => onAskState(null);
+  }, [onAskState]);
   const openAsk = (options?: { proactiveOpen?: boolean }) =>
     onAsk({
       context: "practice",

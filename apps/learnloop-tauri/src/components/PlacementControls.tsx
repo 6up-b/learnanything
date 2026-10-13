@@ -10,6 +10,8 @@ import { COLOR, Faint, FONT_MONO, Pill, SectionHeader } from "./term";
 // review checks it. "Check what I already know" is optional and never prompted.
 
 export const ASSUMED_LABEL = "assumed (not tested)";
+/** Learner-text gaps: a prerequisite created from the learner's own question. */
+export const ADDED_FROM_QUESTION_LABEL = "added from your question";
 
 const linkStyle = (inactive: boolean) =>
   ({
@@ -114,7 +116,16 @@ export function PlacementSection({
   return (
     <div data-testid="placement-section">
       <SectionHeader>Starting point</SectionHeader>
-      {placement.assumed ? (
+      {placement.addedFromQuestion ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Pill color="cyan">{ADDED_FROM_QUESTION_LABEL}</Pill>
+          <Faint>
+            {placement.firstReviewIsDue
+              ? "its one check is due"
+              : `its one check comes ${day(placement.firstReviewDue)}`}
+          </Faint>
+        </div>
+      ) : placement.assumed ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Pill color="purple">{ASSUMED_LABEL}</Pill>
           <Faint>
@@ -122,7 +133,9 @@ export function PlacementSection({
               ? placement.awaitingDiagnosis
                 ? AWAITING_DIAGNOSIS
                 : "its first review is due — that review is the check"
-              : `first review ${day(placement.firstReviewDue)} is the check`}
+              : `first review ${day(placement.firstReviewDue)} is the check${
+                  placement.firstReviewBroughtForwardFrom ? " (brought forward: your question pointed here)" : ""
+                }`}
           </Faint>
         </div>
       ) : placement.intent === "maintenance" ? (

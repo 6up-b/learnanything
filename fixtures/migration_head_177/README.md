@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-176. Migration 167 adds the learner-field F1 read model
+177. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -27,7 +27,11 @@ authority (`hypothesis_recurrence_groups`, `hypothesis_recurrence_review`,
 `hypothesis_recurrence_state`, `recurrence_escalations`,
 `judgment_work_claims`, `recurrence_guard_cases`) and rebuilds
 `diagnosis_feedback` so it accepts the `escalation:` ratings (built as a
-backup-API copy of `migration_head_175` with only 176 applied). It pins
+backup-API copy of `migration_head_175` with only 176 applied); migration 177
+adds learner-text gaps (`learner_text_gaps`, `learner_text_gap_reversals`,
+`learner_text_gap_jobs`, `learner_gap_check_advances`,
+`learner_gap_commitments`; built as a backup-API copy of `migration_head_176`
+with only 177 applied). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

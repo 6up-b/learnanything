@@ -40,27 +40,28 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_176"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_177"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
 def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     assert PLACEMENT_ALGORITHM_VERSION == "mvp-0.11"
-    # T1 (mvp-0.12) is the latest successor; it keeps placement.
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.12"
+    # Learner-text gaps (mvp-0.13) is the latest successor; it keeps placement.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.13"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
     # A linear chain: the split is live at mvp-0.10 and later, placement at
     # mvp-0.11 and later; mvp-0.9 has neither.
-    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11", "mvp-0.12"})
-    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11", "mvp-0.12"})
+    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13"})
+    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11", "mvp-0.12", "mvp-0.13"})
 
 
 def test_split_and_placement_activate_at_the_right_versions(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.9")
     expected = {
         "mvp-0.9": (False, False), "mvp-0.10": (True, False), "mvp-0.11": (True, True), "mvp-0.12": (True, True),
+        "mvp-0.13": (True, True),
     }
     for version, (split, placement) in expected.items():
         set_algorithm_version(paths, version)
@@ -154,16 +155,19 @@ def test_upgrade_command_still_reaches_mvp010_explicitly(tmp_path):
 
 def test_new_vaults_start_at_the_latest_version(tmp_path):
     """Owner decision 2026-10-12 (Slice 1 M2 open question 1): a new vault
-    starts at LATEST_ALGORITHM_VERSION, mvp-0.12 since Slice 2 T1 merged: the
-    split, placement and recurrence groups are all live."""
+    starts at LATEST_ALGORITHM_VERSION, mvp-0.13 since learner-text gaps: the
+    split, placement, recurrence groups and sooner checks are all live."""
 
     from learnloop.substrate.recurrence_groups import recurrence_active
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.12"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.13"
     assert placement_active(fresh) and split_grading_active(fresh) and recurrence_active(fresh)
+    from learnloop.placement.state import gap_sooner_checks_active
+
+    assert gap_sooner_checks_active(fresh)
 
 
 def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
@@ -179,8 +183,9 @@ def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
     sync_vault_state(vault, Repository(paths.sqlite_path), clock=FrozenClock(NOW))
     assert (paths.root / "learnloop.toml").read_text(encoding="utf-8") == before
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.9"
-    # The default target is the latest (mvp-0.12), which the same-cause
-    # guard gates (tests/test_recurrence_commands.py): refused, nothing moves.
+    # The default target is the latest (mvp-0.13), reached through mvp-0.12,
+    # which the same-cause guard gates (tests/test_recurrence_commands.py):
+    # refused, nothing moves.
     refused = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert refused.exit_code == 1, refused.output
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.9"
