@@ -1699,7 +1699,7 @@ class ReaderInquiryConfig(BaseModel):
 
     enabled: bool = True
     max_checks_per_day: int = Field(default=100, ge=0)
-    max_usd_per_check: float = Field(default=0.25, ge=0.0, le=5.0)
+    max_usd_per_check: float = Field(default=0.50, ge=0.0, le=5.0)
     metered_price_per_million: float | None = Field(default=None, gt=0)
 
 
