@@ -48,7 +48,8 @@ answer.
   for review (``outcome_contract.grade_is_held``). A conclusion that
   ``differs_from_reference`` is never unassessed, and fatal errors keep their
   mark-downs. Each ruled grade's route verdict is appended to
-  ``judgment_ledger`` (task ``own_route_rule``; a regrade supersedes it). It
+  ``judgment_ledger`` (task ``own_route_rule``; a regrade supersedes it, as
+  ``not_checked`` when the rule did not run over the new grade). It
   replaced mvp-0.17's separate item reading, re-derivation call and gate
   (owner decision 2026-10-13): one grading call.
 * **Solve-first without a reference.** The grader writes its own expected
@@ -561,15 +562,23 @@ def apply_route_rule(
 #: ledger rows mvp-0.17's separate check wrote (task ``proof_route_check``)
 #: and needs no model call of its own.
 ROUTE_RULE_JUDGMENT_TASK = "own_route_rule"
+#: mvp-0.17's per-attempt verdict task. Nothing writes a checked one any
+#: more; a grade that replaces the one it described supersedes it as not
+#: checked (review F5).
+LEGACY_ROUTE_CHECK_JUDGMENT_TASK = "proof_route_check"
+#: The verdict a grade the rule did not run over writes when it replaces a
+#: grade that has a current route verdict (review F5): the attempt's current
+#: verdict then describes its current grade.
+NOT_CHECKED_VERDICT = {"status": "not_checked"}
 
 
-def _current_route_rule_judgment(connection: Any, attempt_id: str) -> Any:
+def _current_route_judgment(connection: Any, task: str, attempt_id: str) -> Any:
     return connection.execute(
         "SELECT j.id FROM judgment_ledger j "
         "WHERE j.task = ? AND j.left_kind = 'attempt' AND j.left_id = ? AND j.right_kind IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id) "
         "ORDER BY j.created_at DESC, j.id DESC LIMIT 1",
-        (ROUTE_RULE_JUDGMENT_TASK, attempt_id),
+        (task, attempt_id),
     ).fetchone()
 
 
@@ -585,23 +594,62 @@ def record_route_rule_judgment(
 ) -> str | None:
     """Append the grade's own-route verdict to ``judgment_ledger`` (review F4).
 
-    Written only when the rule ran over this grade (``status = checked`` on
-    the record this grade writes); None otherwise. Called inside the
-    transaction that records the grade and its blind record, live and on a
-    regrade alike, so the verdict and the measurement commit together.
-    ``prompt_version`` is the grader's (``…+own-route-v1``) and
-    ``input_hash`` the blind grading context hash. Replay never writes one.
+    Called inside the transaction that records a grade and (for a blind
+    grade) its blind record, live and on every regrade, blind or joint, so
+    the verdict and the measurement commit together. ``prompt_version`` and
+    ``input_hash`` are the grading run's (the blind grading context hash on a
+    blind grade). Replay never writes one.
+
+    * The rule ran over this grade (``status = checked`` on its record): its
+      verdict is appended and supersedes the attempt's current one.
+    * It did not (the kill switch, a version without the rules, PF-c off, a
+      joint grade): when the attempt has a current verdict, a ``not_checked``
+      verdict supersedes it (review F5), so the ledger never keeps a verdict
+      current for a grade that was replaced. Nothing otherwise.
+
+    mvp-0.17's verdict (task ``proof_route_check``) is superseded as not
+    checked by any grade that replaces it. Returns the own-route row id, or
+    None when none was written.
     """
 
+    from learnloop.db.stores.judgments import append_judgment
+
+    def append(task: str, verdict: Mapping[str, Any], rationale: str, current: Any) -> str:
+        return append_judgment(
+            connection,
+            task=task,
+            left_kind="attempt",
+            left_id=attempt_id,
+            judge="llm",
+            judge_model=str(judge_model or "unknown"),
+            prompt_version=prompt_version,
+            input_hash=input_hash,
+            verdict=json.dumps(verdict, sort_keys=True),
+            rationale=rationale,
+            supersedes_id=str(current[0]) if current is not None else None,
+            created_at=created_at,
+        )
+
+    legacy = _current_route_judgment(connection, LEGACY_ROUTE_CHECK_JUDGMENT_TASK, attempt_id)
+    if legacy is not None:
+        append(
+            LEGACY_ROUTE_CHECK_JUDGMENT_TASK, NOT_CHECKED_VERDICT,
+            "route check: not checked; the grade this verdict described was replaced", legacy,
+        )
+    current = _current_route_judgment(connection, ROUTE_RULE_JUDGMENT_TASK, attempt_id)
     rule = grading_support.get(ROUTE_RULE_SUPPORT_KEY) or {}
     if not (
         isinstance(rule, Mapping)
         and rule.get("version") == ROUTE_RULE_RECORD_VERSION
         and rule.get("status") == "checked"
     ):
-        return None
-    from learnloop.db.stores.judgments import append_judgment
-
+        if current is None:
+            return None
+        return append(
+            ROUTE_RULE_JUDGMENT_TASK, NOT_CHECKED_VERDICT,
+            "own route: not checked; the rule did not run over the grade that replaced this verdict's",
+            current,
+        )
     route = grading_support.get("route_check") or {}
     verdict = {
         **dict(rule),
@@ -621,21 +669,7 @@ def record_route_rule_judgment(
         rationale = "own route: divergent; " + "; ".join(parts)
         if rule.get("held_for_review"):
             rationale += "; held for review"
-    current = _current_route_rule_judgment(connection, attempt_id)
-    return append_judgment(
-        connection,
-        task=ROUTE_RULE_JUDGMENT_TASK,
-        left_kind="attempt",
-        left_id=attempt_id,
-        judge="llm",
-        judge_model=str(judge_model or "unknown"),
-        prompt_version=prompt_version,
-        input_hash=input_hash,
-        verdict=json.dumps(verdict, sort_keys=True),
-        rationale=rationale,
-        supersedes_id=str(current[0]) if current is not None else None,
-        created_at=created_at,
-    )
+    return append(ROUTE_RULE_JUDGMENT_TASK, verdict, rationale, current)
 
 
 def revalidated_support(
@@ -993,6 +1027,8 @@ __all__ = [
     "GRADING_SUPPORT_VERSION",
     "GateOutcome",
     "HELD_REVIEW_REASON",
+    "LEGACY_ROUTE_CHECK_JUDGMENT_TASK",
+    "NOT_CHECKED_VERDICT",
     "REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION",
     "REFERENCE_POLICY_PROMPT_VERSION",
     "REFERENCE_POLICY_RULES",

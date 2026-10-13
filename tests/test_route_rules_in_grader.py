@@ -57,7 +57,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
 
 from tests.diagnosis_fakes import ReviewFakeClient
-from tests.split_live_helpers import ReadyRuntime, split_vault, submit
+from tests.split_live_helpers import ReadyRuntime, append_config, split_vault, submit
 
 VERSION = ROUTE_RULES_ALGORITHM_VERSION
 ITEM = "pi_svd_compute_001"  # setup (2) + result (2)
@@ -876,3 +876,133 @@ def test_f4_no_route_verdict_without_the_rules(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[proof_check]\nenabled = false")
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
     assert _route_judgments(repository, result.attempt_id) == []
+
+
+# -- review F5: a regrade the rule did not run over supersedes the verdict ---------------
+
+
+def _judgments(repository, attempt_id, task):
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return [
+            dict(zip(("id", "supersedes_id", "judge", "judge_model", "prompt_version", "input_hash", "verdict"), row))
+            for row in connection.execute(
+                "SELECT id, supersedes_id, judge, judge_model, prompt_version, input_hash, verdict "
+                "FROM judgment_ledger WHERE task = ? AND left_kind = 'attempt' "
+                "AND left_id = ? ORDER BY rowid", (task, attempt_id),
+            )
+        ]
+
+
+def _current(rows):
+    superseded = {row["supersedes_id"] for row in rows}
+    return [row for row in rows if row["id"] not in superseded]
+
+
+def _latest_regrade_run(repository):
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return connection.execute(
+            "SELECT prompt_version, input_context_hash FROM agent_runs WHERE purpose = 'grading_regrade' "
+            "ORDER BY started_at DESC, id DESC LIMIT 1"
+        ).fetchone()
+
+
+def test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict(tmp_path):
+    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
+    [first] = _route_judgments(repository, held.attempt_id)
+    assert json.loads(first["verdict"])["held_for_review"] is True
+    append_config(paths.root, "[proof_check]\nenabled = false")
+    vault = load_vault(paths.root)
+    assert not route_rules_active(vault)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
+                    clock=FrozenClock(CLOCK.now() + timedelta(days=1)))
+    blind = repository.latest_blind_grade_record(held.attempt_id)
+    assert "proof_route_check" not in blind["record"]["grading_support"]
+    first_again, second = _route_judgments(repository, held.attempt_id)
+    assert first_again == first and second["supersedes_id"] == first["id"]
+    # The current verdict describes the grade that replaced the held one.
+    assert json.loads(second["verdict"]) == {"status": "not_checked"}
+    assert (second["judge"], second["judge_model"]) == ("llm", "fake-model")
+    assert second["prompt_version"] == blind["grading_prompt_version"]
+    assert second["input_hash"] == blind["context_hash"]
+    assert _current(_route_judgments(repository, held.attempt_id)) == [second]
+    # Each later grade restates it, so the current verdict carries the
+    # identity of the current grade.
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
+                    clock=FrozenClock(CLOCK.now() + timedelta(days=2)))
+    rows = _route_judgments(repository, held.attempt_id)
+    assert len(rows) == 3 and rows[2]["supersedes_id"] == second["id"]
+    assert json.loads(rows[2]["verdict"]) == {"status": "not_checked"}
+    assert rows[2]["input_hash"] == repository.latest_blind_grade_record(held.attempt_id)["context_hash"]
+    # Replay writes none.
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert len(_route_judgments(repository, held.attempt_id)) == 3
+
+
+def test_f5_a_joint_regrade_supersedes_a_route_verdict(tmp_path):
+    """No shipped door reaches this today: a verdict is written only beside a
+    blind record, and an attempt with a blind record always regrades blind.
+    The regrade calls the writer on every success anyway, so the ledger's
+    current verdict never depends on that."""
+    from learnloop.db.stores.judgments import append_judgment
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[diagnosis]\nsplit_enabled = false")
+    result = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE)
+    assert repository.latest_blind_grade_record(result.attempt_id) is None
+    with connect(repository.sqlite_path) as connection:
+        seeded = append_judgment(
+            connection, task="own_route_rule", left_kind="attempt", left_id=result.attempt_id,
+            judge="llm", judge_model="fake-model", prompt_version="seeded", input_hash="seeded",
+            verdict=json.dumps({"status": "checked", "held_for_review": True}), rationale="seeded",
+        )
+        connection.commit()
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai", clock=CLOCK)
+    assert repository.latest_blind_grade_record(result.attempt_id) is None  # a joint regrade
+    rows = _route_judgments(repository, result.attempt_id)
+    assert [row["id"] for row in rows][0] == seeded and len(rows) == 2
+    assert rows[1]["supersedes_id"] == seeded
+    assert json.loads(rows[1]["verdict"]) == {"status": "not_checked"}
+    prompt_version, input_hash = _latest_regrade_run(repository)
+    assert (rows[1]["prompt_version"], rows[1]["input_hash"]) == (prompt_version, input_hash)
+
+
+MVP017_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mvp017_route_check_replay"
+
+
+def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
+    """mvp-0.17's check wrote the attempt's route verdict under task
+    ``proof_route_check`` and superseded it on each checked regrade. Nothing
+    writes that task now, so any regrade of such an attempt (at mvp-0.17, or
+    after the upgrade) supersedes it as not checked."""
+    from learnloop.db.copies import copy_tree_with_databases
+    from learnloop.db.repositories import Repository
+    from learnloop.route_rules_upgrade import upgrade_to_mvp018
+
+    expected = json.loads((MVP017_FIXTURE / "expected.json").read_text(encoding="utf-8"))["attempts"]
+    root = tmp_path / "vault"
+    copy_tree_with_databases(MVP017_FIXTURE, root)
+    vault, repository = load_vault(root), Repository(root / "state.sqlite")
+    held, restored = expected["held"]["attempt_id"], expected["restored_both"]["attempt_id"]
+    later = FrozenClock(CLOCK.now() + timedelta(days=60))  # after every fixture grade
+    [legacy] = _judgments(repository, held, "proof_route_check")
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(held),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai", clock=later)
+    legacy_again, superseding = _judgments(repository, held, "proof_route_check")
+    assert legacy_again == legacy and superseding["supersedes_id"] == legacy["id"]
+    assert json.loads(superseding["verdict"]) == {"status": "not_checked"}
+    assert superseding["input_hash"] == repository.latest_blind_grade_record(held)["context_hash"]
+    assert _route_judgments(repository, held) == []  # mvp-0.17: the rule does not run
+    # At the successor the regrade's own verdict is written, and the old one superseded.
+    upgrade_to_mvp018(root, clock=later)
+    vault = load_vault(root)
+    [legacy] = _judgments(repository, restored, "proof_route_check")
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(restored),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai", clock=later)
+    assert [row["supersedes_id"] for row in _judgments(repository, restored, "proof_route_check")] == [
+        None, legacy["id"]
+    ]
+    [ruled] = _route_judgments(repository, restored)
+    assert json.loads(ruled["verdict"])["status"] == "checked" and ruled["supersedes_id"] is None
