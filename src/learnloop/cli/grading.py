@@ -135,7 +135,9 @@ def grading_receipt(
 def grading_hardcases(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts and checkpoints are written there).")],
     route: Annotated[list[str], typer.Option("--route", help="A configured [ai.providers.*] profile to score as a judge; repeatable. Every ordered pair is also scored as the gate (grader route, checker route).")],
-    cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v1.json).")] = None,
+    cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v2.json).")] = None,
+    ablations: Annotated[bool, typer.Option("--ablations", help="Grade under all four R2 arms: the reference shown or solve-first, crossed with the final-answer check shown to the grader or withheld (the gate still applies it). Default: the production arm only.")] = False,
+    repeats: Annotated[int, typer.Option("--repeats", min=1, help="Fresh, separately identified repetitions of every call; 2 or more report a repeat-run noise floor.")] = 1,
     output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Report destination.")] = Path("fixtures-local/reports/grading-hardcases"),
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls, tokens and cost; build no client and send nothing.")] = False,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend (reservations: each request reserves its full output budget).")] = 3.0,
@@ -149,17 +151,20 @@ def grading_hardcases(
 ) -> None:
     """Wrong-rejection and wrong-acceptance rates per judge route on hard cases.
 
-    The gold set holds valid alternative proofs, correct answers with flawed
-    reasoning and wrong proofs that look right (linear algebra, probability).
-    Each --route is scored as the blind grader, the mvp-0.15 route checker and
-    the proof-like item reader, with the production prompts; every ordered
-    pair of routes is also scored as the live gate. Run it on a backup-API
-    copy, --dry-run first. Spend is admitted before every request.
+    The gold set fills P2's four cells: valid alternatives with a checkable
+    answer, valid alternative proofs, correct answers with flawed reasoning
+    and wrong proofs that look right (linear algebra, probability); reports
+    label it synthetic smoke coverage until real traces fill cells 3-4. Each
+    --route is scored as the blind grader, the mvp-0.15 route checker and the
+    proof-like item reader, with the production prompts; every ordered pair
+    of routes is also scored as the live gate, along the production path.
+    Every verdict goes to judgment_ledger. Run it on a backup-API copy,
+    --dry-run first. Spend is admitted before every request.
     """
 
     from learnloop.ai.spend import SpendCaps
     from learnloop.cli.embeddings import _cancellation
-    from learnloop.diagnosis.grading_hardcases import run_hardcases, write_report
+    from learnloop.diagnosis.grading_hardcases import ALL_ARMS, PRODUCTION_ARM, run_hardcases, write_report
     from learnloop.vault.loader import load_vault
 
     try:
@@ -177,6 +182,7 @@ def grading_hardcases(
                 loaded, routes=route, caps=caps, cases_path=cases, dry_run=dry_run,
                 price_per_million=price_per_million, input_price_per_million=input_price_per_million,
                 output_price_per_million=output_price_per_million, cancelled=stop.is_set,
+                arms=ALL_ARMS if ablations else (PRODUCTION_ARM,), repeats=repeats,
             )
         if report["status"] == "complete":
             report["reports"] = write_report(report, output_dir)
@@ -189,7 +195,11 @@ def grading_hardcases(
     if json_output:
         typer.echo(_dump(report))
     else:
-        summary = {key: report.get(key) for key in ("status", "reason", "cases", "estimate", "reports") if key in report}
+        summary = {
+            key: report.get(key)
+            for key in ("status", "reason", "cases", "cells", "arms", "repeats", "estimate", "limitations", "reports")
+            if key in report
+        }
         typer.echo(_dump(summary))
     if report["status"] not in {"complete", "dry_run"}:
         raise typer.Exit(code=1)

@@ -1,29 +1,54 @@
 """`learnloop grading hardcases`: wrong rejection and wrong acceptance per judge route.
 
 The ITS sweep's P2 (owner decision 2026-10-13): a small, fixed set of hard
-grading cases in the owner's subjects (``fixtures/grading_hardcases/``):
+grading cases in the owner's subjects (``fixtures/grading_hardcases/``), in
+P2's four cells:
 
-* ``valid_alternative`` - a valid proof or derivation by a route other than
-  the reference's. A judge that marks any criterion down **wrongly rejects**;
-* ``correct_flawed`` - the right final answer reached by invalid reasoning;
-* ``wrong_looks_right`` - a fluent proof that is wrong.
+1. ``valid_alternative_checkable`` - a valid alternative route whose final
+   answer the deterministic check verifies (E1's probe);
+2. ``valid_alternative_proof`` - a valid proof or derivation by a route other
+   than the reference's, with no verifiable final answer. A judge that marks
+   any criterion of cells 1-2 down **wrongly rejects**;
+3. ``correct_flawed`` - the right final answer reached by invalid reasoning;
+4. ``wrong_looks_right`` - a fluent proof that is wrong. A judge that gives
+   full credit on every labelled failing criterion of cells 3-4 **wrongly
+   accepts**.
 
-For the last two a judge that gives full credit on every labelled failing
-criterion **wrongly accepts**. Each route is scored in three roles, all with
-the production prompts:
+A case's cell follows from its category and the deterministic final-answer
+check. Each case names its provenance: ``synthetic_hand_checked`` (written
+for the harness and checked by hand) or ``real_trace`` (a learner's own text,
+with its source). P2 requires real traces in cells 3-4, so a set without them
+is labelled **synthetic smoke coverage** in every report (review F8).
 
-* ``grader`` - the learner-blind grader (the mvp-2.1 reference-policy prompt,
-  as live grading sends it) on its raw output;
-* ``checker`` - the mvp-0.15 independent route check alone;
-* ``item_kind`` - the once-per-item proof-like reading (every case here is a
-  proof, derivation, justification or explanation).
+Each route is scored in three roles:
 
-From those outputs, with no further calls, it also scores the production
-**gate** for every ordered (grader route, checker route) pair: PF-c's gate,
-then :func:`learnloop.attempts.proof_check.apply_proof_route_gate`. A gated
-criterion ends assessed, unverified (unassessed) or flagged; a flagged or
-marked-down failing criterion counts as caught, an unverified one as
-unassessed (neither credit nor a catch).
+* ``grader`` - the learner-blind grader (the mvp-2.1 reference-policy prompt)
+  on its raw output, under each requested **arm** (R2's crossed factors,
+  review F8): the reference shown or withheld (``solve_first``, C2), crossed
+  with the final-answer check shown to the grader or withheld from it (the
+  deterministic gate still applies it; C3). The production arm is
+  ``reference_shown+check_shown``; ``--ablations`` runs all four;
+* ``checker`` - the mvp-0.15 independent route check alone (it never sees the
+  reference or the check, so it has no arms);
+* ``item_kind`` - the once-per-item proof-like reading.
+
+The **gate** is scored for every ordered (grader route, checker route) pair
+and arm along the production decision path (review F6): PF-c's gate; then,
+only where the checker route's own item reading is proof-like and its check
+returned, the route-check gate with the deterministic final-answer status and
+the grader's own divergent-route reading. A failed or not-proof-like reading,
+or a failed check, leaves PF-c's grade, as live grading does.
+
+``--repeats N`` runs every call N times as separately identified fresh
+repetitions (each its own checkpoint, so a rerun resumes rather than reusing
+another repetition); the report's ``noise_floor`` is how often a judge's
+outcome on a case changes between repetitions (E1's repeat-run floor). The
+headline rates are repetition 0's.
+
+Every judge verdict is appended to ``judgment_ledger`` (task
+``grading_hardcase_<role>``, left = the case keyed by its content),
+idempotently: a cached or resumed call ensures its judgment exists without
+duplicating it (review F7).
 
 Spend: one :class:`~learnloop.ops.pf_calls.PFCaller` per run: every request
 is admitted against the caps before it is sent (metered routes need an owner
@@ -37,14 +62,16 @@ outcomes.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import hashlib
 import json
 from math import sqrt
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transport
+from learnloop.ai.spend import SpendCaps, is_subscription_transport
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN
+from learnloop.attempts.answer_check import final_answer_check
 from learnloop.attempts.blind_grading import (
     BlindGradingContext,
     blind_context_from_grading_context,
@@ -70,18 +97,36 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.diagnostic_augmentation import diagnostic_verifier_observations
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
-    METERED_TYPES, PFCaller, PFUnavailable, RoleClient, estimate_tokens, pricing_basis, validate_pricing,
+    METERED_TYPES, CallResult, PFCaller, PFUnavailable, RoleClient, estimate_tokens, pricing_basis,
+    validate_pricing,
 )
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 from learnloop.vault.paths import VaultPaths
 
-HARNESS_VERSION = "grading-hardcases-v1"
+HARNESS_VERSION = "grading-hardcases-v2"
 CATEGORIES = ("valid_alternative", "correct_flawed", "wrong_looks_right")
+#: P2's four cells, in order.
+CELLS = ("valid_alternative_checkable", "valid_alternative_proof", "correct_flawed", "wrong_looks_right")
+VALID_CELLS = frozenset(CELLS[:2])
+PROVENANCES = ("synthetic_hand_checked", "real_trace")
+#: P2: "cells 3 and 4 come from real traces".
+REAL_TRACE_CELLS = ("correct_flawed", "wrong_looks_right")
 ROLES = ("grader", "checker", "item_kind")
+#: R2's crossed grader arms: the reference shown or solve-first (C2), the
+#: final-answer check shown to the grader or withheld from it (C3).
+REFERENCE_ARMS = ("reference_shown", "solve_first")
+CHECK_ARMS = ("check_shown", "check_withheld")
+PRODUCTION_ARM = "reference_shown+check_shown"
+ALL_ARMS = tuple(f"{reference}+{check}" for reference in REFERENCE_ARMS for check in CHECK_ARMS)
+#: What a withheld check reads as in the grader's reference policy.
+WITHHELD_CHECK = {"status": "withheld_from_grader", "method": None}
 #: Output budgets per role (each request reserves its full budget).
 OUTPUT_TOKENS = {"grader": 6000, "checker": 3000, "item_kind": 600}
+#: ``judgment_ledger`` task per role, and the left kind of a case.
+LEDGER_TASKS = {role: f"grading_hardcase_{role}" for role in ROLES}
+CASE_KIND = "grading_hardcase"
 #: Where the tracked gold set lives (the repository's fixtures directory).
-DEFAULT_CASES = Path(__file__).resolve().parents[3] / "fixtures" / "grading_hardcases" / "cases_v1.json"
+DEFAULT_CASES = Path(__file__).resolve().parents[3] / "fixtures" / "grading_hardcases" / "cases_v2.json"
 EEDI_MAP_NOTE = (
     "Eedi and Vanderbilt's Kaggle set 'MAP - Charting Student Math Misunderstandings' (2025) "
     "labels each student explanation of a multiple-choice answer True/False x Correct/"
@@ -103,6 +148,29 @@ class HardCase:
     rubric: Rubric
     answer: str
     failing: tuple[str, ...]
+    #: The deterministic ``final_answer_check`` status of the answer.
+    final_answer_status: str = "undecidable"
+    cell: str = ""
+    provenance: str = "synthetic_hand_checked"
+    source: str | None = None
+
+    @property
+    def content_key(self) -> str:
+        """The case keyed by its content (item, rubric, answer, label)."""
+
+        payload = {
+            "prompt": self.item.prompt, "expected_answer": self.item.expected_answer,
+            "rubric": self.rubric.model_dump(mode="json"), "answer": self.answer,
+            "failing": list(self.failing), "category": self.category,
+        }
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        return f"{self.id}@{digest[:16]}"
+
+
+def _cell(category: str, final_status: str) -> str:
+    if category == "valid_alternative":
+        return CELLS[0] if final_status == "matches_reference" else CELLS[1]
+    return category
 
 
 def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
@@ -120,6 +188,11 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
         category = str(raw["category"])
         if category not in CATEGORIES:
             raise ValueError(f"{case_id}: unknown category {category!r}")
+        provenance = str(raw.get("provenance", "synthetic_hand_checked"))
+        if provenance not in PROVENANCES:
+            raise ValueError(f"{case_id}: unknown provenance {provenance!r}")
+        if provenance == "real_trace" and not str(raw.get("source") or "").strip():
+            raise ValueError(f"{case_id}: a real trace names its source")
         item_raw = raw["item"]
         rubric = Rubric.model_validate({"criteria": item_raw["criteria"]})
         item = PracticeItem.model_validate({
@@ -138,35 +211,101 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             raise ValueError(f"{case_id}: failing criteria {sorted(set(failing) - criterion_ids)} not in its rubric")
         if (category == "valid_alternative") != (not failing):
             raise ValueError(f"{case_id}: a valid alternative fails no criterion; every other case fails one")
-        cases.append(HardCase(case_id, str(raw.get("subject", "")), category, item, rubric,
-                              str(raw["answer"]), failing))
+        answer = str(raw["answer"])
+        status = str(final_answer_check(answer, item.expected_answer).get("status"))
+        if category == "valid_alternative" and status == "differs_from_reference":
+            raise ValueError(f"{case_id}: a valid alternative's final answer differs from the reference")
+        cases.append(HardCase(
+            case_id, str(raw.get("subject", "")), category, item, rubric, answer, failing,
+            final_answer_status=status, cell=_cell(category, status), provenance=provenance,
+            source=str(raw["source"]) if raw.get("source") else None,
+        ))
     return str(payload.get("version", source.stem)), cases
 
 
-def case_context(vault: LoadedVault, case: HardCase) -> BlindGradingContext:
+def gold_set_coverage(cases: Sequence[HardCase]) -> dict[str, Any]:
+    """Cases and real traces per cell, and what the set can and cannot show."""
+
+    by_cell = {cell: sum(case.cell == cell for case in cases) for cell in CELLS}
+    real = {cell: sum(case.cell == cell and case.provenance == "real_trace" for case in cases) for cell in CELLS}
+    limitations = []
+    for cell in CELLS:
+        if not by_cell[cell]:
+            limitations.append(f"cell {cell} has no case")
+    missing_real = [cell for cell in REAL_TRACE_CELLS if not real[cell]]
+    if missing_real:
+        limitations.append(
+            f"no real traces in {', '.join(missing_real)}: P2 requires cells 3-4 from real traces "
+            "(the Bitter Lesson rule 'validate the grader only on real traces'), so these rates are "
+            "synthetic smoke coverage, not P2/R2 estimates"
+        )
+    return {
+        "kind": "synthetic smoke coverage" if not any(real.values()) else (
+            "mixed" if missing_real else "real traces in cells 3-4"),
+        "cases_by_cell": by_cell,
+        "real_traces_by_cell": real,
+        "limitations": limitations,
+    }
+
+
+def case_context(vault: LoadedVault, case: HardCase, arm: str = PRODUCTION_ARM) -> BlindGradingContext:
     """The blind grading context as the live door builds it
     (``attempts._blind_grading_plan``): C2 verifier observations and PF-c's
     reference policy (live grading drops it only when
-    ``diagnosis.grading_support`` is off)."""
+    ``diagnosis.grading_support`` is off), varied by ``arm``:
 
+    * ``solve_first`` - the reference solution is withheld (the policy says
+      ``absent``, so the grader writes its own expected answer first);
+    * ``check_withheld`` - the final-answer check, and the C2 verifier
+      observations that compare the answer with the reference, are withheld
+      from the grader. The deterministic gate still applies the check.
+    """
+
+    reference, check = _split_arm(arm)
     joint = build_grading_context(
         vault, case.item, attempt_id=f"hardcase:{case.id}", learner_answer_md=case.answer, rubric=case.rubric,
     )
-    return blind_context_from_grading_context(
-        joint,
-        verifier_observations=diagnostic_verifier_observations(case.answer, joint.expected_answer),
-        reference_policy=reference_policy(case.item, case.answer),
+    policy = reference_policy(case.item, case.answer)
+    observations = diagnostic_verifier_observations(case.answer, joint.expected_answer)
+    if reference == "solve_first":
+        policy = {**policy, "reference_status": "absent"}
+    if check == "check_withheld":
+        policy = {**policy, "final_answer_check": dict(WITHHELD_CHECK)}
+        observations = []
+    context = blind_context_from_grading_context(
+        joint, verifier_observations=observations, reference_policy=policy,
     )
+    if reference == "solve_first":
+        context = replace(context, expected_answer="", error_hunt_solution=None)
+    return context
 
 
-def _requests(vault: LoadedVault, case: HardCase) -> dict[str, tuple[str, str, Any]]:
-    context = case_context(vault, case)
-    return {
-        "grader": (blind_grading_prompt(context), blind_prompt_version(context), blind_result_model(context)),
-        "checker": (route_check_prompt(case.item, case.rubric, case.answer), ROUTE_CHECK_PROMPT_VERSION,
-                    ProofRouteCheck),
-        "item_kind": (item_kind_prompt(case.item, case.rubric), ITEM_KIND_PROMPT_VERSION, ItemKindReading),
+def _split_arm(arm: str) -> tuple[str, str]:
+    reference, _, check = arm.partition("+")
+    if reference not in REFERENCE_ARMS or check not in CHECK_ARMS:
+        raise ValueError(f"unknown grader arm {arm!r}; arms are {', '.join(ALL_ARMS)}")
+    return reference, check
+
+
+def _grader_request(vault: LoadedVault, case: HardCase, arm: str) -> tuple[str, str, Any]:
+    context = case_context(vault, case, arm)
+    version = blind_prompt_version(context)
+    if arm != PRODUCTION_ARM:
+        version = f"{version}+arm:{arm}"
+    return blind_grading_prompt(context), version, blind_result_model(context)
+
+
+def _requests(vault: LoadedVault, case: HardCase, arms: Sequence[str]) -> dict[tuple[str, str | None], tuple[str, str, Any]]:
+    """(role, arm) -> (prompt, prompt version, result model); arm None off the grader."""
+
+    requests: dict[tuple[str, str | None], tuple[str, str, Any]] = {
+        ("grader", arm): _grader_request(vault, case, arm) for arm in arms
     }
+    requests[("checker", None)] = (
+        route_check_prompt(case.item, case.rubric, case.answer), ROUTE_CHECK_PROMPT_VERSION, ProofRouteCheck,
+    )
+    requests[("item_kind", None)] = (item_kind_prompt(case.item, case.rubric), ITEM_KIND_PROMPT_VERSION, ItemKindReading)
+    return requests
 
 
 # -- routes and clients --------------------------------------------------------------------
@@ -211,6 +350,15 @@ def _resolved_entry(vault: LoadedVault, route: str, role: str, injected: Any | N
     entry.model = getattr(client, "model", None) or entry.model
     entry.settings["model"] = entry.model
     return entry
+
+
+def _repetition_entry(entry: RoleClient, repetition: int) -> RoleClient:
+    """Repetition 0 is the plain call (earlier checkpoints stay valid); a later
+    repetition is a separately identified fresh call with its own checkpoint."""
+
+    if repetition == 0:
+        return entry
+    return replace(entry, settings={**entry.settings, "repetition": repetition})
 
 
 # -- scoring --------------------------------------------------------------------------------
@@ -276,37 +424,115 @@ def _checker_states(case: HardCase, check: ProofRouteCheck) -> dict[str, str]:
 
 
 def _summary(cases: Sequence[HardCase], outcomes: Mapping[str, str | None]) -> dict[str, Any]:
-    valid = [c for c in cases if c.category == "valid_alternative" and outcomes.get(c.id) is not None]
-    bad = [c for c in cases if c.category != "valid_alternative" and outcomes.get(c.id) is not None]
-    by_category: dict[str, dict[str, int]] = defaultdict(Counter)
+    valid = [c for c in cases if c.cell in VALID_CELLS and outcomes.get(c.id) is not None]
+    bad = [c for c in cases if c.cell not in VALID_CELLS and outcomes.get(c.id) is not None]
+    by_cell: dict[str, dict[str, int]] = defaultdict(Counter)
     for case in cases:
-        by_category[case.category][outcomes.get(case.id) or "failed"] += 1
+        by_cell[case.cell][outcomes.get(case.id) or "failed"] += 1
     return {
         "wrong_rejection": _rate(sum(outcomes[c.id] == "wrong_rejection" for c in valid), len(valid)),
         "wrong_acceptance": _rate(sum(outcomes[c.id] == "wrong_acceptance" for c in bad), len(bad)),
         "unassessed": sum(outcomes.get(c.id) == "unassessed" for c in cases),
         "failed_cases": sum(outcomes.get(c.id) is None for c in cases),
-        "by_category": {key: dict(sorted(value.items())) for key, value in sorted(by_category.items())},
+        "by_cell": {cell: dict(sorted(by_cell[cell].items())) for cell in CELLS if cell in by_cell},
     }
 
 
-def gate_states(case: HardCase, grader_raw: Any, declared_unverified: Sequence[str],
-                check: ProofRouteCheck, checker_model: str | None) -> dict[str, str]:
-    """The production pipeline on one case: PF-c's gate, then the route check's."""
+def _noise_floor(cases: Sequence[HardCase], by_repetition: Sequence[Mapping[str, str | None]]) -> dict[str, Any]:
+    """How often a judge's outcome on a case changes between fresh repetitions."""
+
+    if len(by_repetition) < 2:
+        return {"repetitions": len(by_repetition), "changed": None,
+                "note": "one repetition: no noise floor (run with --repeats 2 or more)"}
+    changed = compared = 0
+    for case in cases:
+        seen = [outcomes.get(case.id) for outcomes in by_repetition]
+        seen = [value for value in seen if value is not None]
+        if len(seen) < 2:
+            continue
+        compared += 1
+        changed += len(set(seen)) > 1
+    return {"repetitions": len(by_repetition), "changed": _rate(changed, compared)}
+
+
+def gate_states(
+    case: HardCase,
+    grader_raw: Any,
+    declared_unverified: Sequence[str],
+    check: ProofRouteCheck | None,
+    checker_model: str | None,
+    *,
+    reading: ItemKindReading | None,
+    divergent_route: bool = False,
+) -> tuple[dict[str, str], str]:
+    """The production decision path on one case, and whether the check ran.
+
+    PF-c's gate (with the real deterministic check, whatever the grader was
+    shown); then, as ``attempts.proof_check.run_proof_route_check`` does, the
+    route-check gate only when the checker route's item reading is proof-like
+    and its check returned. A failed reading (``unclassified``), a reading
+    that is not proof-like, or a failed check (``unavailable``) leaves PF-c's
+    grade, as live grading does (review F6).
+    """
 
     policy = reference_policy(case.item, case.answer)
     pfc = apply_valid_alternative_gate(
         grader_raw, rubric=case.rubric, learner_answer_md=case.answer, policy=policy,
         declared_unverified=declared_unverified,
     )
+    if reading is None or not reading.proof_like or check is None:
+        status = "unclassified" if reading is None else ("not_proof_like" if not reading.proof_like else "unavailable")
+        points = {row.criterion_id: float(row.points_awarded) for row in pfc.proposal.criterion_evidence}
+        return _criterion_states(case, points, unverified=pfc.unverified_criterion_ids), status
     gate = apply_proof_route_gate(
         pfc.proposal, rubric=case.rubric, learner_answer_md=case.answer, check=check,
         unverified_before=pfc.unverified_criterion_ids,
         grader_review_recommended=bool(grader_raw.manual_review_recommended),
         checker_model=checker_model,
+        final_answer_status=case.final_answer_status, divergent_route=divergent_route,
     )
     points = {row.criterion_id: float(row.points_awarded) for row in gate.proposal.criterion_evidence}
-    return _criterion_states(case, points, unverified=gate.unverified, flagged=gate.flagged)
+    return _criterion_states(case, points, unverified=gate.unverified, flagged=gate.flagged), "checked"
+
+
+# -- the ledger ---------------------------------------------------------------------------
+
+
+def _verdict(role: str, case: HardCase, call: CallResult, outcome: str | None) -> tuple[str, float | None]:
+    result = call.result
+    if role == "grader":
+        proposal = result.as_blind_proposal() if hasattr(result, "as_blind_proposal") else result
+        points = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
+        route = getattr(result, "route_check", None)
+        body = {
+            "outcome": outcome, "criterion_points": points, "fatal_errors": list(proposal.fatal_errors),
+            "unverified_criterion_ids": list(getattr(result, "unverified_criterion_ids", []) or []),
+            "divergent_route": bool(getattr(route, "divergent_route", False)),
+        }
+        maximum = float(sum(float(c.points) for c in case.rubric.criteria)) or 1.0
+        return json.dumps(body, sort_keys=True), min(1.0, sum(points.values()) / maximum)
+    if role == "checker":
+        verdicts = {row.criterion_id: row.verdict for row in result.criteria}
+        established = sum(value == "established" for value in verdicts.values())
+        body = {"outcome": outcome, "verdicts": verdicts}
+        return json.dumps(body, sort_keys=True), (established / len(verdicts) if verdicts else None)
+    body = {"response_kind": result.response_kind, "reasoning_is_graded": result.reasoning_is_graded,
+            "proof_like": result.proof_like}
+    return json.dumps(body, sort_keys=True), None
+
+
+def _record_judgment(caller: PFCaller, role: str, case: HardCase, call: CallResult, outcome: str | None,
+                     *, arm: str | None, repetition: int) -> str:
+    """Append one judge's verdict on one case, once (review F7)."""
+
+    verdict, score = _verdict(role, case, call, outcome)
+    return caller.ledger(
+        task=LEDGER_TASKS[role], left_kind=CASE_KIND, left_id=case.content_key, judge="llm",
+        judge_model=call.model, prompt_version=call.prompt_version, input_hash=call.input_hash,
+        verdict=verdict, score=score,
+        rationale={"harness": HARNESS_VERSION, "cell": case.cell, "provenance": case.provenance,
+                   "arm": arm, "repetition": repetition, "cached": call.cached},
+    )
 
 
 # -- the run --------------------------------------------------------------------------------
@@ -324,6 +550,8 @@ def run_hardcases(
     output_price_per_million: float | None = None,
     clients: Mapping[str, Any] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    arms: Sequence[str] = (PRODUCTION_ARM,),
+    repeats: int = 1,
 ) -> dict[str, Any]:
     """Plan (dry run) or run the gold set on each route; aggregate report."""
 
@@ -331,8 +559,15 @@ def run_hardcases(
     routes = list(dict.fromkeys(routes))
     if not routes:
         raise ValueError("name at least one --route")
+    arms = list(dict.fromkeys(arms))
+    if not arms:
+        raise ValueError("name at least one grader arm")
+    for arm in arms:
+        _split_arm(arm)
+    if repeats < 1:
+        raise ValueError("--repeats must be at least 1")
     version, cases = load_cases(cases_path)
-    requests = {case.id: _requests(vault, case) for case in cases}
+    requests = {case.id: _requests(vault, case, arms) for case in cases}
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     repository = Repository.attach(sqlite_path, read_only=True) if dry_run else Repository(sqlite_path)
     caller = PFCaller(
@@ -343,30 +578,45 @@ def run_hardcases(
     injected = dict(clients or {})
     planned = {route: _planned_entry(vault, route, "grader") if route not in injected
                else _resolved_entry(vault, route, "grader", injected[route]) for route in routes}
+    keys = [("grader", arm) for arm in arms] + [("checker", None), ("item_kind", None)]
     plan: dict[str, Any] = {}
     totals = {False: [0, 0, 0], True: [0, 0, 0]}  # subscription -> [calls, tokens, output tokens]
     for route in routes:
-        roles = {}
-        for role in ROLES:
-            tokens = sum(
-                estimate_tokens(requests[case.id][role][0], requests[case.id][role][2], OUTPUT_TOKENS[role])
+        roles: dict[str, Any] = {}
+        for role, arm in keys:
+            label = role if arm is None else f"{role}:{arm}"
+            calls = len(cases) * repeats
+            tokens = repeats * sum(
+                estimate_tokens(requests[case.id][(role, arm)][0], requests[case.id][(role, arm)][2],
+                                OUTPUT_TOKENS[role])
                 for case in cases
             )
-            roles[role] = {"calls": len(cases), "tokens": tokens, "output_tokens": OUTPUT_TOKENS[role] * len(cases)}
+            roles[label] = {"calls": calls, "tokens": tokens, "output_tokens": OUTPUT_TOKENS[role] * calls}
             bucket = totals[planned[route].subscription]
-            bucket[0] += len(cases)
+            bucket[0] += calls
             bucket[1] += tokens
-            bucket[2] += OUTPUT_TOKENS[role] * len(cases)
+            bucket[2] += OUTPUT_TOKENS[role] * calls
         plan[route] = {"model": planned[route].model, "billing": (
             "subscription (estimated only)" if planned[route].subscription else "metered"), "roles": roles}
     metered = caller.estimate(totals[False][1], subscription=False, calls=totals[False][0],
                               output_tokens=totals[False][2])
     subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0],
                                    output_tokens=totals[True][2])
+    coverage = gold_set_coverage(cases)
+    limitations = list(coverage["limitations"])
+    if repeats < 2:
+        limitations.append("one repetition: no repeat-run noise floor (run with --repeats 2 or more)")
+    missing_arms = [arm for arm in ALL_ARMS if arm not in arms]
+    if missing_arms:
+        limitations.append(
+            f"grader arms not run: {', '.join(missing_arms)} (C2/C3 need --ablations)"
+        )
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending",
         "harness": HARNESS_VERSION, "cases_version": version, "cases": len(cases),
         "categories": dict(Counter(case.category for case in cases)),
+        "cells": coverage["cases_by_cell"], "gold_set": coverage, "limitations": limitations,
+        "arms": arms, "production_arm": PRODUCTION_ARM, "repeats": repeats,
         "routes": routes, "plan": plan,
         "estimate": {"metered": {"calls": metered.calls, "tokens": metered.total_tokens,
                                  "usd_upper_bound": metered.estimated_usd},
@@ -391,77 +641,137 @@ def run_hardcases(
     if dry_run:
         return report
 
-    outputs: dict[str, dict[str, dict[str, Any]]] = {route: {role: {} for role in ROLES} for route in routes}
+    # outputs[route][(role, arm)][repetition][case id] -> CallResult
+    outputs: dict[str, dict[tuple[str, str | None], list[dict[str, CallResult]]]] = {
+        route: {key: [{} for _ in range(repeats)] for key in keys} for route in routes
+    }
     errors: dict[str, dict[str, int]] = {route: Counter() for route in routes}
     models: dict[str, str | None] = {}
     for route in routes:
         entries = {role: _resolved_entry(vault, route, role, injected.get(route)) for role in ROLES}
-        for case in cases:
-            for role in ROLES:
-                prompt, prompt_version, model = requests[case.id][role]
-                try:
-                    call = caller.call(entries[role], prompt=prompt, prompt_version=prompt_version,
-                                       result_model=model, output_tokens=OUTPUT_TOKENS[role],
-                                       retry_invalid_output=False)
-                except (PFUnavailable,) as exc:
-                    raise
-                except Exception as exc:  # one failed case is counted, never a crashed run
-                    if type(exc).__name__ in {"SpendLimitExceeded", "AIInterrupted"}:
+        for repetition in range(repeats):
+            for case in cases:
+                for role, arm in keys:
+                    prompt, prompt_version, model = requests[case.id][(role, arm)]
+                    try:
+                        call = caller.call(_repetition_entry(entries[role], repetition), prompt=prompt,
+                                           prompt_version=prompt_version, result_model=model,
+                                           output_tokens=OUTPUT_TOKENS[role], retry_invalid_output=False)
+                    except PFUnavailable:
                         raise
-                    errors[route][f"{role}:{type(exc).__name__}"] += 1
-                    continue
-                outputs[route][role][case.id] = call.result
-                models[route] = call.model
+                    except Exception as exc:  # one failed case is counted, never a crashed run
+                        if type(exc).__name__ in {"SpendLimitExceeded", "AIInterrupted", "SpendCancelled"}:
+                            raise
+                        label = role if arm is None else f"{role}:{arm}"
+                        errors[route][f"{label}:{type(exc).__name__}"] += 1
+                        continue
+                    outputs[route][(role, arm)][repetition][case.id] = call
+                    models[route] = call.model
     report["status"] = "complete"
     report["models"] = models
     report["errors"] = {route: dict(sorted(counts.items())) for route, counts in errors.items()}
+    per_case: dict[str, dict[str, Any]] = {
+        case.id: {"category": case.category, "cell": case.cell, "provenance": case.provenance,
+                  "final_answer_status": case.final_answer_status}
+        for case in cases
+    }
+    judgments = 0
+
+    def suffix(arm: str | None, repetition: int) -> str:
+        text = "" if arm in {None, PRODUCTION_ARM} else f"[{arm}]"
+        return text + ("" if repetition == 0 else f"#{repetition}")
+
+    def grader_outcome(case: HardCase, call: CallResult | None) -> str | None:
+        if call is None:
+            return None
+        raw = call.result
+        proposal = raw.as_blind_proposal() if hasattr(raw, "as_blind_proposal") else raw
+        points = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
+        return judge_outcome(case, _criterion_states(case, points))
+
     by_route: dict[str, Any] = {}
-    per_case: dict[str, dict[str, Any]] = {case.id: {"category": case.category} for case in cases}
     for route in routes:
-        grader_outcomes: dict[str, str | None] = {}
-        checker_outcomes: dict[str, str | None] = {}
-        for case in cases:
-            raw = outputs[route]["grader"].get(case.id)
-            if raw is not None:
-                proposal = raw.as_blind_proposal() if hasattr(raw, "as_blind_proposal") else raw
-                points = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
-                grader_outcomes[case.id] = judge_outcome(case, _criterion_states(case, points))
-            else:
-                grader_outcomes[case.id] = None
-            check = outputs[route]["checker"].get(case.id)
-            checker_outcomes[case.id] = judge_outcome(case, _checker_states(case, check)) if check else None
-            per_case[case.id][f"{route}:grader"] = grader_outcomes[case.id]
-            per_case[case.id][f"{route}:checker"] = checker_outcomes[case.id]
-        kinds = [reading for reading in outputs[route]["item_kind"].values()]
-        by_route[route] = {
-            "model": models.get(route),
-            "grader": _summary(cases, grader_outcomes),
-            "checker": _summary(cases, checker_outcomes),
-            "item_kind": {"read": len(kinds), "proof_like": sum(reading.proof_like for reading in kinds),
-                          "kinds": dict(Counter(reading.response_kind for reading in kinds))},
-        }
+        route_report: dict[str, Any] = {"model": models.get(route)}
+        for role, arm in keys:
+            by_repetition: list[dict[str, str | None]] = []
+            for repetition in range(repeats):
+                calls = outputs[route][(role, arm)][repetition]
+                outcomes: dict[str, str | None] = {}
+                for case in cases:
+                    call = calls.get(case.id)
+                    if role == "grader":
+                        outcomes[case.id] = grader_outcome(case, call)
+                    elif role == "checker":
+                        outcomes[case.id] = (judge_outcome(case, _checker_states(case, call.result))
+                                             if call is not None else None)
+                    else:
+                        outcomes[case.id] = None
+                    if call is not None:
+                        _record_judgment(caller, role, case, call, outcomes[case.id], arm=arm,
+                                         repetition=repetition)
+                        judgments += 1
+                    if role != "item_kind":
+                        per_case[case.id][f"{route}:{role}{suffix(arm, repetition)}"] = outcomes[case.id]
+                by_repetition.append(outcomes)
+            if role == "item_kind":
+                kinds = [call.result for call in outputs[route][(role, arm)][0].values()]
+                route_report["item_kind"] = {
+                    "read": len(kinds), "proof_like": sum(reading.proof_like for reading in kinds),
+                    "kinds": dict(Counter(reading.response_kind for reading in kinds)),
+                }
+                continue
+            label = role if arm is None or arm == PRODUCTION_ARM else f"{role}[{arm}]"
+            route_report[label] = {**_summary(cases, by_repetition[0]),
+                                   "noise_floor": _noise_floor(cases, by_repetition)}
+        by_route[route] = route_report
+
     gates: dict[str, Any] = {}
     for grader_route in routes:
         for checker_route in routes:
-            outcomes: dict[str, str | None] = {}
-            for case in cases:
-                raw = outputs[grader_route]["grader"].get(case.id)
-                check = outputs[checker_route]["checker"].get(case.id)
-                if raw is None or check is None:
-                    outcomes[case.id] = None
-                    continue
-                proposal = raw.as_blind_proposal() if hasattr(raw, "as_blind_proposal") else raw
-                declared = list(getattr(raw, "unverified_criterion_ids", []) or [])
-                states = gate_states(case, proposal, declared, check, models.get(checker_route))
-                outcomes[case.id] = judge_outcome(case, states)
-                per_case[case.id][f"gate:{grader_route}+{checker_route}"] = outcomes[case.id]
-            gates[f"grader={grader_route} checker={checker_route}"] = {
-                "grader_route": grader_route, "checker_route": checker_route,
-                "independent": models.get(grader_route) != models.get(checker_route),
-                **_summary(cases, outcomes),
-            }
+            for arm in arms:
+                by_repetition = []
+                check_ran: Counter = Counter()
+                for repetition in range(repeats):
+                    graders = outputs[grader_route][("grader", arm)][repetition]
+                    checks = outputs[checker_route][("checker", None)][repetition]
+                    readings = outputs[checker_route][("item_kind", None)][repetition]
+                    outcomes: dict[str, str | None] = {}
+                    for case in cases:
+                        call = graders.get(case.id)
+                        if call is None:
+                            outcomes[case.id] = None
+                            continue
+                        raw = call.result
+                        proposal = raw.as_blind_proposal() if hasattr(raw, "as_blind_proposal") else raw
+                        declared = list(getattr(raw, "unverified_criterion_ids", []) or [])
+                        route_check = getattr(raw, "route_check", None)
+                        check = checks.get(case.id)
+                        reading = readings.get(case.id)
+                        states, status = gate_states(
+                            case, proposal, declared, check.result if check is not None else None,
+                            models.get(checker_route),
+                            reading=reading.result if reading is not None else None,
+                            divergent_route=bool(getattr(route_check, "divergent_route", False)),
+                        )
+                        if repetition == 0:
+                            check_ran[status] += 1
+                        outcomes[case.id] = judge_outcome(case, states)
+                        per_case[case.id][f"gate:{grader_route}+{checker_route}{suffix(arm, repetition)}"] = (
+                            outcomes[case.id])
+                    by_repetition.append(outcomes)
+                label = f"grader={grader_route} checker={checker_route}"
+                if arm != PRODUCTION_ARM:
+                    label += f" arm={arm}"
+                gates[label] = {
+                    "grader_route": grader_route, "checker_route": checker_route, "arm": arm,
+                    "independent": models.get(grader_route) != models.get(checker_route),
+                    "check": dict(sorted(check_ran.items())),
+                    **_summary(cases, by_repetition[0]),
+                    "noise_floor": _noise_floor(cases, by_repetition),
+                }
     report.update(
         by_route=by_route, gate=gates, per_case=per_case,
+        judgments={"task_prefix": "grading_hardcase_", "ensured": judgments},
         spend={"billed": caller.billed(), "charged": caller.charged(), "declared": caller.declared(),
                "calls_by_role": dict(caller.calls_by_role), "cached_by_role": dict(caller.cached_by_role)},
     )
@@ -473,47 +783,66 @@ def write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]:
     directory.mkdir(parents=True, exist_ok=True)
     json_path, markdown_path = directory / "grading-hardcases.json", directory / "grading-hardcases.md"
     json_path.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    gold = report.get("gold_set") or {}
     lines = [
         "# Grading hard cases", "",
-        f"Gold set `{report.get('cases_version')}`: {report.get('cases')} cases "
-        f"({json.dumps(report.get('categories'), sort_keys=True)}). Status: {report.get('status')}.", "",
+        f"Gold set `{report.get('cases_version')}`: {report.get('cases')} cases, "
+        f"**{gold.get('kind', 'unlabelled')}**. Status: {report.get('status')}.", "",
+        "| Cell | Cases | Real traces |", "|---|---:|---:|",
     ]
+    for cell in CELLS:
+        lines.append(f"| {cell} | {(gold.get('cases_by_cell') or {}).get(cell, 0)} | "
+                     f"{(gold.get('real_traces_by_cell') or {}).get(cell, 0)} |")
+    lines += ["", f"Grader arms: {', '.join(report.get('arms') or [])}. Repetitions: {report.get('repeats')}.", ""]
+    for limitation in report.get("limitations") or []:
+        lines.append(f"- Limitation: {limitation}")
+    lines.append("")
     billed = ((report.get("spend") or {}).get("billed") or {})
     if billed:
         lines += [f"Billed: metered {billed.get('metered', {}).get('usd')} USD over "
                   f"{billed.get('metered', {}).get('requests')} requests; subscription requests "
                   f"{billed.get('subscription', {}).get('requests')} (estimated only).", ""]
-    lines += ["| Judge | Route | Model | Wrong rejection (valid) | Wrong acceptance (flawed + wrong) | "
-              "Unassessed | Failed |", "|---|---|---|---|---|---|---|"]
+    lines += ["| Judge | Route | Model | Wrong rejection (cells 1-2) | Wrong acceptance (cells 3-4) | "
+              "Unassessed | Failed | Changed across repeats |", "|---|---|---|---|---|---|---|---|"]
 
-    def cell(rate: Mapping[str, Any]) -> str:
-        if not rate.get("n"):
+    def cell(rate: Mapping[str, Any] | None) -> str:
+        if not rate or not rate.get("n"):
             return "n/a"
         interval = rate.get("wilson95") or [None, None]
         return f"{rate['count']}/{rate['n']} = {rate['rate']:.2f} [{interval[0]:.2f}, {interval[1]:.2f}]"
 
     for route, values in (report.get("by_route") or {}).items():
-        for role in ("grader", "checker"):
-            summary = values[role]
+        for role, summary in values.items():
+            if role in {"model", "item_kind"}:
+                continue
+            noise = (summary.get("noise_floor") or {}).get("changed")
             lines.append(f"| {role} | {route} | {values.get('model')} | {cell(summary['wrong_rejection'])} | "
-                         f"{cell(summary['wrong_acceptance'])} | {summary['unassessed']} | {summary['failed_cases']} |")
+                         f"{cell(summary['wrong_acceptance'])} | {summary['unassessed']} | "
+                         f"{summary['failed_cases']} | {cell(noise)} |")
     for label, summary in (report.get("gate") or {}).items():
-        lines.append(f"| gate | {label} | independent={summary['independent']} | "
+        noise = (summary.get("noise_floor") or {}).get("changed")
+        lines.append(f"| gate | {label} | independent={summary['independent']} check={summary.get('check')} | "
                      f"{cell(summary['wrong_rejection'])} | {cell(summary['wrong_acceptance'])} | "
-                     f"{summary['unassessed']} | {summary['failed_cases']} |")
+                     f"{summary['unassessed']} | {summary['failed_cases']} | {cell(noise)} |")
     lines += ["", "Eedi MAP: " + str(report.get("eedi_map_note")), ""]
     markdown_path.write_text("\n".join(lines), encoding="utf-8")
     return {"json": str(json_path), "markdown": str(markdown_path)}
 
 
 __all__ = [
+    "ALL_ARMS",
     "CATEGORIES",
+    "CELLS",
     "DEFAULT_CASES",
     "EEDI_MAP_NOTE",
     "HARNESS_VERSION",
     "HardCase",
+    "LEDGER_TASKS",
+    "PRODUCTION_ARM",
+    "PROVENANCES",
     "case_context",
     "gate_states",
+    "gold_set_coverage",
     "judge_outcome",
     "load_cases",
     "run_hardcases",
