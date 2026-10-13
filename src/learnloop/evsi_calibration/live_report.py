@@ -48,7 +48,9 @@ from learnloop.substrate.canonical_projection import unassessed_evidence_row
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
-REPORT_VERSION = "voi_calibration_report_v1"
+#: v2 (Codex review F1/F5/F6/F3): linked independent truth with repair effect
+#: apart, target-facet follow-up outcomes, bound follow-up and staged joins.
+REPORT_VERSION = "voi_calibration_report_v2"
 
 
 def _has(connection: sqlite3.Connection, table: str) -> bool:

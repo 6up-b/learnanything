@@ -35,7 +35,10 @@ from learnloop.scheduling import evsi as EV
 
 logger = logging.getLogger(__name__)
 
-FORECAST_VERSION = "voi_forecast_v1"
+#: v2 (Codex review F3/F5): staged forecasts describe the committed candidate
+#: with the decision id and assignment (``forecast_of``, ``nominal_best_ref``);
+#: follow-up forecasts freeze the target facet's scoring contract.
+FORECAST_VERSION = "voi_forecast_v2"
 
 #: Decision sites that record forecasts. A successor that puts another
 #: decision on value of information (teach-back, project probes, ...) adds its
