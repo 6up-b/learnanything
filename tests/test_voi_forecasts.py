@@ -734,33 +734,47 @@ def _queued_followup(connection, gate_attempt: str, item: str, created_at: str) 
             "chosen_practice_item_id": item, "created_at": created_at}
 
 
-def test_followup_outcome_joins_only_the_attempt_that_took_the_followup(tmp_path):
-    # Review F6: the follow-up was taken only when the learner answered it through
-    # the follow-up lane (the attempt's offer is a slate candidate the scheduler
-    # inserted as an intervention follow-up) and this decision was the queued one
-    # that attempt answered. An unbound or ordinary later attempt on the item is
-    # not the follow-up, and two queued decisions never share one answer.
-    _vault_obj, repository = _vault(tmp_path)
+def _slate_at(repository: Repository, at: str, offers: dict[str, bool]) -> dict[str, str]:
+    """Record a scheduler slate built at ``at``: item -> inserted as an intervention follow-up?"""
+
+    from datetime import datetime
+
+    from learnloop.clock import FrozenClock
+
     slate = repository.record_scheduler_slate(
         [
-            {"practice_item_id": "pi_fu_a", "priority": 2.0,
-             "components": {"selected": 1.0, "intervention_followup": 1.0}},
-            {"practice_item_id": "pi_fu_b", "priority": 1.0, "components": {"selected": 1.0}},
+            {"practice_item_id": item, "priority": 1.0,
+             "components": {"selected": 1.0, **({"intervention_followup": 1.0} if followup else {})}}
+            for item, followup in offers.items()
         ],
-        session_id="s1", algorithm_version="test", clock=CLOCK,
+        session_id="s1", algorithm_version="test",
+        clock=FrozenClock(datetime.fromisoformat(at.replace("Z", "+00:00"))),
     )
     with repository.connection() as connection:
-        candidate = {
+        return {
             row["practice_item_id"]: row["id"]
             for row in connection.execute(
                 "SELECT id, practice_item_id FROM scheduler_slate_candidates WHERE slate_id = ?", (slate,))
         }
+
+
+def test_followup_outcome_joins_only_the_attempt_that_took_the_followup(tmp_path):
+    # Review F6: the follow-up was taken only when the learner answered it through
+    # the follow-up lane (the attempt's offer is a slate candidate the scheduler
+    # inserted as an intervention follow-up) and this decision was the queued one
+    # that produced that offer. An unbound or ordinary later attempt on the item
+    # is not the follow-up, and two queued decisions never share one answer.
+    _vault_obj, repository = _vault(tmp_path)
+    with repository.connection() as connection:
         stale = _queued_followup(connection, "att_gate_1", "pi_fu_a", "2026-05-19T12:00:00Z")
         unbound_target = _queued_followup(connection, "att_gate_0", "pi_fu_u", "2026-05-19T11:00:00Z")
         ordinary_target = _queued_followup(connection, "att_gate_b", "pi_fu_b", "2026-05-19T12:00:00Z")
         pending = _queued_followup(connection, "att_gate_c", "pi_fu_c", "2026-05-19T12:00:00Z")
-        # Queued again (a newer decision) before anyone answered: the first is superseded.
+        # Queued again (a newer decision) before the slate offered it: the first is superseded.
         fresh = _queued_followup(connection, "att_gate_2", "pi_fu_a", "2026-05-19T13:00:00Z")
+        connection.commit()
+    candidate = _slate_at(repository, "2026-05-19T14:00:00Z", {"pi_fu_a": True, "pi_fu_b": False})
+    with repository.connection() as connection:
         _bound_attempt(connection, "att_unbound", "pi_fu_u", "2026-05-20T12:00:00Z", None)
         _bound_attempt(connection, "att_followup", "pi_fu_a", "2026-05-20T12:00:00Z", candidate["pi_fu_a"])
         _bound_attempt(connection, "att_ordinary", "pi_fu_b", "2026-05-20T12:00:00Z", candidate["pi_fu_b"])
@@ -771,6 +785,36 @@ def test_followup_outcome_joins_only_the_attempt_that_took_the_followup(tmp_path
         assert adapter.attempt_for(unbound_target) == (None, "unbound_attempt")
         assert adapter.attempt_for(ordinary_target) == (None, "not_taken")
         assert adapter.attempt_for(pending) == (None, "pending")
+
+
+def test_followup_offer_belongs_to_the_decision_that_produced_it(tmp_path):
+    # Re-review F6: the lane flag says the answer came through A follow-up offer,
+    # not whose. Decision A queues the item, the slate offers it, decision B
+    # queues it again, and the learner answers A's offer: A was taken, B was not
+    # (its queue ended on an answer to an earlier offer). An offer the delayed
+    # lane served (the answer consumed a cold-retry task) belongs to no queued
+    # decision, though it rides the same component.
+    _vault_obj, repository = _vault(tmp_path)
+    with repository.connection() as connection:
+        decision_a = _queued_followup(connection, "att_gate_a", "pi_fu_x", "2026-05-19T12:00:00Z")
+        delayed = _queued_followup(connection, "att_gate_d", "pi_fu_y", "2026-05-19T12:00:00Z")
+        connection.commit()
+    candidate = _slate_at(repository, "2026-05-19T12:30:00Z", {"pi_fu_x": True, "pi_fu_y": True})
+    with repository.connection() as connection:
+        decision_b = _queued_followup(connection, "att_gate_b", "pi_fu_x", "2026-05-19T13:00:00Z")
+        _bound_attempt(connection, "att_answer", "pi_fu_x", "2026-05-20T12:00:00Z", candidate["pi_fu_x"])
+        _bound_attempt(connection, "att_cold", "pi_fu_y", "2026-05-20T12:00:00Z", candidate["pi_fu_y"])
+        connection.execute(
+            "INSERT INTO followup_tasks (id, kind, case_kind, case_ref, not_before, status, selected_item_id, "
+            "consumed_attempt_id, created_at, updated_at) VALUES ('task_cold', 'cold_retry', 'misconception', "
+            "'mc_x', '2026-05-19T00:00:00Z', 'consumed', 'pi_fu_y', 'att_cold', '2026-05-18T00:00:00Z', "
+            "'2026-05-20T12:00:00Z')"
+        )
+        connection.commit()
+        adapter = LR.LedgerOutcomeAdapter(connection)
+        assert adapter.attempt_for(decision_a) == ("att_answer", "taken")
+        assert adapter.attempt_for(decision_b) == (None, "answered_earlier_offer")
+        assert adapter.attempt_for(delayed) == (None, "not_taken")
 
 
 def test_untimed_recurrence_is_not_a_measured_zero(tmp_path):
