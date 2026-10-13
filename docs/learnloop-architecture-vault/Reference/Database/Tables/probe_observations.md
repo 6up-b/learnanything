@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 187
+schema_head: 188
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_probe_policy.py`
 - `tests/test_probe_robust_cutover.py`
 - `tests/test_stuck_prompt.py`
+- `tests/test_voi_stopping.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 187
+schema_head: 188
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -3,13 +3,13 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 187
+schema_head: 188
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"
@@ -22,14 +22,15 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
+  - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/scheduling/evaluation.py"
-  - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
+  - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -53,7 +54,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`.
+- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`, `188_followup_value_decisions.sql`.
 - **Rebuild owner:** `learning_state`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -146,6 +147,7 @@ Indexes and uniqueness:
 - `tests/test_gate_fit.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_signal_quantiles.py`
+- `tests/test_voi_stopping.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempt_completion.py`
@@ -162,7 +164,6 @@ Indexes and uniqueness:
 - `tests/test_item_parameters.py`
 - `tests/test_misconception_routing.py`
 - `tests/test_post_attempt_pipeline.py`
-- `tests/test_probe_orchestration_remainder.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

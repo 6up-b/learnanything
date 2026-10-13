@@ -3,13 +3,13 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
   - "table decision_features"
-schema_head: 187
+schema_head: 188
 table_name: "decision_features"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
@@ -54,7 +54,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/011_training_dataset_logging.sql`.
-- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`, `161_collection_contract.sql`.
+- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`, `161_collection_contract.sql`, `188_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

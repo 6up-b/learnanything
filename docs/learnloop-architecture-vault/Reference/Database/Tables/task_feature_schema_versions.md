@@ -3,13 +3,13 @@ title: "task_feature_schema_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite task_feature_schema_versions"
   - "table task_feature_schema_versions"
-schema_head: 187
+schema_head: 188
 table_name: "task_feature_schema_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

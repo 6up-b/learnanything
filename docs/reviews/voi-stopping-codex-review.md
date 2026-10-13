@@ -49,6 +49,10 @@ unchanged code (outputs as observed):
 
 ### F1: the follow-up forecast lives on a receipt
 
+*Superseded by the re-review (§7.3): one row per decision in
+`followup_value_decisions` (migration 188); `decision_features` is mvp-0.16's
+again.*
+
 The follow-up's value decision now rides on its `decision_features` row
 (`decision_type = 'followup'`, `decision_id` = the source attempt):
 RECEIPT, immutable by trigger (migration 161), written once with
@@ -67,6 +71,10 @@ does not re-value it. Pre-existing and out of scope: every other key of the
 gate diagnostics is lost on rebuild the same way (not this stage's data).
 
 ### F2: greedy conditional valuation
+
+*The hypothesis term below was revised by the re-review (§7.4): it is valued
+over the expected posterior branches from each check's likelihood rows, not
+once per LO.*
 
 `voi_stopping.greedy_information_admission` admits checks one at a time: at
 each step every remaining check is valued given the belief the admitted ones
@@ -189,12 +197,12 @@ stopped it).
 | Follow-up selection and stopping | Whole eligible slate valued from the first intervention; stops only when the best remaining candidate fails |
 | Teach-back stopping | Valued from the first, greedily and conditionally |
 | Project-probe selection | Greedy conditional admission; the value order reaches the block score, the chooser and re-entry |
-| Greedy conditional information gain | Present (`greedy_information_admission`); the hypothesis term is counted once per LO (approximation, labelled) |
+| Greedy conditional information gain | Present (`greedy_information_admission`); the hypothesis term over the expected posterior branches since the re-review (§7.4) |
 | Shared valuation machinery | Unchanged: EVSI/EIG primitives through `value_candidates`; the adapter is this stage's, pending the sources spec's `value_candidates` |
 | Successor and kill switches | Unchanged; every switched-off path still equals mvp-0.16 (tests) |
 | Heuristic parameter labels | Unchanged; EVSI applicability no longer depends on the plausibility cutoff (F6) |
 | Durable receipts and replay | Follow-up receipts survive rebuild and replay; probe receipts carry the served item's forecast |
-| Migration and table ownership | No new table or migration; `decision_features` (RECEIPT) carries the follow-up decision |
+| Migration and table ownership | After the re-review: migration 188's `followup_value_decisions` (RECEIPT, one owner store) carries each follow-up decision |
 
 ## 3. Refreshed report (backup-API copies)
 
@@ -270,10 +278,8 @@ tests rewritten and 15 added for F1 to F9, two of them parametrized),
    as the stage's question 1, with sharper numbers: keep it live behind
    `voi_stopping.probe_episodes`, or hold the probe site off until the
    `evsi/calibration` report has scored live forecasts?
-2. **The hypothesis term in conditional valuation is counted once per LO**
-   for teach-backs and project probes (F2). The exact conditional needs both
-   checks' `P(E | H)` rows, which these candidates do not carry. Acceptable
-   as a labelled approximation?
+2. *Resolved by the re-review (§7.4):* the candidates now carry their
+   `P(E | H)` rows and the hypothesis term is the exact conditional.
 3. **A follow-up with no candidate records a generation need whatever the
    count** (F4/F7; the first build suppressed further ones as
    `voi_no_candidate`). Needs are deduplicated per LO, intent and facets and
@@ -281,3 +287,167 @@ tests rewritten and 15 added for F1 to F9, two of them parametrized),
 4. **The value decides the first follow-up and teach-back too** (F7), which
    settles the stage's question 3 in the direction the spec's text reads;
    the owner may still prefer the old floor.
+
+## 7. Re-review (Codex job `20261013-053803-RzVqmE`)
+
+Codex re-reviewed the fixes at `2773543d` (verdict REOPENED): F1 and F2
+reopened, F3 confirmed fixed, two new Medium findings (F10, F11). Every open
+finding reproduced at `2773543d` and is fixed in `086c24c0`; none was
+rejected. Owner decisions in force as in the first round.
+
+### 7.1 Reproduction at `2773543d`
+
+Throwaway tests against the unchanged code (outputs as observed):
+
+| Id | What the reproduction did | Observed at `2773543d` |
+|---|---|---|
+| F1 (a) | no candidate: a generation need is recorded; the item is added; the same attempt is evaluated again and queued; `rebuild_all_derived_state` | `followup_receipt` after the rebuild: `None` (the need took the attempt's one `decision_features` row; the queue's insert was ignored) |
+| F1 (b) | 10,000-minute candidates: value suppresses the follow-up; then the learner's manual override queues one | the receipt holds only the suppression (`decision: stop`, no `served_by`); the manual decision's forecast is lost |
+| F2 | four equally likely hypotheses, two checks on one LO worth `ln 2` each (independent bits), `InformationState().after(first)` | the second check's conditional hypothesis term: `0.0` (true value `ln 2` = 0.693) |
+| F10 | project probes A (12 minutes, `{facet_x: 2, facet_y: 1}`, 1,146.8 minutes of value) and B (5 minutes, `{facet_x: 1}`, 33.7 minutes alone) on one LO, five minutes to spend | A admitted first; B stopped at 0.0 minutes conditional on A; `LegacyLanesSource.candidates` with five minutes: none (the plan is empty; B alone fits) |
+| F11 | the probe vault plus a teach-back, `selection_exploration_rate = 0`, value drops the teach-back | greedy head `pi_svd_teach_001` (draw probability 1); the served probe `pi_svd_define_001` receipt: `selection_propensity: 0.0` |
+
+### 7.2 Findings
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Later follow-up decisions on one attempt are not recorded (reopened) | fixed | `086c24c0` | `test_a_need_then_a_queue_on_one_attempt_keeps_both_decisions`, `test_an_automatic_suppression_then_a_manual_follow_up_keeps_both_decisions` (both across two rebuilds and an LO replay), `test_each_follow_up_decision_keeps_its_own_receipt_through_rebuilds` (rewritten: a later decision is a new row, the first is unchanged; the table refuses UPDATE and DELETE), `test_a_value_suppressed_follow_up_keeps_its_receipt`, `test_below_the_successor_no_follow_up_receipt_carries_a_value_decision` |
+| F2 | High | Hypothesis information is zeroed after one check per LO (reopened) | fixed | `086c24c0` | `test_hypothesis_information_is_valued_over_the_expected_posterior_branches` (independent bits keep `ln 2`; a repeat adds 0; a 90%-accurate earlier check leaves `h(0.1)`; the reward's scale; another episode is independent), `test_greedy_admission_keeps_independent_checks_and_drops_a_repeat`, `test_the_plan_values_probes_on_one_episode_over_its_hypotheses`, `test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows`, `test_past_the_branch_bound_posteriors_merge_and_the_receipt_says_so` |
+| F3 | High | The episode maximum overrides value | confirmed fixed by the re-review | `6e558328` | no change |
+| F10 | Medium | An unplannable probe suppresses a worthwhile alternative | fixed | `086c24c0` | `test_a_probe_the_plan_cannot_fit_neither_takes_a_slot_nor_discounts_another` (the reviewer's scenario: B is planned in a five-minute block; plus the cumulative budget), `test_the_plan_values_project_probes_at_the_successor_and_counts_them_below` (the plan passes its own minutes) |
+| F11 | Medium | Served-probe receipts can record zero selection probability | fixed | `086c24c0` | `test_a_served_probe_records_its_probability_over_the_composed_queue` (the reviewer's scenario through `build_due_queue`: 1.0 over the composed outcomes, the draw's 0.0 kept as `base_draw_propensity`, equal to the offer trace's own head probability), `test_an_explored_probe_carries_its_own_forecast` (now a real seeded draw: 0.25 composed and base) |
+
+### 7.3 F1: one receipt per decision (migration 188)
+
+The first fix rode on the follow-up's `decision_features` row, which is one
+row per source attempt (`UNIQUE(decision_id, decision_type)`, first write
+wins), so any later decision on the same attempt was dropped. Migration 188
+adds `followup_value_decisions` (RECEIPT, append-only by trigger): one row per
+follow-up decision the value rule takes part in, each with its own id and a
+per-attempt `decision_ordinal` (assigned in the INSERT itself, so atomic under
+SQLite's write lock), its `source_attempt_id`, the outcome
+(`queued_*`, `suppressed_voi_value_below_minutes_cost`,
+`created_need_for_generation`, `created_need_no_discriminator`), the verdict,
+`manual_override`, the recommended and served refs, the need id, and the
+`SiteDecision.as_dict` body (`decision_json`, NULL when nothing was valued).
+Written by the live follow-up path at mvp-0.17 with `voi_stopping.followups`
+on (one owner, `db/stores/followup_value.py`); never by a rebuild or a replay.
+`voi_stopping.followup_receipts(repository, attempt_id)` reads them in
+order; `followup_receipt` returns the latest valued one.
+
+The follow-up's `decision_features` row is mvp-0.16's again: the first fix's
+`context.voi_stopping` key and its extra row on a value suppression are gone,
+so a suppression no longer takes the attempt's one features slot and a later
+manual follow-up writes its features as before the stage (the test checks
+this). Not a new table for its own sake: main's `voi_forecasts` (184,
+`evsi/calibration`) is the natural home at the merge; this branch cannot
+rebase onto it, so 188 is a placeholder that may fold into it.
+
+Head fixture: `migration_head_187` became `migration_head_188` (only 188
+applied in place with the project's incremental migrator, rollback journal,
+`integrity_check` ok, `foreign_key_check` clean); its README, the 12 test
+paths, both reference scripts and their `SCHEMA_HEAD` follow. The SQL-owner
+registry (`tests/test_architecture.py`) names the new store. The DB reference
+generator gives the table a purpose note and the tutor-and-remediation family
+(with `followup_tasks`).
+
+### 7.4 F2: the hypothesis term over expected posterior branches
+
+`voi_stopping.HypothesisChannel` carries a check's likelihood rows `P(E | H)`
+over its open probe episode's locked hypotheses (`belief_key` = the episode),
+with the episode's current posterior. The scheduler hands every in-episode
+probe these rows (`ScheduledItem.hypothesis_channel`, built by
+`voi_stopping.hypothesis_channel_body` from the eligible instrument's
+composed conditionals, the same rows the probe-episode site values; never
+persisted or compared; attached only while the teach-back or project-probe
+site is on). `InformationState` keeps, per episode, the expected posterior
+branches the admitted checks' outcomes leave (`probability, posterior`),
+merged when posteriors agree to 12 decimals; a later check's hypothesis term
+is `scale * sum_b p_b * EIG(P(E | H), posterior_b)` = `scale *
+I(E; H | E_admitted)` (outcomes independent given H). `scale` is the reward's
+logged term over the check's standalone EIG, so the first check reproduces
+`probe_eig_total` exactly (the decomposition check still applies). With the
+hypothesis-EIG objective this is exact; with the §7.4 predictive objective the
+reward's term is scaled by the conditional hypothesis information
+(an approximation, labelled `expected_posterior_branches:predictive_term_
+scaled_by_hypothesis_eig`). A label a check has no row for is one it says
+nothing about. Each receipt names its `hypothesis_conditioning`.
+
+Two bounds that are not count caps, registered as structural constants:
+branches merge at 12 decimals (`_BRANCH_MERGE_DIGITS`), and past 4,096
+branches per episode (`_MAX_BELIEF_BRANCHES`) they merge at fewer decimals
+(`_COARSE_MERGE_DIGITS`, keeping total probability and the mean posterior),
+labelled `hypothesis_branches: coarsely_merged` in later receipts. The
+once-per-LO rule survives only for a check with a hypothesis term and no
+rows (labelled `once_per_learning_object`); the scheduler gives every
+in-episode probe its rows.
+
+### 7.5 F10: feasibility inside the greedy selection
+
+`greedy_information_admission` takes `minutes_budget` and
+`max_item_minutes`. At each step a check is admissible only when its minutes
+fit what the admitted checks leave of the budget, and one block; a check that
+does not fit is still valued for its receipt but never admitted
+(`does_not_fit_plan_minutes`, via `Candidate.infeasible_reason`), so nothing
+is conditioned on it. The plan engine passes the plan's own minutes and
+`min(BLOCK_MAX_MINUTES, minutes)`; a probe left out this way stays "later"
+with the reason "a due project probe that does not fit today's minutes".
+These are the constraints known before the split (the lanes' shares come from
+the classified pool, and the maintain lane can receive the plan's whole
+minutes when the other lanes are idle), so a probe that fits may still lose a
+block to another lane in the chooser; it is then simply not planned, and
+nothing after it was discounted for an impossible probe.
+
+### 7.6 F11: the served item's probability over the composed queue
+
+The presentation receipt's `served_by.selection_propensity` is now
+`P(served item heads the composed queue)`: every outcome of the seeded draw is
+recomposed through the build's own `compose` (the factored
+`_support_outcomes`, which `_fill_offer_trace` now uses too, so the offer log
+and the receipt share one enumeration), and the probability sums the outcomes
+whose head is the served item (`selection_propensity_kind:
+composed_outcomes`). The pre-composition draw probability is kept apart as
+`base_draw_propensity`. Router R1's existing `scheduler_exploration.
+exploration_propensity` (the draw) is unchanged.
+
+### 7.7 Open questions for the owner (added by the re-review fixes)
+
+1. **The F10 bound is the plan's minutes and one block**, not the maintain
+   lane's share (known only after the split). Enough, or should project
+   probes be admitted against the maintain lane's allotment once split?
+2. **Predictive-objective episodes** scale the reward's hypothesis term by the
+   conditional hypothesis EIG (labelled approximation). Acceptable until the
+   predictive objective has its own conditional form?
+3. **Migration 188 at the merge**: fold `followup_value_decisions` into main's
+   `voi_forecasts` (site `followup_intervention`, one row per decision), or
+   keep it beside?
+
+### 7.8 Paid calls
+
+None. Every test uses fakes. $0.00.
+
+### 7.9 Gate
+
+Run at `086c24c0` (the fix commit; the commit that adds this section and
+the regenerated references is documentation only), `TMPDIR` = the worktree's
+`fixtures-local/tmp`, the two suites under
+`flock /tmp/learnloop-fullsuite.lock`. Before the gate, the reviewer's F2
+scenario was rerun by hand against `086c24c0`: four equally likely
+hypotheses, two checks revealing independent bits. Conditional on the first,
+the second's hypothesis term is 0.6931 (`ln 2`), a repeat of the first is 0,
+and the label is `expected_posterior_branches`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 15 kept, 0 broken |
+| `flock … uv run pytest -n auto` | **9,028 passed**, 0 failed (344 s) |
+| `flock … uv run pytest -m durability` | **95 passed**, 8,933 deselected (99 s) |
+| Frontend (`apps/learnloop-tauri`; unchanged since the first round): `npm install`, `npm run typecheck`, `npm test`, `npm run frontend:build` | ok; typecheck clean; **182 passed** in 35 files (vitest); build ok (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| DB reference scripts (schema changed: migration 188) | `db_generate_reference.py`: schema head 188, 308 table notes, the new `followup_value_decisions` note included; a second run is stable. `db_validate_reference.py`: `errors: []` (366 owned notes, 852 path-qualified table links, 4,064 wikilinks checked) |
+
+Stage tests: `tests/test_voi_stopping.py` 70 cases from 58 test functions
+(61 cases from 49 functions before the re-review: 9 added, the F1 receipt
+test and the F11 explored-probe test rewritten), and
+`tests/test_mvp017_upgrade.py` 12. All pass.

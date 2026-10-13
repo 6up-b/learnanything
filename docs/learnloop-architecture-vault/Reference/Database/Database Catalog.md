@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82a50f4121a66de6b3de5cff0dbc7bbfa840176b"
-source_commit_timestamp: "2026-10-13T02:31:52-04:00"
+source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
+source_commit_timestamp: "2026-10-13T06:18:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 187
-table_count: 307
+schema_head: 188
+table_count: 308
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_187/state.sqlite"
+  - "fixtures/migration_head_188/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-187"
+  - "learnloop/database/schema-head-188"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 307 user tables at migration head 187. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 308 user tables at migration head 188. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 307 user tables at migration head 187. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 139 |
 | [[Table Roles#Derived|`derived`]] | 18 |
-| [[Table Roles#Receipt|`receipt`]] | 64 |
+| [[Table Roles#Receipt|`receipt`]] | 65 |
 | [[Table Roles#Workflow|`workflow`]] | 76 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 307 user tables at migration head 187. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 294 |
+| `active` | 295 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -339,6 +339,7 @@ Questions, tutoring, remediation, and practice-supply workflows. This is a navig
 - [[Reference/Database/Tables/failure_triage_events|failure_triage_events]] — `receipt` · `active` · Preserves an append-only chronology of failure triage so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `run_id`, `attempt_id`, `route_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/failure_triage_routes|failure_triage_routes]] — `raw_ledger` · `active` · Gives failure triage route a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `route_id`, `route_version`, `reason`, making the operational relationship explicit.
 - [[Reference/Database/Tables/followup_tasks|followup_tasks]] — `workflow` · `active` · Gives followup task a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_attempt_id`, `remediation_episode_id`, `selected_item_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/followup_value_decisions|followup_value_decisions]] — `receipt` · `active` · Keeps one immutable receipt per follow-up decision the value-of-information rule takes part in (mvp-0.17): each decision on a source attempt gets its own id and ordinal (an automatic decision and a later manual follow-up, or a recorded generation need and a later queue), with the value decision's forecasts in `decision_json` (NULL when no candidate was valued), so no later decision overwrites an earlier one and no rebuild clears them. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `session_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/missing_vocabulary_notes|missing_vocabulary_notes]] — `raw_ledger` · `active` · Gives missing vocabulary note a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `learning_object_id`, `practice_item_id`, `attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/question_classifications|question_classifications]] — `workflow` · `active` · Gives question classification a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `question_event_id`, `interaction_event_id`, `question_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/question_events|question_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of question so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `note_id`, `practice_item_id`, `attempt_id`, making the operational relationship explicit.
