@@ -3,8 +3,8 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
+source_commit_timestamp: "2026-10-13T16:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
@@ -142,12 +142,13 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
 - `tests/test_grading_support.py`
+- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_teach_back.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
-- `tests/test_proof_route_check.py`
+- `tests/test_route_rules_in_grader.py`
 - `tests/test_unresolved_cause_gate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

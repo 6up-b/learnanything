@@ -3,8 +3,8 @@ title: "grading_clarifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
+source_commit_timestamp: "2026-10-13T16:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarifications"
@@ -19,7 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/142_grading_clarifications.sql"
-  - "src/learnloop/attempts/proof_check.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop_sidecar/handlers/app.py"
   - "src/learnloop/attempts/clarification.py"
@@ -112,8 +111,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_mvp017_upgrade.py`
-- `tests/test_proof_route_check.py`
+- `tests/test_mvp020_upgrade.py`
+- `tests/test_route_rules_in_grader.py`
 - `tests/test_sidecar_trace_and_clarification.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

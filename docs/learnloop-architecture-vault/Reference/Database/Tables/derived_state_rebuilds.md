@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
+source_commit_timestamp: "2026-10-13T16:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_mvp017_upgrade.py`
 - `tests/test_mvp018_upgrade.py`
+- `tests/test_mvp020_upgrade.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_rebuild_orchestrator.py`
@@ -135,7 +136,6 @@ Indexes and uniqueness:
 - `tests/test_table_roles.py`
 - `tests/test_contract_frontier_coverage.py`
 - `tests/test_coverage_denominator_boundary.py`
-- `tests/test_learner_review_system_entries.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

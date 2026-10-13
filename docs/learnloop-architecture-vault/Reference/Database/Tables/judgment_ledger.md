@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
+source_commit_timestamp: "2026-10-13T16:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -21,7 +21,7 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/attempts/proof_check.py"
+  - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
@@ -100,7 +100,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/attempts/proof_check.py`
+- `src/learnloop/attempts/grading_support.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/content/authoring/source_exercise_import.py`

@@ -3,8 +3,8 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
+source_commit_timestamp: "2026-10-13T16:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
@@ -127,8 +127,8 @@ None found by exact static reference scan.
 
 - `tests/test_daily_plan_replay.py`
 - `tests/test_evsi_router_composition.py`
+- `tests/test_held_grade_composition.py`
 - `tests/test_mvp015_upgrade.py`
-- `tests/test_proof_check_composition.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_router_outcomes.py`
