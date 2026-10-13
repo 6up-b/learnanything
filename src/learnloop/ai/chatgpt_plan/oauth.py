@@ -480,10 +480,12 @@ def validate_id_token(
 ) -> IdentityClaims:
     """Check an ID token from the token endpoint; raises :class:`SignInError`.
 
-    RS256 tokens are verified against the issuer's JWKS. An ID token signed
-    with another asymmetric algorithm is accepted on the TLS rule of OpenID
-    Connect Core 3.1.3.7 step 6 (it came straight from the token endpoint) and
-    recorded as ``tls_endpoint``; ``none`` and HMAC algorithms are refused.
+    RS256 tokens are verified against the issuer's JWKS; a matching key that
+    does not verify the signature is a refusal. When no usable key can be had
+    (another asymmetric algorithm, an unreachable JWKS, no RSA key for the
+    ``kid``) the TLS rule of OpenID Connect Core 3.1.3.7 step 6 applies (the
+    token came straight from the token endpoint) and the result is recorded as
+    ``tls_endpoint``. ``none`` and HMAC algorithms are refused.
     """
 
     try:

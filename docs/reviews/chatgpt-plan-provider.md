@@ -227,8 +227,8 @@ paid routes (`practice_index.paid.resolve_client`, PF, the offline reviews)
 never fall back, by design, because their checkpoints key on the model; T6's
 rewrite and verification therefore report "unavailable" and the tutor answers
 without them. The pause ends by itself after `usage_limit_pause_minutes`, on
-`learnloop ai resume chatgpt` / the desktop's "try again now", on a new
-sign-in, or on the next completed response.
+`learnloop ai resume chatgpt` / the desktop's "try again now", or on a new
+sign-in; the first completed response after it clears the stale record.
 
 **Billing.** `chatgpt_plan` joins the subscription types in `ai/spend.py` and
 in the four local copies (`practice_index/paid.py`,
@@ -385,7 +385,7 @@ routes, as intended). Cost: $0.
 ## Tests
 
 New: `tests/test_chatgpt_plan_signin.py` (19), `tests/test_chatgpt_plan_provider.py`
-(20), `tests/test_chatgpt_plan_cli.py` (8), `tests/test_chatgpt_plan_sidecar.py` (5),
+(21), `tests/test_chatgpt_plan_cli.py` (8), `tests/test_chatgpt_plan_sidecar.py` (5),
 `apps/learnloop-tauri/src/components/ChatGPTPlanSettings.test.tsx` (5); six new
 desktop-only pins in `tests/test_mobile_allowlist.py`. Fakes:
 `tests/chatgpt_plan_fakes.py` (one 127.0.0.1 server for discovery, JWKS,
@@ -400,7 +400,7 @@ concurrent refreshers sending one refresh; `invalid_grant`; transient refresh
 failure; revocation on sign-out; the keyring backend (a fake module); the
 request shape and no unsupported field; the output budget in the prompt;
 receipts; capabilities and isolation; JSON-object repair; `single_request`
-bounds; transient retries; usage limits mid-stream and before the stream, the
+bounds; transient retries; a chunked event stream; usage limits mid-stream and before the stream, the
 local refusal while paused, fallback for an unpinned route and none for a
 pinned one, resume; not-eligible; 401 refresh-and-retry; a rejected
 `text.format`; incomplete, truncated and stalled streams; signed-out refusal;
