@@ -8,6 +8,7 @@ import { PrimaryButton, SecondaryButton } from "../../components/goldenpath/shar
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./authoredQuestion";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
+import { MeaningLabel, ModelVoice } from "./voices";
 import { parseRequestError, parseRequestResult, type BackgroundRequest, type SynthesizedObject } from "./useReaderRequests";
 
 // The three visible primitives / nine presets (§5.2). Only the three commit presets
@@ -171,9 +172,9 @@ export function NotesRail(props: NotesRailProps) {
                   style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${selection.editedText != null ? COLOR.amberLink : COLOR.border}`, color: COLOR.text, padding: 6, minHeight: 110, resize: "vertical" }}
                 />
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Faint style={{ fontSize: 10 }}>
+                  <MeaningLabel>
                     fix any OCR mishaps — the edited passage becomes the practice surface; anchors stay on the source blocks.
-                  </Faint>
+                  </MeaningLabel>
                   {selection.editedText != null ? (
                     <button
                       type="button"
@@ -225,9 +226,9 @@ export function NotesRail(props: NotesRailProps) {
               >
                 {selectionActions.includes("exercise_import") ? "exercise queued ✓" : "add exercise to practice"}
               </PrimaryButton>
-              <Faint style={{ fontSize: 10 }}>
-                the exercise text stays verbatim — AI completes the answer, rubric, hints, and depth.
-              </Faint>
+              <MeaningLabel>
+                the exercise text stays verbatim — LearnLoop's model completes the answer, rubric, hints, and depth.
+              </MeaningLabel>
             </div>
           ) : null}
           {PALETTE.map((grp) => (
@@ -477,9 +478,9 @@ export function NotesRail(props: NotesRailProps) {
                   {expanded && result ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {result.contentMd ? (
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
+                        <ModelVoice first>
                           <MarkdownMath value={result.contentMd} />
-                        </div>
+                        </ModelVoice>
                       ) : (
                         <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(result.exactText, 260)}”</span>
                       )}

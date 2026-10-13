@@ -5994,6 +5994,8 @@ export interface ReaderAnswerDto {
   readerAnswerEventId: string;
   /** RW1a branches (absent while reader_inquiry is off). */
   parentExchangeId?: string | null;
+  /** RW1a: the answering model, for the reader report's per-route funnel. */
+  model?: string | null;
   answerMd: string;
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
@@ -6030,6 +6032,88 @@ export interface ReaderAskHistoryExchangeDto {
   createdAt: string | null;
 }
 export type InquiryResolution = "open" | "resolved" | "dismissed";
+
+/** reader.set_inquiry_status — any exchange names its inquiry; the status
+ *  lands on the root question (RW1a). */
+export interface ReaderSetInquiryStatusInput {
+  extractionId: string;
+  exchangeId: string;
+  resolution: InquiryResolution;
+  trigger?: "chip" | "reconnect" | "undo" | "key";
+}
+export interface ReaderInquiryStatusDto {
+  rootExchangeId: string;
+  questionEventId: string;
+  resolution: InquiryResolution;
+  previousResolution: InquiryResolution;
+  openCount: number;
+}
+
+export type ReconnectAnswer = "yes" | "still_unclear" | "quick_check";
+export interface ReaderReconnectAnswerInput {
+  extractionId: string;
+  exchangeId: string;
+  answer: ReconnectAnswer;
+  via: "inline" | "rail";
+}
+export interface ReaderReconnectAnswerDto {
+  rootExchangeId: string;
+  questionEventId: string;
+  answer: ReconnectAnswer;
+  resolution: InquiryResolution;
+  /** quick_check only: exists | queued | provider_unavailable. */
+  status: "exists" | "queued" | "provider_unavailable" | null;
+  batchId: string | null;
+  message: string | null;
+  question: ReaderInquiryQuestionDto | null;
+}
+
+export type InquirySelfCheck = "matches" | "partly" | "no";
+/** A passage-scoped quick check (reader_authored_questions, scope inquiry). */
+export interface ReaderInquiryQuestionDto {
+  id: string;
+  extractionId: string;
+  sectionId: string;
+  status: "proposed" | "answered" | "dismissed" | "escalated";
+  questionMd: string;
+  expectedAnswerMd: string;
+  spanIds: string[];
+  practiceItemId: string | null;
+  answeredAt: string | null;
+  scopeKind: "inquiry";
+  questionStyle: string;
+  anchorSpanIds: string[];
+  inquiryRootEventId: string | null;
+  responseMd: string | null;
+  selfCheck: InquirySelfCheck | null;
+  escalationLearningObjectId: string | null;
+}
+export interface ReaderInquiryQuestionActionInput {
+  questionId: string;
+  action: "answered" | "self_checked" | "dismissed";
+  response?: string | null;
+  selfCheck?: InquirySelfCheck | null;
+}
+
+/** One funnel event for reader.log_activity (ids, kinds, counts and timings
+ *  only; the sidecar drops anything else, learner text above all). */
+export interface ReaderActivityEvent {
+  kind:
+    | "reader_view_opened"
+    | "reader_view_closed"
+    | "reader_selection"
+    | "reader_job_queued"
+    | "reader_job_completed"
+    | "reader_action_invoked";
+  event?:
+    | "action_invoked"
+    | "detour_opened"
+    | "detour_returned"
+    | "reconnect_shown"
+    | "proactive_shown"
+    | "back_to_reading";
+  payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
+}
 export interface ReaderAskHistoryDto {
   version?: number;
   exchanges: ReaderAskHistoryExchangeDto[];

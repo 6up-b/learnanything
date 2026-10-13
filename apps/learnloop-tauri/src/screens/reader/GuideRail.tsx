@@ -14,6 +14,7 @@ import { DispositionPicker, PrimaryButton, SecondaryButton } from "../../compone
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage } from "../../errors";
 import { clip } from "./readerShared";
+import { MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 export const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
   { value: "too_easy", label: "too easy" },
@@ -190,8 +191,8 @@ export function GuideRail({
                     </Pill>
                     <Faint style={{ fontSize: 10 }}>{passage.learningObjectTitle}</Faint>
                   </div>
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>“{clip(passage.quote, 150)}”</span>
-                  <Faint style={{ fontSize: 10, lineHeight: 1.45 }}>{passage.reason}</Faint>
+                  <SourceVoice locator={currentGuideSection.label}>“{clip(passage.quote, 150)}”</SourceVoice>
+                  <MeaningLabel style={{ lineHeight: 1.45 }}>{passage.reason}</MeaningLabel>
                 </Card>
               ))}
         </>
@@ -235,7 +236,7 @@ export function GuideRail({
         <>
           <SectionHeader>Quick check</SectionHeader>
           <Card status="probe" style={{ background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
-            <Faint style={{ fontSize: 11 }}>optional · not a test</Faint>
+            <MeaningLabel style={{ fontSize: 11 }}>optional · not a test</MeaningLabel>
             <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
               Before executing: which decomposition reads off the variance here, and why?
             </span>
@@ -299,7 +300,7 @@ export function SectionBoundaryOffer({
     <Card status="probe" style={{ margin: "8px 0 18px", padding: 14, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Pill color="purple">section break</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · usually under a minute</Faint>
+        <MeaningLabel>optional · usually under a minute</MeaningLabel>
       </div>
       <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
         {allowQuestion && section.question
@@ -390,13 +391,13 @@ function AuthoredQuestionCard({
     <Card status="probe" style={{ marginTop: 10, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 9 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
         <Pill color="purple">quick check</Pill>
-        <Pill color="slate">AI-written</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · self-check, never a grade</Faint>
+        <MeaningLabel>optional · self-check, never a grade</MeaningLabel>
       </div>
-      <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
+      <MeaningLabel style={{ lineHeight: 1.5 }}>{question.reason}</MeaningLabel>
+      {/* An AI-written question: LearnLoop's model's voice (W2). */}
+      <ModelVoice first note="a quick check from this section">
         <MarkdownMath value={question.prompt} />
-      </div>
+      </ModelVoice>
       {!started ? (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <PrimaryButton onClick={() => setStarted(true)}>think it through →</PrimaryButton>
@@ -421,12 +422,9 @@ function AuthoredQuestionCard({
         </>
       ) : (
         <>
-          <div style={{ borderLeft: `3px solid ${COLOR.green}`, paddingLeft: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-            <Faint style={{ fontSize: 10, letterSpacing: "0.1em" }}>INTENDED ANSWER — COMPARE, DON’T GRADE</Faint>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-              <MarkdownMath value={question.expectedAnswer ?? ""} />
-            </div>
-          </div>
+          <ModelVoice note="the intended answer · compare, don’t grade">
+            <MarkdownMath value={question.expectedAnswer ?? ""} />
+          </ModelVoice>
           {escalatedItemId ? (
             <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Added to your practice collection.</Faint>
           ) : null}
@@ -607,7 +605,7 @@ function SectionQuestionCard({
       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
         <Pill color="purple">quick check</Pill>
         {question.goalTitle ? <Pill color="cyan">for {question.goalTitle}</Pill> : null}
-        <Faint style={{ fontSize: 10 }}>optional · not a test</Faint>
+        <MeaningLabel>optional · not a test</MeaningLabel>
       </div>
       <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
       <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>

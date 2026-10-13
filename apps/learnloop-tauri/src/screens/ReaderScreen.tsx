@@ -14,7 +14,7 @@
 // reviewed TaskBlueprint placements appear as optional real-source quick checks;
 // the hard-coded demo question remains confined to the offline fixture.
 
-import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
@@ -25,6 +25,9 @@ import type {
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
   ReaderPdfViewDto,
+  InquiryResolution,
+  InquirySelfCheck,
+  ReaderInquiryQuestionDto,
   ReaderPromptContractDto,
   ReaderRenderBlockDto,
   ReaderRenderViewDto,
@@ -49,7 +52,33 @@ import { cachedSourceRead } from "./reader/readerCache";
 import { useBareAltClear } from "./reader/bareAlt";
 import { useReaderRequests } from "./reader/useReaderRequests";
 
-import { type ReaderExchange } from "./reader/ReaderAskBranches";
+import { type InquiryCommitment, type ReaderExchange } from "./reader/ReaderAskBranches";
+import { DetourStrip } from "./reader/DetourStrip";
+import { InquiryQuickCheck } from "./reader/InquiryQuickCheck";
+import { phaseForError, type ModelActionPhase } from "./reader/ModelActionState";
+import { ReconnectLine } from "./reader/ReconnectLine";
+import {
+  activitySince,
+  flushReaderActivity,
+  learnerActivitySnapshot,
+  logReaderAction,
+  logReaderActivity,
+  newActivityId,
+  noteLearnerActivity,
+  setReaderActivityEnabled,
+} from "./reader/activity";
+import {
+  back as stackBack,
+  EMPTY_STACK,
+  forward as stackForward,
+  goTo as stackGoTo,
+  hasDetour,
+  openDetours,
+  pushDetour,
+  stackInquiryExchange,
+  type ReturnEntry,
+  type ReturnStack,
+} from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
@@ -244,6 +273,42 @@ export function ReaderScreen({
   // plan polls until the question lands), and a per-source once-only guard.
   const [authoringSections, setAuthoringSections] = useState<string[]>([]);
   const authorRequestedRef = useRef<Set<string>>(new Set());
+  // RW1a (reader_inquiry): the return stack and its detour strip; the
+  // reconnect line; each inquiry's passage-scoped quick check; the root
+  // commitments made from the status chips; a static "•" on the Ask tab
+  // when something lands there while the learner is elsewhere.
+  const [returnStack, setReturnStack] = useState<ReturnStack>(EMPTY_STACK);
+  const returnStackRef = useRef<ReturnStack>(EMPTY_STACK);
+  returnStackRef.current = returnStack;
+  const lastSourceRef = useRef<ReturnEntry | null>(null);
+  const settleScrollRef = useRef<number | null>(null);
+  const [reconnect, setReconnect] = useState<{
+    rootId: string;
+    question: string;
+    spanId: string;
+    inline: boolean;
+    startScroll: number;
+  } | null>(null);
+  const [inquiryChecks, setInquiryChecks] = useState<Record<string, {
+    phase: ModelActionPhase;
+    question: ReaderInquiryQuestionDto | null;
+    escalated?: boolean;
+    attempts?: number;
+  }>>({});
+  const [inquiryCommitments, setInquiryCommitments] = useState<Record<string, InquiryCommitment[]>>({});
+  const [askTabMarked, setAskTabMarked] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem("learnloop.reader.rail-collapsed") === "on";
+    } catch {
+      return false;
+    }
+  });
+  // The funnel's visit, the pending "back to reading" after a usable result,
+  // and the LearnLoop-started elements already counted this visit.
+  const visitRef = useRef<{ id: string; extractionId: string; openedAt: number; lastActive: number; active: number; idle: number } | null>(null);
+  const backToReadingRef = useRef<{ jobId: string; actionKind: string; at: number } | null>(null);
+  const proactiveSeenRef = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
@@ -409,10 +474,19 @@ export function ReaderScreen({
     setStickyQuestionSections([]);
     setEditingAnnotationId(null);
     setEditingAnnotationText("");
+    // RW1a per-source state. The return stack itself survives a detour into
+    // another source; openSource decides whether it continues or resets.
+    setReconnect(null);
+    setInquiryChecks({});
+    setInquiryCommitments({});
+    setAskTabMarked(false);
+    backToReadingRef.current = null;
+    proactiveSeenRef.current = new Set();
+    settleScrollRef.current = null;
   }, []);
 
   const openSource = useCallback(
-    async (card: SourceLibraryCard, jumpSpan?: string) => {
+    async (card: SourceLibraryCard, jumpSpan?: string, options: { via?: "search" | "restore" } = {}) => {
       setOpening(card.sourceId);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
@@ -420,6 +494,28 @@ export function ReaderScreen({
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
+        // RW1a: opening another source from a search hit is a detour from the
+        // source left a moment ago; a restore walks the stack; any other open
+        // starts fresh reading with no detour.
+        const left = lastSourceRef.current;
+        if (options.via === "search" && left && left.sourceId !== card.sourceId) {
+          const entry: ReturnEntry = {
+            id: newActivityId(), kind: "source", sourceId: card.sourceId, sourceTitle: card.title,
+            extractionId: view.extractionId, spanId: jumpSpan ?? null, selection: null, railTab: "guide",
+            exchangeId: null, label: card.title, openedAt: Date.now(),
+          };
+          const next = pushDetour(returnStackRef.current, left, entry);
+          returnStackRef.current = next;
+          setReturnStack(next);
+          logReaderAction("detour_opened", {
+            detour_id: entry.id, detour_kind: "source", origin_span_id: left.spanId,
+            target_span_id: entry.spanId, depth: next.entries.length - 1,
+          });
+        } else if (options.via !== "restore") {
+          returnStackRef.current = EMPTY_STACK;
+          setReturnStack(EMPTY_STACK);
+        }
+        lastSourceRef.current = null;
         setRender(view);
         setOffline(false);
         setSourceTitle(card.title);
@@ -495,12 +591,24 @@ export function ReaderScreen({
   }, [onSourceChange, resetSourceState]);
 
   const backToLibrary = useCallback(() => {
+    // RW1a: remember where the learner was, so a search hit opened from the
+    // library is a detour with a way back (Alt+← reopens this passage).
+    if (render && !offline) {
+      const spanId = readingSpan ?? activeSpan;
+      const section = guidePlan?.sections.find((candidate) => spanId && candidate.spanIds.includes(spanId));
+      lastSourceRef.current = {
+        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+        label: [sourceTitle, section?.label].filter(Boolean).join(" · ") || "where I was",
+        openedAt: Date.now(),
+      };
+    }
     resetSourceState();
     setRender(null);
     setOffline(false);
     setSourceTitle(null);
     onSourceChange?.(null);
-  }, [onSourceChange, resetSourceState]);
+  }, [onSourceChange, resetSourceState, render, offline, readingSpan, activeSpan, guidePlan, sourceTitle, selection, railTab]);
 
   // Resume the source that was open when this tab was last left: the shell
   // keeps the card, the cache keeps the reads, so the return is instant.
@@ -516,6 +624,77 @@ export function ReaderScreen({
   // RW1a's kill switch (reader_inquiry.enabled): the sidecar names it only when
   // on, so an absent flag (switched off, or an older sidecar) is today's rail.
   const inquiry = contract?.inquiryEnabled === true;
+  // Skim is the mute button (UX §3.1): with inquiry on, nothing LearnLoop
+  // starts shows while skimming -- no reconnect line, no section offer.
+  const muted = inquiry && mode === "skim";
+
+  // The funnel's activity is recorded only while reader_inquiry is on.
+  useEffect(() => {
+    setReaderActivityEnabled(inquiry && !offline);
+  }, [inquiry, offline]);
+
+  // One visit per opened source: opened, then closed with its active and idle
+  // seconds (a gap of two minutes or more without scrolling, selecting or
+  // typing counts as idle).
+  useEffect(() => {
+    if (!render || offline || !inquiry) return;
+    const now = Date.now();
+    const visit = { id: newActivityId(), extractionId: render.extractionId, openedAt: now, lastActive: now, active: 0, idle: 0 };
+    visitRef.current = visit;
+    logReaderActivity({
+      kind: "reader_view_opened",
+      payload: { visit_id: visit.id, extraction_id: render.extractionId, source_id: render.sourceId, surface: pdfView ? "pdf" : "text" },
+    });
+    return () => {
+      const at = Date.now();
+      const gap = at - visit.lastActive;
+      if (gap < 120_000) visit.active += gap;
+      else visit.idle += gap;
+      logReaderActivity({
+        kind: "reader_view_closed",
+        payload: {
+          visit_id: visit.id, extraction_id: visit.extractionId,
+          active_seconds: Math.round(visit.active / 1000), idle_seconds: Math.round(visit.idle / 1000),
+        },
+      });
+      flushReaderActivity();
+      if (visitRef.current === visit) visitRef.current = null;
+    };
+    // pdfView only labels the surface; a new visit starts per opened source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [render?.renderViewId, offline, inquiry]);
+
+  /** The learner did something (scroll, select, type): active time accrues. */
+  const touchVisit = useCallback(() => {
+    const visit = visitRef.current;
+    if (!visit) return;
+    const now = Date.now();
+    const gap = now - visit.lastActive;
+    if (gap < 120_000) visit.active += gap;
+    else visit.idle += gap;
+    visit.lastActive = now;
+  }, []);
+  const visitPayload = useCallback(
+    () => ({ visit_id: visitRef.current?.id ?? null, extraction_id: render?.extractionId ?? null }),
+    [render],
+  );
+  /** First touch of the source after a usable model result ("back to reading"). */
+  const noteBackToReading = useCallback(() => {
+    const pending = backToReadingRef.current;
+    if (!pending) return;
+    backToReadingRef.current = null;
+    logReaderAction("back_to_reading", {
+      ...visitPayload(), job_id: pending.jobId, action_kind: pending.actionKind,
+      seconds_after: Math.round((Date.now() - pending.at) / 1000),
+    });
+  }, [visitPayload]);
+  /** A selection was committed (span ids only; never the quoted text). */
+  const noteSelection = useCallback((spanCount: number, surface: string) => {
+    touchVisit();
+    noteLearnerActivity("selected");
+    logReaderActivity({ kind: "reader_selection", payload: { ...visitPayload(), span_count: spanCount, surface } });
+    noteBackToReading();
+  }, [touchVisit, visitPayload, noteBackToReading]);
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
 
   // Reader Ask answers already live durably in interaction_events. Rehydrate
@@ -650,6 +829,29 @@ export function ReaderScreen({
     );
   }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
   const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.length : 0;
+
+  // Proactive load (UX §9.2): each LearnLoop-started element counts once per
+  // visit -- a quick check waiting on the Guide tab, a section-boundary offer
+  // the learner reached.
+  useEffect(() => {
+    if (!inquiry || !boundaryChecksAvailable) return;
+    for (const section of openQuestionSections) {
+      const key = `quick_check_waiting:${section.id}`;
+      if (proactiveSeenRef.current.has(key)) continue;
+      proactiveSeenRef.current.add(key);
+      logReaderAction("proactive_shown", { ...visitPayload(), element: "quick_check_waiting" });
+    }
+  }, [inquiry, boundaryChecksAvailable, openQuestionSections, visitPayload]);
+  useEffect(() => {
+    if (!inquiry || muted || !currentGuideSection || currentSectionProgress < 0.7) return;
+    const section = currentGuideSection;
+    if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
+    const offered = (boundaryChecksAvailable && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0;
+    const key = `section_offer:${section.id}`;
+    if (!offered || proactiveSeenRef.current.has(key)) return;
+    proactiveSeenRef.current.add(key);
+    logReaderAction("proactive_shown", { ...visitPayload(), element: "section_offer" });
+  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, boundaryChecksAvailable, visitPayload]);
   const currentQuestionOpen = useMemo(
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
@@ -661,12 +863,17 @@ export function ReaderScreen({
 
   useEffect(() => {
     if (!render || offline || !readingSpan) return;
+    // RW1a: while a detour is open, the saved position stays at its root --
+    // "where I was" -- so a restart restores the root and nothing else (the
+    // return stack is visit state, P3 §12).
+    const root = hasDetour(returnStack) ? returnStack.entries[0] : null;
+    const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan;
     try {
-      window.localStorage.setItem(readingPositionKey(render.sourceId), readingSpan);
+      window.localStorage.setItem(readingPositionKey(render.sourceId), saved);
     } catch {
       /* Reading-position persistence is best-effort. */
     }
-  }, [render, offline, readingSpan]);
+  }, [render, offline, readingSpan, returnStack]);
 
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
@@ -1007,11 +1214,12 @@ export function ReaderScreen({
     setSelectionActions([]);
     setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
+    noteSelection(nodes.length, "text");
     // A selection updates Ask's grounding too. Do not unexpectedly hide an Ask
     // conversation; Guide still yields to Capture so a first-time selection
     // exposes the annotation actions.
     setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [collectSelectionNodes]);
+  }, [collectSelectionNodes, noteSelection]);
 
   // ---- ctrl-marquee union capture (markdown + transcript surfaces) --------
   // Hold ctrl (or cmd) and drag any number of boxes over the reading column;
@@ -1153,8 +1361,9 @@ export function ReaderScreen({
     setSelectionActions([]);
     setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
+    noteSelection(nodes.length, "text_boxes");
     setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [resolveDomBoxes]);
+  }, [resolveDomBoxes, noteSelection]);
   const commitDomBoxesRef = useRef(commitDomBoxes);
   useEffect(() => {
     commitDomBoxesRef.current = commitDomBoxes;
@@ -1369,10 +1578,196 @@ export function ReaderScreen({
         }
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // An explicit jump; instant under reduced motion (UX §7.3).
+      const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
     },
     [pdfView, surface, offline],
   );
+
+  // ── RW1a: the return stack, detours and the reconnect line ─────────────────
+
+  /** "Mixtures ¶3": the passage's guide section and its place in it. */
+  const passageLabel = useCallback((spanId: string | null): string => {
+    const section = spanId ? guideSectionBySpan.get(spanId) : undefined;
+    if (section && spanId) return `${section.label} ¶${section.spanIds.indexOf(spanId) + 1}`;
+    return sourceTitle ?? "where I was";
+  }, [guideSectionBySpan, sourceTitle]);
+
+  /** The current position as a stack entry (the origin of a first detour). */
+  const positionEntry = useCallback((): ReturnEntry | null => {
+    if (!render) return null;
+    const spanId = readingSpan ?? activeSpan;
+    return {
+      id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+      extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+      label: passageLabel(spanId), openedAt: Date.now(),
+    };
+  }, [render, readingSpan, activeSpan, sourceTitle, selection, railTab, passageLabel]);
+
+  /** Push detour entries (in order) from the current position and log each. */
+  const pushDetours = useCallback((entries: ReturnEntry[]) => {
+    if (!inquiry || offline) return;
+    const origin = positionEntry();
+    if (!origin) return;
+    let next = returnStackRef.current;
+    for (const entry of entries) {
+      const before = next;
+      next = pushDetour(next, origin, entry);
+      if (next === before) continue;
+      logReaderAction("detour_opened", {
+        ...visitPayload(), detour_id: entry.id, detour_kind: entry.kind,
+        origin_span_id: next.entries[0]?.spanId ?? null, target_span_id: entry.spanId,
+        depth: next.entries.length - 1,
+      });
+    }
+    returnStackRef.current = next;
+    setReturnStack(next);
+    settleScrollRef.current = null;
+  }, [inquiry, offline, positionEntry, visitPayload]);
+
+  /** A peek at a passage the Ask rail points to (show passage, a citation). */
+  const peekPassage = useCallback((spanId: string) => {
+    const here = readingSpan ?? activeSpan;
+    if (inquiry && render && spanId !== here) {
+      pushDetours([{
+        id: newActivityId(), kind: "peek", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection: null, railTab, exchangeId: null,
+        label: passageLabel(spanId), openedAt: Date.now(),
+      }]);
+    }
+    jumpToSpan(spanId);
+  }, [inquiry, render, readingSpan, activeSpan, sourceTitle, railTab, passageLabel, pushDetours, jumpToSpan]);
+
+  /** The root of the inquiry an exchange belongs to (walking saved parents). */
+  const inquiryRoot = useCallback((exchangeId: string): ReaderExchange | null => {
+    const byId = new Map(history.map((exchange) => [exchange.id, exchange]));
+    let current = byId.get(exchangeId) ?? null;
+    const seen = new Set<string>();
+    while (current?.parentExchangeId && byId.has(current.parentExchangeId) && !seen.has(current.id)) {
+      seen.add(current.id);
+      current = byId.get(current.parentExchangeId) ?? current;
+    }
+    return current;
+  }, [history]);
+
+  /** Ask "does this make sense now?" about an open inquiry. Inline only on a
+   *  return the learner started; never while skimming. */
+  const showReconnect = useCallback((exchangeId: string, inline: boolean) => {
+    if (!inquiry || muted) return;
+    const root = inquiryRoot(exchangeId);
+    if (!root || (root.resolution ?? "open") !== "open") return;
+    setReconnect({ rootId: root.id, question: root.question, spanId: root.spanId, inline, startScroll: bodyRef.current?.scrollTop ?? 0 });
+    logReaderAction("reconnect_shown", { ...visitPayload(), root_exchange_id: root.id, placement: inline ? "inline" : "rail" });
+  }, [inquiry, muted, inquiryRoot, visitPayload]);
+
+  /** Walk the stack to an entry: restore its passage, selection and tab. */
+  const restoreEntry = useCallback(async (next: ReturnStack, target: ReturnEntry, via: string) => {
+    const previous = returnStackRef.current;
+    returnStackRef.current = next;
+    setReturnStack(next);
+    if (target.sourceId !== render?.sourceId) {
+      const card = (library ?? []).find((candidate) => candidate.sourceId === target.sourceId);
+      if (card) await openSource(card, target.spanId ?? undefined, { via: "restore" });
+    } else if (target.spanId) {
+      jumpToSpan(target.spanId);
+    }
+    setSelection(target.selection);
+    setSelectionActions([]);
+    setRailTab(target.railTab);
+    if (target.exchangeId) {
+      setCollapsedAskIds((ids) => {
+        const nextIds = new Set(ids);
+        nextIds.delete(target.exchangeId as string);
+        return nextIds;
+      });
+    }
+    if (next.cursor === 0) {
+      // Back where the detour began: every open detour ended at its origin.
+      const now = Date.now();
+      for (const detour of openDetours(previous)) {
+        logReaderAction("detour_returned", {
+          ...visitPayload(), detour_id: detour.id, detour_kind: detour.kind, returned_to_origin: true,
+          seconds_away: Math.round((now - detour.openedAt) / 1000), via,
+        });
+      }
+      if (target.spanId && render && target.sourceId === render.sourceId && !offline) {
+        void Promise.resolve()
+          .then(() => api.readerRestoreSource({ extractionId: target.extractionId, spanId: target.spanId as string }))
+          .catch(() => undefined);
+      }
+      const inquiryExchange = stackInquiryExchange(previous);
+      if (inquiryExchange) showReconnect(inquiryExchange, true);
+      settleScrollRef.current = bodyRef.current?.scrollTop ?? 0;
+    }
+  }, [render, library, openSource, jumpToSpan, visitPayload, offline, showReconnect]);
+
+  // Scrolling the source: reading position, active time, "back to reading",
+  // and the two RW1a things a screen of scrolling ends -- the reconnect line
+  // (ignored, nothing recorded) and a detour already walked back to its root.
+  const onBodyScroll = useCallback(() => {
+    onReadingScroll();
+    touchVisit();
+    noteLearnerActivity("scrolled");
+    noteBackToReading();
+    const body = bodyRef.current;
+    if (!body) return;
+    const screen = Math.max(1, body.clientHeight);
+    if (reconnect && Math.abs(body.scrollTop - reconnect.startScroll) > screen) setReconnect(null);
+    const settleFrom = settleScrollRef.current;
+    if (settleFrom !== null && returnStackRef.current.cursor === 0 && Math.abs(body.scrollTop - settleFrom) > screen) {
+      settleScrollRef.current = null;
+      returnStackRef.current = EMPTY_STACK;
+      setReturnStack(EMPTY_STACK);
+    }
+  }, [onReadingScroll, touchVisit, noteBackToReading, reconnect]);
+
+  // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
+  // tabs; \ collapses or expands the rail (remembered on this device).
+  useEffect(() => {
+    if (!inquiry || !render) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      const tabs: ReaderRailTab[] = ["guide", "ask", "notes"];
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        setRailTab((tab) => tabs[(tabs.indexOf(tab) + (event.key === "]" ? 1 : tabs.length - 1)) % tabs.length]);
+      } else if (event.key === "\\") {
+        event.preventDefault();
+        setRailCollapsed((collapsed) => !collapsed);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inquiry, render]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("learnloop.reader.rail-collapsed", railCollapsed ? "on" : "off");
+    } catch {
+      /* A per-device preference; reading works without it. */
+    }
+  }, [railCollapsed]);
+  useEffect(() => {
+    if (railTab === "ask") setAskTabMarked(false);
+  }, [railTab]);
+
+  // Alt+← / Alt+→ walk the return stack (UX §3.5; K7 keeps the capture).
+  useEffect(() => {
+    if (!inquiry || !render) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const stack = returnStackRef.current;
+      const moved = event.key === "ArrowLeft" ? stackBack(stack) : stackForward(stack);
+      if (!moved.target) return;
+      event.preventDefault();
+      void restoreEntry(moved.stack, moved.target, event.key === "ArrowLeft" ? "alt_back" : "alt_forward");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [inquiry, render, restoreEntry]);
 
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.
@@ -1430,6 +1825,7 @@ export function ReaderScreen({
         // §10.2 / Journey 2: a commit shows a durable, immediately visible arc.
         if (receipt.arc) setArc(receipt.arc);
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: `preset:${preset}` });
         setNote("");
         // Drain the local outbox so the demand-paged request is enqueued + visible.
         // The capture is already durable at this point, so a drain failure is a
@@ -1485,6 +1881,7 @@ export function ReaderScreen({
         { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodeSpanIds) },
         ...a,
       ]);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight" });
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
       setNote("");
       void refreshAnnotations();
@@ -1524,6 +1921,7 @@ export function ReaderScreen({
   // Exact-exercise slice: send the ordered per-block selection segments to one
   // background authoring job. The exercise text stays verbatim (source-owned);
   // AI completes the answer, rubric, facets, hints, and depth-rung metadata.
+  const importJobRef = useRef<{ jobId: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
   const importExercise = useCallback(async () => {
     if (!render || !selection || offline) return;
     const nodes = selectionNodes(selection);
@@ -1546,6 +1944,9 @@ export function ReaderScreen({
         error: null,
       });
       setSelectionActions((prev) => [...prev, "exercise_import"]);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "import_exercise" });
+      importJobRef.current = { jobId: receipt.batchId, startedAt: Date.now(), activity: learnerActivitySnapshot() };
+      logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: receipt.batchId, job_kind: "import_exercise" } });
     } catch (error) {
       onError(errorMessage(error));
     } finally {
@@ -1563,6 +1964,19 @@ export function ReaderScreen({
     const timer = setInterval(async () => {
       try {
         const status = await api.readerExerciseImportStatus({ batchId: exerciseImportBatchId });
+        const job = importJobRef.current;
+        if (job && job.jobId === exerciseImportBatchId && (status.status === "completed" || status.status === "failed" || status.status === "cancelled")) {
+          importJobRef.current = null;
+          const waited = Date.now() - job.startedAt;
+          logReaderActivity({
+            kind: "reader_job_completed",
+            payload: {
+              job_id: job.jobId, job_kind: "import_exercise", status: status.status, latency_ms: waited,
+              model_wait_ms: waited, failure_reason: status.status === "failed" ? "job_failed" : null,
+              activity_during_wait: activitySince(job.activity),
+            },
+          });
+        }
         setExerciseImport((prev) =>
           prev && prev.batchId === exerciseImportBatchId
             ? {
@@ -1673,17 +2087,19 @@ export function ReaderScreen({
     [render, offline, enabled, boundaryBlock, onError],
   );
 
-  const ask = useCallback(async () => {
+  // Ask (and, with reader_inquiry on, a follow-up in a branch). The learner's
+  // words stay in the composer until the answer lands; a failure keeps them.
+  const [askPhase, setAskPhase] = useState<ModelActionPhase>("idle");
+  const askJobRef = useRef<{ jobId: string; kind: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
+  const submitAsk = useCallback(async (asked: string, parent: ReaderExchange | null) => {
     // A follow-up keeps its saved anchor even when the current selection moves.
     // New roots use the capture selection (the same selection Notes>Capture
     // acts on), then the jump/resume fallback.
-    const parent = inquiry ? parentExchange : null;
     const groundingSpan = parent?.spanId ?? selection?.spanId ?? activeSpan;
-    if (!groundingSpan || !question.trim() || !render || askPending.current) return;
+    if (!groundingSpan || !asked || !render || askPending.current) return;
     if (inquiry && offline) return;
     const epoch = askEpoch.current;
     askPending.current = true;
-    const asked = question.trim();
     // The full capture selection widens the tutor's citable context to every
     // selected block, not just the primary one; a follow-up inherits its
     // parent's saved selection instead.
@@ -1693,7 +2109,13 @@ export function ReaderScreen({
     const selectionQuote = parent
       ? parent.selectionQuoteMd
       : selection ? (selection.editedText ?? selection.quote).trim() || null : null;
+    const jobKind = parent ? "follow_up" : "ask";
+    const job = { jobId: newActivityId(), kind: jobKind, startedAt: Date.now(), activity: learnerActivitySnapshot() };
+    askJobRef.current = job;
+    logReaderAction("action_invoked", { ...visitPayload(), action_kind: jobKind });
+    logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: job.jobId, job_kind: jobKind } });
     setBusy(true);
+    if (inquiry) setAskPhase("pending");
     try {
       const answer = await api.readerAsk({
         extractionId: render.extractionId,
@@ -1705,6 +2127,17 @@ export function ReaderScreen({
         selectionQuote,
       });
       if (epoch !== askEpoch.current) return;
+      const waited = Date.now() - job.startedAt;
+      logReaderActivity({
+        kind: "reader_job_completed",
+        payload: {
+          ...visitPayload(), job_id: job.jobId, job_kind: jobKind, status: "completed",
+          latency_ms: waited, model_wait_ms: waited, model: answer.model ?? null,
+          prompt_version: String((answer.manifest as { version?: unknown } | undefined)?.version ?? "") || null,
+          activity_during_wait: activitySince(job.activity),
+        },
+      });
+      backToReadingRef.current = { jobId: job.jobId, actionKind: jobKind, at: Date.now() };
       const exchange: ReaderExchange = {
         id: answer.readerAnswerEventId,
         parentExchangeId: answer.parentExchangeId ?? null,
@@ -1720,7 +2153,25 @@ export function ReaderScreen({
         answerMode: answer.answerMode,
         createdAt: new Date().toISOString(),
       };
-      if (inquiry) setParentExchange(exchange);
+      if (inquiry) {
+        setParentExchange(exchange);
+        setAskPhase("idle");
+        if (railTab !== "ask") setAskTabMarked(true);
+        if (parent) {
+          // A branch is a detour: the strip shows the inquiry's path.
+          const branchEntry = (target: ReaderExchange, label: string): ReturnEntry => ({
+            id: newActivityId(), kind: "branch", sourceId: render.sourceId, sourceTitle,
+            extractionId: render.extractionId, spanId: target.spanId, selection: null, railTab: "ask",
+            exchangeId: target.id, label: clip(label, 48), openedAt: Date.now(),
+          });
+          const pushes: ReturnEntry[] = [];
+          if (!returnStackRef.current.entries.some((entry) => entry.exchangeId === parent.id)) {
+            pushes.push(branchEntry(parent, parent.question));
+          }
+          pushes.push(branchEntry(exchange, asked));
+          pushDetours(pushes);
+        }
+      }
       setHistory((items) => [exchange, ...items.filter((item) => item.id !== exchange.id)]);
       setCollapsedAskIds((ids) => {
         const next = new Set(ids);
@@ -1737,14 +2188,272 @@ export function ReaderScreen({
       setAskComposerVersion((version) => version + 1);
       if (composerHadFocus) window.requestAnimationFrame(() => askComposerRef.current?.focus());
     } catch (error) {
-      if (epoch === askEpoch.current) onError(errorMessage(error));
+      if (epoch === askEpoch.current) {
+        const phase = phaseForError(error);
+        logReaderActivity({
+          kind: "reader_job_completed",
+          payload: {
+            ...visitPayload(), job_id: job.jobId, job_kind: jobKind, status: "failed",
+            failure_reason: phase === "failed" ? "error" : phase, latency_ms: Date.now() - job.startedAt,
+            model_wait_ms: Date.now() - job.startedAt, activity_during_wait: activitySince(job.activity),
+          },
+        });
+        // Model unreachable, capped and sidecar-down render in place (W14). An
+        // unexpected failure still reaches the app's error line too: that is
+        // the ported branch's contract (its retry test, G1).
+        if (inquiry) setAskPhase(phase);
+        if (!inquiry || phase === "failed") onError(errorMessage(error));
+        // The learner's words stay in the composer for "try again".
+        if (inquiry && asked !== question.trim()) setQuestion(asked);
+      }
     } finally {
       if (epoch === askEpoch.current) {
         askPending.current = false;
         setBusy(false);
       }
+      if (askJobRef.current === job) askJobRef.current = null;
     }
-  }, [inquiry, parentExchange, selection, activeSpan, question, answerMode, render, offline, onError]);
+  }, [inquiry, selection, activeSpan, answerMode, render, offline, onError, visitPayload, railTab, sourceTitle, pushDetours, question]);
+
+  const ask = useCallback(() => {
+    void submitAsk(question.trim(), inquiry ? parentExchange : null);
+  }, [submitAsk, question, inquiry, parentExchange]);
+
+  /** Cancel a pending Ask: its late answer is ignored (it stays in the history
+   *  the sidecar keeps), and the learner's words stay in the composer. */
+  const cancelAsk = useCallback(() => {
+    const job = askJobRef.current;
+    askEpoch.current += 1;
+    askPending.current = false;
+    setBusy(false);
+    setAskPhase("idle");
+    if (job) {
+      logReaderActivity({
+        kind: "reader_job_completed",
+        payload: {
+          ...visitPayload(), job_id: job.jobId, job_kind: job.kind, status: "cancelled",
+          latency_ms: Date.now() - job.startedAt, model_wait_ms: Date.now() - job.startedAt,
+          activity_during_wait: activitySince(job.activity),
+        },
+      });
+      askJobRef.current = null;
+    }
+  }, [visitPayload]);
+
+  // ── RW1a: inquiry status, reconnect answers and the passage quick check ───
+
+  const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>) => {
+    setHistory((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }, []);
+
+  const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip") => {
+    if (!render || offline) return;
+    try {
+      const result = await api.readerSetInquiryStatus({ extractionId: render.extractionId, exchangeId: root.id, resolution, trigger });
+      updateExchange(result.rootExchangeId, { resolution: result.resolution });
+      if (result.resolution !== "open" && reconnect?.rootId === result.rootExchangeId) setReconnect(null);
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [render, offline, updateExchange, reconnect, onError]);
+
+  /** A branch marked done (its own question resolved) asks the reconnect line. */
+  const markBranchDone = useCallback(async (branch: ReaderExchange) => {
+    if (!branch.questionEventId || offline) return;
+    try {
+      await api.resolveQuestionEvent(branch.questionEventId, "resolved");
+      updateExchange(branch.id, { resolution: "resolved" });
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "branch_done" });
+      showReconnect(branch.id, false);
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [offline, updateExchange, visitPayload, showReconnect, onError]);
+
+  /** "revisit once" / "make it something I can do": the existing test_me_later
+   *  and help_me_remember presets on the root's anchor (no new status words). */
+  const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment) => {
+    if (!render || offline) return;
+    const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId];
+    try {
+      const receipt = await api.readerInvokePreset({
+        preset,
+        sourceId: render.sourceId,
+        revisionId: render.revisionId,
+        extractionId: render.extractionId,
+        clientIdempotencyKey: newKey(),
+        renderViewId: render.renderViewId,
+        rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
+        learnerText: "",
+        subjectId: root.spanId,
+      });
+      setInquiryCommitments((done) => ({ ...done, [root.id]: [...new Set([...(done[root.id] ?? []), preset])] }));
+      if (receipt.arc) setArc(receipt.arc);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: `inquiry:${preset}` });
+      void refreshAnnotations();
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [render, offline, visitPayload, refreshAnnotations, onError]);
+
+  const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment> => {
+    const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? []);
+    for (const annotation of annotations) {
+      if ((annotation.kind === "test_me_later" || annotation.kind === "help_me_remember")
+        && annotation.segments.some((segment) => segment.spanId === root.spanId)) {
+        done.add(annotation.kind);
+      }
+    }
+    return done;
+  }, [inquiryCommitments, annotations]);
+
+  const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail") => {
+    if (!render || offline) return;
+    setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0 } }));
+    try {
+      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: rootId, answer: "quick_check", via });
+      if (result.question) {
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "landed", question: result.question } }));
+      } else if (result.status === "provider_unavailable") {
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "unreachable", question: null } }));
+      }
+    } catch (error) {
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: phaseForError(error), question: null } }));
+    }
+  }, [render, offline]);
+
+  const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "") => {
+    const line = reconnect;
+    if (!line || !render || offline) return;
+    const via = line.inline ? "inline" : "rail";
+    setReconnect(null);
+    if (answer === "quick_check") {
+      if (railTab !== "ask") setAskTabMarked(true);
+      await startQuickCheck(line.rootId, via);
+      return;
+    }
+    try {
+      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: line.rootId, answer, via });
+      updateExchange(result.rootExchangeId, { resolution: result.resolution });
+    } catch (error) {
+      onError(errorMessage(error));
+      return;
+    }
+    if (answer === "still_unclear") {
+      // "What's still unclear?" starts a branch from the root (W5): with text
+      // it is asked now; without, the composer opens on the root.
+      const root = history.find((item) => item.id === line.rootId) ?? null;
+      if (!root) return;
+      setParentExchange(root);
+      setRailTab("ask");
+      if (text) void submitAsk(text, root);
+    }
+  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk]);
+
+  // The passage check is written by a durable job: poll its cheap read until
+  // it lands (about two minutes at most), then show it in place.
+  useEffect(() => {
+    if (!render || offline) return;
+    const pending = Object.entries(inquiryChecks).filter(([, check]) => check.phase === "pending");
+    if (pending.length === 0) return;
+    const extractionId = render.extractionId;
+    const timer = window.setInterval(() => {
+      for (const [rootId] of pending) {
+        void api.readerInquiryQuestion({ extractionId, exchangeId: rootId })
+          .then((result) => {
+            setInquiryChecks((checks) => {
+              const current = checks[rootId];
+              if (!current || current.phase !== "pending") return checks;
+              if (result.question) return { ...checks, [rootId]: { phase: "landed", question: result.question } };
+              const attempts = (current.attempts ?? 0) + 1;
+              return { ...checks, [rootId]: attempts > 40 ? { phase: "failed", question: null } : { ...current, attempts } };
+            });
+          })
+          .catch(() => undefined);
+      }
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [render, offline, inquiryChecks]);
+
+  const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string) => {
+    const check = inquiryChecks[rootId];
+    if (!check?.question) return;
+    try {
+      const result = await api.readerInquiryQuestionAction({
+        questionId: check.question.id,
+        action,
+        response: action === "answered" ? value ?? null : null,
+        selfCheck: action === "self_checked" ? (value as InquirySelfCheck) : null,
+      });
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { ...checks[rootId], phase: "landed", question: result.question } }));
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [inquiryChecks, onError]);
+
+  const escalateInquiryCheck = useCallback(async (rootId: string) => {
+    const check = inquiryChecks[rootId];
+    if (!check?.question?.escalationLearningObjectId) return;
+    try {
+      await api.readerEscalateAuthoredQuestion({ questionId: check.question.id, learningObjectId: check.question.escalationLearningObjectId });
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { ...checks[rootId], escalated: true } }));
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [inquiryChecks, onError]);
+
+  /** What sits at the top of an inquiry in the rail: the reconnect line and
+   *  the quick check (each only when there is one). */
+  const renderInquiryTop = useCallback((root: ReaderExchange) => {
+    const line = reconnect && reconnect.rootId === root.id ? (
+      <ReconnectLine
+        placement="rail"
+        question={reconnect.question}
+        busy={busy}
+        onYes={() => void answerReconnect("yes")}
+        onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
+        onQuickCheck={() => void answerReconnect("quick_check")}
+      />
+    ) : null;
+    const check = inquiryChecks[root.id];
+    return line || check ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {line}
+        {check ? (
+          <InquiryQuickCheck
+            phase={check.phase}
+            question={check.question}
+            busy={busy}
+            escalated={check.escalated}
+            onAnswer={(response) => void inquiryCheckAction(root.id, "answered", response)}
+            onSelfCheck={(value) => void inquiryCheckAction(root.id, "self_checked", value)}
+            onDismiss={() => {
+              if (check.question) void inquiryCheckAction(root.id, "dismissed");
+              else setInquiryChecks((checks) => {
+                const { [root.id]: _dropped, ...rest } = checks;
+                return rest;
+              });
+            }}
+            onEscalate={() => void escalateInquiryCheck(root.id)}
+            onRetry={() => void startQuickCheck(root.id, "rail")}
+            onShowPassage={peekPassage}
+          />
+        ) : null}
+      </div>
+    ) : null;
+  }, [reconnect, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, peekPassage]);
+
+  /** The reconnect line drawn under the root passage (a return the learner started). */
+  const inlineReconnect = reconnect && reconnect.inline && !muted ? (
+    <ReconnectLine
+      placement="inline"
+      question={reconnect.question}
+      busy={busy}
+      onYes={() => void answerReconnect("yes")}
+      onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
+      onQuickCheck={() => void answerReconnect("quick_check")}
+    />
+  ) : null;
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -1843,7 +2552,7 @@ export function ReaderScreen({
                       <Card
                         key={`${hit.extractionId}/${hit.spanId}`}
                         onClick={() => {
-                          if (card && opening === null) void openSource(card, hit.spanId);
+                          if (card && opening === null) void openSource(card, hit.spanId, { via: "search" });
                         }}
                         style={{ display: "flex", flexDirection: "column", gap: 4, cursor: card ? "pointer" : "default" }}
                       >
@@ -1973,12 +2682,23 @@ export function ReaderScreen({
         ) : null}
       </div>
 
+      {inquiry ? (
+        <DetourStrip
+          stack={returnStack}
+          onGoTo={(index) => {
+            const { stack, target } = stackGoTo(returnStackRef.current, index);
+            if (target) void restoreEntry(stack, target, index === 0 ? "crumb_origin" : "crumb");
+          }}
+        />
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <div
           ref={bodyRef}
+          role={inquiry ? "main" : undefined}
+          aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
           onMouseDown={onBodyMouseDown}
           onMouseUp={onMouseUp}
-          onScroll={onReadingScroll}
+          onScroll={onBodyScroll}
           className="ll-scroll"
           style={{
             flex: 1,
@@ -2042,6 +2762,7 @@ export function ReaderScreen({
                 if (spanId) setActiveSpan(spanId);
               }}
               onTagMenu={openDomTagMenu}
+              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
             />
           ) : watchLoading ? (
             <Card style={{ padding: 18 }}><Faint style={{ fontSize: 12 }}>◐ preparing video and synchronized transcript…</Faint></Card>
@@ -2060,10 +2781,12 @@ export function ReaderScreen({
                 setSelectionActions([]);
                 setEditingCapture(false);
                 setActiveSpan(sel.spanId);
+                noteSelection(sel.nodes?.length ?? 1, "pdf");
                 setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
               }}
               onTagMenu={setTagMenu}
               onError={onError}
+              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
             />
           ) : null}
           {(pdfView && surface === "pdf" && !offline) || watch || watchLoading ? null : blocks.map((block, i) => {
@@ -2074,6 +2797,7 @@ export function ReaderScreen({
             const endQuestionAvailable = boundaryChecksAvailable
               && endSection?.question?.readingPhase === "after_section";
             const offerSection = endSection
+              && !muted
               && !dismissedSections.includes(endSection.id)
               && !completedSections.includes(endSection.id)
               && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0);
@@ -2128,6 +2852,7 @@ export function ReaderScreen({
                   )
                 ) : null}
               </div>
+              {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
               {offerSection ? (
                 <SectionBoundaryOffer
                   section={endSection}
@@ -2146,8 +2871,21 @@ export function ReaderScreen({
         </div>
 
         {/* Right rail: annotation margin + capture + Ask */}
+        {inquiry && railCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setRailCollapsed(false)}
+            aria-label={"expand the rail (\\)"}
+            title={"expand the rail (\\)"}
+            style={{ width: 28, flexShrink: 0, border: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+          >
+            ◂
+          </button>
+        ) : null}
         <div
           ref={railRef}
+          role="complementary"
+          aria-label={railTab === "guide" ? "Reading guide" : railTab === "ask" ? "Ask" : "Notes"}
           style={{
             width: 360,
             height: "100%",
@@ -2159,6 +2897,7 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
+            display: inquiry && railCollapsed ? "none" : undefined,
           }}
           className="ll-scroll"
         >
@@ -2166,41 +2905,32 @@ export function ReaderScreen({
             <div style={{ display: "flex", gap: 4 }}>
               {(["guide", "ask", "notes"] as ReaderRailTab[]).map((tab) => {
                 const active = railTab === tab;
-                const guideAlert = tab === "guide" && pendingQuickCheckCount > 0;
+                // The static quick-check marker (UX S12, spec §3.4 item 19): a
+                // plain "◆ n" on the Guide tab for every learner. No pulse, no
+                // blink and no pinned strip -- nothing in the rail animates.
+                const waiting = tab === "guide" && pendingQuickCheckCount > 0;
+                const marked = tab === "ask" && askTabMarked && !active;
                 return (
                   <button
                     key={tab}
                     type="button"
-                    className={guideAlert && !active ? "ll-reader-guide-alert" : undefined}
                     onClick={() => setRailTab(tab)}
                     aria-pressed={active}
-                    aria-label={guideAlert ? `Guide, ${pendingQuickCheckCount} quick check${pendingQuickCheckCount === 1 ? "" : "s"} ready` : tab}
-                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${guideAlert ? COLOR.pink : active ? COLOR.borderFocus : COLOR.border}`, background: guideAlert ? (active ? COLOR.washPurple : undefined) : active ? COLOR.washAmber : "transparent", color: guideAlert ? COLOR.purpleText : active ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
+                    aria-label={waiting ? `Guide, ${pendingQuickCheckCount} quick check${pendingQuickCheckCount === 1 ? "" : "s"} waiting` : marked ? "ask, something new" : tab}
+                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? COLOR.borderFocus : COLOR.border}`, background: active ? COLOR.washAmber : "transparent", color: active ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
                   >
                     {tab}
-                    {guideAlert ? (
-                      <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span className="ll-qc-blink">◆</span>
-                        {pendingQuickCheckCount}
+                    {waiting ? (
+                      <span aria-hidden="true" data-quick-check-marker="" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: COLOR.purpleText }}>
+                        ◆ {pendingQuickCheckCount}
                       </span>
                     ) : null}
+                    {marked ? <span aria-hidden="true" style={{ color: COLOR.amber }}>•</span> : null}
                     {tab === "notes" && annotations.length > 0 ? <span>{annotations.length}</span> : null}
                   </button>
                 );
               })}
             </div>
-            {pendingQuickCheckCount > 0 && railTab !== "guide" ? (
-              <button
-                type="button"
-                className="ll-reader-qc-strip"
-                onClick={() => setRailTab("guide")}
-                style={{ fontFamily: FONT_MONO }}
-              >
-                <span className="ll-qc-blink" aria-hidden="true">◆</span>
-                <span>{pendingQuickCheckCount === 1 ? "quick check ready" : `${pendingQuickCheckCount} quick checks ready`}</span>
-                <span className="ll-qc-strip-go" aria-hidden="true">guide →</span>
-              </button>
-            ) : null}
           </div>
 
           <GuideRail
@@ -2334,6 +3064,14 @@ export function ReaderScreen({
             setAskFindQuery={setAskFindQuery}
             askFindInputRef={askFindInputRef}
             jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
+            askPhase={askPhase}
+            cancelAsk={cancelAsk}
+            onSetStatus={(root, resolution) => void setInquiryStatus(root, resolution)}
+            onBranchDone={(branch) => void markBranchDone(branch)}
+            onCommit={(root, preset) => void commitInquiry(root, preset)}
+            committed={committedFor}
+            renderInquiryTop={renderInquiryTop}
           />
         </div>
       </div>
@@ -2394,8 +3132,8 @@ export function ReaderScreen({
       ) : null}
 
       <KeyBar
-        keys={
-          pdfSurfaceActive
+        keys={[
+          ...(pdfSurfaceActive
             ? [
                 { key: "drag", label: "select text" },
                 { key: "ctrl+drag", label: "draw capture boxes" },
@@ -2410,8 +3148,16 @@ export function ReaderScreen({
                 { key: "release ctrl", label: "capture box union" },
                 { key: "alt", label: "clear selection" },
                 { key: "right-click", label: "tag" },
+              ]),
+          // RW1a's Reader-wide keys (UX §3.5).
+          ...(inquiry
+            ? [
+                { key: "alt+←", label: "back" },
+                { key: "[ ]", label: "tabs" },
+                { key: "\\", label: "rail" },
               ]
-        }
+            : []),
+        ]}
         right={{ key: "^p", label: "palette" }}
       />
     </div>
@@ -2503,6 +3249,8 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onPlaybackSpan: (spanId: string | null) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
+  /** RW1a: the reconnect line under the transcript passage holding this cue. */
+  inlineNote?: { spanId: string; node: ReactNode } | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -2513,6 +3261,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onPlaybackSpan,
   onAskSpan,
   onTagMenu,
+  inlineNote = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -2840,6 +3589,9 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                     );
                   })}
                 </span>
+                {inlineNote && section.cues.some((cue) => cue.block.spanId === inlineNote.spanId) ? (
+                  <div style={{ gridColumn: "2 / span 1" }}>{inlineNote.node}</div>
+                ) : null}
               </div>
             );
           })}

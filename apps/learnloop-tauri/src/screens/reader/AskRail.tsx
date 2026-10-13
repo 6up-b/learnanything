@@ -1,13 +1,16 @@
 // The Reader rail's Ask tab (RW1a split of ReaderScreen; a move, not a
 // redesign): the composer with its answer mode, and the saved exchanges, as
 // clarification threads (reader_inquiry on) or today's flat list (off).
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import type { ReaderAnswerMode, ReaderRenderBlockDto } from "../../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../../components/term";
 import { AffectTap, PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
 import { MarkdownMath } from "../../render/MarkdownMath";
-import { ReaderAskBranches, type ReaderExchange } from "./ReaderAskBranches";
+import type { InquiryResolution } from "../../api/dto";
+import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
+import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { clip, type ReaderSelection } from "./readerShared";
+import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
 export const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },
@@ -45,6 +48,16 @@ export interface AskRailProps {
   setAskFindQuery: Dispatch<SetStateAction<string>>;
   askFindInputRef: MutableRefObject<HTMLInputElement | null>;
   jumpToSpan: (spanId: string) => void;
+  // RW1a (reader_inquiry on): a peek is a detour; the Ask's model states; the
+  // inquiry's status, commitments, branch "done" and its reconnect line.
+  peekPassage?: (spanId: string) => void;
+  askPhase?: ModelActionPhase;
+  cancelAsk?: () => void;
+  onSetStatus?: (root: ReaderExchange, resolution: InquiryResolution) => void;
+  onBranchDone?: (branch: ReaderExchange) => void;
+  onCommit?: (root: ReaderExchange, preset: InquiryCommitment) => void;
+  committed?: (root: ReaderExchange) => Set<InquiryCommitment>;
+  renderInquiryTop?: (root: ReaderExchange) => ReactNode;
 }
 
 export function AskRail({
@@ -77,13 +90,22 @@ export function AskRail({
   setAskFindQuery,
   askFindInputRef,
   jumpToSpan,
+  peekPassage,
+  askPhase = "idle",
+  cancelAsk,
+  onSetStatus,
+  onBranchDone,
+  onCommit,
+  committed,
+  renderInquiryTop,
 }: AskRailProps) {
+  const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
       <SectionHeader style={{ marginTop: 0 }}>Ask</SectionHeader>
-      <Faint style={{ fontSize: 10, display: "block", margin: "2px 0 8px" }}>
+      <MeaningLabel style={{ display: "block", margin: "2px 0 8px" }}>
         answers now, grounded in the selected passage · background requests live under notes
-      </Faint>
+      </MeaningLabel>
       {!enabled ? (
         <Card style={{ borderStyle: "dashed", display: "flex", flexDirection: "column", gap: 6 }}>
           <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
@@ -100,7 +122,7 @@ export function AskRail({
                 <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <Faint>FOLLOW-UP TO: {clip(parentExchange.question, 120)}</Faint>
                   <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
-                  <SecondaryButton onClick={() => jumpToSpan(parentExchange.spanId)}>show inherited passage</SecondaryButton>
+                  <SecondaryButton onClick={() => peek(parentExchange.spanId)}>show inherited passage</SecondaryButton>
                   <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
                 </Card>
               ) : selection ? (
@@ -132,10 +154,29 @@ export function AskRail({
                 ref={askComposerRef}
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  // RW1a: a keyboard path to Ask (the button promised ↵).
+                  if (inquiry && (e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    void ask();
+                  }
+                }}
                 placeholder="ask about this passage…"
                 style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
               />
               <PrimaryButton onClick={ask} disabled={busy || (inquiry && offline) || !question.trim()}>{inquiry && parentExchange ? "ask follow-up ↵" : "ask ↵"}</PrimaryButton>
+              {inquiry ? (
+                <ModelActionState
+                  phase={askPhase}
+                  verb="writing an answer"
+                  failure="Couldn't get an answer."
+                  kept="Your question is kept."
+                  capRoute="tutor"
+                  fallback="Your saved threads and the passage"
+                  onCancel={cancelAsk}
+                  onRetry={() => void ask()}
+                />
+              ) : null}
             </>
           ) : (
             <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
@@ -203,7 +244,12 @@ export function AskRail({
                   askComposerRef.current?.focus();
                 });
               }}
-              onShowPassage={jumpToSpan}
+              onShowPassage={peek}
+              onSetStatus={onSetStatus}
+              onBranchDone={onBranchDone}
+              onCommit={onCommit}
+              committed={committed}
+              renderInquiryTop={renderInquiryTop}
             />
           ) : visibleAskHistory.map((exchange) => {
             const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
@@ -227,17 +273,17 @@ export function AskRail({
                     {/* Expanded question renders its LaTeX (the collapsed
                         header stays plain text — clipping mid-$ would
                         break KaTeX). */}
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                    <LearnerVoice label="your question">
                       <MarkdownMath value={exchange.question} />
-                    </div>
+                    </LearnerVoice>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                       <Pill color="cyan">{exchange.answerMode}</Pill>
                       <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
                       {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
                     </div>
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+                    <ModelVoice first>
                       <MarkdownMath value={exchange.answerMd} />
-                    </div>
+                    </ModelVoice>
                   </>
                 ) : null}
               </Card>

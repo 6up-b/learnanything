@@ -709,6 +709,8 @@ def ask(
     }
     if branches:
         response["parent_exchange_id"] = parent_exchange_id
+        # The reader report reads the funnel per route (model, prompt version).
+        response["model"] = getattr(client, "model", None)
     response.update({
         "answer_md": result["answer_md"],
         "answer_mode": answer_mode,

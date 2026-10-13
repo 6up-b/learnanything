@@ -19,7 +19,7 @@
 // an ingestion artifact: selections anchor onto them behind the scenes, but
 // there is no block-level click/hover interaction to learn.
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import * as pdfjs from "pdfjs-dist";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -109,6 +109,9 @@ interface PdfReaderPaneProps {
   }) => void;
   onTagMenu: (request: TagMenuRequest) => void;
   onError: (message: string) => void;
+  /** RW1a: one quiet line under a passage (the reconnect line after a return
+   *  the learner started), drawn just below the block on its page. */
+  inlineNote?: { spanId: string; node: ReactNode } | null;
 }
 
 interface FindMatch {
@@ -117,7 +120,7 @@ interface FindMatch {
 }
 
 export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(
-  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError }: PdfReaderPaneProps,
+  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError, inlineNote = null }: PdfReaderPaneProps,
   handleRef,
 ) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -1047,6 +1050,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               marqueeCommitted={!marqueeArmed && !marqueeDrafting}
               activeSpan={activeSpan}
               findQuery={findOpen ? findQuery.trim() : ""}
+              inlineNote={inlineNote}
             />
           </div>
         ))}
@@ -1094,6 +1098,7 @@ function PdfPage({
   marqueeCommitted,
   activeSpan,
   findQuery,
+  inlineNote,
 }: {
   doc: PDFDocumentProxy;
   pageIndex: number;
@@ -1108,6 +1113,7 @@ function PdfPage({
   marqueeCommitted: boolean;
   activeSpan: string | null;
   findQuery: string;
+  inlineNote: { spanId: string; node: ReactNode } | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1271,7 +1277,8 @@ function PdfPage({
                     border,
                     background,
                     mixBlendMode: swept || selected ? "multiply" : undefined,
-                    transition: swept ? "none" : "background 120ms ease, border-color 120ms ease",
+                    // Paint changes are instant, never eased: the Reader does not animate (attention
+                    // budget, UX §4.12; gate G54).
                   }}
                 />
               );
@@ -1314,6 +1321,29 @@ function PdfPage({
           }}
         />
       ) : null}
+      {geometry && inlineNote
+        ? blocks
+            .filter((b) => b.spanId === inlineNote.spanId && b.bbox.length === 4)
+            .slice(0, 1)
+            .map((b) => (
+              <div
+                key={`inline-${b.spanId}`}
+                data-inline-note={b.spanId}
+                style={{
+                  position: "absolute",
+                  left: b.bbox[0] * scale,
+                  top: b.bbox[3] * scale + 2,
+                  width: Math.max(220, (b.bbox[2] - b.bbox[0]) * scale),
+                  zIndex: 3,
+                  background: COLOR.bg,
+                  border: `1px solid ${COLOR.border}`,
+                  padding: "2px 6px",
+                }}
+              >
+                {inlineNote.node}
+              </div>
+            ))
+        : null}
       <span
         style={{
           position: "absolute",

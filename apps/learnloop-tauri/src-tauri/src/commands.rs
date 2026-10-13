@@ -1252,6 +1252,13 @@ sidecar_passthrough!(
 sidecar_passthrough!(reader_search_sources, "reader.search_sources");
 sidecar_passthrough!(reader_span_learning_objects, "reader.span_learning_objects");
 sidecar_passthrough!(reader_manual_anchor, "reader.manual_anchor");
+// reader.* (reader workbench RW1a: inquiry status, reconnect and its
+// passage-scoped quick check, and the Reader's funnel activity)
+sidecar_passthrough!(reader_set_inquiry_status, "reader.set_inquiry_status");
+sidecar_passthrough!(reader_reconnect_answer, "reader.reconnect_answer");
+sidecar_passthrough!(reader_inquiry_question, "reader.inquiry_question");
+sidecar_passthrough!(reader_inquiry_question_action, "reader.inquiry_question_action");
+sidecar_passthrough!(reader_log_activity, "reader.log_activity");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

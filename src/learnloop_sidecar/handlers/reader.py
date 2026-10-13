@@ -152,8 +152,10 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         "reader_answer_event_id": result["reader_answer_event_id"],
     }
     if "parent_exchange_id" in result:
-        # RW1a branches (absent with reader_inquiry off, so the wire is unchanged).
+        # RW1a branches (absent with reader_inquiry off, so the wire is unchanged),
+        # and the answering model for the reader report's per-route funnel.
         response["parent_exchange_id"] = result["parent_exchange_id"]
+        response["model"] = result.get("model")
     response.update({
         "answer_md": result["answer_md"],
         "answer_mode": result["answer_mode"],
