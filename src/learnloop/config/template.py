@@ -914,7 +914,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
+    # EVSI calibration adds [evsi] (forecast_logging = true, measured_loss_enabled
+    # = false, the shrinkage pseudo-count; modelled defaults, left out of the
+    # decision-only template): the voi_forecasts log is logging only and the
+    # measured loss is off, so no scoring, scheduling, projection or serving
+    # change. Every snapshot moves only because the effective config gains the
+    # section; all six were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "13bccaee3a379a600c20c2969b87705ddd4c09374223964f8331314717b9eba6",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -929,7 +935,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "5c299da25d73e8fa5ea2c8506fddd7e1e139f289aeed98a33979bc3f8f50e84e",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -952,7 +959,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "2142892617b5f0a75abbe7fb14e3080bc83bfbdc2e0efb1298aa9080d69404c9",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -969,7 +977,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "c6efc5aa029a88bf96d665be4c6ee99a6e30486e98ef2a0adeb474d35c7f44a3",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -983,7 +992,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
     # change).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.13": "17129640cb4041abd6a9efb4ed00139dc0f0294a517748f3d88fa833fda43ff0",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -994,7 +1004,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
-    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.14": "32a0475b6565d480c67589fd8ec8949222fc163fb5f8cac1cf3b8905296ba6af",
 }
 
 

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-180. Migration 167 adds the learner-field F1 read model
+184. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -40,10 +40,12 @@ daily-loop DL1's finite plan (`daily_plans`, WORKFLOW, and the
 `idx_attention_blocks_plan`; built as DL1's 174 and renumbered at its merge)
 and rebuilds the learner field's DERIVED `facet_outcome_observations` (same
 columns, key and index) so its `serving_origin` CHECK also accepts
-`daily_plan` (owner decision 2026-10-12).
-Built as a backup-API copy of `migration_head_179` with only 180 applied
-(checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
-clean). It pins
+`daily_plan` (owner decision 2026-10-12); migration 184 adds EVSI
+calibration Part B's `voi_forecasts` (RECEIPT, append-only: the forecast every
+live value-of-information decision ran on; 181-183 are reserved for the merge
+chain's router R1, learner-text gaps and facet identity, expect renumbering).
+Built from `migration_head_180` (renamed) with only 184 applied (checkpointed,
+rollback journal, `integrity_check` ok, `foreign_key_check` clean). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

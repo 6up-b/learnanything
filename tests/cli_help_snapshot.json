@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 23332,
-    "sha256": "4be13c29fb5b7911b21aab95ff7ef8a8c6cd268b930ac801d4ad814e514e1389"
+    "bytes": 23417,
+    "sha256": "e4583ea9fdf5f4e6898f00bc6f9a8541a59a138d172b78ba09c20c3e36eaa1e6"
   },
   "accept": {
     "bytes": 1593,
@@ -378,6 +378,18 @@
   "eval success-head": {
     "bytes": 8747,
     "sha256": "09034d78b908e4dd8fee4435c93588f147db0105befce75f3f69c87c106d0644"
+  },
+  "evsi": {
+    "bytes": 1672,
+    "sha256": "bb9285c5814c7705b6480365c8b5b2de6762b774611bed54fd8c4e3d73327ac6"
+  },
+  "evsi calibration": {
+    "bytes": 1210,
+    "sha256": "cfe13184d9b19f6d2736a5dc7a89a6d14bc12dfe13e81b25f4fd9ada0cb8d80b"
+  },
+  "evsi simulate": {
+    "bytes": 4359,
+    "sha256": "612d9c61537a066e537a807a8798c3928180ffd8463f198532b0fa959780edbb"
   },
   "exam": {
     "bytes": 1842,

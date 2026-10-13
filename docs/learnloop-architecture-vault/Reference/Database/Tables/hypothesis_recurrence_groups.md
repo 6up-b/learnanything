@@ -3,13 +3,13 @@ title: "hypothesis_recurrence_groups"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_recurrence_groups"
   - "table hypothesis_recurrence_groups"
-schema_head: 180
+schema_head: 184
 table_name: "hypothesis_recurrence_groups"
 table_role: "derived"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/176_recurrence_groups.sql"
   - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -82,6 +83,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/scheduling/unresolved_cost.py`
 
 ### Direct SQL writers
 

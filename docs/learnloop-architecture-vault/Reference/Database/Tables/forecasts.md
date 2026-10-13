@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 180
+schema_head: 184
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/057_forecast_ledger.sql"
+  - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/compat.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/voi_forecasting.py"
+  - "src/learnloop/evsi_calibration/__init__.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/forecast_ledger.py"
-  - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/params/parameter_registry.py"
-  - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop/scheduling/voi_forecasts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,7 +112,9 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/goals/forecast_ledger.py`
+- `src/learnloop/scheduling/voi_forecasts.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

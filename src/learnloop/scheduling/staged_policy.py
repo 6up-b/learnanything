@@ -42,6 +42,7 @@ from learnloop.scheduling import controller_store as store
 from learnloop.curriculum import depth_transition as DT
 from learnloop.scheduling import evsi as EV
 from learnloop.scheduling import randomization_layer as RL
+from learnloop.scheduling import voi_forecasts as VF
 from learnloop.vault.models import LoadedVault
 
 STAGED_POLICY_VERSION = 1
@@ -441,6 +442,23 @@ def _select_diagnostic(
             )
         )
     result = EV.rank_feasible(diag_candidates, diagnostic.loss_table)
+    receipt_ref = decision_id or snapshot_hash
+    if repository is not None and receipt_ref is not None:
+        # EVSI calibration Part B: the decision's forecast, logged beside it
+        # (no serving change; swallowed on failure).
+        VF.record_rank_feasible_forecast(
+            repository,
+            site="staged_diagnostic_selection",
+            receipt_key=f"staged_diagnostic_selection:{receipt_ref}",
+            result=result,
+            candidates=diag_candidates,
+            loss_table=diagnostic.loss_table,
+            clock=clock,
+            decision_ref=decision_id,
+            learning_object_id=(
+                by_ref[result.best_ref].learning_object_id if result.best_ref in by_ref else None
+            ),
+        )
     ranked_for_trace = [
         (by_ref[r.ref], r.ordinal) for r in result.ranked if r.ref in by_ref
     ]

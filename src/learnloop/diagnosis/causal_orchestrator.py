@@ -1405,6 +1405,7 @@ def causal_repair_status(
         session_id=session_id,
         session_budget_minutes=session_budget_minutes,
         start_repair=start_repair,
+        vault=vault,
         clock=clock,
     )
 
@@ -1418,6 +1419,7 @@ def _status_for_factor(
     session_budget_minutes: float | None,
     start_repair: bool,
     clock: Clock | None,
+    vault: LoadedVault | None = None,
 ) -> RepairStatus:
     factor_id = str(factor["id"])
     attempt_id = str(factor.get("attempt_id") or "") or None
@@ -1497,6 +1499,7 @@ def _status_for_factor(
                 chosen_candidate=shadow_context["chosen"],
                 repair_class_by_hypothesis=repair_class_by_hypothesis,
                 common_repair_class_id=common_repair_class_id,
+                vault=vault,
                 clock=clock,
             )
         except Exception:

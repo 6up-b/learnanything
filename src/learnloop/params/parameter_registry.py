@@ -154,6 +154,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # (spec_p4 §6, U-023, design §E).
     "action_loss": "src/learnloop/scheduling/action_loss.py",
     "evsi": "src/learnloop/scheduling/evsi.py",
+    # EVSI calibration Part C -- the measured cost of an unresolved misconception
+    # (Eedi population prior + heuristics it is shrunk from; docs/reviews/evsi-calibration.md).
+    "unresolved_cost": "src/learnloop/scheduling/unresolved_cost.py",
     "predictive_targets": "src/learnloop/scheduling/predictive_targets.py",
     # P4 step 4 -- dispersion/interleaving constraints + the single randomization
     # layer (spec_p4 §9, U-024, design §E).
@@ -697,6 +700,17 @@ _reg_const("action_loss:DEFAULT_INTERVENTION_MINUTES", "threshold", owner="actio
            "the loss table inspectable on an un-instrumented vault. The EVSI-per-minute ranking's "
            "loss magnitudes reuse the already-registered robust_composition LAMBDA_TIME/BURDEN_COST; "
            "this is the only new duration constant.")
+# EVSI calibration Part C (behind evsi.measured_loss_enabled, default off).
+_reg_const("unresolved_cost:EEDI_EXCESS_REPEAT_RATE", "prior", owner="unresolved_cost",
+           rationale="population prior (Eedi NeurIPS 2020, 370 misconception triples): excess repeat-error "
+           "rate per later encounter after a misconception-consistent error; school maths, multiple choice. "
+           "Shrunk toward the learner's own recurrence history (evsi.unresolved_cost_prior_pseudo_count).")
+_reg_const("unresolved_cost:ENCOUNTERS_UNTIL_CAUGHT", "prior", owner="unresolved_cost",
+           rationale="heuristic: encounters with an unresolved misconception before it is caught another "
+           "way; not in Eedi, not yet measured here. Scales the population prior only.")
+_reg_const("unresolved_cost:CENSOR_DAYS", "threshold", owner="unresolved_cost",
+           rationale="heuristic: a recurrence class first seen this recently with no repeat yet is "
+           "right-censored (excluded from the personal mean, counted).")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",

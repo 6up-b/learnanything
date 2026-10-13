@@ -3,13 +3,13 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
   - "table model_work_checkpoints"
-schema_head: 180
+schema_head: 184
 table_name: "model_work_checkpoints"
 table_role: "workflow"
 functionality_status: "active"

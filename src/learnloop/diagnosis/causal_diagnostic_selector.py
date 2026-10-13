@@ -40,6 +40,8 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
+from learnloop.scheduling import unresolved_cost as UC
+from learnloop.scheduling import voi_forecasts as VF
 from learnloop.diagnosis.causal_probe_coherence import (
     BLIND_INPUT_CONTRACT_VERSION,
     bundle_feature_row_report,
@@ -61,6 +63,12 @@ LIKELIHOOD_REGIMES = (
 #: The loss regime the shadow computes under today: the factor's own repair
 #: classes routed 1:1 from its hypotheses, with provenance-stamped durations.
 LOSS_TABLE_REGIME_SHADOW_V1 = "route_plus_provenance_stamped_minutes_v1"
+#: EVSI calibration Part C (``evsi.measured_loss_enabled``, default off): the
+#: same routes and durations plus the measured minutes an unresolved
+#: persistent cause costs later (``scheduling.unresolved_cost``).
+LOSS_TABLE_REGIME_MEASURED_V1 = "route_plus_measured_unresolved_minutes_v1"
+#: The probe burden the shadow assumes when the live receipt names none.
+DEFAULT_PROBE_BURDEN_MINUTES = 1.5
 
 
 def _stable_emission_key(values: Mapping[str, Any]) -> str:
@@ -132,6 +140,7 @@ def build_causal_loss_table(
     *,
     repair_class_by_hypothesis: Mapping[str, str | None],
     duration_overrides: Mapping[str, float] | None = None,
+    unresolved_minutes: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[AL.LossTable | None, dict[str, Any]]:
     """L(hypothesis, repair_class) for the factor's concrete hypotheses.
 
@@ -153,7 +162,7 @@ def build_causal_loss_table(
         if repair_class
     }
     meta: dict[str, Any] = {
-        "regime": LOSS_TABLE_REGIME_SHADOW_V1,
+        "regime": LOSS_TABLE_REGIME_MEASURED_V1 if unresolved_minutes else LOSS_TABLE_REGIME_SHADOW_V1,
         "unmapped_hypothesis_ids": unmapped,
     }
     if unmapped or not mapped:
@@ -179,8 +188,11 @@ def build_causal_loss_table(
     table = AL.build_loss_table(
         routes=routes,
         duration_overrides=overrides,
-        calibration_label="shadow_heuristic",
+        calibration_label="shadow_measured_unresolved" if unresolved_minutes else "shadow_heuristic",
         scope="causal_factor",
+        unresolved_minutes=(
+            {h: v for h, v in unresolved_minutes.items() if h in mapped} if unresolved_minutes else None
+        ),
     )
     meta["available"] = True
     meta["table_hash"] = table.table_hash
@@ -305,9 +317,14 @@ def record_shadow_selection(
     chosen_candidate: Mapping[str, Any] | None = None,
     repair_class_by_hypothesis: Mapping[str, str | None] | None = None,
     common_repair_class_id: str | None = None,
+    vault: Any = None,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Compute + persist the §6.6 baselines for one live probe decision.
+
+    ``vault`` (optional) supplies the ``[evsi]`` switches: the measured-loss
+    regime (Part C, default off) and the forecast log (Part B, default on).
+    Without a vault both take their defaults.
 
     Returns the stored shadow receipt, or ``None`` when the live receipt
     already carries one. Raises nothing the caller must handle for the live
@@ -366,21 +383,34 @@ def record_shadow_selection(
     ]
     for hypothesis_id in receipt_unmapped:
         scoped_mapping.setdefault(hypothesis_id, None)
+    evsi_config = getattr(getattr(vault, "config", None), "evsi", None)
+    unresolved: dict[str, dict[str, Any]] | None = None
+    unresolved_estimate: dict[str, Any] | None = None
+    if evsi_config is not None and evsi_config.measured_loss_enabled and scoped_mapping:
+        unresolved, estimate = UC.unresolved_minutes_for_hypotheses(
+            repository,
+            sorted(scoped_mapping),
+            pseudo_count=evsi_config.unresolved_cost_prior_pseudo_count,
+        )
+        unresolved_estimate = estimate.as_dict()
     loss_table, loss_meta = (
         build_causal_loss_table(
-            repository, repair_class_by_hypothesis=scoped_mapping
+            repository, repair_class_by_hypothesis=scoped_mapping, unresolved_minutes=unresolved
         )
         if scoped_mapping
         else (None, {"available": False, "reason": "no_hypotheses",
                      "regime": LOSS_TABLE_REGIME_SHADOW_V1})
     )
+    if unresolved_estimate is not None:
+        loss_meta["unresolved_cost"] = unresolved_estimate
 
     # --- likelihood regime (classified on the candidate the live path chose) --
     regime, regime_detail, chosen_member = likelihood_regime_for_candidate(
         repository, chosen_candidate, concrete_hypothesis_ids=concrete_ids
     )
 
-    probe_burden = float(inputs.get("probe_burden_minutes") or 0.0) or 1.5
+    probe_burden_logged = float(inputs.get("probe_burden_minutes") or 0.0)
+    probe_burden = probe_burden_logged or DEFAULT_PROBE_BURDEN_MINUTES
 
     # --- baseline 2: formal EVSI (arm B only) ---------------------------------
     formal: dict[str, Any]
@@ -447,6 +477,7 @@ def record_shadow_selection(
             duration_overrides={
                 action: uniform_minutes for action in loss_table.actions
             },
+            unresolved_minutes=unresolved,
         )
         try:
             if equal_table is None:
@@ -561,6 +592,53 @@ def record_shadow_selection(
         "probe_burden_minutes": probe_burden,
     }
 
+    if rank_result is not None and loss_table is not None:
+        # EVSI calibration Part B: the formal arm's forecast, logged beside
+        # the shadow receipt (logging only; swallowed on failure).
+        VF.record_rank_feasible_forecast(
+            repository,
+            vault=vault,
+            site="causal_shadow_selection",
+            receipt_key=f"causal_shadow_selection:{decision_receipt['id']}",
+            result=rank_result,
+            candidates=diagnostic_candidates,
+            loss_table=loss_table,
+            duration_estimates=loss_meta.get("duration_estimates"),
+            extra_parameters=[
+                VF.parameter(
+                    "probe_burden_minutes", probe_burden,
+                    "heuristic" if not probe_burden_logged else "measured",
+                    source="causal_diagnostic_selector.DEFAULT_PROBE_BURDEN_MINUTES"
+                    if not probe_burden_logged else "live receipt input",
+                ),
+                VF.parameter("likelihood", regime, "structural",
+                             note="arm B: declared-emission noiseless partition, an upper bound"),
+            ],
+            extra={
+                "incumbent_decision": incumbent_decision,
+                "likelihood_regime": regime,
+                "loss_table_regime": loss_meta.get("regime"),
+                "conditional_scope": conditional_scope,
+                "noiseless_upper_bound": True,
+                "emission_by_hypothesis": regime_detail.get("emission_keys"),
+                **({"unresolved_cost": unresolved_estimate} if unresolved_estimate else {}),
+            },
+            clock=clock,
+            decision_ref=str(decision_receipt["id"]),
+            learning_object_id=(
+                str(decision_receipt.get("learning_object_id"))
+                if decision_receipt.get("learning_object_id") else None
+            ),
+            source_attempt_id=(
+                str(decision_receipt.get("attempt_id")) if decision_receipt.get("attempt_id") else None
+            ),
+            factor_id=str(decision_receipt["factor_id"]),
+            chosen_practice_item_id=(
+                str(chosen_candidate.get("practice_item_id"))
+                if chosen_candidate is not None and chosen_candidate.get("practice_item_id") else None
+            ),
+        )
+
     return repository.insert_causal_shadow_selection_receipt(
         decision_receipt_id=str(decision_receipt["id"]),
         factor_id=str(decision_receipt["factor_id"]),
@@ -568,7 +646,7 @@ def record_shadow_selection(
         incumbent_reason=incumbent_reason,
         shadow_verdict=shadow_verdict,
         likelihood_regime=regime,
-        loss_table_regime=LOSS_TABLE_REGIME_SHADOW_V1,
+        loss_table_regime=str(loss_meta.get("regime") or LOSS_TABLE_REGIME_SHADOW_V1),
         baselines=baselines,
         body=body,
         shadow_policy_version=SHADOW_POLICY_VERSION,

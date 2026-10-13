@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 180
+schema_head: 184
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers

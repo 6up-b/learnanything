@@ -444,6 +444,18 @@ def evaluate_intervention_followup(
         manual_trigger=gate if manual_override else None,
         clock=clock,
     )
+    # EVSI calibration Part B: the selection's forecast, logged beside it
+    # (no serving change; a logging failure is swallowed).
+    from learnloop.diagnosis.voi_forecasting import record_followup_forecast
+
+    record_followup_forecast(
+        vault,
+        repository,
+        attempt_id=attempt_id,
+        learning_object_id=learning_object_id,
+        selection=selection,
+        clock=clock,
+    )
     return _decision(
         True, candidate.id, triggered_reasons[0], triggered, [],
         intent=intent, gate_diagnostics=gate,

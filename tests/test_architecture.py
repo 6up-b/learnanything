@@ -73,6 +73,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/source_block_fts.py",
         # Daily-loop DL1: the finite plan's workflow rows and block receipts.
         "src/learnloop/db/stores/daily_plans.py",
+        # EVSI calibration Part B: the append-only voi_forecasts receipts.
+        "src/learnloop/db/stores/voi_forecasts.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

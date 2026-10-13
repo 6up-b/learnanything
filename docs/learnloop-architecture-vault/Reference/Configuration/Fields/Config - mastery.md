@@ -3,8 +3,8 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml mastery"
@@ -30,12 +30,12 @@ source_paths:
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
+  - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_concept_animation_service.py"
   - "tests/test_contamination_report.py"
   - "tests/test_contract_commissioning.py"
   - "tests/test_daily_loop_reference_adoption.py"
-  - "tests/test_daily_plan_admission.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -93,13 +93,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
+- `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_concept_animation_service.py`
 - `tests/test_config_refactor.py`
 - `tests/test_contamination_report.py`
 - `tests/test_contract_commissioning.py`
 - `tests/test_daily_loop_reference_adoption.py`
-- `tests/test_daily_plan_admission.py`
 
 ## Extension and modification guidance
 

@@ -1586,6 +1586,27 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class EvsiConfig(BaseModel):
+    """EVSI calibration (docs/reviews/evsi-calibration.md).
+
+    ``forecast_logging`` records the forecast every live value-of-information
+    decision runs on in ``voi_forecasts`` (probe selection, the robust probe
+    stop, follow-up selection, every ``rank_feasible`` caller): logging only,
+    no serving change; false is its kill switch.
+
+    ``measured_loss_enabled`` (Part C) adds the measured minutes an
+    unresolved misconception costs later (``scheduling.unresolved_cost``) to
+    the EVSI loss table. It changes what EVSI values, so it is off until the
+    owner turns it on; today only the causal shadow selector's EVSI reads it.
+    ``unresolved_cost_prior_pseudo_count`` is how many of the learner's own
+    recurrence classes the Eedi population prior is worth in the shrinkage.
+    """
+
+    forecast_logging: bool = True
+    measured_loss_enabled: bool = False
+    unresolved_cost_prior_pseudo_count: float = Field(default=5.0, gt=0.0)
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1942,6 +1963,7 @@ class LearnLoopConfig(BaseModel):
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
+    evsi: EvsiConfig = Field(default_factory=EvsiConfig)
 
     @model_validator(mode="before")
     @classmethod

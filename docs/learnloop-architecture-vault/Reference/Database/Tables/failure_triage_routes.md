@@ -3,13 +3,13 @@ title: "failure_triage_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
+source_commit_timestamp: "2026-10-12T23:10:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite failure_triage_routes"
   - "table failure_triage_routes"
-schema_head: 180
+schema_head: 184
 table_name: "failure_triage_routes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/diagnosis/probe_hypotheses.py"
   - "src/learnloop/scheduling/action_loss.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
+  - "src/learnloop/diagnosis/voi_forecasting.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -102,6 +103,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/voi_forecasting.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
