@@ -2010,7 +2010,6 @@ def probe_episode_decision(
     """
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
-    from learnloop.substrate.canonical_projection import surface_group_id
 
     channel = None
     if getattr(episode, "calibration_model_hash", None) is not None:
@@ -2046,7 +2045,7 @@ def probe_episode_decision(
                 },
                 # The exposure rule's group (eligible_instruments): one answer
                 # excludes the rest of the group from this episode (F13).
-                surface_group=surface_group_id(entry.item),
+                surface_group=getattr(entry, "surface_group", None),
             )
         )
     episode_config = ctx.vault.config.probe.episode

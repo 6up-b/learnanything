@@ -106,6 +106,11 @@ class EligibleInstrument:
     predictive_targets: tuple[tuple[CompiledInstrument, dict[str, str]], ...] = field(
         default=(), compare=False, repr=False
     )
+    # §5.4: the item's canonical surface group (``surface_group_id``), the key
+    # the exposure rule excludes by once one item of the group is observed. A
+    # lookahead batch holds at most one check per group (voi_stopping, Codex
+    # review of voi-v2 F13). Not logged.
+    surface_group: str | None = field(default=None, compare=False, repr=False)
 
     def selection_components(self) -> dict[str, Any]:
         """§7.3 separately-inspectable utility components for telemetry."""
@@ -977,6 +982,7 @@ def eligible_instruments(
                 selection_objective="predictive_eig" if predictive_adequate else "hypothesis_eig",
                 redundancy_penalty=penalty,
                 predictive_targets=tuple((target, dict(target_map)) for target, target_map in targets),
+                surface_group=surface_group_id(item),
             )
         )
     # §7.5: within the feasible set, predictive candidates rank by information
