@@ -81,7 +81,7 @@ Every decision parameter is read from where it already lives and labelled
 **heuristic** in each receipt: `lambda_time` 1, `burden_cost` 0, the
 nat-to-minutes scale 60, the robust quantile 0.10, the ±0.15 stress, the loss
 model (`triage_route_wasted_minutes`). The `evsi/calibration` stage will
-recommend values. Three new module constants only shape estimates and
+recommend values. Four new module constants only shape estimates and
 receipts and are registered in the parameter registry
 (`DURATION_PSEUDO_OBSERVATIONS`, DL1's constant repeated because serving
 never imports the plan; `DEFAULT_LATENCY_CAP_MINUTES`;
