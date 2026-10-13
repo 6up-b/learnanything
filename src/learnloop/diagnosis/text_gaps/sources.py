@@ -66,7 +66,7 @@ def tutor_question_text(vault: LoadedVault, repository: Repository, event_id: st
         if note is not None:
             anchors = sorted(lo for lo in note.related_los if lo in vault.learning_objects)
             subject = note.subjects[0] if note.subjects else None
-            context["note_title"] = note.title
+            context["note"] = getattr(note, "title", None) or note.id
     elif event.get("context") == "reader":
         anchors = sorted(
             str(lo) for lo in (source_context.get("candidate_learning_object_ids") or [])

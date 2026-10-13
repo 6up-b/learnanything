@@ -504,3 +504,33 @@ def test_the_cli_dry_runs_send_and_write_nothing(tmp_path):
     assert report.exit_code == 0 and json.loads(report.output)["calls"] == 0
     listed = runner.invoke(app, ["gaps", "list", "--vault", str(root), "--json"])
     assert listed.exit_code == 0 and json.loads(listed.output) == {"gaps": []}
+
+
+def test_declared_prerequisites_and_the_shortlist_share_the_judge_budget(tmp_path):
+    root, repository = _vault(tmp_path, toml="[learner_text_gaps]\njudge_max_pairs = 3\n")
+    # lo_spectral declares eigenvalues; give it a second declared prerequisite.
+    upsert_learning_object(root, {"id": "lo_spectral", "prerequisites": ["eigenvalues", "diagonalization"],
+                                  "subjects": ["linear-algebra"]})
+    gap = LearnerGap(prerequisite_name="Singular values", prerequisite_line="SVD factorizes a matrix.",
+                     kind="prerequisite")
+    event_id = _ask(root, repository, GapTutor(gap), item="pi_spec_easy")["event_id"]
+    row = _run(root, repository, event_id, llm=GapLLMFake(decide=always("different")))
+    summary = row["detail"]["candidates"]
+    # The item's LO, then one declared prerequisite and one shortlisted LO.
+    assert summary["candidates"] == 3
+    assert summary["by_basis"] == {"item": 1, "declared": 1, "shortlist": 1}
+
+
+def test_a_library_question_is_anchored_by_its_notes_single_learning_object(tmp_path):
+    root, repository = _vault(tmp_path)
+    add_note(root, "linear-algebra", "diag_notes", "Diagonalization notes", "Notes on diagonalizing.",
+             related_los=["lo_diag"], clock=FrozenClock(NOW))
+    vault = load_vault(root)
+    event_id = ask_question(vault, repository, GapTutor(BELIEF), context="library",
+                            question_md="Every matrix diagonalizes, so why the conditions?",
+                            note_id="note_diag_notes", clock=FrozenClock(NOW))["event_id"]
+    text = tutor_question_text(load_vault(root), repository, event_id)
+    assert text.anchor == "lo_diag" and text.subject_id == "linear-algebra"
+    row = _run(root, repository, event_id)
+    assert row["action"] == "belief_candidate"
+    assert repository.misconception_candidate_by_id(row["target_id"])["learning_object_id"] == "lo_diag"

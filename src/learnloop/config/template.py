@@ -873,7 +873,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # was recomputed at its merge (defaults_fingerprint_for_version).
     # Learner-text gaps add [learner_text_gaps] and three unset routes; every
     # snapshot was recomputed (see mvp-0.13).
-    "mvp-0.9": "55bbda17d1bcc3586b6d8ec1e55a1791867fc6f97b01d0417179c03eb373a3df",
+    "mvp-0.9": "b7a53385c0b711e7d88daea62bec054d6ee7a71d4a5a183de281476d9fd735f7",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -884,7 +884,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Phase 5a's [pf] section and routes move it too (no serving change).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "538c49e4b5900d7d3b1c721cc4adfac9c312dda845053211a29d2fcb6bb51740",
+    "mvp-0.10": "49b73f28e2c0316e32a584fece715b9717130e7dcb28444a5717876035affb3d",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -903,7 +903,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the diagnosis, and unanswered opening episodes are ignored under
     # placement.
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "9a291b2459c4c1aa99fc1fb807d97d5d6d8ba3a105fa0bd88f9d1d4b90dda2a6",
+    "mvp-0.11": "337efe1637395e20a7c16789ab809284b6fe9d978c633b6563ee9ee84f87d799",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -915,7 +915,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
     # groups are active from the first answer, built only from the judge's and
     # the diagnoser's verdicts on their own history.
-    "mvp-0.12": "d6bb44d5a3dc19b766b5a65867d053635823d0661d5659968b4f843d97ba1888",
+    "mvp-0.12": "42980e778d00d3a33a4ea23522a7aa2515b8bd77d9ca030d25fbbc7cfb34f039",
     # mvp-0.13 (learner-text gaps, implementation_handoffs §4): mvp-0.12 plus
     # the sooner check: a matched prerequisite gap on an LO assumed known or
     # in maintenance brings its next check forward (no sooner than
@@ -929,7 +929,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # prerequisites as content, holding-pen sightings, the gap targets the
     # field loader reads); they move every snapshot above, recomputed at this
     # stage (defaults_fingerprint_for_version).
-    "mvp-0.13": "adc338091862a36a551786a32bcc4f9376b0150ef71d2dd80888d8cf5af6a2de",
+    "mvp-0.13": "59239469e5e12fd74c6b16ab08671d669da97621b8e3d4231d1ddb320bd1f38a",
 }
 
 

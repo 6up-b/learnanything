@@ -71,6 +71,12 @@ from learnloop.vault.models import LoadedVault
 
 LOG = logging.getLogger(__name__)
 ClientFactory = Callable[[], Any]
+#: The seed item's promotion unit (analysis + authoring + gates): its input
+#: estimate and the output budget each physical request is admitted with. A
+#: practice-item proposal with its rubric and metadata does not fit the
+#: default 2,000-token allowance (the live run truncated at it).
+SEED_INPUT_TOKENS = 12_000
+SEED_OUTPUT_TOKENS = 6_000
 
 
 @dataclass
@@ -380,7 +386,8 @@ def _seed(root: Path, text: LearnerText, learning_object_id: str, *, budget: Tex
         # The promotion path's analysis and authoring calls are one admitted
         # unit: on a metered route each further physical request inside it is
         # admitted (and charged) before it is sent.
-        with budget.request(DRAFT_ROUTE, "learner_gap_seed", input_tokens=8_000):
+        with budget.request(DRAFT_ROUTE, "learner_gap_seed", input_tokens=SEED_INPUT_TOKENS,
+                            output_tokens=SEED_OUTPUT_TOKENS):
             return actions.seed_from_question(
                 root, question_event_id=str(text.question_event_id), learning_object_id=learning_object_id,
                 tutor_client=tutor, authoring_client=drafter,

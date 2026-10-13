@@ -153,33 +153,51 @@ def prerequisite_candidates(
     anchors = list(text.anchor_learning_object_ids)
     for learning_object_id in anchors:
         add(learning_object_id, "item")
-    for learning_object_id in declared_prerequisites(vault, anchors):
-        add(learning_object_id, "declared")
     for learning_object_id in created_today(repository, day_start=day_start):
         add(learning_object_id, "created_today")
+    first = list(result.subjects)
+    result.subjects = []
+    for learning_object_id in declared_prerequisites(vault, anchors):
+        add(learning_object_id, "declared")
+    declared = list(result.subjects)
+    result.subjects = []
     pool = [
         built for learning_object_id in sorted(vault.learning_objects)
         if learning_object_id not in seen and _in_subject(vault, learning_object_id, subject_id)
         and (built := learning_object_subject(vault, learning_object_id, basis="shortlist")) is not None
     ]
     shortlisted: list[Subject] = []
-    if pool and query_vector is not None and model_id:
+    if (pool or declared) and query_vector is not None and model_id:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            if stored_vectors(connection, SAME_PREREQUISITE, pool, model_id=model_id):
-                ranked = shortlist_pairs(
-                    connection, SAME_PREREQUISITE, queries=[query], pool=pool, model_id=model_id, top_k=top_k,
-                    cutoff=None, compatible=lambda _q, _c: True, query_vectors={query.id: query_vector},
-                )
-                shortlisted = [pair.right for pair in ranked.pairs]
+            if stored_vectors(connection, SAME_PREREQUISITE, [*pool, *declared], model_id=model_id):
+                if pool:
+                    ranked = shortlist_pairs(
+                        connection, SAME_PREREQUISITE, queries=[query], pool=pool, model_id=model_id, top_k=top_k,
+                        cutoff=None, compatible=lambda _q, _c: True, query_vectors={query.id: query_vector},
+                    )
+                    shortlisted = [pair.right for pair in ranked.pairs]
+                if len(declared) > 1:
+                    # Declared prerequisites in the same order (nearest first),
+                    # so a long declared list gives up its farthest ones.
+                    ordered = shortlist_pairs(
+                        connection, SAME_PREREQUISITE, queries=[query], pool=declared, model_id=model_id,
+                        top_k=len(declared), cutoff=None, compatible=lambda _q, _c: True,
+                        query_vectors={query.id: query_vector},
+                    )
+                    ranked_ids = [pair.right.id for pair in ordered.pairs]
+                    declared.sort(key=lambda subject: ranked_ids.index(subject.id) if subject.id in ranked_ids else len(ranked_ids))
                 result.shortlist_basis, result.shortlist_model = "knn", model_id
     if result.shortlist_basis == "none" and pool:
         shortlisted = lexical_rank(query.text, pool, top_k)
         result.shortlist_basis = "lexical"
-    for subject in shortlisted:
-        if subject.id not in seen:
-            seen.add(subject.id)
-            result.subjects.append(subject)
-    result.subjects = result.subjects[:limit]
+    shortlisted = [subject for subject in shortlisted if subject.id not in seen]
+    # The item's LO and today's creations first; then the declared
+    # prerequisites and the vault-wide shortlist take turns, so neither crowds
+    # the other out of the judge's budget.
+    merged: list[Subject] = []
+    for index in range(max(len(declared), len(shortlisted))):
+        merged.extend(group[index] for group in (declared, shortlisted) if index < len(group))
+    result.subjects = [*first, *merged][:limit]
     return result
 
 

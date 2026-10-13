@@ -151,6 +151,11 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             )}
             response.update(event_id=event_id, remaining=max(0, limit - used),
                             citations=(event.get("source_context") or {}).get("citations", []))
+            # The same gap status the first answer carried (the enqueue is
+            # idempotent per question, so a recovered answer never queues twice).
+            response["learner_gap"] = queue_tutor_question_gap(
+                ctx, vault, repository, event_id, (event.get("source_context") or {}).get("learner_gap")
+            )
         if response is not None:
             return finish_route(ctx, repository, params.capture_id, "ask_tutor",
                                 {"question_event_id": event_id, "note_id": response["note_id"]}, response)

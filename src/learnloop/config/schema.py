@@ -1540,7 +1540,7 @@ class LearnerTextGapsConfig(BaseModel):
     # Vault-wide LO and registry shortlist breadth (stored vectors; R4).
     top_k: int = Field(default=4, ge=1, le=20)
     # Candidate pairs judged per learner text (each by both judges).
-    judge_max_pairs: int = Field(default=6, ge=1, le=20)
+    judge_max_pairs: int = Field(default=8, ge=1, le=20)
     judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
     # A matched prerequisite that is not declared: ask "needed for this item?"
     # and add the edge on yes (refused on a cycle; one-tap undo).
@@ -1558,8 +1558,8 @@ class LearnerTextGapsConfig(BaseModel):
     sooner_check_enabled: bool = True
     sooner_check_delay_hours: int = Field(default=24, ge=1, le=24 * 60)
     # Per learner text: paid requests (all routes) and metered dollars.
-    max_calls_per_text: int = Field(default=24, ge=1, le=200)
-    max_usd_per_text: float = Field(default=0.05, ge=0.0, le=5.0)
+    max_calls_per_text: int = Field(default=30, ge=1, le=200)
+    max_usd_per_text: float = Field(default=0.25, ge=0.0, le=5.0)
     # Owner price estimate (USD per million tokens) for METERED chat routes
     # (judge, reader, draft, seed). Unset: a metered route with no published
     # price is refused before sending (spend rule); Codex needs none.
