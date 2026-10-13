@@ -22,6 +22,7 @@ import { PracticeScreen } from "../screens/PracticeScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
+import { NEEDS_SESSION, noticeAfterSessionBegins } from "./notices";
 import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -474,6 +475,8 @@ export function App() {
   function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
+    // A notice that asked for a session is resolved now (usability round 2).
+    setToast(noticeAfterSessionBegins);
     setTab("today");
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
@@ -518,7 +521,7 @@ export function App() {
     setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null });
     if (!session) {
       setTab("start");
-      setToast("Start a session before opening practice.");
+      setToast(NEEDS_SESSION.practice);
       return;
     }
     setPrimedRetry(false);
@@ -566,7 +569,7 @@ export function App() {
     setPracticeOffer(null);
     if (!session) {
       setTab("start");
-      setToast("Start a session before opening practice.");
+      setToast(NEEDS_SESSION.practice);
       return;
     }
     setPrimedRetry(true);
@@ -585,7 +588,7 @@ export function App() {
       // and resume it when a session begins (mirrors pendingPrimedItemId).
       setPendingRedo(redo);
       setTab("start");
-      setToast("Start a session to begin the redo.");
+      setToast(NEEDS_SESSION.redo);
       return;
     }
     setPrimedRetry(true);
@@ -613,7 +616,7 @@ export function App() {
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
     if (!session) {
-      setToast("Start a session first: the quick check runs inside a practice session.");
+      setToast(NEEDS_SESSION.quickCheck);
       return;
     }
     try {
@@ -1125,8 +1128,9 @@ export function App() {
           onOpenPlanReading={(reading) => void openPlanReading(reading)}
           onRequireSession={() => {
             setTab("start");
-            setToast("Begin today's plan on Start first.");
+            setToast(NEEDS_SESSION.plan);
           }}
+          onBeginSession={beginSession}
           onError={onError}
         />
       );
@@ -1382,7 +1386,7 @@ export function App() {
               setPendingPrimedItemId(practiceItemId);
               setRepairMisconceptionId(null);
               setTab("start");
-              setToast("Start a session to practice the primed item — it will open automatically.");
+              setToast(NEEDS_SESSION.primed);
               return;
             }
             setRepairMisconceptionId(null);

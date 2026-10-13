@@ -241,6 +241,8 @@ async function openReader(props: Partial<Parameters<typeof ReaderScreen>[0]> = {
 async function scrollTo(scrollY: number) {
   view.scrollY = scrollY;
   const body = screen.getByTestId("pdf-pane").parentElement!;
+  // The learner's own wheel moves the page (round 2: only that is reading).
+  fireEvent.wheel(body, { deltaY: 100 });
   fireEvent.scroll(body);
   await settle(50);
 }
@@ -349,4 +351,126 @@ it("the Reader's own book list offers no demo chapter while LearnLoop is running
 
   expect(screen.getByText("Introduction to Probability")).toBeTruthy();
   expect(screen.queryByText(/demo chapter/)).toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// UX Phase 1 usability round 2 (docs/reviews/ux-phase1.md, "Usability round 2
+// fixes"): the re-test with the same two personas.
+// ---------------------------------------------------------------------------
+
+it("R3: a book with reading history but no saved place reopens after the furthest section read", async () => {
+  // Months of reading before places were saved: Contents ticks these sections.
+  backend.progress = [
+    { extractionId: EXTRACTION_ID, sectionId: "u2", spansSeen: 0, spanCount: 1, revealedAt: null, completedAt: "2026-07-27T17:00:00Z", generationBatchId: null },
+    { extractionId: EXTRACTION_ID, sectionId: "u3", spansSeen: 0, spanCount: 2, revealedAt: null, completedAt: "2026-07-27T17:58:33Z", generationBatchId: null }
+  ];
+
+  await openReader();
+
+  // u4 "Sample spaces and Pebble World" starts on page 4.
+  expect(pane.scrollToPage).toHaveBeenCalledWith(4, 0);
+  expect(within(contentsEntry("Sample spaces and Pebble World")).queryByText("◐")).not.toBeNull();
+});
+
+it("R3: a place saved by the Reader still wins over the older history", async () => {
+  backend.progress = [
+    { extractionId: EXTRACTION_ID, sectionId: "u3", spansSeen: 0, spanCount: 2, revealedAt: null, completedAt: "2026-07-27T17:58:33Z", generationBatchId: null }
+  ];
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s2");
+
+  await openReader();
+
+  expect(pane.scrollToPage).toHaveBeenCalledWith(1, expect.any(Number));
+  expect(pane.scrollToPage).not.toHaveBeenCalledWith(4, expect.any(Number));
+});
+
+it("writes no quick check for a section before the learner has read in it", async () => {
+  await openReader();
+  // The page settles (images load, the view re-lays out) without the learner
+  // moving: the reading marker is already far down the first, short section.
+  fireEvent.scroll(screen.getByTestId("pdf-pane").parentElement!);
+  await settle(3_000);
+
+  expect(invoke.mock.calls.some(([command]) => command === "reader_author_section_question")).toBe(false);
+
+  // Reading on does ask for one, for the section actually read.
+  await scrollTo(2900);
+  await settle(1_000);
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_author_section_question");
+  expect(asked.length).toBeGreaterThan(0);
+  expect(asked[asked.length - 1][1]).toMatchObject({ input: { sectionId: "u3" } });
+});
+
+it("after the learner compares, the guide no longer says the check is waiting", async () => {
+  backend.withCheck = true;
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
+  await openReader();
+  await scrollTo(2900);
+  expect(screen.getByText("A quick check on this section is ready, just below.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "quick check →" }));
+  await settle();
+  fireEvent.change(screen.getByPlaceholderText("Answer in your own words…"), { target: { value: "Uncertainty is everywhere." } });
+  fireEvent.click(screen.getByRole("button", { name: /compare with the source/ }));
+  await settle();
+
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+  expect(screen.getByText("You answered this section's quick check: compare below, then keep reading.")).toBeTruthy();
+});
+
+it("Contents says in words which sections have a quick check, and never a bare '?'", async () => {
+  backend.withCheck = true;
+  await openReader();
+
+  const entry = contentsEntry("Why study probability?");
+  expect(within(entry).queryByText("?")).toBeNull();
+  expect(within(entry).getByText("quick check")).toBeTruthy();
+  // A finished check needs no marker next to its tick.
+  backend.progress = [
+    { extractionId: EXTRACTION_ID, sectionId: "u3", spansSeen: 2, spanCount: 2, revealedAt: null, completedAt: "2026-10-13T10:00:00Z", generationBatchId: null }
+  ];
+  cleanup();
+  clear();
+  await openReader();
+  const done = contentsEntry("Why study probability?");
+  expect(within(done).queryByText("✓")).not.toBeNull();
+  expect(within(done).queryByText("quick check")).toBeNull();
+});
+
+it("Ask shows each question once, and its answer style in words", async () => {
+  const askHistory = {
+    version: 1,
+    exchanges: [{
+      eventId: "ev_1", spanId: "s3", questionMd: "When does the naive definition fail?",
+      answerMd: "When outcomes are not equally likely.", answerMode: "answer_directly", createdAt: "2026-10-13T09:47:21Z"
+    }]
+  };
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) =>
+    command === "reader_ask_history" ? askHistory : sidecar(command, args)
+  );
+  await openReader();
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  await settle();
+  fireEvent.click(screen.getByRole("button", { name: /When does the naive definition fail\?/ }));
+  await settle();
+
+  expect(screen.getAllByText("When does the naive definition fail?")).toHaveLength(1);
+  expect(screen.queryByText("answer_directly")).toBeNull();
+  expect(screen.getByText("answer directly")).toBeTruthy();
+});
+
+it("opening a book shows that book opening, not a second list of books", async () => {
+  let release: (value: unknown) => void = () => undefined;
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) => {
+    if (command === "reader_render_view") return new Promise((resolve) => { release = resolve; });
+    return sidecar(command, args);
+  });
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: CARD, spanId: null }} />);
+  await settle(200);
+
+  expect(screen.queryByText(/Pick up where you left off/)).toBeNull();
+  expect(screen.getByText(/Opening Introduction to Probability/)).toBeTruthy();
+
+  release(VIEW);
+  await settle(2_000);
+  expect(screen.getByTestId("pdf-pane")).toBeTruthy();
 });

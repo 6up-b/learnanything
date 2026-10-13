@@ -1,7 +1,7 @@
 // The preparing view's hand-over keeps the learner's place (UX Phase 1 review F8).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReaderPdfBlockDto } from "../../api/dto";
-import { readingPositionIn, spanAtPosition } from "./readingPosition";
+import { readingPositionIn, resumeSpanFromHistory, spanAtPosition } from "./readingPosition";
 
 function rect(top: number, height: number, width = 600): DOMRect {
   return { top, bottom: top + height, height, width, left: 0, right: width, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
@@ -54,5 +54,44 @@ describe("spanAtPosition", () => {
 
   it("is nothing for a page without passages", () => {
     expect(spanAtPosition(blocks, { page: 7, offset: 0.5 })).toBeNull();
+  });
+});
+
+// UX Phase 1 usability round 2: a book read before the Reader saved places
+// (months of history, Axler in the three-month persona's library) reopened at
+// its first page while Contents ticked sections deep into the book.
+describe("resumeSpanFromHistory", () => {
+  const sections = [
+    { id: "u1", spanIds: ["s1"] },
+    { id: "u2", spanIds: ["s2", "s3"] },
+    { id: "u3", spanIds: ["s4", "s5", "s6"] },
+    { id: "u4", spanIds: ["s7"] }
+  ];
+  const row = (sectionId: string, fields: Partial<{ spansSeen: number; completedAt: string | null; revealedAt: string | null }>) => ({
+    sectionId, spansSeen: 0, completedAt: null, revealedAt: null, ...fields
+  });
+
+  it("has nothing to say for a book never read", () => {
+    expect(resumeSpanFromHistory(sections, [])).toBeNull();
+  });
+
+  it("continues after the furthest section finished, not at a section skipped on the way", () => {
+    expect(resumeSpanFromHistory(sections, [row("u1", { completedAt: "t" }), row("u3", { completedAt: "t" })])).toBe("s7");
+  });
+
+  it("continues inside a section read part of the way, at its first unread passage", () => {
+    expect(resumeSpanFromHistory(sections, [row("u2", { completedAt: "t" }), row("u3", { spansSeen: 1 })])).toBe("s5");
+  });
+
+  it("treats a section read through as finished", () => {
+    expect(resumeSpanFromHistory(sections, [row("u2", { spansSeen: 2 })])).toBe("s4");
+  });
+
+  it("starts a section whose check was only looked at", () => {
+    expect(resumeSpanFromHistory(sections, [row("u3", { revealedAt: "t" })])).toBe("s4");
+  });
+
+  it("stays in the last section when the whole book was read", () => {
+    expect(resumeSpanFromHistory(sections, [row("u4", { completedAt: "t" })])).toBe("s7");
   });
 });

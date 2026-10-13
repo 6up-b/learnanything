@@ -138,9 +138,41 @@ async function settle(ms = 0) {
   }
 }
 
+function rect(top: number, height: number): DOMRect {
+  return { top, bottom: top + height, height, width: 600, left: 0, right: 600, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+}
+
+/** The learner reads on at the end of the section: their own wheel moves the
+ * page, and the section's last passage sits at the reading marker (usability
+ * round 2: only the learner's own scrolling is reading, never the resume). */
+async function readOnAtTheSectionEnd() {
+  const last = SPAN_IDS[SPAN_IDS.length - 1];
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    const span = (this as HTMLElement).dataset?.spanId;
+    if (span === last) return rect(650, 100);
+    if (span) return rect(-400, 100);
+    return rect(0, 1000);
+  });
+  await settle(2_000);
+  const body = document.querySelector(`[data-span-id="${last}"]`)!.closest(".ll-scroll")!;
+  fireEvent.wheel(body, { deltaY: 120 });
+  fireEvent.scroll(body);
+  await settle(50);
+}
+
+it("asks for no check on the passage a book reopens at until the learner reads on", async () => {
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: CARD, spanId: null }} />);
+  await settle(2_000);
+  expect(backend.authorCalls).toBe(0);
+
+  await readOnAtTheSectionEnd();
+  expect(backend.authorCalls).toBe(1);
+});
+
 it("says when a section's check could not be written, and offers to try again", async () => {
   render(<ReaderScreen onError={() => undefined} initialSource={{ card: CARD, spanId: null }} />);
   await settle();
+  await readOnAtTheSectionEnd();
   expect(backend.authorCalls).toBe(1);
   expect(screen.getByText(/writing a quick check for this section/)).toBeTruthy();
 

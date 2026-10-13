@@ -48,7 +48,14 @@ import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
 import { PreparingView } from "./reader/PreparingView";
-import { pagePositionAt, spanAtPosition, spanOnPage, type ReadingPosition } from "./reader/readingPosition";
+import {
+  pagePositionAt,
+  resumeSpanFromHistory,
+  spanAtPosition,
+  spanOnPage,
+  type ReadingPosition,
+  type SectionHistory,
+} from "./reader/readingPosition";
 import {
   parseRequestError,
   parseRequestResult,
@@ -60,6 +67,11 @@ const ANSWER_MODE_OPTIONS = [
   { value: "help_me_reason", label: "help me reason" },
   { value: "ask_me_first", label: "ask me first" },
 ];
+
+/** The answer style in the learner's words, never its internal name (round 2). */
+function answerModeLabel(mode: string): string {
+  return ANSWER_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? mode.replace(/_/g, " ");
+}
 
 const READER_MODE_OPTIONS = [
   { value: "skim", label: "skim quickly" },
@@ -181,6 +193,11 @@ const SEEN_REPORT_MS = 1500;
 // marker is this far through it.
 const READING_MARKER = 0.7;
 const PAGE_READ_THROUGH = 0.85;
+// Usability round 2: reading is the learner moving the page (wheel, keys,
+// touch, the scrollbar). A scroll this soon after their own input is theirs;
+// any other (pages loading, a jump, a resume) is the view settling.
+const USER_SCROLL_MS = 1200;
+const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"]);
 
 interface AnnotationSegment {
   spanId: string;
@@ -259,6 +276,10 @@ export function ReaderScreen({
   const library: SourceLibraryCard[] | null = libraryQuery.data?.sources ?? (sidecarDown ? [] : null);
   const [sourceTitle, setSourceTitle] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  // The book being opened, named while its text loads (usability round 2: the
+  // Reader showed a second list of books with "opening…" in it meanwhile).
+  const [openingTitle, setOpeningTitle] = useState<string | null>(null);
+  const openingRef = useRef<string | null>(null);
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
   // A selection may span several blocks (transcript cues are sentence
   // fragments, so in watch mode it almost always does). `nodes` carries one
@@ -291,6 +312,19 @@ export function ReaderScreen({
   const [focusQuickCheck, setFocusQuickCheck] = useState<string | null>(null);
   // Section-break offers on the original PDF the learner set aside.
   const [hiddenPdfOffers, setHiddenPdfOffers] = useState<string[]>([]);
+  // Usability round 2: whether the learner has moved the page themselves since
+  // the book opened (or since their last jump). Until then nothing counts as
+  // read and no quick check is written: a paper opened on its first page was
+  // asked about its Introduction before a word was read.
+  const [readingMoved, setReadingMoved] = useState(false);
+  const userScrollAtRef = useRef(0);
+  // Reading history from before the Reader saved places (usability round 2):
+  // where a book with no saved place reopens.
+  const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
+  const historyResumeRef = useRef(false);
+  // Quick checks the learner answered this visit: the guide stops calling them
+  // "ready, just below" (usability round 2).
+  const [answeredSections, setAnsweredSections] = useState<string[]>([]);
   const [revealedSections, setRevealedSections] = useState<string[]>([]);
   const [dismissedSections, setDismissedSections] = useState<string[]>([]);
   const [completedSections, setCompletedSections] = useState<string[]>([]);
@@ -514,6 +548,11 @@ export function ReaderScreen({
     lastReadRef.current = null;
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
+    setReadingMoved(false);
+    userScrollAtRef.current = 0;
+    setReadingHistory(null);
+    historyResumeRef.current = false;
+    setAnsweredSections([]);
     setSelection(null);
     setSelectionActions([]);
     setRailTab("guide");
@@ -568,14 +607,19 @@ export function ReaderScreen({
         onSourceChange?.({ card, spanId: null });
         return;
       }
-      setPreparingCard(null);
+      // A book handed over from the preparing view keeps its original on screen
+      // until the full Reader is ready (usability round 2: a list of books
+      // with "opening…" flashed in between).
+      openingRef.current = card.sourceId;
       setOpening(card.sourceId);
+      setOpeningTitle(card.title);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
         const view = await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], () =>
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
+        setPreparingCard(null);
         // Opening restores a position: following starts once it has settled.
         settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
         setRender(view);
@@ -585,11 +629,13 @@ export function ReaderScreen({
         // learner on the passage once; returning to this tab later resumes
         // from the saved reading position, not the original hit.
         onSourceChange?.({ card, spanId: null });
+        let placed = Boolean(handoff);
         try {
           const savedSpan = window.localStorage.getItem(readingPositionKey(view.sourceId));
           if (savedSpan) {
             setReadingSpan(savedSpan);
             setActiveSpan(savedSpan);
+            placed = true;
           }
         } catch {
           /* Reading still works when storage is unavailable. */
@@ -599,7 +645,10 @@ export function ReaderScreen({
         if (jumpSpan) {
           setReadingSpan(jumpSpan);
           setActiveSpan(jumpSpan);
+          placed = true;
         }
+        // No saved place: the reading history decides, once it is read (below).
+        historyResumeRef.current = !placed;
         setGuideLoading(true);
         readGuidePlan(card.sourceId, view.extractionId)
           .then(setGuidePlan)
@@ -625,6 +674,7 @@ export function ReaderScreen({
             setCompletedSections((ids) => [
               ...new Set([...ids, ...progress.sections.filter((s) => s.completedAt).map((s) => s.sectionId)])
             ]);
+            setReadingHistory(progress.sections);
           })
           .catch(() => undefined);
         if (youtubeVideoId(card.canonicalUri ?? "") !== null) {
@@ -642,12 +692,15 @@ export function ReaderScreen({
             .catch(() => setPdfView(null));
         }
       } catch (error) {
+        setPreparingCard(null);
         onError(errorMessage(error));
         // A source that no longer opens (deleted, re-extracted away) must not
         // be resumed on every return to this tab.
         onSourceChange?.(null);
       } finally {
+        openingRef.current = null;
         setOpening(null);
+        setOpeningTitle(null);
       }
     },
     [onError, onSourceChange, resetSourceState],
@@ -866,7 +919,7 @@ export function ReaderScreen({
     const at = currentGuideSection.spanIds.indexOf(readingSpan ?? "");
     const last = lastReadRef.current;
     lastReadRef.current = { id: currentGuideSection.id, index, progress: currentSectionProgress };
-    if (Date.now() < settleUntilRef.current || at < 0) return;
+    if (Date.now() < settleUntilRef.current || at < 0 || !readingMoved) return;
     const count = currentGuideSection.spanIds.length;
     const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1;
     setSectionSeen((current) => {
@@ -884,7 +937,7 @@ export function ReaderScreen({
       }
       return changed ? next : current;
     });
-  }, [render, offline, guidePlan, currentGuideSection, readingSpan, readingOffset, pageMode, currentSectionProgress]);
+  }, [render, offline, guidePlan, currentGuideSection, readingSpan, readingOffset, pageMode, currentSectionProgress, readingMoved]);
 
   // Save how far each section was read, gathered for a moment, and once more
   // when the Reader closes: Today's reading step and the next open read it.
@@ -917,7 +970,8 @@ export function ReaderScreen({
     const section = currentGuideSection;
     if (!section || section.question || authorRequestedRef.current.has(section.id)) return;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
-    if (currentSectionProgress < 0.6) return;
+    // Only where the learner has read: never on the page a book opened at.
+    if (!readingMoved || currentSectionProgress < 0.6) return;
     authorRequestedRef.current.add(section.id);
     const extractionId = render.extractionId;
     void (async () => {
@@ -930,7 +984,7 @@ export function ReaderScreen({
         /* Authoring is best-effort (provider may be off); never interrupt reading. */
       }
     })();
-  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections]);
+  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, readingMoved]);
 
   // "Try again" on a section whose check took too long (UX Phase 1, 1.10).
   const retryQuickCheck = useCallback(
@@ -1075,6 +1129,8 @@ export function ReaderScreen({
   }, []);
 
   const onReadingScroll = useCallback(() => {
+    const now = Date.now();
+    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) setReadingMoved(true);
     if (readingRafRef.current !== null) return;
     readingRafRef.current = window.requestAnimationFrame(() => {
       readingRafRef.current = null;
@@ -1645,15 +1701,19 @@ export function ReaderScreen({
         return;
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${segment.spanId}"]`);
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // (Optional call: a jump made before layout, as the reading-history resume
+      // can be, must not throw where scrolling is unavailable.)
+      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: "smooth", block: "center" });
     },
     [pdfView, surface, offline],
   );
 
   const jumpToSpan = useCallback(
     (spanId: string) => {
-      // A jump is not reading: the sections it passes are not ticked.
+      // A jump is not reading: the sections it passes are not ticked, and
+      // nothing is asked about where it lands until the learner reads on.
       settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+      setReadingMoved(false);
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -1674,10 +1734,39 @@ export function ReaderScreen({
         }
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // (Optional call: a jump made before layout, as the reading-history resume
+      // can be, must not throw where scrolling is unavailable.)
+      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: "smooth", block: "center" });
     },
     [pdfView, surface, offline, pageOfSpan],
   );
+
+  // A book with no saved place but reading history from before the Reader
+  // saved places reopens where that history leaves off, as Today's reading
+  // step does (usability round 2: Axler, read for months, opened at its first
+  // page while Contents ticked sections into 1C). Once, when both are read.
+  useEffect(() => {
+    if (!historyResumeRef.current || !render || offline || !guidePlan || readingHistory === null) return;
+    if (guidePlan.extractionId && guidePlan.extractionId !== render.extractionId) return;
+    historyResumeRef.current = false;
+    const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory);
+    if (spanId) jumpToSpan(spanId);
+  }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
+
+  // The learner's own hand on the page: what makes a scroll reading (round 2).
+  const noteUserScroll = useCallback(() => {
+    userScrollAtRef.current = Date.now();
+  }, []);
+  useEffect(() => {
+    if (!render) return;
+    const onKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (SCROLL_KEYS.has(event.key)) userScrollAtRef.current = Date.now();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [render]);
 
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.
@@ -2094,9 +2183,27 @@ export function ReaderScreen({
         key={preparingCard.sourceId}
         card={preparingCard}
         onBack={onOpenLibrary ?? backToLibrary}
-        onReady={(next, position) => void openSource(next, undefined, position)}
+        onReady={(next, position) => {
+          // The preparing view stays up through the hand-over and keeps polling.
+          if (openingRef.current !== next.sourceId) void openSource(next, undefined, position);
+        }}
         onError={onError}
       />
+    );
+  }
+
+  // ── A book being opened: named, not a second list of books (round 2) ──
+  if (!render && opening && openingTitle) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER</span>
+            <Meta>{openingTitle}</Meta>
+          </div>
+          <Faint style={{ fontSize: 12 }}>◐ Opening {openingTitle}…</Faint>
+        </div>
+      </div>
     );
   }
 
@@ -2293,8 +2400,13 @@ export function ReaderScreen({
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <div
           ref={bodyRef}
-          onMouseDown={onBodyMouseDown}
+          onMouseDown={(event) => {
+            noteUserScroll();
+            onBodyMouseDown(event);
+          }}
           onMouseUp={onMouseUp}
+          onWheel={noteUserScroll}
+          onTouchMove={noteUserScroll}
           onScroll={onReadingScroll}
           className="ll-scroll"
           style={{
@@ -2560,7 +2672,9 @@ export function ReaderScreen({
                 </div>
                 <Faint style={{ fontSize: 10 }}>
                   {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
-                    ? currentGuideSection.question.placement === "auto_authored"
+                    ? answeredSections.includes(currentGuideSection.id)
+                      ? "You answered this section's quick check: compare below, then keep reading."
+                      : currentGuideSection.question.placement === "auto_authored"
                       ? "A quick check on this section is ready, just below."
                       : currentGuideSection.question.readingPhase === "before_section"
                         ? "There’s an optional question before you begin this section."
@@ -2605,6 +2719,7 @@ export function ReaderScreen({
                         onJump={jumpToSpan}
                         onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
                         onComplete={() => completeSection(section.id)}
+                        onAnswered={() => setAnsweredSections((ids) => [...new Set([...ids, section.id])])}
                         onError={onError}
                       />
                     ) : (
@@ -2616,6 +2731,7 @@ export function ReaderScreen({
                         onJump={jumpToSpan}
                         onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
                         onComplete={() => completeSection(section.id)}
+                        onAnswered={() => setAnsweredSections((ids) => [...new Set([...ids, section.id])])}
                         onError={onError}
                       />
                     )}
@@ -2655,8 +2771,10 @@ export function ReaderScreen({
                         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: state === "current" ? COLOR.text : COLOR.textDim }}>
                           {section.label}
                         </span>
-                        {section.question ? (
-                          <span style={{ flexShrink: 0, fontSize: 10, color: COLOR.purpleText }} aria-label="quick check available">?</span>
+                        {/* Said in words, and only while the check is still to do
+                            (usability round 2: an unexplained "?" sat after ✓). */}
+                        {section.question && !completedSections.includes(section.id) && !dismissedSections.includes(section.id) ? (
+                          <span style={{ flexShrink: 0, fontSize: 9, color: COLOR.purpleText }}>quick check</span>
                         ) : null}
                       </button>
                     );
@@ -3356,18 +3474,18 @@ export function ReaderScreen({
                       style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", border: 0, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO, padding: 0, textAlign: "left", cursor: "pointer" }}
                     >
                       <span style={{ color: COLOR.purpleText, flexShrink: 0 }}>{expanded ? "▼" : "▶"}</span>
-                      <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>
+                      {/* The question once (usability round 2: it was printed
+                          twice): plain and clipped while collapsed — clipping
+                          mid-$ would break KaTeX — and in full, with its maths,
+                          when open. */}
+                      <span style={{ fontSize: 11, flex: 1 }}>
+                        {expanded ? <MarkdownMath value={exchange.question} /> : clip(exchange.question, 130)}
+                      </span>
                     </button>
                     {expanded ? (
                       <>
-                        {/* Expanded question renders its LaTeX (the collapsed
-                            header stays plain text — clipping mid-$ would
-                            break KaTeX). */}
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                          <MarkdownMath value={exchange.question} />
-                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                          <Pill color="cyan">{exchange.answerMode}</Pill>
+                          <Pill color="cyan">{answerModeLabel(exchange.answerMode)}</Pill>
                           <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
                           {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
                         </div>
@@ -3509,6 +3627,7 @@ function AuthoredQuestionCard({
   onJump,
   onDismiss,
   onComplete,
+  onAnswered,
   onError,
 }: {
   section: ReaderGuideSectionDto;
@@ -3517,6 +3636,8 @@ function AuthoredQuestionCard({
   onJump: (spanId: string) => void;
   onDismiss: () => void;
   onComplete: () => void;
+  /** The learner compared their answer (the guide stops calling it waiting). */
+  onAnswered?: () => void;
   onError: (message: string) => void;
 }) {
   const question = section.question;
@@ -3538,12 +3659,13 @@ function AuthoredQuestionCard({
     try {
       await api.readerAuthoredQuestionAction({ questionId, action: "answered", response: response.trim() });
       setSubmitted(true);
+      onAnswered?.();
     } catch (error) {
       onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
-  }, [questionId, response, onError]);
+  }, [questionId, response, onError, onAnswered]);
 
   const dismissForever = useCallback(async () => {
     if (!questionId) return;
@@ -3668,6 +3790,7 @@ function SectionQuestionCard({
   onJump,
   onDismiss,
   onComplete,
+  onAnswered,
   onError,
 }: {
   section: ReaderGuideSectionDto;
@@ -3678,6 +3801,8 @@ function SectionQuestionCard({
   onJump: (spanId: string) => void;
   onDismiss: () => void;
   onComplete: () => void;
+  /** The learner's answer was recorded (the guide stops calling it waiting). */
+  onAnswered?: () => void;
   onError: (message: string) => void;
 }) {
   const question = section.question;
@@ -3723,12 +3848,13 @@ function SectionQuestionCard({
         outcomeClass: "unknown",
       });
       setSubmitted(true);
+      onAnswered?.();
     } catch (error) {
       onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
-  }, [administrationId, response, question, onError]);
+  }, [administrationId, response, question, onError, onAnswered]);
 
   const skip = useCallback(async () => {
     try {
