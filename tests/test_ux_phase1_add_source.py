@@ -68,8 +68,9 @@ def test_add_source_opens_a_pdf_at_once_with_its_original(tmp_path):
     # The shelf shows the book with one quiet line, never a file:// title.
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
     assert card["title"] == "Probability"
-    assert card["kindNoun"] == "book"
-    assert card["statusLine"]["text"] == "Getting this book ready"
+    # A PDF until its text says book or paper (finishing pass, #6).
+    assert card["kindNoun"] == "PDF"
+    assert card["statusLine"]["text"] == "Getting this PDF ready"
     assert card["statusLine"]["tone"] == "working"
     # The queue holds exactly one add batch: the import, then the automatic build planner.
     batch = ctx.repository.get_ingest_batch(item["batchId"])

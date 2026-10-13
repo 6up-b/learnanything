@@ -29,7 +29,7 @@ import type { AnnotationTrail } from "../screens/ReaderScreen";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { RectUnionOverlay } from "./RectUnionOverlay";
 import { acquirePdfDocument } from "./pdfDocumentCache";
-import { pagesToShow } from "./pdfPages";
+import { pagesLeftOutLabel, pagesShownLabel, pagesToShow } from "./pdfPages";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -89,12 +89,26 @@ export interface TagMenuRequest {
   nodes?: Array<{ spanId: string; quote: string; prefix?: string; suffix?: string }>;
 }
 
+/** Where a passage lands in the view: centred (a cited or annotated passage,
+ *  seen in its context) or at the top (a place to read on from: a resume, a
+ *  section from Contents), so the page on screen is the one being read. */
+export type PassageAlign = "center" | "start";
+
 /** Imperative surface for the screen: jump to an annotation's page/block. */
 export interface PdfReaderPaneHandle {
-  scrollToSegment: (page: number, spanId?: string | null) => void;
+  scrollToSegment: (page: number, spanId?: string | null, align?: PassageAlign) => void;
   /** Put ``offset`` (0..1) of page ``page`` at the top of the view, exactly;
    *  waits for the page to be laid out (the preparing view's hand-over). */
   scrollToPage: (page: number, offset?: number) => void;
+}
+
+// Room left above a passage put at the top: the pane's sticky bar (zoom,
+// find) sits there, and a line of what came before keeps the place.
+const PASSAGE_TOP_MARGIN_PX = 56;
+
+function alignPassage(box: HTMLElement, align: PassageAlign, smooth: boolean) {
+  if (align === "start") box.style.scrollMarginTop = `${PASSAGE_TOP_MARGIN_PX}px`;
+  box.scrollIntoView({ ...(smooth ? { behavior: "smooth" as const } : {}), block: align });
 }
 
 interface PdfReaderPaneProps {
@@ -334,6 +348,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     page: number;
     offset: number;
     spanId: string | null;
+    align: PassageAlign;
     tries: number;
     paged: boolean;
   } | null>(null);
@@ -365,11 +380,11 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     return box ?? null;
   }, []);
   const applyTarget = useCallback(
-    (target: { page: number; offset: number; spanId: string | null; paged: boolean }): boolean => {
+    (target: { page: number; offset: number; spanId: string | null; align: PassageAlign; paged: boolean }): boolean => {
       if (target.spanId === null) return applyPageScroll(target.page, target.offset);
       const box = passageBox(target.page, target.spanId);
       if (box) {
-        box.scrollIntoView({ block: "center" });
+        alignPassage(box, target.align, false);
         return true;
       }
       // Not drawn yet: its page first, once, so that it is drawn.
@@ -379,8 +394,8 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     [applyPageScroll, passageBox],
   );
   const keepTarget = useCallback(
-    (page: number, offset: number, spanId: string | null) => {
-      const target = { page, offset, spanId, tries: 0, paged: false };
+    (page: number, offset: number, spanId: string | null, align: PassageAlign = "center") => {
+      const target = { page, offset, spanId, align, tries: 0, paged: false };
       if (applyTarget(target)) {
         pendingTargetRef.current = null;
         return;
@@ -392,15 +407,15 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   );
 
   const scrollToSegment = useCallback(
-    (page: number, spanId?: string | null) => {
+    (page: number, spanId?: string | null, align: PassageAlign = "center") => {
       // Ready now (an annotation's card on a drawn page): glide there.
       const box = spanId ? passageBox(page, spanId) : null;
       if (box) {
         pendingTargetRef.current = null;
-        box.scrollIntoView({ behavior: "smooth", block: "center" });
+        alignPassage(box, align, true);
         return;
       }
-      keepTarget(page, 0, spanId ?? null);
+      keepTarget(page, 0, spanId ?? null, align);
     },
     [passageBox, keepTarget],
   );
@@ -1088,11 +1103,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
           background: COLOR.bg,
         }}
       >
-        <Faint style={{ fontSize: 11 }}>
-          {blocks.length === 0
-            ? "original pdf"
-            : `original pdf · ${coveredPages.length} ingested page${coveredPages.length === 1 ? "" : "s"}`}
-        </Faint>
+        <Faint style={{ fontSize: 11 }}>{pagesShownLabel(coveredPages.length, doc.numPages)}</Faint>
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
           {findOpen ? (
             <>
@@ -1140,7 +1151,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
           <div key={page}>
             {index > 0 && coveredPages[index - 1] !== page - 1 ? (
               <Faint style={{ fontSize: 10, display: "block", padding: "2px 0 12px 0" }}>
-                ⋯ pages {coveredPages[index - 1] + 2}–{page} of the original were not ingested
+                {pagesLeftOutLabel(coveredPages[index - 1] + 2, page)}
               </Faint>
             ) : null}
             <PdfPage

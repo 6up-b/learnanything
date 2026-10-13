@@ -193,9 +193,9 @@ _UPLOAD_FLOW_MESSAGES = {
 }
 _KEPT_LOCAL_FLOW_MESSAGES = {
     "audio_transcription": (
-        "This recording is kept on this computer, and recordings can only be transcribed online."
+        "This recording is never sent to an AI, and recordings can only be transcribed online by one."
     ),
-    "pdf_upload": "This book is kept on this computer, so the whole file is not sent anywhere.",
+    "pdf_upload": "This PDF is never sent to an AI, and reading it here would send the whole file to one.",
 }
 
 

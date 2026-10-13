@@ -79,7 +79,8 @@ export function BookCard({
   card: SourceLibraryCard;
   onContinue: (card: SourceLibraryCard) => void;
   onAction: (kind: SourceActionKind, card: SourceLibraryCard) => void;
-  /** Under the hood → Imports & builds (today's Ingest screen). */
+  /** How it was added and built: today's Ingest screen (Under the hood →
+   *  Imports & builds from Phase 2). */
   onOpenImports?: () => void;
   /** Whether an AI can write questions now; false shows a line's no-AI
    *  version (usability round 2). Unknown keeps the line as it is. */
@@ -126,14 +127,17 @@ export function BookCard({
         <div style={{ display: "flex", flexDirection: "column", gap: 5, borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
           {line?.details ? <div style={{ color: COLOR.textFaint, wordBreak: "break-word" }}>{line.details}</div> : null}
           {card.subjectId ? <div>Subject: {card.subjectTitle ?? card.subjectId}</div> : null}
+          {/* The words match what each does and what this is (UX Phase 1
+              re-test #6): "the whole book" for a paper, beside a line whose
+              own action builds as you read. */}
           {ready && readable ? (
             <button type="button" style={linkButton} onClick={() => onAction("build_whole_book", card)}>
-              Build questions for the whole book
+              Build questions for the whole {noun} at once
             </button>
           ) : null}
           {card.subjectId ? (
             <button type="button" style={linkButton} onClick={() => onAction("undo_questions", card)}>
-              Undo this book's questions
+              Undo this {noun}'s questions
             </button>
           ) : null}
           {/* Only where it can run (usability round 2: offered everywhere, it
@@ -144,22 +148,24 @@ export function BookCard({
             </button>
           ) : null}
           {readable ? (
+            // "Keep this book on this computer" read as "isn't it already
+            // here?" (re-test #6): say what it does.
             card.keepLocal ? (
               <>
-                <div>Kept on this computer: nothing of it is sent to an AI.</div>
+                <div>This {noun} is never sent to an AI, so no questions are written for it.</div>
                 <button type="button" style={linkButton} onClick={() => onAction("share_with_ai", card)}>
                   Let LearnLoop write questions for it
                 </button>
               </>
             ) : (
               <button type="button" style={linkButton} onClick={() => onAction("keep_local", card)}>
-                Keep this book on this computer
+                Never send this {noun} to an AI
               </button>
             )
           ) : null}
           {onOpenImports ? (
             <button type="button" style={linkButton} onClick={onOpenImports}>
-              Open in Imports & builds
+              See how it was added and built
             </button>
           ) : null}
         </div>

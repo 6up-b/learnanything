@@ -502,7 +502,7 @@ def _deterministic_synthesis(
 
 
 KEPT_ON_THIS_COMPUTER = "kept_on_this_computer"
-KEPT_ON_THIS_COMPUTER_MESSAGE = "This book is kept on this computer, so LearnLoop doesn't send it to an AI."
+KEPT_ON_THIS_COMPUTER_MESSAGE = "This book is never sent to an AI, so LearnLoop can't ask one about it."
 
 
 def drain_requests(

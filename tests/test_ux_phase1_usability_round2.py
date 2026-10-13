@@ -221,7 +221,7 @@ def test_a_book_with_no_questions_says_so_with_one_action(tmp_path):
     assert line == {
         "text": "No questions for this book yet",
         "tone": "quiet",
-        "action": {"kind": "retry", "label": "Build them"},
+        "action": {"kind": "retry", "label": "Build them as you read"},
         "details": None,
     }
     # The action plans the book's first build, as Add would have.

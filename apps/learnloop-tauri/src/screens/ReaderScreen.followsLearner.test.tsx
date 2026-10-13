@@ -251,6 +251,9 @@ async function scrollTo(scrollY: number) {
   await settle(50);
 }
 
+// Longer than the Reader's settling after an open or a resume (1.5 s).
+const SETTLED_MS = 2_000;
+
 function contentsEntry(label: string): HTMLElement {
   return screen.getByRole("button", { name: new RegExp(label.replace(/[?]/g, "\\?")) });
 }
@@ -308,6 +311,9 @@ it("the section break's quick check opens the check, above the Contents, ready t
   backend.withCheck = true;
   window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
   await openReader();
+  // The learner reads on once the resumed page has settled (a resume is not
+  // reading: finishing pass, re-test #2).
+  await settle(SETTLED_MS);
   await scrollTo(2900); // the end of section 1.1
 
   // The original PDF has a section-break offer of its own.
@@ -325,6 +331,7 @@ it("keeps the learner's answer beside the intended answer, and the button names 
   backend.withCheck = true;
   window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
   await openReader();
+  await settle(SETTLED_MS);
   await scrollTo(2900);
   fireEvent.click(screen.getByRole("button", { name: "quick check →" }));
   await settle();
@@ -411,6 +418,7 @@ it("after the learner compares, the guide no longer says the check is waiting", 
   backend.withCheck = true;
   window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
   await openReader();
+  await settle(SETTLED_MS);
   await scrollTo(2900);
   expect(screen.getByText("A quick check on this section is ready, just below.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "quick check →" }));
@@ -513,8 +521,9 @@ it("R3: a book with block geometry reaches the passage's page even before the do
   await openReader();
 
   // The passage itself, which the pane keeps until its page is laid out and
-  // drawn (round-2 review F4; PdfReaderPane.scroll.test.tsx).
-  expect(pane.scrollToSegment).toHaveBeenCalledWith(4, "s5");
+  // drawn (round-2 review F4; PdfReaderPane.scroll.test.tsx), at the top of
+  // the view: the place to read on from (finishing pass, re-test #2).
+  expect(pane.scrollToSegment).toHaveBeenCalledWith(4, "s5", "start");
 });
 
 it("watching a video is reading: playback still earns the section's quick check", async () => {
@@ -759,4 +768,115 @@ it("F5: playing on after a jump is watching", async () => {
   }
 
   expect(authoredFor("u1").length).toBeGreaterThan(0);
+});
+
+
+// ---------------------------------------------------------------------------
+// UX Phase 1 finishing pass: the persona re-test's Reader minors.
+// ---------------------------------------------------------------------------
+
+/** The guide's bar under the current section's name, as a width. */
+function sectionBarWidth(): string {
+  // The Guide's current-section card: its "section" pill, then the bar below.
+  const card = screen.getAllByText("section")[0].parentElement!.parentElement!;
+  const fill = card.querySelector<HTMLElement>('div[style*="height: 3px"] > div');
+  return fill?.style.width ?? "";
+}
+
+it("#7: the guide's section bar is empty on arriving at a section not read yet, and fills as it is read", async () => {
+  await openReader();
+  // A one-page section: the reading marker lands on its only passage.
+  fireEvent.click(contentsEntry("Probability and counting"));
+  await settle(SETTLED_MS);
+  expect(screen.getAllByText("Probability and counting").length).toBeGreaterThan(1);
+  expect(sectionBarWidth()).toBe("0%");
+  expect(screen.getByRole("progressbar", { name: "Read of this section" }).getAttribute("aria-valuenow")).toBe("0");
+
+  // Into section 1.1 (pages 2-3): nothing of it read on arrival, then a page
+  // counts once the reading marker is past most of it.
+  await scrollTo(1500);
+  expect(screen.getAllByText("Why study probability?").length).toBeGreaterThan(1);
+  expect(sectionBarWidth()).toBe("0%");
+  await scrollTo(2200);
+  expect(sectionBarWidth()).toBe("50%");
+  await scrollTo(3200);
+  expect(sectionBarWidth()).toBe("100%");
+});
+
+it("#8: the original's section break waits for the section's last page", async () => {
+  backend.withCheck = true;
+  await openReader();
+  await settle(SETTLED_MS);
+
+  // Section 1.1 is pages 2-3: on its first page the check is not offered yet.
+  await scrollTo(1500);
+  await settle(3_000);
+  expect(screen.getAllByText("Why study probability?").length).toBeGreaterThan(1);
+  expect(screen.queryByRole("button", { name: "quick check →" })).toBeNull();
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+  expect(screen.queryByRole("button", { name: /quick check ready/ })).toBeNull();
+
+  // On its last page it is, and it stays while the learner looks back a page.
+  await scrollTo(2900);
+  expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
+  expect(screen.getByText("A quick check on this section is ready, just below.")).toBeTruthy();
+  await scrollTo(1500);
+  expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
+});
+
+it("#2: a resume into a section offers its leftover check only after the learner reads there", async () => {
+  // Axler: reopened on 1.36, whose check was written last time; the section
+  // break asked about 1.36 before it was read again.
+  backend.withCheck = true;
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s4");
+  await openReader();
+  await settle(SETTLED_MS);
+
+  expect(screen.queryByRole("button", { name: "quick check →" })).toBeNull();
+  expect(screen.queryByText("A quick check on this section is ready, just below.")).toBeNull();
+  // Contents still says the section has one.
+  expect(within(contentsEntry("Why study probability?")).getByText("quick check")).toBeTruthy();
+
+  // Reading there (the learner's own scroll on its last page) offers it.
+  await scrollTo(2900);
+  expect(screen.getByRole("button", { name: "quick check →" })).toBeTruthy();
+});
+
+it("#2: Contents puts a section's start at the top of the view, where the header names it", async () => {
+  const blocks = PAGES.map(([spanId, page]) => ({ spanId, page, bbox: [50, 100, 550, 300], blockType: "Text" }));
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) =>
+    command === "reader_pdf_view"
+      ? { version: 1, available: true, fileName: "sha256-prob", extractionId: EXTRACTION_ID, sourceId: SOURCE_ID, revisionId: "rev_prob", blocks, pageSpans: [] }
+      : sidecar(command, args)
+  );
+  await openReader();
+  fireEvent.click(contentsEntry("Why study probability?"));
+  await settle();
+  expect(pane.scrollToSegment).toHaveBeenLastCalledWith(2, "s3", "start");
+});
+
+
+it("#4: a new Ask answer is brought into view, not left below the fold", async () => {
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) =>
+    command === "reader_ask"
+      ? { readerAnswerEventId: "ev_new", answerMd: "When outcomes are not equally likely.", answerMode: "answer_directly" }
+      : sidecar(command, args)
+  );
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s3");
+  await openReader();
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  await settle();
+  const scrolled = vi.mocked(Element.prototype.scrollIntoView);
+  scrolled.mockClear();
+
+  const box = screen.getByPlaceholderText("ask about this passage…");
+  fireEvent.change(box, { target: { value: "When does the naive definition fail?" } });
+  fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+  await settle();
+
+  expect(screen.getByText("When outcomes are not equally likely.")).toBeTruthy();
+  const brought = scrolled.mock.contexts.map((element) => (element as HTMLElement).dataset?.askId);
+  expect(brought).toContain("ev_new");
+  const call = scrolled.mock.calls[brought.indexOf("ev_new")][0] as ScrollIntoViewOptions;
+  expect(call.block).toBe("start");
 });

@@ -40,7 +40,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { AffectTap, DispositionPicker, PrimaryButton, SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
-import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
+import { PdfReaderPane, type PassageAlign, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
 import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
@@ -48,6 +48,7 @@ import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
 import { PreparingView } from "./reader/PreparingView";
+import { readerKeyBarKeys } from "./reader/readerKeys";
 import {
   pagePositionAt,
   resumeSpanFromHistory,
@@ -904,16 +905,45 @@ export function ReaderScreen({
     const withinPassage = pageMode && readingOffset !== null ? readingOffset : 1;
     return at < 0 ? 0 : (at + withinPassage) / Math.max(1, currentGuideSection.spanIds.length);
   }, [currentGuideSection, readingSpan, activeSpan, pageMode, readingOffset]);
+  // How much of the current section the learner has read (not where the
+  // marker stands): the guide's bar under the section's name (finishing pass,
+  // re-test #7: the bar was full on arriving at an unread one-page section).
+  const currentSectionRead = useMemo(() => {
+    if (!currentGuideSection) return 0;
+    if (completedSections.includes(currentGuideSection.id)) return 1;
+    const count = Math.max(1, currentGuideSection.spanIds.length);
+    return Math.min(1, (sectionSeen[currentGuideSection.id] ?? 0) / count);
+  }, [currentGuideSection, completedSections, sectionSeen]);
+  // The original PDF's section break is at the section's last page, reached
+  // by the learner's own reading this visit (finishing pass, re-test #8: a
+  // check came a page before "the table on the next page"; #2: a resume into
+  // Axler's 1.36 offered 1.36's leftover check before it was read again).
+  const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
+  const pageBySpan = useMemo(() => {
+    const pages = new Map<string, number>();
+    for (const entry of pdfView?.pageSpans ?? []) pages.set(entry.spanId, entry.page);
+    for (const block of pdfView?.blocks ?? []) if (block.spanId && !pages.has(block.spanId)) pages.set(block.spanId, block.page);
+    return pages;
+  }, [pdfView]);
+  const atSectionBreak = useMemo(() => {
+    if (!currentGuideSection || !readingMoved) return false;
+    const here = pageBySpan.get(readingSpan ?? activeSpan ?? "");
+    const last = pageBySpan.get(currentGuideSection.endSpanId);
+    if (here === undefined || last === undefined) return currentSectionProgress >= 0.7;
+    return here >= last;
+  }, [currentGuideSection, readingMoved, pageBySpan, readingSpan, activeSpan, currentSectionProgress]);
   const currentQuestionDue = useMemo(() => {
-    const phase = currentGuideSection?.question?.readingPhase;
+    const question = currentGuideSection?.question;
+    const phase = question?.readingPhase;
     if (!phase) return false;
     if (phase === "before_section") {
       const firstSpan = 1 / Math.max(1, currentGuideSection?.spanIds.length ?? 1);
       return currentSectionProgress <= Math.max(0.3, firstSpan);
     }
     if (phase === "during_section") return currentSectionProgress >= 0.45;
+    if (pdfSurfaceActive) return atSectionBreak;
     return currentSectionProgress >= 0.7;
-  }, [currentGuideSection, currentSectionProgress]);
+  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, atSectionBreak]);
 
   // Pin a question the moment it becomes due; it stays pinned (and rendered)
   // until answered or dismissed, however far playback or scrolling moves on.
@@ -941,12 +971,15 @@ export function ReaderScreen({
         && !dismissedSections.includes(section.id)
         && !completedSections.includes(section.id)
         && (
-          section.question.placement === "auto_authored"
+          // In the original PDF the section being read waits for its break
+          // (it is pinned from then on, below); elsewhere a written check is
+          // open at once, as before.
+          (section.question.placement === "auto_authored" && (!pdfSurfaceActive || index !== currentIndex))
           || stickyQuestionSections.includes(section.id)
           || (currentIndex >= 0 && index < currentIndex)
         ),
     );
-  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
+  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive]);
   // A check the learner answered is not waiting any more, though its card
   // stays open to compare (usability round 2).
   const pendingQuickCheckCount = boundaryChecksAvailable
@@ -1443,7 +1476,6 @@ export function ReaderScreen({
   // PDF pane implements page-anchored. Boxes live in bodyRef content
   // coordinates so they scroll with the text; words are clipped per box
   // against each [data-span-id] block. Escape cancels.
-  const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline);
   const [domBoxes, setDomBoxes] = useState<number[][]>([]);
   const [domDraft, setDomDraft] = useState<number[] | null>(null);
   const [domArmed, setDomArmed] = useState(false);
@@ -1794,13 +1826,16 @@ export function ReaderScreen({
   // A passage with boxes: the pane keeps it until the document is laid out
   // and its page drawn, then centres it (usability round 2: a resume asked to
   // centre a block on a page that did not exist yet; round-2 review F4: only
-  // a delayed page-top scroll survived).
-  const revealSegment = useCallback((page: number, spanId: string) => {
-    paneRef.current?.scrollToSegment(page, spanId);
+  // a delayed page-top scroll survived). A place to read on from (a resume, a
+  // section from Contents) goes to the top of the view instead, so the page
+  // on screen is the one the header names (finishing pass, re-test #2: Axler
+  // reopened on "1.36" with the 1.35 examples filling the screen above it).
+  const revealSegment = useCallback((page: number, spanId: string, align: PassageAlign = "center") => {
+    paneRef.current?.scrollToSegment(page, spanId, align);
   }, []);
 
   const jumpToSpan = useCallback(
-    (spanId: string) => {
+    (spanId: string, align: PassageAlign = "center") => {
       // A jump is not reading: the sections it passes are not ticked, and
       // nothing is asked about where it lands until the learner reads on.
       settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
@@ -1813,7 +1848,7 @@ export function ReaderScreen({
       if (pdfView && surface === "pdf" && !offline) {
         const geometry = pdfView.blocks.find((block) => block.spanId === spanId);
         if (geometry) {
-          revealSegment(geometry.page, spanId);
+          revealSegment(geometry.page, spanId, align);
           return;
         }
         // No boxes, only the passage's page (usability round 1, U2).
@@ -1841,7 +1876,7 @@ export function ReaderScreen({
     if (guidePlan.extractionId && guidePlan.extractionId !== render.extractionId) return;
     historyResumeRef.current = false;
     const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory);
-    if (spanId) jumpToSpan(spanId);
+    if (spanId) jumpToSpan(spanId, "start");
   }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
 
   // The learner's own hand on the page: what makes a scroll reading (round 2).
@@ -1880,7 +1915,7 @@ export function ReaderScreen({
       if (pdfView && surface === "pdf") {
         const geometry = pdfView.blocks.find((block) => block.spanId === readingSpan);
         if (geometry) {
-          revealSegment(geometry.page, readingSpan);
+          revealSegment(geometry.page, readingSpan, "start");
           return;
         }
         // The page the learner left off on (usability round 1, U2).
@@ -2229,7 +2264,16 @@ export function ReaderScreen({
       // the completed exchange mounts below it. Remounting gives the next Ask a
       // fresh input surface; focus restoration makes repeated questions fluid.
       setAskComposerVersion((version) => version + 1);
-      window.requestAnimationFrame(() => askComposerRef.current?.focus());
+      // The answer comes into view (finishing pass, re-test #4: it arrived
+      // below the fold and the box just emptied). The composer keeps focus
+      // without pulling the view back up; typing brings it into view again.
+      window.requestAnimationFrame(() => {
+        askComposerRef.current?.focus({ preventScroll: true });
+        const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find(
+          (element) => element.dataset.askId === exchange.id,
+        );
+        card?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
     } catch (error) {
       onError(errorMessage(error));
     } finally {
@@ -2776,8 +2820,15 @@ export function ReaderScreen({
                   <Pill color="slate">section</Pill>
                   <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{currentGuideSection.label}</span>
                 </div>
-                <div style={{ height: 3, background: COLOR.border }}>
-                  <div style={{ height: "100%", width: `${currentSectionProgress * 100}%`, background: COLOR.cyan }} />
+                <div
+                  role="progressbar"
+                  aria-label="Read of this section"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(currentSectionRead * 100)}
+                  style={{ height: 3, background: COLOR.border }}
+                >
+                  <div style={{ height: "100%", width: `${currentSectionRead * 100}%`, background: COLOR.cyan }} />
                 </div>
                 <Faint style={{ fontSize: 10 }}>
                   {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
@@ -2865,7 +2916,7 @@ export function ReaderScreen({
                       <button
                         key={section.id}
                         type="button"
-                        onClick={() => jumpToSpan(section.startSpanId)}
+                        onClick={() => jumpToSpan(section.startSpanId, "start")}
                         title={section.question ? `${section.label} · quick check available` : section.label}
                         style={{
                           display: "flex", alignItems: "baseline", gap: 8, textAlign: "left",
@@ -3572,7 +3623,8 @@ export function ReaderScreen({
               ) : visibleAskHistory.map((exchange) => {
                 const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
                 return (
-                  <Card key={exchange.id} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div key={exchange.id} data-ask-id={exchange.id}>
+                  <Card status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <button
                       type="button"
                       onClick={() => setCollapsedAskIds((ids) => {
@@ -3605,6 +3657,7 @@ export function ReaderScreen({
                       </>
                     ) : null}
                   </Card>
+                  </div>
                 );
               })}
               <AffectTap />
@@ -3669,27 +3722,7 @@ export function ReaderScreen({
         </div>
       ) : null}
 
-      <KeyBar
-        keys={
-          pdfSurfaceActive
-            ? [
-                { key: "drag", label: "select text" },
-                { key: "ctrl+drag", label: "draw capture boxes" },
-                { key: "release ctrl", label: "capture box union" },
-                { key: "alt", label: "clear selection" },
-                { key: "alt+drag", label: "sweep blocks" },
-                { key: "right-click", label: "tag" },
-              ]
-            : [
-                { key: "select", label: "capture text" },
-                { key: "ctrl+drag", label: "draw capture boxes" },
-                { key: "release ctrl", label: "capture box union" },
-                { key: "alt", label: "clear selection" },
-                { key: "right-click", label: "tag" },
-              ]
-        }
-        right={{ key: "^p", label: "palette" }}
-      />
+      <KeyBar keys={readerKeyBarKeys(pdfSurfaceActive)} right={{ key: "^p", label: "palette" }} />
     </div>
   );
 }

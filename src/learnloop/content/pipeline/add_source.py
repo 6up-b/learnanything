@@ -70,7 +70,7 @@ DATA_FLOW = "passages_and_answers"
 # service, a whole PDF to a model that reads PDFs (spec §6.6, review F1).
 FILE_UPLOAD_CONSENT = "whole_files"
 FILE_UPLOAD_DATA_FLOW = "whole_files"
-KEPT_LOCAL_BUILD_MESSAGE = "This book is kept on this computer, so no questions are written for it."
+KEPT_LOCAL_BUILD_MESSAGE = "This book is never sent to an AI, so no questions are written for it."
 # Automatic builds' batch ids: ``batch_auto_<planner job id>`` (review F3).
 AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
 # The learner's Undo as an owner verdict in judgment_ledger (review F12).
@@ -90,7 +90,10 @@ TEXT_RECOGNITION_UNAVAILABLE_MESSAGE = (
 FLOOR_TOKENS = 4000
 
 _KIND_NOUN = {
-    "pdf": "book",
+    # A PDF is a "PDF" until its text says it is a book or a paper (UX Phase 1
+    # finishing pass: a paper's hand-over said "Getting this book ready", and a
+    # two-page handout was a "book").
+    "pdf": "PDF",
     "arxiv": "paper",
     "web": "article",
     "youtube": "video",
@@ -131,14 +134,18 @@ def kind_noun(category: str | None) -> str:
 
 
 # A PDF is a paper when it opens with an abstract and is short (usability
-# round 2: an 11-page paper was called a "book").
+# round 2: an 11-page paper was called a "book"), a book when it is longer than
+# a handout, and otherwise just a PDF (finishing pass: a two-page handout was a
+# "book").
 _ABSTRACT_LABEL = re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?\s*)?abstract\s*[.:]?\s*$", re.IGNORECASE)
 _PAPER_MAX_PAGES = 60
+_HANDOUT_MAX_PAGES = 10
 
 
 def source_kind_noun(repo, source_id: str, category: str | None) -> str:
-    """What the learner calls this source: ``kind_noun``, except that a short
-    PDF whose text opens with an Abstract is a paper."""
+    """What the learner calls this source: ``kind_noun``, except that a PDF
+    whose text is ready is a paper (short, opening with an Abstract), a book
+    (longer than a handout) or, when it is a few pages, still a PDF."""
 
     noun = kind_noun(category)
     if category != "pdf":
@@ -165,6 +172,8 @@ def source_kind_noun(repo, source_id: str, category: str | None) -> str:
             ).fetchone()["last"]
     if any(_ABSTRACT_LABEL.match(label) for label in labels) and (pages is None or int(pages) + 1 <= _PAPER_MAX_PAGES):
         return "paper"
+    if pages is not None and int(pages) + 1 > _HANDOUT_MAX_PAGES:
+        return "book"
     return noun
 
 
@@ -1872,7 +1881,7 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
         return _line("Reading this PDF sends the whole file to your AI", "quiet",
                      ("allow_upload", "OK"), message or None)
     if code == "kept_local":
-        return _line(f"Kept on this computer — this {kind_noun(category)} can't be read here", "quiet",
+        return _line(f"Never sent to an AI — this {kind_noun(category)} can't be read here", "quiet",
                      None, message or None)
     if code == "pdf_extractor_unavailable":
         return _line("Text recognition isn't set up", "problem", ("open_settings", "Set it up"), message or None)
@@ -2033,7 +2042,10 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return None
         if built == "pending":
             return _line(f"Questions for this {noun} need a look", "quiet", ("open_changes", "Review"))
-        return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them"))
+        # The first build starts where the learner reads and keeps ahead of
+        # them; details offers the whole book at once (finishing pass: "Build
+        # them" built one chapter while details said "the whole book").
+        return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them as you read"))
     if outcome is None and _active(latest):
         # The text is ready; LearnLoop is choosing what to build (§6.3 states).
         return _line("Chapters found", "working")
@@ -2056,7 +2068,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line("Questions wait for your OK", "quiet", ("connect_ai", "Review"),
                          consent_label(str(outcome.get("consent_key") or "")))
         if reason == "kept_local":
-            return _line("Kept on this computer — no questions are written for it", "quiet")
+            return _line("Never sent to an AI — no questions are written for it", "quiet")
         return None
     if kind == "paused":
         if outcome.get("cost_reason") == "budget_used":
@@ -2076,7 +2088,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return _line(f"Questions for {phrase} {estimate}", "working")
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
         if artifact.get("keep_local"):
-            return _line("Kept on this computer — no questions are written for it", "quiet")
+            return _line("Never sent to an AI — no questions are written for it", "quiet")
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
                 return _budget_used_line(state["error"])

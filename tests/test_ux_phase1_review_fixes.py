@@ -171,7 +171,7 @@ def test_f1_a_kept_local_recording_is_never_sent_to_transcription(tmp_path, monk
     item = _add(root, jobs, _audio_file(tmp_path), keep_local=True)
     assert sent == []
     line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Kept on this computer — this recording can't be read here"
+    assert line["text"] == "Never sent to an AI — this recording can't be read here"
     assert line["action"] is None
 
 
@@ -805,7 +805,7 @@ def test_f1_rereview_keeping_a_book_local_stops_its_queued_build(tmp_path):
     assert calls.inventory_calls == 0 and calls.synthesis_calls == 0
     assert _build_batches(repo)[0]["status"] == "cancelled"
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
-    assert card["statusLine"]["text"] == "Kept on this computer — no questions are written for it"
+    assert card["statusLine"]["text"] == "Never sent to an AI — no questions are written for it"
 
 
 def _openrouter_client():
@@ -1010,7 +1010,7 @@ def test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file
     def card():
         return next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
 
-    assert card()["statusLine"]["text"] == "Kept on this computer — this recording can't be read here"
+    assert card()["statusLine"]["text"] == "Never sent to an AI — this recording can't be read here"
 
     call(ctx, "source_action", {"sourceId": source_id, "action": "share_with_ai"})
     assert ctx.repository.source_kept_local(source_id) is False
@@ -1107,4 +1107,4 @@ def test_f1_rereview_a_running_build_sends_nothing_more_once_the_book_is_kept_lo
     synthesis = next(job for job in repo.ingest_jobs_for_batch(ch3["id"]) if job["job_type"] == "bootstrap_synthesis")
     assert synthesis["status"] == "cancelled"
     line = source_status_line(repo, load_vault(root), source_id)
-    assert line["text"] == "Kept on this computer — no questions are written for it"
+    assert line["text"] == "Never sent to an AI — no questions are written for it"

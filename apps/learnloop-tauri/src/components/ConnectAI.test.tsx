@@ -38,12 +38,45 @@ const BASE: AiConnectionDto = {
 };
 const CONNECTED: AiConnectionDto = { ...BASE, canAuthor: true, consented: true, needs: null, released: ["src_1"] };
 
-function open(onConnected = vi.fn(), onOpenSettings = vi.fn()) {
-  render(<ConnectAISheet onClose={vi.fn()} onConnected={onConnected} onOpenSettings={onOpenSettings} />);
-  return { onConnected, onOpenSettings };
+function open(onConnected = vi.fn(), onOpenSettings = vi.fn(), onClose = vi.fn()) {
+  render(<ConnectAISheet onClose={onClose} onConnected={onConnected} onOpenSettings={onOpenSettings} />);
+  return { onConnected, onOpenSettings, onClose };
 }
 
 describe("ConnectAISheet", () => {
+  // UX Phase 1 re-test (#5): after the one-time OK the sheet stayed open over
+  // the Library for the whole build ("Connected … Close") and covered the next
+  // card the learner wanted. It closes once the OK lands.
+  it("closes itself once the one-time OK lands", async () => {
+    api.getAiConnection.mockResolvedValue({ ...BASE, canAuthor: true, needs: "consent" });
+    api.connectAi.mockResolvedValue(CONNECTED);
+    const { onConnected, onClose } = open();
+    await screen.findByText(BASE.whatLeaves);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onConnected).toHaveBeenCalledWith(CONNECTED);
+  });
+
+  it("stays open when the OK did not land, saying why", async () => {
+    api.getAiConnection.mockResolvedValue({ ...BASE, canAuthor: true, needs: "consent" });
+    api.connectAi.mockRejectedValue(new Error("the AI's settings could not be saved"));
+    const { onClose } = open();
+    await screen.findByText(BASE.whatLeaves);
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("keeps a sign-in's confirmation on screen", async () => {
+    api.getAiConnection.mockResolvedValue({ ...BASE, chatgptSignedIn: true });
+    api.connectAi.mockResolvedValue(CONNECTED);
+    const { onClose } = open();
+    fireEvent.click(await screen.findByRole("button", { name: "Continue with ChatGPT" }));
+    expect(await screen.findByText("Connected to ChatGPT. Questions are on.")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("asks once, in one sentence, when an AI is already set up", async () => {
     api.getAiConnection.mockResolvedValue({ ...BASE, canAuthor: true, needs: "consent" });
     api.connectAi.mockResolvedValue(CONNECTED);

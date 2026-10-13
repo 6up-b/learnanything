@@ -90,6 +90,12 @@ export function ConnectAISheet({
       if (!alive.current) return;
       setConnection(next);
       onConnected(next);
+      // The one-time OK closes once it lands (UX Phase 1 re-test: "Connected
+      // … Close" stayed over the Library for the whole build and sat over the
+      // next card). The books' own lines say what happens next ("◐ Writing
+      // questions …"), and the settings dot turns green. A sign-in keeps its
+      // "Connected" line: there the confirmation is the result.
+      if (provider === "current" && next.needs === null) onClose();
     } catch (failure) {
       if (alive.current) setError(plainError(failure, "LearnLoop couldn't connect.").line);
     } finally {
@@ -227,7 +233,7 @@ export function ConnectAISheet({
             </button>
             <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10 }}>
               What leaves this computer: passages of the books you add, and your answers, go to the AI you connect. Your
-              library stays here. You can keep a single book private when you add it.
+              library stays here. You can choose never to send a book to an AI when you add it.
             </div>
           </>
         ) : null}

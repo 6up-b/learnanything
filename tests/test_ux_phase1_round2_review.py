@@ -289,7 +289,7 @@ def test_f2_the_switch_is_on_by_default_and_documented():
 _NO_QUESTIONS = {
     "text": "No questions for this book yet",
     "tone": "quiet",
-    "action": {"kind": "retry", "label": "Build them"},
+    "action": {"kind": "retry", "label": "Build them as you read"},
     "details": None,
 }
 

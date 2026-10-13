@@ -99,9 +99,9 @@ describe("BookCard", () => {
     expect(screen.getByText("HTTP 503 from example.org")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Undo this book's questions" }));
     expect(onAction).toHaveBeenCalledWith("undo_questions", expect.anything());
-    fireEvent.click(screen.getByRole("button", { name: "Build questions for the whole book" }));
+    fireEvent.click(screen.getByRole("button", { name: "Build questions for the whole book at once" }));
     expect(onAction).toHaveBeenCalledWith("build_whole_book", expect.anything());
-    fireEvent.click(screen.getByRole("button", { name: "Open in Imports & builds" }));
+    fireEvent.click(screen.getByRole("button", { name: "See how it was added and built" }));
     expect(onOpenImports).toHaveBeenCalled();
   });
 
@@ -109,12 +109,12 @@ describe("BookCard", () => {
     const onAction = vi.fn();
     const { unmount } = render(<BookCard card={card(null)} onContinue={vi.fn()} onAction={onAction} />);
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep this book on this computer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Never send this book to an AI" }));
     expect(onAction).toHaveBeenCalledWith("keep_local", expect.objectContaining({ sourceId: "src_1" }));
     unmount();
     render(<BookCard card={card(null, { keepLocal: true })} onContinue={vi.fn()} onAction={onAction} />);
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
-    expect(screen.getByText("Kept on this computer: nothing of it is sent to an AI.")).toBeTruthy();
+    expect(screen.getByText("This book is never sent to an AI, so no questions are written for it.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Let LearnLoop write questions for it" }));
     expect(onAction).toHaveBeenCalledWith("share_with_ai", expect.anything());
   });
@@ -264,5 +264,23 @@ describe("round 2", () => {
       />
     );
     expect(screen.getByText("Questions for Ch. 1–2 come up as you read")).toBeTruthy();
+  });
+
+  // UX Phase 1 re-test (#6): a paper's details said "the whole book" and
+  // "this book's questions"; "Keep this book on this computer" read as
+  // "isn't it already here?"; "Open in Imports & builds" named nothing the
+  // learner knew.
+  it("names a paper a paper in its details, and says what each choice does", () => {
+    const onAction = vi.fn();
+    const line: SourceStatusLineDto = { text: "Questions for this paper come up as you read", tone: "quiet", action: null, details: null };
+    render(<BookCard card={card(line, { kindNoun: "paper" })} onContinue={vi.fn()} onAction={onAction} onOpenImports={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    expect(screen.getByRole("button", { name: "Build questions for the whole paper at once" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Undo this paper's questions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Never send this paper to an AI" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "See how it was added and built" })).toBeTruthy();
+    const details = document.body.textContent ?? "";
+    expect(details).not.toMatch(/\bbook\b/);
+    expect(details).not.toMatch(/on this computer|Imports & builds/);
   });
 });

@@ -880,6 +880,22 @@ button { color: inherit; }
 .inspector-body { padding: 14px; overflow: auto; }
 .icon-button { border: 1px solid var(--border); background: transparent; color: var(--text); width: 34px; cursor: pointer; }
 
+/* Today's inbox strip (UX Phase 1 re-test: "Include handled" drew as the
+   browser's white button with the app's light text on it, nearly invisible). */
+.inbox-strip button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--dim);
+  padding: 1px 8px;
+  margin: 0 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.inbox-strip button:hover:not(:disabled) { color: var(--amber); border-color: var(--amber); }
+.inbox-strip button:disabled { opacity: 0.5; cursor: default; }
+.inbox-strip select { background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; }
+
 /* ── learnloop shell (command palette) ── */
 .cli-backdrop {
   position: absolute;

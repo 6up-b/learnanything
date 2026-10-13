@@ -73,7 +73,7 @@ def _refuse_kept_local(repository, source_id: str | None) -> None:
     if source_id is not None and repository.source_kept_local(source_id):
         raise SidecarError(
             "kept_on_this_computer",
-            "This book is kept on this computer, so LearnLoop doesn't send it to an AI.",
+            "This book is never sent to an AI, so LearnLoop can't ask one about it.",
         )
 
 

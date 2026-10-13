@@ -57,7 +57,7 @@ describe("AddSourceBox", () => {
     fireEvent.click(screen.getByRole("button", { name: "More options ▸" }));
     fireEvent.change(screen.getByLabelText("Only some pages"), { target: { value: "3-27" } });
     fireEvent.click(screen.getByLabelText("This is a past exam or problem set (no reading questions)"));
-    fireEvent.click(screen.getByLabelText("Keep this on this computer"));
+    fireEvent.click(screen.getByLabelText("Never send this to an AI"));
     fireEvent.click(screen.getByLabelText("Read with text recognition"));
     const input = screen.getByLabelText("Paste a link");
     fireEvent.change(input, { target: { value: "/books/exam.pdf" } });

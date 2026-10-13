@@ -182,7 +182,7 @@ export function AddSourceBox({
           </label>
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={keepLocal} onChange={(event) => setKeepLocal(event.target.checked)} />
-            Keep this on this computer
+            Never send this to an AI
           </label>
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={textRecognition} onChange={(event) => setTextRecognition(event.target.checked)} />

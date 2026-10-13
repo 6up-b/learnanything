@@ -92,12 +92,12 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Couldn't read this PDF", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null },
   { text: "Some pages look scanned", tone: "quiet", action: { kind: "text_recognition", label: "Read them with text recognition" }, details: null },
   { text: "Maths may look rough in the text view", tone: "quiet", action: { kind: "open_settings", label: "Fix it" }, details: null },
-  { text: "Kept on this computer — no questions are written for it", tone: "quiet", action: null, details: null },
+  { text: "Never sent to an AI — no questions are written for it", tone: "quiet", action: null, details: null },
   // UX Phase 1 review (F1, F2, F9): the separate OK for whole files, the
   // budget lines and text recognition that isn't set up.
   { text: "Transcribing this recording sends it to an online service", tone: "quiet", action: { kind: "allow_upload", label: "OK" }, details: null },
   { text: "Reading this PDF sends the whole file to your AI", tone: "quiet", action: { kind: "allow_upload", label: "OK" }, details: null },
-  { text: "Kept on this computer — this recording can't be read here", tone: "quiet", action: null, details: null },
+  { text: "Never sent to an AI — this recording can't be read here", tone: "quiet", action: null, details: null },
   { text: "Paused — today's AI budget is used", tone: "quiet", action: { kind: "open_settings", label: "Raise it" }, details: null },
   { text: "Questions for Ch. 3 would cost more than expected", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
   // Usability round 1 (U7): a scan, with and without text recognition installed.
@@ -110,9 +110,12 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Writing questions for Ch. 1–2", tone: "working", action: null, details: null },
   { text: "Questions for Ch. 1–2 in under a minute", tone: "working", action: null, details: null },
   { text: "Questions for this paper in about 2 min", tone: "working", action: null, details: null },
-  { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them" }, details: null },
+  { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them as you read" }, details: null },
   { text: "Questions for Ch. 1–2 come up as you read once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
-  { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" }
+  { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
+  // Finishing pass (#6): a PDF is a PDF until its text says book or paper.
+  { text: "Getting this PDF ready", tone: "working", action: null, details: null },
+  { text: "Questions for this PDF come up as you read", tone: "quiet", action: null, details: null }
 ];
 
 

@@ -316,3 +316,71 @@ def test_f9_undo_invalidates_a_request_being_acted_on(tmp_path):
     assert repo.pending_reading_request(source_id) is None
     assert repo.fail_reading_request(source_id, revision, attempts=1, retry_at="2026-10-13T09:00:00Z") is False
     assert repo.source_auto_build_state(source_id)["wanted_retry_at"] is None
+
+
+# ---------------------------------------------------------------------------
+# Persona re-test #6 — the words match what the thing is and what happens
+# ---------------------------------------------------------------------------
+
+
+def test_6_a_pdf_is_a_pdf_until_its_text_says_book_or_paper(tmp_path):
+    """The hand-over said "Getting this book ready" for a paper, and a
+    two-page handout was a "book"."""
+
+    from learnloop.content.pipeline.add_source import kind_noun, source_kind_noun
+    from tests.test_ux_phase1_usability_round2 import _pdf_with_units
+    from tests.ux_phase1_support import fresh_library, repository
+
+    root = fresh_library(tmp_path)
+    repo = repository(root)
+    _pdf_with_units(repo, "src_handout", ["Week 3 handout", "Exercises"], pages=2)
+    _pdf_with_units(repo, "src_book", ["Contents", "1 Probability and counting", "2 Conditional probability"], pages=113)
+    _pdf_with_units(repo, "src_paper", ["Abstract", "1 Introduction", "References"], pages=11)
+
+    assert kind_noun("pdf") == "PDF"  # before its text is ready: the hand-over, a scan
+    assert source_kind_noun(repo, "src_handout", "pdf") == "PDF"
+    assert source_kind_noun(repo, "src_book", "pdf") == "book"
+    assert source_kind_noun(repo, "src_paper", "pdf") == "paper"
+    assert kind_noun("textfile") == "book" and kind_noun("youtube") == "video"
+
+
+def test_6_a_pdf_being_prepared_is_getting_this_pdf_ready(tmp_path):
+    from tests.test_ux_phase1_add_source import _held_ctx
+    from tests.ux_phase1_support import fresh_library, write_pdf
+
+    root = fresh_library(tmp_path)
+    ctx = _held_ctx(root)
+    item = call(ctx, "add_source", {"sources": [str(write_pdf(tmp_path))]})["items"][0]
+
+    assert item["kindNoun"] == "PDF"
+    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
+    assert card["kindNoun"] == "PDF"
+    assert card["statusLine"]["text"] == "Getting this PDF ready"
+
+
+def test_6_build_them_says_it_builds_as_you_read(tmp_path):
+    """A book with no questions offered "Build them", which built one chapter,
+    while details offered "Build questions for the whole book"."""
+
+    from tests.test_ux_phase1_round2_review import _imported_book
+
+    _root, _ctx, card = _imported_book(tmp_path)
+    assert card["statusLine"]["text"] == "No questions for this book yet"
+    assert card["statusLine"]["action"] == {"kind": "retry", "label": "Build them as you read"}
+
+
+def test_6_a_book_never_sent_to_an_ai_says_so_plainly(tmp_path):
+    """"Keep this book on this computer" read as "isn't it already here?"."""
+
+    from learnloop.content.pipeline import add_source as core
+    from learnloop.content.pipeline import jobs as jobs_module
+    from learnloop.reader import reader_requests
+
+    sentences = [
+        core.KEPT_LOCAL_BUILD_MESSAGE,
+        reader_requests.KEPT_ON_THIS_COMPUTER_MESSAGE,
+        *jobs_module._KEPT_LOCAL_FLOW_MESSAGES.values(),
+    ]
+    for sentence in sentences:
+        assert "never sent to an AI" in sentence
+        assert "kept on this computer" not in sentence.lower()
