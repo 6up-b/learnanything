@@ -1,31 +1,31 @@
 // FacetInspector (§3.4 / §9.6): a facet-contract drawer opened from the facet
 // surfaces (radar / gravity well / knowledge field). It shows the semantic
-// contract, the padlock chip with verbatim lock reasons, blueprint-recipe
+// contract and its version, the facet's history (rewords with the wording each
+// replaced, and merges, each with its one-tap undo), blueprint-recipe
 // membership (each LO linkable via the existing onInspect plumbing), the
 // dual-axis evidence readout (Ready = predicted now vs Ready-ghost =
 // before-evidence prior) with a capability ledger, and cross-links.
 //
-// Two restructure gestures live inside it:
+// Facet identity locks were removed (owner, 2026-10-12): nothing here is
+// locked. Two restructure gestures live inside it:
 //  · "merge into…" — autocomplete over api.listFacets, side-by-side contract
-//    comparison, survivor pick, rationale → api.proposeFacetMerge (a REVIEW
-//    item, never an auto-merge). If EITHER facet is locked the gesture instead
-//    surfaces the lock reasons and offers a durable restructure request.
-//  · "propose split…" — only routes through queueRestructureRequest when the
-//    facet is locked; unlocked splits are authored via the registry review
-//    flow (there is no split endpoint yet — we say so rather than fake one).
+//    comparison, survivor pick, rationale → api.proposeFacetMerge, which
+//    applies the merge now, with an undo.
+//  · "propose split…" — there is no split endpoint yet, so it queues a durable
+//    split request (api.queueRestructureRequest) that surfaces in the
+//    maintenance feed; we say so rather than fake one.
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type {
   FacetDetailDto,
+  FacetIdentityActionDto,
   FacetSummaryDto,
   RestructureRequestDto,
 } from "../api/dto";
 import { EntityLink } from "./ui";
 import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader, TermSelect } from "./term";
 import { FacetEvidenceReceipt } from "./KnowledgeModel";
-
-const LOCK_GLYPH = "\u{1F512}"; // 🔒
 
 export function FacetInspector({
   facetId,
@@ -41,6 +41,8 @@ export function FacetInspector({
   const [detail, setDetail] = useState<FacetDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped after an undo or a merge so the drawer re-reads the facet.
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +67,7 @@ export function FacetInspector({
     return () => {
       cancelled = true;
     };
-  }, [facetId, onError]);
+  }, [facetId, onError, revision]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -123,7 +125,15 @@ export function FacetInspector({
         {loading ? <Faint style={{ display: "block", marginTop: 18 }}>loading facet contract…</Faint> : null}
         {loadError ? <div style={{ color: COLOR.red, fontSize: 12, marginTop: 18 }}>{loadError}</div> : null}
 
-        {detail ? <FacetBody facetId={facetId} detail={detail} onInspect={onInspect} /> : null}
+        {detail ? (
+          <FacetBody
+            facetId={facetId}
+            detail={detail}
+            onInspect={onInspect}
+            onChanged={() => setRevision((value) => value + 1)}
+            onError={onError}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -133,13 +143,16 @@ function FacetBody({
   facetId,
   detail,
   onInspect,
+  onChanged,
+  onError,
 }: {
   facetId: string;
   detail: FacetDetailDto;
   onInspect: (id: string) => void;
+  onChanged: () => void;
+  onError?: (message: string) => void;
 }) {
-  const { facet, lock, membership, evidence, sharedWith } = detail;
-  const locked = lock.locked;
+  const { facet, history, membership, evidence, sharedWith } = detail;
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -148,11 +161,8 @@ function FacetBody({
         <Pill color={facet.status === "reviewed" ? "green" : facet.status === "proposed" ? "amber" : "slate"}>
           {facet.status}
         </Pill>
-        {locked ? <Pill color="red">{LOCK_GLYPH} locked</Pill> : <Pill color="green">pre-lock</Pill>}
+        <Pill color="slate">v{facet.version}</Pill>
       </div>
-
-      {/* (b) lock chip — verbatim reasons */}
-      <LockSection lock={lock} />
 
       {/* (a) semantic contract */}
       <SectionHeader>Semantic contract</SectionHeader>
@@ -167,6 +177,9 @@ function FacetBody({
       <ListBlock label="non-goals" items={facet.nonGoals} />
       <ListBlock label="error signatures" items={facet.errorSignatures} />
       <ListBlock label="aliases" items={facet.aliases} />
+
+      {/* (b) history: rewords keep the old wording; merges and rewords undo */}
+      <HistorySection history={history} onChanged={onChanged} onError={onError} />
 
       {/* (c) membership */}
       <SectionHeader>Membership</SectionHeader>
@@ -250,35 +263,77 @@ function FacetBody({
       ) : null}
 
       {/* restructure gestures */}
-      <RestructureActions facetId={facetId} facetTitle={facet.title} locked={locked} lock={lock} selfDetail={detail} />
+      <RestructureActions facetId={facetId} facetTitle={facet.title} selfDetail={detail} onChanged={onChanged} />
     </div>
   );
 }
 
-function LockSection({ lock }: { lock: FacetDetailDto["lock"] }) {
-  if (!lock.locked) {
-    return (
-      <div style={{ marginTop: 10, border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.greenSoft}`, padding: "8px 12px" }}>
-        <Faint style={{ fontSize: 11, lineHeight: 1.6 }}>
-          Pre-lock: no attempt/certification history pins this facet's identity yet, so it can still be merged or split
-          cheaply. Once evidence accrues the identity locks and restructuring must go through a restructure request.
-        </Faint>
-      </div>
-    );
+// ── history: rewords and merges, each with its undo ─────────────────────────
+
+export function historyLine(entry: FacetIdentityActionDto): string {
+  if (entry.action === "reword" && entry.reworded) {
+    const from = entry.reworded.fromVersion ?? "?";
+    const to = entry.reworded.toVersion ?? "?";
+    const fields = entry.reworded.fields.length ? entry.reworded.fields.join(", ") : "meaning";
+    return `v${from} → v${to}: ${fields} reworded`;
   }
+  const retired = entry.retired.map((facet) => facet.id).join(", ");
+  return `${entry.action === "absorb" ? "absorbed" : "merged"} ${retired} into this facet`;
+}
+
+function HistorySection({
+  history,
+  onChanged,
+  onError,
+}: {
+  history: FacetIdentityActionDto[];
+  onChanged: () => void;
+  onError?: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  if (history.length === 0) return null;
+
+  const undo = async (entry: FacetIdentityActionDto) => {
+    if (busy) return;
+    setBusy(entry.id);
+    try {
+      await api.undoFacetIdentityAction(entry.id);
+      onChanged();
+    } catch (err: unknown) {
+      onError?.(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
-    <div style={{ marginTop: 10, border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.red}`, padding: "8px 12px" }}>
-      <div style={{ fontSize: 12, color: COLOR.red, marginBottom: 4 }}>{LOCK_GLYPH} identity locked — significant history</div>
-      {lock.reasons.length === 0 ? (
-        <Faint style={{ fontSize: 11 }}>locked (no reason detail recorded)</Faint>
-      ) : (
-        lock.reasons.map((reason, i) => (
-          <div key={i} style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.6 }}>
-            <span style={{ color: COLOR.amber }}>{reason.source}</span> · {reason.detail}
+    <>
+      <SectionHeader>History</SectionHeader>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="facet-history">
+        {history.map((entry) => (
+          <div key={entry.id} style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 6, fontSize: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+              <span style={{ color: entry.status === "undone" ? COLOR.textFaint : COLOR.text }}>{historyLine(entry)}</span>
+              {entry.undoable && entry.status === "applied" ? (
+                <button type="button" style={{ ...btnStyle, padding: "2px 8px" }} disabled={busy !== null} onClick={() => void undo(entry)}>
+                  {busy === entry.id ? "undoing…" : "undo"}
+                </button>
+              ) : (
+                <Faint style={{ fontSize: 10 }}>{entry.status}</Faint>
+              )}
+            </div>
+            {entry.action === "reword" && entry.reworded ? (
+              <div style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.55, marginTop: 2 }}>
+                <Faint>was:</Faint> {entry.reworded.from || "—"}
+              </div>
+            ) : null}
+            {entry.undoLimits && entry.undoable ? (
+              <Faint style={{ display: "block", fontSize: 10 }}>{entry.undoLimits}</Faint>
+            ) : null}
           </div>
-        ))
-      )}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -287,15 +342,13 @@ function LockSection({ lock }: { lock: FacetDetailDto["lock"] }) {
 function RestructureActions({
   facetId,
   facetTitle,
-  locked,
-  lock,
   selfDetail,
+  onChanged,
 }: {
   facetId: string;
   facetTitle: string;
-  locked: boolean;
-  lock: FacetDetailDto["lock"];
   selfDetail: FacetDetailDto;
+  onChanged: () => void;
 }) {
   const [mode, setMode] = useState<"none" | "merge" | "split">("none");
 
@@ -312,9 +365,9 @@ function RestructureActions({
       </div>
 
       {mode === "merge" ? (
-        <MergeFlow facetId={facetId} facetTitle={facetTitle} selfLocked={locked} selfLock={lock} selfDetail={selfDetail} />
+        <MergeFlow facetId={facetId} facetTitle={facetTitle} selfDetail={selfDetail} onChanged={onChanged} />
       ) : null}
-      {mode === "split" ? <SplitFlow facetId={facetId} locked={locked} lock={lock} /> : null}
+      {mode === "split" ? <SplitFlow facetId={facetId} /> : null}
     </>
   );
 }
@@ -322,15 +375,13 @@ function RestructureActions({
 function MergeFlow({
   facetId,
   facetTitle,
-  selfLocked,
-  selfLock,
   selfDetail,
+  onChanged,
 }: {
   facetId: string;
   facetTitle: string;
-  selfLocked: boolean;
-  selfLock: FacetDetailDto["lock"];
   selfDetail: FacetDetailDto;
+  onChanged: () => void;
 }) {
   const [other, setOther] = useState<FacetSummaryDto | null>(null);
   const [otherDetail, setOtherDetail] = useState<FacetDetailDto | null>(null);
@@ -341,8 +392,7 @@ function MergeFlow({
   const [subjectId, setSubjectId] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mergeDone, setMergeDone] = useState<{ proposalId: string } | null>(null);
-  const [restructureDone, setRestructureDone] = useState<RestructureRequestDto | null>(null);
+  const [merged, setMerged] = useState<{ actionId: string; undone: boolean } | null>(null);
 
   // Subjects are needed for propose_facet_merge (subject-scoped). The facet
   // surfaces don't pass a subject down, so we source it from the loaded vault:
@@ -368,8 +418,7 @@ function MergeFlow({
   const pickOther = (summary: FacetSummaryDto) => {
     setOther(summary);
     setOtherDetail(null);
-    setMergeDone(null);
-    setRestructureDone(null);
+    setMerged(null);
     setError(null);
     setOtherLoading(true);
     api
@@ -384,8 +433,6 @@ function MergeFlow({
       });
   };
 
-  const eitherLocked = selfLocked || other?.locked === true || otherDetail?.lock.locked === true;
-
   const submitMerge = async () => {
     if (!other || !subjectId) return;
     const retiredFacetId = survivor === "self" ? other.id : facetId;
@@ -399,7 +446,7 @@ function MergeFlow({
         survivingFacetId,
         rationale: rationale.trim() || null,
       });
-      setMergeDone({ proposalId: res.proposalId });
+      setMerged({ actionId: res.actionId, undone: false });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -407,17 +454,14 @@ function MergeFlow({
     }
   };
 
-  const submitRestructure = async () => {
+  const undoMerge = async () => {
+    if (!merged || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const facetIds = other ? [facetId, other.id] : [facetId];
-      const res = await api.queueRestructureRequest({
-        facetIds,
-        requestedOperation: "merge",
-        rationale: rationale.trim(),
-      });
-      setRestructureDone(res.request);
+      await api.undoFacetIdentityAction(merged.actionId);
+      setMerged({ ...merged, undone: true });
+      onChanged();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -435,90 +479,64 @@ function MergeFlow({
 
       {otherLoading ? <Faint style={{ display: "block", marginTop: 8 }}>loading other contract…</Faint> : null}
 
-      {other && (selfLocked || otherDetail) ? (
-        eitherLocked ? (
-          // Locked path — no cheap merge; queue a durable restructure request.
-          <div style={{ marginTop: 12 }}>
-            <div style={{ border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.red}`, padding: "8px 12px" }}>
-              <div style={{ fontSize: 12, color: COLOR.red, marginBottom: 4 }}>
-                {LOCK_GLYPH} one or both facets are locked — merge can't be applied directly
-              </div>
-              <LockReasonList label={facetTitle || facetId} lock={selfLock} />
-              {otherDetail ? <LockReasonList label={other.title || other.id} lock={otherDetail.lock} /> : null}
-            </div>
-            <textarea
-              value={rationale}
-              onChange={(e) => setRationale(e.target.value)}
-              placeholder="rationale (required) — why these should be one facet"
-              style={textareaStyle}
-            />
-            {restructureDone ? (
-              <div style={{ color: COLOR.green, fontSize: 12, marginTop: 6 }}>
-                Restructure request queued → <Meta>{restructureDone.needId}</Meta> (surfaces in the maintenance feed).
-              </div>
-            ) : (
-              <button
-                type="button"
-                style={{ ...btnStyle, marginTop: 8, opacity: rationale.trim() && !busy ? 1 : 0.4 }}
-                disabled={!rationale.trim() || busy}
-                onClick={() => void submitRestructure()}
-              >
-                queue restructure request
-              </button>
-            )}
+      {other && otherDetail ? (
+        // Side-by-side comparison → survivor → rationale → merge (applies now, with an undo).
+        <div style={{ marginTop: 12 }}>
+          <ContractCompare
+            left={{ id: facetId, title: facetTitle, detail: selfDetail }}
+            rightDetail={otherDetail}
+            rightId={other.id}
+            rightTitle={other.title}
+          />
+
+          <div style={{ marginTop: 10, fontSize: 12 }}>
+            <div style={{ color: COLOR.textFaint, marginBottom: 4 }}>which id survives?</div>
+            <label style={radioLabel}>
+              <input type="radio" checked={survivor === "self"} onChange={() => setSurvivor("self")} />
+              <span style={{ color: COLOR.text }}>{facetId}</span> <Faint>(this facet)</Faint>
+            </label>
+            <label style={radioLabel}>
+              <input type="radio" checked={survivor === "other"} onChange={() => setSurvivor("other")} />
+              <span style={{ color: COLOR.text }}>{other.id}</span>
+            </label>
           </div>
-        ) : (
-          // Unlocked path — side-by-side comparison → survivor → rationale → review item.
-          <div style={{ marginTop: 12 }}>
-            <ContractCompare
-              left={{ id: facetId, title: facetTitle, detail: selfDetail }}
-              rightDetail={otherDetail}
-              rightId={other.id}
-              rightTitle={other.title}
-            />
 
-            <div style={{ marginTop: 10, fontSize: 12 }}>
-              <div style={{ color: COLOR.textFaint, marginBottom: 4 }}>which id survives?</div>
-              <label style={radioLabel}>
-                <input type="radio" checked={survivor === "self"} onChange={() => setSurvivor("self")} />
-                <span style={{ color: COLOR.text }}>{facetId}</span> <Faint>(this facet)</Faint>
-              </label>
-              <label style={radioLabel}>
-                <input type="radio" checked={survivor === "other"} onChange={() => setSurvivor("other")} />
-                <span style={{ color: COLOR.text }}>{other.id}</span>
-              </label>
+          {subjects && subjects.length > 1 ? (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+              <Faint>subject</Faint>
+              <TermSelect ariaLabel="Subject" value={subjectId} options={subjects} onChange={setSubjectId} width={220} />
             </div>
+          ) : null}
 
-            {subjects && subjects.length > 1 ? (
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                <Faint>subject</Faint>
-                <TermSelect ariaLabel="Subject" value={subjectId} options={subjects} onChange={setSubjectId} width={220} />
-              </div>
-            ) : null}
+          <textarea
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            placeholder="rationale (required)"
+            style={textareaStyle}
+          />
 
-            <textarea
-              value={rationale}
-              onChange={(e) => setRationale(e.target.value)}
-              placeholder="rationale (required)"
-              style={textareaStyle}
-            />
-
-            {mergeDone ? (
-              <div style={{ color: COLOR.green, fontSize: 12, marginTop: 6 }}>
-                Merge review item filed → <Meta>{mergeDone.proposalId}</Meta>. Approve it in the Proposals screen.
-              </div>
-            ) : (
-              <button
-                type="button"
-                style={{ ...btnStyle, marginTop: 8, opacity: rationale.trim() && subjectId && !busy ? 1 : 0.4 }}
-                disabled={!rationale.trim() || !subjectId || busy}
-                onClick={() => void submitMerge()}
-              >
-                file merge review item
-              </button>
-            )}
-          </div>
-        )
+          {merged ? (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6, fontSize: 12 }}>
+              <span style={{ color: merged.undone ? COLOR.textFaint : COLOR.green }}>
+                {merged.undone ? "Merge undone." : "Merged. Its evidence now counts toward the surviving facet."}
+              </span>
+              {!merged.undone ? (
+                <button type="button" style={{ ...btnStyle, padding: "2px 8px" }} disabled={busy} onClick={() => void undoMerge()}>
+                  {busy ? "undoing…" : "undo"}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <button
+              type="button"
+              style={{ ...btnStyle, marginTop: 8, opacity: rationale.trim() && subjectId && !busy ? 1 : 0.4 }}
+              disabled={!rationale.trim() || !subjectId || busy}
+              onClick={() => void submitMerge()}
+            >
+              merge (undo available)
+            </button>
+          )}
+        </div>
       ) : null}
 
       {error ? <div style={{ color: COLOR.red, fontSize: 12, marginTop: 8 }}>{error}</div> : null}
@@ -526,31 +544,11 @@ function MergeFlow({
   );
 }
 
-function SplitFlow({
-  facetId,
-  locked,
-  lock,
-}: {
-  facetId: string;
-  locked: boolean;
-  lock: FacetDetailDto["lock"];
-}) {
+function SplitFlow({ facetId }: { facetId: string }) {
   const [rationale, setRationale] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<RestructureRequestDto | null>(null);
-
-  if (!locked) {
-    return (
-      <div style={panelStyle}>
-        <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
-          This facet is pre-lock and there is no dedicated split endpoint yet. Splitting an unlocked facet is authored
-          through the registry review flow (author the two successor facet contracts, then retire this one via a merge
-          review). A restructure request is only queued for locked facets, where history blocks direct edits.
-        </Faint>
-      </div>
-    );
-  }
 
   const submit = async () => {
     setBusy(true);
@@ -571,10 +569,9 @@ function SplitFlow({
 
   return (
     <div style={panelStyle}>
-      <div style={{ border: `1px solid ${COLOR.border}`, borderLeft: `3px solid ${COLOR.red}`, padding: "8px 12px" }}>
-        <div style={{ fontSize: 12, color: COLOR.red, marginBottom: 4 }}>{LOCK_GLYPH} locked — split needs a restructure request</div>
-        <LockReasonList label={facetId} lock={lock} />
-      </div>
+      <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
+        There is no split endpoint yet. Record the split you want and it waits as a request in the maintenance feed.
+      </Faint>
       <textarea
         value={rationale}
         onChange={(e) => setRationale(e.target.value)}
@@ -583,7 +580,7 @@ function SplitFlow({
       />
       {done ? (
         <div style={{ color: COLOR.green, fontSize: 12, marginTop: 6 }}>
-          Restructure request queued → <Meta>{done.needId}</Meta> (surfaces in the maintenance feed).
+          Split request queued → <Meta>{done.needId}</Meta> (surfaces in the maintenance feed).
         </div>
       ) : (
         <button
@@ -592,28 +589,10 @@ function SplitFlow({
           disabled={!rationale.trim() || busy}
           onClick={() => void submit()}
         >
-          queue restructure request
+          queue split request
         </button>
       )}
       {error ? <div style={{ color: COLOR.red, fontSize: 12, marginTop: 8 }}>{error}</div> : null}
-    </div>
-  );
-}
-
-function LockReasonList({ label, lock }: { label: string; lock: FacetDetailDto["lock"] }) {
-  if (!lock.locked) return null;
-  return (
-    <div style={{ marginTop: 4 }}>
-      <Faint style={{ fontSize: 11 }}>{label}:</Faint>
-      {lock.reasons.length === 0 ? (
-        <Faint style={{ fontSize: 11, display: "block" }}> locked (no detail)</Faint>
-      ) : (
-        lock.reasons.map((reason, i) => (
-          <div key={i} style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.6 }}>
-            <span style={{ color: COLOR.amber }}>{reason.source}</span> · {reason.detail}
-          </div>
-        ))
-      )}
     </div>
   );
 }
@@ -753,7 +732,6 @@ function FacetAutocomplete({
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                 <span style={{ color: COLOR.text, overflowWrap: "anywhere" }}>{f.title || f.id}</span>
-                {f.locked ? <Pill color="red">{LOCK_GLYPH}</Pill> : null}
               </div>
               <Meta style={{ fontSize: 10 }}>{f.id}</Meta>
             </div>

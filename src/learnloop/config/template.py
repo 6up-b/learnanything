@@ -649,13 +649,10 @@ local_severity_gain = 0.35
 # spec §4.2). Reserved for KM2+; residual activation ships default-off.
 [capabilities]
 
-# Identity-lock policy (knowledge-model spec §3.4): a facet's semantic identity
-# locks at direct evidence in >=2 distinct surface/correlation groups, at
-# facet_lock_mass independent evidence mass, or on entering an active goal's
-# certified scope — whichever comes first.
-[locks]
-facet_lock_mass = 2.0
-facet_surface_groups = 2
+# NOTE: [locks] is retired: facet identity locks were removed (owner,
+# 2026-10-12). Merges apply live with an undo and a reword writes a facet
+# version (knowledge-model §3.4). `learnloop doctor` warns when a vault TOML
+# still declares the block.
 
 # NOTE: [cross_lo_propagation] is retired (knowledge-model §8.3/§15). The LO-to-LO
 # graph-propagated prior is prerequisite-only, direction-respecting, and
@@ -940,6 +937,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # switch. Its review (F2) defaulted merge_locked_facets to false; the
     # owner's decision at its merge (2026-10-12, option c) restores true:
     # locked facets merge live too, each action naming its lock, with an undo.
+    # Facet locks were then removed (facets/locks-and-depends-on): [locks] and
+    # merge_locked_facets stay in the schema with their defaults, unread, so
+    # no snapshot moves; the template drops [locks] (no snapshot moves either,
+    # since its values were the defaults).
     # Merged after learner-text gaps (mvp-0.16), where every snapshot was
     # recomputed (defaults_fingerprint_for_version); no successor.
     "mvp-0.9": "05d3efcd76c93ae224bcdb815dce386472f295da04ab59f06e5b6a4131ea1717",

@@ -15,7 +15,7 @@ Output is an ``AppendReconciliation`` mapped to the §10.2 intent/storage vocabu
     assessment_alignment                 -> provenance_link create (relation=...)
     notation_mapping                     -> notation_mapping create (review)
     conflict                             -> source_conflict create (review)
-    restructure_unlocked                 -> update/deactivate (review, lock-checked)
+    restructure_unlocked                 -> update/deactivate (review; an LO with attempts refuses)
 
 Purity is VERIFIED from item type + payload (the append-vocabulary gate + the
 specialized apply handlers), never trusted from the LLM's intent label. Routine
@@ -93,7 +93,7 @@ def subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool:
     uses (``loaded.evidence_facets``), but subject-scoped so a multi-subject vault
     routes each subject independently. When this is true, a newly added source
     reconciles into the existing map through the bounded append vocabulary instead
-    of tripping the bootstrap identity-lock refusal.
+    of re-creating it with bootstrap.
     """
 
     return any(subject_id in lo.subjects for lo in vault.learning_objects.values())

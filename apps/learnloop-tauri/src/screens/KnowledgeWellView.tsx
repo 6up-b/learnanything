@@ -628,10 +628,6 @@ export function KnowledgeWellView({
             {s.assumed ? (
               <circle cx={p.x} cy={p.y} r={size + 5.5} fill="none" stroke={COLOR.purpleText} strokeWidth={0.9} strokeDasharray={ASSUMED_DASH} />
             ) : null}
-            {/* Locked facets get a subtle padlock ring, per the terrain view. */}
-            {s.point.locked ? (
-              <circle cx={p.x} cy={p.y} r={size + 3.5} fill="none" stroke={COLOR.amber} strokeWidth={0.8} strokeDasharray="2 2" opacity={0.7} />
-            ) : null}
             {s.demonstrated ? (
               <circle
                 cx={p.x}

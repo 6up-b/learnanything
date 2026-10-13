@@ -1,24 +1,24 @@
 """Registry review (spec_source_ingestion_v2 §5.7; spec_knowledge_model §3.4, §12.2).
 
 The facet-contract registry for one subject, as review cards: claim, kind,
-conditions, examples, non-goals, error signatures, repairs, a status chip, and
-the lock state that decides whether pre-lock merge/coarsen actions are offered.
-Plus the identifiability warnings raised at synthesis (``coarsen_distinction`` /
-``generate_discriminator`` generation-needs).
+conditions, examples, non-goals, error signatures, repairs, a status chip and
+the facet's version. Plus the identifiability warnings raised at synthesis
+(``coarsen_distinction`` / ``generate_discriminator`` generation-needs).
 
-Pre-lock actions are legal-with-review (§3.4): ``propose_facet_merge`` creates a
-review proposal item through the existing proposal machinery — it NEVER
-auto-merges. Coarsening accepts an existing ``coarsen_distinction`` review item
-by proposing the merge of its confusable pair and resolving the need.
+Facet identity locks were removed (owner, 2026-10-12), so every card can be
+merged. ``propose_facet_merge`` applies the owner's merge live through the
+facet-identity merge (``merge_registered_facets``), with the same one-tap
+undo a judge's merge has; coarsening accepts a ``coarsen_distinction``
+warning by merging its confusable pair and resolving the need.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
-from learnloop.curriculum.curriculum_locks import Operation, can_apply
 
 
 class RegistryReviewError(ValueError):
@@ -39,17 +39,7 @@ def _facet_ids_for_subject(vault, subject_id: str) -> list[str]:
     return sorted(ids)
 
 
-def _facet_card(vault, repository, facet, *, lock_result) -> dict[str, Any]:
-    locked = not lock_result.legal
-    lock_reasons = [
-        {
-            "source": reason.source,
-            "entity_type": reason.entity_type,
-            "entity_id": reason.entity_id,
-            "detail": reason.detail,
-        }
-        for reason in lock_result.lock_reasons
-    ]
+def _facet_card(facet) -> dict[str, Any]:
     return {
         "facet_id": facet.id,
         "title": facet.title,
@@ -70,17 +60,11 @@ def _facet_card(vault, repository, facet, *, lock_result) -> dict[str, Any]:
         "instructional_repairs": list(facet.instructional_repairs),
         "status": facet.status,
         "version": facet.version,
-        # Lock chip: locked facets disable pre-lock actions with the reason;
-        # unlocked facets allow merge/coarsen (legal-with-review).
-        "locked": locked,
-        "lock_reasons": lock_reasons,
-        "can_merge": not locked,
-        "requires_review": bool(lock_result.requires_review),
     }
 
 
 def build_subject_registry(vault, repository, subject_id: str) -> dict[str, Any]:
-    """Facet-contract cards + identifiability warnings + lock state (§5.7)."""
+    """Facet-contract cards + identifiability warnings (§5.7)."""
 
     if subject_id not in vault.subjects:
         raise RegistryReviewError("unknown_subject", f"Subject '{subject_id}' does not exist.")
@@ -90,17 +74,7 @@ def build_subject_registry(vault, repository, subject_id: str) -> dict[str, Any]
         facet = vault.evidence_facets.get(facet_id)
         if facet is None:
             continue
-        lock_result = can_apply(
-            vault,
-            repository,
-            Operation(
-                op_type="facet_merge",
-                entity_type="facet",
-                entity_id=facet_id,
-                facet_ids=(facet_id,),
-            ),
-        )
-        cards.append(_facet_card(vault, repository, facet, lock_result=lock_result))
+        cards.append(_facet_card(facet))
 
     needs = repository.synthesis_generation_needs(subject_id=subject_id, status="pending")
     warnings = [
@@ -130,7 +104,6 @@ def build_subject_registry(vault, repository, subject_id: str) -> dict[str, Any]
         "facets": cards,
         "identifiability_warnings": warnings,
         "facet_count": len(cards),
-        "locked_count": sum(1 for card in cards if card["locked"]),
         "measurement_rank": rank.as_dict(),
     }
 
@@ -146,12 +119,32 @@ def propose_facet_merge(
     need_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Create a pre-lock facet-merge review item (never auto-merge, §12.2).
+    """Merge ``retired_facet_id`` into ``surviving_facet_id`` now, with a one-tap undo.
 
-    Emits a proposal batch with a single ``facet`` deactivate item on the retired
-    facet, carrying the survivor + rationale in its payload so review/apply routes
-    it through the existing proposal machinery. When ``need_id`` is given (a
-    coarsening acceptance), the generation-need is resolved."""
+    The owner asked for it (registry review, the facet inspector, or accepting
+    a coarsening warning), so it applies live through the facet-identity merge,
+    exactly like a judge's merge: the retired id becomes the survivor's alias,
+    evidence re-keys through ``facet_merges``, and ``learnloop facets undo``
+    (or the desktop undo) restores both. Until 2026-10-12 this filed a facet
+    ``deactivate`` review item that proposal apply could not compile, and
+    refused a locked facet; facet locks were removed (owner decision). A graded
+    criterion that names both facets at one capability still holds the merge
+    back (it would count one facet twice). The owner's verdict is appended to
+    ``judgment_ledger`` (task ``same_facet``, judge ``owner``). When
+    ``need_id`` is given (a coarsening acceptance) the generation-need is
+    resolved once the merge applies.
+    """
+
+    from learnloop.ai.execution import content_key
+    from learnloop.content.facet_identity.actions import (
+        HELD_BACK_NOTE,
+        action_by_id,
+        describe,
+        merge_registered_facets,
+    )
+    from learnloop.content.facet_identity.judge import TASK
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.vault.loader import load_vault
 
     retired = vault.canonical_facet_id(retired_facet_id)
     surviving = vault.canonical_facet_id(surviving_facet_id)
@@ -162,68 +155,43 @@ def propose_facet_merge(
     if surviving not in vault.evidence_facets:
         raise RegistryReviewError("facet_not_found", f"Facet '{surviving_facet_id}' does not exist.")
 
-    lock_result = can_apply(
-        vault,
-        repository,
-        Operation(op_type="facet_merge", entity_type="facet", entity_id=retired, facet_ids=(retired,)),
-    )
-    if not lock_result.legal:
-        raise RegistryReviewError(
-            "facet_identity_locked",
-            "This facet's identity is locked; merge is no longer legal-with-review.",
+    run_id = new_ulid()
+    left, right = sorted((retired, surviving))
+    with repository.atomic():
+        judgment_id = append_judgment(
+            repository.connection(), task=TASK, left_kind="facet", left_id=left,
+            right_kind="facet", right_id=right, judge="owner",
+            input_hash=content_key({"owner_merge": run_id, "pair": [left, right]}), verdict="same",
+            rationale=json.dumps(
+                {"origin": "registry", "survivor": surviving, "subject_id": subject_id,
+                 "rationale": rationale or ""},
+                sort_keys=True,
+            ),
+            created_at=utc_now_iso(clock),
         )
-
-    now = utc_now_iso(clock)
-    # Proposals always tie to an agent_run row (house invariant); a learner-
-    # initiated registry action records a lightweight one.
-    agent_run_id = repository.insert_agent_run(
-        {
-            "purpose": "registry_facet_merge",
-            "provider": "learner",
-            "provider_type": "learner",
-            "started_at": now,
-            "completed_at": now,
-            "status": "completed",
-        }
+    result = merge_registered_facets(
+        vault.root, repository,
+        survivor=surviving, retired=[retired], action="merge", absorb_as=None,
+        origin="registry", run_id=run_id, judge="owner", judge_model=None, prompt_version=None,
+        judgment_ids=[judgment_id],
+        detail={"rationale": rationale or "", "subject_id": subject_id, "need_id": need_id},
+        clock=clock,
     )
-    client_item_id = f"facet_merge_{new_ulid()}"
-    item = {
-        "client_item_id": client_item_id,
-        "item_type": "facet",
-        "operation": "deactivate",
-        "target_entity_type": "facet",
-        "target_entity_id": retired,
-        "payload": {
-            "merge_into": surviving,
-            "rationale": rationale or "",
-            "restructure": "facet_merge",
-        },
-        "source_ref_ids": [],
-        "audit": {"origin": "registry_review", "rationale": rationale or ""},
-        "decision": "pending",
-        "validation_status": "valid",
-        "validation_errors": [],
-        "depends_on_client_item_ids": [],
-        "dependency_status": "pending",
-        "created_at": now,
-        "updated_at": now,
-    }
-    batch = {
-        "agent_run_id": agent_run_id,
-        "purpose": "facet_merge",
-        "summary": f"Merge facet {retired} into {surviving}",
-        "source_refs": [],
-        "status_cache": "pending",
-        "created_at": now,
-        "updated_at": now,
-    }
-    proposal_id = repository.persist_proposal_batch(batch, [item])
+    if result.get("status") != "applied":
+        reason = str(result.get("reason") or "merge_refused")
+        message = HELD_BACK_NOTE if reason == "shared_graded_criterion" else f"The merge was not applied ({reason})."
+        raise RegistryReviewError(reason, message)
 
     if need_id is not None:
         repository.resolve_synthesis_generation_need(need_id, status="resolved", clock=clock)
 
+    action_id = str(result["action_id"])
+    record = action_by_id(repository, action_id)
     return {
-        "proposal_id": proposal_id,
+        "status": "applied",
+        "action_id": action_id,
+        "undo": f"learnloop facets undo {action_id}",
+        "action": describe(record, load_vault(vault.root)) if record is not None else None,
         "retired_facet_id": retired,
         "surviving_facet_id": surviving,
         "need_id": need_id,

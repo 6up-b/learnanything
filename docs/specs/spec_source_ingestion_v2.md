@@ -1,6 +1,6 @@
 # Canonical Source Ingestion v2 Specification
 
-Status: Revising, revision 7 (rev 6 + editorial consolidation: exam-authority and lock-policy restatements in §1/§7/§8.5/§10.3/§12 replaced with references to the §4.2 normative authority matrix and knowledge-model §3.4/§12 lock policy; hash-model naming unified; discriminator-first gate wording; "pre-lock" terminology unified)
+Status: Revising, revision 7 (rev 6 + editorial consolidation: exam-authority and lock-policy restatements in §1/§7/§8.5/§10.3/§12 replaced with references to the §4.2 normative authority matrix and knowledge-model §3.4/§12 lock policy; hash-model naming unified; discriminator-first gate wording; "pre-lock" terminology unified. 2026-10-12: facet identity locks removed, §8.1/§8.2/§10.3 updated to the knowledge-model §3.4/§12.1 policy)
 Scope: Intent-first source library, works/artifacts/revisions, extraction providers and Document IR, source collections, durable workflow jobs, role-specific unit inventories, semantic and assessment-alignment synthesis, canonical facets/task blueprints/assessment contracts, identity locks, provenance, coverage, extraction health, bounded token economics, maintenance, and source-outcome analytics
 Repository: LearnLoop
 
@@ -368,7 +368,7 @@ The v2 journey lands as concrete screens/components, extending the existing Inge
 - **Provenance span peek**: popover from any facet/LO/item/feedback surface showing the cited span with page/bbox thumbnail and semantic-vs-assessment authority labeling (§9.2); escalates one tap further to the **Open in source** viewer (§9.2).
 - **Study-map diff** after Update: new facets/links/conflicts, blueprint/task-distribution shift, stale links repaired — the reviewable answer to "what did adding this source change?".
 - **Maintenance feed**: the §11 feed with per-type aging policies visible.
-- **Registry review**: facet-contract cards (claim, conditions, examples, non-goals) with identifiability warnings and one-tap merge/coarsen actions while pre-lock (§8.7 gate output; knowledge-model §3.4 grace window).
+- **Registry review**: facet-contract cards (claim, conditions, examples, non-goals, version) with identifiability warnings and one-tap merge/coarsen actions that apply live with an undo (§8.7 gate output; knowledge-model §3.4; facet identity locks were removed 2026-10-12).
 
 ## 6. Import actions and durable jobs
 
@@ -468,25 +468,24 @@ source_unit_inventories (
 
 ## 8. Synthesis
 
-### 8.1 Modes, gated by identity locks (not subject age)
+### 8.1 Modes
 
-- **Create study map (bootstrap)**: N-way synthesis over member unit inventories into a fresh semantic registry, task/assessment contracts, and curriculum. Legal only where nothing touched is identity-locked; free to restructure aggressively.
-- **Update study map (append)**: new/changed unit inventories diffed against the existing semantic and task map; additive op vocabulary wherever locks exist (§10).
+- **Create study map (bootstrap)**: N-way synthesis over member unit inventories into a fresh semantic registry, task/assessment contracts, and curriculum. *(2026-10-12: no longer refused where facets carry evidence — facet identity locks were removed, knowledge-model §3.4. A rebuild that rewords an existing facet writes a facet version with an undo when its proposal applies.)*
+- **Update study map (append)**: new/changed unit inventories diffed against the existing semantic and task map; additive op vocabulary (§10). `auto` routes a subject that already has a study map here.
 Routing is automatic; the UI shows Create vs Update.
 
-### 8.2 Identity locks
+### 8.2 Destructive operations (identity locks removed)
 
-Destructive ops (LO/concept/facet semantic merge or split, blueprint/recipe identity change, assessment-contract rewrite, criterion re-key/target/dependency change, deactivate) are legal exactly where no lock exists. One authoritative curriculum-layer `can_apply(operation)` computes direct and transitive lock reasons from practice attempts, immutable assessment-contract versions, criterion observations/grading revisions, goal facet-capability/blueprint scope, exam pools, probes, misconceptions, legacy and new facet state, capability ledgers, unresolved-cause factors, item fingerprint/repair maps, and the protected concept/rubric/error closure. `identity_locks(vault, repo, subject_id)` is a read adapter over this API, not a second enumerated implementation.
+*(2026-10-12, owner decision: facet identity locks were removed; knowledge-model §3.4/§12.1 is normative. What remains is summarised here.)* Destructive ops (LO/concept/facet semantic merge or split, blueprint/recipe identity change, assessment-contract rewrite, criterion re-key/target/dependency change, deactivate) are review-required. One authoritative curriculum-layer `can_apply(operation)` decides legality; its only remaining arm refuses a destructive op on a learning object, or on one of its practice items, while that learning object has recorded attempts. Facet merges apply live with an exact undo (the held-back shared-graded-criterion case excepted), and a facet reword writes a facet version with an undo. There is no `identity_locks` read adapter and no `subject_identity_locked` refusal any more.
 
-Enforcement points:
+Enforcement points for the learning-object arm:
 
-1. before synthesis (typed refusal `subject_identity_locked` for bootstrap);
-2. before auto-apply;
-3. at accept-time, while holding the vault mutation lock.
+1. in the synthesis gates (`lock_guard`);
+2. at accept-time, while holding the vault mutation lock.
 
 Every update/deactivate proposal item also stores an `expected_target_hash`. Acceptance refuses if the target changed after synthesis, even if lock state did not. A cross-process vault mutation lock serializes the final lock/target recheck, YAML mutation, derived-state sync, proposal decision, and evidence writes that could create a competing lock. Mechanism: an OS-level advisory file lock at `.learnloop/vault.lock` (flock-style, acquire-with-timeout, holder pid/purpose written for diagnostics), taken by CLI and sidecar alike around the critical section — nothing of the kind exists today, so this is new M5 infrastructure, not a formalization of current behavior. A pre-write fingerprint check without this shared critical section does not claim to close the race.
 
-Destructive operations that are legal on unlocked identities are still review-required; legal never means silently auto-applied. Facet identity locks are independence-gated (knowledge-model §3.4): pre-lock, a reviewed facet merge/split is legal and cheap (merge-map resolution, no evidence rewrite); `can_apply` owns the lock check. Knowledge-model §3.4/§12 is the **single normative lock policy**; this section and §10.3 are its ingestion-side enforcement view — on divergence, the knowledge-model contract wins. Restructure-with-history is a future explicit migration feature, never reachable by re-running bootstrap — promoted to the first post-core specification. Sanctioned facet renames stay `facets.yaml` aliases + `merge_facet_recall_aliases` via doctor.
+Destructive operations that synthesis proposes are review-required; legal never means silently auto-applied by synthesis. A facet merge is cheap at any time (merge-map resolution, no evidence rewrite) and undoable. Knowledge-model §3.4/§12 is the **single normative policy**; this section and §10.3 are its ingestion-side enforcement view — on divergence, the knowledge-model contract wins. Sanctioned facet renames stay `facets.yaml` aliases + `merge_facet_recall_aliases` via doctor.
 
 ### 8.3 Synthesis brief
 
@@ -635,7 +634,7 @@ Append is required for the core release: after the first study map exists, every
 | `assessment_alignment` | `provenance_link` | `create` | attach exam/problem task evidence to a blueprint with `relation=assessment_alignment` | auto-apply when exact/in-scope and no semantic mutation |
 | `notation_mapping` | `notation_mapping` | `create` | append a contextual notation equivalence | review-required |
 | `conflict` | `source_conflict` | `create` | persist an unresolved two-sided conflict | review-required |
-| `restructure_unlocked` | existing curriculum type | `update` or `deactivate` | semantic replacement/removal | review-required; invalid if locked |
+| `restructure_unlocked` | existing curriculum type | `update` or `deactivate` | semantic replacement/removal | review-required; invalid on a learning object with attempts; a facet reword writes a facet version |
 
 The proposal schema/database expands the current closed curriculum vocabulary to include `facet` and, where stored separately, `task_blueprint`, plus `provenance_link | notation_mapping | source_conflict`. `create` may carry a target for relationship/annotation items. The existing operation vocabulary remains `create | update | deactivate`; `operation=none` is forbidden. Specialized apply handlers write their tables and do not rewrite the target LO YAML. Pure additivity is verified by item type and payload, not trusted from an LLM-provided intent.
 
@@ -674,8 +673,8 @@ Accepting a conflict item means acknowledging/persisting an open conflict, never
 - `assessment_alignment` auto-applies only to task/blueprint metadata or provenance, never to a facet semantic contract or prerequisite truth (exam-only semantic mutation is invalid per the §4.2 authority matrix).
 - `notation_mapping` is additive but normally reviewed because symbol equivalence can be context-dependent.
 - `conflict` is always reviewed and shows both bounded evidence spans side by side.
-- `restructure_unlocked` is legal only when every touched identity is unlocked, target hashes match, and the proposal is explicitly accepted. On a locked entity it is `invalid`, not merely review-required.
-- Lock legality follows the knowledge-model §3.4/§12 normative policy via §8.2: any operation that breaks the protected identity closure (the §8.2 destructive-op list) is invalid when locked; a semantic-preserving alias rename remains sanctioned; a capability residual activation is learner state, not an ingestion mutation.
+- `restructure_unlocked` is legal when target hashes match and the proposal is explicitly accepted; on a learning object (or a practice item of one) with recorded attempts it is `invalid`, not merely review-required. A restructure that rewords an existing facet writes a facet version (the old wording kept, with an undo) when it applies — facet identity locks were removed (2026-10-12).
+- Legality follows the knowledge-model §3.4/§12 normative policy via §8.2; a semantic-preserving alias rename remains sanctioned; a capability residual activation is learner state, not an ingestion mutation.
 - Any unexpected update/deactivate outside `restructure_unlocked` fails the append vocabulary gate.
 
 ### 10.4 Revision refresh behavior
@@ -740,7 +739,7 @@ For prerequisite diagnosis the ingestion integration stays narrow: a trustworthy
 - New revision is detected but pinned membership does not advance automatically; adopting it triggers append. Changed/removed links become stale/removed; unchanged links re-anchor.
 - Each quality gate → typed diagnostic, including recipe/DAG/dependency closure, exam authority/leakage, and token truncation gates.
 - Proposal dependencies: reject a newly proposed facet while accepting its dependent LO/item → dependents blocked and no dangling writes; accept the closure → one logical write-ahead transaction (§10.2).
-- Append vocabulary: exact semantic or assessment `provenance_link` auto-applies without rewriting LO YAML; notation mapping and conflict require review; `operation=none`, arbitrary locked update, exam-only semantic mutation, and locked facet/assessment-contract rewrite are invalid.
+- Append vocabulary: exact semantic or assessment `provenance_link` auto-applies without rewriting LO YAML; notation mapping and conflict require review; `operation=none`, an update of a learning object with attempts, and exam-only semantic mutation are invalid; a facet reword applies as a facet version with an undo (no identity locks since 2026-10-12).
 - Conflict persistence/resolution: accepting creates an open two-sided row; rejecting creates none; resolving preserves both evidence locators and audit history.
 - Exam alignment: textbook + past exam → facets/claims cite textbook authority while exam shifts declared blueprint distribution/capability/representation coverage; exact held-out item/answer never appears in generated practice; source coverage alone produces no learner evidence.
 - Fixture end-to-end: library import of 2–3 small explanatory/practice/exam sources → outline → unit selection → role-specific inventories → semantic + assessment coverage → Create study map; add a source and adopt a changed revision → bounded-neighborhood Update study map; locked-subject Create → typed refusal.

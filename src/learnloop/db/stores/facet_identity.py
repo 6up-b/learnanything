@@ -1,6 +1,8 @@
-"""Facet-identity action rows (migration 183) and the facet_merges rows they own.
+"""Facet-identity action rows (migrations 183, 188) and the facet_merges rows they own.
 
-Lifecycle: ``proposed`` (an ingest action riding on its proposal),
+Actions: ``merge`` and ``absorb`` (a survivor plus retired facets) and, since
+migration 188, ``reword`` (one facet's meaning changed by a proposal apply;
+the row keeps the entry it replaced). Lifecycle: ``proposed`` (an ingest action riding on its proposal),
 ``applying`` (a vault merge's write-ahead intent), ``applied``, ``undoing``
 (an undo's write-ahead intent), ``undone``, and ``abandoned`` (an intent
 withdrawn before its file write).
@@ -90,13 +92,16 @@ def action_by_id(connection: sqlite3.Connection, action_id: str) -> dict[str, An
 
 def list_actions(
     connection: sqlite3.Connection, *, run_id: str | None = None, status: str | None = None,
-    limit: int | None = 200,
+    limit: int | None = 200, survivor_facet_id: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if run_id is not None:
         clauses.append("run_id = ?")
         params.append(run_id)
+    if survivor_facet_id is not None:
+        clauses.append("survivor_facet_id = ?")
+        params.append(survivor_facet_id)
     if status is not None:
         clauses.append("status = ?")
         params.append(status)

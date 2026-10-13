@@ -1,7 +1,11 @@
-"""Applied facet-identity actions, the vault-level merge, and one-tap undo.
+"""Applied facet-identity actions, the vault-level merge, rewords, and one-tap undo.
 
 An action is one judged set: a survivor facet plus the facets merged or
-absorbed into it. Every reference to a retired facet (recipe components,
+absorbed into it; or (migration 188) a ``reword``: one facet whose meaning a
+proposal apply changed, the row keeping the wording it replaced. Facet
+identity locks no longer exist (owner, 2026-10-12): no merge, absorb or
+reword is refused or demoted because a facet carries evidence; the action
+records which facets did (``detail.evidence``) as provenance. Every reference to a retired facet (recipe components,
 criterion targets, evidence facets, goals, database rows) keeps its id on
 disk: the retired id becomes an alias of the survivor, and the loader and the
 projections resolve aliases (``vault.facet_aliases``, then ``facet_merges``).
@@ -21,6 +25,10 @@ Three scopes share the record:
 * ``in_run``: candidates of one synthesis or append run, merged before the
   proposal existed; the proposal carries the survivor;
 * ``attach``: a candidate aliased or absorbed into a registered facet.
+
+A ``reword`` (scope ``vault``, origin ``proposal``) has no retired facets: its
+undo restores the facet's previous entry, as a merge's undo restores the
+survivor's.
 
 In-run and attach actions are recorded ``proposed`` with their proposal; they
 are undoable once the proposal is applied (the vault then shows exactly what
@@ -60,7 +68,6 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.facet_identity.views import union_payload
-from learnloop.curriculum.curriculum_locks import Operation, can_apply
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import facet_identity as store
 from learnloop.ids import new_ulid
@@ -225,23 +232,27 @@ def _restored_document(document: dict[str, Any], record: Mapping[str, Any]) -> d
     return document
 
 
-# --- locks and affected learning objects ---------------------------------------------
+# --- evidence provenance and affected learning objects ------------------------------------
 
 
-def lock_reasons(vault: LoadedVault, repository: Repository, facet_ids: Iterable[str]) -> dict[str, list[dict[str, str]]]:
-    out: dict[str, list[dict[str, str]]] = {}
-    for facet_id in sorted(set(facet_ids)):
-        if facet_id not in vault.evidence_facets:
-            continue
-        result = can_apply(vault, repository, Operation(
-            op_type="facet_merge", entity_type="facet", entity_id=facet_id, facet_ids=(facet_id,),
-        ))
-        if not result.legal:
-            out[facet_id] = [
-                {"source": reason.source, "entity_type": reason.entity_type,
-                 "entity_id": reason.entity_id, "detail": reason.detail}
-                for reason in result.lock_reasons
-            ]
+def facet_evidence(repository: Repository, facet_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """Which of ``facet_ids`` carry graded evidence, and how much (provenance only).
+
+    A merge re-keys this evidence to the survivor through ``facet_merges`` and
+    an undo moves it back; a reword leaves it on the facet's id, graded
+    against the wording the action kept. Nothing is refused because of it:
+    facet identity locks were removed (owner, 2026-10-12).
+    """
+
+    ids = sorted({str(facet_id) for facet_id in facet_ids if facet_id})
+    if not ids:
+        return {}
+    legacy = repository.facet_ids_with_recall_evidence()
+    out: dict[str, dict[str, Any]] = {}
+    for facet_id in ids:
+        surface_groups, mass = repository.facet_independence_evidence(facet_id)
+        if surface_groups or mass > 0 or facet_id in legacy:
+            out[facet_id] = {"surface_groups": int(surface_groups), "independent_mass": round(float(mass), 6)}
     return out
 
 
@@ -375,17 +386,18 @@ def merge_registered_facets(
     prompt_version: str | None,
     judgment_ids: Sequence[str] = (),
     detail: Mapping[str, Any] | None = None,
-    merge_locked: bool | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Merge or absorb registered facets into ``survivor``, live, with an undo record.
 
     Returns ``{"status": "applied" | "refused", ...}``. A refusal (an unknown
-    or already-aliased facet, a locked facet under the strict policy, or a
-    ``facet_merges`` conflict) writes nothing. A retiree that a graded
-    criterion names together with the survivor (or with a retiree already
-    kept) is held back under either lock policy and listed in ``held_back``
-    (review F1); when every retiree is held back the merge is refused
+    or already-aliased facet, or a ``facet_merges`` conflict) writes nothing.
+    Evidence never refuses a merge (facet locks were removed, owner
+    2026-10-12); the facets that carry it are recorded in ``evidence``. A
+    retiree that a graded criterion names together with the survivor (or with
+    a retiree already kept) at one capability is held back and listed in
+    ``held_back`` (review F1: the frozen contract would count one facet
+    twice); when every retiree is held back the merge is refused
     (``shared_graded_criterion``).
     """
 
@@ -407,11 +419,7 @@ def merge_registered_facets(
         if not retired:
             return {"status": "refused", "reason": "shared_graded_criterion", "held_back": held_back,
                     "note": HELD_BACK_NOTE}
-        locks = lock_reasons(vault, repository, (survivor, *retired))
-        policy = vault.config.facet_identity.merge_locked_facets if merge_locked is None else merge_locked
-        if locks and not policy:
-            return {"status": "refused", "reason": "identity_locked", "lock_reasons": locks,
-                    "retired_facet_ids": retired, "held_back": held_back}
+        evidence = facet_evidence(repository, (survivor, *retired))
         merge_map = repository.facet_merge_map(include_in_flight=True)
         already = [facet_id for facet_id in retired if facet_id in merge_map]
         if already:
@@ -442,7 +450,7 @@ def merge_registered_facets(
             "merge_rows": [[facet_id, survivor] for facet_id in retired],
             "judgment_ids": list(judgment_ids), "judge": judge,
             "judge_model": judge_model, "prompt_version": prompt_version,
-            "detail": {**dict(detail or {}), "absorb_as": absorb_as, "lock_reasons": locks,
+            "detail": {**dict(detail or {}), "absorb_as": absorb_as, "evidence": evidence,
                        **({"held_back": held_back} if held_back else {})},
             "status": "applying", "created_at": now,
         }
@@ -468,7 +476,7 @@ def merge_registered_facets(
     return {
         "status": "applied", "action_id": action_id, "action": action, "survivor_facet_id": survivor,
         "retired_facet_ids": retired, "absorb_as": absorb_as,
-        "locked": bool(locks), "lock_reasons": locks, "affected_learning_objects": affected_before,
+        "evidence": evidence, "affected_learning_objects": affected_before,
         "held_back": held_back,
     }
 
@@ -511,6 +519,84 @@ def record_proposed_actions(
     return ids
 
 
+# --- rewords: a facet version instead of a lock -----------------------------------------
+
+#: The fields that carry a facet's meaning. Changing one of them on an
+#: existing facet is a reword: it writes a facet version (``version`` + 1, the
+#: old entry kept in a ``reword`` action with an undo) instead of being refused
+#: or silently overwritten (handoff §4, "Facet locks no longer block merges").
+#: Examples, error signatures, repairs, aliases, provenance and status only
+#: grow or annotate the contract and are not versioned.
+MEANING_FIELDS = (
+    "kind", "claim", "description", "preconditions", "postconditions", "applicability", "non_goals",
+)
+#: What a reword's undo leaves as it was (shown with the undo).
+REWORD_UNDO_LIMITS = (
+    "attempts graded while the new wording stood keep the assessment contract they were graded "
+    "against; the facet's id and its evidence never moved"
+)
+
+
+def meaning_changes(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> list[str]:
+    """The :data:`MEANING_FIELDS` that differ between two entries of one facet."""
+
+    if not before or not after:
+        return []
+    old, new = normalized_entry(before) or {}, normalized_entry(after) or {}
+    return [name for name in MEANING_FIELDS if old.get(name) != new.get(name)]
+
+
+def record_reword(
+    repository: Repository,
+    *,
+    action_id: str,
+    facet_id: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    run_id: str,
+    proposal_id: str | None,
+    proposal_item_id: str | None = None,
+    origin: str = "proposal",
+    clock: Clock | None = None,
+) -> str:
+    """Record a facet version: ``facet_id``'s meaning changed from ``before`` to ``after``.
+
+    Called once ``facets.yaml`` shows ``after`` (the proposal apply protocol's
+    side effect), so the row is ``applied`` at once and undoable. Idempotent
+    on ``action_id``: recovery of an interrupted apply replays side effects.
+    """
+
+    with repository.atomic():
+        connection = repository.connection()
+        if store.action_by_id(connection, action_id) is not None:
+            return action_id
+        now = utc_now_iso(clock)
+        insert_action(connection, {
+            "id": action_id, "origin": origin, "scope": "vault", "run_id": run_id,
+            "proposal_id": proposal_id, "action": "reword",
+            "survivor_facet_id": facet_id, "retired_facet_ids": [],
+            "before": {"facets": {facet_id: copy.deepcopy(dict(before))}, "order": {}},
+            "after": {"facets": {facet_id: copy.deepcopy(dict(after))}},
+            "merge_rows": [], "judgment_ids": [], "judge": "proposal",
+            "judge_model": None, "prompt_version": None,
+            "detail": {
+                "fields": meaning_changes(before, after),
+                "evidence": facet_evidence(repository, [facet_id]),
+                "proposal_item_id": proposal_item_id,
+            },
+            "status": "applied", "created_at": now, "applied_at": now,
+        })
+    return action_id
+
+
+def facet_history(repository: Repository, facet_id: str, vault: LoadedVault | None = None) -> list[dict[str, Any]]:
+    """Every action whose survivor is ``facet_id`` (rewords and merges), newest first."""
+
+    with repository.connection() as connection:
+        rows = store.list_actions(connection, survivor_facet_id=facet_id, limit=None)
+    return [describe(row, vault) for row in rows]
+
+
 def _current_entries(paths: VaultPaths) -> dict[str, Any]:
     document = _facets_document(paths)
     return {str(entry.get("id")): entry for entry in document["facets"] if isinstance(entry, Mapping)}
@@ -549,6 +635,22 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
 
     detail = record.get("detail") or {}
     status = effective_status(record, vault) if vault is not None else record["status"]
+    survivor = str(record["survivor_facet_id"])
+    reworded: dict[str, Any] | None = None
+    if record["action"] == "reword":
+        after = ((record.get("after") or {}).get("facets") or {}).get(survivor) or {}
+        old = before.get(survivor) or {}
+        reworded = {
+            "from": str(old.get("claim") or old.get("description") or ""),
+            "to": str(after.get("claim") or after.get("description") or ""),
+            "from_version": old.get("version"),
+            "to_version": after.get("version"),
+            "fields": list(detail.get("fields") or []),
+        }
+    # Facets that carried graded evidence when the action applied (provenance;
+    # nothing is refused because of it). Rows written before facet locks were
+    # removed recorded lock reasons instead and show no evidence here.
+    evidence = detail.get("evidence") or {}
     return {
         "id": record["id"],
         "origin": record["origin"],
@@ -557,22 +659,18 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         "proposal_id": record.get("proposal_id"),
         "action": record["action"],
         "absorb_as": detail.get("absorb_as"),
-        "survivor": {"id": record["survivor_facet_id"], "claim": claim(record["survivor_facet_id"])},
+        "survivor": {"id": survivor, "claim": claim(survivor)},
         "retired": [{"id": facet_id, "claim": claim(facet_id)} for facet_id in record.get("retired_facet_ids") or []],
         "rationale": detail.get("rationale") or "",
-        "locked": bool(detail.get("lock_reasons")),
-        # Why each locked facet is locked (attempts, probe, goal_certified_scope, ...).
-        "lock_sources": sorted({
-            str(reason.get("source") or "")
-            for reasons in (detail.get("lock_reasons") or {}).values() for reason in reasons or []
-            if isinstance(reason, Mapping) and reason.get("source")
-        }),
+        "evidenced_facets": sorted(evidence),
+        # A reword: the wording replaced and the one written (versions too).
+        "reworded": reworded,
         # Why an attach left a registered facet's contract as it was.
         "contract_note": detail.get("contract_note"),
         # Retirees of the judged set a graded criterion kept registered (review F1).
         "held_back": [str(held.get("facet_id")) for held in detail.get("held_back") or []],
         # What an undo does not move back (review F9).
-        "undo_limits": UNDO_LIMITS,
+        "undo_limits": REWORD_UNDO_LIMITS if record["action"] == "reword" else UNDO_LIMITS,
         "judge": record["judge"],
         "judge_model": record.get("judge_model"),
         "status": status,
@@ -727,6 +825,7 @@ def _finish_undo(
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
     survivor, retired, _before, _order, _after = _record_parts(record)
+    reword = record.get("action") == "reword"
     affected = affected_learning_objects(vault, (survivor, *retired))
     document = document if document is not None else _facets_document(paths)
     if file_state(record, document["facets"]) == "after":
@@ -734,16 +833,20 @@ def _finish_undo(
     deleted = _delete_merge_rows(repository, record.get("merge_rows") or [])
     vault_after = load_vault(root)
     affected = sorted(set(affected) | set(affected_learning_objects(vault_after, (survivor, *retired))))
-    refresh_derived_state(root, repository, affected, clock=clock)
+    # A reword moved no evidence (the facet keeps its id): sync only, no re-fold.
+    refresh_derived_state(root, repository, [] if reword else affected, clock=clock)
+    if reword:
+        affected = []
+    limits = REWORD_UNDO_LIMITS if reword else UNDO_LIMITS
     current = action_by_id(repository, str(record["id"])) or {}
     detail = {**dict(current.get("undo_detail") or {}), "merge_rows_deleted": deleted,
-              "restored_facet_ids": retired, "not_restored": UNDO_LIMITS}
+              "restored_facet_ids": retired, "not_restored": limits}
     with repository.atomic():
         store.set_status(repository.connection(), str(record["id"]), "undone", undone_at=utc_now_iso(clock),
                          undo_detail=detail)
     return {
         "survivor_facet_id": survivor, "restored_facet_ids": retired, "merge_rows_deleted": deleted,
-        "affected_learning_objects": affected, "not_restored": UNDO_LIMITS,
+        "affected_learning_objects": affected, "not_restored": limits,
         "owner_judgment_ids": list(detail.get("owner_judgment_ids") or []),
     }
 
@@ -827,19 +930,24 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
 __all__ = [
     "FacetIdentityActionError",
     "HELD_BACK_NOTE",
+    "MEANING_FIELDS",
+    "REWORD_UNDO_LIMITS",
     "append_owner_verdicts",
     "action_by_id",
     "affected_learning_objects",
     "describe",
+    "facet_evidence",
+    "facet_history",
     "graded_shared_criteria",
     "hold_back_shared",
     "effective_status",
     "insert_action",
     "list_actions",
-    "lock_reasons",
+    "meaning_changes",
     "merge_registered_facets",
     "normalized_entry",
     "record_proposed_actions",
+    "record_reword",
     "file_state",
     "interrupted_actions",
     "recover_interrupted_actions",

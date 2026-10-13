@@ -3,8 +3,10 @@
 
 This service orchestrates the "Create study map" journey:
 
-1. lock check — bootstrap is legal only where nothing touched is identity-locked
-   (§8.2 enforcement 1; typed refusal ``subject_identity_locked``);
+1. (no lock check: facet identity locks were removed, owner 2026-10-12. A
+   rebuild that rewords an existing facet writes a facet version with an
+   undo when its proposal applies; ``auto`` routes a subject that already has
+   a study map to append);
 2. immutable manifest persisted BEFORE the agent run (§8.4; the manifest hash is
    the ``agent_runs.input_context_hash`` cache seam — an identical manifest reuses
    the completed run);
@@ -111,16 +113,14 @@ _SEMANTIC_ROLES = frozenset(
 
 
 class StudyMapError(ValueError):
-    """A typed bootstrap-synthesis failure (lock refusal / gate hard-fail)."""
+    """A typed bootstrap-synthesis failure (gate hard-fail, budget, missing input)."""
 
     def __init__(self, code: str, message: str, *, diagnostics: list[dict[str, Any]] | None = None,
-                 lock_reasons: list[dict[str, Any]] | None = None,
                  synthesis_run_id: str | None = None,
                  candidate_preserved: bool = False):
         super().__init__(message)
         self.code = code
         self.diagnostics = diagnostics or []
-        self.lock_reasons = lock_reasons or []
         self.synthesis_run_id = synthesis_run_id
         self.candidate_preserved = candidate_preserved
 
@@ -925,7 +925,6 @@ def _normalize(
     registered_before: dict[str, dict[str, Any]] = {}
     # Why an attach kept a registered facet's contract as it was (review F2).
     contract_notes: dict[str, list[str]] = {}
-    merge_locked = bool(vault.config.facet_identity.merge_locked_facets)
     for target in sorted(set(alias_additions) | set(attach_unions)):
         new_aliases = [
             alias
@@ -957,9 +956,10 @@ def _normalize(
             # A merge is the alias alone; an absorb also adds the special case's
             # claim as a worked example. Claim, conditions, repairs, signatures
             # and status stay untouched (§10.2 additivity, verified by the gate).
-            # A precondition narrows the contract, and a locked facet's
-            # contract does not change without the owner's override (knowledge
-            # model §3.4): both stay an alias only, and the action says so.
+            # A precondition narrows the contract, so it stays an alias only and
+            # the action says so. Evidence on the registered facet changes
+            # nothing here: facet identity locks were removed (owner,
+            # 2026-10-12), and an example only annotates the contract.
             registered_before[target] = registered_facet.model_dump(mode="json")
             unioned = registered_facet.model_dump(mode="json")
             for attached_payload, attach_retirement in attach_unions[target]:
@@ -969,11 +969,6 @@ def _normalize(
                 if attach_retirement.absorb_as == "precondition":
                     contract_notes.setdefault(target, []).append(
                         "kept as an alias only: a precondition would change the registered facet's contract"
-                    )
-                    continue
-                if attach_retirement.survivor_lock_reasons and not merge_locked:
-                    contract_notes.setdefault(target, []).append(
-                        "kept as an alias only: the facet's identity is locked, so its examples stay as they are"
                     )
                     continue
                 if claim and claim not in (unioned.get("positive_examples") or []):
@@ -1308,11 +1303,12 @@ def _normalize(
                     "description": c.get("description") or "",
                     "tier": c.get("tier") or "core",
                     "targets": targets_out,
-                    "depends_on": c.get("depends_on") or [],
+                    "depends_on": [str(dep) for dep in c.get("depends_on") or [] if dep],
                     "recipe_ids": c.get("recipe_ids") or [],
                     "correlation_group": c.get("correlation_group") or None,
                 }
             )
+        _keep_sibling_criterion_dependencies(pid, criteria_payload, dropped_diagnostics)
         gate_refs, yaml_refs, span_ids = _span_refs(pi.get("provenance", []), inputs, default_relation="exercise")
         fp = pi.get("evidence_fingerprint") or {}
         fp = fp if isinstance(fp, dict) else fp.model_dump()
@@ -1573,8 +1569,6 @@ def _facet_identity_actions(
                 for _fkey, fid, r in kept
             ]
         if scope == "attach":
-            if first.survivor_lock_reasons:
-                detail["lock_reasons"] = {target: list(first.survivor_lock_reasons)}
             notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
             if notes:
                 detail["contract_note"] = "; ".join(notes)
@@ -1633,6 +1627,57 @@ def resolve_subject_id(source_set: Any, vault: LoadedVault) -> str:
         return next(iter(vault.subjects.keys()))
     raise StudyMapError(
         "missing_subject", "source set has no subject_id and the vault has no subjects"
+    )
+
+
+def _keep_sibling_criterion_dependencies(
+    item_id: str, criteria: list[dict[str, Any]], dropped_diagnostics: list[dict[str, Any]],
+) -> None:
+    """Keep each criterion's ``depends_on`` to sibling criterion ids (in place).
+
+    A criterion's ``depends_on`` names the criteria of the SAME practice item
+    that must be right before it can be judged (first-error localization,
+    knowledge model §5.3). Models often write facet, blueprint, client or
+    other items' criterion ids there; those name no criterion, so grading
+    treats them as passed and the gating is silently lost, and doctor reports
+    ``criterion:unknown_dependency``. A self-reference is a cycle. All of them
+    are dropped here, with one review diagnostic per item (the same
+    drop-and-flag discipline as edges and capability defaults), rather than
+    failing the paid-for synthesis.
+    """
+
+    siblings = {str(criterion.get("id") or "") for criterion in criteria} - {""}
+    removed: list[str] = []
+    for criterion in criteria:
+        own = str(criterion.get("id") or "")
+        kept: list[str] = []
+        for dep in criterion.get("depends_on") or []:
+            dep = str(dep)
+            if dep in siblings and dep != own:
+                if dep not in kept:
+                    kept.append(dep)
+                continue
+            if dep not in kept:
+                removed.append(f"{own}: {dep}")
+        criterion["depends_on"] = kept
+    if not removed:
+        return
+    unique = list(dict.fromkeys(removed))
+    dropped_diagnostics.append(
+        {
+            "gate": "criterion_dependency",
+            "severity": "review",
+            "entity_refs": [item_id, *sorted({entry.split(": ", 1)[1] for entry in unique})],
+            "message": (
+                f"item {item_id} dropped {len(unique)} criterion depends_on "
+                f"entr{'y' if len(unique) == 1 else 'ies'} that name no sibling criterion "
+                f"({'; '.join(unique)})"
+            ),
+            "suggested_action": (
+                "a criterion's depends_on names only sibling criterion ids of the same item; "
+                "re-author the dependency if a step really gates this one"
+            ),
+        }
     )
 
 
@@ -1695,30 +1740,6 @@ def _reusable_bootstrap_run(
         if nominations_on or not _nominations_shaped(repository.synthesis_run_for_agent_run(run["id"])):
             return run
     return None
-
-
-# --- lock refusal -----------------------------------------------------------
-
-
-def _bootstrap_lock_refusal(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
-    """§8.2 enforcement 1: bootstrap is legal only where nothing is identity-locked."""
-
-    from learnloop.curriculum.curriculum_locks import identity_locks
-
-    locked = identity_locks(vault, repository)
-    reasons: list[dict[str, Any]] = []
-    for facet_id, lock_reasons in locked.items():
-        for reason in lock_reasons:
-            reasons.append(
-                {
-                    "facet_id": facet_id,
-                    "source": reason.source,
-                    "entity_type": reason.entity_type,
-                    "entity_id": reason.entity_id,
-                    "detail": reason.detail,
-                }
-            )
-    return reasons
 
 
 # --- orchestration ----------------------------------------------------------
@@ -1953,17 +1974,6 @@ def _create_study_map(
         if apply and result.proposal_id:
             _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
         return result
-
-    # 1. lock check — typed refusal for a locked subject. It follows the cache
-    # lookup because a reused run only re-applies, and apply re-checks locks
-    # under the vault mutation lock.
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
-    if lock_reasons:
-        raise StudyMapError(
-            "subject_identity_locked",
-            f"Bootstrap synthesis refused: subject '{subject_id}' has locked identities.",
-            lock_reasons=lock_reasons,
-        )
 
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -2396,14 +2406,6 @@ def revalidate_synthesis_candidate(
     if source_set is None:
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = resolve_subject_id(source_set, vault)
-
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
-    if lock_reasons:
-        raise StudyMapError(
-            "subject_identity_locked",
-            f"Revalidation refused: subject '{subject_id}' has locked identities.",
-            lock_reasons=lock_reasons,
-        )
 
     inputs = _collect_inputs(repository, vault, source_set)
     ops = derive_candidate_repairs(candidate) if repair else []

@@ -433,7 +433,24 @@ def _perform_side_effect(
         return
     kind = side_effect["kind"]
     row = side_effect["row"]
-    if kind == "provenance_link":
+    if kind == "facet_version":
+        # An existing facet's meaning changed: keep the entry it replaced as a
+        # ``reword`` action with an undo (facet locks removed, owner 2026-10-12).
+        from learnloop.content.facet_identity.actions import record_reword
+
+        patch_id = row.get("patch_id")
+        record_reword(
+            repository,
+            action_id=str(row["id"]),
+            facet_id=str(row["facet_id"]),
+            before=row["before"],
+            after=row["after"],
+            run_id=_run_id_for_patch(repository, patch_id),
+            proposal_id=patch_id,
+            proposal_item_id=row.get("proposal_item_id"),
+            clock=clock,
+        )
+    elif kind == "provenance_link":
         repository.insert_entity_source_link(
             link_id=row["id"],
             entity_type=row["entity_type"],
@@ -488,6 +505,19 @@ def _perform_side_effect(
             patch_id=row.get("patch_id"),
             clock=clock,
         )
+
+
+def _run_id_for_patch(repository: Repository, patch_id: str | None) -> str:
+    """The synthesis run that produced a proposal, so its job lists the reword."""
+
+    if not patch_id:
+        return "proposal"
+    try:
+        batch = repository.proposal_batch(patch_id) or {}
+        run = repository.synthesis_run_for_agent_run(str(batch.get("agent_run_id") or "")) or {}
+    except Exception:  # noqa: BLE001 - a label lookup never fails an apply
+        return str(patch_id)
+    return str(run.get("id") or patch_id)
 
 
 # --- recovery ---------------------------------------------------------------

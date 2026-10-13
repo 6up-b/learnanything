@@ -92,14 +92,6 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
 
   const points = snapshot?.points ?? [];
 
-  // Per-facet lock state (§3.4), joined by canonical facet id. Locks live on the
-  // facet-field points themselves; legacy facets carry `locked: false`.
-  const facetLockById = useMemo(() => {
-    const map = new Map<string, KnowledgeFacetPoint>();
-    for (const point of snapshot?.facetField.points ?? []) map.set(point.id, point);
-    return map;
-  }, [snapshot]);
-
   if (!snapshot) {
     return <div style={{ padding: 30, color: COLOR.textFaint, fontSize: 13 }}>loading knowledge map…</div>;
   }
@@ -252,7 +244,6 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
           <PointDetail
             point={active}
             onInspect={onInspect}
-            facetLockById={facetLockById}
             onInspectFacet={setInspectFacetId}
             pointById={pointById}
             itemText={snapshot.itemTextNeighbors}
@@ -311,8 +302,6 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
             <Dim>rows ordered by latent similarity · top band = portfolio drift</Dim>
           </>
         )}
-        <span style={{ color: COLOR.amber }}>🔒 locked facet</span>
-        <Dim>locked = history is significant; unlocked facets still merge/split cheaply</Dim>
         <span style={{ flex: 1 }} />
         <Faint>
           {mode === "strata"
@@ -385,7 +374,6 @@ export function FacetFieldDetail({
       </div>
       <div style={{ fontSize: 14, fontWeight: 600 }}>
         {point.title}
-        {point.locked ? <span style={{ color: COLOR.amber, marginLeft: 6 }} title={`🔒 locked · ${point.lockSources.join(", ") || "identity locked"}`}>🔒</span> : null}
       </div>
       <Meta>{point.id}</Meta>
       {onInspectFacet ? (
@@ -461,14 +449,12 @@ const facetActionButton: CSSProperties = {
 function PointDetail({
   point,
   onInspect,
-  facetLockById,
   onInspectFacet,
   pointById,
   itemText
 }: {
   point: KnowledgeMapPoint | null;
   onInspect: (id: string) => void;
-  facetLockById: Map<string, KnowledgeFacetPoint>;
   onInspectFacet: (facetId: string) => void;
   pointById: Map<string, KnowledgeMapPoint>;
   itemText: KnowledgeItemTextNeighbors | undefined;
@@ -532,8 +518,6 @@ function PointDetail({
       {point.facets.length === 0 ? <Faint>none declared</Faint> : null}
       <Faint style={{ fontSize: 11 }}>click a facet to open its contract inspector</Faint>
       {point.facets.map((facet) => {
-        const entry = facetLockById.get(facet);
-        const locked = entry?.locked ?? false;
         return (
           <div
             key={facet}
@@ -546,7 +530,7 @@ function PointDetail({
                 onInspectFacet(facet);
               }
             }}
-            title={locked ? `🔒 locked · ${entry?.lockSources.join(", ") || "identity locked"}` : "unlocked (pre-lock)"}
+            title="open the facet's contract and history"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -559,7 +543,6 @@ function PointDetail({
             }}
           >
             <span>{facet}</span>
-            {locked ? <span style={{ color: COLOR.amber, flexShrink: 0 }}>🔒</span> : null}
           </div>
         );
       })}

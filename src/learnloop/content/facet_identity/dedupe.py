@@ -23,7 +23,7 @@ from learnloop.content.facet_identity.actions import (
     HELD_BACK_NOTE,
     action_by_id,
     describe,
-    lock_reasons,
+    facet_evidence,
     merge_registered_facets,
     recover_interrupted_actions,
 )
@@ -150,7 +150,9 @@ def run_dedupe(
                           output_price=price_per_million_output)
     estimate = plan_estimate(requests, route.pricing, decider=route.decider)
     run_id = new_ulid()
-    locked = lock_reasons(vault, repository, (member.key for request in requests for member in request.members))
+    # Which facets carry graded evidence (provenance only: a merge re-keys it
+    # to the survivor and its undo moves it back; nothing is refused for it).
+    evidenced = facet_evidence(repository, (member.key for request in requests for member in request.members))
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending",
         "dry_run": dry_run,
@@ -167,14 +169,8 @@ def run_dedupe(
         "estimate": asdict(estimate),
         "billing": "subscription" if route.subscription else "metered",
         "cost_basis": ESTIMATED_ONLY if route.subscription else "metered_caps",
-        "locked_facets": sorted(locked),
-        "lock_policy": "merge_locked_facets" if settings.merge_locked_facets else "refuse_locked",
+        "evidenced_facets": sorted(evidenced),
         "actions": [],
-        # Sets the judge decided that touch a locked facet, under the strict
-        # lock policy (merge_locked_facets = false; knowledge model §3.4):
-        # proposed to the owner, never applied. A rerun with the default
-        # (true) applies them from the reused verdicts (no new call).
-        "locked_proposals": [],
         "refused": [],
         "recovered": recovered,
     }
@@ -219,15 +215,12 @@ def run_dedupe(
                 record = action_by_id(repository, result["action_id"])
                 report["actions"].append({
                     **describe(record, load_vault(vault.root)),  # type: ignore[arg-type]
-                    "lock_reasons": result.get("lock_reasons") or {},
                     "undo": f"learnloop facets undo {result['action_id']}",
                 })
-            elif result.get("reason") == "identity_locked":
-                report["locked_proposals"].append(_locked_proposal(vault, decided, outcome, result))
             elif result.get("reason") != "shared_graded_criterion":
                 report["refused"].append({"survivor": decided.survivor, "retired": decided.retired, **result})
             # Retirees a graded criterion names together with the set (review
-            # F1) stay registered under either lock policy.
+            # F1) stay registered: its frozen contract would count one facet twice.
             if result.get("held_back"):
                 report["refused"].append({
                     "survivor": decided.survivor,
@@ -246,29 +239,6 @@ def run_dedupe(
     else:
         report["status"] = "partial"
     return report
-
-
-def _locked_proposal(vault: LoadedVault, decided: Any, outcome: Any, result: dict[str, Any]) -> dict[str, Any]:
-    def facet(facet_id: str) -> dict[str, str]:
-        entry = vault.evidence_facets.get(facet_id)
-        return {"id": facet_id, "claim": str(getattr(entry, "claim", "") or facet_id)}
-
-    return {
-        "status": "proposed_locked",
-        "action": decided.action,
-        "absorb_as": decided.absorb_as,
-        "survivor": facet(decided.survivor),
-        "retired": [facet(facet_id) for facet_id in result.get("retired_facet_ids") or decided.retired],
-        "rationale": decided.rationale,
-        "lock_reasons": result.get("lock_reasons") or {},
-        "judge": outcome.judge,
-        "judge_model": outcome.judge_model,
-        "judgment_ids": outcome.judgments_for([decided.survivor, *decided.retired]),
-        "apply": (
-            "not applied: [facet_identity] merge_locked_facets = false keeps locked facets apart "
-            "(set it to true, the default, then rerun dedupe; judged groups are reused)"
-        ),
-    }
 
 
 __all__ = ["facets_in_scope", "plan_dedupe", "run_dedupe"]

@@ -88,7 +88,6 @@ class Neighborhood:
     notation: list[dict[str, Any]] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)
     provenance: list[dict[str, Any]] = field(default_factory=list)
-    lock_reasons: list[dict[str, Any]] = field(default_factory=list)
     # entity_ref -> [{kind, detail, score}] — why each entity was pulled in.
     match_reasons: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     # neighborhood ids/hashes for the manifest + audit.
@@ -116,7 +115,6 @@ class Neighborhood:
             "notation": self.notation,
             "conflicts": self.conflicts,
             "provenance": self.provenance,
-            "lock_reasons": self.lock_reasons,
         }
 
     def as_manifest_record(self) -> dict[str, Any]:
@@ -388,9 +386,6 @@ def _materialize(
     budget_tokens: int,
     rounds: int,
 ) -> Neighborhood:
-    from learnloop.curriculum.curriculum_locks import identity_locks
-
-    locks = identity_locks(vault, repository)
     neighborhood = Neighborhood(budget_tokens=budget_tokens, rounds=rounds)
     used = 0
     included_facets: set[str] = set()
@@ -493,7 +488,7 @@ def _materialize(
                     }
                 )
 
-    # Notation, conflicts, provenance, lock reasons for the matched entities.
+    # Notation, conflicts and provenance for the matched entities.
     for facet_id in sorted(included_facets):
         for mapping in repository.notation_mappings_for_entity("facet", facet_id):
             neighborhood.notation.append(
@@ -524,10 +519,6 @@ def _materialize(
                     "locator": link.get("locator"),
                     "status": link.get("status"),
                 }
-            )
-        for reason in locks.get(facet_id, []):
-            neighborhood.lock_reasons.append(
-                {"facet_id": facet_id, "source": reason.source, "detail": reason.detail}
             )
 
     neighborhood.input_token_estimate = _estimate_tokens(neighborhood.as_context())

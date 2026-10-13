@@ -546,11 +546,6 @@ interface KnowledgeFacetPointBase {
   ambiguityCandidates: string[];
   ambiguityAttemptId: string | null;
   correction: { at: string; delta: number; attemptId: string } | null;
-  /** Padlock state (§3.4) for the knowledge field lock glyph. `lockSources` are
-   *  the distinct `LockReason.source` values driving the lock. Legacy facets
-   *  with no lock ledger are unlocked with an empty source list. */
-  locked: boolean;
-  lockSources: string[];
   /**
    * Learner field F2: an LO on this facet is "assumed known (not tested)". A
    * separate label, never folded into well depth or the demonstrated beads.
@@ -2887,20 +2882,35 @@ export interface FacetIdentityFacetRef {
   claim: string;
 }
 
+/** A reword: an existing facet's meaning changed by an applied proposal. The
+ *  facet keeps its id and evidence; the old wording is kept for the undo. */
+export interface FacetRewordDto {
+  from: string;
+  to: string;
+  fromVersion: number | null;
+  toVersion: number | null;
+  /** Which meaning fields changed: claim, kind, conditions, non-goals. */
+  fields: string[];
+}
+
 export interface FacetIdentityActionDto {
   id: string;
-  origin: "ingest" | "append" | "dedupe";
+  /** proposal = a reword applied from a proposal; registry = the owner's own merge. */
+  origin: "ingest" | "append" | "dedupe" | "proposal" | "registry";
   scope: "in_run" | "attach" | "vault";
   runId: string;
   proposalId: string | null;
-  action: "merge" | "absorb";
+  action: "merge" | "absorb" | "reword";
   absorbAs: "example" | "precondition" | null;
   survivor: FacetIdentityFacetRef;
   retired: FacetIdentityFacetRef[];
   rationale: string;
-  locked: boolean;
-  /** Why a facet's identity is locked: attempts, probe, goal_certified_scope, independent_surface_groups, ... */
-  lockSources?: string[];
+  /** Facets that carried graded evidence when the action applied (provenance:
+   *  a merge re-keys it to the survivor and its undo moves it back). Facet
+   *  identity locks were removed, so nothing is refused because of it. */
+  evidencedFacets?: string[];
+  /** Present on a reword. */
+  reworded?: FacetRewordDto | null;
   /** Why an attach left a registered facet's contract as it was. */
   contractNote?: string | null;
   /** What an undo does not move back (rows graded while the merge stood). */
@@ -3471,10 +3481,6 @@ export interface FacetContractCardDto {
   instructionalRepairs: string[];
   status: string;
   version: number;
-  locked: boolean;
-  lockReasons: { source: string; entityType: string; entityId: string; detail: string }[];
-  canMerge: boolean;
-  requiresReview: boolean;
 }
 
 export interface IdentifiabilityWarningDto {
@@ -3510,12 +3516,17 @@ export interface SubjectRegistryDto {
   facets: FacetContractCardDto[];
   identifiabilityWarnings: IdentifiabilityWarningDto[];
   facetCount: number;
-  lockedCount: number;
   measurementRank?: MeasurementRankDto;
 }
 
+/** The owner's merge applies live (facet locks were removed); undo it with
+ *  `undoFacetIdentityAction(actionId)`. */
 export interface FacetMergeResultDto {
-  proposalId: string;
+  status: "applied";
+  actionId: string;
+  /** The CLI form of the undo. */
+  undo: string;
+  action: FacetIdentityActionDto | null;
   retiredFacetId: string;
   survivingFacetId: string;
   needId: string | null;
@@ -5250,14 +5261,12 @@ export interface QueueRestructureRequestInput {
   rationale: string;
 }
 
-/** A durable restructure-intent record for locked facets (spec §17 machinery
- *  does not exist yet — this only queues intent, surfaced in the maintenance
- *  feed). `lockedFacetIds` is the subset of `facetIds` actually locked. */
+/** A durable restructure request (there is no split endpoint yet — this only
+ *  queues the request, surfaced in the maintenance feed). */
 export interface RestructureRequestDto {
   needId: string;
   subjectId: string;
   facetIds: string[];
-  lockedFacetIds: string[];
   requestedOperation: "merge" | "split";
   rationale: string;
   status: string;
@@ -5307,16 +5316,8 @@ export interface FacetDetailContractDto {
   errorSignatures: string[];
   aliases: string[];
   status: string;
-}
-
-export interface FacetLockReasonDto {
-  source: string;
-  detail: string;
-}
-
-export interface FacetLockDto {
-  locked: boolean;
-  reasons: FacetLockReasonDto[];
+  /** Goes up by one with each reword (an applied change of the facet's meaning). */
+  version: number;
 }
 
 /** One blueprint-recipe component that references the facet, across every LO. */
@@ -5352,7 +5353,9 @@ export interface FacetEvidenceDto {
 export interface FacetDetailDto {
   version: number;
   facet: FacetDetailContractDto;
-  lock: FacetLockDto;
+  /** Rewords (with the wording each replaced) and merges into this facet,
+   *  newest first, each with its undo state. */
+  history: FacetIdentityActionDto[];
   membership: FacetMembershipRowDto[];
   evidence: FacetEvidenceDto;
   /** LOs beyond the first that touch this facet (cross-links). */
@@ -5366,7 +5369,6 @@ export interface FacetSummaryDto {
   title: string;
   kind: string;
   status: string;
-  locked: boolean;
 }
 
 export interface FacetListDto {
@@ -5455,7 +5457,7 @@ export interface AmbiguousEdgeDirectionDetail {
   proposalItemId: string | null;
 }
 
-/** `detail` payload of a `restructure_request` notice (queued locked-facet intent). */
+/** `detail` payload of a `restructure_request` notice (a queued split or merge request). */
 export interface RestructureRequestDetail {
   facetIds: string[];
   operation: "merge" | "split";
