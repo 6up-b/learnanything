@@ -243,6 +243,17 @@ unchanged; benchmark manifest `t6-eval-v2`; `source_retrieval/evaluation.py`):
   verification that did not run is not scored and blocks that system's
   verdicts, every attempt passes the shared caps after the cache, and the dry
   run plans every candidate and pair. §5.9 reports the rerun.)*
+  *(Codex re-review F8: whether a verification pool could be dense, and so
+  whether its query vectors were paid for, followed the library's index, not
+  the question's teaching scope, which can hold an older extraction an LO
+  cites or leave out a library source. A `dense_verify` pool over a partial
+  teaching index fell back to `hybrid_rrf` and was scored as the dense
+  baseline; a partial library index left complete teaching indexes without
+  vectors. Now each question's teaching-scope coverage decides both, and a
+  `dense_verify` pool that falls back is neither verified nor scored, is
+  counted in its coverage and blocks its verdicts. On both copies every
+  teaching scope is complete, so §5.9 is unchanged: a rerun at $0 reproduced
+  it exactly.)*
 - **Labels** cover the union of every display system's top 10 and every
   verification pool (two passes, as before), so every pick is labelled.
 - **Per query type**: means for every system, the paired differences that

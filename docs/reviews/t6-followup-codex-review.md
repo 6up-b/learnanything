@@ -262,3 +262,155 @@ never written.
 4. Stage open question 1 is updated with the rerun: on probability's 8 real
    questions the pool's picks were relevant less often (0.84 against 0.95),
    and the display half is significant only on arxiv_v2.
+
+## Re-review
+
+The Codex re-review (codex-job `20261013-012804-9EfuG6`, read-only, targeted
+in-memory reproductions, no full suite) covered the fix step above (code at
+`83bd5494`, this file at `5fcb0f7a`). Verdict: REOPENED. F1 was confirmed
+fixed; F7 was reopened; one new finding, F8. F2 to F6 were not raised again.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Doubled transport retries exceed their spend reservations | fixed (confirmed by the re-review) | `08b03158` | as above; the re-review found both callers refuse one token below the reservation and admit at the boundary |
+| F7 | Medium (High-equivalent per the review) | Serving defaults change under existing algorithm versions | rejected again | none (this file) | Conflicts with the owner's request and decisions and with the spec; the re-review names no persisted meaning that changes. See below |
+| F8 | Medium | Tutor-scoped dense baselines can silently become hybrid | fixed | `1985c6d9` (fail-first tests `bf261d7a`) | `test_a_dense_baseline_whose_teaching_pool_falls_back_is_neither_verified_nor_scored`, `test_an_incomplete_library_index_does_not_starve_a_complete_teaching_index`, `test_dense_verify_is_unavailable_only_when_no_teaching_scope_can_be_dense` (`tests/test_t6_followup_rereview.py`) |
+
+### F8: how it was reproduced
+
+`tests/test_t6_followup_rereview.py`, committed alone in `bf261d7a` against
+the unfixed code: **2 failed** (the third test was added with the fix and
+covers the case where no teaching scope can be dense). Both scenarios use the
+retrieval test vault with every current source embedded.
+
+- **Library complete, teaching index partial.** The book's earlier revision
+  (`ext_book_old`, other wording, so no stored vector covers it) is cited by
+  every LO, and a logged practice question is added. The library's index is
+  `ready`. One `dense_verify` pool of 8 fell back to `hybrid_rrf`, yet the
+  report counted 8 of 8 `dense_verify` verifications, scored it as the dense
+  baseline and blocked no verdict (the test failed on the missing
+  `unavailable` coverage count).
+- **Library partial, teaching indexes complete.** A reader-enabled source in
+  no source set, cited by nothing, is added after the backfill. The library's
+  index is `partial`, so the report paid for no query vector: `dense_verify`
+  was reported unavailable (with the library's reason) and `pool_verify` fell
+  back to `hybrid_rrf` on 8 of 8 questions, although the tutor would have
+  built dense pools for every one of them.
+
+### F8: what changed
+
+- `source_retrieval.tutor.tutor_scope` is the tutor's scope construction (the
+  teaching scope of the question's LOs, with the item's exclusions in a
+  practice or feedback context). `tutor_pool` calls it, unchanged in behaviour.
+- The report reads each question's teaching-scope coverage
+  (`dense_coverage`, no vector bytes) before paying for query vectors. A
+  question's vector is paid for when the library's index is complete and a
+  display system ranks by meaning (as before), or when its teaching index can
+  rank (`ready` or `partial`); a rewrite's vector when the display systems use
+  it, or the tutor would (`tutor_query_rewrite`). The display systems keep
+  their rule: meaning lists only over a complete library index.
+- `meaning` is unavailable without a complete library index (as before);
+  `dense_verify` is unavailable only when no question's teaching scope has a
+  complete index (its reason says so).
+- Per question, a `dense_verify` pool that falls back (`hybrid_rrf`: no
+  complete teaching index, or no query vector) is no dense baseline: it is
+  never labelled, verified or scored. Its coverage counts it (`unavailable`;
+  `failed` is now what did not run among the rest), the fallback reasons are
+  counted (`verification.not_dense`), the teaching indexes' statuses are
+  reported (`verification.teaching_dense_index`), and every verdict involving
+  `dense_verify` is blocked (`verdict_blocks`, with a line in the Markdown).
+  `pool_verify`'s fallback is the tutor's own production behaviour, so it
+  stays verified and scored, as `pool_modes` reports.
+- The dry run's plan is unchanged: it already plans a vector for every
+  question and rewrite, an upper bound on what is now paid.
+
+On the stage's copies every teaching scope is complete (`teaching_dense_index`
+`ready` 47/47 and 41/41), so the published results (stage review §5.9) are
+unaffected. A rerun confirmed it (below).
+
+### F7: rejected again
+
+The re-review is right that the fix step changed documentation only: the
+defaults stay changed under the existing versions, with no successor, no
+restoration of the predecessors' defaults and no upgrade or shadow check. That
+is the owner's decision, not an omission:
+
+1. **The owner asked for exactly this compatibility behaviour.** The request
+   ("we're cutting the model off prematurely and its probably affecting output
+   quality significantly"; "no tutor deadline cancellation for now") is about
+   the owner's existing vaults, all at existing versions (`mvp-0.9` to
+   `mvp-0.13`). Restoring the predecessors' defaults under those versions
+   would restore the truncation the owner asked to remove; a successor would
+   hold the fix behind `learnloop upgrade` on every vault; a shadow check
+   contradicts the owner's standing decision (2026-10-12: live changes behind
+   kill switches, no shadow stages by default).
+2. **No persisted meaning changes, and the re-review names none.** The
+   playbook's trigger is "scoring, scheduling, projection, or admissibility
+   semantics"; T6's handoff: "Retrieval is context, so no successor is needed
+   unless something persisted changes meaning". Checked at `1985c6d9`: the
+   changed keys (`ai.output_tokens`, `ai.route_output_tokens`,
+   `ai.route_reasoning_effort`, `source_retrieval.pool`,
+   `pool_keyword_extras`, `tutor_deadline_cancels`, the three per-question
+   reservation caps) are read only where requests are built or admitted
+   (`ai/`, `source_retrieval/`, `practice_index/`, `projects/`, `ops/`,
+   `cli/`, `diagnosis/offline_review/spend.py`, the recurrence judge's request
+   budget). No module under `substrate/` (replay, the rebuild orchestrator,
+   projections), the scheduler, scoring, evidence or certification reads
+   them; the `output_tokens` hits under `substrate/` are receipts' usage
+   columns. Every answer produced under the new budgets or effort is a new row
+   under a request-derived id that includes them, and replay makes no model
+   call.
+3. **The version/fingerprint decision (playbook step 4) is made and recorded**
+   beside the snapshots in `config/template.py`, as at the T1, T6 and
+   stuck-prompt merges, which each recomputed every snapshot for keys that
+   change no persisted meaning.
+4. **Per-vault restoration exists without a version:** `source_retrieval.pool
+   = "hybrid_rrf"`, `tutor_deadline_cancels = true`, `ai.output_tokens` /
+   `ai.route_output_tokens`, `ai.route_reasoning_effort`.
+
+Owner question 1 above stays open: the owner may still ask for a successor
+at the checkpoint.
+
+### Real calls
+
+The T6 report rerun on the same backup-API copies
+(`fixtures-local/t6fu/probability`, `fixtures-local/t6fu/arxiv_v2`; the
+tracked vaults were never touched), one after the other, through the stage's
+driver (`fixtures-local/t6fu/scripts/run_eval.py`, `--max-cost-usd` 15, the
+$5 billed cap) into new output directories seeded with the earlier runs'
+query-vector caches (`fixtures-local/t6fu/out-f8/`).
+
+| Step | probability (47 questions) | arxiv_v2 (41 questions) |
+|---|---|---|
+| Dry run (no request) | 669 calls, 2,154 candidates, 2,068 pairs, $14.05 of reservations: admitted (as before) | 585 calls, 1,885 candidates, 1,804 pairs, $12.26: admitted |
+| Run: requests | **0** (8 writer, 41 rewrite, 176 label and 141 verification answers from the ledger and checkpoints; every query vector cached) | **0** (8, 33, 160, 123) |
+| Billed | **$0.00** | **$0.00** |
+| Teaching indexes | `ready` 47/47; no `dense_verify` pool fell back; coverage 47/47 per system | `ready` 41/41; none fell back; 41/41 |
+| Results | summary, verdicts, per-type results, seed hits, label agreement and verification differences identical to §5.9's report | identical |
+
+The stage's billed total stays **$1.18 of the $5 cap**. Driver output:
+`fixtures-local/t6fu/logs/rereview-{dryrun,run}-{probability,arxiv_v2}.json`;
+reports `fixtures-local/t6fu/out-f8/probability/source_retrieval-88d1a5df76740884.{json,md}`
+and `fixtures-local/t6fu/out-f8/arxiv_v2/source_retrieval-76b6ce3ade149e70.{json,md}`.
+
+### Gate
+
+Code at `1985c6d9` (the commit after it changes only this file and the stage
+review). `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`,
+`TMPDIR` = the worktree's `fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 12 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8398 passed**, 0 failed, 0 skipped (220 s; the fix step's 8395 plus the 3 F8 tests) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **91 passed**, 8307 deselected (80 s) |
+| Frontend | not changed (no `apps/` file touched), so not run |
+| DB reference scripts | no schema or configuration key changed, so not rerun |
+| Sidecar RPCs | none added, so nothing to pin in `tests/test_mobile_allowlist.py` |
+
+Before the gate, the 12 source-retrieval test files plus the review tests:
+122 passed; `test_output_budget.py`, the compare-harness and tutor tests: 77
+passed. `git status fixtures/` is clean: the tracked vaults were never
+written.
