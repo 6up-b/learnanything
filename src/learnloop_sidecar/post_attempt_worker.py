@@ -182,7 +182,8 @@ class PostAttemptWorker:
             outcomes.append(result)
             with self._changed:
                 self._changed.notify_all()
-            if result.state in ("released", "lease_lost"):
+            # ``deferred``: the daily cap or a spend stop; the rest waits.
+            if result.state in ("released", "deferred", "lease_lost"):
                 break
         return outcomes
 

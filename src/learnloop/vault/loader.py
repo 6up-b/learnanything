@@ -29,6 +29,7 @@ from learnloop.vault.models import (
     SubjectMetadata,
 )
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
+from learnloop.vault.lifecycle import learner_text_gap_edge_in_effect
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.yaml_io import (
     read_markdown_frontmatter_data,
@@ -101,7 +102,9 @@ def load_vault(
 
     relations_file = _load_yaml_model(paths.relations_path, RelationsFile, issues, read_yaml_file)
     if relations_file:
-        loaded.edges = relations_file.edges
+        # A learner-text gap edge whose switch is off stays in the file but
+        # out of the loaded graph (its kill switch, Codex review F10).
+        loaded.edges = [edge for edge in relations_file.edges if learner_text_gap_edge_in_effect(config, edge)]
 
     goals_file = _load_yaml_model(paths.goals_path, GoalsFile, issues, read_yaml_file)
     if goals_file:

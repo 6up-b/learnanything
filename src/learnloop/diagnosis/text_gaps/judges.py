@@ -30,6 +30,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.db.stores.judgments import append_judgment
+from learnloop.db.stores.learner_gaps import PIPELINE_RECEIPT_OWNER
 from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
 from learnloop.diagnosis.recurrence.judging import estimate_tokens, producer_label, receipt_sink
 from learnloop.diagnosis.split.retrieval import QUERY_PREFIX
@@ -67,8 +68,9 @@ from learnloop.matching.kinds import Subject
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.models import LoadedVault
 
-#: model_call receipts of the pipeline's calls are owned by the learner text.
-MODEL_CALL_OWNER_KIND = "learner_text_gap"
+#: model_call receipts of the pipeline's calls are owned by the learner text
+#: (the live daily cap counts them, ``jobs.calls_today``).
+MODEL_CALL_OWNER_KIND = PIPELINE_RECEIPT_OWNER
 ClientFactory = Callable[[], Any]
 
 

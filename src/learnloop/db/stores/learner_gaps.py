@@ -334,18 +334,41 @@ def finish_job(
 
 def release_job(
     connection: sqlite3.Connection, job_id: str, *, owner: str, epoch: int, now: str, not_before: str | None,
-    error: str | None,
+    error: str | None, refund_attempt: bool = False,
 ) -> bool:
+    """Back to ``queued``; ``refund_attempt`` when the job itself did not fail
+    (a spend stop or the daily cap), so it never uses up its retries."""
+
     cursor = connection.execute(
         "UPDATE learner_text_gap_jobs SET state = 'queued', lease_owner = NULL, lease_expires_at = NULL, "
-        "not_before = ?, last_error = ?, updated_at = ? WHERE id = ? AND lease_owner = ? AND lease_epoch = ?",
-        (not_before, error, now, job_id, owner, epoch),
+        "not_before = ?, last_error = ?, updated_at = ?, "
+        "attempt_count = CASE WHEN ? THEN MAX(attempt_count - 1, 0) ELSE attempt_count END "
+        "WHERE id = ? AND lease_owner = ? AND lease_epoch = ?",
+        (not_before, error, now, 1 if refund_attempt else 0, job_id, owner, epoch),
     )
     return cursor.rowcount == 1
 
 
+#: ``model_call_receipts.owner_kind`` of this pipeline's calls.
+PIPELINE_RECEIPT_OWNER = "learner_text_gap"
+
+
+def pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int:
+    """This pipeline's logical model calls (receipt roots) started at or after ``since``."""
+
+    if not _table_present(connection, "model_call_receipts"):
+        return 0
+    row = connection.execute(
+        "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL "
+        "AND started_at >= ?",
+        (PIPELINE_RECEIPT_OWNER, since),
+    ).fetchone()
+    return int(row[0] or 0)
+
+
 __all__ = [
     "GAP_COLUMNS",
+    "PIPELINE_RECEIPT_OWNER",
     "check_advances",
     "commitments",
     "enqueue_job",
@@ -363,6 +386,7 @@ __all__ = [
     "job_for_source",
     "jobs",
     "lease_next_job",
+    "pipeline_calls_since",
     "release_job",
     "reversals",
     "save_job_payload",

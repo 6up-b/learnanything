@@ -272,14 +272,20 @@ def test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch(tmp
     broken = PipelineClients(judge=lambda: (_ for _ in ()).throw(RuntimeError("boom")))
     failing = GapLLMFake(decide=word_match("eigenvalues"), fail={"learner_gap_same_prerequisite"})
     outcome = process_next_gap_job(root, repository, owner="t", clients=_clients(failing), clock=_at(2))
-    # A failed judge call is recorded on the pair and the text still completes.
-    assert outcome.state == "done" and outcome.action == "unmatched_prerequisite"
-    assert process_next_gap_job(root, repository, owner="t", clients=broken, clock=_at(3)) is None
+    # A failed judge call settles nothing (Codex review F1): no row, retried.
+    assert outcome.state == "released" and outcome.gap_id is None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert store.gap_for_source(connection, "tutor_question", event_id) is None
+    assert process_next_gap_job(root, repository, owner="t", clients=broken, clock=_at(2.5)) is None  # backoff
+    outcome = process_next_gap_job(root, repository, owner="t",
+                                   clients=_clients(GapLLMFake(decide=word_match("eigenvalues"))), clock=_at(4))
+    assert outcome.state == "done" and outcome.action == "matched_prerequisite"
+    assert process_next_gap_job(root, repository, owner="t", clients=broken, clock=_at(5)) is None
     append_config_toml(root, "[learner_text_gaps]\nenabled = false\n")
     other = ask_question(load_vault(root), repository, GapTutor(EIGEN_GAP), context="practice", question_md="again?",
-                         practice_item_id="pi_spec_easy", session_id="s", clock=_at(4))["event_id"]
+                         practice_item_id="pi_spec_easy", session_id="s", clock=_at(6))["event_id"]
     enqueue(repository, source_kind="tutor_question", source_id=other)
-    skipped = process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(5))
+    skipped = process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(7))
     assert skipped.state == "skipped"
 
 

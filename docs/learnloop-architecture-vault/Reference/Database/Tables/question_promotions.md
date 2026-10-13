@@ -3,8 +3,8 @@ title: "question_promotions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eca2cb4b9d15ad69738d5fb851a1e1feba06f65b"
-source_commit_timestamp: "2026-10-12T21:07:08-04:00"
+source_commit: "d5d0923829244336088a60fab971519445a11dee"
+source_commit_timestamp: "2026-10-12T21:36:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_promotions"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_question_promotions.py`
 - `tests/test_sidecar_tutor_qa.py`
 - `tests/test_daily_loop_reader_retire.py`
+- `tests/test_learner_text_gaps.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_scheduler_requested_floor.py`
 - `tests/test_tutor_promotion_service.py`

@@ -863,10 +863,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learner_text_gaps.judge_timeout_seconds",
         "learner_text_gaps.max_calls_per_text",
         "learner_text_gaps.max_usd_per_text",
+        "learner_text_gaps.max_calls_per_day",
         "learner_text_gaps.metered_price_per_million",
     ), "structural", "operational",
-        "learner-text gap judge pairs per text / turn deadline / per-text call and dollar caps / owner "
-        "price for metered routes; spend and latency bounds, no measurement authority."),
+        "learner-text gap judge pairs per text / turn deadline / per-text call and dollar caps / the live "
+        "path's daily call cap / owner price for metered routes; spend and latency bounds, no measurement "
+        "authority."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "

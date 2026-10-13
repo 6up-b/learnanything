@@ -1,7 +1,9 @@
 """Read-only interaction derivation. No model, evidence, or repository writes.
 
 ``interaction-signals-v1`` chooses a conservative 0.3 mass per subject/LO/UTC
-day (D12 does not specify a number). Missing timing is NOT evidence of help
+day (D12 does not specify a number). ``interaction-signals-v2`` adds the
+learner-text gap targets (available from when the gap was read, one per
+attempt). Missing timing is NOT evidence of help
 before work: only an explicitly logged zero, or the practice screen's explicit
 "no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
 """
@@ -19,7 +21,10 @@ from typing import Any
 
 from learnloop.field.types import AttemptRow, SignalRow
 
-SIGNAL_VERSION = "interaction-signals-v1"
+#: v2: learner-text gap targets (implementation_handoffs §4) join the
+#: derivation, each available from the gap's own read time (Codex review F6)
+#: and at most one per attempt (F14).
+SIGNAL_VERSION = "interaction-signals-v2"
 DAILY_SIGNAL_MASS_CAP = 0.3
 #: A named prerequisite gap's weak observation: the same mass a typed
 #: prerequisite question carries (the daily cap still applies).
@@ -138,8 +143,11 @@ def derive_interaction_signals(
     (implementation_handoffs §4): the target the tutor named and a judge
     matched, persisted with its subject when the gap was read. A tutor
     question's gap target replaces its grounded facet mapping (a weak
-    ``prerequisite`` observation on that LO); a stuck answer's or a
-    diagnosis's gap adds one. Without one, the grounded rule applies.
+    ``prerequisite`` observation on that LO), observed no earlier than the
+    gap was read (like a paid classification: never back-dated to the
+    question). A stuck answer's or a diagnosis's gap adds one, at most one per
+    attempt: the first read (its stuck text and its diagnosis are the same
+    answer). Without one, the grounded rule applies.
 
     Classifications supply ONLY missing fields. Their availability is their
     creation time, not the historical question time. Feedback dependent on a
@@ -166,10 +174,16 @@ def derive_interaction_signals(
     events += [normalize_question(e, reader=True) for e in interaction_events if e["kind"] == "learner_question_asked"]
     signals: list[SignalRow] = []
     question_gaps: dict[str, Mapping[str, Any]] = {}
-    for gap in learner_gaps:
+    answer_gaps: set[str] = set()
+    for gap in sorted(learner_gaps, key=lambda g: (instant(str(g["created_at"])), str(g["id"]))):
         if gap.get("source_kind") == "tutor_question":
             question_gaps[str(gap["source_id"])] = gap
             continue
+        if gap.get("attempt_id"):
+            # One answer, one observation (field §3.1: no double counting).
+            if str(gap["attempt_id"]) in answer_gaps:
+                continue
+            answer_gaps.add(str(gap["attempt_id"]))
         signals.append(SignalRow(
             signal_id=f"learner_gap:{gap['id']}", lo_id=str(gap["target_id"]),
             observed_at=str(gap["created_at"]), signal_type="prerequisite", outcome=0.0,
@@ -193,6 +207,9 @@ def derive_interaction_signals(
                          str(gap["target_id"]): str(gap.get("target_subject_id") or "default"),
                      }}
             qtype = "prerequisite"
+            # Read (and possibly judged) after the question: available from
+            # then, never back-dated (F6).
+            observed = max((observed, str(gap["created_at"])), key=instant)
         no_work_yet = _logged_no_work_yet(event)
         logged_before = no_work_yet and (
             bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}

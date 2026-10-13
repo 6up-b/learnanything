@@ -12,12 +12,16 @@ shortlist of the same size instead, so a missing-looking prerequisite is still
 checked against similarly named LOs before anything is created; it only
 nominates, the judge decides. Every candidate is restricted, BEFORE ranking,
 to LOs in the asking text's subject: a target is never cross-subject (F11).
+A text with no grounded subject (a reader question whose LOs span subjects,
+a note with no subject) is judged against its own anchors only: no declared
+prerequisite, no creation and no vault-wide shortlist, since any of them
+could sit in an unrelated subject (Codex review F4).
 
 **Beliefs.** The registry and the holding pen as the diagnoser sees them:
 durable misconceptions on the anchor LO (any status) and active ones on its
 concept and ``confusable_with`` neighbours, holding-pen candidates on the
 anchor LO, plus the ``misconception/statement`` kNN over the vault registry
-in the same subject when vectors exist.
+in the same subject when vectors exist (never without a grounded subject).
 """
 
 from __future__ import annotations
@@ -56,6 +60,8 @@ class Candidates:
     shortlist_basis: str = "none"
     shortlist_model: str | None = None
     excluded_cross_subject: int = 0
+    #: The subject every candidate was restricted to (None: anchors only).
+    grounded_subject: str | None = None
 
     def summary(self) -> dict[str, Any]:
         bases: dict[str, int] = {}
@@ -63,7 +69,8 @@ class Candidates:
             basis = str(subject.scope.get("basis"))
             bases[basis] = bases.get(basis, 0) + 1
         return {"candidates": len(self.subjects), "by_basis": bases, "shortlist_basis": self.shortlist_basis,
-                "shortlist_model": self.shortlist_model, "excluded_cross_subject": self.excluded_cross_subject}
+                "shortlist_model": self.shortlist_model, "excluded_cross_subject": self.excluded_cross_subject,
+                "grounded_subject": self.grounded_subject}
 
     def pairs(self, query: Subject) -> list[CandidatePair]:
         return [
@@ -135,7 +142,7 @@ def prerequisite_candidates(
     day_start: str,
 ) -> Candidates:
     subject_id = text.subject_id
-    result = Candidates()
+    result = Candidates(grounded_subject=subject_id)
     seen: set[str] = set()
 
     def add(learning_object_id: str, basis: str) -> None:
@@ -153,6 +160,10 @@ def prerequisite_candidates(
     anchors = list(text.anchor_learning_object_ids)
     for learning_object_id in anchors:
         add(learning_object_id, "item")
+    if subject_id is None:
+        # Not grounded in one subject: the text's own LOs only (F4).
+        result.subjects = result.subjects[:limit]
+        return result
     for learning_object_id in created_today(repository, day_start=day_start):
         add(learning_object_id, "created_today")
     first = list(result.subjects)
@@ -231,7 +242,7 @@ def belief_candidates(
     for row in repository.misconception_candidates_for_learning_object(anchor):
         add(registry_subject("candidate", str(row["id"]), str(row.get("statement") or ""),
                              learning_object_id=anchor, basis="holding_pen"))
-    if query_vector is not None and model_id:
+    if query_vector is not None and model_id and text.subject_id is not None:
         pool = _registry_pool(vault, repository, subject_id=text.subject_id, exclude=seen)
         if pool:
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -246,7 +257,7 @@ def belief_candidates(
     return result
 
 
-def _registry_pool(vault: LoadedVault, repository: Repository, *, subject_id: str | None, exclude: set[str]) -> list[Subject]:
+def _registry_pool(vault: LoadedVault, repository: Repository, *, subject_id: str, exclude: set[str]) -> list[Subject]:
     """Every registry entry in the subject (durable beliefs and legacy holding-pen rows)."""
 
     pool: list[Subject] = []

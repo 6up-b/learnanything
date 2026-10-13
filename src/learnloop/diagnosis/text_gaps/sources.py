@@ -242,7 +242,13 @@ class StuckText:
 
 
 class StuckTextSource(Protocol):
-    """Where stuck answers come from (the stuck-prompt stage's read-only view)."""
+    """Where stuck answers come from (the stuck-prompt stage's read-only view).
+
+    A source may also offer ``stuck_text(connection, attempt_id)``: one
+    attempt's stuck text or None, without scanning every stuck answer (what
+    queueing at attempt recording asks, F8). :func:`stuck_text_for` falls
+    back to filtering :meth:`stuck_texts`.
+    """
 
     def stuck_texts(self, connection: Any) -> Sequence[StuckText]: ...
 
@@ -252,21 +258,45 @@ class StuckAnswersAdapter:
 
     Integration point: once ``practice/stuck-prompt`` merges, its
     ``stuck_answers(connection)`` rows (``has_text``, ``learner_answer_md``,
-    ``reading.confusion_quote``) arrive here unchanged; no code change.
+    ``reading.confusion_quote``) arrive here unchanged; no code change. Its
+    marker, the persisted ``practice_attempts.declared_stuck`` column, is
+    read first for one attempt (:meth:`stuck_text`), so recording an
+    ordinary answer never scans the stuck answers.
     """
 
     module = "learnloop.attempts.stuck"
+    marker_column = "declared_stuck"
 
-    def stuck_texts(self, connection: Any) -> Sequence[StuckText]:
+    def _reader(self) -> Any:
         try:
             stuck = importlib.import_module(self.module)
         except ImportError:
-            return []
-        reader = getattr(stuck, "stuck_answers", None)
-        if reader is None:
-            return []
+            return None
+        return getattr(stuck, "stuck_answers", None)
+
+    def stuck_text(self, connection: Any, attempt_id: str) -> StuckText | None:
+        reader = self._reader()
+        if reader is None or not self._marked(connection, attempt_id):
+            return None
+        return next((row for row in self._rows(reader(connection)) if row.attempt_id == attempt_id), None)
+
+    def _marked(self, connection: Any, attempt_id: str) -> bool:
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+        if self.marker_column not in columns:
+            return False
+        row = connection.execute(
+            f"SELECT {self.marker_column} FROM practice_attempts WHERE id = ?", (attempt_id,)
+        ).fetchone()
+        return bool(row and row[0])
+
+    def stuck_texts(self, connection: Any) -> Sequence[StuckText]:
+        reader = self._reader()
+        return self._rows(reader(connection)) if reader is not None else []
+
+    @staticmethod
+    def _rows(rows: Any) -> list[StuckText]:
         out = []
-        for row in reader(connection):
+        for row in rows:
             if not row.get("has_text") or not str(row.get("learner_answer_md") or "").strip():
                 continue
             reading = row.get("reading") or {}
@@ -290,10 +320,23 @@ def stuck_texts(repository: Repository, source: StuckTextSource | None = None) -
         return list((source or DEFAULT_STUCK_SOURCE).stuck_texts(connection))
 
 
+def stuck_text_for(
+    repository: Repository, attempt_id: str, source: StuckTextSource | None = None,
+) -> StuckText | None:
+    """One attempt's non-empty stuck text, or None."""
+
+    source = source or DEFAULT_STUCK_SOURCE
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        lookup = getattr(source, "stuck_text", None)
+        if lookup is not None:
+            return lookup(connection, attempt_id)
+        return next((row for row in source.stuck_texts(connection) if row.attempt_id == attempt_id), None)
+
+
 def stuck_answer_text(
     vault: LoadedVault, repository: Repository, attempt_id: str, source: StuckTextSource | None = None,
 ) -> LearnerText | None:
-    found = next((row for row in stuck_texts(repository, source) if row.attempt_id == attempt_id), None)
+    found = stuck_text_for(repository, attempt_id, source)
     if found is None:
         return None
     item = vault.practice_items.get(found.practice_item_id)
@@ -342,6 +385,7 @@ __all__ = [
     "reading_from_diagnosis",
     "resolve_prerequisite_ref",
     "stuck_answer_text",
+    "stuck_text_for",
     "stuck_texts",
     "tutor_question_text",
 ]

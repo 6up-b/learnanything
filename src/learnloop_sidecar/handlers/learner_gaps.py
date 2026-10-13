@@ -86,6 +86,8 @@ def gap_view(vault: Any, gap: dict[str, Any], reversals: list[str]) -> dict[str,
 
 
 def _changed_vault(vault: Any, gap: dict[str, Any], reversals: list[str]) -> bool:
+    """Does the loaded vault predate what this reading (or its undo) wrote?"""
+
     created = gap.get("created_learning_object_id")
     if created and created not in vault.learning_objects and "undo_creation" not in reversals:
         return True
@@ -97,6 +99,29 @@ def _changed_vault(vault: Any, gap: dict[str, Any], reversals: list[str]) -> boo
     if gap.get("edge_id") and (gap["edge_id"] not in edge_ids) != ("undo_edge" in reversals or "undo_creation" in reversals):
         return True
     return False
+
+
+def _reconcile(ctx: SidecarContext, vault: Any, repository: Any, gap: dict[str, Any], reversals: list[str]) -> tuple[Any, Any]:
+    """Reload once per reading state when the loaded vault looks older than it.
+
+    A recorded edge can also be missing for good (deleted in the graph
+    editor, or kept out of the loaded graph by its switch): then the reload
+    changes nothing, so the reading state is remembered and later polls
+    neither reload nor bump the queue revision again (Codex review F16).
+    """
+
+    if not _changed_vault(vault, gap, reversals):
+        return vault, repository
+    key = (str(gap["id"]), tuple(sorted(reversals)))
+    seen: set[tuple[str, tuple[str, ...]]] = ctx.__dict__.setdefault("_learner_gap_reconciled", set())
+    if key in seen:
+        return vault, repository
+    seen.add(key)
+    ctx.reload(maintenance=False)
+    vault, repository = ctx.require_vault()
+    if not _changed_vault(vault, gap, reversals):
+        repository.bump_queue_revision()
+    return vault, repository
 
 
 def queue_tutor_question_gap(
@@ -134,10 +159,7 @@ def get_learner_text_gap(ctx: SidecarContext, params: GetLearnerTextGapInput) ->
         state = (job or {}).get("state")
         status = "pending" if state in ("queued", "leased") else ("skipped" if state == "skipped" else "none")
         return versioned({"status": status, "gap": None})
-    if _changed_vault(vault, gap, reversals):
-        ctx.reload(maintenance=False)
-        vault, repository = ctx.require_vault()
-        repository.bump_queue_revision()
+    vault, repository = _reconcile(ctx, vault, repository, gap, reversals)
     return versioned({"status": "done", "gap": gap_view(vault, gap, reversals)})
 
 

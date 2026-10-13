@@ -177,7 +177,9 @@ class GapTutor(StructuredClientFake):
     """The tutor, answering with a named gap."""
 
     provider_name = "fake_tutor"
-    provider_type = "fake"
+    # The tutor on Codex (the owner's default route): the seed's analysis call
+    # is admitted on the tutor's route, a subscription one here.
+    provider_type = "codex_sdk"
     model = "fake/tutor"
 
     def __init__(self, gap: LearnerGap | None, *, question_type: str = "prerequisite", answer_md: str = "Think it through.",

@@ -184,8 +184,14 @@ def test_a_missing_prerequisite_is_drafted_created_live_seeded_and_committed(tmp
     assert vault.concepts[row["created_concept_id"]].title == "Eigenvectors"
     edge = next(edge for edge in vault.edges if edge.id == row["edge_id"])
     assert (edge.source, edge.target) == (created.concept, "diagonalization")
-    assert row["seed_status"] == "auto_apply" and row["seed_practice_item_id"]
-    assert vault.practice_items[row["seed_practice_item_id"]].learning_object_id == created.id
+    assert (edge.model_extra or {})["provenance"]["origin"] == "creation"
+    # Codex review F7: the asking LO's source notes cover the material that
+    # builds on the prerequisite, not the prerequisite, so they are not its
+    # grounding: the promotion path's own rule sends the seed to review.
+    assert row["seed_status"] == "review_required" and row["seed_practice_item_id"]
+    assert row["seed_practice_item_id"] not in vault.practice_items
+    promotion = repository.question_promotion(row["source_id"])
+    assert promotion["route"] == "review_required"
     assert [purpose for purpose, _ in llm.calls].count("learner_gap_prerequisite_draft") == 1
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         commitments = store.commitments(connection)
@@ -237,11 +243,28 @@ def test_the_daily_creation_cap_holds(tmp_path):
     assert row["action"] == "unmatched_prerequisite" and row["detail"]["reason"] == "daily_cap"
 
 
+def _accept_seed(root, row, item_id="pi_ltg_seed_accepted"):
+    """The owner accepted the seed item (written straight to the vault here)."""
+
+    from learnloop.vault.writer import upsert_practice_item
+
+    upsert_practice_item(root, {
+        "id": item_id, "learning_object_id": row["created_learning_object_id"], "practice_mode": "short_answer",
+        "attempt_types_allowed": ["independent_attempt"], "evidence_facets": ["recall"],
+        "evidence_weights": {"recall": 1.0}, "prompt": "What is an eigenvector of a matrix A?",
+        "expected_answer": "A nonzero vector v with Av = lambda v.",
+        "grading_rubric": {"max_points": 4, "criteria": [{"id": "correctness", "points": 4,
+                                                           "description": "Defines it."}], "fatal_errors": []},
+        "provenance": {"origin": "human", "source_refs": []}, "created_at": NOW_ISO, "updated_at": NOW_ISO,
+    })
+    return item_id
+
+
 def test_switching_creation_off_stops_serving_created_los(tmp_path):
     root, repository = _vault(tmp_path)
     _source_note(root)
     row, _llm = _create(root, repository)
-    item_id = row["seed_practice_item_id"]
+    item_id = _accept_seed(root, row)
     assert practice_item_serving_block(load_vault(root), load_vault(root).practice_items[item_id]) is None
     append_config_toml(root, "[learner_text_gaps]\ncreate_prerequisites_enabled = false\n")
     vault = load_vault(root)

@@ -52,6 +52,33 @@ def _learner_text_gap_creations_on(vault: LoadedVault) -> bool:
     return section is None or bool(section.enabled and section.create_prerequisites_enabled)
 
 
+def learner_text_gap_edge_in_effect(config: Any, edge: Any) -> bool:
+    """Is this relation edge part of the loaded vault (Codex review F10)?
+
+    Every edge is, except a ``prerequisite`` edge the learner-text gap
+    pipeline added (``provenance.mechanism == learner_text_gap_v1``) while
+    its switch is off: a matched prerequisite's edge needs
+    ``learner_text_gaps.add_edges_enabled``, a created prerequisite's edge
+    (``provenance.origin == "creation"``) needs ``create_prerequisites_enabled``,
+    both need ``enabled``. Off, the edge stays in ``concepts/relations.yaml``
+    but nothing reads it (placement order, declared prerequisites, the
+    diagnoser's neighbourhood, the map): the predecessor's graph exactly.
+    """
+
+    extra: dict[str, Any] = getattr(edge, "model_extra", None) or {}
+    provenance = extra.get("provenance")
+    if not isinstance(provenance, dict) or provenance.get("mechanism") != LEARNER_TEXT_GAP_MECHANISM:
+        return True
+    section = getattr(config, "learner_text_gaps", None)
+    if section is None:
+        return True
+    if not section.enabled:
+        return False
+    if provenance.get("origin") == "creation":
+        return bool(section.create_prerequisites_enabled)
+    return bool(section.add_edges_enabled)
+
+
 def adopted_by_reference_sweep(item: PracticeItem) -> bool:
     """True for a card the reader's reference-question sweep adopted."""
 

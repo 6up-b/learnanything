@@ -39,6 +39,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.followups import (
     FollowupDecision,
     enqueue_post_attempt_diagnosis,
+    enqueue_post_attempt_learner_text,
     evaluate_attempt_intervention_followup,
     normalize_and_resolve_attempt,
 )
@@ -157,6 +158,9 @@ def run_post_attempt_pipeline(
                 route=probe_route(repository, result, episode_id=applied_episode_id),
                 clock=clock,
             )
+        # After the completion commits: a non-empty stuck answer is queued
+        # for the learner-text gap reading (never fails the attempt).
+        enqueue_post_attempt_learner_text(vault, repository, attempt_id=result.attempt_id, clock=clock)
     notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
     return PostAttemptOutcome(attempt_id=result.attempt_id, followup=decision, notes=notes)
 

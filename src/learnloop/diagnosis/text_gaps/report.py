@@ -3,10 +3,14 @@
 For each kind and each chooser (the context model, or the Decider when the
 switch made it authoritative): read, matched, created, noted beliefs, undone.
 For created prerequisites, the first-check pass rate (their light commitment's
-delayed check, read from placement). For beliefs, the learner's "not what I
-meant" taps. And the evidence on whether the Decider or the LLM chooses
-better: their agreement on the kind (and, per disagreement, whether the acted
-reading was later undone), and the two judges' agreement on the same pairs.
+delayed check, read from placement whatever the creation switch says now),
+overall and per chooser. For beliefs, the learner's "not what I meant" taps
+and the diagnosis card's "not the same mistake" taps on the answers this
+pipeline read as beliefs. And the evidence on whether the Decider or the LLM
+chooses better: their agreement on the kind (and, per disagreement, whether
+the acted reading was later undone), and the two judges' agreement on the
+same pairs. ``since`` windows everything: the readings, their reversals, the
+pair verdicts, the commitments and the jobs (Codex review F11).
 
 Counts carry Wilson 95% intervals; there are no thresholds and no
 recommendation. Learner texts appear only in ``--out``'s batch-review section
@@ -23,6 +27,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
@@ -47,16 +52,16 @@ def _rate(successes: int, trials: int) -> dict[str, Any]:
             "wilson95": wilson(successes, trials)}
 
 
-def _pair_agreement(connection: Any, task: str) -> dict[str, Any]:
+def _pair_agreement(connection: Any, task: str, *, since: str | None = None) -> dict[str, Any]:
     """LLM vs Decider on the same pair (latest standing verdict of each)."""
 
     latest: dict[tuple[str, str, str, str], dict[str, str]] = defaultdict(dict)
     for row in connection.execute(
         "SELECT left_kind, left_id, right_kind, right_id, judge, verdict FROM judgment_ledger j "
-        "WHERE task = ? AND judge IN ('llm', 'decider') "
+        "WHERE task = ? AND judge IN ('llm', 'decider') AND (? IS NULL OR created_at >= ?) "
         "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id) "
         "ORDER BY created_at, rowid",
-        (task,),
+        (task, since, since),
     ):
         key = tuple(sorted([(str(row[0]), str(row[1])), (str(row[2]), str(row[3]))]))
         latest[key][str(row[4])] = str(row[5])  # type: ignore[index]
@@ -67,11 +72,7 @@ def _pair_agreement(connection: Any, task: str) -> dict[str, Any]:
             "llm_by_decider": dict(sorted(matrix.items()))}
 
 
-def _first_checks(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
-    from learnloop.placement.state import LEARNER_TEXT_GAP_SOURCE, load_placement_state
-
-    state = load_placement_state(vault, repository)
-    rows = [a for a in state.assumptions if a.source == LEARNER_TEXT_GAP_SOURCE]
+def _check_counts(rows: list[Any]) -> dict[str, Any]:
     passed = sum(1 for a in rows if a.status == "passed")
     failed = sum(1 for a in rows if a.status == "failed")
     return {"commitments": len(rows), "open": sum(1 for a in rows if a.is_open), "passed": passed,
@@ -79,13 +80,62 @@ def _first_checks(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
             "first_check_pass_rate": _rate(passed, passed + failed)}
 
 
+def _first_checks(vault: LoadedVault, repository: Repository, gaps: list[dict[str, Any]]) -> dict[str, Any]:
+    """The created prerequisites' light commitments and their delayed checks.
+
+    Read whatever ``create_prerequisites_enabled`` says now (the outcome of a
+    creation does not stop existing when creation is switched off), only for
+    the readings in the report's window, overall and per chooser.
+    """
+
+    from learnloop.placement.state import (
+        LEARNER_TEXT_GAP_SOURCE,
+        diagnosis_can_arrive,
+        load_placement_state_from_connection,
+        placement_active,
+    )
+
+    with repository.connection() as connection:
+        state = load_placement_state_from_connection(
+            connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+            now_iso=utc_now_iso(), gap_commitments=True,
+        )
+    by_gap = {str(row["id"]): row for row in gaps}
+    rows = [a for a in state.assumptions if a.source == LEARNER_TEXT_GAP_SOURCE and str(a.trigger_ref) in by_gap]
+    per_chooser: dict[str, list[Any]] = defaultdict(list)
+    for assumption in rows:
+        gap = by_gap[str(assumption.trigger_ref)]
+        per_chooser["decider" if gap["chooser"] == "decider" else str(gap["context_judge"])].append(assumption)
+    return {**_check_counts(rows),
+            "by_chooser": {key: _check_counts(value) for key, value in sorted(per_chooser.items())}}
+
+
+def _card_taps(connection: Any, attempt_ids: set[str], *, since: str | None) -> int:
+    """T1's diagnosis-card "not the same mistake" taps on these answers."""
+
+    if not attempt_ids:
+        return 0
+    taps = connection.execute(
+        "SELECT left_id, right_id FROM judgment_ledger WHERE task = 'same_cause' AND judge = 'learner_card' "
+        "AND verdict = 'different' AND (? IS NULL OR created_at >= ?)",
+        (since, since),
+    ).fetchall()
+    return sum(1 for left, right in taps if str(left) in attempt_ids or str(right) in attempt_ids)
+
+
 def build_report(vault: LoadedVault, repository: Repository, *, since: str | None = None) -> dict[str, Any]:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = store.gaps(connection, since=since)
         reversal_rows = store.reversals(connection, [row["id"] for row in rows])
-        agreement = {task: _pair_agreement(connection, task)
+        agreement = {task: _pair_agreement(connection, task, since=since)
                      for task in (SAME_PREREQUISITE_TASK, SAME_BELIEF_TASK, NEEDED_TASK)}
-        jobs = Counter(job["state"] for job in store.jobs(connection))
+        jobs = Counter(job["state"] for job in store.jobs(connection) if since is None or job["created_at"] >= since)
+        belief_attempts = {
+            str(row["attempt_id"]) for row in rows
+            if row.get("attempt_id") and row["kind"] == "misconception"
+            and row["action"] in ("belief_sighting", "belief_candidate", "belief_registry_path")
+        }
+        card_taps = _card_taps(connection, belief_attempts, since=since)
     reversed_by: dict[str, set[str]] = defaultdict(set)
     for reversal in reversal_rows:
         reversed_by[reversal["gap_id"]].add(reversal["reversal"])
@@ -124,10 +174,11 @@ def build_report(vault: LoadedVault, repository: Repository, *, since: str | Non
             "created": len(created), "undone": undone_creations,
             "undo_rate": _rate(undone_creations, len(created)),
             "seed_status": dict(Counter(str(row.get("seed_status")) for row in created)),
-            **_first_checks(vault, repository),
+            **_first_checks(vault, repository, created),
         },
         "beliefs": {"noted": len(beliefs), "not_this_belief_taps": taps, "tap_rate": _rate(taps, len(beliefs)),
-                    "new_candidates": sum(1 for row in beliefs if row["action"] == "belief_candidate")},
+                    "new_candidates": sum(1 for row in beliefs if row["action"] == "belief_candidate"),
+                    "card_not_same_mistake_taps": card_taps},
         "chooser": {
             "configured_now": vault.config.learner_text_gaps.chooser,
             "kind_agreement": _rate(agree, len(both)),
@@ -194,10 +245,16 @@ def render_markdown(report: Mapping[str, Any], review: list[dict[str, Any]]) -> 
         f"{created['created']} created, {created['undone']} undone; first checks: {created['passed']} passed, "
         f"{created['failed']} failed, {created['open']} open "
         f"(pass rate {created['first_check_pass_rate']['rate']}, Wilson 95% {created['first_check_pass_rate']['wilson95']}).",
+        *[
+            f"- {chooser_key}: {entry['passed']} passed, {entry['failed']} failed, {entry['open']} open "
+            f"(pass rate {entry['first_check_pass_rate']['rate']}, Wilson 95% {entry['first_check_pass_rate']['wilson95']})"
+            for chooser_key, entry in created.get("by_chooser", {}).items()
+        ],
         "", "## Beliefs", "",
         f"{beliefs['noted']} noted ({beliefs['new_candidates']} new holding-pen candidates); "
         f"\"not what I meant\": {beliefs['not_this_belief_taps']} (rate {beliefs['tap_rate']['rate']}, "
-        f"Wilson 95% {beliefs['tap_rate']['wilson95']}).",
+        f"Wilson 95% {beliefs['tap_rate']['wilson95']}); diagnosis-card \"not the same mistake\" taps on "
+        f"those answers: {beliefs['card_not_same_mistake_taps']}.",
         "", "## Decider or LLM", "",
         f"Kind agreement (context model vs Decider): {chooser['kind_agreement']['k']}/{chooser['kind_agreement']['n']} "
         f"(Wilson 95% {chooser['kind_agreement']['wilson95']}); disagreements later reversed: "
