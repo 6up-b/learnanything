@@ -871,6 +871,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
     "proof_check": "the valid-alternative gate for proofs and explanations (mvp-0.17): the kill switch of the independent route check on proof-like items",
+    "decider_routes": "Tier 1, the Decider migration (mvp-0.20, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, and the facet span-support check",
 }
 
 
@@ -1158,6 +1159,58 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "grader's); the gate restores, records unverified or flags criteria and the verdict goes "
         "to judgment_ledger. Off, new answers are graded exactly as mvp-0.16. Dormant below "
         "mvp-0.17; replay reads the blind record and evidence rows, never this switch."
+    ),
+    "ai.routing.tier1_decider": (
+        "Selects the decision-model profile (type `decider`) that answers the Tier-1 judgments "
+        "`[decider_routes]` moves to the Decider (mvp-0.20) and the facet span-support check; empty uses "
+        "the code-default `openrouter_decider` profile. A Decider-only route: never a chat provider, "
+        "never `LEARNLOOP_AI_PROVIDER`, never a generic LLM fallback. Learner-text gaps keep "
+        "`ai.routing.learner_gap_decider`."
+    ),
+    "decider_routes.learner_gap_judge": (
+        "Kill switch for the Decider's learner-text gap pair verdicts (same prerequisite, same belief) and "
+        "its \"needed?\" verdict at mvp-0.20: the argmax of one typed choice decides, the learner_gap_judge "
+        "LLM only where it gave no answer (unavailable, refused for spend, failing). Off: both judges as at "
+        "mvp-0.19 (learner_text_gaps.chooser decides whose verdict counts; beliefs the LLM's)."
+    ),
+    "decider_routes.learner_gap_kind": (
+        "Kill switch for the Decider's kind of a learner text at mvp-0.20 (the gap chooser's authority): its "
+        "argmax decides and the context model still names the gap; the context model's kind only where the "
+        "Decider gave no answer. Off: learner_text_gaps.chooser decides, as at mvp-0.19."
+    ),
+    "decider_routes.misconception_match": (
+        "Kill switch for the Decider's misconception match at mvp-0.20: one typed choice over the "
+        "candidate registry beliefs and `new`; the grading route's misconception_match call only where it "
+        "gave no answer. Off: the LLM alone, as at mvp-0.19. No model client (replay, the worker): no call."
+    ),
+    "decider_routes.diagnosis_link_judgment": (
+        "Kill switch for the Decider's pattern-link verdicts in `learnloop diagnose review` at mvp-0.20 "
+        "(same / different / not_sure per blinded earlier answer); the diagnosis_judge LLM batch only for a "
+        "link it gave no answer. A Decider link imported from a review joins T1's recurrence groups. Off: "
+        "the LLM judge, as at mvp-0.19."
+    ),
+    "decider_routes.field_question_classification": (
+        "Kill switch for the Decider's answer to `learnloop field classify-questions` at mvp-0.20 (the "
+        "missing question type and a yes/no per catalog LO and facet, in one request); the configured "
+        "field_question_classifier route only where it gave no answer or the catalog needs more than one "
+        "request. Off: the classifier route, as at mvp-0.19."
+    ),
+    "decider_routes.contamination_leak_judgment": (
+        "Kill switch for the Decider's exam and tutor-answer leak verdicts in the contamination report at "
+        "mvp-0.20; the contamination_judge LLM only for a pair it gave no answer. Off: the LLM judge, as at "
+        "mvp-0.19."
+    ),
+    "decider_routes.contamination_reveal_judgment": (
+        "Kill switch for the Decider's reader-reserve reveal verdicts in the contamination report at "
+        "mvp-0.20; the contamination_judge LLM only for a pair it gave no answer. Off: the LLM judge, as at "
+        "mvp-0.19."
+    ),
+    "decider_routes.facet_span_support": (
+        "Kill switch for the facet span-support check (a content path, every version): before a "
+        "model-proposed reword of a registered facet's meaning that cites explanatory spans applies, the "
+        "Decider answers one typed question over those spans and the new wording; only `supports` as its "
+        "top option applies it, anything else (or no answer) holds it for the owner's one-tap confirm. Off: "
+        "a cited reword applies as before."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

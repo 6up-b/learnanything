@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "7cf36ed9ce346f78efea1f8611b14ae674676dd8"
+source_commit_timestamp: "2026-10-13T16:45:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/ai/agreement.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/proof_check.py"
   - "src/learnloop/attempts/stuck.py"
+  - "src/learnloop/cli/decider.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
-  - "src/learnloop/cli/facets.py"
-  - "src/learnloop/cli/families.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,12 +100,14 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/ai/agreement.py`
 - `src/learnloop/attempts/proof_check.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/content/facet_identity/judge.py`
+- `src/learnloop/content/facet_identity/span_support.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -121,6 +123,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/judges.py`
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
 - `src/learnloop/diagnosis/text_gaps/report.py`
+- `src/learnloop/diagnosis/text_gaps/tier1.py`
 - `src/learnloop/field/probability_prep.py`
 - `src/learnloop/matching/judge.py`
 - `src/learnloop/ops/contamination/judge.py`
@@ -153,6 +156,7 @@ None found by exact static reference scan.
 - `tests/test_assumed_known.py`
 - `tests/test_attach_to_family.py`
 - `tests/test_contamination_report.py`
+- `tests/test_decider_agreement.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_diagnosis_reports.py`
@@ -167,7 +171,6 @@ None found by exact static reference scan.
 - `tests/test_facet_reword_paths.py`
 - `tests/test_family_proposals.py`
 - `tests/test_grading_hardcases.py`
-- `tests/test_graph_nomination_ingest.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

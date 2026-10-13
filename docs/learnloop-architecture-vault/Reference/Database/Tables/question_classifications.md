@@ -3,8 +3,8 @@ title: "question_classifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "7cf36ed9ce346f78efea1f8611b14ae674676dd8"
+source_commit_timestamp: "2026-10-13T16:45:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_classifications"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_interaction_signals.py`
+- `tests/test_tier1_decider.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
