@@ -23,6 +23,7 @@ from learnloop.ops.settings_store import apply_config_updates
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
+from tests.test_source_append import FakeAppendClient
 from tests.test_source_inventory import FakeInventoryClient
 from tests.test_source_set_synthesis import FakeSynthesisClient
 
@@ -107,14 +108,61 @@ def route(*, ready: bool = True, provider: str = "codex_medium", subscription: b
     )
 
 
-def fake_services(authoring: AuthoringRoute | None = None, **overrides: Any) -> RunnerServices:
+class FakeBookSynthesisClient(FakeSynthesisClient):
+    """The house synthesis fake that also answers the append lane, so the
+    chapters a progressive build adds really reconcile into the book's map
+    (the bootstrap-only fake fails every later chapter)."""
+
+    def __init__(self, *, on_append=None, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.append = FakeAppendClient()
+        self.on_append = on_append
+
+    def run_append_reconciliation(self, context):
+        if self.on_append is not None:
+            self.on_append(context)
+        return self.append.run_append_reconciliation(context)
+
+
+class Calls:
+    """Counts the model clients a test's builds create and call."""
+
+    def __init__(self) -> None:
+        self.inventory: list[FakeInventoryClient] = []
+        self.synthesis: list[FakeBookSynthesisClient] = []
+
+    @property
+    def inventory_calls(self) -> int:
+        return sum(len(client.calls) for client in self.inventory)
+
+    @property
+    def synthesis_calls(self) -> int:
+        return sum(len(client.calls) + len(client.append.calls) for client in self.synthesis)
+
+
+def fake_services(authoring: AuthoringRoute | None = None, *, calls: Calls | None = None,
+                  route_holder: list[AuthoringRoute] | None = None, on_append=None,
+                  **overrides: Any) -> RunnerServices:
     chosen = authoring or route()
-    return RunnerServices(
-        inventory_client_factory=lambda ctx: FakeInventoryClient(),
-        synthesis_client_factory=lambda ctx: FakeSynthesisClient(),
-        authoring_route_factory=lambda ctx: chosen,
-        **overrides,
-    )
+    seen = calls or Calls()
+
+    def inventory(ctx):
+        client = FakeInventoryClient()
+        seen.inventory.append(client)
+        return client
+
+    def synthesis(ctx):
+        client = FakeBookSynthesisClient(on_append=on_append)
+        seen.synthesis.append(client)
+        return client
+
+    factories: dict[str, Any] = {
+        "inventory_client_factory": inventory,
+        "synthesis_client_factory": synthesis,
+        "authoring_route_factory": (lambda ctx: route_holder[0]) if route_holder else (lambda ctx: chosen),
+    }
+    factories.update(overrides)
+    return RunnerServices(**factories)
 
 
 def repository(root: Path) -> Repository:

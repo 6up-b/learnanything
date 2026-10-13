@@ -68,6 +68,19 @@ def _chapter_labels(repo, source_id):
     return {chapter.unit_id: chapter.label for chapter in outline_chapters(build_source_outline(repo, extraction_id))}
 
 
+def _assert_build_applied(repo, batch_id):
+    batch = repo.get_ingest_batch(batch_id)
+    assert batch["status"] == "completed", [
+        (job["job_type"], job["status"], job.get("error")) for job in repo.ingest_jobs_for_batch(batch_id)
+    ]
+    synthesis = next(
+        job for job in repo.ingest_jobs_for_batch(batch_id)
+        if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
+    )
+    result = synthesis["result"]
+    assert result.get("applied") or result.get("auto_applied_item_ids"), result
+
+
 def _assert_plain(line):
     assert line is not None
     text = (line["text"] + " " + ((line.get("action") or {}).get("label") or "")).lower()
@@ -291,7 +304,12 @@ def test_the_subscription_never_pauses_for_cost(tmp_path):
     item = _add(root, jobs, write_book(tmp_path))
     outcome = latest_auto_outcome(repo, item["source_id"])
     assert outcome["outcome"] == "building"
-    assert outcome["estimate_usd"] == 0.0
+    # Billed to the subscription: never paused, never capped, but its cost is
+    # kept as a token estimate (Slice A §5 rule 6), not recorded as $0.
+    assert outcome["cost_basis"] == "estimated_only"
+    assert outcome["estimate_tokens"] > 0
+    assert outcome["estimate_usd"] is None
+    assert outcome["authorized_usd"] is None
 
 
 # --------------------------------------------------------------------------
@@ -322,6 +340,11 @@ def test_reading_into_the_next_chapter_builds_one_chapter_ahead(tmp_path):
     newest = _build_batches(repo)[0]
     inventory = next(job for job in repo.ingest_jobs_for_batch(newest["id"]) if job["job_type"] == "inventory")
     assert [unit["unit_id"] for unit in inventory["payload"]["units"]] == [by_label["3 Random variables"]]
+    # The chapter really reconciled into the book's map and applied (review:
+    # this used to pass while the append lane failed on the bootstrap fake).
+    _assert_build_applied(repo, newest["id"])
+    line = source_status_line(repo, load_vault(root), source_id)
+    assert line["text"] == "Questions ready for Ch. 3"
 
 
 def test_jumping_ahead_builds_the_chapter_jumped_to(tmp_path):
@@ -333,6 +356,7 @@ def test_jumping_ahead_builds_the_chapter_jumped_to(tmp_path):
     by_label = {label: unit_id for unit_id, label in _chapter_labels(repo, item["source_id"]).items()}
     started = advance_reading_build(jobs, extraction_id, by_label["4 Expectation"])
     assert started["chapters"] == ["4 Expectation"]
+    _assert_build_applied(repo, _build_batches(repo)[0]["id"])
 
 
 def test_reading_does_nothing_while_auto_build_is_off(tmp_path):

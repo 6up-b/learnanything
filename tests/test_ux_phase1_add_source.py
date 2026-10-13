@@ -140,7 +140,10 @@ def test_a_link_is_queued_and_shows_on_the_shelf_while_it_is_fetched(tmp_path):
     assert call(ctx, "get_source_library", {})["pending"] == []
 
 
-def test_add_source_with_more_options(tmp_path):
+def test_add_source_with_more_options(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import add_source as core
+
+    monkeypatch.setattr(core, "text_recognition_available", lambda **_: True)
     root = fresh_library(tmp_path)
     ctx = _held_ctx(root)
     pdf = write_pdf(tmp_path)
@@ -153,10 +156,14 @@ def test_add_source_with_more_options(tmp_path):
     import_job = next(job for job in jobs if job["job_type"] == "import")
     assert import_job["payload"]["page_selection"] == [0, 1]
     assert import_job["payload"]["reader_enabled"] is False
-    assert import_job["payload"]["pdf_config"] == {"force_ocr": True}
+    # An extractor that recognises text, named explicitly (review F9).
+    assert import_job["payload"]["pdf_config"] == {"engine": "marker", "force_ocr": True}
+    assert import_job["payload"]["keep_local"] is True
     auto_job = next(job for job in jobs if job["job_type"] == AUTO_STUDY_MAP_JOB)
     assert auto_job["payload"]["problem_set"] is True
     assert auto_job["payload"]["keep_local"] is True
+    # The privacy choice belongs to the book, persisted before anything runs (F1).
+    assert ctx.repository.source_kept_local(item["sourceId"]) is True
 
 
 def test_add_source_rejects_a_bad_page_range_plainly(tmp_path):

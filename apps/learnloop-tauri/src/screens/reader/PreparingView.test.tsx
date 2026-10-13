@@ -20,6 +20,7 @@ vi.mock("../../components/PdfReaderPane", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -87,7 +88,36 @@ describe("PreparingView", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(7000);
     });
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith(ready));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith(ready, null));
+  });
+
+  it("hands over at the page and place the learner scrolled to (review F8)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    api.readerPdfView.mockResolvedValue(MANIFEST);
+    const ready = { ...CARD, readiness: "ready" as const, unitCount: 5, blockCount: 80, statusLine: null };
+    api.getSourceLibrary.mockResolvedValueOnce({ version: 1, sources: [CARD] }).mockResolvedValue({ version: 1, sources: [ready] });
+    const onReady = vi.fn();
+    render(<PreparingView card={CARD} onBack={vi.fn()} onReady={onReady} onError={vi.fn()} />);
+    const scroller = await screen.findByTestId("preparing-scroll");
+    // The learner has scrolled to page 20 while the text was being prepared.
+    scroller.insertAdjacentHTML(
+      "beforeend",
+      '<div data-pdf-page="18" data-width-points="612"></div><div data-pdf-page="19" data-width-points="612"></div>'
+    );
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const page = (this as HTMLElement).dataset?.pdfPage;
+      const top = page === "18" ? -900 : page === "19" ? -300 : 0;
+      const height = page === undefined ? 700 : 800;
+      return { top, bottom: top + height, height, width: 600, left: 0, right: 600, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7000);
+    });
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const [card, position] = onReady.mock.calls[0];
+    expect(card).toEqual(ready);
+    expect(position.page).toBe(19);
+    expect(position.offset).toBeCloseTo(300 / 800);
   });
 
   it("goes back to the Library", () => {

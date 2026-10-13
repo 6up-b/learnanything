@@ -94,6 +94,20 @@ describe("BookCard", () => {
     expect(onOpenImports).toHaveBeenCalled();
   });
 
+  it("keeps a book on this computer from its details, and lets it go again (review F1)", () => {
+    const onAction = vi.fn();
+    const { unmount } = render(<BookCard card={card(null)} onContinue={vi.fn()} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep this book on this computer" }));
+    expect(onAction).toHaveBeenCalledWith("keep_local", expect.objectContaining({ sourceId: "src_1" }));
+    unmount();
+    render(<BookCard card={card(null, { keepLocal: true })} onContinue={vi.fn()} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    expect(screen.getByText("Kept on this computer: nothing of it is sent to an AI.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Let LearnLoop write questions for it" }));
+    expect(onAction).toHaveBeenCalledWith("share_with_ai", expect.anything());
+  });
+
   it("never shows a file address as the title", () => {
     render(<BookCard card={card(null, { title: "file:///home/me/books/linear_algebra.pdf" })} onContinue={vi.fn()} onAction={vi.fn()} />);
     expect(screen.queryByText(/file:\/\//)).toBeNull();

@@ -71,7 +71,16 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Couldn't read this PDF", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null },
   { text: "Some pages look scanned", tone: "quiet", action: { kind: "text_recognition", label: "Read them with text recognition" }, details: null },
   { text: "Maths may look rough in the text view", tone: "quiet", action: { kind: "open_settings", label: "Fix it" }, details: null },
-  { text: "Kept on this computer — no questions are written for it", tone: "quiet", action: null, details: null }
+  { text: "Kept on this computer — no questions are written for it", tone: "quiet", action: null, details: null },
+  // UX Phase 1 review (F1, F2, F9): the separate OK for whole files, the
+  // budget lines and text recognition that isn't set up.
+  { text: "Transcribing this recording sends it to an online service", tone: "quiet", action: { kind: "allow_upload", label: "OK" }, details: null },
+  { text: "Reading this PDF sends the whole file to your AI", tone: "quiet", action: { kind: "allow_upload", label: "OK" }, details: null },
+  { text: "Kept on this computer — this recording can't be read here", tone: "quiet", action: null, details: null },
+  { text: "Paused — today's AI budget is used", tone: "quiet", action: { kind: "open_settings", label: "Raise it" }, details: null },
+  { text: "Questions for Ch. 3 would cost more than expected", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
+  { text: "Some pages look scanned", tone: "quiet", action: { kind: "open_settings", label: "Set up text recognition" }, details: null },
+  { text: "Text recognition isn't set up", tone: "problem", action: { kind: "open_settings", label: "Set it up" }, details: null }
 ];
 
 const CONNECTION: AiConnectionDto = {
