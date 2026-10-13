@@ -117,6 +117,7 @@ def test_without_a_complete_index_search_is_keyword_only_and_says_so(tmp_path):
 def test_deep_search_fuses_keyword_and_meaning_with_one_cached_query_embedding(tmp_path):
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     backfill(paths)
+    append_config_toml(paths.root, "[source_retrieval]\npool = \"hybrid_rrf\"\n")  # the RRF pool
     vault = loaded(paths)
     embedder = HashingEmbedder()
     first = search_library(vault, repository, query="orthogonal vectors basis", deep=True, embedder=embedder)

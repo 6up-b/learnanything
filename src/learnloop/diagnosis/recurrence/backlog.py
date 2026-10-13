@@ -47,8 +47,10 @@ from learnloop.matching.judge import already_judged, judge_pairs, pair_input_has
 from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
 MODEL_CALL_OWNER_KIND = "recurrence_backlog"
-#: Output allowance of one verdict (a short JSON object).
-JUDGE_OUTPUT_TOKENS = 600
+#: The same-cause judge's output budget is the shared policy's
+#: (``learnloop.ai.output_budget``; the 600-token allowance is retired, owner
+#: 2026-10-12): ``ReviewSpend.output_limit(SAME_CAUSE_ROUTE)``, which a metered
+#: request is also held to.
 
 
 def route_profile(vault: LoadedVault, route: str) -> dict[str, Any]:
@@ -83,11 +85,11 @@ def command_spend(
 ) -> ReviewSpend:
     """One budget for the command; routes classified from config (dry-run safe)."""
 
-    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     judge = route_profile(vault, SAME_CAUSE_ROUTE)
     spend.register_profile(
         SAME_CAUSE_ROUTE, provider=judge["provider"], model=judge["model"],
-        subscription=bool(judge["subscription"]), max_tokens=JUDGE_OUTPUT_TOKENS,
+        subscription=bool(judge["subscription"]), max_tokens=judge["max_tokens"],
     )
     if embedding and vault.config.embedding.enabled:
         profile = route_profile(vault, EMBEDDING_ROUTE)
@@ -148,7 +150,7 @@ def plan_backlog(
     if todo:
         estimates.append(spend.estimate(
             SAME_CAUSE_ROUTE, calls=len(todo), input_tokens=judge_tokens,
-            output_tokens=JUDGE_OUTPUT_TOKENS * len(todo), candidates=len(todo), pairs=len(todo),
+            output_tokens=spend.output_limit(SAME_CAUSE_ROUTE) * len(todo), candidates=len(todo), pairs=len(todo),
         ))
     total = SpendEstimate(
         candidates=sum(value.candidates for value in estimates),

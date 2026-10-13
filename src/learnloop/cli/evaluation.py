@@ -64,7 +64,7 @@ def evaluate_existing(
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 100_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined input/output-token USD rate for paid preparation. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.")] = None,
-    output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
+    output_tokens: Annotated[int | None, typer.Option("--output-tokens", min=1, help="Output-token budget of each LLM-arm request; default: the shared policy (ai.output_tokens or the route's override).")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Probability arms only: counted retries per judge (a 429, 5xx or failed turn).")] = 2,
     probability_arm: Annotated[list[str] | None, typer.Option("--probability-arm", help=_PROBABILITY_ARM_HELP)] = None,

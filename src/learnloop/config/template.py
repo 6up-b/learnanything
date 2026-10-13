@@ -942,7 +942,25 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # locked facets merge live too, each action naming its lock, with an undo.
     # Merged after learner-text gaps (mvp-0.16), where every snapshot was
     # recomputed (defaults_fingerprint_for_version); no successor.
-    "mvp-0.9": "05d3efcd76c93ae224bcdb815dce386472f295da04ab59f06e5b6a4131ea1717",
+    # The T6 follow-up (owner decisions 2026-10-12; merged after facet
+    # identity) adds the output-budget policy (ai.output_tokens = 16384,
+    # ai.route_output_tokens,
+    # ai.route_reasoning_effort with low for source_query_rewrite and
+    # source_rerank), source_retrieval.pool = "dense_plus_bm25" (chosen by the
+    # follow-up evaluation), pool_keyword_extras and tutor_deadline_cancels,
+    # and raises three per-question reservation caps (rewrite 0.15, rerank
+    # 0.30, practice rerank 0.30). Modelled defaults only, none in the
+    # decision-only template. These change, under every version, which source
+    # spans the tutor's verifier and the library list see and how much a model
+    # may write (context and transport), never scoring, scheduling,
+    # projections, evidence, certification or which item is served, and
+    # nothing persisted changes meaning (replay makes no model call). T6's rule
+    # applies ("retrieval is context, so no successor unless something
+    # persisted changes meaning"), with the owner's live-behind-kill-switches
+    # decision: no successor (Codex review F7 rejected, see
+    # docs/reviews/t6-followup-codex-review.md); the kill switches restore T6
+    # as merged. Every snapshot was recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "a8755db505e2d3b93436bf6741157a427fcea055170a810933f42f4c96e28fc1",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -960,7 +978,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.10": "bbf236ea688fc7040694cdf878cc8421a9fa7892dfba9d381f8b1f84fa543cc2",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.10": "29b61d13086d972ec5b4b009d7c0fbb46acf79c78d80b0e99b7ed2f31371b62e",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -986,7 +1005,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.11": "76dd58fa8b3f0e1790598690723991326ac94d9e47528f5a75e5cac74c5993d7",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.11": "e7b014f8d254e6eca5e2f2b8ca27c017cd7d16dc8e597b4481bef2e2f5fe45bd",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1006,7 +1026,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.12": "9d4908f8b028b9b81b45642faa44f148b0aca3aa0b76ccc94e6f18517916645b",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.12": "310171d163c6c634e47773e982e56eba75bb9a7c764d5be57f033b3c9768934d",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1021,7 +1042,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change). Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.13": "2fc70438f48f90567d1107210c2f156660645a618e72999ecd2136c86a16477f",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.13": "35f3591f0a5237b01bd03ce64b4b9556a6d973d4644d6bc53c706a6f19ec70ff",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1035,7 +1057,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # too (see mvp-0.9). Learner-text gaps' [learner_text_gaps] moves it too
     # (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.14": "748e350da1133b6d07183ae2a8b9cead02aec786200182c4eda18d7c032641c6",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.14": "36ca576d19a9b82f4b1e91e828898960702f82d4a076a08b9ce85c4f51e5ca93",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1047,7 +1070,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # owner decision 2026-10-12) until mvp-0.16 merged. Learner-text gaps'
     # [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.15": "f96a114fb74aa9dc8a33fab3df4670c9d6ad98c4884465bba0d59f97d9add1b8",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.15": "e1fee963970749d5b1aa98803cf8f42f7d786fbe1077aff28085419091a5216e",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1065,7 +1089,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # gaps, matches, "needed"-gated edges, created prerequisites as content,
     # holding-pen sightings, the gap targets the field loader reads).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.16": "2f77e9cd2c54cf95a7b507b0c4920de3df34a0c3e464672be5174c2378feafbd",
+    # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
+    "mvp-0.16": "dbb0b9b14d476f061276a2abc11b94822e8c8a5bd2933bef1b52d88bbf83ab70",
 }
 
 

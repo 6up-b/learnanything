@@ -267,7 +267,7 @@ def test_classification_cli_is_offline_lazy_bounded_and_resumable(repository, mo
         with repository.connection() as connection:
             assert tuple(connection.iterdump()) == before
     else:
-        assert len(calls) == 1 and calls[0].output_budget_tokens == 512
+        assert len(calls) == 1 and calls[0].output_budget_tokens == 16_384  # the shared policy budget
         assert CliRunner().invoke(app, args).exit_code == 0
         assert len(calls) == 1
 

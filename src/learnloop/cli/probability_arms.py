@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from learnloop.ai.errors import AIProviderUnavailable
+from learnloop.ai.output_budget import output_budget
 from learnloop.ai.routing import provider_for_task, ready_client_for_task, route_profile_mismatch
 from learnloop.ai.spend import SpendCaps, is_subscription_transport
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION
@@ -54,7 +55,7 @@ def _endpoint_hash(value: str | None) -> str:
     return sha256((value or "").encode()).hexdigest()
 
 
-def resolve_route(loaded, judge: str, *, price_per_million: float | None, output_tokens: int,
+def resolve_route(loaded, judge: str, *, price_per_million: float | None, output_tokens: int | None = None,
                   task: str | None = None) -> JudgeRoute:
     """The configured route for a judge, without credentials or a client."""
 
@@ -86,6 +87,9 @@ def resolve_route(loaded, judge: str, *, price_per_million: float | None, output
         )
     if not profile.model or not profile.model.strip():
         raise ValueError(f"ai.routing.{task} resolves to {name!r}, which names no model")
+    if output_tokens is None:
+        # The shared output-budget policy (owner 2026-10-12): no hand-set cap.
+        output_tokens = output_budget(config, task, provider=name)
     subscription = is_subscription_transport(profile=profile)
     if profile.type not in METERED_LLM_TYPES and not subscription:
         raise ValueError(
@@ -133,7 +137,7 @@ def _llm_client(loaded, task: str, name: str, subscription: bool):
 def prepare_or_load_probability_arms(
     loaded, inputs: dict[str, Any], *, cache_dir: Path, selection: Sequence[tuple[str, str]],
     prepare: bool = False, dry_run: bool = False, caps: SpendCaps,
-    price_per_million: float | None, output_tokens: int, cancelled=lambda: False,
+    price_per_million: float | None, output_tokens: int | None = None, cancelled=lambda: False,
     routes: dict[str, JudgeRoute] | None = None,
 ) -> tuple[list[Any], dict[str, Any]]:
     """Return ``(arms, aggregate report)``; arms is empty unless complete.
@@ -150,7 +154,7 @@ def prepare_or_load_probability_arms(
     if not (loaded.config.field.enabled and loaded.config.field.llm_probability_enabled):
         report["reason"] = "Enable field.enabled and field.llm_probability_enabled (both off by default, D8)."
         return [], report
-    if type(output_tokens) is not int or output_tokens <= 0:
+    if output_tokens is not None and (type(output_tokens) is not int or output_tokens <= 0):
         raise ValueError("--output-tokens must be a positive integer")
     directory = check_cache_location(cache_dir, loaded.root)
     judges = [judge for judge in JUDGES if any(j == judge for _, j in selection)]

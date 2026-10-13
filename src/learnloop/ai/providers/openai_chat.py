@@ -15,7 +15,13 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
 from learnloop.ai.isolation import TOOL_FREE
-from learnloop.ai.execution import model_call, report_call_usage, single_request_active
+from learnloop.ai.execution import (
+    model_call,
+    report_call_usage,
+    single_request_active,
+    truncation_retry_permitted,
+)
+from learnloop.ai.output_budget import TRUNCATION_RETRY_FACTOR, record_truncation
 from learnloop.ai.multimodal import (
     MediaTranscript,
     MediaTranscriptionContext,
@@ -59,7 +65,11 @@ _sleep = time.sleep
 _monotonic = time.monotonic
 _random = random.random
 _JSON_ONLY_SYSTEM_PROMPT = "Return only valid JSON. Do not include Markdown fences."
-_request_options: ContextVar[tuple[float | None, int | None]] = ContextVar("chat_request_options", default=(None, None))
+# (timeout seconds, remaining output budget, requested reasoning effort) of the
+# structured request being served.
+_request_options: ContextVar[tuple[float | None, int | None, str | None]] = ContextVar(
+    "chat_request_options", default=(None, None, None))
+_purpose_label: ContextVar[str | None] = ContextVar("chat_request_purpose", default=None)
 
 
 class OpenAIChatProviderClient(TokenUsageAccounting):
@@ -106,7 +116,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def complete(self, request: StructuredRequest[Any]) -> Any:
         """Execute one validated structured request with one bounded repair."""
 
-        token = _request_options.set((request.timeout_seconds, request.output_budget_tokens))
+        token = _request_options.set(
+            (request.timeout_seconds, request.output_budget_tokens, request.reasoning_effort))
+        purpose_token = _purpose_label.set(request.purpose)
         try:
             return self._run_json_messages(
                 [
@@ -117,6 +129,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             )
         finally:
             _request_options.reset(token)
+            _purpose_label.reset(purpose_token)
 
     def supports(self, capability: str) -> bool:
         # A chat completion offers the model no tools, files or network:
@@ -238,7 +251,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             "model": self.model,
             "messages": messages,
         }
-        request_timeout, request_budget = _request_options.get()
+        request_timeout, request_budget, _effort = _request_options.get()
         if request_timeout is not None:
             kwargs["timeout"] = request_timeout
         if use_response_format:
@@ -251,14 +264,53 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
                 raise AIOutputTruncated("No generation budget remains for JSON repair.")
             kwargs["max_tokens"] = min(limits)
         kwargs.update(self._reasoning_kwargs())
-        response = self._create_with_retry(kwargs)
+        try:
+            response = self._create_with_retry(kwargs)
+        except AIOutputTruncated:
+            retry_tokens = self._truncation_retry_tokens(kwargs.get("max_tokens"))
+            record_truncation(
+                role=_purpose_label.get(), provider=self.provider_name, model=self.model,
+                budget=kwargs.get("max_tokens"), retry_budget=retry_tokens,
+                next_step="caller" if single_request_active() else ("retry" if retry_tokens else "fail"),
+            )
+            if retry_tokens is None:
+                raise
+            # A caller that admits each physical request lets the transport
+            # retry once at double the budget (owner policy): never a silently
+            # cut answer.
+            kwargs["max_tokens"] = retry_tokens
+            timeout, _budget, effort = _request_options.get()
+            _request_options.set((timeout, retry_tokens, effort))
+            response = self._create_with_retry(kwargs)
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content.strip():
             raise CodexUnavailable(f"{self.provider_name} returned an empty response")
         return content.strip()
 
+    def _truncation_retry_tokens(self, sent: Any) -> int | None:
+        """The doubled ``max_tokens`` for this transport's own truncation retry, or None.
+
+        Only where the caller allowed it (``truncation_retry_allowed``: it
+        admits each physical request as it starts). None inside
+        ``single_request()`` (the caller's loop owns the retry and its
+        admission), under an owner-set budget, when no ``max_tokens`` was sent
+        (the provider's own maximum was reached), or when the profile's
+        ``max_tokens`` already bound the request (doubling would exceed the
+        provider or profile maximum).
+        """
+
+        if single_request_active() or not truncation_retry_permitted() or not isinstance(sent, int) or sent <= 0:
+            return None
+        doubled = sent * TRUNCATION_RETRY_FACTOR
+        ceiling = self.profile.max_tokens
+        if isinstance(ceiling, int) and ceiling > 0:
+            if sent >= ceiling:
+                return None
+            doubled = min(doubled, ceiling)
+        return doubled
+
     def _create_with_retry(self, kwargs: dict[str, Any]) -> Any:
-        request_timeout, _ = _request_options.get()
+        request_timeout = _request_options.get()[0]
         deadline_seconds = request_timeout if request_timeout is not None else self.profile.timeout_seconds
         started = _monotonic()
         for attempt in range(1, _MAX_ATTEMPTS + 1):
@@ -314,11 +366,11 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         report_call_usage(receipt_fields_from_chat_response(response))
         input_tokens, output_tokens = usage_from_chat_response(response)
         self.record_token_usage(input_tokens, output_tokens)
-        timeout, budget = _request_options.get()
+        timeout, budget, effort = _request_options.get()
         if budget is not None:
             content = response.choices[0].message.content or ""
             spent = output_tokens or max(1, (len(content) + 3) // 4)
-            _request_options.set((timeout, max(0, budget - spent)))
+            _request_options.set((timeout, max(0, budget - spent), effort))
 
     def _retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None:
         """Seconds to wait before the next attempt, or None to give up."""
@@ -375,8 +427,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         thinking = (self.profile.thinking or "").strip()
         if thinking:
             extra_body["thinking"] = {"type": thinking}
-            if thinking != "disabled" and self.profile.reasoning_effort:
-                kwargs["reasoning_effort"] = self.profile.reasoning_effort
+            effort = _request_options.get()[2] or self.profile.reasoning_effort
+            if thinking != "disabled" and effort:
+                kwargs["reasoning_effort"] = effort
         if extra_body:
             kwargs["extra_body"] = extra_body
         return kwargs

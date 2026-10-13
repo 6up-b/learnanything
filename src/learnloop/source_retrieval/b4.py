@@ -215,11 +215,13 @@ class B4Suite:
                                 "text_models": list(data.text_models), "image_models": list(data.image_models),
                                 "dims": data.dims, "skipped": data.skipped, "roles": {}, "embedding": {}}
         plan["roles"][bench.QUESTION_ROLE] = bench.plan_question_calls(
-            [page.text[:PAGE_CHARS] for page in data.seeds], QUESTION_PROMPT_VERSION, QUESTION_BATCH)
+            [page.text[:PAGE_CHARS] for page in data.seeds], QUESTION_PROMPT_VERSION, QUESTION_BATCH,
+            bench.role_budget(vault, bench.QUESTION_ROLE))
         pool_bound = bench.TOP_K * (len(data.text_models) + len(data.image_models) + 3)
         plan["roles"][bench.LABEL_ROLE] = bench.plan_label_calls(
             questions, pool_bound, LABEL_BATCH, LABEL_PROMPT_VERSIONS,
-            {"source": "x" * 120, "page": 1, "text": "x" * PAGE_CHARS})
+            {"source": "x" * 120, "page": 1, "text": "x" * PAGE_CHARS},
+            bench.role_budget(vault, bench.LABEL_ROLE))
         query_tokens = questions * (400 + 128)
         chunks = [chunk for page in data.pages for chunk in page.chunks]
         chunk_tokens = sum(len(chunk.encode("utf-8")) + 128 for chunk in chunks)

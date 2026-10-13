@@ -135,6 +135,8 @@ class FakeSourceLLM:
         self.fail = fail
         self.drop_label_refs = drop_label_refs
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        #: (purpose, requested reasoning effort) per request.
+        self.efforts: list[tuple[str, str | None]] = []
 
     def supports(self, capability: str) -> bool:
         return capability in {"structured_completion", "bounded_structured_completion", "isolated_turn"}
@@ -142,6 +144,7 @@ class FakeSourceLLM:
     def complete(self, request):
         context = prompt_context(request.prompt)
         self.calls.append((request.purpose, context))
+        self.efforts.append((request.purpose, request.reasoning_effort))
         report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 40,
                            "resolved_model": self.model})
         if self.fail:
@@ -171,6 +174,12 @@ class FakeSourceLLM:
                              rationale="overlap")
                 for c in candidates])
         if model is WrittenQuestions:
+            if "pairs" in context:  # compositional: one question needing both passages
+                return WrittenQuestions(questions=[
+                    WrittenQuestion(seed_ref=p["seed_ref"],
+                                    question="How does " + " ".join(tokenize(p["passage_a"])[:4]) + " relate to "
+                                    + " ".join(tokenize(p["passage_b"])[:4]) + "?")
+                    for p in context["pairs"]])
             return WrittenQuestions(questions=[
                 WrittenQuestion(seed_ref=p["seed_ref"],
                                 question="Why " + " ".join(tokenize(p["passage"])[:6]) + "?")

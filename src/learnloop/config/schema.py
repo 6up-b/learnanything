@@ -1180,12 +1180,40 @@ class AIRoutingConfig(BaseModel):
         return self
 
 
+#: The shared output-token budget of every LLM role (owner, 2026-10-12): large
+#: enough for a reasoning model's thinking plus its answer, so no role is cut
+#: off by a hand-set cap. ``learnloop.ai.output_budget`` resolves it.
+DEFAULT_OUTPUT_TOKENS = 16_384
+#: Reasoning efforts a route may request; "" (or "profile") keeps the profile's.
+REASONING_EFFORTS = frozenset({"", "profile", "none", "minimal", "low", "medium", "high", "xhigh"})
+#: Routes that ask for low reasoning effort unless the owner says otherwise
+#: (owner, 2026-10-12): T6's live query rewrite and tutor-span verification.
+DEFAULT_ROUTE_REASONING_EFFORT: dict[str, str] = {
+    "source_query_rewrite": "low",
+    "source_rerank": "low",
+}
+
+
 class AIConfig(BaseModel):
     active_provider: str = "codex"
     fallback_provider: str | None = None
     timeout_seconds: int = 180
     providers: dict[str, AIProviderProfile] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
+    # Output budget of every LLM role, in tokens (the request's max_tokens and
+    # the spend reservation). route_output_tokens replaces it for one route. A
+    # profile's own max_tokens is a ceiling: it replaces the default for that
+    # profile and holds a route override to it (the transport never sends
+    # more). A truncated answer is logged and retried once at double the
+    # budget (held to that ceiling; a call at it fails), never accepted.
+    output_tokens: int = Field(default=DEFAULT_OUTPUT_TOKENS, ge=256)
+    route_output_tokens: dict[str, int] = Field(default_factory=dict)
+    # Reasoning effort per route ("low", "medium", ...; "" or "profile" keeps
+    # the profile's reasoning_effort). Sent where the provider supports it
+    # (OpenRouter's reasoning.effort, Codex's turn effort). Entries merge over
+    # DEFAULT_ROUTE_REASONING_EFFORT.
+    route_reasoning_effort: dict[str, str] = Field(
+        default_factory=lambda: dict(DEFAULT_ROUTE_REASONING_EFFORT))
 
     @model_validator(mode="before")
     @classmethod
@@ -1193,6 +1221,41 @@ class AIConfig(BaseModel):
         from learnloop.config.compat import normalize_ai_input
 
         return normalize_ai_input(data)
+
+    @field_validator("route_output_tokens")
+    @classmethod
+    def _known_route_budgets(cls, value: dict[str, int]) -> dict[str, int]:
+        _require_known_routes(value, "ai.route_output_tokens")
+        for route, tokens in value.items():
+            if type(tokens) is not int or tokens < 256:
+                raise ValueError(f"ai.route_output_tokens.{route} must be an integer of at least 256")
+        return value
+
+    @field_validator("route_reasoning_effort", mode="before")
+    @classmethod
+    def _merge_route_efforts(cls, value: Any) -> Any:
+        # An owner table names only the routes it changes; the defaults stay.
+        if isinstance(value, dict):
+            return {**DEFAULT_ROUTE_REASONING_EFFORT, **value}
+        return value
+
+    @field_validator("route_reasoning_effort")
+    @classmethod
+    def _known_route_efforts(cls, value: dict[str, str]) -> dict[str, str]:
+        _require_known_routes(value, "ai.route_reasoning_effort")
+        for route, effort in value.items():
+            if str(effort).strip().lower() not in REASONING_EFFORTS:
+                raise ValueError(
+                    f"ai.route_reasoning_effort.{route} must be one of "
+                    f"{', '.join(sorted(name for name in REASONING_EFFORTS if name))} or empty"
+                )
+        return {route: str(effort).strip().lower() for route, effort in value.items()}
+
+
+def _require_known_routes(value: dict[str, Any], setting: str) -> None:
+    unknown = sorted(set(value) - set(AIRoutingConfig.model_fields))
+    if unknown:
+        raise ValueError(f"{setting} names unknown routes: {', '.join(unknown)}")
 
 
 DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
@@ -1875,7 +1938,9 @@ class PracticeIndexConfig(BaseModel):
     # Metered rerank routes need a price estimate (USD per million tokens) or the
     # rerank is skipped; subscription (Codex) routes have no marginal cost.
     rerank_price_per_million: float | None = Field(default=None, gt=0)
-    rerank_max_cost_usd: float = Field(default=0.05, ge=0)
+    # A reservation cap: the rerank reserves its full output budget
+    # (ai.output_tokens) and a truncation retry twice that.
+    rerank_max_cost_usd: float = Field(default=0.30, ge=0)
     # USD per million input tokens for find_practice's query embedding when
     # embedding.model has no published estimate; unknown prices skip it.
     query_embedding_price_per_million: float | None = Field(default=None, gt=0)
@@ -1923,18 +1988,35 @@ class SourceRetrievalConfig(BaseModel):
     # (route source_rerank) and only verified spans reach the tutor. Off or
     # unavailable, the tutor keeps the learning object's linked spans.
     tutor_rerank: bool = True
-    # Time box, in seconds, for a tutor question's retrieval and verification
-    # and for a deep library search's rewrite and query embedding. Each paid
-    # request carries the time left as its timeout; when it runs out the tutor
-    # keeps the linked spans and the search keeps what it has.
+    # Seconds. A deep library search's time box: its rewrite and query
+    # embedding carry the time left as their timeout, and it keeps what it has
+    # when the time runs out. For a tutor question it is a soft deadline only
+    # (owner, 2026-10-12): every step is timed on the question's receipt and a
+    # step over it is flagged, never cancelled, unless tutor_deadline_cancels.
     retrieval_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    # true restores the tutor's time box (cancel at retrieval_timeout_seconds
+    # and keep the linked spans).
+    tutor_deadline_cancels: bool = False
+    # How retrieval's ranked lists become one candidate pool (owner,
+    # 2026-10-12): "dense_plus_bm25" is the dense top-k plus the BM25 top
+    # pool_keyword_extras that dense did not return, ranked dense first for
+    # display (verification picks from all of it on the tutor's path);
+    # "hybrid_rrf" fuses every list by reciprocal rank (T6 as merged). Without
+    # a complete dense index for the scope, dense_plus_bm25 falls back to
+    # hybrid_rrf. Default from the T6 follow-up evaluation (Haiku 5.5 labels,
+    # two library copies): it beat hybrid_rrf on the verified tutor path and
+    # on the library's display ranking (docs/reviews/t6-followup.md).
+    pool: Literal["dense_plus_bm25", "hybrid_rrf"] = "dense_plus_bm25"
+    pool_keyword_extras: int = Field(default=4, ge=0, le=20)
     # A labelled nearest-LO suggestion for reader spans without provenance.
     suggest_learning_objects: bool = True
     # Metered rewrite / rerank routes need a USD-per-million-token estimate, or
     # the step is skipped; Codex (subscription) routes have no marginal cost.
     llm_price_per_million: float | None = Field(default=None, gt=0)
-    rewrite_max_cost_usd: float = Field(default=0.01, ge=0)
-    rerank_max_cost_usd: float = Field(default=0.05, ge=0)
+    # Per-question dollar caps (reservations: each call reserves its full
+    # output budget, ai.output_tokens, and a truncation retry twice that).
+    rewrite_max_cost_usd: float = Field(default=0.15, ge=0)
+    rerank_max_cost_usd: float = Field(default=0.30, ge=0)
     # USD per million input tokens for query embeddings when embedding.model has
     # no published estimate; unknown prices skip dense retrieval.
     query_embedding_price_per_million: float | None = Field(default=None, gt=0)

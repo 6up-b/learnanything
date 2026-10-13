@@ -11,6 +11,7 @@ import typer
 
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import generation_limit
+from learnloop.ai.output_budget import output_budget
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transport
@@ -50,7 +51,7 @@ def classify_questions(
     price_per_million: Annotated[float | None, typer.Option(
         "--price-per-million", help="Explicit conservative USD rate for combined input/output tokens. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.",
     )] = None,
-    output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 512,
+    output_tokens: Annotated[int | None, typer.Option("--output-tokens", min=1, help="Output-token budget per question; default: the shared policy (ai.output_tokens or the route's override). One physical call per question by contract: a truncated answer is logged and stops the command; it is never accepted.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Classify only missing question metadata. Reruns resume cached successes.
@@ -77,6 +78,8 @@ def classify_questions(
         profile = loaded.config.ai.providers.get(route) if route else None
         if profile is None or not profile.model:
             raise ValueError("Configure an explicit ai.routing.field_question_classifier with a model")
+        if output_tokens is None:
+            output_tokens = output_budget(loaded.config, "field_question_classifier", provider=route)
         # Chat transports expose each physical request before I/O, so metered
         # routes keep the physical-call bound. Codex turns cannot guarantee it;
         # they are billed to the subscription and only estimate cost.

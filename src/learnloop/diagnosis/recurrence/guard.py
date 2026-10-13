@@ -584,7 +584,7 @@ def run_guard(
 
     from learnloop.ai.execution import record_model_calls
     from learnloop.ai.spend import SpendLimitExceeded
-    from learnloop.diagnosis.recurrence.backlog import JUDGE_OUTPUT_TOKENS, command_spend
+    from learnloop.diagnosis.recurrence.backlog import command_spend
     from learnloop.diagnosis.recurrence.judging import (
         default_judge_client,
         estimate_tokens,
@@ -615,7 +615,7 @@ def run_guard(
     prompt_tokens = sum(estimate_tokens(pair_prompt(GUARD_KIND, pair.left, pair.right)) for pair in todo)
     estimate = spend.estimate(
         GUARD_KIND.route, calls=len(todo), input_tokens=prompt_tokens,
-        output_tokens=JUDGE_OUTPUT_TOKENS * len(todo), candidates=len(todo), pairs=len(todo),
+        output_tokens=spend.output_limit(GUARD_KIND.route) * len(todo), candidates=len(todo), pairs=len(todo),
     )
     admissible, refusal = True, None
     try:

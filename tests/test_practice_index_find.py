@@ -422,7 +422,8 @@ def test_find_dry_run_bounds_the_rerank_pool_the_query_vector_will_fill(indexed,
     the rerank pool; the plan bounds it by the admissible corpus and candidate_pool."""
     from learnloop.practice_index.contracts import PracticeRerank
     from learnloop.practice_index.paid import estimated_call_tokens
-    from learnloop.practice_index.retrieval import RERANK_OUTPUT_TOKENS, plan_find_practice
+    from learnloop.practice_index.paid import plan_route
+    from learnloop.practice_index.retrieval import plan_find_practice
 
     _paths, vault, repository, llm, embedder = indexed
     vault.config.practice_index.query_embedding_price_per_million = 0.02
@@ -442,8 +443,9 @@ def test_find_dry_run_bounds_the_rerank_pool_the_query_vector_will_fill(indexed,
     assert result["rerank_status"] == "reranked"
     live = [payload for purpose, payload in llm.calls if purpose == "practice_rerank"][-1]
     assert 0 < len(live["context"]["candidates"]) <= rerank["pool"]
+    # The rerank's output budget is its route's under the shared policy.
     live_tokens = estimated_call_tokens(_live_rerank_prompt(repository), PracticeRerank,
-                                        RERANK_OUTPUT_TOKENS)
+                                        plan_route(vault, "practice_rerank", llm).output_tokens)
     assert rerank["estimated_tokens"] >= live_tokens
 
 

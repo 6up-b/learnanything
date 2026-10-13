@@ -90,8 +90,9 @@ from learnloop.vault.paths import VaultPaths
 QUERY_PROMPT_VERSION = "practice_eval_query.v1"
 LOGGED_PROMPT_VERSION = "practice_eval_logged.v1"
 LABEL_PROMPT_VERSIONS = ("practice_relevance_label.v1.pass1", "practice_relevance_label.v1.pass2")
-QUERY_OUTPUT_TOKENS = 1200
-LABEL_OUTPUT_TOKENS = 3000
+# The query writer's and the judge's output budgets are their routes' under
+# the shared policy (PaidRoute.output_tokens; the 1,200- and 3,000-token caps
+# are retired, owner 2026-10-12).
 QUERY_BATCH = 8
 TOP_K = 10
 MIN_SCORED_QUERIES = 10
@@ -316,10 +317,10 @@ def _pass_work(vault, repository, text: str, pool: Sequence[str], pass_index: in
     return ids, missing, candidates, saved
 
 
-def _upper_bound_tokens() -> int:
+def _upper_bound_tokens(output_tokens: int) -> int:
     pool = {f"c{i}": {"practice_mode": "x", "learning_object": "x" * 80,
                       "prompt": "x" * LABEL_PROMPT_CHARS} for i in range(2 * TOP_K)}
-    return estimated_call_tokens(_label_prompt("x" * 200, 1, pool), RelevanceLabels, LABEL_OUTPUT_TOKENS)
+    return estimated_call_tokens(_label_prompt("x" * 200, 1, pool), RelevanceLabels, output_tokens)
 
 
 def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int,
@@ -348,21 +349,21 @@ def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int
                 refs = {f"c{i}": candidates[item_id] for i, item_id in enumerate(missing, start=1)}
                 prompt = _label_prompt(row["query_text"], pass_index, refs)
                 key = checkpoint_key(judge_route, purpose="practice_relevance_judge", prompt=prompt,
-                                     result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS)
+                                     result_model=RelevanceLabels, output_tokens=judge_route.output_tokens)
                 with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                     if checkpointed_keys(connection, [key]) or receipt_answer(
                         connection, judge_route, purpose="practice_relevance_judge", prompt=prompt,
-                        result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS,
+                        result_model=RelevanceLabels, output_tokens=judge_route.output_tokens,
                         validate=lambda result, refs=refs: _validate_labels(result, refs),
                     ) is not None:
                         recoverable += 1
                         continue
-                tokens.append(estimated_call_tokens(prompt, RelevanceLabels, LABEL_OUTPUT_TOKENS))
+                tokens.append(estimated_call_tokens(prompt, RelevanceLabels, judge_route.output_tokens))
                 pairs += len(missing)
     if not snapshot.dossier_available:
         new_queries += len(query_set)
     bounded = new_queries
-    tokens += [_upper_bound_tokens()] * (len(LABEL_PROMPT_VERSIONS) * bounded)
+    tokens += [_upper_bound_tokens(judge_route.output_tokens)] * (len(LABEL_PROMPT_VERSIONS) * bounded)
     pairs += len(LABEL_PROMPT_VERSIONS) * 2 * TOP_K * bounded
     return {"tokens": tokens, "pairs": pairs, "exact_queries": exact, "upper_bound_queries": bounded,
             "recoverable_calls": recoverable}
@@ -484,7 +485,7 @@ def run_retrieval_evaluation(
     total_queries = len(query_set) + len(recovered) + len(seeds) + len(logged)
     labels_plan = _label_plan(vault, repository, snapshot, corpus, query_set,
                               len(recovered) + len(seeds) + len(logged), judge_model, judge_route)
-    writer_tokens = [estimated_call_tokens(prompt, WrittenQueries, QUERY_OUTPUT_TOKENS)
+    writer_tokens = [estimated_call_tokens(prompt, WrittenQueries, writer_route.output_tokens)
                      for _, prompt in batches]
     embed_plan = plan_query_embedding(
         vault, repository, {**{row["id"]: row["query_text"] for row in query_set},
@@ -689,7 +690,7 @@ def _generate_queries(vault, repository, batches, recovered, logged, writer, rou
     for batch, prompt in batches:
         refs = {f"s{index}": entry for index, entry in enumerate(batch, start=1)}
         input_hash = content_key({"prompt": prompt, "schema": WrittenQueries.model_json_schema(),
-                                  "model": route.model, "output_tokens": QUERY_OUTPUT_TOKENS})
+                                  "model": route.model, "output_tokens": route.output_tokens})
 
         def validate(result: WrittenQueries, refs=refs) -> dict[str, str]:
             found = {entry.seed_ref: " ".join(entry.query.split()) for entry in result.queries
@@ -699,7 +700,7 @@ def _generate_queries(vault, repository, batches, recovered, logged, writer, rou
             return found
 
         found = writer.call(client, purpose="practice_query_writer", prompt=prompt,
-                            result_model=WrittenQueries, output_tokens=QUERY_OUTPUT_TOKENS,
+                            result_model=WrittenQueries, output_tokens=route.output_tokens,
                             candidates=len(batch),
                             metadata={"prompt_version": QUERY_PROMPT_VERSION, "input_hash": input_hash},
                             validate=validate,
@@ -740,10 +741,10 @@ def _label_all(vault, repository, query_set, rankings, judge, client, judge_mode
                 prompt = _label_prompt(row["query_text"], pass_index,
                                        {ref: candidates[item_id] for ref, item_id in refs.items()})
                 input_hash = content_key({"prompt": prompt, "schema": RelevanceLabels.model_json_schema(),
-                                          "model": judge_model, "output_tokens": LABEL_OUTPUT_TOKENS})
+                                          "model": judge_model, "output_tokens": judge.route.output_tokens})
 
                 result = judge.call(client, purpose="practice_relevance_judge", prompt=prompt,
-                                    result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS,
+                                    result_model=RelevanceLabels, output_tokens=judge.route.output_tokens,
                                     candidates=1 if pass_index == 0 else 0, pairs=len(missing),
                                     metadata={"prompt_version": version, "input_hash": input_hash},
                                     validate=lambda value, refs=refs: _validate_labels(value, refs))

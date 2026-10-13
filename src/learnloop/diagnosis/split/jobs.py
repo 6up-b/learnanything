@@ -790,7 +790,7 @@ def _diagnose(
         return repository.attempt_diagnosis(row_id)
     rubric = resolved_rubric(vault, item)
     store = live_history_store(vault, repository)
-    job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled)
+    job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled, config=vault.config)
     # Billed as the client actually built (a provider override included).
     job_spend.register(DIAGNOSIS_ROUTE, client)
     job_spend.collector.sink = lambda action, event: repository.record_model_event(
@@ -1211,7 +1211,7 @@ def command_spend(
 
     from learnloop.diagnosis.offline_review.runner import route_profiles
 
-    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     profiles = route_profiles(vault)
     profile = profiles[DIAGNOSIS_ROUTE]
     spend.register_profile(

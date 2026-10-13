@@ -58,10 +58,11 @@ from learnloop.content.authoring import pf_contracts as C
 from learnloop.content.authoring.pf_sandbox import (
     equivalence_confirmations, run_equivalence_checks, sandbox_available,
 )
+from learnloop.ai.output_budget import output_budget
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
-    PFCaller, PFUnavailable, RoleClient, estimate_tokens, planned_role_clients, pricing_basis,
+    ROLE_TASKS, PFCaller, PFUnavailable, RoleClient, estimate_tokens, planned_role_clients, pricing_basis,
     resolve_role_clients, validate_pricing,
 )
 from learnloop.substrate.item_fingerprints import final_answer_text, fingerprint_keys, shared_keys
@@ -71,9 +72,14 @@ from learnloop.vault.paths import VaultPaths
 HARNESS_VERSION = "embeddings-compare-v2"
 DEFAULT_TARGET_RECALL = 0.95
 EMBED_BATCH = 32
-VA_OUTPUT_TOKENS = {"valid_alternative": 6000, "equivalence": 2500, "grading": 4000}
-# A trace in the grading prompt is bounded by the writer's output (bytes upper-bound tokens).
-VA_TRACE_BYTES = 4 * VA_OUTPUT_TOKENS["valid_alternative"] // 3
+# Every role's output budget is its route's under the shared policy
+# (learnloop.ai.output_budget via PFCaller; the hand-set caps are retired,
+# owner 2026-10-12).
+
+
+def va_trace_bytes(vault: LoadedVault) -> int:
+    """A trace in the grading prompt is bounded by the writer's output (bytes upper-bound tokens)."""
+    return 4 * output_budget(vault.config, ROLE_TASKS["valid_alternative"]) // 3
 # The published estimate for the default model (Slice 1 §9.1), not a quote.
 EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 
@@ -439,12 +445,14 @@ class B2Suite:
             missing = self._skeleton_texts(data)
             sample = C.skeleton_prompt(prompt=missing[0] if missing else "x", expected_answer="")
             plan["roles"]["skeleton"] = {"calls": len(set(missing)),
-                                         "tokens": len(set(missing)) * estimate_tokens(sample, C.SkeletonResult, 1200)}
+                                         "tokens": len(set(missing)) * estimate_tokens(
+                                             sample, C.SkeletonResult, output_budget(vault.config, ROLE_TASKS["skeleton"]))}
         if "judge" in data.views:
             sample = C.freshness_prompt(candidate={"stem": data.cases[0].left["stem"] if data.cases else ""},
                                         comparisons=[{"ref": "item_0", "prompt": ""}])
             plan["roles"]["freshness"] = {"calls": len(data.cases), "pairs": len(data.cases),
-                                          "tokens": len(data.cases) * estimate_tokens(sample, C.FreshnessVerdict, 2500)}
+                                          "tokens": len(data.cases) * estimate_tokens(
+                                              sample, C.FreshnessVerdict, output_budget(vault.config, ROLE_TASKS["freshness"]))}
         embed_views = [view for view in ("stem", "skeleton") if view in data.views]
         for model in data.models:
             count = len(texts) * len(embed_views)
@@ -471,8 +479,7 @@ class B2Suite:
                                                    "model_id": "benchmark"}
                     elif side["stem"] not in skeletons:
                         call = ctx.caller.call(entry, prompt=C.skeleton_prompt(prompt=side["stem"], expected_answer=side.get("answer") or ""),
-                                               prompt_version=C.SKELETON_PROMPT, result_model=C.SkeletonResult,
-                                               output_tokens=1200)
+                                               prompt_version=C.SKELETON_PROMPT, result_model=C.SkeletonResult)
                         result = call.result
                         skeletons[side["stem"]] = {
                             "techniques": result.techniques, "model_id": call.model,
@@ -518,7 +525,7 @@ class B2Suite:
                     entry, prompt=C.freshness_prompt(
                         candidate={"stem": case.left["stem"], "final_answer": case.left.get("answer") or ""},
                         comparisons=[{"ref": "item_0", "prompt": case.right["stem"]}]),
-                    prompt_version=C.FRESHNESS_PROMPT, result_model=C.FreshnessVerdict, output_tokens=2500, pairs=1)
+                    prompt_version=C.FRESHNESS_PROMPT, result_model=C.FreshnessVerdict, pairs=1)
                 # No verdict for the pair is ledgered as "missing": an abstention.
                 verdict = next((c.verdict for c in call.result.comparisons if c.ref == "item_0"), "missing")
                 # Labelled verdicts keyed by the pair's identity: the scaling check
@@ -590,15 +597,15 @@ class ValidAlternativeSuite:
             item = vault.practice_items[va.item_id]
             tokens["valid_alternative"] += estimate_tokens(C.valid_alternative_prompt(
                 prompt=item.prompt, reference=str(item.expected_answer), count=request.alternatives),
-                C.ValidAlternativeTraces, VA_OUTPUT_TOKENS["valid_alternative"])
+                C.ValidAlternativeTraces, output_budget(vault.config, ROLE_TASKS["valid_alternative"]))
             # Each trace is bounded by the writer's output; the verifier sees every final answer.
             tokens["equivalence"] += estimate_tokens(C.equivalence_prompt(
                 stem=item.prompt, reference=va.reference, answers=["x" * 200] * (1 + request.alternatives)),
-                C.EquivalenceResult, VA_OUTPUT_TOKENS["equivalence"])
+                C.EquivalenceResult, output_budget(vault.config, ROLE_TASKS["equivalence"]))
             context = blind_grading_context(vault, item, attempt_id="va_plan",
-                                            learner_answer_md="x" * VA_TRACE_BYTES)
+                                            learner_answer_md="x" * va_trace_bytes(vault))
             tokens["grading"] += (1 + request.alternatives) * estimate_tokens(
-                blind_grading_prompt(context), BlindGradingProposal, VA_OUTPUT_TOKENS["grading"])
+                blind_grading_prompt(context), BlindGradingProposal, output_budget(vault.config, ROLE_TASKS["grading"]))
         return {"items": n, "families": len({item.family_id for item in data.items}),
                 "roles": {"valid_alternative": {"calls": n, "tokens": tokens["valid_alternative"]},
                           "equivalence": {"calls": n, "tokens": tokens["equivalence"]},
@@ -615,13 +622,11 @@ class ValidAlternativeSuite:
             item = ctx.vault.practice_items[va.item_id]
             call = ctx.caller.call(writer, prompt=C.valid_alternative_prompt(
                 prompt=item.prompt, reference=str(item.expected_answer), count=request.alternatives),
-                prompt_version=C.VALID_ALTERNATIVE_PROMPT, result_model=C.ValidAlternativeTraces,
-                output_tokens=VA_OUTPUT_TOKENS["valid_alternative"])
+                prompt_version=C.VALID_ALTERNATIVE_PROMPT, result_model=C.ValidAlternativeTraces)
             traces = [("canonical", call.result.canonical), *[("alternative", t) for t in call.result.alternatives]]
             eq = ctx.caller.call(verifier, prompt=C.equivalence_prompt(
                 stem=item.prompt, reference=va.reference, answers=[t.final_answer for _, t in traces]),
-                prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
-                output_tokens=VA_OUTPUT_TOKENS["equivalence"])
+                prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult)
             agreements = list(eq.result.agreements) if len(eq.result.agreements) == len(traces) else [False] * len(traces)
             degenerate = False
             if eq.result.answer_kind in {"numeric", "symbolic"}:
@@ -657,8 +662,7 @@ class ValidAlternativeSuite:
             context = blind_grading_context(ctx.vault, item, attempt_id=case["trace_id"],
                                             learner_answer_md=case["trace"])
             call = ctx.caller.call(grader, prompt=blind_grading_prompt(context),
-                                   prompt_version=BLIND_GRADING_PROMPT_VERSION, result_model=BlindGradingProposal,
-                                   output_tokens=VA_OUTPUT_TOKENS["grading"])
+                                   prompt_version=BLIND_GRADING_PROMPT_VERSION, result_model=BlindGradingProposal)
             rubric = ctx.vault.rubric_for_item(item)
             maximum = getattr(rubric, "max_points", None) or 1
             score = min(1.0, call.result.rubric_score / maximum)
@@ -738,12 +742,15 @@ def run_compare(
         billing = {role: (resolve_role_clients(vault, role, injected=clients[role])
                           if clients and role in clients else planned_role_clients(vault, role, tier_routes=routes))
                    for role in roles_plan}
-        totals = {False: [0, 0], True: [0, 0]}  # subscription -> [calls, tokens]
+        # subscription -> [calls, tokens, candidates, pairs]: every role's planned
+        # candidates and pairs count against the shared caps at the dry run, as
+        # they are charged when the run admits each call (T6 follow-up review F3).
+        totals = {False: [0, 0, 0, 0], True: [0, 0, 0, 0]}
         metered_llm_usd: float | None = 0.0
         for role, info in roles_plan.items():
             subscription = billing[role][0].subscription
-            totals[subscription][0] += int(info.get("calls", 0))
-            totals[subscription][1] += int(info.get("tokens", 0))
+            for index, name in enumerate(("calls", "tokens", "candidates", "pairs")):
+                totals[subscription][index] += int(info.get(name, 0))
             if not subscription and int(info.get("calls", 0)):
                 output_share = info.get("output_tokens")
                 role_usd = caller.estimate(int(info.get("tokens", 0)), subscription=False,
@@ -763,10 +770,11 @@ def run_compare(
         llm_usd = metered_llm_usd
         metered = SpendEstimate(
             calls=totals[False][0] + embed_calls, total_tokens=totals[False][1] + embed_tokens,
-            pairs=int(roles_plan.get("freshness", {}).get("pairs", 0)),
+            candidates=totals[False][2], pairs=totals[False][3],
             estimated_usd=None if llm_usd is None else round(llm_usd + embed_usd, 8),
         )
-        subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0])
+        subscription = caller.estimate(totals[True][1], subscription=True, calls=totals[True][0],
+                                       candidates=totals[True][2], pairs=totals[True][3])
         report["estimate"].update(
             metered=asdict(metered), subscription=asdict(subscription),
             billing={role: "subscription" if entries[0].subscription else "metered"

@@ -54,7 +54,7 @@ def _load(vault: Path, *, paid: bool):
 
 def prepare_or_load_zero_data(
     loaded, inputs, *, cache_dir, prepare=False, dry_run=False, caps: SpendCaps,
-    price_per_million=None, output_tokens=256, cancelled=lambda: False, routes=None,
+    price_per_million=None, output_tokens=None, cancelled=lambda: False, routes=None,
 ):
     """Return ``(aliased arms or None, aggregate report)``; cache-only reads build no client.
 
@@ -69,7 +69,7 @@ def prepare_or_load_zero_data(
         or not math.isfinite(price_per_million) or price_per_million <= 0
     ):
         raise ValueError("--price-per-million must be finite and positive")
-    if type(output_tokens) is not int or output_tokens <= 0:
+    if output_tokens is not None and (type(output_tokens) is not int or output_tokens <= 0):
         raise ValueError("--output-tokens must be a positive integer")
     arms, report = prepare_or_load_probability_arms(
         loaded, inputs, cache_dir=Path(cache_dir), selection=(("v2", "llm"),), prepare=prepare,
@@ -100,7 +100,7 @@ def success_head_eval(
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 100_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for this invocation's paid step: combined input/output for --prepare-llm (the ai.routing.llm_probability_llm route), input for --backfill-seen-stems. Unknown prices fail closed on metered routes; a Codex route only estimates cost.")] = None,
-    output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
+    output_tokens: Annotated[int | None, typer.Option("--output-tokens", min=1, help="Output-token budget of each LLM-arm request; default: the shared policy (ai.output_tokens or the route's override).")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
 ) -> None:
     """T8 learner success head replay: emb_ridge's kill rule, gated heads, zero-data LLM.

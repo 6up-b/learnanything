@@ -17,12 +17,12 @@ appends to ``judgment_ledger`` (task ``source_relevance``). Never raises.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.ai.errors import AIInvalidOutput
-from learnloop.ai.spend import SpendCaps
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -35,8 +35,10 @@ from learnloop.source_retrieval.search import SpanHit
 from learnloop.vault.models import LoadedVault
 
 VERIFY_PROMPT_VERSION = "source_span_verify.v2"
-VERIFY_OUTPUT_TOKENS = 2500
 PASSAGE_CHARS = 900
+#: An upper bound on one verification prompt's input tokens (UTF-8 bytes of up
+#: to 40 candidates at PASSAGE_CHARS plus framing), for its caps.
+VERIFY_INPUT_TOKENS_BOUND = 60_000
 TASK = "source_relevance"
 PRICE_SETTING = "source_retrieval.llm_price_per_million"
 _INSTRUCTIONS = (
@@ -53,7 +55,9 @@ _INSTRUCTIONS = (
 )
 VERIFY_TASK = ListwiseTask(
     route_task="source_rerank", ledger_task=TASK, left_kind="source_query", right_kind="source_span",
-    id_prefix="ssv_", prompt_version=VERIFY_PROMPT_VERSION, output_tokens=VERIFY_OUTPUT_TOKENS,
+    # The route's policy budget (learnloop.ai.output_budget; the 2,500-token
+    # cap is retired, owner 2026-10-12), at the route's reasoning effort (low).
+    id_prefix="ssv_", prompt_version=VERIFY_PROMPT_VERSION, output_tokens=None,
     result_model=SpanVerification, verdict_field="verdict", scores=VERDICT_SCORE,
     price_setting=PRICE_SETTING, drop_pick_verdicts=frozenset({"unrelated"}),
 )
@@ -121,8 +125,11 @@ def _clip(text: str, limit: int) -> str:
     return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
-def verify_caps(vault: LoadedVault, pool_size: int) -> SpendCaps:
-    return listwise_caps(pool_size, max_total_tokens=200_000,
+def verify_caps(vault: LoadedVault, pool_size: int, output_tokens: int | None = None) -> SpendCaps:
+    """One call and one retry (a truncation retry asks for twice the budget)."""
+
+    budget = output_tokens if output_tokens is not None else plan_route(vault, "source_rerank").output_tokens
+    return listwise_caps(pool_size, max_total_tokens=VERIFY_INPUT_TOKENS_BOUND * 2 + budget * 3,
                          max_estimated_usd=vault.config.source_retrieval.rerank_max_cost_usd)
 
 
@@ -157,12 +164,17 @@ def verify_spans(
     vault: LoadedVault, repository: Repository, *, question: str, pool: Sequence[SpanHit],
     pick_at_most: int, context: str | None = None, client: Any | None = None,
     owner_id: str = "", clock: Clock | None = None, ready: VerificationRoute | None = None,
-    deadline: float | None = None,
+    deadline: float | None = None, budget: SpendBudget | None = None,
+    price_per_million: float | None = None,
+    admit: Callable[[SpendEstimate], None] | None = None,
 ) -> Verification:
     """Judge ``pool`` for ``question`` and pick at most ``pick_at_most`` spans.
 
     ``ready`` is a :func:`verification_route` the caller already resolved;
-    ``deadline`` (``time.monotonic()``) time-boxes the call.
+    ``deadline`` (``time.monotonic()``) time-boxes the call. ``budget``,
+    ``price_per_million`` and ``admit`` (each attempt's admission under the
+    benchmark's shared caps) let a benchmark run the production step under its
+    own command budget and price.
     """
 
     if not pool:
@@ -175,14 +187,16 @@ def verify_spans(
     candidates, by_ref = _candidates(pool)
     refs = {ref: hit.key for ref, hit in by_ref.items()}
     hits = {hit.key: hit for hit in pool}
+    price = price_per_million if price_per_million is not None else vault.config.source_retrieval.llm_price_per_million
+    route = route or plan_route(vault, "source_rerank", client)
     outcome = judge_listwise(
         vault, repository, VERIFY_TASK,
         prompt=verify_prompt(question, context, pick_at_most, candidates), refs=refs,
         left_id=query_id(question), right_id=lambda key: hits[key].record_id,
-        id_parts=lambda key: list(key), pick_at_most=pick_at_most, caps=verify_caps(vault, len(pool)),
-        price=vault.config.source_retrieval.llm_price_per_million, owner_id=owner_id,
-        client=client, route=route, deadline=deadline,
-        validate=lambda value: _validate(value, refs), clock=clock,
+        id_parts=lambda key: list(key), pick_at_most=pick_at_most,
+        caps=verify_caps(vault, len(pool), route.output_tokens),
+        price=price, owner_id=owner_id, client=client, route=route, deadline=deadline,
+        validate=lambda value: _validate(value, refs), clock=clock, budget=budget, admit=admit,
     )
     if not outcome.judged:
         status = outcome.status

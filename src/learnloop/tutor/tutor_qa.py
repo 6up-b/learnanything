@@ -47,6 +47,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
@@ -1266,8 +1267,13 @@ def _provided_source_spans(
     learning_object_ids: list[str],
     item: PracticeItem | None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
-    """The injected span provider's choice; any failure keeps the linked spans."""
+    """The injected span provider's choice; any failure keeps the linked spans.
 
+    The receipt records the provider's wall time (``timings_ms.total``) on
+    every path, failures included, unless the provider timed its own steps.
+    """
+
+    started = time.monotonic()
     try:
         spans, manifest = provider(
             vault, repository, context=context, question_md=question_md,
@@ -1275,10 +1281,15 @@ def _provided_source_spans(
         )
     except Exception as exc:  # noqa: BLE001 - retrieval is context; never lose the question
         logger.warning("tutor source retrieval failed: %s", type(exc).__name__)
-        return None, {"basis": "lo_provenance", "reason": f"retrieval failed ({type(exc).__name__})"}
+        return None, {"basis": "lo_provenance", "reason": f"retrieval failed ({type(exc).__name__})",
+                      "timings_ms": {"total": int(round((time.monotonic() - started) * 1000))}}
     if spans is not None:
         spans = [dict(span) for span in spans]
-    return spans, (dict(manifest) if manifest is not None else None)
+    if manifest is None:
+        return spans, None
+    manifest = dict(manifest)
+    manifest.setdefault("timings_ms", {"total": int(round((time.monotonic() - started) * 1000))})
+    return spans, manifest
 
 
 def _suggested_learning_objects(

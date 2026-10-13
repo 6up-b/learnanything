@@ -51,7 +51,7 @@ class Judge:
 
     def complete(self, request):
         self.calls.append(request)
-        assert request.isolated and request.output_budget_tokens == 1024
+        assert request.isolated and request.output_budget_tokens == 16_384  # the shared policy budget
         report_call_usage({"input_tokens": 10, "output_tokens": 20, "resolved_model": "fake-resolved"})
         if self.fail_at == len(self.calls):
             raise AIProviderUnavailable("PRIVATE provider detail")

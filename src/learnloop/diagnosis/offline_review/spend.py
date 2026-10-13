@@ -30,22 +30,28 @@ from contextlib import ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator
 
-from learnloop.ai.execution import generation_limit, observe_model_calls
+from learnloop.ai.execution import generation_limit, observe_model_calls, truncation_retry_allowed
 from learnloop.ai.spend import SpendBudget, SpendCancelled, SpendCaps, SpendCharge, SpendEstimate
+from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 
 SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter", "chatgpt_plan"})
 ESTIMATED_ONLY = "estimated_only"
 REPORTED = "reported"
 #: Published per-million input price of the one Slice 1 embedding model.
 KNOWN_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
-#: Bounded output allowances used in estimates (tokens). On a metered route
-#: the admitted limit (this, or the profile's larger ``max_tokens``) is also
-#: enforced on the transport, so it must leave room for reasoning tokens.
+#: Routes that generate no output (an embedding returns vectors only).
+NO_OUTPUT_ROUTES = frozenset({"embedding"})
+#: Output allowances used in estimates (tokens): the shared policy's default
+#: for every generating route (``learnloop.ai.output_budget``, owner
+#: 2026-10-12; the per-route hand-set allowances are retired). On a metered
+#: route the admitted limit is also enforced on the transport, so it leaves
+#: room for reasoning tokens; a truncated answer is logged and retried once at
+#: double the budget by the transport, never accepted.
 OUTPUT_ALLOWANCE = {
-    "grading": 6_000,
-    "diagnosis": 8_000,
-    "diagnosis_judge": 4_000,
-    "diagnosis_generator": 6_000,
+    "grading": DEFAULT_OUTPUT_TOKENS,
+    "diagnosis": DEFAULT_OUTPUT_TOKENS,
+    "diagnosis_judge": DEFAULT_OUTPUT_TOKENS,
+    "diagnosis_generator": DEFAULT_OUTPUT_TOKENS,
     "embedding": 0,
 }
 
@@ -54,14 +60,25 @@ def is_subscription_client(client: Any) -> bool:
     return getattr(client, "provider_type", None) in SUBSCRIPTION_CLIENT_TYPES
 
 
-def admitted_output_limit(route: str, profile_max_tokens: Any) -> int:
-    """The route allowance, or the profile's larger declared output limit."""
+def admitted_output_limit(route: str, profile_max_tokens: Any, config: Any | None = None) -> int:
+    """The route's output budget under the shared policy (0 for an embedding).
 
-    allowance = OUTPUT_ALLOWANCE.get(route, 2_000)
-    if not allowance:
+    ``ai.route_output_tokens.<route>`` (held to the profile's declared
+    ``max_tokens``, which the transport never exceeds), else the profile's
+    ``max_tokens``, else ``ai.output_tokens`` (the code default without a config).
+    """
+
+    if route in NO_OUTPUT_ROUTES:
         return 0
-    declared = profile_max_tokens if isinstance(profile_max_tokens, int) and profile_max_tokens > 0 else 0
-    return max(allowance, declared)
+    ai = getattr(config, "ai", None)
+    declared = (profile_max_tokens if isinstance(profile_max_tokens, int)
+                and not isinstance(profile_max_tokens, bool) and profile_max_tokens > 0 else None)
+    override = (getattr(ai, "route_output_tokens", None) or {}).get(route)
+    if override is not None:
+        return min(int(override), declared) if declared is not None else int(override)
+    if declared is not None:
+        return declared
+    return int(getattr(ai, "output_tokens", None) or DEFAULT_OUTPUT_TOKENS)
 
 
 @dataclass
@@ -197,7 +214,10 @@ class ReviewSpend:
         *,
         cancelled: Callable[[], bool] | None = None,
         price_per_million: float | None = None,
+        config: Any | None = None,
     ) -> None:
+        #: The vault config whose output-budget policy applies (None: code default).
+        self.config = config
         self.caps = caps
         self.budget = SpendBudget(caps, cancelled=cancelled)
         self._cancelled = cancelled
@@ -207,9 +227,8 @@ class ReviewSpend:
         self.totals: dict[str, CallUsage] = {}
         self.estimated_usd: dict[str, float | None] = {}
 
-    @staticmethod
-    def _output_limit(route: str, profile_max_tokens: Any) -> int:
-        return admitted_output_limit(route, profile_max_tokens)
+    def _output_limit(self, route: str, profile_max_tokens: Any) -> int:
+        return admitted_output_limit(route, profile_max_tokens, self.config)
 
     def register(self, route: str, client: Any, *, model_id: str | None = None) -> RouteInfo:
         model = model_id or getattr(client, "model", None) or getattr(client, "model_id", None)
@@ -253,7 +272,7 @@ class ReviewSpend:
 
     def output_limit(self, route: str) -> int:
         info = self.routes.get(route)
-        return info.output_limit if info is not None else OUTPUT_ALLOWANCE.get(route, 2_000)
+        return info.output_limit if info is not None else admitted_output_limit(route, None, self.config)
 
     def _usd(self, info: RouteInfo, tokens: int) -> float | None:
         if info.price_per_million is None:
@@ -309,11 +328,21 @@ class ReviewSpend:
         with ExitStack() as stack:
             charge = stack.enter_context(self.budget.request(estimate))
             charges: list[SpendCharge] = [charge]
+            #: Each charge's own reservation (its fallback when usage is unreported).
+            reserved: list[int] = [base.total_tokens]
             if info.billing == "metered":
-                extra = SpendEstimate(calls=1, retries=1, total_tokens=base.total_tokens, estimated_usd=base.estimated_usd)
 
-                def admit(_event: dict[str, Any]) -> None:
+                def admit(event: dict[str, Any]) -> None:
+                    # Reserved at the output allowance this physical request is
+                    # sent with: the transport's truncation retry asks for twice
+                    # the budget (review F1); never less than the admitted limit.
+                    allowance = event.get("output_budget_tokens")
+                    sent = allowance if isinstance(allowance, int) and not isinstance(allowance, bool) else 0
+                    own = self.estimate(route, calls=1, input_tokens=input_tokens, output_tokens=max(output, sent))
+                    extra = SpendEstimate(calls=1, retries=1, total_tokens=own.total_tokens,
+                                          estimated_usd=own.estimated_usd)
                     charges.append(stack.enter_context(self.budget.request(extra)))
+                    reserved.append(own.total_tokens)
             else:
 
                 def admit(_event: dict[str, Any]) -> None:
@@ -324,8 +353,11 @@ class ReviewSpend:
             limit = generation_limit(output) if info.billing == "metered" and output > 0 else nullcontext()
             usage = unit.usage
             call = AdmittedCall(route=route, purpose=purpose, estimate=estimate, usage=usage, started=time.monotonic())
+            # Each further physical request is admitted as it starts, so the
+            # transport may retry a truncated answer once at double the budget.
+            retry = truncation_retry_allowed() if info.billing == "metered" else nullcontext()
             try:
-                with limit:
+                with limit, retry:
                     yield call
             except BaseException:
                 call.status = "failed"
@@ -340,7 +372,7 @@ class ReviewSpend:
                     for index, admitted in enumerate(charges):
                         own = per_request[index] if index < len(per_request) else None
                         reported = (own.input_tokens + own.output_tokens) if own is not None else 0
-                        tokens = reported or base.total_tokens
+                        tokens = reported or reserved[index]
                         cost = own.cost if own is not None and own.cost is not None else self._usd(info, tokens)
                         admitted.reconcile(total_tokens=tokens, estimated_usd=cost)
                 self._accumulate(route, info, usage, input_tokens * call.physical_requests, output * call.physical_requests)

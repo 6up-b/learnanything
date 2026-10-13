@@ -3151,7 +3151,7 @@ def attempt(
         max_total_tokens=max_tokens,
         max_estimated_usd=max_cost_usd,
     )
-    spend = ReviewSpend(caps, price_per_million=price_per_million)
+    spend = ReviewSpend(caps, price_per_million=price_per_million, config=loaded.config)
     admitted = False
     try:
         resolved_attempt_type = attempt_type or (

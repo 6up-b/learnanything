@@ -28,6 +28,9 @@ _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata",
 _budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
 _single_request: ContextVar[bool] = ContextVar("model_single_request", default=False)
 _labels: ContextVar[dict[str, str] | None] = ContextVar("model_call_labels", default=None)
+_annotations: ContextVar[dict[str, Any] | None] = ContextVar("model_call_annotations", default=None)
+_reasoning_effort: ContextVar[str | None] = ContextVar("model_reasoning_effort", default=None)
+_truncation_retry: ContextVar[bool] = ContextVar("model_truncation_retry", default=False)
 
 #: Receipt labels a caller may attach to the calls in its context (router
 #: spec §6.2): which judge answered, the versioned question set, and the hash
@@ -77,6 +80,64 @@ def single_request():
 
 def single_request_active() -> bool:
     return _single_request.get()
+
+
+@contextmanager
+def annotate_calls(**notes: Any):
+    """Add ``notes`` to the ``budget_json`` of every root receipt started here.
+
+    Used for facts about why a request was sent, such as a truncation retry at
+    double the output budget (``learnloop.ai.output_budget``). Notes nest.
+    """
+
+    merged = {**(_annotations.get() or {}), **notes}
+    token = _annotations.set(merged)
+    try:
+        yield
+    finally:
+        _annotations.reset(token)
+
+
+@contextmanager
+def requested_reasoning_effort(effort: str | None):
+    """Ask every request started here for ``effort`` (None keeps the profile's).
+
+    A transport that supports a reasoning effort sends it (OpenRouter's
+    ``reasoning.effort``, the Codex turn effort); others ignore it. The route
+    owner resolves it from ``ai.route_reasoning_effort``.
+    """
+
+    token = _reasoning_effort.set(effort or None)
+    try:
+        yield
+    finally:
+        _reasoning_effort.reset(token)
+
+
+def reasoning_effort_request() -> str | None:
+    return _reasoning_effort.get()
+
+
+@contextmanager
+def truncation_retry_allowed():
+    """Let the transport retry a truncated answer once at double the budget.
+
+    For callers that admit every physical request as it starts (Slice 1's
+    ``ReviewSpend``, the project probes) and so can pay for a retry the
+    transport makes. Callers that own the retry (``single_request``) and
+    owner-set budgets (``[ingest.budgets]``) never set it: there a truncation
+    is raised, logged, and never answered past the budget.
+    """
+
+    token = _truncation_retry.set(True)
+    try:
+        yield
+    finally:
+        _truncation_retry.reset(token)
+
+
+def truncation_retry_permitted() -> bool:
+    return _truncation_retry.get()
 
 
 def report_call_usage(values: dict[str, Any]) -> None:
@@ -192,6 +253,9 @@ def model_call(client: Any, *, purpose: str, prompt: Any = None, schema: Any = N
     profile = getattr(client, "profile", None) or getattr(client, "config", None)
     is_root = _parent.get() is None
     budgets = _budgets.get()
+    annotations = _annotations.get()
+    if annotations:
+        budgets = {**(budgets or {}), **annotations}
     observer("start", {
         "id": call_id, "parent_call_id": _parent.get(), "purpose": purpose,
         "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None) or getattr(profile, "model", None),

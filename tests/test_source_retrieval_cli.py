@@ -46,7 +46,8 @@ def test_deep_search_has_a_dry_run_and_caps(tmp_path):
     plan = json.loads(planned.stdout)
     assert plan["dry_run"] is True and plan["status"] == "planned"
     assert set(plan) >= {"rewrite", "query_embedding", "meaning_search", "caps", "calls", "estimated_usd"}
-    assert plan["caps"]["max_calls"] == 3 and plan["caps"]["max_estimated_usd"] == 0.02
+    # Admits a 16k-output-budget rewrite and its doubled truncation retry.
+    assert plan["caps"]["max_calls"] == 3 and plan["caps"]["max_estimated_usd"] == 0.25
     assert plan["query_embedding"]["status"] == "unused"  # no source-block vectors: no meaning search
     assert receipts() == before  # a dry run calls and writes nothing
     text = runner.invoke(app, ["sources", "search", "determinant", "--vault", str(paths.root), "--deep",

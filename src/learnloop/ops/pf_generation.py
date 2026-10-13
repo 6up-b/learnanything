@@ -57,6 +57,7 @@ from typing import Any, Iterator
 
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key
+from learnloop.ai.output_budget import output_budget
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring import pf_contracts as C
@@ -73,6 +74,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
+    ROLE_TASKS,
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
     resolve_role_clients,
 )
@@ -104,11 +106,9 @@ FILTER_ORDER = (
     "solver_panel_outlier", "structure_check", "freshness",
 )
 NOT_APPLICABLE_FILTERS = ("closed_book", "figure_only", "provenance")
-OUTPUT_TOKENS = {
-    "skeleton": 1200, "program": 6000, "proposer": 8000, "single_shot": 8000, "panel": 1500,
-    "equivalence": 2500, "structure": 800, "freshness": 2500, "selection": 1500,
-    "source": 8000, "closed_book": 1500, "span_support": 1200,
-}
+# Every role's output budget is its route's under the shared policy
+# (learnloop.ai.output_budget via PFCaller; the per-role caps of 800 to 8,000
+# tokens are retired, owner 2026-10-12).
 MIN_QUOTE_WORDS = 4
 PLAN_ROLES = ("skeleton", "program", "single_shot", "source", "proposer", "panel", "equivalence",
               "span_support", "closed_book", "structure", "freshness", "selection")
@@ -536,7 +536,6 @@ class _FamilyRun:
         call = self.ctx.caller.call(
             entry, prompt=C.skeleton_prompt(prompt=self.parent.prompt, expected_answer=self.parent.expected_answer),
             prompt_version=C.SKELETON_PROMPT, result_model=C.SkeletonResult,
-            output_tokens=OUTPUT_TOKENS["skeleton"],
         )
         result = call.result
         return self._skeleton(
@@ -610,7 +609,6 @@ class _FamilyRun:
                     skeleton=inputs["skeleton"], relation="isomorph", previous_failure=failure,
                     attempt=attempts),
                 prompt_version=C.GENERATOR_PROGRAM_PROMPT, result_model=C.GeneratorProgramResult,
-                output_tokens=OUTPUT_TOKENS["program"],
             )
             code = call.result.program
             ok, failure_text, _ = self._program_ok(code, list(call.result.checkpoints), test_seeds)
@@ -727,7 +725,7 @@ class _FamilyRun:
                     skeleton=self.parent_skeleton or {}, relation=self.relation, count=count,
                     generation_seed=self.generation_seed, single_shot=single),
                 prompt_version=C.SINGLE_SHOT_PROMPT if single else C.PROPOSER_PROMPT,
-                result_model=C.ProposalBatch, output_tokens=OUTPUT_TOKENS["proposer"], candidates=count,
+                result_model=C.ProposalBatch, candidates=count,
             )
             for index, proposed in enumerate(call.result.candidates[:count]):
                 payload = proposed.model_dump(mode="json")
@@ -775,7 +773,7 @@ class _FamilyRun:
                 parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family), count=self.count,
                 generation_seed=self.generation_seed),
             prompt_version=C.SOURCE_ANCHORED_PROMPT, result_model=C.SourceAnchoredBatch,
-            output_tokens=OUTPUT_TOKENS["source"], candidates=self.count,
+            candidates=self.count,
         )
         for index, proposed in enumerate(call.result.candidates[:self.count]):
             payload = proposed.model_dump(mode="json")
@@ -812,7 +810,6 @@ class _FamilyRun:
                 question=payload["stem"], cited_span=payload["cited_quote"], reference_answer=payload["answer"],
                 explanation=payload["solution"], item_kind=payload["item_kind"]),
             prompt_version=C.SPAN_SUPPORT_PROMPT, result_model=C.SpanSupportVerdict,
-            output_tokens=OUTPUT_TOKENS["span_support"],
         )
         result = call.result
         executable = payload["item_kind"] == "what_if" and result.executable_consequence
@@ -889,7 +886,6 @@ class _FamilyRun:
             call = self._call(
                 closed, attribute=[candidate], prompt=C.closed_book_prompt(stem=payload["stem"]),
                 prompt_version=C.CLOSED_BOOK_PROMPT, result_model=C.PanelSolve,
-                output_tokens=OUTPUT_TOKENS["closed_book"],
             )
             solve = {"model": call.model, "index": 0, "input_hash": call.input_hash,
                      "final_answer": call.result.final_answer, "answer_kind": call.result.answer_kind}
@@ -1006,7 +1002,6 @@ class _FamilyRun:
                 call = self._call(
                     entry, attribute=attribute, prompt=C.panel_solve_prompt(stem=stem, solve_index=index),
                     prompt_version=C.PANEL_SOLVE_PROMPT, result_model=C.PanelSolve,
-                    output_tokens=OUTPUT_TOKENS["panel"],
                 )
                 solves.append({"model": call.model, "index": index, "input_hash": call.input_hash,
                                "final_answer": call.result.final_answer,
@@ -1020,7 +1015,6 @@ class _FamilyRun:
             entry, attribute=attribute, prompt=C.equivalence_prompt(stem=stem, reference=reference,
                                                answers=[solve["final_answer"] for solve in solves]),
             prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
-            output_tokens=OUTPUT_TOKENS["equivalence"],
         )
         return call, call.result
 
@@ -1216,7 +1210,6 @@ class _FamilyRun:
                                "checkpoints": candidate.payload.get("checkpoints")},
                     declared_relation=candidate.declared_relation),
                 prompt_version=C.STRUCTURE_PROMPT, result_model=C.StructureVerdict,
-                output_tokens=OUTPUT_TOKENS["structure"],
             )
             verdicts[candidate.id] = (call, call.result)
             self.ctx.caller.ledger(
@@ -1301,7 +1294,7 @@ class _FamilyRun:
                                "relation": candidate.final_relation or candidate.declared_relation},
                     comparisons=comparisons),
                 prompt_version=C.FRESHNESS_PROMPT, result_model=C.FreshnessVerdict,
-                output_tokens=OUTPUT_TOKENS["freshness"], pairs=len(comparisons),
+                pairs=len(comparisons),
             )
             verdicts = {comparison.ref: comparison.verdict for comparison in call.result.comparisons
                         if comparison.ref in refs}
@@ -1391,7 +1384,6 @@ class _FamilyRun:
                 entry, attribute=offered, prompt=C.selection_prompt(family=_family_context(self.family),
                                                  survivors=survivors_context, slots=self.slots),
                 prompt_version=C.SELECTION_PROMPT, result_model=C.SelectionVerdict,
-                output_tokens=OUTPUT_TOKENS["selection"],
             )
             chosen = [refs[ref] for ref in dict.fromkeys(call.result.selected) if ref in refs][:self.slots]
             ranking = [refs[ref] for ref in dict.fromkeys(call.result.ranking) if ref in refs]
@@ -1529,8 +1521,9 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                             "candidates": n, "freshness_pairs": n * max(1, compare), "roles": {}}
     for role, count in calls.items():
         prompt_role = "proposer" if role == "single_shot" else role
-        tokens = estimate_tokens(prompts[prompt_role], models[prompt_role], OUTPUT_TOKENS[role])
         entries = roles[role]
+        tokens = estimate_tokens(prompts[prompt_role], models[prompt_role], output_budget(
+            vault.config, ROLE_TASKS[role], provider=entries[0].provider if entries else None))
         per_entry = count if role in {"panel", "proposer"} else count
         plan["roles"][role] = {
             "calls": count, "tokens": tokens * count,

@@ -49,8 +49,21 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable, AITurnTimeout
-from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable, AITurnTimeout
+from learnloop.ai.execution import (
+    content_key,
+    generation_limit,
+    observe_model_calls,
+    requested_reasoning_effort,
+    single_request,
+)
+from learnloop.ai.output_budget import (
+    TRUNCATION_RETRY_FACTOR,
+    TruncationRetry,
+    output_budget,
+    output_ceiling,
+    reasoning_effort,
+)
 from learnloop.ai.routing import MANUAL_PROVIDER, AITask, provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import (
@@ -105,6 +118,11 @@ class PaidRoute:
     profile_type: str | None
     model: str | None
     billing: Billing
+    #: The route's output budget (``learnloop.ai.output_budget``): every call
+    #: on it asks for and reserves this many output tokens.
+    output_tokens: int = output_budget(None)
+    #: The route's requested reasoning effort (``ai.route_reasoning_effort``).
+    reasoning_effort: str | None = None
 
     @property
     def available(self) -> bool:
@@ -117,20 +135,23 @@ class PaidRoute:
 def plan_route(vault: LoadedVault, task: AITask, client: Any | None = None) -> PaidRoute:
     """The route a paid role will use: an injected client, or ai.routing.<task>."""
     providers = vault.config.ai.providers
+    effort = reasoning_effort(vault.config, task)
     if client is not None:
         provider = getattr(client, "provider_name", None) or "injected"
         profile = providers.get(provider)
         profile_type = getattr(client, "provider_type", None) or (profile.type if profile else None)
         model = getattr(client, "model", None) or (getattr(profile, "model", None) if profile else None)
-        return PaidRoute(task, provider, profile_type, model, billing_for(profile_type))
+        return PaidRoute(task, provider, profile_type, model, billing_for(profile_type),
+                         output_budget(vault.config, task, provider=provider), effort)
     selection = provider_for_task(vault.config, task)
     provider = selection.provider_name or None
     if provider in (None, MANUAL_PROVIDER):
-        return PaidRoute(task, None, None, None, "metered")
+        return PaidRoute(task, None, None, None, "metered", output_budget(vault.config, task), effort)
     profile = providers.get(provider)
     profile_type = profile.type if profile is not None else None
     model = getattr(profile, "model", None) if profile is not None else None
-    return PaidRoute(task, provider, profile_type, model, billing_for(profile_type))
+    return PaidRoute(task, provider, profile_type, model, billing_for(profile_type),
+                     output_budget(vault.config, task, provider=provider), effort)
 
 
 def resolve_client(vault: LoadedVault, route: PaidRoute) -> tuple[Any | None, str | None]:
@@ -180,6 +201,9 @@ class UsageTotals:
     #: Of those, answers whose checkpoint never committed: recovered from the receipt.
     recovered_from_receipts: int = 0
     resolved_models: set[str] = field(default_factory=set)
+    #: Truncated attempts (``finish_reason = length``), each logged as an event
+    #: and retried once at double the budget (``learnloop.ai.output_budget``).
+    truncations: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         values = asdict(self)
@@ -195,10 +219,15 @@ def checkpoint_key(route: PaidRoute, *, purpose: str, prompt: str,
                    result_model: type[BaseModel], output_tokens: int) -> str:
     """A paid answer's request identity: purpose, prompt, schema, output budget,
     provider and model (the identity its destination rows are keyed by)."""
-    return CHECKPOINT_PREFIX + content_key({
+    identity: dict[str, Any] = {
         "purpose": purpose, "prompt": prompt, "schema": result_model.model_json_schema(),
         "output_tokens": output_tokens, "provider": route.provider, "model": route.model,
-    })
+    }
+    if route.reasoning_effort:
+        # A requested effort changes what the model produces; unset keeps the
+        # keys of every answer checkpointed before efforts existed.
+        identity["reasoning_effort"] = route.reasoning_effort
+    return CHECKPOINT_PREFIX + content_key(identity)
 
 
 _UNUSABLE = (KeyError, TypeError, ValueError, ValidationError, AIInvalidOutput)
@@ -221,9 +250,13 @@ def receipt_answer(
                          output_tokens=output_tokens)
     schema_hash = content_key(result_model.model_json_schema())
     receipts = completed_root_receipts(connection, purpose=purpose, prompt_hash=content_key(prompt))
+    # A truncation retry ran the same request with a larger budget: double,
+    # or less when the transport's ceiling held it.
     for receipt in receipts:
+        budget = receipt["output_budget_tokens"]
         if (receipt["declared"].get("request_key") != key or receipt["schema_hash"] != schema_hash
-                or receipt["output_budget_tokens"] != output_tokens):
+                or not isinstance(budget, int)
+                or not output_tokens <= budget <= output_tokens * TRUNCATION_RETRY_FACTOR):
             continue
         try:
             answer = result_model.model_validate_json(receipt["output_text"])
@@ -247,9 +280,14 @@ class PaidCalls:
 
     def __init__(self, *, route: PaidRoute, budget: SpendBudget,
                  price_per_million: float | None, repository: Repository | None,
-                 owner_kind: str, owner_id: str):
+                 owner_kind: str, owner_id: str,
+                 admit: Callable[[SpendEstimate], None] | None = None):
         self.route = route
         self.budget = budget
+        #: A caller's own admission of each attempt (a benchmark's shared caps
+        #: across billing classes): called with the attempt's estimate before
+        #: ``budget`` charges it; raises ``SpendLimitExceeded`` to refuse.
+        self.admit = admit
         self.price = price_per_million
         self.repository = repository
         self.owner_kind = owner_kind
@@ -338,9 +376,12 @@ class PaidCalls:
         problem = transport_problem(self.route, client)
         if problem is not None:
             raise UnboundedTransport(problem)
-        tokens = estimated_call_tokens(prompt, result_model, output_tokens)
+        truncation = TruncationRetry(output_tokens, role=purpose, provider=self.route.provider,
+                                     model=self.route.model, owner_kind=self.owner_kind,
+                                     owner_id=self.owner_id, ceiling=output_ceiling(client))
         attempt = 0
         while True:
+            tokens = estimated_call_tokens(prompt, result_model, truncation.budget)
             timeout_seconds = None
             if deadline is not None:
                 timeout_seconds = deadline - time.monotonic()
@@ -352,12 +393,15 @@ class PaidCalls:
             )
             events: list[dict[str, Any]] = []
             try:
+                if self.admit is not None:
+                    self.admit(estimate)
                 with self.budget.request(estimate) as charge:
                     # Metered: exactly one physical request per admitted attempt.
                     bound = nullcontext() if self.subscription else single_request()
                     try:
                         with observe_model_calls(self._observer(metadata, events, key, context)), \
-                                generation_limit(output_tokens), bound:
+                                generation_limit(truncation.budget), truncation.receipts(), \
+                                requested_reasoning_effort(self.route.reasoning_effort), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
                                 timeout_seconds=timeout_seconds,
@@ -375,10 +419,30 @@ class PaidCalls:
                 return value
             except AIInterrupted:
                 raise
-            except AIProviderUnavailable:
-                if self.budget.used.retries >= self.budget.caps.max_retries:
+            except AIOutputTruncated:
+                # Never accepted: logged, then retried once at double the budget
+                # (admitted and charged like any retry), else the call fails.
+                retry = truncation.after_truncation(allowed=self._retry_allowed())
+                self.totals.truncations.append(truncation.events[-1])
+                if not retry:
                     raise
                 attempt += 1
+            except AIProviderUnavailable:
+                if not self._retry_allowed():
+                    raise
+                attempt += 1
+
+    def _retry_allowed(self) -> bool:
+        """Whether one more attempt fits the retry caps (this budget's and the caller's)."""
+        if self.budget.used.retries >= self.budget.caps.max_retries:
+            return False
+        if self.admit is None:
+            return True
+        try:
+            self.admit(SpendEstimate(calls=1, retries=1, estimated_usd=0.0))
+        except SpendLimitExceeded:
+            return False
+        return True
 
     def _recover(self, key: str, result_model: type[BaseModel],
                  validate: Callable[[Any], Any] | None) -> Any:

@@ -64,7 +64,8 @@ from learnloop.vault.paths import VaultPaths
 
 
 DOSSIER_PROMPT_VERSION = "facet_dossier.v1"
-DOSSIER_OUTPUT_TOKENS = 1800
+# The dossier writer's output budget is its route's under the shared policy
+# (PaidRoute.output_tokens; the 1,800-token cap is retired, owner 2026-10-12).
 MAX_SPANS = 6
 SPAN_CHARS = 1200
 MAX_ITEMS = 8
@@ -346,7 +347,7 @@ def _pending(sqlite_path: Path, plans: list[DossierPlan], model_id: str) -> list
 
 def _checkpoint_key(route, plan: DossierPlan) -> str:
     return checkpoint_key(route, purpose="practice_dossier", prompt=plan.prompt,
-                          result_model=FacetDossierDraft, output_tokens=DOSSIER_OUTPUT_TOKENS)
+                          result_model=FacetDossierDraft, output_tokens=route.output_tokens)
 
 
 def _recoverable(sqlite_path: Path, route, pending: list[DossierPlan]) -> set[str]:
@@ -360,7 +361,7 @@ def _recoverable(sqlite_path: Path, route, pending: list[DossierPlan]) -> set[st
         for plan in pending:
             if plan.facet_id not in found and receipt_answer(
                 connection, route, purpose="practice_dossier", prompt=plan.prompt,
-                result_model=FacetDossierDraft, output_tokens=DOSSIER_OUTPUT_TOKENS,
+                result_model=FacetDossierDraft, output_tokens=route.output_tokens,
                 validate=lambda draft, plan=plan: render_dossier(draft, plan.neighbor_titles),
             ) is not None:
                 found.add(plan.facet_id)
@@ -461,7 +462,7 @@ def generate_dossiers(
     calls = PaidCalls(route=route, budget=budget, price_per_million=price_per_million,
                       repository=None if dry_run else repository,
                       owner_kind="practice_dossiers", owner_id=run_id)
-    tokens = [estimated_call_tokens(p.prompt, FacetDossierDraft, DOSSIER_OUTPUT_TOKENS) for p in to_pay]
+    tokens = [estimated_call_tokens(p.prompt, FacetDossierDraft, route.output_tokens) for p in to_pay]
     plan_view = calls.plan(tokens, candidates=len(to_pay))
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
@@ -515,12 +516,12 @@ def generate_dossiers(
             for plan in pending:
                 input_hash = content_key({
                     "prompt": plan.prompt, "schema": FacetDossierDraft.model_json_schema(),
-                    "model": model_id, "output_tokens": DOSSIER_OUTPUT_TOKENS,
+                    "model": model_id, "output_tokens": route.output_tokens,
                 })
                 try:
                     fields = calls.call(
                         client, purpose="practice_dossier", prompt=plan.prompt,
-                        result_model=FacetDossierDraft, output_tokens=DOSSIER_OUTPUT_TOKENS,
+                        result_model=FacetDossierDraft, output_tokens=route.output_tokens,
                         candidates=1,
                         metadata={"prompt_version": DOSSIER_PROMPT_VERSION, "input_hash": input_hash,
                                   "facet_id": plan.facet_id},
@@ -563,7 +564,6 @@ def generate_dossiers(
 
 
 __all__ = [
-    "DOSSIER_OUTPUT_TOKENS",
     "DOSSIER_PROMPT_VERSION",
     "DossierPlan",
     "build_plans",

@@ -179,7 +179,9 @@ def test_a_failing_provider_never_costs_the_learner_their_answer(tmp_path):
     result = ask(paths, repository, tutor, span_provider=broken)
     assert result["answer_md"] and tutor.contexts[0].source_spans[0]["span_id"] == "s7"
     manifest = repository.question_event(result["event_id"])["source_context"]["source_retrieval"]
+    timings = manifest.pop("timings_ms")
     assert manifest == {"basis": "lo_provenance", "reason": "retrieval failed (RuntimeError)"}
+    assert set(timings) == {"total"} and timings["total"] >= 0
 
 
 def test_an_unmapped_span_gets_labelled_suggestions_never_candidates(tmp_path):
@@ -260,7 +262,9 @@ def test_the_question_row_is_written_before_retrieval(tmp_path):
     assert seen == [("pending", QUESTION)]
     event = repository.question_event(result["event_id"])
     assert event["answer_status"] == "answered"
-    assert event["source_context"]["source_retrieval"] == {"basis": "lo_provenance", "reason": "probe"}
+    manifest = event["source_context"]["source_retrieval"]
+    assert manifest.pop("timings_ms").keys() == {"total"}  # the provider's wall time, on every path
+    assert manifest == {"basis": "lo_provenance", "reason": "probe"}
 
 
 def test_an_interrupted_retrieval_keeps_the_question(tmp_path):
@@ -292,9 +296,10 @@ class DeadlineHonouringLLM(FakeSourceLLM):
         return super().complete(request)
 
 
-def test_a_slow_verification_runs_out_of_time_and_the_tutor_keeps_its_linked_spans(tmp_path):
+def test_a_slow_verification_runs_out_of_time_when_the_time_box_is_restored(tmp_path):
     paths, repository = setup(tmp_path)
-    append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 5\n")
+    append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 5\n"
+                                   "tutor_deadline_cancels = true\n")
     slow = DeadlineHonouringLLM(latency=30)
     tutor, linked = CitingTutor(), CitingTutor()
     ask(paths, repository, linked, session="s0")
@@ -311,7 +316,7 @@ def test_a_slow_verification_runs_out_of_time_and_the_tutor_keeps_its_linked_spa
 def test_no_paid_step_starts_after_the_time_box(tmp_path):
     paths, repository = setup(tmp_path)
     append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 0.000001\n"
-                                   "tutor_query_rewrite = true\n")
+                                   "tutor_query_rewrite = true\ntutor_deadline_cancels = true\n")
     llm = FakeSourceLLM()
     embedder = HashingEmbedder()
     result = ask(paths, repository, CitingTutor(), span_provider=TutorSpanProvider(

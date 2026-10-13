@@ -3,8 +3,8 @@ title: "family_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite family_proposals"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 - `tests/test_activity_families.py`
 - `tests/test_family_proposals.py`
 - `tests/test_integration_daily_loop_field.py`
+- `tests/test_output_budget.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

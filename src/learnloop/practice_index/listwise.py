@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.routing import AITask
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -56,7 +56,9 @@ class ListwiseTask:
     right_kind: str
     id_prefix: str
     prompt_version: str
-    output_tokens: int
+    #: None (the default since 2026-10-12): the route's output budget under the
+    #: shared policy (``PaidRoute.output_tokens``); an int pins a budget.
+    output_tokens: int | None
     result_model: type[BaseModel]
     #: The judgment field holding the verdict (``relevance``, ``verdict``).
     verdict_field: str
@@ -104,9 +106,19 @@ def listwise_caps(pool_size: int, *, max_total_tokens: int, max_estimated_usd: f
                      max_total_tokens=max_total_tokens, max_estimated_usd=max_estimated_usd)
 
 
+def task_output_tokens(task: ListwiseTask, route: PaidRoute) -> int:
+    """The rerank's output budget: the task's pinned one, else the route's policy budget."""
+
+    return task.output_tokens if task.output_tokens is not None else route.output_tokens
+
+
 def request_input_hash(task: ListwiseTask, route: PaidRoute, prompt: str) -> str:
-    return content_key({"prompt": prompt, "schema": task.result_model.model_json_schema(),
-                        "model": route.model or "unspecified", "output_tokens": task.output_tokens})
+    identity: dict[str, Any] = {"prompt": prompt, "schema": task.result_model.model_json_schema(),
+                                "model": route.model or "unspecified",
+                                "output_tokens": task_output_tokens(task, route)}
+    if route.reasoning_effort:
+        identity["reasoning_effort"] = route.reasoning_effort
+    return content_key(identity)
 
 
 def ledger_ids(task: ListwiseTask, input_hash: str, keys: Sequence[Key],
@@ -165,13 +177,18 @@ def judge_listwise(
     deadline: float | None = None,
     validate: Callable[[Any], Any] | None = None,
     clock: Clock | None = None,
+    budget: SpendBudget | None = None,
+    admit: Callable[[SpendEstimate], None] | None = None,
 ) -> ListwiseOutcome[Key]:
     """Judge the pool ``refs`` (prompt ref -> candidate key) and pick at most ``pick_at_most``.
 
     ``route`` and ``client`` may be resolved by the caller beforehand (a
     readiness check before paying for retrieval); ``deadline`` is a
     ``time.monotonic()`` bound on the call (see ``PaidCalls.call``);
-    ``validate`` defaults to :func:`validate_all_judged`.
+    ``validate`` defaults to :func:`validate_all_judged`; ``budget`` replaces
+    the per-call caps with a caller's (a benchmark's command budget), and
+    ``admit`` also admits each attempt under the caller's shared caps (after
+    the ledger and checkpoints were found not to answer it).
     """
 
     keys = list(refs.values())
@@ -195,12 +212,12 @@ def judge_listwise(
         reason = transport_problem(route, client)
     if client is None or reason is not None:
         return ListwiseOutcome("unavailable", reason=reason)
-    calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price,
-                      repository=repository, owner_kind=task.route_task, owner_id=owner_id)
+    calls = PaidCalls(route=route, budget=budget or SpendBudget(caps), price_per_million=price,
+                      repository=repository, owner_kind=task.route_task, owner_id=owner_id, admit=admit)
     try:
         result = calls.call(
             client, purpose=task.route_task, prompt=prompt, result_model=task.result_model,
-            output_tokens=task.output_tokens, candidates=len(keys), pairs=len(keys),
+            output_tokens=task_output_tokens(task, route), candidates=len(keys), pairs=len(keys),
             metadata={"prompt_version": task.prompt_version, "input_hash": input_hash},
             validate=validate or (lambda value: validate_all_judged(value, refs)), deadline=deadline,
         )
@@ -255,5 +272,6 @@ __all__ = [
     "listwise_caps",
     "request_input_hash",
     "route_skip",
+    "task_output_tokens",
     "validate_all_judged",
 ]

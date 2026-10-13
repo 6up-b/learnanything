@@ -145,7 +145,7 @@ def recurrence_step(
         report["judge"] = "no_embeddings" if not vault.config.embedding.enabled else "no_client"
         return report
     job_spend = spend if spend is not None else ReviewSpend(
-        live_judge_caps(int(config.judge_max_pairs_per_attempt)), cancelled=cancelled
+        live_judge_caps(int(config.judge_max_pairs_per_attempt)), cancelled=cancelled, config=vault.config
     )
     try:
         with _receipts_for(job_spend, repository, attempt_id):

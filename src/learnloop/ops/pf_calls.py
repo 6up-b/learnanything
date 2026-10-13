@@ -44,8 +44,16 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
-from learnloop.ai.execution import content_key, generation_limit, model_settings, observe_model_calls, single_request
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable
+from learnloop.ai.execution import (
+    content_key,
+    generation_limit,
+    model_settings,
+    observe_model_calls,
+    requested_reasoning_effort,
+    single_request,
+)
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling, reasoning_effort
 from learnloop.ai.routing import provider_for_task, provider_list_for_task, ready_client_for_task
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
@@ -263,6 +271,8 @@ class PFCaller:
         self.calls_by_role: dict[str, int] = defaultdict(int)
         self.cached_by_role: dict[str, int] = defaultdict(int)
         self.calls_by_model: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        #: Truncation events (role, model, budget, what happened next).
+        self.truncations: list[dict[str, Any]] = []
 
     # -- budget -----------------------------------------------------------------
     def _upper_rate(self) -> float | None:
@@ -361,27 +371,46 @@ class PFCaller:
         return {"metered": self.metered.declared(), "subscription": self.subscription.declared()}
 
     # -- calls ------------------------------------------------------------------
+    def output_tokens(self, entry: RoleClient) -> int:
+        """The role's output budget under the shared policy (``ai.output_budget``)."""
+        return output_budget(self.vault.config, ROLE_TASKS.get(entry.role), provider=entry.provider)
+
+    def reasoning_effort(self, entry: RoleClient) -> str | None:
+        """The role's route's requested reasoning effort, or None (the profile's)."""
+        return reasoning_effort(self.vault.config, ROLE_TASKS.get(entry.role))
+
     def input_hash(self, entry: RoleClient, prompt: str, result_model: type[BaseModel],
                    output_tokens: int) -> str:
-        return content_key({
+        identity: dict[str, Any] = {
             "prompt": prompt, "schema": result_model.model_json_schema(),
             "settings": entry.settings, "output_tokens": output_tokens,
             "isolation": ISOLATION_BOUNDARY,
-        })
+        }
+        effort = self.reasoning_effort(entry)
+        if effort:
+            identity["reasoning_effort"] = effort
+        return content_key(identity)
 
     def call(self, entry: RoleClient, *, prompt: str, prompt_version: str,
-             result_model: type[BaseModel], output_tokens: int,
+             result_model: type[BaseModel], output_tokens: int | None = None,
              candidates: int = 0, pairs: int = 0, retry_invalid_output: bool = True) -> CallResult:
         """One isolated, tool-free structured turn (never the vault, files or tools).
+
+        ``output_tokens`` None is the role's policy budget (:meth:`output_tokens`).
+        A truncated answer is logged and retried once at double the budget.
 
         ``retry_invalid_output=False``: an output that broke its contract
         (``AIInvalidOutput``: malformed JSON, a schema or validator failure,
         or a truncation at ``output_tokens``) raises at once instead of
         spending a retry, so the caller can count it as one failed case
-        without reserving work the plan did not admit. Transport failures
+        without reserving work the plan did not admit. A truncation is still
+        logged (``truncations``), with no retry. Transport failures
         (outages, timeouts) are still retried under ``max_retries``.
         """
         role = entry.role
+        if output_tokens is None:
+            output_tokens = self.output_tokens(entry)
+        effort = self.reasoning_effort(entry)
         input_hash = self.input_hash(entry, prompt, result_model, output_tokens)
         cache_key = CHECKPOINT_PREFIX + input_hash
         saved = self.repository.model_checkpoint(cache_key)
@@ -400,6 +429,9 @@ class PFCaller:
             # Refused before admission: no request, no retry, no charge.
             raise PFUnavailable(f"PF role {role!r} route {entry.provider!r} cannot run an isolated, tool-free turn")
         budget = self.subscription if entry.subscription else self.metered
+        truncation = TruncationRetry(output_tokens, role=role, provider=entry.provider, model=entry.model,
+                                     owner_kind=self.owner_kind, owner_id=self.run_id,
+                                     ceiling=output_ceiling(entry.client))
         tokens = estimate_tokens(prompt, result_model, output_tokens)
         usage: dict[str, Any] = {}
         attempts = 0
@@ -431,6 +463,7 @@ class PFCaller:
                                                owner_id=self.run_id)
 
         while True:
+            tokens = estimate_tokens(prompt, result_model, truncation.budget)
             estimate = SpendEstimate(
                 candidates=candidates if attempts == 0 else 0, pairs=pairs if attempts == 0 else 0,
                 retries=int(attempts > 0), calls=1, total_tokens=tokens,
@@ -442,7 +475,8 @@ class PFCaller:
                 with budget.request(estimate) as charge, observe_model_calls(observer):
                     bound = nullcontext() if entry.subscription else single_request()
                     try:
-                        with bound, generation_limit(output_tokens):
+                        with bound, generation_limit(truncation.budget), truncation.receipts(), \
+                                requested_reasoning_effort(effort):
                             result = execute_structured_operation(
                                 entry.client, purpose=f"pf_{role}", prompt=prompt,
                                 result_model=result_model, isolated=True,
@@ -458,6 +492,17 @@ class PFCaller:
                 result = result_model.model_validate(result)
             except AIInterrupted:
                 raise
+            except AIOutputTruncated:
+                # Never accepted: logged with the role and model, then retried
+                # once at double the budget (admitted as a retry), else failed.
+                # retry_invalid_output=False (B1): logged, never retried.
+                retry = truncation.after_truncation(
+                    allowed=retry_invalid_output and self._shared_used("retries") < self.caps.max_retries)
+                self.truncations.append(truncation.events[-1])
+                if not retry:
+                    raise
+                attempts += 1
+                continue
             except AIProviderUnavailable as exc:
                 if isinstance(exc, AIInvalidOutput) and not retry_invalid_output:
                     raise
@@ -579,6 +624,7 @@ class PFCaller:
             "charged": self.charged(),
             "pricing": self.pricing(),
             "caps_in_force": self.declared(),
+            "truncations": list(self.truncations),
         }
 
 
