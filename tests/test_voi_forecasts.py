@@ -500,6 +500,65 @@ def test_unresolved_cost_shrinks_the_eedi_prior_toward_personal_history(tmp_path
     assert per_hypothesis[slip["id"]]["source"] == "not_a_persistent_cause"
 
 
+def _bound_attempt(connection, attempt_id: str, item: str, created_at: str, candidate_id: str | None) -> None:
+    connection.execute(
+        "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+        "scheduler_candidate_id, created_at) VALUES (?, ?, ?, 'short_answer', 'independent_attempt', ?, ?)",
+        (attempt_id, item, LO_ID, candidate_id, created_at),
+    )
+
+
+def _queued_followup(connection, gate_attempt: str, item: str, created_at: str) -> dict:
+    _bound_attempt(connection, gate_attempt, "pi_gate_source", created_at, None)
+    connection.execute(
+        "INSERT INTO attempt_surprise (attempt_id, observed_joint_bucket_json, triggered_actions_json, "
+        "algorithm_version, created_at) VALUES (?, '{}', ?, 'test', ?)",
+        (gate_attempt, json.dumps([f"intervention_followup:low_score:pi_gate_source",
+                                   f"intervention_followup:queued:{item}"]), created_at),
+    )
+    return {"site": "followup_selection", "source_attempt_id": gate_attempt, "decision_ref": gate_attempt,
+            "chosen_practice_item_id": item, "created_at": created_at}
+
+
+def test_followup_outcome_joins_only_the_attempt_that_took_the_followup(tmp_path):
+    # Review F6: the follow-up was taken only when the learner answered it through
+    # the follow-up lane (the attempt's offer is a slate candidate the scheduler
+    # inserted as an intervention follow-up) and this decision was the queued one
+    # that attempt answered. An unbound or ordinary later attempt on the item is
+    # not the follow-up, and two queued decisions never share one answer.
+    _vault_obj, repository = _vault(tmp_path)
+    slate = repository.record_scheduler_slate(
+        [
+            {"practice_item_id": "pi_fu_a", "priority": 2.0,
+             "components": {"selected": 1.0, "intervention_followup": 1.0}},
+            {"practice_item_id": "pi_fu_b", "priority": 1.0, "components": {"selected": 1.0}},
+        ],
+        session_id="s1", algorithm_version="test", clock=CLOCK,
+    )
+    with repository.connection() as connection:
+        candidate = {
+            row["practice_item_id"]: row["id"]
+            for row in connection.execute(
+                "SELECT id, practice_item_id FROM scheduler_slate_candidates WHERE slate_id = ?", (slate,))
+        }
+        stale = _queued_followup(connection, "att_gate_1", "pi_fu_a", "2026-05-19T12:00:00Z")
+        unbound_target = _queued_followup(connection, "att_gate_0", "pi_fu_u", "2026-05-19T11:00:00Z")
+        ordinary_target = _queued_followup(connection, "att_gate_b", "pi_fu_b", "2026-05-19T12:00:00Z")
+        pending = _queued_followup(connection, "att_gate_c", "pi_fu_c", "2026-05-19T12:00:00Z")
+        # Queued again (a newer decision) before anyone answered: the first is superseded.
+        fresh = _queued_followup(connection, "att_gate_2", "pi_fu_a", "2026-05-19T13:00:00Z")
+        _bound_attempt(connection, "att_unbound", "pi_fu_u", "2026-05-20T12:00:00Z", None)
+        _bound_attempt(connection, "att_followup", "pi_fu_a", "2026-05-20T12:00:00Z", candidate["pi_fu_a"])
+        _bound_attempt(connection, "att_ordinary", "pi_fu_b", "2026-05-20T12:00:00Z", candidate["pi_fu_b"])
+        connection.commit()
+        adapter = LR.LedgerOutcomeAdapter(connection)
+        assert adapter.attempt_for(fresh) == ("att_followup", "taken")
+        assert adapter.attempt_for(stale) == (None, "superseded")
+        assert adapter.attempt_for(unbound_target) == (None, "unbound_attempt")
+        assert adapter.attempt_for(ordinary_target) == (None, "not_taken")
+        assert adapter.attempt_for(pending) == (None, "pending")
+
+
 def test_untimed_recurrence_is_not_a_measured_zero(tmp_path):
     # Review F7 (decision-value invariant 7: missing observed time is not zero).
     # A misconception recurs, but none of its attempts was timed and there is no

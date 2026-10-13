@@ -6,7 +6,10 @@ Reads ``voi_forecasts`` (EVSI calibration Part B) and joins, at read time:
    R1's ``router_decisions``/``router_outcomes`` when the vault has them (the
    decision's chosen scheduler candidate -> the attempt that took it), else
    the probe and attempt ledgers (``practice_attempts.probe_presentation_id``
-   -> ``probe_observations``; the first later attempt on the chosen item).
+   -> ``probe_observations``; a queued follow-up -> the attempt the scheduler's
+   follow-up binding gives it, answered through the follow-up lane, with
+   ``superseded`` / ``not_taken`` / ``unbound_attempt`` / ``pending`` kept
+   apart; else the first later attempt on the chosen item).
    The realized emission is mapped into the forecast's own alphabet; one that
    cannot be mapped is counted as ``unmapped``, never guessed.
 2. **Later truth**, through truth adapters that need explicit hypothesis
@@ -38,6 +41,7 @@ from learnloop.db.stores import voi_forecasts as store
 from learnloop.diagnosis.causal_attribution import SUPPORT_BASIS_AUTHORITY
 from learnloop.diagnosis.probes import score_bucket
 from learnloop.evsi_calibration.metrics import reliability
+from learnloop.field.outcomes import borrowed_repository
 from learnloop.scheduling.unresolved_cost import estimate_unresolved_cost
 from learnloop.scheduling.voi_forecasts import FORECAST_VERSION, entropy, posterior
 from learnloop.vault.models import LoadedVault
@@ -89,6 +93,15 @@ class RouterOutcomeAdapter:
         return None, str(row["action_status"])
 
 
+def _queues_item(action: Any, item: str) -> bool:
+    """Whether an ``attempt_surprise`` action queued a follow-up of ``item``.
+
+    The two queued shapes ``repositories._queued_followup_action`` reads.
+    """
+
+    return action in (f"intervention_followup:queued:{item}", f"negative_surprise_followup:{item}")
+
+
 class LedgerOutcomeAdapter:
     """The probe and attempt ledgers (always available)."""
 
@@ -96,6 +109,9 @@ class LedgerOutcomeAdapter:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self.connection = connection
+        # Repository reads inside this connection's snapshot (the follow-up
+        # binding rule lives there, shared with the scheduler).
+        self.repository = borrowed_repository(connection)
 
     def attempt_for(self, forecast: Mapping[str, Any]) -> tuple[str | None, str] | None:
         if forecast.get("presentation_id"):
@@ -104,6 +120,8 @@ class LedgerOutcomeAdapter:
                 (forecast["presentation_id"],),
             ).fetchone()
             return (str(row["id"]), "taken") if row is not None else (None, "pending")
+        if forecast.get("site") == "followup_selection":
+            return self._followup_attempt(forecast)
         item = forecast.get("chosen_practice_item_id")
         if not item:
             return None, "no_chosen_item"
@@ -121,6 +139,69 @@ class LedgerOutcomeAdapter:
                 (item, forecast["created_at"]),
             ).fetchone()
         return (str(row["id"]), "taken") if row is not None else (None, "pending")
+
+    def _requeued_after(self, item: str, gate: str, queued_at: str) -> bool:
+        """A newer decision queued the same item (``pending_followup_practice_items``
+        keeps the newest queue per item, so the older decision is superseded)."""
+
+        for row in self.connection.execute(
+            "SELECT triggered_actions_json FROM attempt_surprise WHERE triggered_actions_json IS NOT NULL "
+            "AND attempt_id != ? AND (created_at > ? OR (created_at = ? AND attempt_id > ?))",
+            (gate, queued_at, queued_at, gate),
+        ):
+            if any(_queues_item(action, item) for action in _loads(row["triggered_actions_json"], [])):
+                return True
+        return False
+
+    def _followup_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
+        """The attempt that took a queued follow-up decision (review F6).
+
+        Taken means: the first attempt on the item after the queue is bound to
+        THIS decision by the scheduler's own rule
+        (``Repository.followup_source_attempt``: the newest earlier queue of the
+        item with no attempt between), and it was answered through the
+        follow-up lane (its offer, ``practice_attempts.scheduler_candidate_id``,
+        is a slate candidate the scheduler inserted as an intervention
+        follow-up). Otherwise the decision is ``superseded`` (a newer decision
+        queued the item first), ``not_taken`` (the item was answered through
+        another lane, which ends the queued follow-up), ``unbound_attempt``
+        (the answer carries no offer binding, so nobody can say which lane it
+        came through) or ``pending``.
+        """
+
+        item = forecast.get("chosen_practice_item_id")
+        gate = forecast.get("source_attempt_id") or forecast.get("decision_ref")
+        if not item or not gate:
+            return None, "no_chosen_item"
+        item, gate = str(item), str(gate)
+        queued = self.connection.execute(
+            "SELECT created_at FROM attempt_surprise WHERE attempt_id = ?", (gate,)
+        ).fetchone()
+        queued_at = str(queued["created_at"] if queued is not None else forecast.get("created_at") or "")
+        first = self.connection.execute(
+            "SELECT id, scheduler_candidate_id FROM practice_attempts WHERE practice_item_id = ? AND created_at > ? "
+            "AND id != ? ORDER BY created_at, id LIMIT 1",
+            (item, queued_at, gate),
+        ).fetchone()
+        if first is None:
+            return None, "superseded" if self._requeued_after(item, gate, queued_at) else "pending"
+        answered = self.repository.followup_source_attempt(str(first["id"]))
+        if answered != gate:
+            return None, "superseded" if answered is not None else "no_queue_receipt"
+        candidate_id = first["scheduler_candidate_id"]
+        candidate = (
+            self.connection.execute(
+                "SELECT components_json FROM scheduler_slate_candidates WHERE id = ?", (candidate_id,)
+            ).fetchone()
+            if candidate_id
+            else None
+        )
+        if candidate is None:
+            return None, "unbound_attempt"
+        components = _loads(candidate["components_json"], {}) or {}
+        if float(components.get("intervention_followup") or 0.0) > 0.0:
+            return str(first["id"]), "taken"
+        return None, "not_taken"
 
 
 def _observation(connection: sqlite3.Connection, attempt_id: str) -> dict[str, Any] | None:
