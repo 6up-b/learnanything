@@ -104,6 +104,7 @@ def test_a_dense_baseline_whose_teaching_pool_falls_back_is_neither_verified_nor
     assert verification["coverage"]["pool_verify"]["verified"] == verification["coverage"]["pool_verify"]["questions"]
     markdown = (tmp_path / "out" / report["report_files"][1]).read_text(encoding="utf-8")
     assert "pool_verify - dense_verify blocked:" in markdown
+    assert f"- dense_verify: {fell_back} pool(s) fell back" in markdown
 
 
 def test_an_incomplete_library_index_does_not_starve_a_complete_teaching_index(tmp_path):
@@ -118,6 +119,7 @@ def test_an_incomplete_library_index_does_not_starve_a_complete_teaching_index(t
     report = _report(paths, tmp_path, FakeSourceLLM(), ("meaning", *VERIFYING))
     results = report["results"]
     assert results["dense_index"]["status"] == "partial"
+    assert report["usage"]["calls_by_role"].get("embedding", 0) > 0  # the tutor pools' query vectors
     assert "meaning" in results["unavailable_systems"]  # the library's dense list needs the library's index
     assert "dense_verify" in results["systems"]
     verification = results["verification"]
@@ -129,3 +131,17 @@ def test_an_incomplete_library_index_does_not_starve_a_complete_teaching_index(t
     coverage = verification["coverage"]["dense_verify"]
     assert coverage["verified"] == coverage["questions"] == asked and coverage["unavailable"] == 0
     assert "pool_verify - dense_verify" not in results["verdict_blocks"]
+
+
+def test_dense_verify_is_unavailable_only_when_no_teaching_scope_can_be_dense(tmp_path):
+    paths, repository = setup(tmp_path, embed=False)
+    report = _report(paths, tmp_path, FakeSourceLLM(), ("meaning", *VERIFYING))
+    results = report["results"]
+    assert set(results["unavailable_systems"]) == {"meaning", "dense_verify"}
+    assert "teaching scope" in results["unavailable_systems"]["dense_verify"]
+    assert results["systems"] == ["hybrid_verify", "pool_verify"]
+    verification = results["verification"]
+    assert set(verification["teaching_dense_index"]) == {"incomplete"}
+    # No index can rank, so no query vector is paid for; the pools are the tutor's fallback.
+    assert report["usage"]["calls_by_role"].get("embedding", 0) == 0
+    assert verification["pool_modes"]["pool_verify"] == {"hybrid_rrf": verification["coverage"]["pool_verify"]["questions"]}

@@ -115,6 +115,18 @@ class TutorPool:
     verify_context: str | None = None
 
 
+def tutor_scope(vault: LoadedVault, repository: Repository, *, context: str,
+                learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope:
+    """The scope the tutor's pool searches for one question: the teaching scope
+    of its LOs, with the item's exclusions in a practice or feedback context.
+    Its dense index, not the library's, decides whether that pool is dense
+    (the T6 report reads it per question; review F8)."""
+
+    item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+    lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
+    return teaching_scope(vault, repository, lo_ids, item_bound=item_bound, item=item if item_bound else None)
+
+
 def tutor_pool(
     vault: LoadedVault, repository: Repository, *, context: str, question_md: str,
     learning_object_ids: Sequence[str], item: PracticeItem | None, embedder: Any | None = None,
@@ -137,8 +149,7 @@ def tutor_pool(
     config = vault.config.source_retrieval
     item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
     lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
-    scope = teaching_scope(vault, repository, lo_ids, item_bound=item_bound,
-                           item=item if item_bound else None)
+    scope = tutor_scope(vault, repository, context=context, learning_object_ids=lo_ids, item=item)
     provenance = [
         (span.extraction_id, span.span_id)
         for lo_id in lo_ids
@@ -260,4 +271,5 @@ __all__ = [
     "span_context",
     "step_timings",
     "tutor_pool",
+    "tutor_scope",
 ]

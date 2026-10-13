@@ -35,9 +35,16 @@ agreement reported").
   run is no ranking (the tutor would fall back to the LO-linked spans): the
   question leaves that system's scores, its coverage is reported, and its
   verdicts are blocked (review F4). Dense systems need a complete
-  ``source_block/text`` backfill for ``embedding.model``; without it ``meaning``
-  and ``dense_verify`` are unavailable and the pool systems report the
-  production fallback (``hybrid_rrf``).
+  ``source_block/text`` backfill for ``embedding.model`` over the scope they
+  search: ``meaning`` (and the library's dense lists) the library's, each
+  verification system the question's teaching scope (review F8: an LO may cite
+  an older extraction outside the library, and a library source may be in no
+  teaching scope). Query vectors are paid for wherever one of those indexes
+  can rank. Without a complete library index ``meaning`` is unavailable; the
+  pool systems report the production fallback (``hybrid_rrf``); a
+  ``dense_verify`` pool that falls back is no dense baseline, so that question
+  is neither verified nor scored for it, its coverage counts it as
+  unavailable and its verdicts are blocked.
 * **Labels and metrics** as in ``bench``: two LLM passes over the union of
   every system's top 10 and every verification pool, agreement, nDCG@10,
   Recall@10, MRR, paired bootstrap intervals, all also per query type.
@@ -73,7 +80,7 @@ from learnloop.reader.source_search import MAX_HITS
 from learnloop.source_retrieval import bench
 from learnloop.source_retrieval.contracts import VERDICT_SCORE, QueryRewrite, SpanVerification
 from learnloop.source_retrieval.corpus import Scope, library_scope
-from learnloop.source_retrieval.dense import load_dense_index
+from learnloop.source_retrieval.dense import dense_coverage, load_dense_index
 from learnloop.source_retrieval.queries import (
     REWRITE_PROMPT_VERSION,
     Rewrite,
@@ -93,7 +100,7 @@ from learnloop.source_retrieval.search import (
     SpanHit,
     search_spans,
 )
-from learnloop.source_retrieval.tutor import ITEM_BOUND_CONTEXTS, TutorPool, tutor_pool
+from learnloop.source_retrieval.tutor import ITEM_BOUND_CONTEXTS, TutorPool, tutor_pool, tutor_scope
 from learnloop.source_retrieval.verify import PASSAGE_CHARS, verify_prompt, verify_spans
 from learnloop.vault.models import LoadedVault
 
@@ -539,20 +546,50 @@ class SourceRetrievalSuite:
                                                      keywords, call.model)
         index = load_dense_index(vault, repository, data.scope)
         dense_ready = index.ready
+        # The verification systems' pools are built over each question's
+        # teaching scope, whose index is not the library's (an older extraction
+        # an LO cites; a library source outside every teaching scope): each
+        # question's own coverage decides whether its tutor pool can be dense
+        # and so whether its query vectors are needed (review F8).
+        tutor_dense: dict[int, Any] = {}
+        if any(system in VERIFY_SYSTEMS for system in data.systems):
+            tutor_dense = {position: dense_coverage(vault, repository, self._tutor_scope(vault, repository, question))
+                           for position, question in enumerate(questions)}
+        display_dense = dense_ready and any(system in DENSE_SYSTEMS for system in data.systems
+                                            if system in DISPLAY_SYSTEMS)
+        texts: list[str] = []
+        for position, question in enumerate(questions):
+            tutor_usable = position in tutor_dense and tutor_dense[position].usable
+            if not (display_dense or tutor_usable):
+                continue
+            texts.append(question["text"])
+            rewrite = rewrites.get(question["text"])
+            # The tutor embeds a rewrite only when tutor_query_rewrite is on.
+            if rewrite is not None and (display_dense or config.tutor_query_rewrite):
+                texts.append(rewritten_text(rewrite))
         vectors: dict[str, Any] = {}
-        if dense_ready and set(data.systems) & DENSE_SYSTEMS:
-            texts = [question["text"] for question in questions]
-            texts += [rewritten_text(rewrite) for rewrite in rewrites.values()]
-            paid = ctx.vectors(vault.config.embedding.model, texts,
+        if texts:
+            paid = ctx.vectors(vault.config.embedding.model, list(dict.fromkeys(texts)),
                                dims=vault.config.embedding.dimensions, task_prefix="retrieval-query")
             # As production serves a query vector: stored at half precision
             # (practice_index.query_vectors), so the tutor's and the library's
             # dense lists are the ones production would rank (review F5).
             vectors = {text: np.asarray(vector, dtype="<f2").astype(np.float64)
                        for text, vector in paid.items() if vector is not None}
-        # Without a complete index only the dense-only systems are unavailable;
-        # the others run as production would (hybrid_rrf, keyword lists only).
-        systems = [system for system in data.systems if system not in DENSE_ONLY_SYSTEMS or dense_ready]
+        # Without a complete library index ``meaning`` is unavailable and the
+        # other display systems run as production would (hybrid_rrf, keyword
+        # lists only). ``dense_verify`` needs a complete index for a question's
+        # teaching scope: unavailable when no question has one, and per question
+        # a pool that falls back is neither verified nor scored (below).
+        unavailable: dict[str, str] = {}
+        if not dense_ready:
+            unavailable["meaning"] = index.reason or f"the library's dense index is {index.status}"
+        if tutor_dense and not any(found.ready for found in tutor_dense.values()):
+            reasons = sorted({found.reason or found.status for found in tutor_dense.values()})
+            unavailable["dense_verify"] = ("no question's teaching scope has a complete dense index ("
+                                           + "; ".join(reasons) + ")")
+        unavailable = {system: reason for system, reason in unavailable.items() if system in data.systems}
+        systems = [system for system in data.systems if system not in unavailable]
         display = [system for system in systems if system in DISPLAY_SYSTEMS]
         verifying = [system for system in systems if system in VERIFY_SYSTEMS]
         per_question: list[dict[str, Any]] = []
@@ -562,19 +599,42 @@ class SourceRetrievalSuite:
         seed_hits: dict[str, list[bool]] = {system: [] for system in systems}
         latency: dict[str, list[float]] = {system: [] for system in verifying}
         statuses: dict[str, dict[str, int]] = {system: {} for system in verifying}
-        coverage: dict[str, dict[str, int]] = {system: {"questions": 0, "verified": 0} for system in verifying}
+        coverage: dict[str, dict[str, int]] = {system: {"questions": 0, "verified": 0, "unavailable": 0}
+                                               for system in verifying}
         pool_modes: dict[str, dict[str, int]] = {}
+        not_dense: dict[str, dict[str, int]] = {}
         tutor_contexts: dict[str, int] = {}
         verify_truncations: list[dict[str, Any]] = []
         for question in questions:
             text = question["text"]
-            rankings = self._rankings(vault, repository, data.scope, text, display, index, vectors,
-                                      rewrites.get(text))
+            # The library's display lists rank by meaning only over a complete
+            # library index, as before; the tutor pools use every vector paid.
+            rankings = self._rankings(vault, repository, data.scope, text, display, index,
+                                      vectors if dense_ready else {}, rewrites.get(text))
             pools = self._verify_pools(vault, repository, question, verifying, vectors, rewrites, pool_modes)
             if pools:
                 described = question["tutor"].describe()
                 label = described["context"] + (" (item)" if described["item_bound"] else "")
                 tutor_contexts[label] = tutor_contexts.get(label, 0) + 1
+            verification: dict[str, Any] = {}
+            # A dense-only baseline whose pool fell back (hybrid_rrf: no
+            # complete index for this question's teaching scope, or no query
+            # vector) is not the system it names: never labelled, verified or
+            # scored, counted in its coverage, and its verdicts are blocked
+            # (review F8). pool_verify's fallback is the tutor's own, so it stays.
+            for system in [system for system in pools if system in DENSE_ONLY_SYSTEMS]:
+                built = pools[system]
+                if (built.search.pool or {}).get("mode") == POOL_DENSE_PLUS_BM25:
+                    continue
+                reason = str((built.search.pool or {}).get("fallback") or "no dense pool")
+                del pools[system]
+                statuses[system]["unavailable"] = statuses[system].get("unavailable", 0) + 1
+                coverage[system]["questions"] += 1
+                coverage[system]["unavailable"] += 1
+                reasons = not_dense.setdefault(system, {})
+                reasons[reason] = reasons.get(reason, 0) + 1
+                verification[system] = {"status": "unavailable", "reason": reason, "seconds": None,
+                                        "pool": len(built.pool), "metrics": None}
             keys = {key for ranked in rankings.values() for key in ranked[: bench.TOP_K]}
             keys |= {hit.record_id for built in pools.values() for hit in built.pool}
             pool = sorted(keys)
@@ -593,7 +653,6 @@ class SourceRetrievalSuite:
             for model, count in models.items():
                 label_models[model] = label_models.get(model, 0) + count
             all_labels.append(labels)
-            verification: dict[str, Any] = {}
             for system, built in pools.items():
                 outcome, seconds = self._verify(ctx, vault, text, built.pool, context=built.verify_context)
                 statuses[system][outcome.status] = statuses[system].get(outcome.status, 0) + 1
@@ -631,7 +690,7 @@ class SourceRetrievalSuite:
         comparisons = [(left, right) for left, right in COMPARISONS if left in systems and right in systems]
         summary = bench.summarize(per_question, systems, comparisons)
         coverage_report = {
-            system: {**counts, "failed": counts["questions"] - counts["verified"],
+            system: {**counts, "failed": counts["questions"] - counts["verified"] - counts["unavailable"],
                      "share": (counts["verified"] / counts["questions"]) if counts["questions"] else None}
             for system, counts in coverage.items()
         }
@@ -647,7 +706,7 @@ class SourceRetrievalSuite:
             "scored_questions": len(per_question),
             "incomplete_questions": incomplete,
             "systems": systems,
-            "unavailable_systems": {system: index.reason for system in data.systems if system not in systems},
+            "unavailable_systems": unavailable,
             "dense_index": index.describe(),
             "rewritten_questions": len(rewrites),
             "seed_hit@10": {system: (sum(hits) / len(hits) if hits else None) for system, hits in seed_hits.items()},
@@ -661,6 +720,8 @@ class SourceRetrievalSuite:
                 "coverage": coverage_report,
                 "latency_seconds": {system: _stats(values) for system, values in latency.items()},
                 "pool_modes": pool_modes,
+                "not_dense": not_dense,
+                "teaching_dense_index": _count(found.status for found in tutor_dense.values()),
                 "tutor_contexts": dict(sorted(tutor_contexts.items())),
             },
             "by_type": _by_type(per_question, systems, verifying),
@@ -754,6 +815,14 @@ class SourceRetrievalSuite:
         if entry.context == "library" and entry.note_id in vault.notes:
             return TutorQuestion("library", tuple(vault.notes[entry.note_id].related_los))
         return self._passage_question(vault, repository, [entry.seed] if entry.seed else [])
+
+    def _tutor_scope(self, vault: LoadedVault, repository: Repository, question: Mapping[str, Any]) -> Scope:
+        """The teaching scope this question's tutor pools search (review F8)."""
+
+        tutor: TutorQuestion = question["tutor"]
+        item = vault.practice_items.get(tutor.item_id) if tutor.item_id else None
+        return tutor_scope(vault, repository, context=tutor.context,
+                           learning_object_ids=tutor.learning_object_ids, item=item)
 
     def _verify_pools(self, vault: LoadedVault, repository: Repository, question: Mapping[str, Any],
                       systems: Sequence[str], vectors: Mapping[str, Any], rewrites: Mapping[str, Rewrite],
@@ -856,6 +925,10 @@ class SourceRetrievalSuite:
                              f"{_fmt(row['relevant_share_of_picks'])} | {_fmt(row['mean_top_precision'])} | "
                              f"{_fmt(row['mean_ndcg@picks'])} | {row['empty_with_relevant']} | "
                              f"{_fmt(stats.get('p50'))} / {_fmt(stats.get('p90'))} |")
+            for system, reasons in (verification.get("not_dense") or {}).items():
+                lines.append(f"- {system}: " + "; ".join(f"{count} pool(s) fell back ({reason})"
+                                                         for reason, count in reasons.items())
+                             + ", so not verified or scored (no dense baseline there).")
             for name, entry in (verification.get("differences") or {}).items():
                 parts = []
                 for metric in VERIFY_METRICS:
@@ -926,15 +999,23 @@ def _by_type(per_question: list[dict[str, Any]], systems: list[str], verifying: 
 def verdict_blocks(comparisons: Sequence[tuple[str, str]],
                    coverage: Mapping[str, Mapping[str, Any]]) -> dict[str, str]:
     """Comparisons whose verdict is blocked: a verification system with a
-    verification that did not run (review F4). Its scored questions are only
-    those it verified, so a win there says nothing about the tutor."""
+    verification that did not run (review F4), or a dense-only system whose
+    pool fell back on some question (review F8). Its scored questions are only
+    those it verified, so a win there says nothing about the tutor (or about a
+    dense baseline over every question)."""
 
     blocks: dict[str, str] = {}
     for left, right in comparisons:
-        reasons = [f"{counts['failed']} of {counts['questions']} {system} verifications did not run "
-                   "(the tutor would fall back to the LO-linked spans; not scored)"
-                   for system in (left, right)
-                   if (counts := coverage.get(system)) and counts.get("failed")]
+        reasons: list[str] = []
+        for system in (left, right):
+            counts = coverage.get(system) or {}
+            if counts.get("failed"):
+                reasons.append(f"{counts['failed']} of {counts['questions']} {system} verifications did not run "
+                               "(the tutor would fall back to the LO-linked spans; not scored)")
+            if counts.get("unavailable"):
+                reasons.append(f"{counts['unavailable']} of {counts['questions']} {system} pools fell back to "
+                               "hybrid_rrf (no complete dense index for the question's teaching scope, or no "
+                               "query vector), so are no dense pool: not verified or scored")
         if reasons:
             blocks[f"{left} - {right}"] = "; ".join(reasons)
     return blocks
