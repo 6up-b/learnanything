@@ -181,4 +181,4 @@ Environment: Python 3.12.14 and SQLite 3.53.1, with `TMPDIR` set to the worktree
 ## Open questions for the owner
 
 - **Lease timing.** `LEASE_SECONDS` = 300 and `HEARTBEAT_SECONDS` = 60 are process-liveness bounds, not money decisions. A shorter lease frees a crashed process's unsent reservation sooner.
-- **Migration numbering.** Migration 192 is a placeholder on this unmerged branch. It will be renumbered with 184-191 at the merge onto main.
+- **Migration numbering.** Migration 192 is a placeholder on this unmerged branch. It will be renumbered with 184-191 at the merge onto main. (Merged 2026-10-13: 191 is 194 and 192 is 195; see the integration note in `docs/reviews/source-practice.md`.)

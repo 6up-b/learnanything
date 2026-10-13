@@ -3,8 +3,8 @@ title: "Config - scheduler"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e238fa07afea9026fb46ed058676a80830162515"
-source_commit_timestamp: "2026-10-13T10:36:05-04:00"
+source_commit: "2802437abacd50fe33ade8228bb0d56735a97622"
+source_commit_timestamp: "2026-10-13T13:29:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml scheduler"
@@ -97,7 +97,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `scheduler.followup.gate_subscore_steepness` | `12.0` | number | modeled default or validator seed | Controls gate subscore steepness in queue scoring, exploration, surprise, and follow-up selection, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:59`; `src/learnloop/diagnosis/followups.py:243` |
 | `scheduler.followup.predictive_eig_weight` | `0.0` | number | modeled default or validator seed | Scales the contribution of predictive expected-information-gain in queue scoring, exploration, surprise, and follow-up selection. | **DORMANT** — Predictive EIG is logged but contributes zero weight in the shipped configuration. | `src/learnloop/config/schema.py:64`; `src/learnloop/diagnosis/followups.py:1742`; `src/learnloop/diagnosis/voi_forecasting.py:402` |
 | `scheduler.followup.predictive_eig_target_cap` | `4` | integer | modeled default or validator seed | Caps predictive expected-information-gain target allowed by queue scoring, exploration, surprise, and follow-up selection. | **DORMANT** — Predictive EIG is logged but contributes zero weight in the shipped configuration. | `src/learnloop/config/schema.py:65`; `src/learnloop/diagnosis/followups.py:1744` |
-| `scheduler.followup.tau_discrimination_power` | `0.3` | number | modeled default or validator seed | Sets the decision cutoff for discrimination power in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:71`; `src/learnloop/diagnosis/followups.py:1860`; `src/learnloop/instructional/needs.py:78` |
+| `scheduler.followup.tau_discrimination_power` | `0.3` | number | modeled default or validator seed | Sets the decision cutoff for discrimination power in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:71`; `src/learnloop/diagnosis/followups.py:1860`; `src/learnloop/instructional/needs.py:79` |
 | `scheduler.followup.require_misconception_discrimination` | `true` | boolean | modeled default or validator seed | Turns require misconception discrimination behavior on or off within queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:72`; `src/learnloop/diagnosis/followups.py:1856` |
 
 > [!warning] Omitted does not mean frozen in the file

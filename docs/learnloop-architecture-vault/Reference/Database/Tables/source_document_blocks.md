@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e238fa07afea9026fb46ed058676a80830162515"
-source_commit_timestamp: "2026-10-13T10:36:05-04:00"
+source_commit: "2802437abacd50fe33ade8228bb0d56735a97622"
+source_commit_timestamp: "2026-10-13T13:29:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -144,6 +144,7 @@ Database triggers:
 - `tests/test_reader_branches.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
+- `tests/test_sources_merge_composition.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_ingest_runner.py`

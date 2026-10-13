@@ -1,5 +1,43 @@
 # Stage "sources-build": canonical sources as a shared instructional service
 
+> **Integration (merge into `main`, branch `merge/sources-onto-main`, 2026-10-13).**
+> Merged after main's router R1 (181, `mvp-0.15`), learner-text gaps (182,
+> `mvp-0.16`), facet identity (183), the T6 follow-up's shared output-budget
+> policy, EVSI calibration (184 `voi_forecasts`), RW1a (185) and the proof
+> route check (186, `mvp-0.17`, with the held-grade predicate). Renumbered and
+> relabelled at the merge, so read this record with these substitutions:
+>
+> - **Migrations 184-192 -> 187-195** in order (184 -> 187 callers and
+>   impressions, 185 -> 188 imports and `reference_status`, 186 -> 189
+>   comparisons, 187 -> 190 valuations, 188 -> 191 `need_id`, 189 -> 192 tool
+>   calls, 190 -> 193 interventions, 191 -> 194 `source_service_spend`, 192 ->
+>   195 the spend accounting). Head fixture `fixtures/migration_head_195`:
+>   main's `migration_head_186` with 187-195 applied on a backup-API copy
+>   (checkpointed, rollback journal, `integrity_check` ok,
+>   `foreign_key_check` clean).
+> - **Versions `mvp-0.15` -> `mvp-0.18`** (the answer-key certification gate)
+>   **and `mvp-0.16` -> `mvp-0.19`** (source-first needs), appended after
+>   `mvp-0.17`; `LATEST_ALGORITHM_VERSION` is `mvp-0.19`.
+>   `sources_upgrade.upgrade_to_mvp018/019` chain from
+>   `proof_check_upgrade.upgrade_to_mvp017` and pass the chained notes
+>   through (`tests/test_mvp018_upgrade.py`). Every defaults snapshot was
+>   recomputed (each moves only because of `[source_service]` and the four
+>   source routes). The composed tutor prompt with tool requests is
+>   `mvp-0.10-tutor-qa-learner-gap-source-tool-requests`.
+> - **Composition with main** (`tests/test_sources_merge_composition.py`):
+>   every LLM call the service makes takes its route's output budget under
+>   main's policy and retries a truncation once at double it, reserved at
+>   what it sends (the pinned 1500/2500/4000/5000/8000 caps are gone, and
+>   `ops/pf_verify.py` no longer re-pins PF-b); a subscription route through
+>   `PaidCalls` reserves nothing in the daily ledger; a grade held for review
+>   is no intervention outcome, no retention success and never closes the
+>   attempt window; a source-first need's value decision logs a
+>   `voi_forecasts` row (`source_need_selection`); exam and held-out
+>   material never grounds a pinned tutor question, a `find_sources` pool or
+>   a comparison, and imports pass the held-out leakage gate; search callers
+>   that page by exhaustion pin the `hybrid_rrf` pool (main's default is
+>   `dense_plus_bm25`).
+
 **Branch:** `sources/canonical-practice` (worktree `learnanything-sources`, base `0a6f375b`).
 **Spec:** `docs/specs/spec_source_practice_and_probes_v1.md`, phases S0–S5, built in the spec's order (S0, S1, S3, S2a, S2b, S4, S5), then the frontend, snapshots and references, and a live sanity run on fixture copies.
 **Commits:** `80132615` S0 · `9cbc0eac` S1 · `1124b863` S3 · `f4ea3468` S2a · `efea1e0c` S2b · `d9ea71ce` S4 · `208a17e4` S5 · `98990c3d` frontend · `fa7586b9` snapshots, head fixture, references · `73e5b721` and `b6e71f22` fixes found by the live run · `c3179ebf` the first version of this record.
