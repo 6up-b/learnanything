@@ -224,6 +224,8 @@ def classify_item(
                     reason=(
                         "a due project probe that does not fit today's minutes"
                         if probe_value.get("reason") == "does_not_fit_plan_minutes"
+                        else "a due project probe this plan no longer takes (skipped, answered, or new since it was built)"
+                        if probe_value.get("reason") == "not_available_to_this_plan"
                         else "a due project probe whose value does not pay for its minutes today"
                     ),
                     check_kind=check.kind,

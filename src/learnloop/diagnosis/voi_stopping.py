@@ -73,10 +73,12 @@ study at the value in brackets:
   completion gate does not end an episode while value decides it
   (``probe_episodes.robust_gate_applies``); a value stop records the gate's
   verdict as a counterfactual (:func:`with_robust_gate_counterfactual`);
-* rank 2, ``lookahead_max_checks`` (3; 1): where a decision is at stake,
-  ``rank_feasible`` did not abstain and no single check pays, the best 2-3
-  ranked checks are valued jointly (``evsi.robust_batch_evsi``) and a paying
-  batch continues with the site's own choice among it (:func:`_lookahead`);
+* rank 2, ``lookahead_max_checks`` (3; 1): in a probe episode
+  (:data:`LOOKAHEAD_SITES`), where a decision is at stake, ``rank_feasible``
+  did not abstain and no single check pays, the best 2-3 ranked checks that
+  can all be administered (one per canonical surface group) are valued
+  jointly (``evsi.robust_batch_evsi``) and a paying batch continues with the
+  site's own choice among it (:func:`_lookahead`);
 * rank 3, ``robust_quantile`` (0.25; 0.10): the credible set's lower quantile
   this value gate reads (``rank_feasible``, the robust EIG, the batch); the
   mvp-0.8 paths keep ``robust_composition.ROBUST_QUANTILE`` (0.10).
@@ -176,6 +178,12 @@ METHOD_ROBUST_EVSI = "robust_evsi"
 METHOD_EIG_VALUE = "eig_value"
 #: A decision the lookahead took: ``robust_evsi_lookahead_<k>``.
 METHOD_LOOKAHEAD_PREFIX = "robust_evsi_lookahead_"
+#: Where the lookahead acts: the probe episode, the only site the multi-family
+#: study simulated (its §7.1). Its §6.2 waits for live ``voi_forecasts``
+#: calibration before the lookahead acts at the follow-up and teach-back sites
+#: (Codex review of voi-v2, F15); a later rollout there gets its own site
+#: control. ``lookahead_max_checks = 1`` still turns it off here.
+LOOKAHEAD_SITES: frozenset[str] = frozenset({SITE_PROBE_EPISODE})
 
 #: Reasons a decision names.
 REASON_EVSI_CLEARS = "robust_evsi_clears_minutes_cost"
@@ -541,11 +549,18 @@ def _lookahead_parameter(settings: VoiSettings) -> dict[str, Any]:
 
 
 def heuristic_parameters(
-    minutes: MinutesEstimate, *, method: str, evsi_used: bool, settings: VoiSettings | None = None
+    minutes: MinutesEstimate,
+    *,
+    method: str,
+    evsi_used: bool,
+    settings: VoiSettings | None = None,
+    lookahead_site: bool = True,
 ) -> list[dict[str, Any]]:
     """Every number the decision ran on, with its provenance: heuristic but the
     minutes, and the multi-family study's recommendations (``evsi_multisim``)
-    where its switches are at their defaults."""
+    where its switches are at their defaults. ``lookahead_max_checks`` is
+    listed only where the lookahead can act (``lookahead_site``,
+    :data:`LOOKAHEAD_SITES`)."""
 
     settings = settings or VoiSettings.from_config(None)
     params = [
@@ -567,9 +582,10 @@ def heuristic_parameters(
                 {"name": "loss_model", "value": "triage_route_wasted_minutes", "provenance": "heuristic",
                  "source": "action_loss.build_loss_table",
                  "note": "a wrong repair wastes its minutes plus the delay of the right one; not yet calibrated"},
-                _lookahead_parameter(settings),
             ]
         )
+        if lookahead_site:
+            params.append(_lookahead_parameter(settings))
     params.append({"name": "method", "value": method, "provenance": "structural"})
     return params
 
@@ -585,7 +601,11 @@ class Candidate:
     facet EIG, a reward's ``probe_eig_total``), already discounted.
     ``infeasible_reason`` marks a candidate the site cannot serve within its
     constraints (a project probe that does not fit the plan's minutes): it is
-    valued for its receipt but never continues.
+    valued for its receipt but never continues. ``surface_group`` is the
+    observation's canonical surface group (``surface_group_id``): once one
+    check of a group is answered the exposure rule excludes the others, so a
+    lookahead batch holds at most one check per group (Codex review of voi-v2,
+    F13). None: a surface of its own.
     """
 
     ref: str
@@ -595,6 +615,7 @@ class Candidate:
     extra_eig_nats: float = 0.0
     detail: Mapping[str, Any] = field(default_factory=dict)
     infeasible_reason: str | None = None
+    surface_group: str | None = None
 
 
 @dataclass(frozen=True)
@@ -828,10 +849,11 @@ def value_candidates(
 
     The multi-family study's switches (:class:`VoiSettings`): the credible
     set's lower ``robust_quantile`` is the robust value (``rank_feasible``'s
-    EVSI, the robust EIG, a batch's value); and when a decision is at stake,
+    EVSI, the robust EIG, a batch's value); and at a site in
+    :data:`LOOKAHEAD_SITES` (the probe episode), when a decision is at stake,
     ``rank_feasible`` did not abstain and no single candidate pays, the best
-    2 to ``lookahead_max_checks`` ranked candidates are valued jointly
-    (:func:`_lookahead`).
+    2 to ``lookahead_max_checks`` ranked candidates that can be administered
+    together are valued jointly (:func:`_lookahead`).
     """
 
     settings = ctx.settings
@@ -950,8 +972,10 @@ def value_candidates(
             )
         )
     lookahead: dict[str, Any] | None = None
+    lookahead_site = site in LOOKAHEAD_SITES
     if (
-        settings.lookahead_max_checks >= 2
+        lookahead_site
+        and settings.lookahead_max_checks >= 2
         and at_stake
         and rank is not None
         and rank.verdict != "abstain"
@@ -996,7 +1020,9 @@ def value_candidates(
         former_cap=dict(former_cap),
         rank=rank_body,
         context=site_context,
-        parameters=heuristic_parameters(best_minutes, method=method, evsi_used=bool(at_stake), settings=settings),
+        parameters=heuristic_parameters(
+            best_minutes, method=method, evsi_used=bool(at_stake), settings=settings, lookahead_site=lookahead_site
+        ),
         lookahead=lookahead,
     )
 
@@ -1015,7 +1041,11 @@ def _lookahead(
     No single check pays, a decision is at stake and ``rank_feasible`` did not
     abstain: the top ``k`` of its ranking (k = 2 up to
     ``lookahead_max_checks``, the smallest first) are valued jointly
-    (:func:`evsi.robust_batch_evsi`). The first batch whose robust value
+    (:func:`evsi.robust_batch_evsi`). A batch must be administrable as a
+    whole: the ranking keeps one check per canonical surface group (its best
+    ranked), because answering one check of a group excludes the others from
+    the episode (Codex review of voi-v2, F13); the dropped ones are recorded
+    (``skipped_same_surface``). The first batch whose robust value
     exceeds its checks' summed minutes cost pays, and so every check in it
     does; the site serves its own choice among them (its first candidate when
     that one is in the batch, else the batch's top-ranked check), and only that
@@ -1026,12 +1056,27 @@ def _lookahead(
     """
 
     feasible = {candidate.ref for candidate in candidates if candidate.members and not candidate.infeasible_reason}
-    ranked = [entry.ref for entry in rank.ranked if entry.ref in feasible]
+    groups = {candidate.ref: candidate.surface_group for candidate in candidates}
+    ranked: list[str] = []
+    skipped: list[str] = []
+    seen_groups: set[str] = set()
+    for entry in rank.ranked:
+        if entry.ref not in feasible:
+            continue
+        group = groups.get(entry.ref)
+        if group is not None and group in seen_groups:
+            # Mutually exclusive with a better-ranked check: never in one batch.
+            skipped.append(entry.ref)
+            continue
+        if group is not None:
+            seen_groups.add(group)
+        ranked.append(entry.ref)
     by_ref = {candidate.ref: candidate for candidate in diagnostic}
     body: dict[str, Any] = {
         "max_checks": settings.lookahead_max_checks,
         "quantile": settings.robust_quantile,
         "ranking": ranked[:MAX_RECORDED_CANDIDATES],
+        "skipped_same_surface": skipped[:MAX_RECORDED_CANDIDATES],
         "paid": False,
         "tried": [],
     }
@@ -1065,6 +1110,7 @@ def _lookahead(
             "paid": True,
             "k": found.k,
             "batch": list(found.refs),
+            "surface_groups": {ref: groups.get(ref) for ref in found.refs},
             "method": method,
             "chosen_ref": chosen_ref,
             "chosen_rule": rule,
@@ -1199,6 +1245,14 @@ REASON_DOES_NOT_FIT = "does_not_fit_plan_minutes"
 #: the rest again (final verify F10): the others are conditioned on it, and its
 #: minutes are not charged again.
 REASON_ALREADY_PLANNED = "already_planned"
+#: A check a plan holds because the learner asked for it (L3: requests first,
+#: Codex review of voi-v2 F14), not by its value: it is charged once as a
+#: request, and the other checks are valued given it.
+REASON_LEARNER_REQUEST = "learner_request"
+#: A due check a plan refresh cannot hold (skipped or answered in this plan,
+#: or outside the plan's frozen universe; Codex review of voi-v2 F10): never
+#: valued, never conditioned on, so it cannot suppress one the plan can hold.
+REASON_NOT_IN_PLAN = "not_available_to_this_plan"
 
 _Branches = tuple[tuple[float, tuple[tuple[str, float], ...]], ...]
 
@@ -1660,8 +1714,12 @@ class GreedyAdmission:
     admitted: tuple[str, ...]
     steps: tuple[SiteDecision, ...]
     #: Checks already selected before this admission (planned, not yet
-    #: answered): conditioned on first, never valued or charged again.
+    #: answered, or a learner request): conditioned on first, never valued or
+    #: charged again.
     preselected: tuple[str, ...] = ()
+    #: Why each preselected check is held (default ``already_planned``;
+    #: ``learner_request`` for a requested check, Codex review of voi-v2 F14).
+    preselected_reasons: Mapping[str, str] = field(default_factory=dict)
 
     def step_for(self, ref: str) -> tuple[int, SiteDecision] | None:
         """The step that admitted ``ref``, else the final step (its stop)."""
@@ -1675,13 +1733,13 @@ class GreedyAdmission:
 
     def receipt_for(self, ref: str) -> dict[str, Any] | None:
         if ref in self.preselected:
-            # Not a value decision: the plan already holds this check, and the
-            # others were valued given it.
+            # Not a value decision: the plan already holds this check (or the
+            # learner asked for it), and the others were valued given it.
             return {
                 "forecast_version": FORECAST_VERSION,
                 "site": self.site,
                 "decision": CONTINUE,
-                "reason": REASON_ALREADY_PLANNED,
+                "reason": str(self.preselected_reasons.get(ref, REASON_ALREADY_PLANNED)),
                 "subject_ref": ref,
                 "admitted": True,
                 "context": dict(self.steps[0].context) if self.steps else {},
@@ -1727,6 +1785,7 @@ def greedy_information_admission(
     minutes_budget: float | None = None,
     max_item_minutes: float | None = None,
     preselected: Iterable[str] = (),
+    preselected_reasons: Mapping[str, str] | None = None,
 ) -> GreedyAdmission:
     """Admit checks greedily, each valued conditionally on those already chosen.
 
@@ -1755,11 +1814,15 @@ def greedy_information_admission(
     already holds (planned on an earlier boundary, not yet answered): every
     other check is valued given them, and they are neither valued nor charged
     against ``minutes_budget`` again (the budget is what is left after them).
+    ``preselected_reasons`` says why each is held (``already_planned`` by
+    default; ``learner_request`` for a request, which the plan charged once
+    before the split, Codex review of voi-v2 F14).
     """
 
     preselected_refs = tuple(dict.fromkeys(str(ref) for ref in preselected))
     by_ref_all = {entry.ref: entry for entry in entries}
     held = tuple(ref for ref in preselected_refs if ref in by_ref_all)
+    held_reasons = {ref: str((preselected_reasons or {}).get(ref, REASON_ALREADY_PLANNED)) for ref in held}
     state = InformationState()
     for ref in held:
         terms = by_ref_all[ref].terms
@@ -1824,7 +1887,16 @@ def greedy_information_admission(
                 **dict(context or {}),
                 "greedy_step": len(steps),
                 "chosen_before": [*held, *admitted],
-                **({"already_planned": list(held)} if held else {}),
+                **(
+                    {"already_planned": planned}
+                    if (planned := [ref for ref in held if held_reasons[ref] == REASON_ALREADY_PLANNED])
+                    else {}
+                ),
+                **(
+                    {"learner_requests": requested}
+                    if (requested := [ref for ref in held if held_reasons[ref] == REASON_LEARNER_REQUEST])
+                    else {}
+                ),
                 **(
                     {"minutes_budget": round(float(minutes_budget), 6), "minutes_admitted": round(spent, 6)}
                     if minutes_budget is not None
@@ -1844,7 +1916,27 @@ def greedy_information_admission(
         if picked.terms is not None:
             state = state.after(picked.terms)
         remaining = [entry for entry in remaining if entry.ref != picked.ref]
-    return GreedyAdmission(site=site, admitted=tuple(admitted), steps=tuple(steps), preselected=held)
+    return GreedyAdmission(
+        site=site, admitted=tuple(admitted), steps=tuple(steps), preselected=held, preselected_reasons=held_reasons
+    )
+
+
+def not_in_plan_receipt(site: str, ref: str, why: str) -> dict[str, Any]:
+    """The receipt of a due check a plan refresh cannot take (Codex review of
+    voi-v2, F10): ``why`` is ``skipped_in_this_plan``,
+    ``answered_in_this_plan`` or ``outside_plan_universe``. Not a value
+    decision: the check was neither valued nor conditioned on."""
+
+    return {
+        "forecast_version": FORECAST_VERSION,
+        "site": site,
+        "decision": STOP,
+        "reason": REASON_NOT_IN_PLAN,
+        "availability": str(why),
+        "subject_ref": ref,
+        "admitted": False,
+        "calibration_label": "heuristic",
+    }
 
 
 def label_conditionals(
@@ -1918,6 +2010,7 @@ def probe_episode_decision(
     """
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
+    from learnloop.substrate.canonical_projection import surface_group_id
 
     channel = None
     if getattr(episode, "calibration_model_hash", None) is not None:
@@ -1951,6 +2044,9 @@ def probe_episode_decision(
                     "selection_objective": entry.selection_objective,
                     "credible_set": "pinned_channel_ensemble" if channel is not None else "point",
                 },
+                # The exposure rule's group (eligible_instruments): one answer
+                # excludes the rest of the group from this episode (F13).
+                surface_group=surface_group_id(entry.item),
             )
         )
     episode_config = ctx.vault.config.probe.episode
@@ -2071,8 +2167,11 @@ def followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None:
 
 __all__ = [
     "CONTINUE",
+    "LOOKAHEAD_SITES",
     "METHOD_LOOKAHEAD_PREFIX",
     "REASON_EVSI_BATCH_CLEARS",
+    "REASON_LEARNER_REQUEST",
+    "REASON_NOT_IN_PLAN",
     "ROBUST_GATE",
     "ROBUST_GATE_SWITCH",
     "VoiSettings",
@@ -2112,6 +2211,7 @@ __all__ = [
     "hypothesis_channel_body",
     "information_candidate",
     "label_conditionals",
+    "not_in_plan_receipt",
     "predictive_information",
     "probe_lane_holds_out_pending",
     "probe_lane_reads_diagnosis",

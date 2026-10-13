@@ -34,6 +34,7 @@ import pytest
 from learnloop.daily_plan.lanes import register_scheduled_check_provider, unregister_scheduled_check_provider, ScheduledCheck
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import voi_stopping as voi
+from learnloop.vault.yaml_io import write_yaml
 
 from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import create_daily_plan_vault
@@ -875,3 +876,292 @@ def test_no_count_cap_reappears(tmp_path, monkeypatch):
 
 
 LO_ID = "lo_svd_definition"
+
+
+# ── Codex review of voi-v2 (docs/reviews/voi-v2-codex-review.md) ────────────
+#
+# F13: a lookahead batch must be administrable together (no two checks on one
+# canonical surface group); F15: the lookahead acts at probe episodes only
+# (study §6.2 waits for live calibration at the follow-up site); F10: skipped,
+# answered and out-of-universe probes never take part in a refresh's
+# admission; F14: requested probes and ordinary requests are one request rule.
+
+
+def _share_stimuli(vault, repository, groups):
+    """Re-author items so each group shares one stimulus (fresh variants of
+    one stem: one canonical surface group, ``surface_group_id``)."""
+
+    from pathlib import Path
+
+    from learnloop.substrate.state_sync import sync_vault_state
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.yaml_io import read_yaml
+    from tests.test_voi_stopping import CLOCK
+
+    # Written directly: the vault writer's merge keeps an existing
+    # ``evidence_fingerprint`` (not in its key order), so an upsert cannot
+    # change it.
+    for stimulus, item_ids in groups.items():
+        for item_id in item_ids:
+            path = next(Path(vault.root, "subjects").glob(f"*/practice-items/{item_id}.yaml"))
+            body = read_yaml(path)
+            body["evidence_fingerprint"] = {**(body.get("evidence_fingerprint") or {}), "shared_stimulus_id": stimulus}
+            write_yaml(path, body)
+    vault = load_vault(vault.root)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    return vault
+
+
+def _paying_lookahead_episode(tmp_path, monkeypatch, groups=None):
+    """The real probe vault (pinned channel, 129 members) with cheap checks and
+    a belief one answer cannot move off its repair: no single check pays, a
+    batch would."""
+
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
+    from tests.test_voi_stopping import _long_probe_vault
+    from tests.voi_restore_scenarios import seed_ids
+
+    seed_ids(monkeypatch)
+    vault, repository = _long_probe_vault(tmp_path, "mvp-0.17")
+    if groups:
+        vault = _share_stimuli(vault, repository, groups)
+    episode = repository.open_probe_episode(LO_ID)
+    labels = list(episode_posterior(vault, repository, episode).posterior)
+    _minutes_patch(monkeypatch, 0.02)
+    posterior = {label: 0.9 if label == labels[0] else 0.1 / (len(labels) - 1) for label in labels}
+    eligible = eligible_instruments(vault, repository, episode, posterior=posterior)
+    decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None)
+    return vault, repository, episode, eligible, decision
+
+
+_ALL_PROBES = ("pi_svd_define_001", "pi_svd_define_002", *(f"pi_svd_define_{index:03d}" for index in range(3, 8)))
+
+
+def test_a_lookahead_batch_never_holds_two_checks_on_one_surface(tmp_path, monkeypatch):
+    """F13: every eligible check is a fresh variant of one stimulus. Each is
+    individually eligible, but after any one is answered the others are
+    excluded (one surface group), so no batch of two can be administered: the
+    lookahead buys none and the episode stops on its single-check values."""
+
+    from learnloop.diagnosis.probe_episodes import eligible_instruments
+    from learnloop.substrate.canonical_projection import surface_group_id
+
+    vault, repository, episode, eligible, decision = _paying_lookahead_episode(
+        tmp_path, monkeypatch, groups={"stim_one": _ALL_PROBES}
+    )
+    assert len(eligible) >= 2 and {surface_group_id(entry.item) for entry in eligible} == {"stim_one"}
+    lookahead = decision.as_dict()["lookahead"]
+    assert lookahead["paid"] is False and decision.decision == voi.STOP
+    assert all(not value.method.startswith(voi.METHOD_LOOKAHEAD_PREFIX) for value in decision.candidates)
+    # The batch could not have been realized: answering one leaves none.
+    from tests.test_voi_stopping import _answer_probe
+
+    _minutes_patch(monkeypatch, 0.0001)
+    _answer_probe(vault, repository, score=0)
+    reopened = repository.open_probe_episode(LO_ID)
+    assert reopened is None or eligible_instruments(vault, repository, reopened) == []
+
+
+def test_a_lookahead_batch_is_built_from_distinct_surfaces(tmp_path, monkeypatch):
+    """F13: with two stimuli the batch takes the best-ranked checks on
+    distinct surface groups (skipping a same-surface one), and its receipt
+    names each member's group."""
+
+    from learnloop.substrate.canonical_projection import surface_group_id
+
+    groups = {"stim_a": _ALL_PROBES[:4], "stim_b": _ALL_PROBES[4:]}
+    vault, _repository, _episode, eligible, decision = _paying_lookahead_episode(tmp_path, monkeypatch, groups=groups)
+    by_ref = {entry.item.id: surface_group_id(entry.item) for entry in eligible}
+    lookahead = decision.as_dict()["lookahead"]
+    for tried in lookahead["tried"]:
+        refs = tried["refs"]
+        assert len({by_ref[ref] for ref in refs}) == len(refs), tried
+    assert lookahead["paid"] and decision.decision == voi.CONTINUE
+    assert len({by_ref[ref] for ref in lookahead["batch"]}) == len(lookahead["batch"]) == 2
+    assert lookahead["surface_groups"] == {ref: by_ref[ref] for ref in lookahead["batch"]}
+
+
+def test_a_batch_skips_a_check_that_shares_a_surface_with_a_better_ranked_one():
+    """F13 at the pure level: two fresh variants of one stimulus never form a
+    batch; a third check on another surface pairs with the better one."""
+
+    shared = [replace_group(_weak("variant_1"), "stim"), replace_group(_weak("variant_2"), "stim")]
+    alone = _decide(shared)
+    assert alone.decision == voi.STOP and alone.as_dict()["lookahead"]["paid"] is False
+    assert alone.as_dict()["lookahead"]["tried"] == []
+    mixed = _decide([*shared, replace_group(_weak("other", accuracy=0.69), "elsewhere")])
+    lookahead = mixed.as_dict()["lookahead"]
+    variants = {"variant_1", "variant_2"}
+    assert lookahead["paid"] and "other" in lookahead["batch"] and len(lookahead["batch"]) == 2
+    kept = (set(lookahead["batch"]) & variants).pop()
+    assert lookahead["skipped_same_surface"] == list(variants - {kept})
+    assert lookahead["surface_groups"] == {"other": "elsewhere", kept: "stim"}
+    # Without a group a candidate is its own surface (the pure scenarios).
+    assert _decide([_weak("weak_a"), _weak("weak_b")]).decision == voi.CONTINUE
+
+
+def replace_group(candidate, group):
+    from dataclasses import replace
+
+    return replace(candidate, surface_group=group)
+
+
+def test_the_lookahead_acts_at_probe_episodes_only():
+    """F15: study §6.2 waits for live calibration before the lookahead acts at
+    the follow-up and teach-back sites. Two follow-up candidates with zero
+    single-check value stop there at the defaults; the same pair continues
+    in a probe episode."""
+
+    from tests import voi_restore_scenarios as S
+
+    def at(site):
+        return voi.value_candidates(
+            S.context(None), site, [_weak("weak_a"), _weak("weak_b")], prior=_PAIR_PRIOR, learning_object_id="lo",
+            former_cap=voi.former_cap(site, value=1, count=1),
+        )
+
+    followup = at(voi.SITE_FOLLOWUP)
+    assert followup.decision == voi.STOP and "lookahead" not in followup.as_dict()
+    assert all(not value.method.startswith(voi.METHOD_LOOKAHEAD_PREFIX) for value in followup.candidates)
+    assert "lookahead_max_checks" not in {p["name"] for p in followup.as_dict()["parameters"]}
+    episode = at(voi.SITE_PROBE_EPISODE)
+    assert episode.decision == voi.CONTINUE and episode.chosen.method == "robust_evsi_lookahead_2"
+    assert voi.LOOKAHEAD_SITES == frozenset({voi.SITE_PROBE_EPISODE})
+
+
+def _skip_plan(tmp_path):
+    """Thirty minutes, two overlapping project probes, A (twelve minutes) and
+    B (five), B worth nothing once A is known, and a never-attempted item N
+    (six minutes, the new lane). ``items`` is the fake scheduler's list."""
+
+    from learnloop.daily_plan.engine import build_plan
+
+    paths = create_daily_plan_vault(
+        tmp_path / "skip",
+        learning_objects={"lo_repo": [("pi_a", 11.5), ("pi_b", 4.5)], "lo_new": [("pi_n", 5.5)]},
+        version="mvp-0.17",
+    )
+
+    def provider(_vault, _repository, item_ids):
+        return {item_id: ScheduledCheck("project_probe") for item_id in item_ids if item_id in {"pi_a", "pi_b"}}
+
+    register_scheduled_check_provider(provider)
+    items = [[*_overlapping_probes(), scheduled("pi_n", "lo_new")]]
+    env = make_env(paths.root, lambda: list(items[0]))
+    record = build_plan(env, kind="normal", budget=30.0, remembered=30, minutes_source="chip")
+    return env, record, provider, items
+
+
+def test_a_skipped_probe_does_not_suppress_its_alternative_on_refresh(tmp_path):
+    """F10: the build plans A (B is worth nothing given A). The learner skips
+    A, and N leaves the list (answered from the full list), so the new lane
+    releases its six minutes to maintain. The refresh values B without A (A
+    is skipped: neither readmitted nor conditioned on) and B is planned."""
+
+    from learnloop.daily_plan.engine import _live_context, advance
+
+    env, record, provider, items = _skip_plan(tmp_path)
+    try:
+        assert [[item.practice_item_id for item in block.items] for block in record.blocks] == [["pi_a"]]
+        lanes = record.split["lanes"]
+        assert (lanes["maintain"]["minutes"], lanes["new"]["minutes"]) == (12.0, 6.0)
+        record, step = advance(env, serve=False)
+        assert step["practice_item_id"] == "pi_a"
+        items[0] = list(_overlapping_probes())
+        record, step = advance(env, serve=False, skip_practice_item_id="pi_a")
+        _context, built = _live_context(env, record)
+    finally:
+        unregister_scheduled_check_provider(provider)
+    assert step["kind"] == "item" and step["practice_item_id"] == "pi_b"
+    assert [[item.practice_item_id for item in block.items] for block in record.blocks] == [["pi_a"], ["pi_b"]]
+    decisions = [d for detail in _plan_decisions(env) for d in detail.get("voi_decisions", [])]
+    b = [d for d in decisions if d.get("subject_ref") == "pi_b"][-1]
+    assert b["decision"] == voi.CONTINUE and b["subject"]["detail"]["conditioning"] == "none_chosen"
+    assert b["context"]["chosen_before"] == [] and b["context"]["minutes_budget"] == pytest.approx(18.0)
+    a = next(item for item in built.pool if item.practice_item_id == "pi_a").voi
+    assert a["reason"] == voi.REASON_NOT_IN_PLAN and a["availability"] == "skipped_in_this_plan"
+
+
+def test_a_probe_outside_the_plans_universe_does_not_suppress_one_inside(tmp_path):
+    """F10: a refresh sees a new due probe C (not in the plan's frozen
+    universe) that would make B worthless. C cannot join this plan, so it
+    takes no part in the admission: B is valued without it."""
+
+    from dataclasses import replace
+
+    from learnloop.daily_plan.engine import _live_context, build_plan
+
+    paths = create_daily_plan_vault(
+        tmp_path / "universe",
+        learning_objects={"lo_repo": [("pi_x", 9.5), ("pi_b", 4.5), ("pi_c", 4.5)]},
+        version="mvp-0.17",
+    )
+
+    def provider(_vault, _repository, item_ids):
+        return {item_id: ScheduledCheck("project_probe") for item_id in item_ids if item_id in {"pi_b", "pi_c"}}
+
+    register_scheduled_check_provider(provider)
+    # At build B is worth nothing (its facet already known) and C is not due.
+    quiet_b = _probe("pi_b", "lo_repo", {"facet_x": 1.0}, lo_variance=1e-9, facet_variance=1e-9, mass=50.0)
+    later = [scheduled("pi_x", "lo_repo"), _probe("pi_b", "lo_repo", {"facet_x": 1.0}, mass=0.0),
+             _probe("pi_c", "lo_repo", {"facet_x": 3.0}, mass=0.0)]
+    items = [[scheduled("pi_x", "lo_repo"), quiet_b]]
+    env = make_env(paths.root, lambda: list(items[0]))
+    try:
+        record = build_plan(env, kind="normal", budget=30.0, remembered=30, minutes_source="chip")
+        universe = set(record.split["universe"])
+        assert "pi_b" in universe and "pi_c" not in universe
+        assert "pi_b" not in record.planned_ids()
+        items[0] = later
+        context, built = _live_context(env, record)
+    finally:
+        unregister_scheduled_check_provider(provider)
+    by_id = {item.practice_item_id: item for item in context.pool}
+    assert "pi_c" not in by_id  # outside the universe: never this plan's
+    b = by_id["pi_b"]
+    assert b.lane == "maintain" and b.voi["decision"] == voi.CONTINUE
+    assert b.voi["subject"]["detail"]["conditioning"] == "none_chosen"
+    c = next(item for item in built.pool if item.practice_item_id == "pi_c")
+    assert c.lane is None and c.voi["reason"] == voi.REASON_NOT_IN_PLAN
+
+
+def test_requested_probes_and_requests_share_one_request_rule(tmp_path):
+    """F14: a twenty-minute plan allows one request. The pool holds requested
+    project probe A (twelve minutes) and then requested item R (fifteen). A
+    comes first, so A is the request, charged once (its minutes come off the
+    probes' minutes and it is not valued again); R waits. mvp-0.16 makes the
+    same request."""
+
+    from learnloop.daily_plan.engine import build_plan
+
+    def plan(version):
+        paths = create_daily_plan_vault(
+            tmp_path / version.replace(".", "_"),
+            learning_objects={"lo_repo": [("pi_a", 11.5), ("pi_req", 14.5)]},
+            version=version,
+        )
+
+        def provider(_vault, _repository, item_ids):
+            return {item_id: ScheduledCheck("project_probe") for item_id in item_ids if item_id == "pi_a"}
+
+        register_scheduled_check_provider(provider)
+        try:
+            env = make_env(
+                paths.root,
+                [_probe("pi_a", "lo_repo", {"facet_x": 2.0}, mass=0.0), scheduled("pi_req", "lo_repo")],
+                requested=["pi_a", "pi_req"],
+            )
+            return env, build_plan(env, kind="normal", budget=20.0, remembered=20, minutes_source="chip")
+        finally:
+            unregister_scheduled_check_provider(provider)
+
+    env, record = plan("mvp-0.17")
+    _old_env, old = plan("mvp-0.16")
+    requested = [row["practice_item_id"] for row in record.split["requested"]]
+    assert requested == [row["practice_item_id"] for row in old.split["requested"]] == ["pi_a"]
+    first = sorted(record.blocks, key=lambda block: block.ordinal)[0]
+    assert [item.practice_item_id for item in first.items][0] == "pi_a"
+    assert "pi_req" not in record.planned_ids()  # 15 minutes do not fit the 8 left
+    decisions = [d for detail in _plan_decisions(env) for d in detail.get("voi_decisions", [])]
+    a = [d for d in decisions if d.get("subject_ref") == "pi_a"]
+    assert all(d["reason"] == voi.REASON_LEARNER_REQUEST and d["decision"] == voi.CONTINUE for d in a)

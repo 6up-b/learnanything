@@ -1148,9 +1148,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "directional in all four simulator families); 0.10 restores "
                 "robust_composition.ROBUST_QUANTILE, which the mvp-0.8 paths keep."),
     _ConfigRule(_exact("voi_stopping.lookahead_max_checks"), "decision", "threshold",
-                "how many ranked checks the value gate values jointly when a decision is at stake and no "
-                "single check pays (the study's rank 2); a valuation depth, never a count of observations "
-                "served; 1 turns the lookahead off."),
+                "how many ranked checks the probe-episode value gate values jointly when a decision is at "
+                "stake and no single check pays (the study's rank 2; one check per surface group); a "
+                "valuation depth, never a count of observations served; 1 turns the lookahead off."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

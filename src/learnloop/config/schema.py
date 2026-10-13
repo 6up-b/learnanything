@@ -2099,13 +2099,15 @@ class VoiStoppingConfig(BaseModel):
       the gate's verdict as a counterfactual. Where value does not decide (the
       site off, below the successor, a calibration session) the gate serves
       as before.
-    * ``lookahead_max_checks`` (3; 1 restores): when a decision is at stake,
-      ``rank_feasible`` did not abstain and no single check pays, the best
-      2 to this many ranked checks are valued jointly (robust EVSI of their
-      product table) against their summed minutes; a paying batch continues
-      with the site's own choice among it. A valuation depth, never a count of
-      observations (bounded at 4: the joint table grows as the alphabet to the
-      power k).
+    * ``lookahead_max_checks`` (3; 1 restores): in a probe episode, when a
+      decision is at stake, ``rank_feasible`` did not abstain and no single
+      check pays, the best 2 to this many ranked checks that can be
+      administered together (one per canonical surface group) are valued
+      jointly (robust EVSI of their product table) against their summed
+      minutes; a paying batch continues with the site's own choice among it.
+      The follow-up and teach-back sites wait for live calibration (the
+      study's §6.2). A valuation depth, never a count of observations
+      (bounded at 4: the joint table grows as the alphabet to the power k).
     * ``robust_quantile`` (0.25; 0.10 restores): the lower quantile of the
       credible set the value gate reads (``rank_feasible``'s robust EVSI, the
       robust EIG, the lookahead's batch value). The mvp-0.8 paths keep
