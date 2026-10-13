@@ -78,8 +78,8 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19); "
-                "default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or "
+                "mvp-0.20); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -116,18 +116,21 @@ def upgrade(
     maintenance LO's next check forward) over an mvp-0.15 vault (or an mvp-0.9
     to mvp-0.14 vault through the chain; kill switch:
     ``learner_text_gaps.sooner_check_enabled = false``). ``--to mvp-0.17``
-    extends the valid-alternative gate to proofs and explanations with an
-    independent route check over an mvp-0.16 vault (or an mvp-0.9 to
-    mvp-0.15 vault through the chain; kill switch:
-    ``proof_check.enabled = false``). ``--to mvp-0.18`` makes certification
+    tags mvp-0.16's successor whose separate proofs route check was removed
+    (it grades new answers as mvp-0.16), over an mvp-0.16 vault (or an mvp-0.9
+    to mvp-0.15 vault through the chain). ``--to mvp-0.18`` makes certification
     follow the answer key (an attempt on an imported textbook exercise with an
     unverified key schedules and teaches but never certifies) over an
     mvp-0.17 vault (or an mvp-0.9 to mvp-0.16 vault through the chain; no
-    kill switch re-enables certification). ``--to mvp-0.19`` (default, the
-    latest successor) fulfils intervention needs from the learner's sources
-    before generating over an mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault
-    through the chain; kill switch: ``source_service.source_first_needs =
-    false``)."""
+    kill switch re-enables certification). ``--to mvp-0.19`` fulfils
+    intervention needs from the learner's sources before generating over an
+    mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault through the chain; kill
+    switch: ``source_service.source_first_needs = false``). ``--to mvp-0.20``
+    (default, the latest successor) grades every criterion on the learner's
+    own route, in the grader's one call, and leaves a mark-down on a
+    divergent route that quotes nothing unassessed, over an mvp-0.19 vault
+    (or an mvp-0.9 to mvp-0.18 vault through the chain; kill switch:
+    ``proof_check.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -179,11 +182,15 @@ def upgrade(
         from learnloop.sources_upgrade import upgrade_to_mvp019
 
         result = upgrade_to_mvp019(_root(vault))
+    elif to == "mvp-0.20":
+        from learnloop.route_rules_upgrade import upgrade_to_mvp020
+
+        result = upgrade_to_mvp020(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or mvp-0.20."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -3177,7 +3184,7 @@ def attempt(
     ] = False,
     max_calls: Annotated[
         int,
-        typer.Option("--max-calls", min=0, help="Grading calls this command may admit (one per sample, plus the proof check's)."),
+        typer.Option("--max-calls", min=0, help="Grading calls this command may admit (one per sample)."),
     ] = 10,
     max_retries: Annotated[
         int,
@@ -3207,9 +3214,8 @@ def attempt(
     """Record one practice answer: graded by the grading route, else self-graded.
 
     Paid grading goes through the Phase 1 spend framework (review F5): the
-    planned calls (one per grading sample, plus an mvp-0.17 vault's proof-like
-    reading and route check on the checker's own route) are checked against
-    the caps before anything is sent, and each is admitted as it is sent. ``--dry-run`` prints
+    planned calls (one per grading sample) are checked against the caps before
+    anything is sent, and each is admitted as it is sent. ``--dry-run`` prints
     that plan and its estimate and changes nothing. Codex (the owner's
     subscription) counts calls only; its tokens and cost are estimated_only. A
     metered route with an unknown price is refused unless
@@ -3277,17 +3283,9 @@ def attempt(
             session_id=session_id,
             declared_stuck=stuck,
         )
-        grading_profile = _grading_route_profile(loaded.config, ai_provider)
-        plan = plan_grading_calls(loaded, repository, draft, grader_model=grading_profile["model"])
+        plan = plan_grading_calls(loaded, repository, draft)
         if dry_run:
-            proof_route = plan.proof_check.route if plan.proof_check is not None else None
-            grading = _attempt_grading_estimate(
-                spend, plan, grading_profile, spend_register_profile=True,
-                proof_profile=(
-                    _route_profile(loaded.config, proof_route.provider)
-                    if proof_route is not None and proof_route.provider else None
-                ),
-            )
+            grading = _attempt_grading_estimate(spend, plan, _grading_route_profile(loaded.config, ai_provider), spend_register_profile=True)
             payload = {
                 "version": 1,
                 "status": "dry_run",
@@ -3304,22 +3302,10 @@ def attempt(
         provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
         admitted = bool(runtime.ready and client is not None and plan.calls > 0)
         if admitted:
-            from learnloop.attempts import proof_check as proof_check_module
             from learnloop.cli.receipts import current_command_recorder
 
-            # The route check's route follows the grader the door will use.
-            plan = plan_grading_calls(
-                loaded, repository, draft,
-                grader_model=getattr(client, "model", None) or getattr(client, "model_id", None),
-            )
             # Admission first (review F5): an over-budget grade sends and records nothing.
             spend.register("grading", client)
-            if plan.proof_check is not None and plan.proof_check.calls > 0:
-                # mvp-0.17 (review F3): the reading and the route check are
-                # admitted too, on the checker's own client and billing.
-                checker_client = proof_check_module.resolve_check_client(loaded, plan.proof_check.route)
-                if checker_client is not None:
-                    spend.register(proof_check_module.SPEND_ROUTE, checker_client)
             # The collector observes the calls it meters; the command keeps its receipts.
             spend.collector.sink = current_command_recorder()
             grading = _attempt_grading_estimate(spend, plan, None)
@@ -3345,15 +3331,10 @@ def attempt(
             error_type=error_type,
         )
 
-        def admit(purpose: str, prompt: str, *, route: str = "grading", client: Any = None):
-            # One logical grading call (one sample, or one proof-check call on
-            # its own route); metered retries and JSON repairs inside it are
-            # admitted by the collector as they start.
-            if route not in spend.routes:
-                if client is None:
-                    raise SpendLimitExceeded(f"route {route!r} was not planned")
-                spend.register(route, client)
-            return spend.request(route, purpose, input_tokens=estimated_prompt_tokens(prompt))
+        def admit(purpose: str, prompt: str):
+            # One logical grading call (one sample); metered retries and JSON
+            # repairs inside it are admitted by the collector as they start.
+            return spend.request("grading", purpose, input_tokens=estimated_prompt_tokens(prompt))
 
         with spend.collector.observing() if admitted else nullcontext(), grading_admission(admit if admitted else None):
             if provider_name not in CODEX_PROVIDER_NAMES:
@@ -3441,19 +3422,10 @@ def attempt(
 def _grading_route_profile(config, explicit: str | None) -> dict[str, Any]:
     """The grading route's provider from config alone (a dry run builds no client)."""
 
-    from learnloop.ai.routing import provider_for_task
-
-    name = provider_for_task(config, "grading", explicit_provider=explicit).provider_name or ""
-    return _route_profile(config, name)
-
-
-def _route_profile(config, name: str | None) -> dict[str, Any]:
-    """One provider profile's billing class from config alone (no client)."""
-
-    from learnloop.ai.routing import MANUAL_PROVIDER
+    from learnloop.ai.routing import MANUAL_PROVIDER, provider_for_task
     from learnloop.ai.spend import SUBSCRIPTION_PROFILE_TYPES
 
-    name = name or ""
+    name = provider_for_task(config, "grading", explicit_provider=explicit).provider_name or ""
     profile = config.ai.providers.get(name)
     profile_type = profile.type if profile is not None else ("codex_sdk" if name == "codex" else None)
     return {
@@ -3465,18 +3437,10 @@ def _route_profile(config, name: str | None) -> dict[str, Any]:
     }
 
 
-def _attempt_grading_estimate(
-    spend, plan, profile: dict[str, Any] | None, *, spend_register_profile: bool = False,
-    proof_profile: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """The grading plan, its estimate on the command's caps, and whether it fits.
+def _attempt_grading_estimate(spend, plan, profile: dict[str, Any] | None, *, spend_register_profile: bool = False) -> dict[str, Any]:
+    """The grading plan, its estimate on the command's caps, and whether it fits."""
 
-    A blind grade at ``mvp-0.17`` also carries the route check's calls on
-    their own route (review F3): the plan is admissible only if the grade and
-    the check fit the caps together.
-    """
-
-    from learnloop.ai.spend import SpendEstimate, SpendLimitExceeded
+    from learnloop.ai.spend import SpendLimitExceeded
 
     payload: dict[str, Any] = {**plan.as_dict()}
     if profile is not None and profile["manual"]:
@@ -3508,47 +3472,8 @@ def _attempt_grading_estimate(
         "estimated_usd": estimate.estimated_usd,
         "cost_basis": route.as_dict()["cost_basis"],
     }
-    total = estimate
-    proof = getattr(plan, "proof_check", None)
-    if proof is not None and proof.calls > 0:
-        proof_payload: dict[str, Any] = dict(proof.as_dict())
-        if spend_register_profile and proof_profile is not None and not proof_profile["manual"]:
-            spend.register_profile(
-                "proof_check", provider=proof_profile["provider"], model=proof_profile["model"],
-                subscription=bool(proof_profile["subscription"]), max_tokens=proof_profile["max_tokens"],
-            )
-        info = spend.routes.get("proof_check")
-        if info is None:
-            proof_payload.update(calls=0, reason="no ready client for the route check: it will not run")
-        else:
-            proof_output = spend.output_limit("proof_check")
-            proof_estimate = spend.estimate(
-                "proof_check", calls=proof.calls, input_tokens=proof.estimated_input_tokens,
-                output_tokens=proof_output * proof.calls,
-            )
-            proof_payload["route"] = info.as_dict()
-            proof_payload["estimate"] = {
-                "calls": proof_estimate.calls,
-                "output_limit_per_call": proof_output,
-                "metered_total_tokens": proof_estimate.total_tokens,
-                "estimated_usd": proof_estimate.estimated_usd,
-                "cost_basis": info.as_dict()["cost_basis"],
-            }
-            total = SpendEstimate(
-                calls=estimate.calls + proof_estimate.calls,
-                total_tokens=estimate.total_tokens + proof_estimate.total_tokens,
-                estimated_usd=(
-                    None if estimate.estimated_usd is None or proof_estimate.estimated_usd is None
-                    else estimate.estimated_usd + proof_estimate.estimated_usd
-                ),
-            )
-        payload["proof_check"] = proof_payload
-        payload["total_estimate"] = {
-            "calls": total.calls, "metered_total_tokens": total.total_tokens,
-            "estimated_usd": total.estimated_usd,
-        }
     try:
-        spend.check(total)
+        spend.check(estimate)
         payload.update(admissible=True, reason=None)
     except SpendLimitExceeded as exc:
         payload.update(admissible=False, reason=str(exc))
@@ -3585,14 +3510,6 @@ def _echo_attempt_plan(payload: dict[str, Any], json_output: bool) -> None:
             f"(~{grading.get('estimated_input_tokens_per_call')} input tokens each), "
             f"metered tokens {estimate.get('metered_total_tokens')}, est. USD {estimate.get('estimated_usd')}, "
             f"admissible={grading.get('admissible')}" + (f" ({grading['reason']})" if grading.get("reason") else "")
-        )
-    proof = grading.get("proof_check") if grading else None
-    if proof:
-        estimate = proof.get("estimate") or {}
-        typer.echo(
-            f"Proof check (mvp-0.17): up to {proof.get('calls')} call(s) on {proof.get('provider')} "
-            f"({proof.get('reason')}), metered tokens {estimate.get('metered_total_tokens')}, "
-            f"est. USD {estimate.get('estimated_usd')}"
         )
     charged = (payload.get("spend") or {}).get("charged") or {}
     if charged:

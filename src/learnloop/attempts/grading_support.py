@@ -32,6 +32,26 @@ answer.
   the attempt's only when it is the grade's sole review concern
   (``gated_review_reason``, review F7): a concern the grade carries without
   the gate stays its reason, and blocking.
+* **Own-route rules (mvp-0.20, route-check-in-grader).** The grader is told to
+  grade every criterion on the learner's own route (a criterion phrased in
+  one method is met by any valid method that establishes the same fact), to
+  mark a criterion down only by quoting the failing step verbatim, and to say
+  so rather than mark down a route it cannot verify (``ROUTE_RULES``, on the
+  reference policy as ``route_rules``). One deterministic rule then reads
+  only the grader's output (:func:`apply_route_rule`). On a route the grader
+  reads as divergent (``route_check.divergent_route``) these are unverified,
+  so unassessed (P1: marked down only on a located error): a mark-down with
+  no verbatim quote in the learner's words (the answer, or the learner's
+  clarification reply), an omitted criterion, and a mark-down the grader
+  itself declared it could not verify. With nothing then assessed and
+  nothing validated the answer (no verified final answer), the grade is held
+  for review (``outcome_contract.grade_is_held``). A conclusion that
+  ``differs_from_reference`` is never unassessed, and fatal errors keep their
+  mark-downs. Each ruled grade's route verdict is appended to
+  ``judgment_ledger`` (task ``own_route_rule``; a regrade supersedes it, as
+  ``not_checked`` when the rule did not run over the new grade). It
+  replaced mvp-0.17's separate item reading, re-derivation call and gate
+  (owner decision 2026-10-13): one grading call.
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -76,6 +96,8 @@ from learnloop.attempts.blind_grading import (
 from learnloop.attempts.grading_admission import admit_grading_call
 from learnloop.attempts.stuck import StuckReading
 from learnloop.attempts.answer_check import final_answer_check
+from learnloop.algorithm_versions import ROUTE_RULES_VERSIONS
+from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
     UNVERIFIED_CRITERION_BLOCK,
@@ -121,6 +143,62 @@ REFERENCE_POLICY_RULES = (
     "`unverified_criterion_ids` - it is recorded unverified, not failed. "
     "Grade in ONE careful pass."
 )
+
+#: mvp-0.20 (route-check-in-grader): the own-route rules' identity. It is the
+#: reference policy's ``route_rules`` value, and its suffix names both the
+#: prompt (``mvp-2.1-blind-reference-policy+own-route-v1``) and the
+#: calibration identity, so calibration never pools these grades with the
+#: rules-free grader's (S1 section 4.3).
+ROUTE_RULES_VERSION = "own-route-v1"
+ROUTE_RULES_SUFFIX = f"+{ROUTE_RULES_VERSION}"
+ROUTE_RULES = (
+    "OWN ROUTE (`context.reference_policy.route_rules` is set). Grade EVERY "
+    "criterion on the learner's OWN route, whatever `final_answer_check` says. "
+    "A criterion phrased in terms of one method is met by ANY valid method "
+    "that establishes the same fact; an unusual, terse or differently ordered "
+    "route is not an error when each step is valid and its justification is "
+    "standard. When the route differs from the reference's, set "
+    "`route_check.divergent_route`, restate the learner's route step by step "
+    "in `route_check.rederivation_md` and check each step on its own terms; "
+    "never accept a step because its conclusion happens to be true. Mark a "
+    "criterion below full points ONLY by quoting the step that fails it: an "
+    "error_attribution naming that criterion whose first_divergence quote is "
+    "copied VERBATIM from the learner's answer (for a missing step, the "
+    "sentence whose conclusion relies on it). When you cannot verify a step of "
+    "a different route, say so instead of marking the criterion down for it: "
+    "explain why in its evidence and list it in `unverified_criterion_ids`. A "
+    "mark-down on a divergent route that quotes nothing from the answer is "
+    "recorded as not assessed."
+)
+#: The record the server-side rule writes on the blind record, under the key
+#: the held-grade predicate reads (``outcome_contract.grade_held_for_review``;
+#: mvp-0.17's route-check records use the same key, and their gate versions
+#: ``proof-route-check-v1``..``v3`` keep their meaning). ``status = checked``
+#: says the rule ran over this grade.
+ROUTE_RULE_SUPPORT_KEY = "proof_route_check"
+ROUTE_RULE_RECORD_VERSION = "route-rules-in-grader-v1"
+#: The attempt's review reason when the rule holds the grade for review (a
+#: real review: nothing assessed and nothing validated).
+HELD_REVIEW_REASON = GRADE_HELD_FOR_REVIEW
+#: ``final_answer_check`` statuses the rule reads.
+DIFFERS_FROM_REFERENCE = "differs_from_reference"
+MATCHES_REFERENCE = "matches_reference"
+
+
+def route_rules_active(vault: LoadedVault) -> bool:
+    """Does this vault grade NEW blind answers under the own-route rules?
+
+    The algorithm version gates them (``ROUTE_RULES_VERSIONS``);
+    ``proof_check.enabled`` is the kill switch (off: new answers grade as
+    mvp-0.19 now does, whose grading is mvp-0.16's). Read only when an answer is graded
+    or regraded: the reference policy then carries ``route_rules`` and the
+    blind record carries the rule's outcome, which is what replay reads.
+    """
+
+    config = vault.config
+    if config.algorithms.algorithm_version not in ROUTE_RULES_VERSIONS:
+        return False
+    return bool(getattr(getattr(config, "proof_check", None), "enabled", True))
 
 
 class RouteCheck(WireModel):
@@ -184,17 +262,27 @@ def blind_result_model(context: BlindGradingContext) -> type[WireModel]:
     return BlindGradingProposal
 
 
-def reference_policy(item: PracticeItem, learner_answer_md: str) -> dict[str, Any]:
-    """The PF-c policy block for one answer (item-side + this answer only)."""
+def reference_policy(
+    item: PracticeItem, learner_answer_md: str, *, route_rules: bool = False,
+) -> dict[str, Any]:
+    """The PF-c policy block for one answer (item-side + this answer only).
+
+    ``route_rules`` (mvp-0.20) adds the own-route rules' identity: the prompt
+    then carries :data:`ROUTE_RULES` and the server applies
+    :func:`apply_route_rule`. Without it the block is exactly mvp-2.1's.
+    """
 
     expected = item.expected_answer
     text = expected if isinstance(expected, str) else json.dumps(expected, sort_keys=True)
     has_reference = bool((text or "").strip())
-    return {
+    policy = {
         "version": GRADING_SUPPORT_VERSION,
         "reference_status": "authored" if has_reference else "absent",
         "final_answer_check": final_answer_check(learner_answer_md, expected),
     }
+    if route_rules:
+        policy["route_rules"] = ROUTE_RULES_VERSION
+    return policy
 
 
 # -- the deterministic valid-alternative gate ---------------------------------
@@ -289,6 +377,337 @@ def apply_valid_alternative_gate(
         reason=UNVERIFIED_REVIEW_REASON,
         assessed_shortfall=bool(below - unverified) or attribution_in_force,
     )
+
+
+# -- the own-route rule (mvp-0.20) ---------------------------------------------------
+
+
+def _named_criteria(attribution: BlindErrorAttribution, rubric_ids: Sequence[str] | set[str]) -> set[str]:
+    """The rubric criteria an attribution names (held-grade-evidence F1).
+
+    Only ids of this rubric count: a blank or unknown id (``[""]``, a
+    criterion ``target_ref`` with no id) names no criterion. Validation drops
+    such ids after the rule, so the rule reads the attribution as validation
+    will keep it: untargeted, and so rescoped like any whole-answer claim
+    when it locates nothing.
+    """
+
+    named = {value for value in _attribution_criteria(attribution) if value.strip()}
+    return named & set(rubric_ids)
+
+
+def _located_in_force(attribution: BlindErrorAttribution, texts: Sequence[str]) -> bool:
+    """A concrete error in the learner's words, still in force (P1).
+
+    ``texts`` are the learner's own words this grade read: the answer and,
+    on a clarification regrade, the learner's reply (never the question).
+    """
+
+    return attribution.validity_scope != "grader_interpretation" and any(
+        _located(attribution, text) for text in texts if text
+    )
+
+
+#: Why the rule left a criterion unassessed (its evidence row's note).
+_UNLOCATED_NOTE = "Not assessed: no error was located in your own route here."
+_DECLARED_NOTE = "Not assessed: the grader could not verify this step of your own route."
+
+
+@dataclass(frozen=True)
+class RouteRuleOutcome:
+    proposal: BlindGradingProposal
+    #: Marked down on a divergent route with no verbatim quote in the
+    #: learner's words (an omitted criterion scores 0, so it counts: review F1).
+    unlocated: tuple[str, ...] = ()
+    #: Marked down on a divergent route although the grader itself declared
+    #: it could not verify the criterion (``unverified_criterion_ids``,
+    #: review F2): its quote, if any, does not make the mark-down a located
+    #: error.
+    declared: tuple[str, ...] = ()
+    #: Every unverified criterion after PF-c's gate and this rule.
+    unverified: tuple[str, ...] = ()
+    #: Marked-down criteria that stay assessed only because a quote occurs in
+    #: the learner's clarification reply (review F3), not in the answer.
+    clarification_located: tuple[str, ...] = ()
+    #: Nothing assessed and nothing validated the answer.
+    held_for_review: bool = False
+    assessed_shortfall: bool = True
+
+    @property
+    def applied(self) -> bool:
+        return bool(self.unlocated or self.declared)
+
+
+def apply_route_rule(
+    proposal: BlindGradingProposal,
+    *,
+    rubric: Rubric,
+    learner_answer_md: str,
+    final_answer_status: str | None,
+    divergent_route: bool,
+    unverified_before: Sequence[str] = (),
+    declared_unverified: Sequence[str] = (),
+    clarification_answer_md: str | None = None,
+) -> RouteRuleOutcome:
+    """P1 on the grader's own output: no located error, no mark-down.
+
+    ``proposal`` is the blind proposal after PF-c's gate and
+    ``unverified_before`` the criteria PF-c recorded unverified. On a route
+    the grader reads as divergent (``divergent_route``), whose conclusion is
+    not shown to differ from the reference and whose grade carries no fatal
+    error, every criterion below full points is unverified, so unassessed (no
+    credit, no failure), when either
+
+    * no attribution in force locates it with a quote that occurs verbatim in
+      the learner's words (**unlocated**). The learner's words are the answer
+      and, on a clarification regrade, the learner's reply
+      (``clarification_answer_md``, review F3; never the machine's question).
+      A fabricated quote locates nothing. A criterion the grader omitted
+      scores 0 in validation (the grade is the sum of the rows present), so
+      it is below full points like any other mark-down (review F1); or
+    * the grader itself declared it could not verify it
+      (``declared_unverified``, the grader's ``unverified_criterion_ids``,
+      review F2), quote or not (**declared**). PF-c reads that declaration
+      only on a verified final answer; this rule reads it on a divergent
+      route.
+
+    When nothing is then assessed and the final answer was not verified, the
+    grade is **held for review**: the grader's own score, provisional
+    (``outcome_contract.grade_is_held``).
+
+    Once the rule unassesses a mark-down, attributions on unverified criteria
+    and attributions that name no criterion and locate nothing are the
+    grader's interpretation (PF-c's rescoping), so an unlocated claim never
+    keeps the attempt a measured failure on its own. Points are left as the
+    grader awarded them; the evidence rows of unassessed criteria say why
+    they are not assessed. Anything else leaves the proposal unchanged.
+    """
+
+    previously = {str(value) for value in unverified_before}
+    unchanged = RouteRuleOutcome(proposal, unverified=tuple(sorted(previously)))
+    if not divergent_route or final_answer_status == DIFFERS_FROM_REFERENCE or proposal.fatal_errors:
+        return unchanged
+    maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
+    awarded = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
+    # Review F1: an omitted criterion is worth what validation scores it, 0.
+    below = {cid for cid, maximum in maxima.items() if awarded.get(cid, 0.0) + 1e-9 < maximum}
+    reply = (clarification_answer_md or "").strip()
+    texts = (learner_answer_md, reply)
+    in_answer: set[str] = set()
+    in_reply: set[str] = set()
+    for attribution in proposal.error_attributions:
+        if _located_in_force(attribution, (learner_answer_md,)):
+            in_answer.update(_named_criteria(attribution, maxima))
+        elif reply and _located_in_force(attribution, (reply,)):
+            in_reply.update(_named_criteria(attribution, maxima))
+    located = in_answer | in_reply
+    declared_ids = {str(value) for value in declared_unverified}
+    declared = [cid for cid in maxima if cid in below and cid in declared_ids and cid not in previously]
+    unlocated = [
+        cid for cid in maxima
+        if cid in below and cid not in located and cid not in previously and cid not in declared_ids
+    ]
+    unverified = previously | set(unlocated) | set(declared)
+    from_reply = tuple(
+        cid for cid in maxima if cid in below and cid in in_reply and cid not in in_answer and cid not in unverified
+    )
+    if not (unlocated or declared):
+        return RouteRuleOutcome(
+            proposal, unverified=tuple(sorted(previously)), clarification_located=from_reply,
+        )
+    # PF-c's "nothing assessed schedules as correct" rests on a verified final
+    # answer; without one an all-unassessed grade rests on nothing.
+    held = not (set(maxima) - unverified) and final_answer_status != MATCHES_REFERENCE
+    evidence = []
+    for row in proposal.criterion_evidence:
+        if row.criterion_id in unlocated or row.criterion_id in declared:
+            note = _DECLARED_NOTE if row.criterion_id in declared else _UNLOCATED_NOTE
+            if held:
+                note += " Held for review."
+            row = row.model_copy(update={"notes": note})
+        evidence.append(row)
+    attributions = []
+    attribution_in_force = False
+    for attribution in proposal.error_attributions:
+        criteria = _named_criteria(attribution, maxima)
+        rescoped = (criteria and criteria <= unverified) or (
+            not criteria and not _located_in_force(attribution, texts)
+        )
+        if rescoped:
+            if attribution.validity_scope != "grader_interpretation":
+                attribution = attribution.model_copy(update={"validity_scope": "grader_interpretation"})
+        elif attribution.validity_scope != "grader_interpretation":
+            attribution_in_force = True
+        attributions.append(attribution)
+    gated = proposal.model_copy(update={
+        "criterion_evidence": evidence,
+        "error_attributions": attributions,
+        "manual_review_recommended": True,
+    })
+    return RouteRuleOutcome(
+        gated,
+        unlocated=tuple(unlocated),
+        declared=tuple(declared),
+        unverified=tuple(sorted(unverified)),
+        clarification_located=from_reply,
+        held_for_review=held,
+        assessed_shortfall=bool(below - unverified) or attribution_in_force,
+    )
+
+
+#: ``judgment_ledger.task`` of one attempt's own-route verdict (review F4):
+#: the grader's route reading and what the rule made of it, appended in the
+#: transaction that records the grade (standard rule 6). Left = the attempt;
+#: a regrade's verdict supersedes the attempt's current one. It replaces the
+#: ledger rows mvp-0.17's separate check wrote (task ``proof_route_check``)
+#: and needs no model call of its own.
+ROUTE_RULE_JUDGMENT_TASK = "own_route_rule"
+#: mvp-0.17's per-attempt verdict task. Nothing writes a checked one any
+#: more; a grade that replaces the one it described supersedes it as not
+#: checked (review F5).
+LEGACY_ROUTE_CHECK_JUDGMENT_TASK = "proof_route_check"
+#: The verdict a grade the rule did not run over writes when it replaces a
+#: grade that has a current route verdict (review F5): the attempt's current
+#: verdict then describes its current grade.
+NOT_CHECKED_VERDICT = {"status": "not_checked"}
+
+
+def _current_route_judgment(connection: Any, task: str, attempt_id: str) -> Any:
+    return connection.execute(
+        "SELECT j.id FROM judgment_ledger j "
+        "WHERE j.task = ? AND j.left_kind = 'attempt' AND j.left_id = ? AND j.right_kind IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id) "
+        "ORDER BY j.created_at DESC, j.id DESC LIMIT 1",
+        (task, attempt_id),
+    ).fetchone()
+
+
+def record_route_rule_judgment(
+    connection: Any,
+    *,
+    attempt_id: str,
+    grading_support: Mapping[str, Any],
+    judge_model: str | None,
+    prompt_version: str,
+    input_hash: str,
+    created_at: str,
+) -> str | None:
+    """Append the grade's own-route verdict to ``judgment_ledger`` (review F4).
+
+    Called inside the transaction that records a grade and (for a blind
+    grade) its blind record, live and on every regrade, blind or joint, so
+    the verdict and the measurement commit together. ``prompt_version`` and
+    ``input_hash`` are the grading run's (the blind grading context hash on a
+    blind grade). Replay never writes one.
+
+    * The rule ran over this grade (``status = checked`` on its record): its
+      verdict is appended and supersedes the attempt's current one.
+    * It did not (the kill switch, a version without the rules, PF-c off, a
+      joint grade): when the attempt has a current verdict, a ``not_checked``
+      verdict supersedes it (review F5), so the ledger never keeps a verdict
+      current for a grade that was replaced. Nothing otherwise.
+
+    mvp-0.17's verdict (task ``proof_route_check``) is superseded as not
+    checked by any grade that replaces it. Returns the own-route row id, or
+    None when none was written.
+    """
+
+    from learnloop.db.stores.judgments import append_judgment
+
+    def append(task: str, verdict: Mapping[str, Any], rationale: str, current: Any) -> str:
+        return append_judgment(
+            connection,
+            task=task,
+            left_kind="attempt",
+            left_id=attempt_id,
+            judge="llm",
+            judge_model=str(judge_model or "unknown"),
+            prompt_version=prompt_version,
+            input_hash=input_hash,
+            verdict=json.dumps(verdict, sort_keys=True),
+            rationale=rationale,
+            supersedes_id=str(current[0]) if current is not None else None,
+            created_at=created_at,
+        )
+
+    legacy = _current_route_judgment(connection, LEGACY_ROUTE_CHECK_JUDGMENT_TASK, attempt_id)
+    if legacy is not None:
+        append(
+            LEGACY_ROUTE_CHECK_JUDGMENT_TASK, NOT_CHECKED_VERDICT,
+            "route check: not checked; the grade this verdict described was replaced", legacy,
+        )
+    current = _current_route_judgment(connection, ROUTE_RULE_JUDGMENT_TASK, attempt_id)
+    rule = grading_support.get(ROUTE_RULE_SUPPORT_KEY) or {}
+    if not (
+        isinstance(rule, Mapping)
+        and rule.get("version") == ROUTE_RULE_RECORD_VERSION
+        and rule.get("status") == "checked"
+    ):
+        if current is None:
+            return None
+        return append(
+            ROUTE_RULE_JUDGMENT_TASK, NOT_CHECKED_VERDICT,
+            "own route: not checked; the rule did not run over the grade that replaced this verdict's",
+            current,
+        )
+    route = grading_support.get("route_check") or {}
+    verdict = {
+        **dict(rule),
+        "grader_unverified_criterion_ids": list(grading_support.get("grader_unverified_criterion_ids") or []),
+        "concrete_error_located": bool(route.get("concrete_error_located")) if isinstance(route, Mapping) else False,
+    }
+    if not rule.get("divergent_route"):
+        rationale = "own route: the grader read the route as the reference's; the rule did not apply"
+    elif not rule.get("applied"):
+        rationale = "own route: divergent; no mark-down left unassessed"
+    else:
+        parts = []
+        if rule.get("unlocated_criterion_ids"):
+            parts.append("unlocated " + ", ".join(rule["unlocated_criterion_ids"]))
+        if rule.get("declared_unverified_criterion_ids"):
+            parts.append("declared unverifiable " + ", ".join(rule["declared_unverified_criterion_ids"]))
+        rationale = "own route: divergent; " + "; ".join(parts)
+        if rule.get("held_for_review"):
+            rationale += "; held for review"
+    return append(ROUTE_RULE_JUDGMENT_TASK, verdict, rationale, current)
+
+
+def revalidated_support(
+    grading_support: Mapping[str, Any], record: Mapping[str, Any], rubric: Rubric,
+) -> dict[str, Any]:
+    """``assessed_shortfall`` recomputed over the VALIDATED grade
+    (held-grade-evidence F1).
+
+    The rule runs on the raw proposal; validation then drops what it cannot
+    keep (an unknown or blank criterion id, an attribution it rejects). When
+    the route rule applied, the support's ``assessed_shortfall`` (what queues
+    a diagnosis, what placement and the field read) is recomputed from the
+    persisted record exactly as the rule computes it: a criterion still below
+    full points that is not unverified, an attribution still in force (not
+    the grader's interpretation), or a fatal error. Unchanged otherwise.
+    """
+
+    support = dict(grading_support)
+    rule = support.get(ROUTE_RULE_SUPPORT_KEY) or {}
+    if not (isinstance(rule, Mapping) and rule.get("status") == "checked" and rule.get("applied")):
+        return support
+    unverified = {str(value) for value in support.get("unverified_criterion_ids") or ()}
+    maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
+    points = {
+        str(row.get("criterion_id")): float(row.get("points_awarded") or 0.0)
+        for row in record.get("criteria") or ()
+    }
+    # An omitted criterion is worth what validation scored it, 0 (review F1).
+    still_below = {cid for cid, maximum in maxima.items() if points.get(cid, 0.0) + 1e-9 < maximum}
+    in_force = any(
+        str(attribution.get("validity_scope") or "valid_measurement") != "grader_interpretation"
+        for attribution in record.get("error_attributions") or ()
+    )
+    shortfall = bool(still_below - unverified) or in_force or bool(record.get("fatal_errors"))
+    if support.get("assessed_shortfall") != shortfall:
+        support["assessed_shortfall"] = shortfall
+        support[ROUTE_RULE_SUPPORT_KEY] = {**rule, "assessed_shortfall": shortfall}
+    return support
 
 
 # -- blind k-sampling ------------------------------------------------------------
@@ -430,10 +849,6 @@ class BlindGradingRun:
     #: ``mvp-0.13``: the winning sample's reading of a stuck answer (None for
     #: an ordinary answer). The caller verifies and records it.
     stuck_reading: StuckReading | None = None
-    #: ``mvp-0.17``: the proofs-and-explanations route check
-    #: (:class:`learnloop.attempts.proof_check.ProofCheckResult`), None when it
-    #: did not run. The caller records its verdict and any clarification.
-    proof_check: Any = None
 
 
 def gated_review_reason(
@@ -459,8 +874,7 @@ def gated_review_reason(
     evidence rows and the blind record, whichever reason is recorded.
     """
 
-    proof = run.grading_support.get("proof_route_check") or {}
-    if not run.grading_support.get("valid_alternative_gate_applied") and not proof.get("applied"):
+    if not run.grading_support.get("valid_alternative_gate_applied"):
         return None
     own = None
     if run.ungated_proposal is not None:
@@ -474,23 +888,13 @@ def gated_review_reason(
         ).grade.manual_review_reason
     if own is not None:
         return own
-    if not proof.get("applied"):
-        return UNVERIFIED_REVIEW_REASON
-    # mvp-0.17: the route check's own concerns, most serious first. A flag (or
-    # a disputed fatal error, or a grade with nothing assessed and nothing
-    # validated) is a real review; a pending clarification is A8's
-    # provisional state; an unverified criterion is PF-c's non-blocking log; a
-    # restore alone leaves nothing to review.
-    from learnloop.attempts.grading import PROVISIONAL_PENDING_CLARIFICATION
-    from learnloop.attempts.proof_check import PROOF_ROUTE_REVIEW_REASON
-
-    if proof.get("flagged_criterion_ids") or proof.get("disputed_fatal") or proof.get("held_for_review"):
-        return PROOF_ROUTE_REVIEW_REASON
-    if proof.get("clarification"):
-        return PROVISIONAL_PENDING_CLARIFICATION
-    if run.grading_support.get("unverified_criterion_ids"):
-        return UNVERIFIED_REVIEW_REASON
-    return None
+    # mvp-0.20: a grade the own-route rule held for review (nothing assessed,
+    # nothing validated) is a real review; an unverified criterion alone is
+    # PF-c's non-blocking log.
+    rule = run.grading_support.get(ROUTE_RULE_SUPPORT_KEY) or {}
+    if rule.get("applied") and rule.get("held_for_review"):
+        return HELD_REVIEW_REASON
+    return UNVERIFIED_REVIEW_REASON
 
 
 def request_blind_grading_run(
@@ -565,6 +969,49 @@ def request_blind_grading_run(
             # The interpretation its unverified criteria are recorded under
             # (review F5): a record without it predates the unassessed rule.
             support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
+        if policy.get("route_rules"):
+            # mvp-0.20: the own-route rule over the grader's own output.
+            final_status = (policy.get("final_answer_check") or {}).get("status")
+            divergent = bool((extras[winner].get("route_check") or {}).get("divergent_route"))
+            rule = apply_route_rule(
+                proposal,
+                rubric=rubric,
+                learner_answer_md=context.learner_answer_md,
+                final_answer_status=final_status,
+                divergent_route=divergent,
+                unverified_before=gate.unverified_criterion_ids,
+                # Review F2: the grader's own "cannot verify" reaches the rule.
+                declared_unverified=declared[winner],
+                # Review F3: the learner's clarification reply is the
+                # learner's words too; the machine's question is not.
+                clarification_answer_md=(context.clarification_exchange or {}).get("answer_md"),
+            )
+            support[ROUTE_RULE_SUPPORT_KEY] = {
+                "version": ROUTE_RULE_RECORD_VERSION,
+                "rules": policy["route_rules"],
+                "status": "checked",
+                "applied": rule.applied,
+                "final_answer_status": final_status,
+                "divergent_route": divergent,
+                "unlocated_criterion_ids": list(rule.unlocated),
+                "declared_unverified_criterion_ids": list(rule.declared),
+                "clarification_located_criterion_ids": list(rule.clarification_located),
+                "unverified_criterion_ids": list(rule.unverified),
+                "held_for_review": rule.held_for_review,
+                "assessed_shortfall": rule.assessed_shortfall if rule.applied else None,
+            }
+            if rule.applied:
+                proposal = rule.proposal
+                # PF-c's keys over both rules, so every reader of
+                # ``unverified_criterion_ids``, ``valid_alternative_gate_applied``
+                # and ``assessed_shortfall`` treats this outcome as PF-c's.
+                support.update(
+                    unverified_criterion_ids=list(rule.unverified),
+                    valid_alternative_gate_applied=True,
+                    valid_alternative_gate={"final_answer": gate.applied, "proof_route": True},
+                    assessed_shortfall=rule.assessed_shortfall,
+                )
+                support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
     return BlindGradingRun(
         proposal=proposal,
         prompt_version=blind_prompt_version(context),
@@ -579,14 +1026,25 @@ __all__ = [
     "BlindGradingRun",
     "GRADING_SUPPORT_VERSION",
     "GateOutcome",
+    "HELD_REVIEW_REASON",
+    "LEGACY_ROUTE_CHECK_JUDGMENT_TASK",
+    "NOT_CHECKED_VERDICT",
     "REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION",
     "REFERENCE_POLICY_PROMPT_VERSION",
     "REFERENCE_POLICY_RULES",
+    "ROUTE_RULES",
+    "ROUTE_RULES_SUFFIX",
+    "ROUTE_RULES_VERSION",
+    "ROUTE_RULE_JUDGMENT_TASK",
+    "ROUTE_RULE_RECORD_VERSION",
+    "ROUTE_RULE_SUPPORT_KEY",
     "ReferencePolicyBlindGradingProposal",
     "RouteCheck",
+    "RouteRuleOutcome",
     "StuckReferencePolicyBlindGradingProposal",
     "UNASSESSED_CRITERION_LABEL",
     "UNVERIFIED_REVIEW_REASON",
+    "apply_route_rule",
     "apply_valid_alternative_gate",
     "blind_result_model",
     "criterion_outcomes",
@@ -594,7 +1052,10 @@ __all__ = [
     "gated_review_reason",
     "grade_uncertainty_signal",
     "modal_sample",
+    "record_route_rule_judgment",
     "reference_policy",
     "request_blind_grading_run",
+    "revalidated_support",
+    "route_rules_active",
     "sample_fingerprint",
 ]

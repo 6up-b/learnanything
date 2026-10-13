@@ -1,10 +1,11 @@
-"""The proofs route check (mvp-0.17) composed with main's later stages.
+"""A grade held for review composed with main's later stages.
 
-A grade the route check held for review (re-review F9: nothing assessed and
-nothing validated) is the grader's own, provisional, and applies no FSRS
-review. It is read from one recorded fact, the latest blind record's
-``grading_support.proof_route_check.held_for_review``. Each composition point
-here reads that fact:
+A grade held for review (re-review F9: nothing assessed and nothing
+validated; written by mvp-0.17's route check and, since route-check-in-grader,
+by mvp-0.20's own-route rule over the grader alone) is the grader's own,
+provisional, and applies no FSRS review. It is read from one recorded fact,
+the latest blind record's ``grading_support.proof_route_check.held_for_review``.
+Each composition point here reads that fact:
 
 * router R1 (``router_outcomes``): a held attempt is never a scored outcome,
   in R_next/R_cold or in the coldness candidates, and the coldness covariate
@@ -13,13 +14,11 @@ here reads that fact:
 * learner-text gaps: a held attempt queues no gap reading as a failure (no
   live diagnosis to read);
 * EVSI calibration: a held attempt is no realized outcome in the report;
-* the stuck prompt: an empty stuck answer never reaches the check;
+* the stuck prompt: an empty stuck answer never reaches the grader;
 * placement and the learner field: a held attempt is unassessed (no miss, no
   facet outcome);
-* the shared output-budget policy: the item reading and the route check ask
-  for the proof_check route's policy budget with the truncation retry, and
-  are admitted on their own route; the hard-case harness plans every role at
-  its route's policy budget and retries a truncation once at double.
+* the shared output-budget policy: the hard-case harness plans the grader at
+  the grading route's policy budget and retries a truncation once at double.
 
 Fakes only; no network.
 """
@@ -32,7 +31,7 @@ import sqlite3
 
 import pytest
 
-from learnloop.ai.execution import output_limit, reasoning_effort_request, truncation_retry_permitted
+from learnloop.ai.execution import output_limit
 from learnloop.ai.output_budget import output_budget
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -41,16 +40,14 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
 from tests.split_live_helpers import split_vault, submit
-from tests.test_proof_route_check import (  # noqa: F401 - ``checker`` is a fixture
+from tests.test_route_rules_in_grader import (
     ALTERNATIVE,
     CLOCK,
     ITEM,
     VERSION,
-    CheckerFake,
     DivergentUnlocatedGrader,
     _first_scheduled_attempt,
     _support,
-    checker,
 )
 
 HELD_SUPPORT = {
@@ -60,11 +57,10 @@ HELD_SUPPORT = {
 }
 
 
-def _held_attempt(vault, repository, checker):
+def _held_attempt(vault, repository):
     """A real held grade through the live door (re-review F9's scenario)."""
 
-    _first_scheduled_attempt(vault, repository, checker)
-    checker(CheckerFake(verdicts={"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}))
+    _first_scheduled_attempt(vault, repository)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
                   when=CLOCK.now() + timedelta(days=3))
     assert _support(repository, held.attempt_id)["proof_route_check"]["held_for_review"] is True
@@ -182,13 +178,13 @@ def test_a_released_hold_is_an_ordinary_outcome_again(tmp_path):
 # -- learner-text gaps --------------------------------------------------------------------
 
 
-def test_a_held_attempt_queues_no_gap_reading_as_a_failure(tmp_path, checker):
+def test_a_held_attempt_queues_no_gap_reading_as_a_failure(tmp_path):
     from learnloop.diagnosis.split.jobs import diagnosis_status, enqueue_diagnosis
 
     _paths, vault, repository = split_vault(
         tmp_path, version=VERSION, config="[diagnosis]\ncorrect_answer_sample_rate = 1.0",
     )
-    held = _held_attempt(vault, repository, checker)
+    held = _held_attempt(vault, repository)
     # No live diagnosis (the only diagnosis a gap reading follows): at most a
     # shadow sample, which is never read for a gap.
     assert diagnosis_status(repository, held.attempt_id)["status"] in {"not_needed", "queued"}
@@ -206,7 +202,7 @@ def test_a_held_attempt_queues_no_gap_reading_as_a_failure(tmp_path, checker):
     assert gap_jobs == []
 
 
-def test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer(tmp_path, checker):
+def test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer(tmp_path):
     """A live diagnosis can still exist for a held grade (one completed before
     a regrade put the attempt on hold, or a grade a gate defect left with a
     standing shortfall). Its gap reading is the diagnosis source's "wrong
@@ -217,7 +213,7 @@ def test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer(tmp_path,
     from learnloop.diagnosis.text_gaps.sources import diagnosis_text
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    held = _held_attempt(vault, repository, checker)
+    held = _held_attempt(vault, repository)
     diagnosis_id = repository.insert_attempt_diagnosis(
         attempt_id=held.attempt_id, diagnosis_prompt_version="diagnosis-test", mode="live",
         history_mode="full", status="completed", proposal={"event_diagnoses": []}, causal_view=None,
@@ -266,7 +262,7 @@ def test_the_evsi_report_realizes_no_outcome_from_a_held_attempt(tmp_path):
 # -- the stuck prompt ---------------------------------------------------------------------
 
 
-def test_an_empty_stuck_answer_never_reaches_the_check(tmp_path, checker):
+def test_an_empty_stuck_answer_never_reaches_the_grader(tmp_path):
     from learnloop.attempts.attempts import (
         AttemptDraft,
         SelfGradeInput,
@@ -277,16 +273,16 @@ def test_an_empty_stuck_answer_never_reaches_the_check(tmp_path, checker):
     from tests.split_live_helpers import ReadyRuntime
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    fake = checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "established"}}))
+    grader = DivergentUnlocatedGrader()
     draft = AttemptDraft(practice_item_id=ITEM, learner_answer_md="", attempt_type="independent_attempt",
                          declared_stuck=True)
-    plan = plan_grading_calls(vault, repository, draft, grader_model="grader-model")
-    assert (plan.kind, plan.calls, plan.proof_check) == ("empty_stuck", 0, None)
+    plan = plan_grading_calls(vault, repository, draft)
+    assert (plan.kind, plan.calls) == ("empty_stuck", 0)
     result = complete_attempt_with_ai_fallback(
         vault, repository, draft, SelfGradeInput(criterion_points={}, confidence=3), runtime=ReadyRuntime(),
-        ai_client=DivergentUnlocatedGrader(), clock=CLOCK,
+        ai_client=grader, clock=CLOCK,
     )
-    assert fake.calls == []
+    assert grader.calls == []
     assert repository.latest_blind_grade_record(result.attempt_id) is None
     assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 0
 
@@ -294,12 +290,12 @@ def test_an_empty_stuck_answer_never_reaches_the_check(tmp_path, checker):
 # -- placement and the learner field --------------------------------------------------------
 
 
-def test_placement_and_the_field_read_a_held_attempt_as_unassessed(tmp_path, checker):
+def test_placement_and_the_field_read_a_held_attempt_as_unassessed(tmp_path):
     from learnloop.field.outcomes import load_replay_rows
     from learnloop.placement.state import pfc_unverified_attempt_ids
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    held = _held_attempt(vault, repository, checker)
+    held = _held_attempt(vault, repository)
     with repository.connection() as connection:
         # Placement: an unassessed answer keeps the topic, never a miss.
         assert held.attempt_id in pfc_unverified_attempt_ids(connection)
@@ -315,82 +311,7 @@ def test_placement_and_the_field_read_a_held_attempt_as_unassessed(tmp_path, che
 # -- the shared output-budget policy --------------------------------------------------------
 
 
-class BudgetRecordingChecker(CheckerFake):
-    """Records the output budget, truncation-retry permission and reasoning
-    effort each proof-check call is sent with."""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.sent: list[tuple[str, int | None, bool, str | None]] = []
-
-    def _proof_item_classification(self, request, context):
-        self.sent.append(("reading", output_limit(), truncation_retry_permitted(), reasoning_effort_request()))
-        return super()._proof_item_classification(request, context)
-
-    def _proof_route_check(self, request, context):
-        self.sent.append(("check", output_limit(), truncation_retry_permitted(), reasoning_effort_request()))
-        return super()._proof_route_check(request, context)
-
-
-def test_the_reading_and_the_check_ask_for_the_proof_check_routes_policy_budget(tmp_path, checker):
-    _paths, vault, repository = split_vault(
-        tmp_path, version=VERSION,
-        config="[ai.route_output_tokens]\nproof_check = 3000\n[ai.route_reasoning_effort]\nproof_check = \"low\"",
-    )
-    fake = checker(BudgetRecordingChecker(verdicts={"setup": {"verdict": "established"},
-                                                    "result": {"verdict": "established"}}))
-    submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=CLOCK.now())
-    # Not the branch's hand-set allowances: the route's policy budget, with
-    # the transport's one truncation retry at double, and the route's effort.
-    assert fake.sent == [("reading", 3000, True, "low"), ("check", 3000, True, "low")]
-
-
-def test_without_an_override_the_budget_is_the_policys_for_the_checker_profile(tmp_path, checker):
-    from learnloop.attempts.proof_check import proof_check_route
-
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    fake = checker(BudgetRecordingChecker(verdicts={"setup": {"verdict": "established"},
-                                                    "result": {"verdict": "established"}}))
-    submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=CLOCK.now())
-    route = proof_check_route(vault, grader_model=DivergentUnlocatedGrader().model)
-    expected = output_budget(vault.config, "proof_check", provider=route.provider)
-    assert [budget for _role, budget, _retry, _effort in fake.sent] == [expected, expected]
-    assert all(retry for _role, _budget, retry, _effort in fake.sent)
-
-
-def test_a_command_admits_the_proof_check_at_its_policy_budget_on_its_own_route(tmp_path, checker):
-    """``learnloop attempt``'s guard (ReviewSpend) admits the reading and the
-    check on the proof_check route at that route's policy budget."""
-
-    from learnloop.ai.spend import SpendCaps
-    from learnloop.attempts.grading_admission import grading_admission
-    from learnloop.diagnosis.offline_review.spend import ReviewSpend
-
-    _paths, vault, repository = split_vault(
-        tmp_path, version=VERSION, config="[ai.route_output_tokens]\nproof_check = 3000",
-    )
-    fake = checker(BudgetRecordingChecker(verdicts={"setup": {"verdict": "established"},
-                                                    "result": {"verdict": "established"}}))
-    fake.provider_type = "openrouter"  # metered: the admitted limit is enforced on the transport
-    spend = ReviewSpend(SpendCaps(max_candidates=5, max_pairs=0, max_retries=2, max_calls=5,
-                                  max_total_tokens=1_000_000, max_estimated_usd=100.0),
-                        price_per_million=1.0, config=vault.config)
-    admitted: list[tuple[str, str, int]] = []
-
-    def admit(purpose, prompt, *, route="grading", client=None):
-        if route not in spend.routes:
-            spend.register(route, client)
-        admitted.append((purpose, route, spend.output_limit(route)))
-        return spend.request(route, purpose, input_tokens=len(prompt) // 4)
-
-    with spend.collector.observing(), grading_admission(admit):
-        submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=CLOCK.now(), pipeline=False)
-    proof = [(purpose, route, limit) for purpose, route, limit in admitted if route == "proof_check"]
-    assert proof == [("proof_item_classification", "proof_check", 3000), ("proof_route_check", "proof_check", 3000)]
-    assert [budget for _role, budget, _retry, _effort in fake.sent] == [3000, 3000]
-
-
-def test_the_hardcase_harness_plans_every_role_at_its_routes_policy_budget(tmp_path):
+def test_the_hardcase_harness_plans_the_grader_at_its_routes_policy_budget(tmp_path):
     from learnloop.ai.spend import SpendCaps
     from learnloop.diagnosis.grading_hardcases import HARDCASE_ROUTES, run_hardcases
 
@@ -401,16 +322,15 @@ def test_the_hardcase_harness_plans_every_role_at_its_routes_policy_budget(tmp_p
                      max_total_tokens=50_000_000, max_estimated_usd=100.0)
     report = run_hardcases(vault, routes=["haiku"], caps=caps, dry_run=True,
                            input_price_per_million=1.0, output_price_per_million=5.0)
-    assert HARDCASE_ROUTES == {"grader": "grading", "checker": "proof_check", "item_kind": "proof_check"}
+    assert HARDCASE_ROUTES == {"grader": "grading"}
     roles = report["plan"]["haiku"]["roles"]
+    assert set(roles) == {"grader:reference_shown+check_shown"}
     for label, entry in roles.items():
         route = HARDCASE_ROUTES[label.split(":")[0]]
         assert entry["output_tokens"] == output_budget(vault.config, route, provider="haiku") * entry["calls"], label
-    # The item reading is no longer hand-set (it was 2,000 after a truncation).
-    assert roles["item_kind"]["output_tokens"] // roles["item_kind"]["calls"] != 2000
 
 
-def test_the_hardcase_harness_retries_a_truncated_reading_once_at_double(tmp_path):
+def test_the_hardcase_harness_retries_a_truncated_grade_once_at_double(tmp_path):
     from learnloop.ai.errors import AIOutputTruncated
     from learnloop.ai.spend import SpendCaps
     from learnloop.diagnosis.grading_hardcases import run_hardcases
@@ -422,11 +342,11 @@ def test_the_hardcase_harness_retries_a_truncated_reading_once_at_double(tmp_pat
             super().__init__(*args, **kwargs)
             self.readings: list[int | None] = []
 
-        def _pf_hardcase_item_kind(self, request, context):
+        def _pf_hardcase_grader(self, request, context):
             self.readings.append(output_limit())
             if len(self.readings) == 1:
                 raise AIOutputTruncated("finish_reason = length")
-            return super()._pf_hardcase_item_kind(request, context)
+            return super()._pf_hardcase_grader(request, context)
 
     vault = _vault(tmp_path)
     judge = TruncatingOnce("generous")
@@ -434,11 +354,11 @@ def test_the_hardcase_harness_retries_a_truncated_reading_once_at_double(tmp_pat
                      max_total_tokens=50_000_000, max_estimated_usd=100.0)
     report = run_hardcases(vault, routes=["generous"], caps=caps, clients={"generous": judge})
     assert report["status"] == "complete"
-    budget = output_budget(vault.config, "proof_check", provider="generous")
+    budget = output_budget(vault.config, "grading", provider="generous")
     assert judge.readings[:2] == [budget, 2 * budget]
-    # The retried reading counts: no failed reading.
-    assert report["by_route"]["generous"]["item_kind"]["read"] == report["cases"]
-    assert not any(key.startswith("item_kind") for key in report["errors"]["generous"])
+    # The retried grade counts: no failed case.
+    assert report["by_route"]["generous"]["grader"]["failed_cases"] == 0
+    assert not any(key.startswith("grader") for key in report["errors"]["generous"])
 
 
 def test_the_documented_two_route_run_fits_the_default_caps_at_the_policy_budget(tmp_path):
@@ -465,4 +385,4 @@ def test_the_documented_two_route_run_fits_the_default_caps_at_the_policy_budget
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["status"] == "dry_run"
-    assert payload["estimate"]["metered"]["calls"] == 2 * 3 * 16
+    assert payload["estimate"]["metered"]["calls"] == 2 * 16

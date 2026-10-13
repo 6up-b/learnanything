@@ -1,8 +1,8 @@
 """A grade held for review is no evidence anywhere (held-grade-evidence).
 
-A proof grade the route check held for review (mvp-0.17, re-review F9:
-nothing assessed and nothing validated) is the grader's own, provisional
-score. One predicate decides it (``outcome_contract.grade_is_held``: the
+A grade held for review (nothing assessed and nothing validated: mvp-0.17's
+route check, re-review F9, and since mvp-0.20 the grader's own-route rule) is
+the grader's own, provisional score. One predicate decides it (``outcome_contract.grade_is_held``: the
 latest blind record holds it AND nothing in the attempt's current evidence is
 assessed), evaluated in flight by the attempt step and over the ledger by
 ``learnloop.held_grades``; every reader of an attempt's score, correctness,
@@ -10,7 +10,10 @@ success or failure routes through one of the two.
 
 The fail-first tests below pin the eleven defects an independent Codex
 verification found (job 20261013-051715-m5ErbP); the guard at the end fails if
-a held grade's score reaches any listed reader. Fakes only; no network.
+a held grade's score reaches any listed reader. The synthetic holds below are
+mvp-0.17 route-check records (still read as written); the live holds come
+from mvp-0.20's rule over the grader alone (route-check-in-grader). Fakes
+only; no network.
 """
 
 from __future__ import annotations
@@ -30,11 +33,7 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.attempts.blind_grading import BlindErrorAttribution
 from learnloop.attempts.grading import resolved_rubric
-from learnloop.attempts.proof_check import (
-    PROOF_CHECK_VERSION,
-    PROOF_ROUTE_REVIEW_REASON,
-    apply_proof_route_gate,
-)
+from learnloop.attempts.grading_support import HELD_REVIEW_REASON, apply_route_rule
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
@@ -53,22 +52,25 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
-from tests.test_proof_route_check import (  # noqa: F401 - ``checker`` is a fixture
+from tests.test_route_rules_in_grader import (
     ALTERNATIVE,
     ANSWER,
     CLOCK,
     ITEM,
     RUBRIC,
     VERSION,
-    CheckerFake,
     DivergentUnlocatedGrader,
-    _check,
+    FullCreditGrader,
     _first_scheduled_attempt,
     _proposal,
     _schedule,
     _support,
-    checker,
 )
+
+#: The gate version and review reason of mvp-0.17's route-check records (the
+#: synthetic holds below are such records: history the predicate still reads).
+PROOF_CHECK_VERSION = "proof-route-check-v3"
+PROOF_ROUTE_REVIEW_REASON = "proof_route_check_flag"
 
 #: ``outcome_contract.HOLD_KEPT_FROM_KEY`` (spelled out so this module imports
 #: on the commit before the fix, where the fail-first run read it).
@@ -87,10 +89,10 @@ def attempt_grade_held(repository, attempt_id) -> bool:
     return attempt_id in held_attempt_ids(repository, (attempt_id,))
 
 
-#: Checker verdicts that hold a divergent, unlocated grade (re-review F9).
-HOLDING = {"setup": {"verdict": "cannot_tell"}, "result": {"verdict": "not_established"}}
-#: Checker verdicts that validate the route (release).
-VALIDATING = {"setup": {"verdict": "established"}, "result": {"verdict": "established"}}
+#: The grader alone holds a divergent, unlocated grade (nothing assessed,
+#: nothing validated) and releases it once it validates the route.
+HOLDING = DivergentUnlocatedGrader
+VALIDATING = FullCreditGrader
 
 
 def _iso(when) -> str:
@@ -258,32 +260,37 @@ def _blank_attribution(**update):
     ids=["blank", "whitespace", "unknown"],
 )
 def test_f1_a_blank_or_unknown_criterion_id_names_no_criterion(attribution):
-    gate = apply_proof_route_gate(
-        _proposal({"setup": 0.0, "result": 0.0}, [_blank_attribution(**attribution)]), rubric=RUBRIC,
-        learner_answer_md=ANSWER,
-        check=_check(setup={"verdict": "established"}, result={"verdict": "cannot_tell"}),
-        final_answer_status="undecidable", divergent_route=True,
+    rule = apply_route_rule(
+        _proposal({"setup": 2.0, "result": 0.0}, [_blank_attribution(**attribution)]), rubric=RUBRIC,
+        learner_answer_md=ANSWER, final_answer_status="undecidable", divergent_route=True,
     )
-    assert gate.restored == ("setup",) and gate.unlocated == ("result",)
-    assert [row.validity_scope for row in gate.proposal.error_attributions] == ["grader_interpretation"]
-    assert gate.assessed_shortfall is False
+    assert rule.unlocated == ("result",) and rule.held_for_review is False
+    assert [row.validity_scope for row in rule.proposal.error_attributions] == ["grader_interpretation"]
+    assert rule.assessed_shortfall is False
 
 
 class BlankIdGrader(DivergentUnlocatedGrader):
-    """``DivergentUnlocatedGrader`` plus an unquoted attribution whose only
-    criterion id is blank (the wire model accepts it)."""
+    """``setup`` at full points, ``result`` marked down on a divergent route
+    with an unquoted attribution whose only criterion id is blank (the wire
+    model accepts it)."""
 
     def _blind_grading(self, request, context):
         result = super()._blind_grading(request, context)
-        return result.model_copy(update={"error_attributions": [_blank_attribution()]})
+        evidence = [
+            row.model_copy(update={"points_awarded": 2.0}) if row.criterion_id == "setup" else row
+            for row in result.criterion_evidence
+        ]
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "rubric_score": 2, "error_attributions": [_blank_attribution()],
+        })
 
 
-def test_f1_live_a_blank_criterion_id_keeps_no_shortfall_and_queues_no_diagnosis(tmp_path, checker):
+def test_f1_live_a_blank_criterion_id_keeps_no_shortfall_and_queues_no_diagnosis(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    checker(CheckerFake(verdicts={"setup": {"verdict": "established"}, "result": {"verdict": "cannot_tell"}}))
     result = submit(vault, repository, BlankIdGrader(), answer=ALTERNATIVE)
     support = _support(repository, result.attempt_id)
-    assert support["proof_route_check"]["held_for_review"] is False  # setup was validated
+    assert support["proof_route_check"]["unlocated_criterion_ids"] == ["result"]
+    assert support["proof_route_check"]["held_for_review"] is False  # setup is assessed
     assert support["assessed_shortfall"] is False
     [stored] = repository.latest_blind_grade_record(result.attempt_id)["record"]["error_attributions"]
     assert stored["validity_scope"] == "grader_interpretation"
@@ -291,7 +298,7 @@ def test_f1_live_a_blank_criterion_id_keeps_no_shortfall_and_queues_no_diagnosis
 
 
 def test_f1_the_shortfall_is_recomputed_over_the_validated_grade():
-    from learnloop.attempts.proof_check import revalidated_support
+    from learnloop.attempts.grading_support import revalidated_support
 
     support = {
         "proof_route_check": {"status": "checked", "applied": True, "assessed_shortfall": True},
@@ -310,42 +317,52 @@ def test_f1_the_shortfall_is_recomputed_over_the_validated_grade():
     assert revalidated_support(untouched, record, RUBRIC)["assessed_shortfall"] is True
 
 
-# -- F2: a failed check never releases a hold ---------------------------------------------------
+# -- F2: a regrade that validates nothing never releases a hold -----------------------------------
 
 
-def _held_live(vault, repository, checker):
-    _first_scheduled_attempt(vault, repository, checker)
-    checker(CheckerFake(verdicts=HOLDING))
-    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+def _held_live(vault, repository):
+    _first_scheduled_attempt(vault, repository)
+    held = submit(vault, repository, HOLDING(), answer=ALTERNATIVE + " (again)",
                   when=T + timedelta(days=3))
     assert attempt_grade_held(repository, held.attempt_id)
     return held
 
 
 @pytest.mark.parametrize("clarified", [False, True], ids=["regrade", "clarification"])
-def test_f2_a_regrade_whose_check_fails_keeps_the_hold(tmp_path, checker, clarified):
+def test_f2_a_regrade_that_validates_nothing_keeps_the_hold(tmp_path, clarified):
+    """mvp-0.17 kept a hold when the regrade's separate check failed (F2). The
+    rule has no separate call: a failed grading call writes nothing (the hold
+    stays), and a regrade whose grader again locates nothing holds again."""
+
     from tests.test_pfc_unassessed_readers import _field_outcomes
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    held = _held_live(vault, repository, checker)
+    held = _held_live(vault, repository)
     before = _schedule(repository)
-    prior_record = repository.latest_blind_grade_record(held.attempt_id)
-    checker(CheckerFake(verdicts=VALIDATING, fail_purposes=("proof_route_check",)))
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    failing = HOLDING(fail_purposes=("blind_grading",))
+    with pytest.raises(AIProviderUnavailable):
+        regrade_attempt(
+            vault, repository, repository.fetch_practice_attempt(held.attempt_id),
+            runtime=ReadyRuntime(), client=failing, grading_source="ai",
+            clock=FrozenClock(T + timedelta(days=4)),
+        )
+    assert attempt_grade_held(repository, held.attempt_id)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(held.attempt_id),
-        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        runtime=ReadyRuntime(), client=HOLDING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=4)),
         clarification_exchange=(
             {"question_md": "Which V?", "answer_md": "From A^T A.", "criterion_id": "setup",
              "reason": "method_ambiguity"} if clarified else None
         ),
     )
-    proof = _support(repository, held.attempt_id)["proof_route_check"]
-    assert proof["status"] == "unavailable" and proof["held_for_review"] is True
-    assert proof[HOLD_KEPT_FROM_KEY] == prior_record["id"]
+    rule = _support(repository, held.attempt_id)["proof_route_check"]
+    assert rule["status"] == "checked" and rule["held_for_review"] is True
     assert attempt_grade_held(repository, held.attempt_id)
     attempt = repository.fetch_practice_attempt(held.attempt_id)
-    assert attempt["rubric_score"] == 0 and attempt["manual_review_reason"] == PROOF_ROUTE_REVIEW_REASON
+    assert attempt["rubric_score"] == 0 and attempt["manual_review_reason"] == HELD_REVIEW_REASON
     rows = repository.fetch_grading_evidence(held.attempt_id)
     assert rows and all(unassessed_evidence_row(row.attribution_json) for row in rows)
     # Nothing validated the regrade: the schedule, the facets and the
@@ -353,7 +370,7 @@ def test_f2_a_regrade_whose_check_fails_keeps_the_hold(tmp_path, checker, clarif
     assert _schedule(repository) == before
     assert _field_outcomes(vault, repository, held.attempt_id) == {}
     # The regrade re-queues the diagnosis; the job finds nothing to explain.
-    drain_jobs(vault, repository, DivergentUnlocatedGrader(), clock=FrozenClock(T + timedelta(days=4)))
+    drain_jobs(vault, repository, HOLDING(), clock=FrozenClock(T + timedelta(days=4)))
     assert diagnosis_status(repository, held.attempt_id)["status"] == "not_needed"
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _schedule(repository) == before
@@ -392,15 +409,14 @@ def test_f3_a_held_cold_probe_abstains_from_certification_validation(tmp_path, p
 # -- F4: a validating regrade supersedes the held rows -------------------------------------------
 
 
-def test_f4_a_validating_regrade_leaves_no_stale_unassessed_row(tmp_path, checker):
+def test_f4_a_validating_regrade_leaves_no_stale_unassessed_row(tmp_path):
     from tests.test_pfc_unassessed_readers import _field_outcomes
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    held = _held_live(vault, repository, checker)
-    checker(CheckerFake(verdicts=VALIDATING))
+    held = _held_live(vault, repository)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(held.attempt_id),
-        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        runtime=ReadyRuntime(), client=VALIDATING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=5)),
     )
     rows = repository.fetch_grading_evidence(held.attempt_id)
@@ -422,15 +438,14 @@ def test_f4_a_validating_regrade_leaves_no_stale_unassessed_row(tmp_path, checke
 # -- F5: an adjudication releases the post-attempt suppression -----------------------------------
 
 
-def test_f5_an_adjudication_releases_the_follow_up_suppression(tmp_path, checker):
+def test_f5_an_adjudication_releases_the_follow_up_suppression(tmp_path):
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
     from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    _first_scheduled_attempt(vault, repository, checker)
-    checker(CheckerFake(verdicts=HOLDING))
+    _first_scheduled_attempt(vault, repository)
     when = T + timedelta(days=3)
-    held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+    held = submit(vault, repository, HOLDING(), answer=ALTERNATIVE + " (again)",
                   when=when, pipeline=False)
     assert attempt_grade_held(repository, held.attempt_id)
     revision = append_adjudication_evidence_revision(
@@ -607,7 +622,7 @@ def _readers():
     from learnloop.substrate.dataset import outcome_records
     from learnloop.tutor.question_signal import _base_failure_rate
     from tests.test_pfc_unassessed_readers import _field_outcomes
-    from tests.test_proof_route_check import _projection
+    from tests.test_route_rules_in_grader import _projection
 
     def schedule(vault, repository, paths):
         state = repository.practice_item_state(ITEM)
@@ -774,7 +789,7 @@ def _ledger_and_replay_held(vault, repository, attempt_id) -> tuple[bool, bool]:
     (``held_grades``) and the attempt step's, as replay evaluates it from the
     attempt's current evidence and its latest blind record."""
 
-    from learnloop.attempts.proof_check import record_held_for_review
+    from learnloop.held_grades import record_held_for_review
     from learnloop.outcome_contract import grade_is_held
 
     rows = repository.fetch_grading_evidence(attempt_id)
@@ -787,7 +802,7 @@ def _ledger_and_replay_held(vault, repository, attempt_id) -> tuple[bool, bool]:
     return attempt_grade_held(repository, attempt_id), in_flight
 
 
-def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replaces(tmp_path, checker):
+def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replaces(tmp_path):
     """Review F1: an assessed (validated 4/4) attempt is regraded, and the new
     grade is held (nothing assessed, nothing validated). The regrade must
     supersede the assessed tier-3 rows it replaced, or the ledger reads the
@@ -800,10 +815,9 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
     from learnloop.substrate.dataset import outcome_records
 
     paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    first = _first_scheduled_attempt(vault, repository, checker)
+    first = _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
-    checker(CheckerFake(verdicts=VALIDATING))
-    graded = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+    graded = submit(vault, repository, VALIDATING(), answer=ALTERNATIVE + " (again)",
                     when=T + timedelta(days=3))
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assessed_schedule = _schedule(repository)
@@ -827,10 +841,9 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
             connection.close()
 
     # The regrade holds it: the grader's own 0/4, nothing validated.
-    checker(CheckerFake(verdicts=HOLDING))
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
-        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        runtime=ReadyRuntime(), client=HOLDING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=4)),
     )
     assert repository.fetch_practice_attempt(graded.attempt_id)["rubric_score"] == 0
@@ -850,10 +863,9 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
     assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)
 
     # A validating regrade releases it, in every reader.
-    checker(CheckerFake(verdicts=VALIDATING))
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
-        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        runtime=ReadyRuntime(), client=VALIDATING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=5)),
     )
     assert repository.fetch_practice_attempt(graded.attempt_id)["rubric_score"] == 4
@@ -864,7 +876,7 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
     assert r_next()["status"] != GRADE_HELD_FOR_REVIEW and r_next()["value"] is not None
 
 
-def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_path, checker):
+def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_path):
     """Review F1, the predicate's two evaluations: a regrade supersedes the
     machine tiers only, so an owner's adjudication (tier 4) stays live beside
     a later held regrade. Replay builds the criterion vector from every live
@@ -875,10 +887,9 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
 
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
-    _first_scheduled_attempt(vault, repository, checker)
+    _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
-    checker(CheckerFake(verdicts=VALIDATING))
-    graded = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
+    graded = submit(vault, repository, VALIDATING(), answer=ALTERNATIVE + " (again)",
                     when=T + timedelta(days=3))
     revision = append_adjudication_evidence_revision(
         repository, attempt_id=graded.attempt_id, resolved_fraction=1.0, adjudication_id="adj-review-f1",
@@ -887,10 +898,9 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
     )
     assert revision["status"] == "revised"
     assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (False, False)
-    checker(CheckerFake(verdicts=HOLDING))
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(graded.attempt_id),
-        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+        runtime=ReadyRuntime(), client=HOLDING(), grading_source="ai",
         clock=FrozenClock(T + timedelta(days=4)),
     )
     tiers = sorted(row.grader_tier for row in repository.fetch_grading_evidence(graded.attempt_id))

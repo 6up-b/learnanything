@@ -870,7 +870,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
-    "proof_check": "the valid-alternative gate for proofs and explanations (mvp-0.17): the kill switch of the independent route check on proof-like items",
+    "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
 }
 
 
@@ -1152,12 +1152,14 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch."
     ),
     "proof_check.enabled": (
-        "Kill switch for mvp-0.17's route check. On, each new blind grade of an "
-        "item an LLM reads as proof-like is followed by an independent re-derivation of the "
-        "learner's route (ai.routing.proof_check, else a route with a model other than the "
-        "grader's); the gate restores, records unverified or flags criteria and the verdict goes "
-        "to judgment_ledger. Off, new answers are graded exactly as mvp-0.16. Dormant below "
-        "mvp-0.17; replay reads the blind record and evidence rows, never this switch."
+        "Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every "
+        "criterion on the learner's own route and marks down only by quoting the failing step, and "
+        "a server-side rule leaves a mark-down on a divergent route that quotes nothing from the "
+        "learner's words, an omitted criterion, or one the grader declares it cannot verify "
+        "unassessed (holding the grade for review when nothing is then assessed and nothing "
+        "validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is "
+        "mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; "
+        "replay reads the blind record and evidence rows, never this switch."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

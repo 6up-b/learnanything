@@ -423,15 +423,22 @@ _BLIND_TASK = (
 
 
 def blind_prompt_version(context: BlindGradingContext) -> str:
-    """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one; either
-    with the ``+stuck-v1`` suffix when the answer came from "I'm stuck"."""
+    """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one, plus
+    ``+own-route-v1`` when the policy carries the own-route rules (mvp-0.20);
+    any of them with the ``+stuck-v1`` suffix when the answer came from "I'm
+    stuck"."""
 
     if context.reference_policy is None:
         version = BLIND_GRADING_PROMPT_VERSION
     else:
-        from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
+        from learnloop.attempts.grading_support import (
+            REFERENCE_POLICY_PROMPT_VERSION,
+            ROUTE_RULES_SUFFIX,
+        )
 
         version = REFERENCE_POLICY_PROMPT_VERSION
+        if context.reference_policy.get("route_rules"):
+            version = f"{version}{ROUTE_RULES_SUFFIX}"
     if context.answer_prompt is not None:
         version = f"{version}{STUCK_PROMPT_VERSION_SUFFIX}"
     return version
@@ -439,13 +446,16 @@ def blind_prompt_version(context: BlindGradingContext) -> str:
 
 def blind_grading_prompt(context: BlindGradingContext) -> str:
     """Render the blind grading request (§4.3; PF-c rules when a policy is
-    set; the stuck-prompt rules when the answer came from "I'm stuck")."""
+    set, and the own-route rules when it carries them; the stuck-prompt rules
+    when the answer came from "I'm stuck")."""
 
     task = _BLIND_TASK
     if context.reference_policy is not None:
-        from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES
+        from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES, ROUTE_RULES
 
         task = f"{task} {REFERENCE_POLICY_RULES}"
+        if context.reference_policy.get("route_rules"):
+            task = f"{task} {ROUTE_RULES}"
     if context.answer_prompt is not None:
         task = f"{task} {STUCK_PROMPT_RULES}"
     return render_structured_prompt(

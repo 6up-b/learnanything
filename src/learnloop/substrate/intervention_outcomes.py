@@ -26,9 +26,9 @@ intervention, never the clock). Per intervention:
   ``bayes_update_member0``) and the decision's action before and after it;
 * the learner's taps and their text on the proposal.
 
-A grade held for review (mvp-0.17's route check; THE predicate,
-``held_grades.held_for_review_attempts``) is no evidence here either (merge
-onto main, held-grade-evidence): a held next attempt has no correctness,
+A grade held for review (mvp-0.17's route check, mvp-0.20's own-route rule;
+THE predicate, ``held_grades.held_for_review_attempts``) is no evidence here
+either (merge onto main, held-grade-evidence): a held next attempt has no correctness,
 bucket or posterior movement, and a held cold attempt is
 ``grade_held_for_review`` (unmeasured, with no correctness), never a success
 or failure. It still occupies its place in the search, as main's dataset

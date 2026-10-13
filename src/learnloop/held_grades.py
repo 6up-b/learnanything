@@ -1,8 +1,9 @@
 """THE held-grade predicate over the ledger (held-grade-evidence).
 
-A proof grade the route check held for review (mvp-0.17, re-review F9:
-nothing assessed and nothing validated) is the grader's own, provisional
-score. It is no evidence anywhere: no outcome, no FSRS review, no failure, no
+A grade held for review (nothing assessed and nothing validated: mvp-0.17's
+route check, re-review F9, and since mvp-0.20 the grader's own-route rule,
+``attempts.grading_support.apply_route_rule``) is the grader's own,
+provisional score. It is no evidence anywhere: no outcome, no FSRS review, no failure, no
 success, no label, no observation. Whether an attempt is held is decided once,
 by ``outcome_contract.grade_is_held``:
 
@@ -112,6 +113,15 @@ def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None 
     )
 
 
+def record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool:
+    """The RECORD half of the hold for one persisted blind grade record row
+    (``outcome_contract.grade_held_for_review`` of its grading support): what
+    replay hands the attempt step, which evaluates the evidence half."""
+
+    record = (blind_record or {}).get("record") or {}
+    return grade_held_for_review(record.get("grading_support") if isinstance(record, Mapping) else None)
+
+
 def held_attempt_ids(repository: Any, attempt_ids: Iterable[str] | None = None) -> frozenset[str]:
     """:func:`held_for_review_attempts` through a repository's connection
     (no read at all for an empty id list)."""
@@ -190,4 +200,5 @@ __all__ = [
     "held_attempt_ids",
     "held_for_review_attempts",
     "mark_held_attempts",
+    "record_held_for_review",
 ]

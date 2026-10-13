@@ -11,6 +11,11 @@ whose same-cause guard is advisory unless ``recurrence.require_guard = true``).
 Neither rewrites anything: the projection namespace is the same, and attempts
 recorded before the tag keep ``reference_status = not_applicable``
 (playbook items 1, 3, 4 and 8).
+
+route-check-in-grader (owner decision 2026-10-13) removed mvp-0.17's separate
+route check from serving, so mvp-0.17 to mvp-0.19 grade new answers as its kill
+switch defined (as mvp-0.16), and the route rules in the grader followed as
+mvp-0.20, the latest successor (``tests/test_mvp020_upgrade.py``).
 """
 
 from __future__ import annotations
@@ -32,8 +37,8 @@ from learnloop.algorithm_versions import (
     PLACEMENT_VERSIONS,
     PROBE_TIE_VERSIONS,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
-    PROOF_ROUTE_CHECK_VERSIONS,
     RECURRENCE_GROUP_VERSIONS,
+    ROUTE_RULES_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_VERSIONS,
     SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
@@ -41,7 +46,7 @@ from learnloop.algorithm_versions import (
     STUCK_PROMPT_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.attempts.proof_check import proof_check_active
+from learnloop.attempts.grading_support import route_rules_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
@@ -68,30 +73,35 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_sources_successors_follow_the_route_check_and_keep_every_predecessor():
     assert (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION) == ("mvp-0.18", "mvp-0.19")
-    assert SUCCESSOR_CHAIN[-3:] == (
+    # The route rules in the grader (mvp-0.20) followed them.
+    assert SUCCESSOR_CHAIN[-4:] == (
         PROOF_ROUTE_CHECK_ALGORITHM_VERSION, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
-        SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
+        SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
     )
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.19"
-    assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset({"mvp-0.18", "mvp-0.19"})
-    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19"})
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset({"mvp-0.18", "mvp-0.19", "mvp-0.20"})
+    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20"})
     # The chain is linear: each means every predecessor's semantics PLUS its own.
     for version in (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION):
         for versions in (
             P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
             PLACEMENT_VERSIONS, RECURRENCE_GROUP_VERSIONS, STUCK_PROMPT_VERSIONS, DAILY_PLAN_VERSIONS,
-            PROBE_TIE_VERSIONS, LEARNER_TEXT_GAP_VERSIONS, PROOF_ROUTE_CHECK_VERSIONS,
+            PROBE_TIE_VERSIONS, LEARNER_TEXT_GAP_VERSIONS,
         ):
             assert version in versions
 
 
-def test_each_version_keeps_the_route_check(tmp_path):
+def test_each_version_keeps_its_predecessors_and_grades_as_mvp016(tmp_path):
+    # mvp-0.17's separate check is gone (route-check-in-grader): mvp-0.17 to
+    # mvp-0.19 grade new answers without it, and the route rules start at
+    # mvp-0.20.
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     for version in ("mvp-0.17", "mvp-0.18", "mvp-0.19"):
         set_algorithm_version(paths, version)
         vault = load_vault(paths.root)
-        assert proof_check_active(vault) and gap_sooner_checks_active(vault) and plan_active(vault), version
+        assert gap_sooner_checks_active(vault) and plan_active(vault), version
         assert placement_active(vault) and recurrence_active(vault), version
+        assert route_rules_active(vault) is False, version
 
 
 def test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing(tmp_path):
@@ -112,7 +122,7 @@ def test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing(tmp_path):
     assert (result.upgraded, result.from_version, result.to_version) == (True, "mvp-0.18", "mvp-0.19")
     upgraded = load_vault(paths.root)
     assert upgraded.config.algorithms.algorithm_version == "mvp-0.19"
-    assert proof_check_active(upgraded) and gap_sooner_checks_active(upgraded) and plan_active(upgraded)
+    assert gap_sooner_checks_active(upgraded) and plan_active(upgraded) and not route_rules_active(upgraded)
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall() == attempts_before
         assert connection.execute("SELECT * FROM practice_item_state ORDER BY practice_item_id").fetchall() == states_before
@@ -172,7 +182,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.17 -> mvp-0.19" in result.output
+    assert "mvp-0.17 -> mvp-0.20" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output

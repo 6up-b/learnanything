@@ -76,12 +76,13 @@ LEARNER_GAP_TABLES = {
 def test_learner_text_gap_successor_keeps_every_predecessor():
     assert LEARNER_TEXT_GAP_ALGORITHM_VERSION == "mvp-0.16"
     # The proofs-and-explanations route check (mvp-0.17,
-    # tests/test_mvp017_upgrade.py) and canonical sources' answer-key gate
-    # (mvp-0.18) and source-first needs (mvp-0.19, the latest successor,
-    # tests/test_mvp018_upgrade.py) followed it and keep the sooner check.
-    assert SUCCESSOR_CHAIN[-4] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.19"
-    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19"})
+    # tests/test_mvp017_upgrade.py), canonical sources' answer-key gate
+    # (mvp-0.18) and source-first needs (mvp-0.19, tests/test_mvp018_upgrade.py)
+    # and the route rules in the grader (mvp-0.20, the latest successor,
+    # tests/test_mvp020_upgrade.py) followed it and keep the sooner check.
+    assert SUCCESSOR_CHAIN[-5] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"})
     # The chain is linear: mvp-0.16 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check.
@@ -107,6 +108,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.17": (True, True, True, True, True),
         "mvp-0.18": (True, True, True, True, True),
         "mvp-0.19": (True, True, True, True, True),
+        "mvp-0.20": (True, True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -218,8 +220,8 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
 
 def test_new_vaults_start_at_a_successor_with_sooner_checks(tmp_path):
     """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
-    (mvp-0.19 since canonical sources merged), which keeps the sooner
-    check."""
+    (mvp-0.20 since the route rules moved into the grader), which keeps the
+    sooner check."""
 
     from learnloop.vault.loader import init_vault
 

@@ -34,6 +34,13 @@ Nothing is rewritten: grades recorded before the upgrade keep their meaning
 false`` grades new answers exactly as ``mvp-0.16`` without a downgrade;
 rolling the version back is restore-only.
 
+Owner decision 2026-10-13 (route-check-in-grader): the separate check was
+removed from serving, so an ``mvp-0.17`` vault now grades new answers in its
+kill switch's state (as ``mvp-0.16``) and this upgrade changes no grading: it
+is the tag change and the idempotent rebuild above. The protective core moved
+into the grader's prompt at ``mvp-0.20`` (:mod:`learnloop.route_rules_upgrade`),
+which chains through this step.
+
 This module sits at the top level beside ``learner_text_gap_upgrade`` for the
 same reason: it composes the chain's earlier links.
 """

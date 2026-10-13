@@ -1,0 +1,35 @@
+schema_version: 1
+id: pi_unrelated_001
+learning_object_id: lo_unrelated
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - independent_attempt
+  - hinted_attempt
+  - dont_know
+evidence_facets:
+  - other
+evidence_weights:
+  other: 1.0
+prompt: Name a prime.
+expected_answer: '2'
+difficulty: 0.5
+tags: []
+hints:
+  - Think about it.
+surface_family: unrelated
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4
+      description: correctness is right.
+      targets:
+        - facet: other
+          capability: retrieval
+  fatal_errors: []
+provenance:
+  origin: human
+  source_refs: []
+created_at: '2026-05-19T12:00:00Z'
+updated_at: '2026-05-19T12:00:00Z'

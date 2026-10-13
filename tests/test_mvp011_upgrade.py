@@ -47,9 +47,9 @@ CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     assert PLACEMENT_ALGORITHM_VERSION == "mvp-0.11"
-    # Canonical sources' source-first needs (mvp-0.19) is the latest
-    # successor; it keeps placement.
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.19"
+    # The route rules in the grader (mvp-0.20, after canonical sources'
+    # mvp-0.18 and mvp-0.19) are the latest successor; they keep placement.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.20"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
@@ -57,11 +57,11 @@ def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     # mvp-0.11 and later; mvp-0.9 has neither.
     assert DIAGNOSIS_SPLIT_VERSIONS == frozenset(
         {"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-         "mvp-0.18", "mvp-0.19"}
+         "mvp-0.18", "mvp-0.19", "mvp-0.20"}
     )
     assert PLACEMENT_VERSIONS == frozenset(
         {"mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18",
-         "mvp-0.19"}
+         "mvp-0.19", "mvp-0.20"}
     )
 
 
@@ -70,7 +70,7 @@ def test_split_and_placement_activate_at_the_right_versions(tmp_path):
     expected = {
         "mvp-0.9": (False, False), "mvp-0.10": (True, False), "mvp-0.11": (True, True), "mvp-0.12": (True, True),
         "mvp-0.13": (True, True), "mvp-0.14": (True, True), "mvp-0.15": (True, True), "mvp-0.16": (True, True),
-        "mvp-0.17": (True, True), "mvp-0.18": (True, True), "mvp-0.19": (True, True),
+        "mvp-0.17": (True, True), "mvp-0.18": (True, True), "mvp-0.19": (True, True), "mvp-0.20": (True, True),
     }
     for version, (split, placement) in expected.items():
         set_algorithm_version(paths, version)
@@ -164,10 +164,10 @@ def test_upgrade_command_still_reaches_mvp010_explicitly(tmp_path):
 
 def test_new_vaults_start_at_the_latest_version(tmp_path):
     """Owner decision 2026-10-12 (Slice 1 M2 open question 1): a new vault
-    starts at LATEST_ALGORITHM_VERSION, mvp-0.19 since canonical sources
-    merged: the split, placement, recurrence groups, "I'm stuck", the finite
-    daily plan, probe-tie admission, sooner checks, the route check, the
-    answer-key certification gate and source-first needs are all live."""
+    starts at LATEST_ALGORITHM_VERSION, mvp-0.20 since the route rules moved
+    into the grader: the split, placement, recurrence groups, "I'm stuck",
+    the finite daily plan, probe-tie admission, sooner checks, the answer-key
+    certification gate, source-first needs and the route rules are all live."""
 
     from learnloop.attempts.stuck import stuck_prompt_active
     from learnloop.daily_plan.engine import plan_active
@@ -176,13 +176,13 @@ def test_new_vaults_start_at_the_latest_version(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.19"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.20"
     assert placement_active(fresh) and split_grading_active(fresh) and recurrence_active(fresh)
     assert stuck_prompt_active(fresh) and plan_active(fresh)
-    from learnloop.attempts.proof_check import proof_check_active
+    from learnloop.attempts.grading_support import route_rules_active
     from learnloop.placement.state import gap_sooner_checks_active
 
-    assert gap_sooner_checks_active(fresh) and proof_check_active(fresh)
+    assert gap_sooner_checks_active(fresh) and route_rules_active(fresh)
 
 
 def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):

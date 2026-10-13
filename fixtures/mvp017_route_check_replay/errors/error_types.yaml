@@ -1,0 +1,12 @@
+schema_version: 1
+error_types:
+  - id: conceptual_slip
+    title: Conceptual slip
+    description: The answer confuses the core definition.
+    related_concepts:
+      - singular_value_decomposition
+    severity_default: 0.7
+    is_misconception: true
+    tags: []
+    created_at: '2026-05-19T12:00:00Z'
+    updated_at: '2026-05-19T12:00:00Z'
