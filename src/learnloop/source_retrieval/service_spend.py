@@ -204,9 +204,20 @@ class SharedDailyEnvelope(SpendEnvelope):
                 _LEASES.drop(self._repository, handle)
 
     def report(self) -> dict[str, object]:
+        """The inherited report (this process's refusals and ``estimated_only``
+        tally), with the day's total and its full breakdown (``accounting``:
+        reservations by state, pending recovery, legacy coverage, pricing)
+        from one read of ``service_spend_accounting``."""
+
+        with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
+            accounting = self.accounting(connection)
         report = super().report()
+        total = float(accounting["usd"])
+        report["metered_usd"] = total
+        report["remaining_usd"] = max(0.0, float(self.max_usd) - total)
         report["basis"] = ("every process's reservations, each counted once with the receipts naming it, plus "
                            "the service's receipts that name none (source_service_spend)")
+        report["accounting"] = accounting
         return report
 
 

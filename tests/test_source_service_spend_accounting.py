@@ -22,7 +22,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import json
+import multiprocessing
+import os
+from pathlib import Path
+import signal
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -379,9 +384,11 @@ def test_a_request_reserved_yesterday_counts_on_yesterdays_cap(tmp_path):
 
 @pytest.mark.durability
 def test_concurrent_admission_counts_the_unreconciled_receipt(tmp_path):
-    """Eight processes race for $0.125 each under a $1 cap while a dead
-    worker's $0.50 receipt is unreconciled ($0.125 reserved). Exactly four
-    fit; before the fix seven were admitted ($1.375 spent)."""
+    """Eight threads, each with its own envelope and connections (one process
+    token: the separate-process race is the next test), race for $0.125 each
+    under a $1 cap while a dead worker's $0.50 receipt is unreconciled
+    ($0.125 reserved). Exactly four fit; before the fix seven were admitted
+    ($1.375 spent)."""
 
     vault, repository = _database(tmp_path)
     worker = _process(vault, repository)
@@ -409,6 +416,137 @@ def test_concurrent_admission_counts_the_unreconciled_receipt(tmp_path):
     for thread in threads:
         thread.join()
     assert admitted.count(True) == 4, admitted
+    assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(1.0)
+
+
+# Separate OS processes (spawned: each its own interpreter, connections, heartbeat
+# and owner token). Module-level, so a spawned child can import them.
+
+
+def _child_admission(sqlite_path: str, usd: str, ready, go, results) -> None:
+    """A separate process asking for ``usd`` under the shared $1 cap."""
+
+    repository = Repository.attach(Path(sqlite_path))
+    envelope = _process(_vault(1.0), repository)
+    ready.set()
+    go.wait(60)
+    try:
+        envelope.reserve(Decimal(usd))
+        results.put((SS.PROCESS, True))
+    except SpendLimitExceeded:
+        results.put((SS.PROCESS, False))
+
+
+def _child_owner(sqlite_path: str, usd: str, receipt_cost: float | None, lease_seconds: float,
+                 heartbeat_seconds: float, die: bool, release, results) -> None:
+    """A separate process that reserves ``usd`` and writes its request's receipt.
+    It then dies before reconciling (SIGKILL), or stays alive (its heartbeat
+    renewing its lease) until released, and settles."""
+
+    SS.LEASE_SECONDS, SS.HEARTBEAT_SECONDS = lease_seconds, heartbeat_seconds
+    repository = Repository.attach(Path(sqlite_path))
+    envelope = _process(_vault(1.0), repository)
+    handle = envelope.reserve(Decimal(usd))
+    if receipt_cost is not None:
+        _receipt(repository, "r_" + handle, cost=receipt_cost, reservation=handle)
+    results.put((SS.PROCESS, handle))
+    if die:
+        results.close()
+        results.join_thread()  # the queue's feeder has written the handle
+        os.kill(os.getpid(), signal.SIGKILL)
+    release.wait(120)
+    envelope.settle(handle, Decimal(usd))
+
+
+@pytest.mark.durability
+def test_separate_processes_race_for_the_shared_cap(tmp_path):
+    """The same race as above between eight OS processes: exactly four fit,
+    and each admitted reservation carries its own process's owner token."""
+
+    vault, repository = _database(tmp_path)
+    worker = _process(vault, repository)
+    handle = worker.reserve(Decimal("0.125"))
+    _receipt(repository, "r_dead", cost=0.50, reservation=handle)
+    _dies(repository, handle)
+    context = multiprocessing.get_context("spawn")
+    go, results = context.Event(), context.Queue()
+    ready = [context.Event() for _ in range(8)]
+    children = [context.Process(target=_child_admission,
+                                args=(str(repository.sqlite_path), "0.125", ready[index], go, results))
+                for index in range(8)]
+    try:
+        for child in children:
+            child.start()
+        assert all(event.wait(120) for event in ready)
+        go.set()
+        outcomes = [results.get(timeout=120) for _ in children]
+        for child in children:
+            child.join(timeout=60)
+            assert child.exitcode == 0
+    finally:
+        for child in children:
+            if child.is_alive():
+                child.kill()
+                child.join(timeout=10)
+    admitted = [token for token, outcome in outcomes if outcome]
+    assert len(admitted) == 4, outcomes
+    assert len({token for token, _outcome in outcomes} | {SS.PROCESS}) == 9  # nine owner tokens
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        owners = [row[0] for row in connection.execute(
+            "SELECT process FROM source_service_spend WHERE id != ? AND state='in_flight'", (handle,))]
+    assert sorted(owners) == sorted(admitted)
+    assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(1.0)
+    worker.settle(handle, Decimal("0.125"))
+
+
+@pytest.mark.durability
+def test_a_killed_owner_process_is_recovered_while_a_live_ones_lease_holds(tmp_path):
+    """Two owner processes with short leases: one is killed after writing its
+    $0.60 receipt and before reconciling its $0.30 reservation; the other
+    stays alive with $0.20 reserved. Until the killed owner's lease runs out
+    its reservation counts its receipt; then this process's admission
+    reconciles it with that receipt, while the live process's heartbeat keeps
+    its own reservation in flight."""
+
+    vault, repository = _database(tmp_path)
+    context = multiprocessing.get_context("spawn")
+    release, results = context.Event(), context.Queue()
+    lease, beat = 5.0, 0.25
+    dead = context.Process(target=_child_owner,
+                           args=(str(repository.sqlite_path), "0.30", 0.60, lease, beat, True, release, results))
+    live = context.Process(target=_child_owner,
+                           args=(str(repository.sqlite_path), "0.20", None, lease, beat, False, release, results))
+    try:
+        dead.start()
+        dead_token, dead_handle = results.get(timeout=120)
+        dead.join(timeout=60)
+        assert dead.exitcode == -signal.SIGKILL
+        live.start()
+        live_token, live_handle = results.get(timeout=120)
+        assert len({dead_token, live_token, SS.PROCESS}) == 3
+        # Live or orphaned, the killed owner's request counts its receipt.
+        assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(0.80)
+        deadline = datetime.now(timezone.utc) + timedelta(seconds=120)
+        while _row(repository, dead_handle)["lease_expires_at"] >= SS.utc_now_iso():
+            assert datetime.now(timezone.utc) < deadline
+            time.sleep(0.2)
+        here = _process(vault, repository)
+        assert _admits(here, 0.20)  # $0.60 + $0.20 + $0.20 fits $1; recovery ran in this admission
+        row = _row(repository, dead_handle)
+        assert (row["state"], row["resolved_by"], row["charged_usd"]) == ("settled", "recovery", pytest.approx(0.60))
+        row = _row(repository, live_handle)
+        assert row["state"] == "in_flight" and row["lease_expires_at"] > SS.utc_now_iso(), row
+        assert not _admits(here, 0.01)
+        release.set()
+        live.join(timeout=60)
+        assert live.exitcode == 0
+    finally:
+        for child in (dead, live):
+            if child.is_alive():
+                child.kill()
+                child.join(timeout=10)
+    row = _row(repository, live_handle)
+    assert (row["state"], row["resolved_by"], row["process"]) == ("settled", "owner", live_token)
     assert SS.service_spend_today(vault, repository)["usd"] == pytest.approx(1.0)
 
 
@@ -705,3 +843,25 @@ def test_spend_since_counts_a_reported_cost_alongside_tokens(tmp_path):
         connection.commit()
     with connect(repository.sqlite_path, read_only=True) as connection:
         assert spend_since(connection, "2000-01-01", price_per_million=PRICE)["usd"] == pytest.approx(0.001)
+
+
+# -- the shared envelope's report carries the accounting --------------------------------------------
+
+
+def test_the_shared_envelopes_report_carries_the_accounting(tmp_path):
+    vault, repository = _database(tmp_path)
+    worker = _process(vault, repository)
+    live = worker.reserve(Decimal("0.20"))
+    dead = worker.reserve(Decimal("0.30"))
+    _receipt(repository, "r_dead", cost=0.40, reservation=dead)
+    _dies(repository, dead)
+    _owner_terminal(repository, dead)
+    report = _process(vault, repository).report()
+    assert report["metered_usd"] == pytest.approx(0.60)
+    accounting = report["accounting"]
+    assert accounting["usd"] == pytest.approx(0.60) and accounting["reservations_usd"] == pytest.approx(0.60)
+    assert accounting["unlinked_receipts_usd"] == 0
+    assert accounting["reservations"]["in_flight"] == 1 and accounting["reservations"]["orphaned"] == 1
+    assert accounting["recovery"] == [{"id": dead, "action": "reconcile", "charged_usd": pytest.approx(0.40)}]
+    assert {"legacy", "pricing", "metered", "estimated_only"} <= set(accounting)
+    worker.settle(live, Decimal("0.20"))
