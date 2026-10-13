@@ -199,4 +199,24 @@ def screen_exercises(vault: LoadedVault, repository: Repository, problem: Any,
     return {"status": "screened", "screens": screens, "model": model}
 
 
-__all__ = ["ExerciseScreens", "SCREEN_PROMPT_VERSION", "classify", "screen_exercises", "slot_description"]
+def persisted_screen(repository: Repository, judgment_id: str) -> dict[str, Any] | None:
+    """A screen as its ``judgment_ledger`` row recorded it (no model call):
+    the classification, the exercise and the hypothesis space it was read in."""
+
+    with repository.connection() as connection:
+        row = judgments_by_ids(connection, [judgment_id]).get(judgment_id)
+    if row is None or row.get("task") not in (None, "exercise_discrimination"):
+        return None
+    try:
+        details = json.loads(row.get("rationale") or "{}")
+    except (TypeError, ValueError):
+        return None
+    screen = dict(details.get("screen") or {})
+    if not screen:
+        return None
+    return {**screen, "judgment_id": judgment_id, "exercise_key": row.get("left_id"),
+            "problem": row.get("right_id"), "judge_model": row.get("judge_model")}
+
+
+__all__ = ["ExerciseScreens", "SCREEN_PROMPT_VERSION", "classify", "persisted_screen", "screen_exercises",
+           "slot_description"]

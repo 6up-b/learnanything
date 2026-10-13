@@ -862,6 +862,87 @@ def attach_to_matching_family(vault: LoadedVault, repository: Repository, item_i
     return {"status": "unfamilied", "reason": "no family matched on every member", "tried": tried}
 
 
+# -- a screened exercise's profiles and rubric links (§8.4; re-review F3) -------
+
+
+#: A fatal error's grade cap, the convention of every misconception-linked
+#: fatal error the authoring paths write (``content/proposals/proposals.py``).
+SCREEN_FATAL_MAX_GRADE = 1
+
+
+def _plain_text(value: Any) -> str:
+    return " ".join(str(value or "").casefold().split())
+
+
+def screen_profiles(draft: AuthoredDraft, screen: Mapping[str, Any],
+                    repository: Repository) -> tuple[AuthoredDraft, dict[str, Any]]:
+    """Write a screened exercise's persisted screen onto its draft (spec §8.4).
+
+    Each misconception slot of a complete screen becomes a discrimination
+    profile (what a holder visibly writes on this item, the screen's own
+    observable signature) and a rubric fatal error linking that registry
+    belief, so the item is an ordinary item the follow-up chooser's unchanged
+    gate can read (the bridge reads the linked fatal error). Validated before
+    anything is written: the screen must be complete, each belief must exist
+    and be active, and each signature must differ observably from the key. The
+    profiles stay ``authored_profile_unchecked`` until the persona gate runs;
+    the diagnostician remains free to say ``no_profile_applies``.
+    """
+
+    record: dict[str, Any] = {"screen_judgment_id": screen.get("judgment_id"), "problem": screen.get("problem"),
+                              "judge_model": screen.get("judge_model"),
+                              "likelihood_basis": "authored_profile_unchecked"}
+    if not screen.get("complete"):
+        return draft, {**record, "ok": False,
+                       "reason": f"the screen is incomplete ({', '.join(screen.get('reasons') or []) or 'no partition'})"}
+    payload = json.loads(json.dumps(draft.payload))
+    expected = _plain_text(payload.get("expected_answer"))
+    rubric = dict(payload.get("grading_rubric") or {})
+    max_points = int(rubric.get("max_points") or 1)
+    fatal_errors = list(rubric.get("fatal_errors") or [])
+    profiles = list(payload.get("discrimination_profiles") or [])
+    linked: list[str] = []
+    refused: list[dict[str, str]] = []
+    for row in screen.get("signatures") or ():
+        slot = str(row.get("slot") or "")
+        if not slot.startswith("misconception:"):
+            continue
+        misconception_id = slot.split(":", 1)[1]
+        belief = repository.misconception(misconception_id)
+        signature = " ".join(str(row.get("observable_signature") or "").split())
+        if belief is None or belief.status != "active":
+            refused.append({"misconception_id": misconception_id, "why": "not an active registry belief"})
+            continue
+        if not signature or _plain_text(signature) == expected:
+            refused.append({"misconception_id": misconception_id,
+                            "why": "its signature does not differ observably from the key"})
+            continue
+        key = content_key([payload["id"], misconception_id])[:20]
+        profiles.append({"id": f"dp_{key}", "hypothesis": belief.statement, "observable_signature": signature,
+                         "misconception_id": misconception_id, "facet_id": belief.target_facet,
+                         "source": "misconception_registry"})
+        fatal_errors.append({"id": f"fe_{key}", "misconception_id": misconception_id,
+                             "max_grade": min(SCREEN_FATAL_MAX_GRADE, max(max_points - 1, 0)),
+                             "description": f"Answers as a holder of the belief would: {signature}"})
+        linked.append(misconception_id)
+    record.update(misconception_ids=linked, refused=refused)
+    if not linked:
+        return draft, {**record, "ok": False,
+                       "reason": "the screen links no active belief with a signature distinct from the key"}
+    rubric["fatal_errors"] = fatal_errors
+    payload["grading_rubric"] = rubric
+    payload["discrimination_profiles"] = profiles
+    try:
+        stamp = "1970-01-01T00:00:00Z"
+        PracticeItem.model_validate({"created_at": stamp, "updated_at": stamp, **payload})
+    except ValueError as exc:
+        return draft, {**record, "ok": False, "reason": f"the profiled draft does not validate: {exc}"}
+    record.update(ok=True, profile_ids=[profile["id"] for profile in profiles[-len(linked):]],
+                  fatal_error_ids=[error["id"] for error in fatal_errors[-len(linked):]])
+    return AuthoredDraft(payload=payload, summary=draft.summary, label=draft.label, statement=draft.statement,
+                         facet_basis=draft.facet_basis, cited_quote=draft.cited_quote), record
+
+
 # -- the import (§7.2) --------------------------------------------------------
 
 
@@ -944,8 +1025,14 @@ def import_source_exercise(
     label: str | None = None,
     import_id: str | None = None,
     clock: Clock | None = None,
+    screen: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Import one textbook exercise region as a practice item, its key checked.
+
+    ``screen`` is the exercise's persisted discrimination screen (§8.4): its
+    misconception slots become the draft's profiles and rubric links before
+    ``validate`` runs (:func:`screen_profiles`); a screen that cannot is a
+    failed validation.
 
     ``validate`` checks the authored draft against the request's constraints
     (§8.1); it returns ``{"ok": bool, ...}``. A learner's own pick is written
@@ -968,7 +1055,7 @@ def import_source_exercise(
             root, repository, vault=vault, extraction_id=extraction_id, span_ids=span_ids, caller=caller,
             proposal_id=proposal_id, clients=clients, time_box_seconds=time_box_seconds, validate=validate,
             need_id=need_id, learning_object_hint=learning_object_hint, label=label, import_id=import_id,
-            clock=clock)
+            clock=clock, screen=screen)
 
 
 def _import_source_exercise(
@@ -988,6 +1075,7 @@ def _import_source_exercise(
     label: str | None,
     import_id: str | None,
     clock: Clock | None,
+    screen: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     clients = dict(clients or {})
     service = vault.config.source_service
@@ -1071,7 +1159,15 @@ def _import_source_exercise(
             return fail("rejected", "already in your practice", practice_item_id=skipped.get("practice_item_id"))
         return fail("failed", str(skipped.get("reason")))
     draft = batch.drafts[0]
-    validation = dict(validate(draft)) if validate is not None else {"ok": True, "checked": False}
+    diagnostic = None
+    if screen is not None:
+        draft, diagnostic = screen_profiles(draft, screen, repository)
+    if diagnostic is not None and not diagnostic.get("ok"):
+        validation = {"ok": False, "reason": diagnostic.get("reason")}
+    else:
+        validation = dict(validate(draft)) if validate is not None else {"ok": True, "checked": False}
+    if diagnostic is not None:
+        validation["diagnostic"] = diagnostic
     validation["facet_basis"] = draft.facet_basis
     with repository.connection() as connection:
         update_import(connection, import_id, updated_at=utc_now_iso(clock), status="checking",
@@ -1473,6 +1569,7 @@ __all__ = [
     "AUTHORING_OUTPUT_TOKENS",
     "attach_to_matching_family",
     "authoring_admission",
+    "screen_profiles",
     "CHECK_CLAIM_TASK",
     "CheckClaim",
     "check_claim_key",

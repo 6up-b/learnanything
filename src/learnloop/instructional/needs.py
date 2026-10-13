@@ -44,6 +44,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import import_row, update_import
 from learnloop.diagnosis.followups import misconception_discrimination
 from learnloop.diagnosis.probes import build_hypothesis_set
+from learnloop.instructional.screen import persisted_screen
 from learnloop.instructional.validation import draft_validator
 from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
@@ -170,9 +171,15 @@ def fulfil_need_from_sources(
         if len(proposals) > 1:
             receipt["proposal_ids"] = list(proposals)
         order: list[str]
+        screens: dict[str, str] = {}
         if intent == "discriminate":
             valuation = result.get("valuation") or {}
             sections = valuation.get("problems") or []
+            # Each screened exercise's persisted screen goes to its import: its
+            # profiles and rubric links are what the chooser's gate reads (F3).
+            screens = {str(entry["ref"]): str(entry["screen_judgment_id"]) for section in sections
+                       for group in (section.get("groups") or {}).values() for entry in group
+                       if entry.get("screen_judgment_id")}
             decision_sections = [section for section in sections if section.get("mode") == "decision"]
             if decision_sections:
                 section = decision_sections[0]
@@ -202,10 +209,16 @@ def fulfil_need_from_sources(
             order = list(exercises)
         for key in order:
             entry = exercises[key]
+            screen = persisted_screen(repository, screens[key]) if key in screens else None
+            if intent == "discriminate" and screen is None:
+                tries.append({"import_id": None, "status": "rejected", "key_status": None,
+                              "reason": "no persisted screen to profile the draft from"})
+                continue
             outcome = import_source_exercise(
                 vault.root, repository, extraction_id=entry["extraction_id"], span_ids=entry["span_ids"],
                 caller="need", proposal_id=proposal_id, clients=clients, validate=check, need_id=str(need["id"]),
                 label=entry.get("label"), learning_object_hint=str(need["learning_object_id"]), clock=clock,
+                screen=screen,
             )
             tries.append({key_: outcome.get(key_) for key_ in ("import_id", "status", "key_status", "reason")})
             if outcome.get("status") == "written":

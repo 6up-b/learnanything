@@ -56,7 +56,12 @@ def test_an_unverifiable_key_never_fulfils_and_generation_proceeds(active, monke
     assert not [item for item in vault.practice_items.values() if item.canonical_exercise is not None]
 
 
-def test_discriminate_drafts_must_pass_the_choosers_own_gate(active):
+def test_discriminate_drafts_must_pass_the_choosers_own_gate(active, monkeypatch):
+    """The chooser's unchanged gate decides (it reads the draft's profiled
+    rubric): a draft it refuses is never written and the need generates."""
+
+    from learnloop.instructional import needs as needs_module
+
     paths, repository, _spans = active
     misconception = repository.insert_misconception(
         learning_object_id="lo_matrices", statement="Eigenvalues are the diagonal entries of any matrix",
@@ -64,11 +69,17 @@ def test_discriminate_drafts_must_pass_the_choosers_own_gate(active):
     need = _need(repository, focus={"misconception_ids": [misconception],
                                     "misconception_statements": {misconception: "diagonal entries"}})
     assert need_intent(need, "cli") == "discriminate" and need_intent(need, "primed_retry") == "remediate"
+    seen = []
+
+    def refusing_gate(repository_, vault_, item, rubric, hypothesis_set, active_mcs, tau):
+        seen.append({error.misconception_id for error in rubric.fatal_errors})
+        return False, 0.0, 0.0
+
+    monkeypatch.setattr(needs_module, "misconception_discrimination", refusing_gate)
     outcome = _fulfil(paths, repository, need, FakeServiceLLM(), path="cli")
-    # The fake's drafts carry no rubric fatal error linking the belief: the
-    # chooser's discrimination gate refuses them, so nothing is written.
     assert outcome["outcome"] == "generate"
-    assert outcome.get("tries") is None or all(entry["status"] != "written" for entry in outcome["tries"])
+    assert outcome["tries"] and all(entry["status"] != "written" for entry in outcome["tries"])
+    assert seen and all(misconception in linked for linked in seen)  # the gate read the screen's links
 
 
 def test_a_value_stop_makes_the_need_stale_without_writing_or_generating(active):
@@ -290,3 +301,36 @@ def test_a_need_resumes_its_search_before_it_goes_to_generation(active, monkeypa
     assert len(seen) >= 2 and len(set(seen)) == len(seen), (seen, outcome)
     assert outcome["outcome"] == "fulfilled", outcome
     assert len(outcome.get("proposal_ids") or [outcome["proposal_id"]]) >= 2
+
+
+def test_a_discriminate_need_is_fulfilled_with_the_screens_profiles_and_rubric_links(active):
+    """Codex re-review F3: a screened exercise reached import with only its
+    spans, so its draft had no discrimination profile and no fatal error
+    linking the belief, and the chooser's unchanged gate always refused it.
+    The persisted screen now becomes the item's profiles and the rubric's
+    misconception-linked fatal errors, validated before the gate runs."""
+
+    from learnloop.db.stores.source_service import import_row
+
+    paths, repository, _spans = active
+    misconception = repository.insert_misconception(
+        learning_object_id="lo_matrices", statement="An eigenvalue is found by subtracting instead of dividing",
+        correction_statement="Isolate the variable: subtract, then divide", target_facet="facet_eigen",
+        severity=0.9)
+    need = _need(repository, focus={"misconception_ids": [misconception],
+                                    "misconception_statements": {misconception: "solve for x to find the eigenvalue"}})
+    outcome = _fulfil(paths, repository, need, FakeServiceLLM(), path="cli")
+    assert outcome["outcome"] == "fulfilled", outcome
+    assert outcome["intent"] == "discriminate"
+    item = loaded(paths).practice_items[outcome["practice_item_id"]]
+    profiles = [profile for profile in item.discrimination_profiles if profile.misconception_id == misconception]
+    assert profiles and profiles[0].observable_signature.strip()
+    assert profiles[0].observable_signature.strip() != str(item.expected_answer).strip()
+    linked = [error for error in item.grading_rubric.fatal_errors if error.misconception_id == misconception]
+    assert linked, item.grading_rubric
+    assert repository.intervention_need(need["id"])["status"] == "fulfilled"
+    with repository.connection() as connection:
+        row = import_row(connection, outcome["import_id"])
+    diagnostic = row["validation"]["diagnostic"]
+    assert diagnostic["screen_judgment_id"] and diagnostic["misconception_ids"] == [misconception]
+    assert row["validation"]["chooser_gate"]["ok"] is True

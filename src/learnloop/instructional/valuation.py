@@ -135,6 +135,9 @@ class CandidateInput:
     #: How the credible set was built; candidates pair members by index only
     #: when their constructions (and member counts) match (§8.3.4).
     construction: str = ""
+    #: An unimported exercise's persisted screen (its ``judgment_ledger`` row),
+    #: which becomes its profiles and rubric links if it is imported (§8.4).
+    screen_judgment_id: str | None = None
 
     @property
     def evaluable(self) -> bool:
@@ -734,6 +737,7 @@ def exercise_input(problem: ValuationProblem, exercise: Mapping[str, Any], scree
     if screen is None:
         candidate.missing = ["not_screened"]
         return candidate
+    candidate.screen_judgment_id = screen.get("judgment_id")
     signatures = {str(row["slot"]): str(row["signature_key"]) for row in screen.get("signatures") or []}
     complete = (screen.get("complete") and set(problem.slots) <= set(signatures)
                 and len({signatures[slot] for slot in problem.slots}) == len(problem.slots))
@@ -803,6 +807,8 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
                  "likelihood_basis": candidate.likelihood_basis, "missing": list(candidate.missing),
                  "expected_minutes": round(candidate.expected_minutes, 4),
                  "minutes_provenance": candidate.minutes_provenance, "members": len(candidate.members)}
+        if candidate.screen_judgment_id:
+            entry["screen_judgment_id"] = candidate.screen_judgment_id
         if not candidate.evaluable:
             entry["label"] = "LearnLoop can't estimate how much this would tell you"
             groups["unvalued"].append(entry)
