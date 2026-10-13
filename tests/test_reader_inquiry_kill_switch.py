@@ -150,3 +150,24 @@ def test_history_on_carries_status_and_selection_for_each_exchange(tmp_path):
     assert saved["parent_exchange_id"] is None
     assert saved["selection_span_ids"] == ["s1"]
     assert saved["selection_quote_md"] == "A^T = A"
+
+
+def test_rpcs_on_add_only_the_branch_fields(tmp_path, monkeypatch):
+    from learnloop_sidecar.handlers import reader
+
+    root = _rpc_setup(tmp_path)
+    client = RD.StubReaderClient()
+    monkeypatch.setattr(reader, "ready_tutor_qa_provider", lambda vault: ("stub", SimpleNamespace(ready=True), client))
+    params = {"extractionId": "ext1", "spanId": "s1", "question": "Root"}
+    answer, history = (r["result"] for r in _rpc([
+        _init(root),
+        {"jsonrpc": "2.0", "id": 2, "method": "reader.ask", "params": params},
+        {"jsonrpc": "2.0", "id": 3, "method": "reader.ask_history", "params": {"extractionId": "ext1"}},
+    ])[1:])
+    assert set(answer) - MAIN_ASK_RESULT_KEYS == {"parentExchangeId", "model"}
+    assert answer["parentExchangeId"] is None and answer["model"] == "stub-reader-1"
+    assert answer["manifest"]["version"] == "p3-reader-branches-v1"
+    (saved,) = history["exchanges"]
+    assert set(saved) - MAIN_HISTORY_KEYS == {
+        "parentExchangeId", "selectionSpanIds", "selectionQuoteMd", "questionEventId", "resolution",
+    }

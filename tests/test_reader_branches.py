@@ -186,3 +186,23 @@ def test_branch_rpc_roundtrip_uses_parent_id_and_persists_on_reinitialize(tmp_pa
     assert saved["selectionQuoteMd"] == "Intro. A^T = A"
     error = call({**params, "parentExchangeId": "absent"})["error"]
     assert error["data"]["code"] == "validation_error"
+
+
+# -- RW1a (G51): one interaction model on every source kind the Reader opens ----
+
+@pytest.mark.parametrize("kind", ["transcript", "notes"])
+def test_branches_work_on_a_transcript_and_on_text_notes(tmp_path, kind):
+    from tests.reader_fixtures import notes_source, transcript_source
+
+    vault, repo = _setup(tmp_path)
+    fixture = transcript_source(repo) if kind == "transcript" else notes_source(repo)
+    vault = load_vault(vault.root)
+    client = RD.StubReaderClient()
+    root = RD.ask(vault, repo, client, extraction_id=fixture["extraction_id"], span_id=fixture["span_id"],
+                  question_md="Root", clock=_CLOCK)
+    child = RD.ask(vault, repo, client, extraction_id=fixture["extraction_id"], span_id=fixture["span_id"],
+                   question_md="Child", parent_exchange_id=root["reader_answer_event_id"], clock=_CLOCK)
+    assert [t["question_md"] for t in client.contexts[-1].thread] == ["Root"]
+    history = RD.ask_history(repo, extraction_id=fixture["extraction_id"])
+    saved = next(e for e in history if e["event_id"] == child["reader_answer_event_id"])
+    assert saved["parent_exchange_id"] == root["reader_answer_event_id"]

@@ -133,3 +133,17 @@ def test_log_activity_rpc_and_its_kill_switch(tmp_path):
     refused = _rpc([_init(root_dir), {"jsonrpc": "2.0", "id": 2, "method": "reader.log_activity",
                                       "params": params}])[1]
     assert refused["error"]["data"]["code"] == "inquiry_disabled"
+
+
+def test_activity_on_a_transcript_records_like_any_source(tmp_path):
+    from tests.reader_fixtures import transcript_source
+
+    _vault, repo = _setup(tmp_path)
+    fixture = transcript_source(repo)
+    (event_id,) = RI.record_activity(repo, [{
+        "kind": "reader_selection",
+        "payload": {"visitId": "v1", "extractionId": fixture["extraction_id"], "spanCount": 3, "surface": "transcript"},
+    }], clock=_CLOCK)
+    (row,) = [e for e in repo.reader_interaction_events(kind="reader_selection") if e["id"] == event_id]
+    assert row["subject_id"] == fixture["extraction_id"]
+    assert row["payload"]["span_count"] == 3 and row["payload"]["surface"] == "transcript"
