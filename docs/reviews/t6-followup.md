@@ -26,16 +26,21 @@ it:
 **The policy** (`src/learnloop/ai/output_budget.py`, config in `[ai]`):
 
 - **One generous default.** `ai.output_tokens = 16384`: room for a reasoning
-  model's thinking and its answer. A profile's own `max_tokens` (the provider
-  or profile maximum, e.g. DeepSeek Flash's 8,192) replaces it for that
-  profile, and `ai.route_output_tokens.<route> = N` (at least 256; unknown
-  route names are refused at load) replaces both for one route.
+  model's thinking and its answer. `ai.route_output_tokens.<route> = N` (at
+  least 256; unknown route names are refused at load) replaces it for one
+  route. A profile's own `max_tokens` (the provider or profile maximum, e.g.
+  DeepSeek Flash's 8,192) is a ceiling: it replaces the default for that
+  profile and holds a route override to it, since the chat transport never
+  sends more. *(Codex review F6: this said the route override "replaces
+  both", which the transport's clamp contradicted.)*
   `output_budget(config, route, provider=...)` resolves it; `PaidRoute`,
   `ProjectRoute`, `ReviewSpend` and `PFCaller` carry the resolved budget.
 - **Used for spend reservations.** The budget is both the request's
   `max_tokens` (on metered routes, `generation_limit`) and what admission
-  reserves. Caps that could no longer admit one call at the bigger reservation
-  were raised (below).
+  reserves; every truncation retry is reserved at the larger allowance it is
+  sent with *(Codex review F1: a transport-owned retry was sent at double the
+  budget but reserved at the first request's estimate)*. Caps that could no
+  longer admit one call at the bigger reservation were raised (below).
 - **Where a provider allows, no low `max_tokens`.** A caller-budgeted request
   sends the generous budget; an unbudgeted call (tutor answers, live grading,
   authoring, ...) still sends none unless its profile declares a maximum, as
@@ -45,17 +50,21 @@ it:
   New: it is logged as an event naming the role, provider, model and budget
   (`record_truncation`, logger `learnloop.ai.output_budget`), the attempt's
   receipt keeps status `truncated` and its finish reason, and the call is
-  retried **once at double the budget**:
+  retried **once at double the budget, held to the transport's ceiling** (the
+  profile's `max_tokens`; a call already at it fails at once, since another
+  request would have no more room; Codex review F6):
   - callers that admit each physical request themselves (`PaidCalls`,
     `PFCaller`, the family and contamination judges, the LLM probability arm)
-    retry in their own loop through `TruncationRetry`: the retry is admitted
-    and charged as a retry at the doubled budget, and its root receipt's
-    `budget_json` carries `truncation_retry: {role, model, previous_budget,
-    budget}`; the events are in each command's report (`truncations`);
+    retry in their own loop through `TruncationRetry` (given the client's
+    ceiling, `output_ceiling`): the retry is admitted and charged as a retry
+    at the budget it sends, and its root receipt's `budget_json` carries
+    `truncation_retry: {role, model, previous_budget, budget}`; the events are
+    in each command's report (`truncations`);
   - callers that admit each further physical request as it starts (Slice 1's
     `ReviewSpend` on metered routes, the project probes) let the chat transport
     retry itself (`truncation_retry_allowed`), at most to the profile's
-    `max_tokens`; the retry is admitted as a retry when it starts;
+    `max_tokens`; the retry is admitted as a retry when it starts, reserved at
+    the output allowance it is sent with (Codex review F1);
   - nowhere else: an owner-set budget (`[ingest.budgets]`, exempt) is never
     exceeded, and an unbudgeted call sends no `max_tokens` (or its profile's
     maximum), so a length stop there is the provider's or profile's own limit;
@@ -222,6 +231,18 @@ unchanged; benchmark manifest `t6-eval-v2`; `source_retrieval/evaluation.py`):
   the pool, latency). The verification runs under the harness's budget, price
   and receipts (`verify_spans(budget=, price_per_million=)`, a new
   `source_verify` role on route `source_rerank`).
+  *(Codex review, `docs/reviews/t6-followup-codex-review.md`: as first built,
+  the pools were the library scope's, without the tutor's linked spans, answer
+  withholding, item exclusions or practice question (F5); a failed
+  verification was scored as its unverified pool (F4); verification attempts
+  escaped the harness's shared caps (F2); the dry run planned no candidates or
+  pairs (F3). Now the pools are the tutor's own (`tutor_pool`, per question: a
+  logged practice or feedback question keeps its item, a logged library
+  question its note's LOs, a generated or reader question is asked as a
+  library question about the LOs the reader links to its passages), a
+  verification that did not run is not scored and blocks that system's
+  verdicts, every attempt passes the shared caps after the cache, and the dry
+  run plans every candidate and pair. §5.9 reports the rerun.)*
 - **Labels** cover the union of every display system's top 10 and every
   verification pool (two passes, as before), so every pick is labelled.
 - **Per query type**: means for every system, the paired differences that
@@ -263,7 +284,8 @@ the table below is from each copy's receipts.)
 | Report, arxiv_v2, 41 questions | 308 admitted (8 writer, 33 rewrite, 146 labels, 118 verification, 3 embedding) | $0.269 |
 | Live tutor timing, probability (§5.7), twice | 10 query embeddings, 5 rewrites, 10 verifications (the repeat was all cache) | $0.013 |
 | Effort probe (§5.8) | 12 | $0.011 |
-| **Total** | | **$0.63** of the $5 cap |
+| Rerun after the Codex review (§5.9): probability / arxiv_v2 | 281 / 255 requests (170 / 161 labels, 111 / 94 verifications; writer, rewrites and query vectors reused) | $0.286 / $0.263 |
+| **Total** | | **$1.18** of the $5 cap (first cut $0.63) |
 
 Charged (reservation accounting): $3.44 and $3.50. Zero truncations in every
 run (the Haiku rerun truncated 28 of 36 writer and 6 of 68 rewrite calls at
@@ -392,6 +414,10 @@ question types and the verification systems are what decide the pool.
 
 ### 5.6 The pool default: `dense_plus_bm25`
 
+*(Codex review: the tutor-path numbers below came from pools that were not
+the tutor's (review F5). §5.9 reruns them on the tutor's own pools; the
+decision stands on those numbers.)*
+
 `dense_plus_bm25` beat `hybrid_rrf` on both paths the switch controls, on both
 copies, by the bar: the tutor's verified ranking (+0.063 and +0.120 nDCG@10;
 relevant share of picks +0.013 n.s. and +0.051) and the library's display
@@ -449,12 +475,101 @@ verification's time. The default stays `low` as the owner decided;
 `ai.route_reasoning_effort.source_rerank = "none"` is one line if the owner
 wants the speed (its quality is not measured here: open question 2).
 
+### 5.9 Rerun on the tutor's own pools (after the Codex review)
+
+The verification systems now judge the pool `tutor_pool` builds for each
+question's context (`docs/reviews/t6-followup-codex-review.md`, F5): on
+probability 5 logged questions were asked with their item (3 practice, 2
+feedback) and 42 as library questions (39 generated, 3 logged library or
+reader questions) about the LOs the reader links to their passages; on
+arxiv_v2 all 41 as library questions. Same copies, questions, seeds, models
+and efforts as §5.2. The candidate sets changed, so every question was
+labelled again (two passes, fresh answers): the display numbers move too.
+Every verification ran (coverage 47/47 and 41/41 per system, no blocked
+verdict); zero truncations; label agreement 1,150 pairs exact 0.808, κ 0.659
+(probability), 1,180 pairs exact 0.839, κ 0.692 (arxiv_v2). Dry runs first
+(planned 669 / 585 calls, 2,154 / 1,885 candidates, 2,068 / 1,804 pairs,
+$14.05 / $12.26 of reservations at $0.50/M; charged 281 / 255 calls, 1,519 /
+1,348 candidates and pairs, $3.59 / $3.06). Reports:
+`fixtures-local/t6fu/out/probability/source_retrieval-88d1a5df76740884.*`,
+`fixtures-local/t6fu/out/arxiv_v2/source_retrieval-76b6ce3ade149e70.*`.
+
+| System, nDCG@10 | probability (47) | arxiv_v2 (41) |
+|---|---|---|
+| keyword | 0.632 | 0.465 |
+| meaning (dense) | 0.791 | 0.806 |
+| hybrid | 0.732 | 0.684 |
+| hybrid_rewrite (today's library deep search) | 0.754 | 0.760 |
+| pool_rewrite (`dense_plus_bm25` deep search) | 0.797 | 0.832 |
+| hybrid_verify (T6's tutor, its own pool) | 0.768 | 0.769 |
+| **pool_verify** (`dense_plus_bm25` tutor, its own pool) | **0.861** | **0.854** |
+| dense_verify | 0.840 | 0.860 |
+
+| Paired difference, nDCG@10 [95% CI] | probability | arxiv_v2 |
+|---|---|---|
+| hybrid − meaning | −0.059 [−0.105, −0.015] | −0.122 [−0.164, −0.085] |
+| hybrid_rewrite − hybrid | +0.022 [−0.012, +0.050] | **+0.077 [+0.034, +0.123]** |
+| pool_rewrite − hybrid_rewrite (display) | +0.043 [−0.003, +0.093] | **+0.071 [+0.028, +0.119]** |
+| hybrid_verify − hybrid | +0.036 [−0.006, +0.082] | **+0.085 [+0.059, +0.114]** |
+| **pool_verify − hybrid_verify** (tutor) | **+0.093 [+0.054, +0.135]** | **+0.085 [+0.041, +0.131]** |
+| pool_verify − dense_verify (what BM25 and linked-span widening add) | **+0.021 [+0.002, +0.042]** | −0.006 [−0.020, +0.007] |
+| dense_verify − hybrid_verify | **+0.072 [+0.028, +0.120]** | **+0.091 [+0.048, +0.137]** |
+
+| Verify system | probability: relevant share of picks / unverified top-4 / nDCG@picks / picks per q / empty with a relevant span in the pool | arxiv_v2: same |
+|---|---|---|
+| hybrid_verify | 0.962 / 0.707 / 0.879 / 3.32 / 1 | 0.940 / 0.805 / 0.903 / 3.68 / 2 |
+| pool_verify | 0.957 / 0.798 / 0.891 / 3.47 / 0 | 0.963 / 0.921 / 0.922 / 3.95 / 0 |
+| dense_verify | 0.955 / 0.798 / 0.867 / 3.28 / 2 | 0.974 / 0.921 / 0.911 / 3.80 / 1 |
+
+Paired on the picks, pool_verify − hybrid_verify: relevant share +0.022
+[−0.020, +0.071] and +0.017 [−0.011, +0.051]; nDCG@picks +0.013 [−0.036,
++0.064] and +0.019 [−0.050, +0.103] (none significant). Verification latency
+p50 / p90: 7.9 / 9.9 s (hybrid_verify), 7.9 / 10.4 (pool_verify), 6.5 / 9.2
+(dense_verify) on probability; 7.2 / 9.7, 8.1 / 9.9, 7.6 / 9.4 on arxiv_v2.
+
+pool_verify − hybrid_verify by query type (probability / arxiv_v2):
+conceptual +0.124 [+0.026, +0.232] / +0.163 [+0.062, +0.296]; keyword +0.088
+[+0.018, +0.164] / +0.044 [−0.026, +0.122]; compositional +0.093 [+0.005,
++0.173] / +0.038 [−0.024, +0.097]; procedural +0.140 [+0.071, +0.225] / +0.073
+[+0.021, +0.132]; probability's 8 logged questions +0.007 [−0.064, +0.062],
+with relevant shares of picks 0.95 (hybrid_verify), 0.84 (pool_verify) and
+0.87 (dense_verify). On the display path the logged questions stay the
+exception: pool_rewrite − hybrid_rewrite −0.059 [−0.108, −0.012].
+
+Reading:
+
+- **The tutor-path win holds on the tutor's own pools**, on both copies, by
+  the bar: +0.093 and +0.085 nDCG@10 (first cut +0.063 and +0.120). The picks
+  themselves are as relevant as `hybrid_rrf`'s (differences not significant),
+  and the pool never left a relevant span unpicked (0 against 1 and 2).
+- **Widening now earns its place on probability** (+0.021 over dense alone):
+  the tutor's linked spans are a widening list the first cut did not have.
+- **The display half is weaker than the first cut said.** Under fresh labels
+  `dense_plus_bm25` beats the fusion on arxiv_v2 (+0.071) and is ahead but not
+  significant on probability (+0.043, first cut +0.049 just above the bar).
+- **The 8 real probability questions**, 5 now asked with their item in
+  context: no significant tutor-path difference, but the pool's picks were
+  relevant less often (0.84 against 0.95). Eight questions decide nothing; it
+  adds to open question 1.
+
+The default stays `dense_plus_bm25` for both paths: it beats `hybrid_rrf` by
+the bar on the tutor path on both copies and on the display path on one, and
+is ahead on the other.
+
 ## 6. Algorithm successor: none
 
 Output budgets, reasoning effort, the retrieval pool and the tutor's timing
-receipts are context and transport settings: no scoring, scheduling,
-projection, evidence, certification or serving change, so no successor and no
-migration (main stays at 179). The pool's kill switch is `source_retrieval.pool
+receipts are context and transport settings. Under every algorithm version
+they change which source spans the tutor's verifier and the library list see
+and how much a model may write; they change no scoring, scheduling,
+projection, evidence, certification or choice of the item served, and nothing
+persisted changes meaning (replay makes no model call). T6's rule applies
+("retrieval is context, so no successor is needed unless something persisted
+changes meaning"), so no successor and no migration (main stays at 179).
+*(Codex review F7 asked for a successor; rejected with this reason and the
+owner's live-behind-kill-switches decision, see
+`docs/reviews/t6-followup-codex-review.md`. The first cut said "no serving
+change", which read as no change to what the tutor is grounded in.)* The pool's kill switch is `source_retrieval.pool
 = "hybrid_rrf"` (T6 as merged); `tutor_deadline_cancels = true` restores the
 time box; `ai.output_tokens` / `ai.route_output_tokens` and
 `ai.route_reasoning_effort` restore any budget or effort. The config keys
@@ -527,6 +642,9 @@ Final tree (`uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`,
 | Frontend | not changed (no `apps/` file touched), so not run |
 | `db_generate_reference.py`, `db_validate_reference.py` | no schema change; regenerated for the configuration keys: `errors: []` (298 table notes, 663 configuration leaves, 3911 wikilinks) |
 
+*(After the Codex review fixes: 8395 passed, durability 91 passed, imports
+12 kept; see `docs/reviews/t6-followup-codex-review.md`.)*
+
 A preliminary full run before the defaults snapshots were recomputed failed
 12 tests: the 10 snapshot pins, the field-classification budget (512) and the
 ingestion test that showed the transport must not double an owner-set budget
@@ -575,11 +693,14 @@ frontend, the sidecar's RPC set (no new RPC, so nothing to pin in
 1. **Real learner questions favour the fusion's display ranking.** On
    probability's 8 logged questions `hybrid_rrf` ranks the library better
    (−0.067 for the pool, and +0.057 for hybrid over dense, as the rerun's +0.088
-   on 7). The tutor path shows no significant difference there and the pool's
-   picks were all relevant. The default follows the 80 generated questions; a
-   larger set of real questions (or owner labels on these 8) could overturn the
-   display half. Keep `dense_plus_bm25` for both, or split the switch (pool for
-   the tutor, fusion for the library display)?
+   on 7; after the Codex review, under fresh labels, −0.059 and +0.019). The
+   tutor path shows no significant difference there (+0.007 on the tutor's own
+   pools, 5 of the 8 asked with their item), but the pool's picks were relevant
+   less often (0.84 against 0.95). The display half is also only significant on
+   arxiv_v2 in the rerun (§5.9). The default follows the 80 generated
+   questions; a larger set of real questions (or owner labels on these 8) could
+   overturn the display half. Keep `dense_plus_bm25` for both, or split the
+   switch (pool for the tutor, fusion for the library display)?
 2. **Verification latency.** At `low`, Haiku 5.5 still reasons ~670 tokens
    and verification takes 7–8 s p50 (12–16 candidates); `none` halves it
    (3.6–4.2 s) by turning reasoning off. The quality at `none` is not measured.
