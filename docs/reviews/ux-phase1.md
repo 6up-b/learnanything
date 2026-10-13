@@ -331,3 +331,107 @@ The harness instances were stopped, and their ports are free. No key or credenti
 - **Q-J.** The done line. Is "Questions for Ch. 1–2 come up as you read" (D12) right, or should the card offer "Practise these" once a section's questions exist (a Phase 3/4 flow)?
 - **Q-K.** The reading step (D13). Is "continue from the furthest section read" right for a learner who jumps around, or should skipped sections come back first?
 - **Q-L.** Text recognition on a desktop install. Should the app offer to set up marker-pdf, or the hosted Marker runtime, from the scan's card? Today it can only say it isn't installed.
+
+## Usability round 2 fixes
+
+**The re-test.** After the round-1 revisions (`037de53f`), one agent ran both personas again through the same harness, with the same fake AI, scratch `HOME` and no network:
+- A: a first-time user with an empty `HOME`, then `--ai none`.
+- B: a fresh backup-API copy of the worktree's linear-algebra library, with Codex ready.
+
+All five round-1 blockers held. The first answered question came at 2 min 55 s from launch, against 5 min 47 s in round 1. Two new error banners sat on A's path, and two round-1 problems remained. The re-test's notes and screenshots are in the stage's scratchpad (`usability/retest.md` and `usability/_round2_retest/{a,b}/`), not in the repository.
+
+### Triage
+
+Every finding below was on Phase 1's path, and every one is **fixed**, each with a test that failed first. Items R5–R9 were found by this round's own harness re-walk of the fixed build, or by checking its own fixes (see "Re-walk" below). Nothing is deferred from this round's list. The findings that later phases carry, from both rounds, are now recorded in the spec (§10, "Deferred from Phase 1's usability rounds").
+
+| # | Finding | Severity | Fix | Test |
+|---|---|---|---|---|
+| R1 | A red "query is disabled" banner appeared after Today → "more new material" with no failed call, and stayed on every tab until restart | major (new) | The cause: Today's batch poll refreshed the full list when a background batch finished, but the plan view turns that read off, and refetching a turned-off cached query rejected with "query is disabled", which Today showed as an error. A turned-off query now resolves on refetch (with whatever is cached) and never fetches; being off is a state, not an error. | `useCachedQuery.test.tsx`; `TodayScreen.plan.test.tsx` R1 |
+| R2 | Today's own "begin ↵" bounced to Start with "Begin today's plan on Start first.", and the banner stayed over the Reader and Today after the plan began | major | Today's begin starts today's plan itself, as Start's does: a session for the plan's minutes, then its first step. A pick from the full list with no session begins the plan with that pick. Session-first notices clear once a session begins (`app/notices.ts`). | `TodayScreen.plan.test.tsx` R2; `notices.test.ts` |
+| R3 | A long-used book (Axler) opened at Chapter 1, 0%, while Contents ticked sections into 1C | major | With no saved place, the Reader reopens where the reading history leaves off, by the rule Today's reading step uses: the first unread passage of the furthest section read into, or the next section once it is finished. A saved place still wins. | `readingPosition.test.ts` (`resumeSpanFromHistory`); `ReaderScreen.followsLearner.test.tsx` R3 ×3 |
+| R4 | "Read it again with text recognition" was offered on every readable book and ended in "Something went wrong. Try again." | minor–major | Cards carry `textRecognitionAvailable`, and details offer the action only when it is true. The backend's sentence reaches the screen (`text_recognition_unavailable` is shown in its own words) and says how to get text recognition. | `test_r4_*`; `BookShelf.test.tsx`; `ingestErrors.test.ts` |
+| m-a | Scan details ended with the raw "install marker-pdf for OCR support" | minor | The details say how, plainly: "To add it, run uv sync --extra pdf in LearnLoop's folder, then restart LearnLoop." The extractor's own message is no longer appended. The Add box's message says the same. | `test_scan_details_*`, `test_adding_with_text_recognition_*` |
+| m-b | An 11-page paper was a "book", with "in about 13 min" for a build that took seconds | minor | A short PDF (60 pages or fewer) whose first units include an Abstract is a "paper". A first build says "Writing questions for Ch. 1–2" with no number. Later builds are estimated from this library's own finished builds, at the median seconds per section in scope ("in about 2 min", "in under a minute"). | `test_a_pdf_with_an_abstract_is_a_paper`, `test_a_first_build_*`, `test_a_later_build_*`, `test_the_estimate_scales_*` |
+| m-c | The one-time OK named ChatGPT to a Codex user | minor | A Codex library's OK reads "LearnLoop is set up to use Codex (your ChatGPT account)." | `test_the_one_time_ok_names_codex_*`; deny-list test (named exemption) |
+| m-d | A book added through Ingest got its file name as its title, and its card had no line at all | minor | The Ingest import takes a PDF's own title, as Add does. A book that no study map covers says "No questions for this book yet · Build them", and the action plans its first build. A book in a study map stays quiet. | `test_a_pdf_imported_through_ingest_*`, `test_a_book_with_no_questions_*`, `test_a_book_already_in_a_study_map_*` |
+| m-e | The Reader tab opened on its own second library list | minor | With no book open, the Reader shows the Library's own shelf (spec K5, `LibraryPlace booksOnly`), with search across every book kept above it. | `ReaderScreen.followsLearner.test.tsx` K5 |
+| m-f | The library button was truncated ("Le…", "li…") and "[Alt+S]" was clipped | minor | Tabs give back padding on narrower windows, the switcher keeps 12ch, and the settings chip never shrinks; its key hint steps aside below 1300px. | `styles/navBar.test.ts` |
+| m-g | Ask printed the question twice and a raw "answer_directly" tag | minor | The question is shown once (in full, with its maths, when open), and the answer style is in words ("answer directly"). | `ReaderScreen.followsLearner.test.tsx` |
+| m-h | With no AI, cards still said questions "come up as you read" | minor | The line carries a no-AI version, which the shelf shows while no AI can write questions: "Questions for Ch. 1–2 come up as you read once an AI is connected · Connect". | `test_the_as_you_read_line_*`; `BookShelf.test.tsx` |
+| m-i | A quick check was written for a paper's Introduction before anything was read | minor | Reading is the learner moving the page (wheel, keys, touch, the scrollbar). Until they do, after an open, a resume or a jump, no check is written, no section is counted as read, and the guide does not say "near the section break". | `ReaderScreen.followsLearner.test.tsx`, `ReaderScreen.quickcheck.test.tsx` |
+| m-j | After comparing, the guide still said the check was "ready, just below" | minor | Once answered: "You answered this section's quick check: compare below, then keep reading." The Guide tab and Contents stop counting the check as waiting (R7). | `ReaderScreen.followsLearner.test.tsx` |
+| m-k | An unexplained "?" after a finished section's ✓ | minor | Contents says "quick check" in words, and only while the check is still to do. | `ReaderScreen.followsLearner.test.tsx` |
+| m-l | A visible "opening…" list on the way to reading | minor | The preparing view (the original PDF) stays on screen through the hand-over until the full Reader is ready. Opening a book otherwise names it ("◐ Opening …") instead of showing a list of books. The hand-over never lands on a later page while earlier pages are unmeasured (R8). | `ReaderScreen.followsLearner.test.tsx`; `readingPosition.test.ts` |
+| R5 | Re-walk: with a 630-page book, every library read took 6–8 s. It is polled every 3 s while a book is prepared, so the sidecar stalled (13–24 s per call). | major (found here; from round 1's U8) | The card's chapter phrase reads the extraction's unit tree, not the full outline, which loaded the book's text once per unit. 6.1 s → 0.07 s. | `test_a_built_books_line_reads_its_text_at_most_once` |
+| R6 | Re-walk: a book with block geometry (Axler) restored its place in the header, but the PDF stayed on the chapter title | major (found here) | A passage with boxes is reached through the pane's own wait for layout (`scrollToPage`), then centred. | `ReaderScreen.followsLearner.test.tsx` R3 geometry |
+| R7 | Re-walk: the Guide tab still said "1 quick check ready" after the learner compared | minor | An answered check is not counted as waiting. | (with m-j) |
+| R8 | Re-walk: one textbook hand-over landed on the Contents page instead of the title page | minor | Not reproduced in two later drops. The hand-over's reading position is unknown while a page before the top is not laid out yet, so a later page can no longer stand in for it. | `readingPosition.test.ts` |
+| R9 | Self-check of m-i's fix: a video's position moves by playback, not scrolling, so the reading gate would have silenced its quick checks | regression guard | Playback that moves past the cue a video resumed at counts as reading. | `ReaderScreen.followsLearner.test.tsx` (video) |
+
+### Deviations this round adds
+
+- **D15.** The build estimate is measured, not predicted: it is the median seconds per section of this library's last five finished automatic builds, applied to the new build's sections. A first build has no number. (Spec §6.3 shows "in about 5 min".)
+- **D16.** A book that came in another way and that no study map covers gets a line and an action, "No questions for this book yet · Build them" (the action plans the ordinary first build). Round 1's m7 rejected this; the re-test asked for it again, so it is fixed here.
+- **D17.** "Reading" means the learner's own input moved the page, or, for a video, that playback moved on. A resume, a jump, a hand-over or a re-layout no longer count as reading toward ticks or quick checks.
+- **D18.** A book's kind ("paper") comes from a cheap heuristic on its first units and page count. Phase 7's detector can replace it.
+- **D19.** A Codex library names Codex on the one-time OK and in that line's details, as Settings does. The deny-list test allows "codex" there through a named exemption; everywhere else it stays denied.
+- **D20.** The empty Reader shows the shelf and keeps "search all sources" above it (K5 says only "the same shelf").
+- `get_source_library` cards gain `textRecognitionAvailable`, and a status line may carry `withoutAi`. Both are additive.
+
+No migration. No change under `src-tauri`. No scoring, scheduling or projection change, so no algorithm successor.
+
+### Re-walk (the author, on the fixed build)
+
+In the same harness, with fresh instances: A with the fake AI and then `--ai none`, and B on a fresh copy. The screenshots are `docs/ux/screenshots/phase1/u2-*`.
+
+**Persona A**
+- Drop the textbook: the original PDF showed within about 1 s, and the full Reader followed at about 4 s, on the title page, with no list in between.
+- Contents → §1.1, then two scrolls: the section-break offer appeared. "quick check →", answer, ctrl+↵: "You answered this section's quick check…", and the tab dropped its "1 ready". done for now: "✓ Why study probability?" with no marker.
+- Today → keep going → **begin ↵**: the plan started and the Reader opened at §1.2 with no banner (`u2-01`).
+- After the second check, Back to today's plan → **more new material**, then a 16 s wait through two batch polls: no banner, and `errors` was clean. add them → begin → the practice item.
+- The paper: no check was written on its first page (`u2-06`), and its card read "paper".
+- The scan: the details said how to get text recognition, plainly. No readable book offered "Read it again with text recognition".
+- `--ai none`: both built books read "… come up as you read once an AI is connected · Connect" (`u2-05`).
+- Measured on A's first build: chapter 1 had 10 sections and took 22 s, chapter 2 had 12 and took 19 s, and the paper's whole-source build had about 30 sections and took 48 s. The per-chapter estimate (before D15's fix) had said "about 4 min" for the paper; per section it is about 1 min.
+
+**Persona B**
+- The header showed "linear-algebra" in full, and "[Alt+S]".
+- Axler → Continue opened at Section 1C, "1.36 definition: sum of subspaces", 72% (`u2-03`). The first attempt, before R6's fix, showed the right place in the header but not in the PDF.
+- Ingest → browse… → import: the card was titled "Introduction to Probability (Chapters 1-2)" and read "No questions for this book yet · Build them" (`u2-04`).
+- Build them → "Questions wait for your OK · Review" → "LearnLoop is set up to use Codex (your ChatGPT account)." → OK → "◐ Writing questions for Probability and counting" → "… come up as you read" 26 s later. Its details had no text-recognition offer.
+
+Not re-walked: Ask (asking needs a drag selection on the PDF; the test covers the fix), and T5/T6 (Phases 5 and 4).
+
+### Gate (this round)
+
+Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`. The Python lanes ran at `e93d9730`; the last commit changes only the Reader (TypeScript), its tests and this file, and the frontend steps ran on it.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install puts it back) |
+| `uv run lint-imports --no-cache` | 14 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | 8750 passed, 0 failed, 0 skipped (6 min 12 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | 94 passed, 8656 deselected (serial, 1 min 40 s); also 94 passed with `-n auto` |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · 51 files, 318 tests passed · built |
+| `cargo check` | not run: nothing under `src-tauri` changed since `67ece2c7f` |
+| DB reference scripts | not run: no schema change |
+
+### Codex review scope
+
+The review that follows covers everything since `67ece2c7f`: round 1's revision commit `037de53f`, which no reviewer has seen yet, and this round's `1de7f1f6`, `8cbd71da`, `70f163cd`, `e93d9730` and the commit that adds this section (the video guard, R9).
+
+### Safety
+
+- No paid call, no real provider and no network. The harness sidecar ran in a network namespace with the scripted fake AI.
+- No key or credential file was read.
+- The owner's working vaults in the main checkout were never opened.
+- For inspection, a backup-API copy of the worktree's tracked `fixtures/linear_algebra` was made under the worktree's gitignored `fixtures-local/la-round2`, and a copy of the harness library was made in the scratchpad. Both were read only.
+- `git status fixtures/` is clean. Every harness instance was stopped, and its ports are free.
+
+### Open questions for the owner (round 2)
+
+- **Q-M.** The estimate (D15): is "measured from this library's own builds, no number on the first" right, or should a first build show a conservative range?
+- **Q-N.** Reading (D17): should keyboard and scrollbar reading count, as now, or only the wheel and touch? And should a resume at a section's end offer its check again without any reading this visit (today it does not)?
+- **Q-O.** "run uv sync --extra pdf in LearnLoop's folder": keep the developer-install command in the learner's details, or say "ask whoever installed LearnLoop to add its PDF tools" until Q-L (an in-app install) exists?
+- **Q-P.** Naming (D19): is "Codex (your ChatGPT account)" the name Phase 6 should use everywhere for that route?
+- **Q-Q.** Books added through Ingest (D16): offer "Build them" (as now), or build automatically as Add does?

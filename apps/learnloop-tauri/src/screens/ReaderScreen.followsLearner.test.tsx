@@ -511,3 +511,47 @@ it("R3: a book with block geometry reaches the passage's page even before the do
   // The page itself, through the pane's own wait for layout.
   expect(pane.scrollToPage).toHaveBeenCalledWith(4, 0);
 });
+
+it("watching a video is reading: playback still earns the section's quick check", async () => {
+  const video: SourceLibraryCard = { ...CARD, sourceId: "src_vid", canonicalUri: "https://www.youtube.com/watch?v=abcdefghijk" };
+  const cues = ["v1", "v2", "v3", "v4", "v5"];
+  const view: ReaderRenderViewDto = {
+    ...VIEW,
+    sourceId: "src_vid",
+    blocks: cues.map((spanId, index) => ({
+      ...VIEW.blocks[0],
+      displayNodeId: `node-${spanId}`,
+      spanId,
+      extractorBlockId: `t=${index * 10}-${index * 10 + 10}`,
+      markdown: `Caption ${spanId}.`
+    }))
+  };
+  const videoPlan = {
+    version: 1, sourceId: "src_vid", extractionId: EXTRACTION_ID, personalized: false, selectionBasis: "", goalContext: null,
+    pendingDiagnosisAttemptIds: [],
+    sections: [{ id: "u1", label: "The lecture", startSpanId: "v1", endSpanId: "v5", spanIds: cues, question: null, suggestedPassages: [] }]
+  };
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) => {
+    if (command === "reader_render_view") return view;
+    if (command === "reader_guide_plan") return videoPlan;
+    if (command === "reader_watch_plan") return { version: 1, sourceId: "src_vid", videoId: "abcdefghijk", embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk", pausePoints: [] };
+    return sidecar(command, args);
+  });
+  // jsdom has no smooth scrolling; the transcript follows playback with it.
+  Element.prototype.scrollTo = vi.fn();
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: video, spanId: null }} />);
+  await settle(2_000);
+  fireEvent.load(document.querySelector("iframe")!);
+  await settle(100);
+
+  for (const seconds of [2, 12, 22, 32, 42]) {
+    window.dispatchEvent(new MessageEvent("message", {
+      origin: "https://www.youtube-nocookie.com",
+      data: JSON.stringify({ event: "infoDelivery", info: { currentTime: seconds } })
+    }));
+    await settle(100);
+  }
+
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_author_section_question");
+  expect(asked.length).toBeGreaterThan(0);
+});

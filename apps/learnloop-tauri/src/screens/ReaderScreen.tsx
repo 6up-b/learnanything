@@ -554,6 +554,7 @@ export function ReaderScreen({
     setHiddenPdfOffers([]);
     setReadingMoved(false);
     userScrollAtRef.current = 0;
+    lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
     historyResumeRef.current = false;
     setAnsweredSections([]);
@@ -1774,6 +1775,15 @@ export function ReaderScreen({
   const noteUserScroll = useCallback(() => {
     userScrollAtRef.current = Date.now();
   }, []);
+  // Watching is reading too: playback that moves past the cue a video
+  // resumed at counts, as the learner's own scrolling does on a page.
+  const lastPlaybackSpanRef = useRef<string | null>(null);
+  const onPlaybackSpan = useCallback((spanId: string | null) => {
+    const last = lastPlaybackSpanRef.current;
+    lastPlaybackSpanRef.current = spanId;
+    if (spanId && last && spanId !== last) setReadingMoved(true);
+    setReadingSpan(spanId);
+  }, []);
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -2489,7 +2499,7 @@ export function ReaderScreen({
               guidanceSpans={revealedGuidanceSpans}
               resumeSpan={readingSpan}
               findShortcutEnabled={railTab !== "ask"}
-              onPlaybackSpan={setReadingSpan}
+              onPlaybackSpan={onPlaybackSpan}
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
               }}
