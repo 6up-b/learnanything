@@ -120,8 +120,12 @@ PRODUCTION_ARM = "reference_shown+check_shown"
 ALL_ARMS = tuple(f"{reference}+{check}" for reference in REFERENCE_ARMS for check in CHECK_ARMS)
 #: What a withheld check reads as in the grader's reference policy.
 WITHHELD_CHECK = {"status": "withheld_from_grader", "method": None}
-#: Output budgets per role (each request reserves its full budget).
-OUTPUT_TOKENS = {"grader": 6000, "checker": 3000, "item_kind": 600}
+#: Output budgets per role (each request reserves its full budget). The
+#: reading's budget leaves room for a route that spends output on reasoning:
+#: at 600 Haiku 5.5 truncated one reading the live door would have completed
+#: (it bounds the reading only by the proof_check allowance), which would
+#: score the gate as unclassified off the production path (review F6).
+OUTPUT_TOKENS = {"grader": 6000, "checker": 3000, "item_kind": 2000}
 #: ``judgment_ledger`` task per role, and the left kind of a case.
 LEDGER_TASKS = {role: f"grading_hardcase_{role}" for role in ROLES}
 CASE_KIND = "grading_hardcase"
