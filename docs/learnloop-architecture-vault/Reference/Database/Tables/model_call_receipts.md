@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
-source_commit_timestamp: "2026-10-13T01:11:31-04:00"
+source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
+source_commit_timestamp: "2026-10-13T01:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -135,6 +135,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_chatgpt_plan_provider.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_pipeline.py`
@@ -154,7 +155,6 @@ None found by exact static reference scan.
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
 - `tests/test_pf_generation.py`
-- `tests/test_post_attempt_worker.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

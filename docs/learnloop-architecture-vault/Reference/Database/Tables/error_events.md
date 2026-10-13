@@ -3,8 +3,8 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
-source_commit_timestamp: "2026-10-13T01:11:31-04:00"
+source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
+source_commit_timestamp: "2026-10-13T01:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/diagnosis/diagnostic_gate.py"
   - "src/learnloop/cli/app.py"
 tags:
   - "learnloop/database/table"
@@ -87,9 +87,9 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._active_error_rows()`
 - `Repository._insert_error_event()`
 - `Repository.active_error_events()`
-- `Repository.active_errors_by_learning_object()`
 - `Repository.all_error_events_by_attempt()`
 - `Repository.attempt_ids_for_misconception()`
 - `Repository.find_record()`
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/split/history.py`
@@ -127,20 +128,19 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/live.py`
-- `src/learnloop/goals/exam_session.py`
 - `src/learnloop/ops/doctor.py`
-- `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/substrate/replay.py`
-- `src/learnloop/tui/screens/feedback.py`
 - `src/learnloop_sidecar/handlers/graph.py`
+- `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_active_errors_overlay.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_diagnosis_replay.py`
@@ -153,14 +153,13 @@ Indexes and uniqueness:
 - `tests/test_table_roles.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_attempts.py`
-- `tests/test_cli_attempt.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_diagnosis_embeddings.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
 - `tests/test_diagnostic_gate.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_guided_redo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7054dea4863c9617cae2a893e474edaa1672e933"
-source_commit_timestamp: "2026-10-13T01:11:31-04:00"
+source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
+source_commit_timestamp: "2026-10-13T01:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -35,12 +35,12 @@ source_paths:
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
+  - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_concept_animation_service.py"
   - "tests/test_contamination_report.py"
   - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_daily_plan_admission.py"
-  - "tests/test_daily_plan_kill_switch.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -146,13 +146,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
+- `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_concept_animation_service.py`
 - `tests/test_config_refactor.py`
 - `tests/test_contamination_report.py`
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_daily_plan_admission.py`
-- `tests/test_daily_plan_kill_switch.py`
 
 ## Extension and modification guidance
 
