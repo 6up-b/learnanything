@@ -12,7 +12,8 @@ they send is an ORDINARY attempt at the standard attempt mass:
   (``learnloop.field.signals``). Text on a choice item never takes the
   option-letter shortcut: the grader reads it;
 * empty, it is scored 0 by a deterministic grade, with no model call (there
-  is nothing to grade).
+  is nothing to grade) and, by owner decision 2026-10-12, no error tag: no
+  attribution and no error event.
 
 Nothing here is ``dont_know``: there is no separate weight. The algorithm
 version gates the control and ``stuck_prompt.enabled`` is its kill switch;

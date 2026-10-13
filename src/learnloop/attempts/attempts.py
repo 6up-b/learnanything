@@ -1085,10 +1085,14 @@ def complete_empty_stuck_attempt(
     There is nothing to grade, so no model is called and no self-grade is
     asked for. Every criterion gets 0 points from a deterministic grade
     (``grading_source = "deterministic"``, grader tier 2, so the deferred
-    self-grade regrade never picks it up). It writes the same deterministic
-    attribution an empty ``dont_know`` writes (retrieval failure, or scaffold
-    failure after hints), but at the attempt type's standard evidence mass:
-    there is no separate "don't know" weight.
+    self-grade regrade never picks it up), at the attempt type's standard
+    evidence mass: there is no separate "don't know" weight.
+
+    Owner decision 2026-10-12: it is just a score of 0, with NO error tag. It
+    writes no attribution (no ``retrieval_failure``, and no
+    ``scaffold_failure`` after hints), so no error event: an empty answer says
+    nothing about understanding beyond the learner being unable to write
+    anything. Historical ``dont_know`` rows keep their deterministic tag.
     """
 
     if not is_empty_stuck(draft):
@@ -1097,9 +1101,6 @@ def complete_empty_stuck_attempt(
     attempt_id = new_ulid()
     item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
     criterion_points = {criterion.id: 0.0 for criterion in rubric.criteria}
-    error_attributions = _self_grade_attributions(
-        vault, [], _dont_know_error_type(vault, draft.hints_used), []
-    )
     evidence_rows = [
         {
             "id": new_ulid(),
@@ -1124,7 +1125,8 @@ def complete_empty_stuck_attempt(
                 rubric_score=calculate_rubric_score(rubric, criterion_points, []),
                 criterion_points=criterion_points,
                 evidence_rows=evidence_rows,
-                error_attributions=error_attributions,
+                # Owner decision 2026-10-12: a bare 0, no error tag.
+                error_attributions=[],
                 grader_confidence=1.0,
                 confidence=None,
                 manual_review_reason=None,

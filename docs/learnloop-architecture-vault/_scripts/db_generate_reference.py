@@ -1089,9 +1089,9 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "stuck_prompt.enabled": (
         "Kill switch for mvp-0.13's \"I'm stuck\" control (write what you can, or what's confusing "
         "you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed "
-        "when it has text, scored 0 with no model call when empty. Off, an mvp-0.13 vault shows "
-        "\"I don't know\" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay "
-        "reads practice_attempts.declared_stuck, never this switch."
+        "when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 "
+        "vault shows \"I don't know\" and records dont_know exactly as mvp-0.12. Dormant below "
+        "mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

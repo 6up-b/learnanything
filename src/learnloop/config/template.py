@@ -940,7 +940,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
     # attempt at the standard mass, graded under the +stuck-v1 prompt and
-    # diagnosed; an empty one scores 0 with no model call. Built as mvp-0.11
+    # diagnosed; an empty one scores 0 with no model call and no error tag
+    # (owner decision 2026-10-12, no default change). Built as mvp-0.11
     # and relabelled at its merge. Existing vaults reach it by `learnloop
     # upgrade` (default target) from mvp-0.12, or from mvp-0.9 to mvp-0.11
     # through the chain (under mvp-0.12's guard). New vaults start here (the

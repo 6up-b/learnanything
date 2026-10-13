@@ -31,6 +31,7 @@ from learnloop.attempts.stuck import (
     stuck_prompt_active,
     verified_stuck_reading,
 )
+from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.split.jobs import NOT_NEEDED, diagnosis_status
@@ -42,9 +43,11 @@ from learnloop.field.signals import (
     confusion_blocks_fast_track,
     load_interaction_signals,
 )
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
+from tests.helpers import set_algorithm_version
 from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault
 
 ITEM = "pi_svd_compute_001"
@@ -287,10 +290,9 @@ def test_an_empty_stuck_answer_scores_zero_without_a_model_call(tmp_path):
     assert result.attempt_id not in {row["id"] for row in repository.pending_self_grade_regrade_attempts()}
     assert repository.latest_blind_grade_record(result.attempt_id) is None
     assert diagnosis_status(repository, result.attempt_id)["status"] == NOT_NEEDED
-    # The same deterministic attribution dont_know writes, at the standard mass.
-    assert [event["error_type"] for event in repository.error_events_for_attempt(result.attempt_id)] == [
-        "retrieval_failure"
-    ]
+    # A bare 0 at the standard mass: no error tag (owner decision 2026-10-12).
+    assert repository.error_events_for_attempt(result.attempt_id) == []
+    assert attempt["error_type"] is None
     row = _field_row(vault, repository, result.attempt_id)
     assert row.outcome == 0.0 and row.effective_mass > 0
     with connect(repository.sqlite_path, read_only=True) as connection:
@@ -298,6 +300,62 @@ def test_an_empty_stuck_answer_scores_zero_without_a_model_call(tmp_path):
     assert [(row["attempt_id"], row["has_text"], row["reading"]) for row in stuck] == [
         (result.attempt_id, False, None)
     ]
+
+
+def _attribution_rows(repository, attempt_id: str) -> dict[str, int]:
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return {
+            table: connection.execute(f'SELECT COUNT(*) FROM "{table}" WHERE attempt_id = ?', (attempt_id,)).fetchone()[0]
+            for table in ("error_events", "causal_hypotheses", "unresolved_cause_factors", "causal_attribution_reports")
+        }
+
+
+def test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag(tmp_path):
+    """Owner decision 2026-10-12: an empty "I'm stuck" answer is just a score
+    of 0. It says nothing about understanding beyond "the learner could not
+    write anything", so it writes no error tag (no retrieval_failure, and no
+    scaffold_failure after hints), no error event and no attribution, live or
+    replayed. Historical dont_know rows keep their deterministic tag."""
+
+    _paths, vault, repository = _stuck_vault(tmp_path)
+    plain = _grade(vault, repository, RefusingClient(), _draft(""), when=21)
+    hinted = _grade(
+        vault, repository, RefusingClient(),
+        _draft("  ", item_id="pi_transpose_001", attempt_type="hinted_attempt", hints_used=1), when=22,
+    )
+    for result in (plain, hinted):
+        assert (result.rubric_score, result.correctness, result.grading_source) == (0, 0.0, "deterministic")
+        attempt = repository.fetch_practice_attempt(result.attempt_id)
+        assert attempt["declared_stuck"] is True and attempt["error_type"] is None
+        assert repository.error_events_for_attempt(result.attempt_id) == []
+        assert _attribution_rows(repository, result.attempt_id) == {
+            "error_events": 0, "causal_hypotheses": 0, "unresolved_cause_factors": 0,
+            "causal_attribution_reports": 0,
+        }
+        assert {row.points_awarded for row in repository.fetch_grading_evidence(result.attempt_id)} == {0.0}
+        # Still an ordinary zero in the learner field, at the standard mass.
+        row = _field_row(vault, repository, result.attempt_id)
+        assert row.outcome == 0.0 and row.effective_mass > 0
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(at(30)))
+    for result in (plain, hinted):
+        assert repository.fetch_practice_attempt(result.attempt_id)["error_type"] is None
+        assert repository.error_events_for_attempt(result.attempt_id) == []
+
+    # A historical dont_know keeps its meaning, before and after the upgrade.
+    paths, old_vault, old_repository = split_vault(tmp_path / "old", version="mvp-0.12", seed=False)
+    dont_know = complete_self_graded_attempt(
+        old_vault, old_repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md="", attempt_type="dont_know"),
+        SelfGradeInput(criterion_points={}, confidence=3),
+        clock=FrozenClock(at(21)),
+    )
+    tags = [event["error_type"] for event in old_repository.error_events_for_attempt(dont_know.attempt_id)]
+    assert tags == ["retrieval_failure"]
+    set_algorithm_version(paths, "mvp-0.13")
+    rebuild_all_derived_state(load_vault(paths.root), old_repository, clock=FrozenClock(at(30)))
+    assert [
+        event["error_type"] for event in old_repository.error_events_for_attempt(dont_know.attempt_id)
+    ] == tags
 
 
 def test_an_empty_stuck_answer_needs_no_provider_and_ignores_a_self_grade(tmp_path):

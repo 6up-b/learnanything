@@ -72,6 +72,23 @@
 > - `pyproject.toml`'s cycle note for `field.signals` now says it also
 >   imports the leaf `attempts.stuck`.
 >
+> **Owner decision (2026-10-12), applied on top of the merge: an empty "I'm
+> stuck" answer is just a score of 0, with NO error tag.** It writes no
+> attribution: no `retrieval_failure`, no `scaffold_failure` after hints, so
+> no error event, no causal hypothesis and no unresolved-cause factor; the
+> attempt's `error_type` is empty. It carries no information about
+> understanding beyond the learner being unable to write anything. It stays
+> an ordinary attempt scored 0 at the standard mass, never diagnosed, the
+> `unanswered` observation in a diagnostic check (that classification reads
+> the attempt, not an error tag), and replay rebuilds it bare.
+> Historical `dont_know` rows keep their tag and meaning. This answers open
+> question 1 and supersedes the "keeps `dont_know`'s deterministic
+> attribution" text below. Test:
+> `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag` (it fails on
+> the branch's behaviour, with `retrieval_failure`, and passes with the
+> change); `test_an_empty_stuck_answer_scores_zero_without_a_model_call` now
+> asserts no error event.
+>
 > Parity with main (`git archive 854ce1fd`). Backup-API copies of the
 > tracked `fixtures/linear_algebra` and `fixtures/probability` (both at
 > `mvp-0.8`) were taken to `mvp-0.9`, `mvp-0.10`, `mvp-0.11` and `mvp-0.12`
@@ -91,7 +108,8 @@
 > `mvp-0.12` copies with `--set algorithms.algorithm_version=mvp-0.13`
 > differs from the same-version shadow only by the version stamp (no stuck
 > answers in their history), and the live databases were unchanged by every
-> shadow.
+> shadow. The merge side was rerun on the owner-decision code with the same
+> result at every version.
 >
 > Gate on the merge (Codex is unavailable until 2026-10-18; every test uses
 > fakes, no paid call): `uv sync --extra dev --extra mobile` and `uv pip
@@ -103,7 +121,11 @@
 > passed**; frontend `npm install`, `typecheck` clean, `npm test` **131
 > passed in 28 files**, `frontend:build` ok; `db_generate_reference.py` then
 > `db_validate_reference.py` **0 errors**; `validate_vault.py` passed (1,070
-> notes). `cargo check` not run (no Rust change).
+> notes). `cargo check` not run (no Rust change). On the owner-decision
+> commit: `lint-imports` 12 kept, 0 broken; `pytest -n auto` **8,348
+> passed**; `pytest -m durability` **91 passed**; frontend typecheck clean,
+> **131 passed in 28 files**, build ok; references regenerated with 0
+> errors; `validate_vault.py` passed.
 
 Branch `practice/stuck-prompt`, worktree `learnanything-stuck`, created by the
 workflow from `main` at `22023ab4` (Slice 1 M2 merged, migration head 170).
@@ -154,7 +176,8 @@ Changed:
   in the split and P0-successor sets (the split stays live).
 - `attempts/attempts.py`: `AttemptDraft.declared_stuck`; the empty-stuck
   deterministic grade (all criteria 0, the deterministic retrieval/scaffold
-  attribution today's `dont_know` writes, `grading_source = "deterministic"`,
+  attribution today's `dont_know` writes [superseded at the merge: no error
+  tag, owner decision 2026-10-12], `grading_source = "deterministic"`,
   grader tier 2 "heuristic auto-grade", so the deferred self-grade regrade
   never picks it up); every completion door takes it before any provider
   check; `declared_stuck` in the attempt record and in replay; no
@@ -302,8 +325,9 @@ regenerated), plus this review.
   answer, scored 0 by `complete_empty_stuck_attempt`: every criterion 0,
   `grading_source = "deterministic"`, grader tier 2 ("heuristic auto-grade",
   so the deferred self-grade regrade never sends it to a model), no manual
-  review, and the deterministic attribution `dont_know` writes
-  (`retrieval_failure`, `scaffold_failure` after hints). Every completion
+  review, and no error tag (owner decision 2026-10-12 at the merge; the
+  branch wrote `dont_know`'s `retrieval_failure`, or `scaffold_failure`
+  after hints). Every completion
   door (required, fallback, self-graded) takes it before any provider check.
   Coverage engagement is 1.0 (a deliberate empty answer, not an accidental
   blank, which keeps 0.5). In a diagnostic check it is the `unanswered`
@@ -380,10 +404,13 @@ validated.
 - **The self-grade fallback is unchanged** for a stuck answer with text: if
   the grader is unavailable or times out, the learner self-grades, as for any
   answer, and no reading is recorded.
-- **The empty answer keeps `dont_know`'s deterministic attribution**
-  (`retrieval_failure` / `scaffold_failure`), so follow-ups, surprise and
-  severity keyed on error events behave as for an empty answer today. It does
-  not get `dont_know`'s severity bonus or its exemptions.
+- **The empty answer has no error tag** (owner decision 2026-10-12, at the
+  merge). The branch kept `dont_know`'s deterministic attribution
+  (`retrieval_failure` / `scaffold_failure`) so that follow-ups, surprise and
+  severity keyed on error events behaved as for an empty answer before; the
+  owner's rule is that an empty answer is just a 0, so it writes no
+  attribution and no error event, and nothing keyed on error events reacts
+  to it.
 - **Golden path.** Only the triage wording changes (see above); the cold
   assessment there never had an "I don't know", so it gains no control.
 - **Not changed:** Phase 6's "I don't know this" self-report (not in this
@@ -526,12 +553,11 @@ The live vaults stay the owner's to upgrade; nothing here touched them.
 
 ## Open questions
 
-1. **The empty answer's attribution.** An empty stuck answer still writes
-   the deterministic `retrieval_failure` (or `scaffold_failure` after hints)
-   error event `dont_know` wrote, which keeps follow-ups and surprise working
-   as today. The blind grader is told not to call a stuck answer a retrieval
-   failure on its own say-so; should the empty one write no attribution
-   instead (score 0, no error event)?
+1. **The empty answer's attribution.** *Answered by the owner
+   (2026-10-12), applied at the merge:* an empty stuck answer is just a
+   score of 0 with no error tag (no attribution, no error event). The branch
+   had kept the `retrieval_failure` (or `scaffold_failure` after hints)
+   error event `dont_know` wrote.
 2. **Joint grading.** With `diagnosis.split_enabled = false`, stuck answers
    are graded jointly and get no reading, so no confusion signal. Add the
    reading to the joint prompt too, or accept it for the kill-switched state?

@@ -4,7 +4,8 @@
 -- The learner's "I'm stuck" control opens the answer box with "Write what you
 -- can, or what's confusing you". What they send is an ORDINARY attempt of the
 -- surface's attempt type at the standard evidence mass (graded and diagnosed
--- when it has text; a deterministic zero when empty), never `dont_know`. This
+-- when it has text; a deterministic zero with no error tag when empty,
+-- owner decision 2026-10-12), never `dont_know`. This
 -- flag records that the answer came from that control, so replay rebuilds it
 -- exactly (an empty stuck answer is a deliberate non-answer, not a blank) and
 -- the share of stuck answers that contain text can be read back. The grader's

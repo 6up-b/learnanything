@@ -256,7 +256,11 @@ uv run learnloop field data-check --json --vault <vault>                        
    `--price-per-million` is given. The owner's grading route is Codex, so
    nothing changes for the owner's vaults.
 4. The stage review's open questions 1 and 3–7 still stand. Question 2
-   (joint grading) is resolved by F3.
+   (joint grading) is resolved by F3. (At the merge, 2026-10-12: the owner
+   answered question 1, an empty stuck answer is a bare 0 with no error
+   tag; the merge settled 4, new vaults start at the latest version, now
+   `mvp-0.13`, and 7, the relabel and renumber. See the integration note in
+   `docs/reviews/stuck-prompt.md`.)
 
 ## Re-review
 

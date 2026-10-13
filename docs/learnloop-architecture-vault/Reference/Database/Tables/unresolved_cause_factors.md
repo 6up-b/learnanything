@@ -3,8 +3,8 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "854ce1fd7feceffe43925a2f524a87f652c4bd7d"
-source_commit_timestamp: "2026-10-12T20:37:53-04:00"
+source_commit: "9c65556d0416de254556729a74434c386c55903c"
+source_commit_timestamp: "2026-10-12T21:17:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_causal_attribution_p0.py`
@@ -157,7 +158,6 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_card.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_durable_promotion_arms.py`
-- `tests/test_grading_support.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -77,8 +77,10 @@ RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 # recurrence groups PLUS the stuck prompt): the learner's "I'm stuck" control.
 # A stuck answer with text is an ordinary attempt at the standard attempt mass,
 # graded (under the blind grader's ``+stuck-v1`` prompt) and diagnosed; an
-# empty one is a deterministic zero with no model call. Persisted meaning
-# changes for NEW attempts only (``practice_attempts.declared_stuck``, the
+# empty one is a deterministic zero with no model call and, by owner
+# decision 2026-10-12, no error tag (it says nothing about understanding
+# beyond "could not write anything"). Persisted meaning changes for NEW
+# attempts only (``practice_attempts.declared_stuck``, the
 # grader's stuck reading on the blind record and in judgment_ledger, the
 # ``answer_display`` reveal kind);
 # historical ``dont_know`` rows keep their meaning, and the projection

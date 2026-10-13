@@ -1015,6 +1015,10 @@ Must hold:
 - An empty submission is still allowed:
   - it records an ordinary attempt with an empty answer, scored 0 without a model call
     (there is nothing to grade), at the standard attempt mass;
+  - owner decision 2026-10-12 (applied when it merged as mvp-0.13): it is just a score
+    of 0, with no error tag. It writes no retrieval_failure or scaffold_failure
+    attribution and no error event: an empty answer says nothing about understanding
+    beyond the learner being unable to write anything;
   - it reveals the answer as "I don't know" does today.
   - New answers get no separate dont_know weight.
 - Historical dont_know rows keep their meaning. Replay and rebuild under earlier
