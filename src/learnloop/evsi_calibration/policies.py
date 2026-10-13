@@ -71,7 +71,13 @@ ALL_POLICIES = POLICIES + VARIANTS
 #: completion gate dropped, and the ``evsi_lookahead`` value rule (loss-derived,
 #: no flip abstention, the best 2-3 checks valued jointly) in place of the
 #: value gate.
-SUCCESSOR_POLICIES = ("voi_successor", "voi_proposed")
+#: Leave-one-out ablations of ``voi_proposed`` (:func:`decide_package`), each
+#: putting back one piece of the successor as built: ``voi_p_with_gate`` (the
+#: robust completion gate), ``voi_p_with_fallback`` (a flip abstention handed to
+#: the robust EIG times ``VALUE_PER_NAT_MINUTES``) and ``voi_p_one_step`` (no
+#: lookahead).
+SUCCESSOR_ABLATIONS = ("voi_p_with_gate", "voi_p_with_fallback", "voi_p_one_step")
+SUCCESSOR_POLICIES = ("voi_successor", "voi_proposed") + SUCCESSOR_ABLATIONS
 LOOKAHEAD_MAX = 3
 
 #: The forced-choice grading channel: the recorded option IS the chosen
@@ -348,7 +354,6 @@ def _successor_value_gate(state: EpisodeState, settings: PolicySettings) -> tupl
     support = [h for h, p in state.belief.items() if p > 0]
     at_stake = len({state.actions_by_hypothesis[h] for h in support}) >= 2
     refs = _prefilter(state, settings)
-    cost = settings.lambda_time * settings.check_minutes + settings.burden_cost
     paying: dict[str, float] = {}
     method = "eig_value"
     if at_stake and refs:
@@ -368,12 +373,36 @@ def _successor_value_gate(state: EpisodeState, settings: PolicySettings) -> tupl
                         paying[ranked.ref] = ranked.evsi.lcb
             return paying, "robust_evsi"
         method = f"eig_value:evsi_{result.reason}"
+    return _eig_value_paying(state, settings, refs), method
+
+
+def _eig_value_paying(state: EpisodeState, settings: PolicySettings, refs: Sequence[str]) -> dict[str, float]:
+    """``value_candidates``' EIG path: each candidate's robust EIG (the members'
+    ``robust_quantile``) times ``VALUE_PER_NAT_MINUTES``, kept where it clears
+    ``lambda_time * minutes + burden``."""
+
+    cost = settings.lambda_time * settings.check_minutes + settings.burden_cost
+    paying: dict[str, float] = {}
     for q in refs:
         eigs = [rc.expected_information_gain(member, state.belief) for member in state.ensembles[q][1]]
         robust = settings.value_per_nat_minutes * rc.robust_quantile(eigs, settings.robust_quantile)
         if robust > cost:
             paying[q] = robust
-    return paying, method
+    return paying
+
+
+def _serve_paying(state: EpisodeState, paying: Mapping[str, float], method: str) -> Decision:
+    """The successor's serving choice: the incumbent's highest-EIG instrument
+    when it pays, else the best paying one; stop when none pays."""
+
+    if not paying:
+        return Decision("stop", None, "stop", f"value_of_information_stop:{method}")
+    chosen = max(sorted(state.remaining),
+                 key=lambda q: rc.expected_information_gain(state.ensembles[q][0], state.belief))
+    if chosen in paying:
+        return Decision("measure", chosen, "measure", f"value_pays:{method}")
+    best = max(sorted(paying), key=lambda q: paying[q])
+    return Decision("measure", best, "measure", f"value_pays_other:{method}")
 
 
 def decide_successor(state: EpisodeState, settings: PolicySettings) -> Decision:
@@ -381,24 +410,38 @@ def decide_successor(state: EpisodeState, settings: PolicySettings) -> Decision:
     reason = _incumbent_stop(state, settings, config, budget=False)
     if reason is not None:
         return Decision("stop", None, "stop", reason)
-    pool = list(state.remaining)
-    if not pool:
+    if not state.remaining:
         return Decision("stop", None, "stop", "no_question_left")
-    chosen = max(sorted(pool), key=lambda q: rc.expected_information_gain(state.ensembles[q][0], state.belief))
     paying, method = _successor_value_gate(state, settings)
-    if not paying:
-        return Decision("stop", None, "stop", f"value_of_information_stop:{method}")
-    if chosen in paying:
-        return Decision("measure", chosen, "measure", f"value_pays:{method}")
-    best = max(sorted(paying), key=lambda q: paying[q])
-    return Decision("measure", best, "measure", f"value_pays_other:{method}")
+    return _serve_paying(state, paying, method)
 
 
-def decide_proposed(state: EpisodeState, settings: PolicySettings) -> Decision:
-    reason = _cap_stop(state, ProbeEpisodeConfig(), budget=False)
+def decide_package(state: EpisodeState, settings: PolicySettings, *, gate: bool = False, fallback: bool = False,
+                   lookahead: bool = True) -> Decision:
+    """The proposed package (``voi_proposed``: every switch at its default) and
+    its leave-one-out ablations, each inside the successor's structure (the
+    episode maximum lifted, the stability stops kept):
+
+    ``gate``: keep today's robust completion gate (``_incumbent_stop``).
+    ``fallback``: keep the successor's handling of a flip abstention: when
+    ``rank_feasible`` abstains, the robust EIG times ``VALUE_PER_NAT_MINUTES``
+    decides (else the abstention is ignored and the robust LCB decides).
+    ``lookahead``: value the best 2-3 checks jointly when no single one pays.
+    """
+
+    config = ProbeEpisodeConfig()
+    reason = (_incumbent_stop(state, settings, config, budget=False) if gate
+              else _cap_stop(state, config, budget=False))
     if reason is not None:
         return Decision("stop", None, "stop", reason)
-    return decide_lookahead(state, settings)
+    if fallback:
+        single = decide_evsi(state, settings)
+        if single.action == "measure":
+            return single
+        if single.verdict == "abstain":
+            refs = _prefilter(state, settings)
+            return _serve_paying(state, _eig_value_paying(state, settings, refs), f"eig_value:evsi_{single.reason}")
+    return decide_lookahead(state, settings) if lookahead else decide_evsi(state, settings, obey_abstention=False)
 
 
 def decide(policy: str, state: EpisodeState, settings: PolicySettings) -> Decision:
@@ -425,5 +468,11 @@ def decide(policy: str, state: EpisodeState, settings: PolicySettings) -> Decisi
     if policy == "voi_successor":
         return decide_successor(state, settings)
     if policy == "voi_proposed":
-        return decide_proposed(state, settings)
+        return decide_package(state, settings)
+    if policy == "voi_p_with_gate":
+        return decide_package(state, settings, gate=True)
+    if policy == "voi_p_with_fallback":
+        return decide_package(state, settings, fallback=True)
+    if policy == "voi_p_one_step":
+        return decide_package(state, settings, lookahead=False)
     raise ValueError(f"unknown policy {policy!r}")

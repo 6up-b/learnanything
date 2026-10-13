@@ -323,6 +323,48 @@ def test_the_successor_arms_lift_the_episode_maximum_onto_value(eedi):
     assert P.decide("voi_successor", lifted, settings).reason == "safety_bound"
 
 
+def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
+    from learnloop.config.schema import ProbeEpisodeConfig
+
+    scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
+    hypotheses = scenario.hypotheses
+    mis = [h for h in hypotheses if h.startswith("mis:")]
+    beliefs = [
+        {h: 1.0 / len(hypotheses) for h in hypotheses},
+        {h: (0.5 if h in (HYP_KNOWS, mis[0]) else 0.0) + 1e-3 for h in hypotheses},
+        {h: (0.95 if h == HYP_KNOWS else 0.05 / (len(hypotheses) - 1)) for h in hypotheses},
+    ]
+    config = ProbeEpisodeConfig()
+    settings = P.PolicySettings(repair_minutes=30.0)
+    for raw in beliefs:
+        total = sum(raw.values())
+        belief = {h: v / total for h, v in raw.items()}
+        for observations in (0, 2):
+            def state():
+                st = _state(scenario, belief, settings)
+                st.observations = observations
+                return st
+
+            proposed = P.decide("voi_proposed", state(), settings)
+            if P._cap_stop(state(), config, budget=False) is None:
+                assert proposed == P.decide_lookahead(state(), settings)
+                assert P.decide("voi_p_one_step", state(), settings) == \
+                    P.decide_evsi(state(), settings, obey_abstention=False)
+                single = P.decide_evsi(state(), settings)
+                fallback = P.decide("voi_p_with_fallback", state(), settings)
+                if single.action == "measure":
+                    assert fallback == single
+                elif single.verdict == "abstain":
+                    assert ":eig_value:evsi_" in fallback.reason
+                else:
+                    assert fallback == proposed
+            gated = P.decide("voi_p_with_gate", state(), settings)
+            if P._incumbent_stop(state(), settings, config, budget=False) is None:
+                assert gated == proposed
+            else:
+                assert gated.action == "stop"
+
+
 def test_the_counted_card_row_starts_at_the_vocabulary_and_follows_the_counts(eedi):
     scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
     question = scenario.questions[0]
@@ -352,7 +394,7 @@ def test_cli_multisim_quick_fits_every_family_and_reports_claims(eedi, tmp_path)
     assert payload["families"] == ["lca", "cdm", "nrm", "lta"]
     report = json.loads((tmp_path / "out" / "multisim_report.json").read_text())
     analysis = report["analysis"]
-    verdicts = {"supported", "directional", "family-dependent", "contradicted", "not tested"}
+    verdicts = {"supported", "directional", "family-dependent", "contradicted", "no difference", "not tested"}
     assert {claim["verdict"] for claim in analysis["claims"]} <= verdicts
     assert analysis["winners"] and all(w["per_family"] for w in analysis["winners"])
     for name in ("lca", "cdm", "nrm", "lta"):
@@ -426,6 +468,16 @@ def test_winners_list_tied_modes_in_name_order_and_score_rank_agreement():
     assert rows[0]["max_regret"] == pytest.approx(0.5) and rows[0]["cells_near_best"] == "0/2"
     assert rows[1]["max_regret"] == pytest.approx(1.0) and rows[1]["max_regret_cell"] == "x fitted/3"
     assert rows[1]["cells_near_best"] == "1/2" and rows[1]["stress_max_regret"] == pytest.approx(8.0)
+
+
+def test_a_zero_effect_everywhere_is_no_difference_not_a_contradiction():
+    zero = {"value": 0.0, "ci95": [0.0, 0.0], "holds": False, "certified": False}
+    assert MF._verdict([zero, dict(zero)]) == "no difference"
+    against = {"value": 0.1, "ci95": [-0.2, 0.4], "holds": False, "certified": False}
+    assert MF._verdict([zero, against]) == "contradicted"
+    assert MF._verdict([zero, {"value": -0.3, "ci95": [-0.5, -0.1], "holds": True, "certified": True}]) == \
+        "family-dependent"
+    assert MF._verdict([{"value": "8/8", "ci95": None, "holds": True, "certified": True}]) == "supported"
 
 
 def test_the_pseudo_count_log_loss_is_per_check_of_each_arm():

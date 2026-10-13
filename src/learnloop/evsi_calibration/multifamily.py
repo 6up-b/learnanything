@@ -90,7 +90,8 @@ from learnloop.evsi_calibration.world import (
     route_for,
 )
 
-#: v2: rotation claims per regime, S4, and C6c's log loss bootstrapped per arm.
+#: v2: rotation claims per regime, S4, the A ablations, ``no difference``, and
+#: C6c's log loss bootstrapped per arm.
 MULTIFAMILY_VERSION = "evsi_multifamily_v2"
 
 #: Paired comparisons recorded in every cell: (left, right) -> mean(right - left).
@@ -113,6 +114,9 @@ PAIRS: tuple[tuple[str, str], ...] = (
     ("incumbent", "voi_proposed"),
     ("caps_only", "voi_proposed"),
     ("evsi_lookahead", "voi_proposed"),
+    ("voi_proposed", "voi_p_with_gate"),
+    ("voi_proposed", "voi_p_with_fallback"),
+    ("voi_p_one_step", "voi_proposed"),
 )
 
 
@@ -633,10 +637,14 @@ def _part_c(name: str, fits: FamilyFits, settings: MultiFamilySettings, base: Mu
 
 def _verdict(values: Sequence[Mapping[str, Any]]) -> str:
     """``supported`` when every family's CI agrees with the claim, ``directional``
-    when every family's point estimate agrees, ``family-dependent`` otherwise."""
+    when every family's point estimate agrees, ``family-dependent`` otherwise;
+    ``no difference`` when the two arms took identical episodes everywhere
+    (a zero effect with a zero-width CI in every family)."""
 
     if not values:
         return "not tested"
+    if all(v.get("value") == 0 and list(v.get("ci95") or [None, None]) == [0, 0] for v in values):
+        return "no difference"
     if all(v.get("certified") for v in values):
         return "supported"
     if all(v.get("holds") for v in values):
@@ -950,6 +958,14 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         paired_claim(f"S4:{regime}", f"{regime}: keeping the stability stops (decision stable, action "
                      "equivalent) on top of the lookahead saves minutes (voi_proposed - evsi_lookahead < 0)",
                      consistency, repair, "voi_proposed-evsi_lookahead", -1)
+        # Leave-one-out: each piece of the successor as built, put back into the package.
+        paired_claim(f"A1:{regime}", f"{regime}: inside the package, today's robust completion gate costs minutes "
+                     "(voi_p_with_gate - voi_proposed > 0)", consistency, repair, "voi_p_with_gate-voi_proposed", +1)
+        paired_claim(f"A2:{regime}", f"{regime}: inside the package, handing a flip abstention to the nat-scaled "
+                     "EIG costs minutes (voi_p_with_fallback - voi_proposed > 0)", consistency, repair,
+                     "voi_p_with_fallback-voi_proposed", +1)
+        paired_claim(f"A3:{regime}", f"{regime}: inside the package, the 2-3 check lookahead saves minutes "
+                     "(voi_proposed - voi_p_one_step < 0)", consistency, repair, "voi_proposed-voi_p_one_step", -1)
 
     # C4b: loss-derived EVSI (no nat scale) against the nat-scaled EIG rule, both without abstention.
     for consistency, repair in (("fitted", 3.0), ("fitted", 30.0), ("0.9", 10.0), ("0.9", 30.0)):
