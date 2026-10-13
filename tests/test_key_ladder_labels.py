@@ -128,3 +128,59 @@ def test_the_daily_cap_skips_the_ladder(env):
     result = run_key_ladder(vault, repository, subject_id="sei_cap", stem=STEM, reference="5", solution=None,
                             clients=service_clients(FakeServiceLLM()))
     assert result.key_status == "model_answer" and "daily cap" in result.skip_reason
+
+
+# -- Live sanity run: worked-solution keys were disputed by a check that could not read them --
+#
+# An imported exercise's key is a worked solution (prose and LaTeX), not a bare
+# expression. The ladder handed the whole key to the judge's sympy check, whose
+# ``sympify(reference)`` raised and returned False, so correct keys with 6/6
+# panel agreement were labelled "disputed". The sandbox now gets the key's
+# "Final answer:" line when it has one (as PF passes its references), and a key
+# the sandbox cannot read leaves the symbolic check unconfirmed, never rejected.
+
+PARSING_CHECK = (
+    "import sympy\n"
+    "def check(reference, answer):\n"
+    "    try:\n"
+    "        return sympy.simplify(sympy.sympify(reference) - sympy.sympify(answer)) == 0\n"
+    "    except Exception:\n"
+    "        return False\n"
+)
+WORKED_KEY = "Subtract 5 from both sides, so $3x = 15$. Dividing by 3, the eigenvalue is $x = 5$."
+
+
+class WorkedSolutionJudge(FakeServiceLLM):
+    """The live judge: it reads the worked solution, accepts the solves, and
+    writes a check that parses the reference it is given."""
+
+    def _EquivalenceResult(self, request, context):
+        from learnloop.content.authoring import pf_contracts as C
+
+        return C.EquivalenceResult(answer_kind="symbolic", agreements=[True] * len(context["answers"]),
+                                   sympy_check=PARSING_CHECK)
+
+
+@needs_bwrap
+def test_a_worked_solution_the_check_cannot_read_is_unconfirmed_not_disputed(env):
+    result = _ladder(env, WorkedSolutionJudge(), reference=WORKED_KEY)
+    assert result.key_status == "panel_agrees_unconfirmed" and not result.verified
+    assert "disputed_by" not in result.verification
+    panel = result.verification["panel"]
+    assert (panel["symbolic_status"], panel["model_agree"]) == ("reference_unreadable", 3)
+    assert panel["symbolic_reference"] == "whole_key"
+
+
+@needs_bwrap
+def test_a_worked_solution_with_a_final_answer_line_is_checked(env):
+    result = _ladder(env, WorkedSolutionJudge(), reference=WORKED_KEY + "\n\nFinal answer: 5")
+    assert (result.key_status, result.verified) == ("checked", True)
+    panel = result.verification["panel"]
+    assert (panel["symbolic_status"], panel["symbolic_reference"]) == ("confirmed", "final_answer_line")
+
+
+@needs_bwrap
+def test_a_readable_key_the_check_rejects_is_still_disputed(env):
+    result = _ladder(env, WorkedSolutionJudge(), reference=WORKED_KEY + "\n\nFinal answer: 7")
+    assert (result.key_status, result.verification["disputed_by"]) == ("disputed", "symbolic_check")
+    assert result.verification["panel"]["symbolic_status"] == "rejected"

@@ -17,8 +17,10 @@ source-import ladder needs to label a key honestly:
   whatever the symbolic check said;
 * ``symbolic_status``: ``not_applicable`` (a prose answer), ``confirmed``,
   ``rejected`` (the check ran and the solves the judge accepted were not
-  confirmed), ``degenerate_check``, ``no_check_written``, ``sandbox_error``
-  (it failed or timed out) or ``sandbox_unavailable``;
+  confirmed), ``reference_unreadable`` (the check said no, but the sandbox
+  could not read the reference it was given as an expression, so the "no"
+  says nothing about the key), ``degenerate_check``, ``no_check_written``,
+  ``sandbox_error`` (it failed or timed out) or ``sandbox_unavailable``;
 * ``per_solve``: the LLM verdict, the symbolic verdict and the combined value.
 
 ``on_sandbox_unavailable="raise"`` (PF's) keeps today's behaviour: a missing
@@ -50,8 +52,8 @@ PANEL_OUTPUT_TOKENS = 1500
 EQUIVALENCE_OUTPUT_TOKENS = 2500
 SPAN_SUPPORT_OUTPUT_TOKENS = 1200
 SYMBOLIC_KINDS = frozenset({"numeric", "symbolic"})
-SYMBOLIC_STATUSES = ("not_applicable", "confirmed", "rejected", "degenerate_check", "no_check_written",
-                     "sandbox_error", "sandbox_unavailable")
+SYMBOLIC_STATUSES = ("not_applicable", "confirmed", "rejected", "reference_unreadable", "degenerate_check",
+                     "no_check_written", "sandbox_error", "sandbox_unavailable")
 
 
 def _sha(payload: Any) -> str:
@@ -115,11 +117,14 @@ def equivalence(env: VerifierEnv, stem: str, reference: str, solves: Sequence[di
 
 def agreement(env: VerifierEnv, subject_kind: str, subject_id: str, input_hash: str, stem: str,
               reference: str, solves: Sequence[dict[str, Any]], *, on_call: OnCall | None = None,
-              on_sandbox_unavailable: str = "raise") -> dict[str, Any]:
+              on_sandbox_unavailable: str = "raise", symbolic_reference: str | None = None) -> dict[str, Any]:
     """LLM agreement per solve, confirmed by the sandboxed sympy check where numeric/symbolic.
 
     The combined ``agree`` and every ledger row are exactly PF-b's; the
     separate model and symbolic results ride along (module docstring).
+    ``symbolic_reference`` is what the sandboxed check compares the solves
+    with, when it differs from the key the judge reads (the source-import
+    ladder passes a worked solution's final answer); None, PF's, is the key.
     """
 
     if on_sandbox_unavailable not in ("raise", "report"):
@@ -136,11 +141,12 @@ def agreement(env: VerifierEnv, subject_kind: str, subject_id: str, input_hash: 
             sandbox_state = "unavailable"
         else:
             try:
+                checked = reference if symbolic_reference is None else symbolic_reference
                 sandbox = run_equivalence_checks(
                     {"check": result.sympy_check},
-                    [{"program": "check", "reference": reference, "answer": solve["final_answer"]}
+                    [{"program": "check", "reference": checked, "answer": solve["final_answer"]}
                      for solve in solves],
-                    normal_forms={"reference": reference}, limits=env.limits, run=env.run,
+                    normal_forms={"reference": checked}, limits=env.limits, run=env.run,
                 )
             except SandboxUnavailable:
                 if on_sandbox_unavailable == "raise":
@@ -179,7 +185,8 @@ def agreement(env: VerifierEnv, subject_kind: str, subject_id: str, input_hash: 
             )
     status = symbolic_status(symbolic=symbolic, usable=usable, check_written=bool(result.sympy_check),
                              sandbox_state=sandbox_state, degenerate=degenerate,
-                             llm_agrees=llm_agrees, confirmations=confirmations)
+                             llm_agrees=llm_agrees, confirmations=confirmations,
+                             reference_readable=normal_form is not None)
     return {"agree": sum(agrees), "total": len(solves), "answer_kind": result.answer_kind,
             "usable": usable, "sympy_checked": symbolic, "normal_form": normal_form,
             "degenerate_check": degenerate,
@@ -193,8 +200,14 @@ def agreement(env: VerifierEnv, subject_kind: str, subject_id: str, input_hash: 
 
 def symbolic_status(*, symbolic: bool, usable: bool, check_written: bool, sandbox_state: str,
                     degenerate: bool, llm_agrees: Sequence[bool],
-                    confirmations: Sequence[bool | None]) -> str:
-    """What the symbolic check said, apart from the model's agreement."""
+                    confirmations: Sequence[bool | None], reference_readable: bool = True) -> str:
+    """What the symbolic check said, apart from the model's agreement.
+
+    ``reference_readable`` is whether the sandbox could read the reference it
+    was given as an expression (its normal form). A check that rejects solves
+    the judge accepted, against a reference it could not read, has not shown
+    the key wrong: ``reference_unreadable``, not ``rejected``.
+    """
 
     if not symbolic:
         return "not_applicable"
@@ -211,7 +224,7 @@ def symbolic_status(*, symbolic: bool, usable: bool, check_written: bool, sandbo
     if agreed and all(confirmation is True for confirmation in agreed):
         return "confirmed"
     if any(confirmation is False for confirmation in agreed):
-        return "rejected"
+        return "rejected" if reference_readable else "reference_unreadable"
     # The judge accepted no solve, so there was nothing for the check to confirm.
     return "rejected" if any(confirmation is True for confirmation in confirmations) else "confirmed"
 
@@ -252,7 +265,7 @@ def span_support(env: VerifierEnv, *, subject_kind: str, subject_id: str, questi
 def verify_reference(env: VerifierEnv, *, stem: str, reference: str, subject_kind: str,
                      subject_id: str, input_hash: str, solves_per_model: int,
                      on_sandbox_unavailable: str = "raise",
-                     on_call: OnCall | None = None) -> dict[str, Any]:
+                     on_call: OnCall | None = None, symbolic_reference: str | None = None) -> dict[str, Any]:
     """The panel-plus-sympy check of one key: solves, then agreement.
 
     Returns :func:`agreement`'s report plus the solves. The caller decides on
@@ -262,7 +275,8 @@ def verify_reference(env: VerifierEnv, *, stem: str, reference: str, subject_kin
 
     solves = panel_solves(env, stem, solves_per_model=solves_per_model, on_call=on_call)
     outcome = agreement(env, subject_kind, subject_id, input_hash, stem, reference, solves,
-                        on_call=on_call, on_sandbox_unavailable=on_sandbox_unavailable)
+                        on_call=on_call, on_sandbox_unavailable=on_sandbox_unavailable,
+                        symbolic_reference=symbolic_reference)
     outcome["solves"] = [{"model": solve["model"], "index": solve["index"],
                           "final_answer": solve["final_answer"], "answer_kind": solve["answer_kind"]}
                          for solve in solves]

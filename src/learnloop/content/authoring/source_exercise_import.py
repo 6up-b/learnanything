@@ -98,6 +98,7 @@ from learnloop.source_retrieval.service_spend import service_spend, service_spen
 from learnloop.ops.family_proposals import OUTPUT_TOKENS as FAMILY_OUTPUT_TOKENS
 from learnloop.ops.family_proposals import FamilyVerdict, pair_passes
 from learnloop.substrate.families import attach_to_family, family_item_input
+from learnloop.substrate.item_fingerprints import final_answer_text
 from learnloop.vault.hashes import reference_content_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -506,9 +507,13 @@ def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: st
             # A quote that is not in the passage says nothing about the key:
             # the panel decides (rung 2).
         pf = vault.config.pf
+        # The judge reads the whole worked solution; the sandboxed check gets its
+        # "Final answer:" line when it has one, as PF passes its references.
+        symbolic_reference = final_answer_text(reference)
         outcome = pf_verify.verify_reference(
             env, stem=stem, reference=reference, subject_kind="source_exercise_import", subject_id=subject_id,
             input_hash=input_hash, solves_per_model=pf.panel_solves_per_model, on_sandbox_unavailable="report",
+            symbolic_reference=symbolic_reference,
         )
     except PFUnavailable as exc:
         return LadderResult("model_answer", "skipped", verification, caller.ledger_ids,
@@ -524,6 +529,7 @@ def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: st
     panel = {key: outcome[key] for key in ("agree", "total", "model_agree", "symbolic_status", "answer_kind",
                                            "usable", "degenerate_check", "verifier_model")}
     panel["min_agreeing_solves"] = minimum
+    panel["symbolic_reference"] = "final_answer_line" if symbolic_reference != str(reference) else "whole_key"
     clusters = Counter(_normalized_answer(solve["final_answer"]) for solve in outcome["solves"])
     top_answer, top_count = (clusters.most_common(1)[0] if clusters else ("", 0))
     panel["panel_answer"] = next((solve["final_answer"] for solve in outcome["solves"]
