@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 180
+SCHEMA_HEAD = 185
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -856,6 +856,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
+    "proof_check": "the valid-alternative gate for proofs and explanations (mvp-0.15, a placeholder tag): the kill switch of the independent route check on proof-like items",
 }
 
 
@@ -1114,6 +1115,14 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 "
         "vault shows \"I don't know\" and records dont_know exactly as mvp-0.12. Dormant below "
         "mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch."
+    ),
+    "proof_check.enabled": (
+        "Kill switch for mvp-0.15's route check (placeholder tag). On, each new blind grade of an "
+        "item an LLM reads as proof-like is followed by an independent re-derivation of the "
+        "learner's route (ai.routing.proof_check, else a route with a model other than the "
+        "grader's); the gate restores, records unverified or flags criteria and the verdict goes "
+        "to judgment_ledger. Off, new answers are graded exactly as mvp-0.14. Dormant below "
+        "mvp-0.15; replay reads the blind record and evidence rows, never this switch."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

@@ -3,13 +3,13 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "3fe6ad31c42408f57b64eee3334430eab5c99bd5"
+source_commit_timestamp: "2026-10-13T01:25:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
   - "table post_attempt_jobs"
-schema_head: 180
+schema_head: 185
 table_name: "post_attempt_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -120,6 +120,7 @@ None found by exact static reference scan.
 - `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
+- `tests/test_reader_guidance.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

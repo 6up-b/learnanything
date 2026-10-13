@@ -3,13 +3,13 @@ title: "grading_clarifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "3fe6ad31c42408f57b64eee3334430eab5c99bd5"
+source_commit_timestamp: "2026-10-13T01:25:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarifications"
   - "table grading_clarifications"
-schema_head: 180
+schema_head: 185
 table_name: "grading_clarifications"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/142_grading_clarifications.sql"
+  - "src/learnloop/attempts/proof_check.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop_sidecar/handlers/app.py"
   - "src/learnloop/attempts/clarification.py"
@@ -46,7 +47,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/142_grading_clarifications.sql`.
-- **Schema touched by:** `142_grading_clarifications.sql`.
+- **Schema touched by:** `142_grading_clarifications.sql`, `185_route_check_clarification_trigger.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -111,6 +112,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_mvp015_upgrade.py`
+- `tests/test_proof_route_check.py`
 - `tests/test_sidecar_trace_and_clarification.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -128,16 +131,17 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE grading_clarifications (
+CREATE TABLE "grading_clarifications" (
   id TEXT PRIMARY KEY,
   attempt_id TEXT NOT NULL REFERENCES practice_attempts(id) ON DELETE CASCADE,
-  -- The hedged or abstained criterion the question is about.  Nullable: an
-  -- attribution-level abstention ("I cannot name what went wrong") is not scoped
-  -- to one criterion, and forcing one would be fabricated structure.
+  -- The hedged, abstained or disputed criterion the question is about.
+  -- Nullable: an attribution-level abstention ("I cannot name what went
+  -- wrong") is not scoped to one criterion, and forcing one would be
+  -- fabricated structure.
   criterion_id TEXT,
-  -- Which of the three §3.A8 uncertainty shapes this is.  Closed vocabulary
-  -- with an explicit `other` arm, per the standing "no new enum without an
-  -- abstention arm" constraint.
+  -- Which of the §3.A8 uncertainty shapes this is.  Closed vocabulary with an
+  -- explicit `other` arm, per the standing "no new enum without an abstention
+  -- arm" constraint.
   reason TEXT NOT NULL CHECK (reason IN (
     'ambiguous_notation',
     'skipped_step',
@@ -146,13 +150,14 @@ CREATE TABLE grading_clarifications (
     'other'
   )),
   -- What actually licensed the question: which signal on the provisional grade
-  -- was hedged or abstained.  A confident grade can never produce a row here
-  -- (that would make it an interrogation), and this column is the record of
-  -- which non-confident signal it was.
+  -- was hedged, abstained or (mvp-0.15) disputed by the independent route
+  -- check on a point that turns on the learner's meaning.  A confident,
+  -- undisputed grade can never produce a row here.
   trigger TEXT NOT NULL CHECK (trigger IN (
     'hedged_criterion',
     'abstained_attribution',
-    'low_grader_confidence'
+    'low_grader_confidence',
+    'route_check_disagreement'
   )),
   question_md TEXT NOT NULL,
   expires_at TEXT NOT NULL,
