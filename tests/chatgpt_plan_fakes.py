@@ -34,7 +34,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from learnloop.ai.chatgpt_plan.responses import UNSUPPORTED_FIELDS
+#: The route's unsupported request fields, copied from the docs
+#: (developers.openai.com/siwc/token-sharing-open-source/preview-limitations,
+#: re-read 2026-10-12) and kept independent of the implementation's constant,
+#: so the fake cannot drift along with it. ``previous_response_id`` must be
+#: omitted over HTTP (same page).
+DOCUMENTED_UNSUPPORTED_FIELDS = frozenset({
+    "background", "conversation", "max_output_tokens", "max_tool_calls", "metadata", "moderation",
+    "multi_agent", "prompt", "prompt_cache_retention", "safety_identifier", "temperature",
+    "top_logprobs", "top_p", "truncation", "user", "previous_response_id",
+})
+#: LearnLoop's own rule on top: its plan transport is tool-free.
+REFUSED_FIELDS = DOCUMENTED_UNSUPPORTED_FIELDS | {"tools", "tool_choice"}
 
 PLAN_SCOPES = "chatgpt.tokens.use.direct email offline_access openid profile resource.invoke"
 IDENTITY_SCOPES = "email openid profile"
@@ -360,7 +371,7 @@ class FakeChatGPT:
                     self._json(401, {"error": {"code": "subscription_sharing_invalid_user", "message": "token"}},
                                {"x-request-id": "req_401"})
                     return
-                problems = sorted(set(body) & UNSUPPORTED_FIELDS)
+                problems = sorted(set(body) & REFUSED_FIELDS)
                 if body.get("store") is not False or body.get("stream") is not True or problems:
                     self._json(400, {"error": {"code": "subscription_sharing_unsupported_capability",
                                                "message": "bad body", "param": problems[0] if problems else "store"}})
@@ -486,3 +497,23 @@ def run_in_thread(target: Callable[[], Any]) -> tuple[threading.Thread, dict[str
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
     return thread, out
+
+
+def pause_after(marker: bytes, reached: threading.Event, release: threading.Event) -> Callable[..., Any]:
+    """An ``HttpCall`` that completes against the fake, then waits before returning.
+
+    It holds a token-endpoint answer in flight (the request whose form body
+    contains ``marker``), so a test can interleave a sign-out, an interrupt or
+    a reader between the server's reply and the local commit.
+    """
+
+    from learnloop.ai.chatgpt_plan.oauth import urllib_call
+
+    def http(method: str, url: str, headers: dict[str, str], body: bytes | None, timeout: float) -> Any:
+        answer = urllib_call(method, url, headers, body, timeout)
+        if body and marker in body:
+            reached.set()
+            release.wait(10)
+        return answer
+
+    return http

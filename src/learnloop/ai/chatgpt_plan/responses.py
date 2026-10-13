@@ -210,6 +210,9 @@ class ResponsesStream:
     def send(self, body: Mapping[str, Any], *, access_token: str, timeout: float,
              on_event: Callable[[str, Mapping[str, Any]], None] | None = None) -> StreamResult:
         started = time.monotonic()
+        if timeout <= 0:
+            # A spent deadline is never stretched into a request.
+            raise StreamCancelled("deadline")
         encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         connection_class = http.client.HTTPSConnection if self._scheme == "https" else http.client.HTTPConnection
         kwargs: dict[str, Any] = {"timeout": max(0.5, timeout)}

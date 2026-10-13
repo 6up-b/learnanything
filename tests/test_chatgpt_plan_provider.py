@@ -9,6 +9,8 @@ from __future__ import annotations
 from contextlib import closing
 import json
 import sqlite3
+import threading
+import time
 
 import pytest
 import tomlkit
@@ -21,7 +23,7 @@ from learnloop.ai.chatgpt_plan.session import (
     PlanSession,
 )
 from learnloop.ai.disclosures import recipient
-from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, AITurnTimeout
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AITurnTimeout
 from learnloop.ai.execution import observe_model_calls, single_request
 from learnloop.ai.isolation import isolation_mode
 from learnloop.ai.providers.chatgpt_plan import (
@@ -45,7 +47,17 @@ from learnloop.config import LearnLoopConfig, load_config
 from learnloop.config.schema import ChatGPTPlanProviderConfig
 from learnloop.practice_index.paid import billing_for, plan_route
 
-from tests.chatgpt_plan_fakes import Reply, completed_events, failed_events, fake_chatgpt, sign_in
+from tests.chatgpt_plan_fakes import (
+    DOCUMENTED_UNSUPPORTED_FIELDS,
+    REFUSED_FIELDS,
+    Reply,
+    completed_events,
+    failed_events,
+    fake_chatgpt,
+    pause_after,
+    run_in_thread,
+    sign_in,
+)
 from tests.helpers import create_basic_vault
 
 
@@ -91,7 +103,9 @@ def test_request_shape_follows_the_plan_route_rules(server):
     assert body["text"]["format"]["type"] == "json_schema" and body["text"]["format"]["strict"] is True
     assert body["text"]["format"]["schema"]["additionalProperties"] is False
     assert body["reasoning"] == {"effort": "low"}
-    assert not set(body) & UNSUPPORTED_FIELDS  # no max_output_tokens, temperature, tools, metadata, ...
+    assert not set(body) & REFUSED_FIELDS  # no max_output_tokens, temperature, tools, metadata, ...
+    # The implementation's list covers everything the docs name.
+    assert DOCUMENTED_UNSUPPORTED_FIELDS <= UNSUPPORTED_FIELDS
 
 
 def test_a_chunked_event_stream_is_reassembled(server):
@@ -270,6 +284,137 @@ def test_the_deadline_shuts_a_stalled_stream(server):
     server.replies.append(Reply(events=completed_events('{"ok": true, "note": "late"}'), stall=5))
     with pytest.raises(AITurnTimeout):
         _ask(client)
+
+
+# -- Codex review (2026-10-12): credential acquisition honours interrupts and deadlines --
+
+
+@pytest.fixture
+def expiring():
+    """Signed in with an access token already inside the refresh margin."""
+
+    with fake_chatgpt(access_lifetime=60) as fake:
+        sign_in(PlanSession(), fake)
+        fake.access_lifetime = 3600
+        yield fake
+
+
+def _hold_refresh_lock():
+    held, release = threading.Event(), threading.Event()
+
+    def hold() -> None:
+        with PlanSession().store.lock("refresh.lock"):
+            held.set()
+            release.wait(10)
+
+    thread = threading.Thread(target=hold, daemon=True)
+    thread.start()
+    assert held.wait(5)
+    return thread, release
+
+
+def test_an_interrupt_while_waiting_for_the_refresh_lock_sends_nothing(expiring):
+    client = _client(expiring)
+    holder, release = _hold_refresh_lock()
+    expiring.replies.append(Reply(events=completed_events('{"ok": true, "note": "late"}')))
+    thread, out = run_in_thread(lambda: _ask(client))
+    time.sleep(0.3)  # the call is waiting for another process's refresh
+    client.interrupt()
+    thread.join(2)
+    stopped_promptly = not thread.is_alive()
+    release.set()
+    holder.join(5)
+    thread.join(10)
+    assert stopped_promptly
+    assert isinstance(out.get("error"), AIInterrupted), out
+    assert expiring.requests == []
+
+
+def test_a_deadline_that_passes_while_waiting_for_the_refresh_lock_sends_nothing(expiring):
+    client = _client(expiring, timeout_seconds=1)
+    holder, release = _hold_refresh_lock()
+    expiring.replies.append(Reply(events=completed_events('{"ok": true, "note": "late"}')))
+    thread, out = run_in_thread(lambda: _ask(client))
+    thread.join(2.5)
+    stopped_promptly = not thread.is_alive()
+    release.set()
+    holder.join(5)
+    thread.join(10)
+    assert stopped_promptly
+    assert isinstance(out.get("error"), AITurnTimeout), out
+    assert expiring.requests == []
+
+
+def test_an_interrupt_during_the_token_refresh_keeps_the_new_tokens_and_sends_nothing(expiring):
+    reached, release = threading.Event(), threading.Event()
+    session = PlanSession(http=pause_after(b"grant_type=refresh_token", reached, release))
+    client = ChatGPTPlanProviderClient("chatgpt", ChatGPTPlanProviderConfig(
+        model="gpt-test-fast", base_url=expiring.base_url, timeout_seconds=10), session=session)
+    expiring.replies.append(Reply(events=completed_events('{"ok": true, "note": "late"}')))
+    thread, out = run_in_thread(lambda: _ask(client))
+    assert reached.wait(5)  # the refresh answered; the rotated token is not saved yet
+    client.interrupt()
+    release.set()
+    thread.join(10)
+    assert isinstance(out.get("error"), AIInterrupted), out
+    assert expiring.requests == []
+    # The rotation was committed, so the session survives the interrupt.
+    store = PlanSession().store
+    assert store.load_tokens(store.load_account()).refresh_token in expiring.refresh_tokens
+    expiring.replies.clear()  # the interrupted call never used its reply
+    expiring.replies.append(Reply(events=completed_events('{"ok": true, "note": "next"}')))
+    assert _ask(_client(expiring)).note == "next"
+
+
+def test_an_expired_deadline_is_never_extended_into_a_send(server, monkeypatch):
+    client = _client(server, timeout_seconds=5)
+    clock = {"now": 1000.0}
+    monkeypatch.setattr("learnloop.ai.providers.chatgpt_plan._monotonic", lambda: clock["now"])
+    real_access_token = client.session.access_token
+
+    def slow_token(**kwargs):
+        clock["now"] += 10  # the credential step outlives the whole deadline
+        return real_access_token(**kwargs)
+
+    monkeypatch.setattr(client.session, "access_token", slow_token)
+    server.replies.append(Reply(events=completed_events('{"ok": true, "note": "late"}')))
+    before = len(server.requests)
+    with pytest.raises(AITurnTimeout):
+        _ask(client)
+    assert len(server.requests) == before
+
+
+# -- Codex review (2026-10-12): an overlapping success never erases a newer pause --
+
+
+def test_a_success_that_overlaps_a_usage_limit_keeps_the_pause(server):
+    slow, fast = _client(server), _client(server)
+    server.replies.append(Reply(events=completed_events('{"ok": true, "note": "slow"}'), delay=0.6))
+    server.replies.append(Reply(status=429, body={"error": {"code": "subscription_sharing_usage_limit_exceeded",
+                                                            "message": "limit"}}))
+    thread, out = run_in_thread(lambda: _ask(slow))
+    for _ in range(100):
+        if len(server.replies) == 1:  # the slow request holds its (successful) reply
+            break
+        time.sleep(0.02)
+    with pytest.raises(ChatGPTPlanUsageExhausted):
+        _ask(fast)
+    thread.join(10)
+    assert out["value"].note == "slow"
+    assert PlanSession().status().readiness()[0] == "usage_exhausted"
+    sent = len(server.requests)
+    with pytest.raises(ChatGPTPlanUsageExhausted):
+        _ask(fast)  # still refused locally
+    assert len(server.requests) == sent
+
+
+def test_a_success_clears_the_expired_pause_it_saw(server):
+    PlanSession().store.update_state(usage_limit={
+        "code": "subscription_sharing_usage_limit_exceeded", "at": "2020-01-01T00:00:00+00:00",
+        "request_id": None})
+    server.replies.append(Reply(events=completed_events('{"ok": true, "note": "fine"}')))
+    assert _ask(_client(server)).note == "fine"
+    assert "usage_limit" not in PlanSession().store.load_state()
 
 
 def test_signed_out_is_refused_before_any_request(server):

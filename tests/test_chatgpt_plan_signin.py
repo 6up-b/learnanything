@@ -29,7 +29,9 @@ from tests.chatgpt_plan_fakes import (
     IDENTITY_SCOPES,
     complete_browser_flow,
     fake_chatgpt,
+    pause_after,
     rsa_test_key,
+    run_in_thread,
     sign_in,
 )
 
@@ -351,5 +353,186 @@ def test_a_pause_ends_by_itself_after_the_profile_window():
         status = session.status()
         assert status.readiness(pause_minutes=15)[0] == "ready"
         assert status.as_dict(pause_minutes=15)["paused_until"] is None
-        session.note_success()
+        observed = session.check_usable(pause_minutes=15)  # the expired record a request is sent under
+        assert observed is not None
+        session.note_success(observed)
         assert "usage_limit" not in session.store.load_state()
+
+
+# -- Codex review (2026-10-12): lifecycle races, interrupted commits, durability --
+
+
+def test_sign_out_during_an_in_flight_refresh_stays_signed_out():
+    with fake_chatgpt(access_lifetime=60) as server:
+        sign_in(PlanSession(), server)
+        server.access_lifetime = 3600
+        reached, release = threading.Event(), threading.Event()
+        refresher = PlanSession(http=pause_after(b"grant_type=refresh_token", reached, release))
+        refresh_thread, _refreshed = run_in_thread(refresher.access_token)
+        assert reached.wait(10)
+        signout_thread, signed_out = run_in_thread(PlanSession().sign_out)
+        signout_thread.join(0.5)  # the refresh already holds its answer; sign-out must not overtake its commit
+        release.set()
+        refresh_thread.join(10)
+        signout_thread.join(10)
+        assert signed_out["value"]["signed_out"] is True
+        session = PlanSession()
+        account = session.store.load_account()
+        assert account.client_id == "oaiapp_test_client" and not account.signed_in
+        assert session.store.load_tokens(account) is None
+        assert session.status().readiness()[0] == "signed_out"
+        with pytest.raises(ChatGPTSignInRequired):
+            session.access_token()
+        # The token revoked is the live one the refresh received, not the rotated-out one.
+        assert server.revocations and server.revocations[-1]["token"] not in server.used_refresh_tokens
+
+
+def test_sign_out_invalidates_a_sign_in_that_was_already_pending():
+    with fake_chatgpt() as server:
+        sign_in(PlanSession(), server)
+        reached, release = threading.Event(), threading.Event()
+        signer = PlanSession(http=pause_after(b"grant_type=authorization_code", reached, release))
+        pending = signer.begin_sign_in(issuer=server.issuer, port=0, consent=True)
+        complete_browser_flow(pending.authorize_url)
+        thread, out = run_in_thread(lambda: pending.wait(timeout=10))
+        assert reached.wait(10)  # the code exchange has its tokens; nothing is saved yet
+        PlanSession().sign_out()
+        release.set()
+        thread.join(10)
+        assert isinstance(out.get("error"), SignInError) and out["error"].code == "signed_out"
+        session = PlanSession()
+        account = session.store.load_account()
+        assert not account.signed_in and session.store.load_tokens(account) is None
+        assert session.status().readiness()[0] == "signed_out"
+        # No renewable session is left live: the saved one and the discarded one are both revoked.
+        assert server.token_requests[-1]["grant_type"] == "authorization_code"
+        assert server.refresh_tokens == set()
+        # A sign-in started after the sign-out works.
+        assert sign_in(PlanSession(), server).plan_usage_enabled
+
+
+def test_cancel_after_the_browser_returned_saves_nothing():
+    with fake_chatgpt() as server:
+        reached, release = threading.Event(), threading.Event()
+        signer = PlanSession(http=pause_after(b"grant_type=authorization_code", reached, release))
+        pending = signer.begin_sign_in(issuer=server.issuer, port=0)
+        complete_browser_flow(pending.authorize_url)
+        thread, out = run_in_thread(lambda: pending.wait(timeout=10))
+        assert reached.wait(10)  # the callback arrived and the exchange answered
+        pending.cancel()
+        release.set()
+        thread.join(10)
+        assert isinstance(out.get("error"), SignInError) and out["error"].code == "cancelled"
+        assert PlanSession().store.load_account() is None
+        assert server.refresh_tokens == set()  # the discarded session was revoked
+
+
+class _Crash(BaseException):
+    """A process dying at one persistence step (BaseException: nothing catches it)."""
+
+
+@pytest.mark.parametrize("crash_at", [None, "save_tokens", "save_account", "update_state"])
+def test_a_refresh_that_drops_plan_usage_never_serves_a_restricted_token(monkeypatch, crash_at):
+    with fake_chatgpt(access_lifetime=60) as server:
+        sign_in(PlanSession(), server)
+        server.granted_scope = IDENTITY_SCOPES + " offline_access"  # the refresh no longer grants plan usage
+        server.access_lifetime = 3600
+        if crash_at is not None:
+            original = getattr(PlanStore, crash_at)
+            calls = {"n": 0}
+
+            def crash(self, *args, **kwargs):
+                calls["n"] += 1
+                raise _Crash(crash_at)
+
+            monkeypatch.setattr(PlanStore, crash_at, crash)
+            with pytest.raises(_Crash):
+                PlanSession().access_token()
+            assert calls["n"] == 1
+            monkeypatch.setattr(PlanStore, crash_at, original)
+        else:
+            with pytest.raises(ChatGPTPlanNotEnabled):
+                PlanSession().access_token()
+        # After a restart, no reader gets a token without the plan grant.
+        restarted = PlanSession()
+        with pytest.raises(AIProviderUnavailable) as caught:
+            restarted.access_token()
+        assert isinstance(caught.value, (ChatGPTPlanNotEnabled, ChatGPTSignInRequired))
+        assert restarted.status().readiness()[0] in {"plan_usage_disabled", "signed_out"}
+
+
+def test_a_reader_never_sees_new_tokens_with_the_old_grant(monkeypatch):
+    with fake_chatgpt(access_lifetime=60) as server:
+        sign_in(PlanSession(), server)
+        server.granted_scope = IDENTITY_SCOPES + " offline_access"
+        server.access_lifetime = 3600
+        between, resume = threading.Event(), threading.Event()
+        original = PlanStore.save_account
+
+        def slow_save_account(self, account):
+            if threading.current_thread().name == "refresher":
+                between.set()
+                resume.wait(10)
+            return original(self, account)
+
+        monkeypatch.setattr(PlanStore, "save_account", slow_save_account)
+        out: dict = {}
+
+        def refresh():
+            try:
+                out["refresher"] = PlanSession().access_token()
+            except BaseException as exc:  # noqa: BLE001
+                out["refresher"] = exc
+
+        thread = threading.Thread(target=refresh, name="refresher", daemon=True)
+        thread.start()
+        assert between.wait(10)  # the new tokens are saved; the grant is not yet
+        reader_thread, reader = run_in_thread(PlanSession().access_token)
+        reader_thread.join(0.5)
+        resume.set()
+        thread.join(10)
+        reader_thread.join(10)
+        assert isinstance(out["refresher"], ChatGPTPlanNotEnabled)
+        assert isinstance(reader.get("error"), ChatGPTPlanNotEnabled), reader
+
+
+@pytest.mark.durability
+def test_credential_files_are_durable_after_replace_and_delete(monkeypatch, isolated_store):
+    import os as _os
+    import stat as _stat
+
+    from learnloop.ai.chatgpt_plan.store import FileSecrets
+
+    events: list[tuple[str, str]] = []
+    real_fsync, real_replace, real_unlink = _os.fsync, _os.replace, _os.unlink
+
+    def fsync(fd):
+        kind = "dir" if _stat.S_ISDIR(_os.fstat(fd).st_mode) else "file"
+        events.append(("fsync", kind))
+        return real_fsync(fd)
+
+    def replace(src, dst, *args, **kwargs):
+        events.append(("replace", _os.path.basename(str(dst))))
+        return real_replace(src, dst, *args, **kwargs)
+
+    def unlink(path, *args, **kwargs):
+        events.append(("unlink", _os.path.basename(str(path))))
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(_os, "fsync", fsync)
+    monkeypatch.setattr(_os, "replace", replace)
+    monkeypatch.setattr(_os, "unlink", unlink)
+    store = PlanStore()
+    store.ensure_root()
+    secrets_file = FileSecrets(store.root)
+    secrets_file.save("oaiapp_x", {"access_token": "a", "refresh_token": "r"})
+    replaced = events.index(("replace", "tokens.json"))
+    assert ("fsync", "file") in events[:replaced]
+    assert ("fsync", "dir") in events[replaced + 1:], events  # the new name survives a power loss
+    events.clear()
+    secrets_file.clear("oaiapp_x")
+    removed = events.index(("unlink", "tokens.json"))
+    assert ("fsync", "dir") in events[removed + 1:], events  # so does the deletion
+    events.clear()
+    store.update_state(force_refresh=True)
+    assert ("fsync", "dir") in events[events.index(("replace", "state.json")) + 1:], events

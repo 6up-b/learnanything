@@ -19,14 +19,25 @@ written into a vault or the repository:
   first-sign-in confirmation and a forced refresh after a 401.
 - ``store.lock`` and ``refresh.lock``: advisory locks. A refresh holds
   ``refresh.lock`` across the token request, so two processes never race a
-  rotating refresh token.
+  rotating refresh token. Every credential commit (sign-in, refresh,
+  sign-out) holds it too, so none can interleave with another.
 
-Files are written atomically (temporary file, fsync, rename) with mode 0600 in a
-0700 directory. Tokens are never logged or returned by any status call.
+**Generations.** Tokens and their grant live in two places (the secret store
+and ``account.json``) that no single write can replace together. Each commit
+therefore numbers itself: the token snapshot carries its ``generation`` and
+the granted ``scopes`` and is written first; ``account.json`` then records the
+same generation. A reader uses a token only when the two generations agree;
+otherwise the snapshot is authoritative and the interrupted commit is rolled
+forward under ``refresh.lock`` (see ``PlanSession.access_token``).
+
+Files are written atomically (temporary file, fsync, rename, then an fsync of
+the directory so the new name or a deletion survives a power loss) with mode
+0600 in a 0700 directory. Tokens are never logged or returned by any status
+call.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 import json
@@ -62,6 +73,14 @@ class StoreError(RuntimeError):
     """The machine-local store cannot be read or written."""
 
 
+class LockTimeout(StoreError):
+    """A lock was not acquired within its timeout."""
+
+
+class LockCancelled(StoreError):
+    """The caller gave up waiting for a lock (an interrupt or its deadline)."""
+
+
 def default_store_root() -> Path:
     return global_settings_path().parent / STORE_DIRNAME
 
@@ -86,6 +105,10 @@ class Account:
     #: endpoint over TLS; OpenID Connect Core 3.1.3.7 step 6).
     id_token_signature: str | None = None
     signed_out_reason: str | None = None
+    #: The credential commit this file belongs to (see the module docstring).
+    generation: int = 0
+    #: The current access token's expiry, for status (the token is never read for it).
+    access_expires_at: float | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Account":
@@ -102,6 +125,11 @@ class Tokens:
     expires_at: float
     saved_at: float
     earliest_refresh_at: float | None = None
+    #: The scopes granted with these tokens: the authoritative grant for them.
+    #: None only in a snapshot written before generations existed.
+    scopes: list[str] | None = None
+    #: The credential commit that wrote this snapshot.
+    generation: int = 0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Tokens":
@@ -142,9 +170,10 @@ class FileSecrets:
         if isinstance(data, dict) and data.get("client_id") not in (None, client_id):
             return
         try:
-            self.path.unlink()
+            os.unlink(self.path)
         except FileNotFoundError:
-            pass
+            return
+        _fsync_directory(self.path.parent)
 
 
 class KeyringSecrets:
@@ -304,24 +333,25 @@ class PlanStore:
     def save_sign_in(self, account: Account, tokens: Tokens) -> Account:
         """Persist a validated sign-in: tokens first, then the account that points at them.
 
-        The keyring is preferred; a keyring that refuses the write falls back to
-        the 0600 file, and the account records which one holds the tokens.
+        The caller holds ``refresh.lock`` and has numbered both with the same
+        generation. The keyring is preferred; a keyring that refuses the write
+        falls back to the 0600 file, and the account records which one holds
+        the tokens.
         """
 
         self.ensure_root()
         backend = self.preferred_secrets()
-        with self.lock("refresh.lock"):
-            try:
-                backend.save(account.client_id, asdict(tokens))
-            except StoreError:
-                if backend.name != "keyring" or os.environ.get(SECRET_STORE_ENV, "").strip().lower() == "keyring":
-                    raise
-                backend = FileSecrets(self.root)
-                backend.save(account.client_id, asdict(tokens))
-            if backend.name == "keyring":
-                FileSecrets(self.root).clear(account.client_id)
-            account.secret_store = backend.name
-            self.save_account(account)
+        try:
+            backend.save(account.client_id, asdict(tokens))
+        except StoreError:
+            if backend.name != "keyring" or os.environ.get(SECRET_STORE_ENV, "").strip().lower() == "keyring":
+                raise
+            backend = FileSecrets(self.root)
+            backend.save(account.client_id, asdict(tokens))
+        if backend.name == "keyring":
+            FileSecrets(self.root).clear(account.client_id)
+        account.secret_store = backend.name
+        self.save_account(account)
         return account
 
     # -- state ---------------------------------------------------------
@@ -343,15 +373,45 @@ class PlanStore:
             _write_json(self.state_path, state)
             return state
 
+    def clear_state_if(self, key: str, expected: Any) -> bool:
+        """Remove ``key`` only while it still holds ``expected`` (compare and clear, under the lock)."""
+
+        self.ensure_root()
+        with self.lock():
+            state = self.load_state()
+            if key not in state or state.get(key) != expected:
+                return False
+            del state[key]
+            _write_json(self.state_path, state)
+            return True
+
     # -- locks ---------------------------------------------------------
     @contextmanager
-    def lock(self, name: str = "store.lock", timeout: float = LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
+    def lock(self, name: str = "store.lock", timeout: float = LOCK_TIMEOUT_SECONDS,
+             cancelled: Callable[[], bool] | None = None) -> Iterator[None]:
+        """An exclusive lock across threads and processes.
+
+        Raises :class:`LockTimeout` after ``timeout`` seconds, and
+        :class:`LockCancelled` as soon as ``cancelled()`` turns true while
+        waiting (polled every few milliseconds), so a caller's interrupt or
+        deadline is never held hostage by another process's refresh.
+        """
+
         self.ensure_root()
         path = self.root / name
         thread_lock = _thread_lock(str(path))
-        deadline = time.monotonic() + timeout
-        if not thread_lock.acquire(timeout=timeout):
-            raise StoreError(f"Timed out waiting for {path.name}")
+        deadline = time.monotonic() + max(0.0, timeout)
+
+        def wait_or_give_up() -> float:
+            if cancelled is not None and cancelled():
+                raise LockCancelled(f"Stopped waiting for {path.name}")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LockTimeout(f"Timed out waiting for {path.name}")
+            return min(_LOCK_POLL_SECONDS, remaining)
+
+        while not thread_lock.acquire(timeout=wait_or_give_up()):
+            pass
         try:
             handle = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
             try:
@@ -361,9 +421,7 @@ class PlanStore:
                             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
                             break
                         except BlockingIOError:
-                            if time.monotonic() >= deadline:
-                                raise StoreError(f"Timed out waiting for {path.name}") from None
-                            time.sleep(_LOCK_POLL_SECONDS)
+                            time.sleep(wait_or_give_up())
                 yield
             finally:
                 if fcntl is not None:
@@ -416,6 +474,25 @@ def _write_json(path: Path, data: Any) -> None:
         except FileNotFoundError:
             pass
         raise
+    # The rename is atomic but lives in the directory: without this, a power
+    # loss can bring back the old file (for tokens.json, an already-rotated
+    # refresh token that forces a new sign-in).
+    _fsync_directory(path.parent)
+
+
+def _fsync_directory(directory: Path) -> None:
+    """Make a rename or deletion in ``directory`` durable (POSIX; a no-op where unsupported)."""
+
+    try:
+        handle = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError:
+        return
+    try:
+        os.fsync(handle)
+    except OSError:
+        pass  # some filesystems refuse fsync on a directory; the file itself is already synced
+    finally:
+        os.close(handle)
 
 
 def _utc_now() -> str:
@@ -427,6 +504,8 @@ __all__ = [
     "FileSecrets",
     "KEYRING_SERVICE",
     "KeyringSecrets",
+    "LockCancelled",
+    "LockTimeout",
     "PlanStore",
     "SECRET_STORE_ENV",
     "StoreError",

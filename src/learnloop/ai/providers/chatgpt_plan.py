@@ -12,7 +12,9 @@ their call caps. Every physical request is its own child receipt naming the
 provider, the profile's model and the model that answered.
 
 Under ``single_request()`` one ``complete()`` sends at most one request: no
-retry, no token-refresh retry and no JSON repair. Otherwise a transient
+retry, no token-refresh retry and no JSON repair. An interrupt or the deadline
+stops a call at every step, including while it waits for a token refresh; a
+request is never sent after either. Otherwise a transient
 failure (network, 5xx, ``subscription_sharing_usage_unavailable``) is retried
 with bounded backoff inside the caller's deadline, and a 401 refreshes the
 token once. A usage-limit error pauses the plan (``plan usage exhausted``):
@@ -182,14 +184,11 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         )
         refreshed = False
         for attempt in range(1, _MAX_ATTEMPTS + 1):
-            if self._interrupted.is_set():
-                raise AIInterrupted("ChatGPT plan request interrupted.")
-            if deadline - _monotonic() <= 0:
-                raise AITurnTimeout("The ChatGPT plan request ran out of time.")
+            self._stop_if_due(deadline)
             # Local refusals (signed out, paused, ineligible) send nothing.
-            self.session.check_usable(pause_minutes=self.pause_minutes)
+            observed_pause = self.session.check_usable(pause_minutes=self.pause_minutes)
             try:
-                return self._send_once(body, deadline=deadline)
+                return self._send_once(body, deadline=deadline, observed_pause=observed_pause)
             except ChatGPTPlanUnauthorized:
                 if single_request_active() or refreshed:
                     raise
@@ -204,18 +203,37 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                 _sleep(delay)
         raise ChatGPTPlanUnauthorized(f"{self.provider_name}: the refreshed access token was not accepted either.")
 
-    def _send_once(self, body: dict[str, Any], *, deadline: float) -> str:
+    def _stop_if_due(self, deadline: float) -> None:
+        if self._interrupted.is_set():
+            raise AIInterrupted("ChatGPT plan request interrupted.")
+        if deadline - _monotonic() <= 0:
+            raise AITurnTimeout("The ChatGPT plan request ran out of time.")
+
+    def _send_once(self, body: dict[str, Any], *, deadline: float, observed_pause: dict[str, Any] | None) -> str:
         """One physical request under its own receipt (the token step sends no model request)."""
 
-        token = self.session.access_token(timeout=min(20.0, max(1.0, deadline - _monotonic())))
         stream = ResponsesStream(self.base_url)
+        # Published first: an interrupt from here on cancels this stream, and
+        # one that came earlier set the flag checked below.
         with self._active_lock:
             self._active = stream
         try:
+            self._stop_if_due(deadline)
+            try:
+                token = self.session.access_token(
+                    timeout=deadline - _monotonic(),
+                    cancelled=lambda: self._interrupted.is_set() or deadline - _monotonic() <= 0,
+                )
+            except AIProviderUnavailable:
+                self._stop_if_due(deadline)  # an interrupt or the deadline, not the credentials
+                raise
+            # The credential step may have outlived the deadline or an interrupt.
+            self._stop_if_due(deadline)
+            remaining = deadline - _monotonic()
             with model_call(self, purpose="responses_request", prompt=body.get("input"),
                             schema=body.get("text"), budget=None) as receipt:
                 try:
-                    result = stream.send(body, access_token=token, timeout=max(0.5, deadline - _monotonic()))
+                    result = stream.send(body, access_token=token, timeout=remaining)
                 except StreamCancelled as cancelled:
                     if cancelled.reason == "interrupt":
                         raise AIInterrupted("ChatGPT plan request interrupted.") from None
@@ -237,7 +255,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                     "total": result.seconds_total,
                 }
                 self._meter(result.response, result.request_id, text=result.text)
-                self.session.note_success()
+                self.session.note_success(observed_pause)
                 if result.refusal and not result.text.strip():
                     raise AIInvalidOutput(f"{self.provider_name} refused: {result.refusal[:200]}")
                 if not result.text.strip():
@@ -245,7 +263,8 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                 return result.text.strip()
         finally:
             with self._active_lock:
-                self._active = None
+                if self._active is stream:
+                    self._active = None
 
     def _meter(self, response: dict[str, Any], request_id: str | None, *, text: str | None = None) -> None:
         """Record usage on the receipt and the run before anything inspects the body."""
