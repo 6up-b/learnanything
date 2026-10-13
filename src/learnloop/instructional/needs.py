@@ -266,13 +266,39 @@ def fulfil_need_from_sources(
     return {"outcome": "generate", "reason": "no source exercise passed every check", "tries": tries, **receipt}
 
 
+def live_repair_class(repository: Repository, *, attempt_id: str, factor_id: str | None) -> str | None:
+    """The repair class the causal path is running for this attempt, or None.
+
+    The repair the attempt's diagnosis selected (``repair_selection.selected``,
+    what a guided redo and a repair episode run), else the factor's latest
+    live decision receipt when it names exactly one repair class
+    (``causal_probe_decision_receipts.repair_class_ids``, spec §8.5 step 3).
+    S2b only logs it beside the valuation's named action; it never changes it."""
+
+    from learnloop.diagnosis.guided_redo import diagnosis_receipt, selected_repair
+
+    selected = selected_repair(diagnosis_receipt(repository, attempt_id)) or {}
+    repair_class = selected.get("repair_class")
+    if isinstance(repair_class, Mapping) and repair_class.get("id"):
+        return str(repair_class["id"])
+    if factor_id:
+        receipts = repository.causal_probe_decision_receipts(factor_id=factor_id)
+        if receipts:
+            classes = [str(value) for value in receipts[-1].get("repair_class_ids") or () if value]
+            if len(set(classes)) == 1:
+                return classes[0]
+    return None
+
+
 def pending_causal_decision(vault: LoadedVault, repository: Repository,
                             need: Mapping[str, Any]) -> dict[str, Any] | None:
     """The need's attempt's open causal factor as a priced decision, or None.
 
     A factor whose prior or repair classes cannot be read is returned as
     ``{"unavailable": reason}``: missing machine data never buys a question
-    (the need then goes to generation, the stronger-instrument path).
+    (the need then goes to generation, the stronger-instrument path). A priced
+    decision carries ``live_repair_class`` (:func:`live_repair_class`), so a
+    ``stop`` whose named action differs logs ``action_disagreement``.
     """
 
     attempt_id = need.get("attempt_id")
@@ -296,8 +322,11 @@ def pending_causal_decision(vault: LoadedVault, repository: Repository,
         record = repository.fetch_hypothesis_set(episode.hypothesis_set_id) or {}
         if set(ids) <= set((record.get("prior") or {}).keys()):
             return {"hypothesis_set_id": episode.hypothesis_set_id,
-                    "action_by_slot": {hypothesis: repair.get(hypothesis) for hypothesis in ids}}
+                    "action_by_slot": {hypothesis: repair.get(hypothesis) for hypothesis in ids},
+                    "live_repair_class": live_repair_class(repository, attempt_id=str(attempt_id),
+                                                           factor_id=str(factors[0].get("id") or "") or None)}
     return {"unavailable": "no_locked_hypothesis_set"}
 
 
-__all__ = ["PATHS", "fulfil_need_from_sources", "need_intent", "pending_causal_decision", "source_first_active"]
+__all__ = ["PATHS", "fulfil_need_from_sources", "live_repair_class", "need_intent", "pending_causal_decision",
+           "source_first_active"]

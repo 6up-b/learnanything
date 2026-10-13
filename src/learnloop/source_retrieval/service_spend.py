@@ -49,7 +49,7 @@ import threading
 from typing import Any
 
 from learnloop.ai.spend import SpendEnvelope, SpendLimitExceeded, spend_envelopes
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import (
@@ -76,7 +76,7 @@ PROCESS = "proc_" + new_ulid()
 LEASE_SECONDS = 300
 HEARTBEAT_SECONDS = 60
 
-_DAILY: dict[tuple[str, str, float], SpendEnvelope] = {}
+_DAILY: dict[tuple[str, str, float, str], SpendEnvelope] = {}
 _DAILY_LOCK = threading.Lock()
 
 
@@ -152,15 +152,22 @@ class SharedDailyEnvelope(SpendEnvelope):
     (``estimated_only``).
     """
 
-    def __init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float) -> None:
+    def __init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float,
+                 clock: Clock | None = None) -> None:
         super().__init__(DAILY_ENVELOPE, cap)
         self._vault = vault
         self._repository = repository
         self._since = day  # UTC midnight
         self._day = day[:10]
+        #: The clock the envelope was opened with: every reservation, charge,
+        #: settlement and total is stamped by it (the day it guards is its day).
+        self._clock = clock
+
+    def _now(self) -> str:
+        return utc_now_iso(self._clock)
 
     def accounting(self, connection: sqlite3.Connection, now: str | None = None) -> dict[str, Any]:
-        return daily_accounting(connection, self._vault, self._since, envelope=self.name, now=now)
+        return daily_accounting(connection, self._vault, self._since, envelope=self.name, now=now or self._now())
 
     def _total(self) -> Decimal:
         with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
@@ -174,7 +181,7 @@ class SharedDailyEnvelope(SpendEnvelope):
         with self._repository.atomic():
             admitted, total = reserve_service_spend(
                 self._repository.connection(), id=handle, envelope=self.name, day=self._day, since=self._since,
-                usd=float(usd), cap=float(self.max_usd), process=PROCESS, now=utc_now_iso(),
+                usd=float(usd), cap=float(self.max_usd), process=PROCESS, now=self._now(),
                 lease_seconds=LEASE_SECONDS,
                 price_per_million=self._vault.config.source_service.llm_price_per_million,
                 subscription_providers=subscription_providers(self._vault), owner_kinds=SERVICE_OWNER_KINDS)
@@ -198,14 +205,14 @@ class SharedDailyEnvelope(SpendEnvelope):
     def charge(self, usd: Decimal, handle: object = None) -> None:
         if usd > 0 and isinstance(handle, str):
             with self._repository.atomic():
-                charge_service_spend(self._repository.connection(), handle, float(usd), utc_now_iso(),
+                charge_service_spend(self._repository.connection(), handle, float(usd), self._now(),
                                      process=PROCESS)
 
     def settle(self, handle: object, actual: Decimal | None = None) -> None:
         if isinstance(handle, str):
             try:
                 with self._repository.atomic():
-                    settle_service_spend(self._repository.connection(), handle, utc_now_iso(),
+                    settle_service_spend(self._repository.connection(), handle, self._now(),
                                          None if actual is None else float(actual), process=PROCESS)
             finally:
                 _LEASES.drop(self._repository, handle)
@@ -257,7 +264,7 @@ def service_spend_today(vault: LoadedVault, repository: Repository, clock: Clock
     subscription's ``estimated_only`` tokens and dollars."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return daily_accounting(connection, vault, midnight(clock))
+        return daily_accounting(connection, vault, midnight(clock), now=utc_now_iso(clock))
 
 
 def spend_report(vault: LoadedVault, repository: Repository, *, days: int = 7, top: int = 5,
@@ -276,7 +283,7 @@ def spend_report(vault: LoadedVault, repository: Repository, *, days: int = 7, t
         report = service_spend_report(
             connection, envelope=DAILY_ENVELOPE, days=span, price_per_million=service.llm_price_per_million,
             subscription_providers=subscription_providers(vault), owner_kinds=SERVICE_OWNER_KINDS, top=top)
-        guard = daily_accounting(connection, vault, midnight(clock))
+        guard = daily_accounting(connection, vault, midnight(clock), now=utc_now_iso(clock))
     cap = float(service.max_daily_cost_usd)
     report["daily_guard"] = {
         "day": today, "cap_usd": cap, "counted_usd": float(guard["usd"]),
@@ -291,17 +298,25 @@ def spend_report(vault: LoadedVault, repository: Repository, *, days: int = 7, t
     return report
 
 
+def _clock_key(clock: Clock | None) -> str:
+    """One shared envelope per database and day for the system clock; an
+    injected clock (a test's, a replay's) gets its own, stamped by it."""
+
+    return "system" if clock is None or isinstance(clock, SystemClock) else f"clock:{id(clock)}"
+
+
 def daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | None = None) -> SpendEnvelope:
     """The daily envelope for this database and UTC day, shared through the
-    database by every process (one object per process for its threads)."""
+    database by every process (one object per process for its threads). Its
+    reservations, charges and settlements are stamped by ``clock``."""
 
     cap = float(vault.config.source_service.max_daily_cost_usd)
     day = midnight(clock)
-    key = (str(repository.sqlite_path), day, cap)
+    key = (str(repository.sqlite_path), day, cap, _clock_key(clock))
     with _DAILY_LOCK:
         envelope = _DAILY.get(key)
         if envelope is None:
-            envelope = SharedDailyEnvelope(vault, repository, day=day, cap=cap)
+            envelope = SharedDailyEnvelope(vault, repository, day=day, cap=cap, clock=clock)
             _DAILY[key] = envelope
         return envelope
 

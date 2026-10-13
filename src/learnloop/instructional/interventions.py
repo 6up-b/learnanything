@@ -13,7 +13,8 @@ Each row keeps references, not copies: the assets with their revisions, the
 targets, the state the valuation read (problem keys and table hashes), the
 valued check's predicted P(E), regime and minutes, the impressions displayed
 before the pick, the independence verdict at valuation and at serving time,
-and R1's learner_pick row when one exists. ``source_service.interventions``
+and, for a pick, the router decision of the plan block that served it as the
+serving path returned it (never a "latest matching row"). ``source_service.interventions``
 off writes nothing. Reports only: nothing reads these rows to serve.
 """
 from __future__ import annotations
