@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8c3cfe68ac65cac8120739b37fbde26d8d4b4508"
-source_commit_timestamp: "2026-10-13T18:15:25-04:00"
+source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
+source_commit_timestamp: "2026-10-13T19:31:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
@@ -103,6 +104,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 
