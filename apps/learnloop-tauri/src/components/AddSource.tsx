@@ -12,7 +12,6 @@ import { pickSourceFiles } from "./useSourceFileDrop";
 export type AddOptions = {
   pages?: string;
   problemSet?: boolean;
-  keepLocal?: boolean;
   textRecognition?: boolean;
 };
 
@@ -62,7 +61,6 @@ export function AddSourceBox({
   const [moreOpen, setMoreOpen] = useState(false);
   const [pages, setPages] = useState("");
   const [problemSet, setProblemSet] = useState(false);
-  const [keepLocal, setKeepLocal] = useState(false);
   const [textRecognition, setTextRecognition] = useState(false);
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -75,10 +73,9 @@ export function AddSourceBox({
     const chosen: AddOptions = {};
     if (pages.trim()) chosen.pages = pages.trim();
     if (problemSet) chosen.problemSet = true;
-    if (keepLocal) chosen.keepLocal = true;
     if (textRecognition) chosen.textRecognition = true;
     return chosen;
-  }, [pages, problemSet, keepLocal, textRecognition]);
+  }, [pages, problemSet, textRecognition]);
 
   const submit = useCallback(
     (sources: string[]) => {
@@ -179,10 +176,6 @@ export function AddSourceBox({
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={problemSet} onChange={(event) => setProblemSet(event.target.checked)} />
             This is a past exam or problem set (no reading questions)
-          </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="checkbox" checked={keepLocal} onChange={(event) => setKeepLocal(event.target.checked)} />
-            Never send this to an AI
           </label>
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="checkbox" checked={textRecognition} onChange={(event) => setTextRecognition(event.target.checked)} />

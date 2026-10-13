@@ -105,18 +105,13 @@ describe("BookCard", () => {
     expect(onOpenImports).toHaveBeenCalled();
   });
 
-  it("keeps a book on this computer from its details, and lets it go again (review F1)", () => {
-    const onAction = vi.fn();
-    const { unmount } = render(<BookCard card={card(null)} onContinue={vi.fn()} onAction={onAction} />);
+  it("offers no per-book AI opt-out in its details (retired, owner 2026-10-13)", () => {
+    // "Never send this book to an AI" (formerly "Keep this book on this
+    // computer", spec §6.6) was not asked for: sending books to an AI is fine.
+    render(<BookCard card={card(null)} onContinue={vi.fn()} onAction={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
-    fireEvent.click(screen.getByRole("button", { name: "Never send this book to an AI" }));
-    expect(onAction).toHaveBeenCalledWith("keep_local", expect.objectContaining({ sourceId: "src_1" }));
-    unmount();
-    render(<BookCard card={card(null, { keepLocal: true })} onContinue={vi.fn()} onAction={onAction} />);
-    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
-    expect(screen.getByText("This book is never sent to an AI, so no questions are written for it.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Let LearnLoop write questions for it" }));
-    expect(onAction).toHaveBeenCalledWith("share_with_ai", expect.anything());
+    expect(screen.queryByRole("button", { name: /never send|on this computer|write questions for it/i })).toBeNull();
+    expect(document.body.textContent ?? "").not.toMatch(/never sent? (this|to)|on this computer/i);
   });
 
   it("never shows a file address as the title", () => {
@@ -267,9 +262,8 @@ describe("round 2", () => {
   });
 
   // UX Phase 1 re-test (#6): a paper's details said "the whole book" and
-  // "this book's questions"; "Keep this book on this computer" read as
-  // "isn't it already here?"; "Open in Imports & builds" named nothing the
-  // learner knew.
+  // "this book's questions"; "Open in Imports & builds" named nothing the
+  // learner knew. (Its "Keep this book on this computer" is retired.)
   it("names a paper a paper in its details, and says what each choice does", () => {
     const onAction = vi.fn();
     const line: SourceStatusLineDto = { text: "Questions for this paper come up as you read", tone: "quiet", action: null, details: null };
@@ -277,7 +271,6 @@ describe("round 2", () => {
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
     expect(screen.getByRole("button", { name: "Build questions for the whole paper at once" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Undo this paper's questions" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Never send this paper to an AI" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "See how it was added and built" })).toBeTruthy();
     const details = document.body.textContent ?? "";
     expect(details).not.toMatch(/\bbook\b/);

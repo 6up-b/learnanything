@@ -94,6 +94,9 @@ describe("ConnectAISheet", () => {
     await screen.findByRole("button", { name: "Continue with ChatGPT" });
     expect(screen.getAllByRole("button")[0].textContent).toBe("Continue with ChatGPT");
     expect(screen.getByText(/What leaves this computer/)).toBeTruthy();
+    // The one consent sentence stays; the per-book opt-out it pointed to is
+    // retired (owner, 2026-10-13).
+    expect(screen.queryByText(/never to send a book|private from its details/i)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Continue with ChatGPT" }));
     await waitFor(() => expect(api.connectAi).toHaveBeenCalledWith({ provider: "chatgpt" }));
     expect(onConnected).toHaveBeenCalledWith(CONNECTED);
