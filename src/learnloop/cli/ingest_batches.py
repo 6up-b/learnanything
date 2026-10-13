@@ -63,6 +63,11 @@ def ingest_batches_cancel(
         typer.echo(f"Batch {batch_id} not found.", err=True)
         raise typer.Exit(code=1)
     runner.cancel_batch(batch_id)
+    # A cancel answers the reading request of the book whose automatic build
+    # this was (reading-hardening, part 1), as the sidecar's cancel does.
+    from learnloop.content.pipeline.add_source import settle_reading_for_cancelled_batch
+
+    settle_reading_for_cancelled_batch(runner.repo, batch_id)
     batch = _batch_json(runner, batch_id)
     typer.echo(_dump({"version": 1, "batch": batch}) if json_output else f"Batch {batch_id} [{batch['status']}]")
 

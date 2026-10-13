@@ -1525,7 +1525,7 @@ def reader_mark_section_progress(
     # inside a section it already reached plans nothing new, so only the first
     # report for a section asks (round-2 review F1), unless the book's reading
     # request failed and has not settled: then every report asks again with the
-    # newest position (F8), while the ingest worker retries it off this RPC.
+    # newest position (F8), while the reading sweep retries it off this RPC.
     # Both are read from the book's durable request, so they hold across a
     # restart (finishing pass, F8).
     first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0

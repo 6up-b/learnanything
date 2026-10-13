@@ -16,6 +16,10 @@ Everything else happens in the durable queue, without a question on the way:
    gate passes (Q3, kill switch ``[ingest] auto_apply_passing_builds``).
 3. **Keep one chapter ahead** (:func:`advance_reading_build`), called when the
    Reader marks a section reached: the chapter being read and the next one.
+   The position is the book's durable reading request; the Reader's RPC acts
+   on it at once, and while the sidecar runs a periodic reading sweep
+   (``DurableIngestJobs.sweep_reading_requests``) acts on every due request
+   whose book's work is done, so none waits on a wake-up (reading-hardening).
 4. **Say it in one line** (:func:`source_status_line`): the book card's only
    status line, in the learner's words (§6.3, §6.7, glossary §9).
 5. **Undo** (:func:`undo_source_questions`): revert the book's applied maps.
@@ -1147,15 +1151,27 @@ def _active(job_or_batch: Mapping[str, Any] | None) -> bool:
 
 
 def _source_work_active(repo, source_id: str, *, ignore_batch_id: str | None = None) -> bool:
+    return _source_work_waiting_on(repo, source_id, ignore_batch_id=ignore_batch_id) is not None
+
+
+def _source_work_waiting_on(repo, source_id: str, *, ignore_batch_id: str | None = None) -> str | None:
+    """Whether the book's automatic-build work is unfinished, and on whom:
+    ``"worker"`` (some of it is queued or running), ``"learner"`` (all of it
+    waits for the learner's input), or ``None`` (none is unfinished)."""
+
+    statuses: list[str] = []
     for job in auto_jobs(repo, source_id):
         if job["batch_id"] != ignore_batch_id and _active(job):
-            return True
+            statuses.append(str(job["status"]))
         outcome = planner_outcome(repo, job)
         if outcome and outcome.get("outcome") == "building":
             batch_id = outcome.get("build_batch_id")
-            if batch_id and batch_id != ignore_batch_id and _active(repo.get_ingest_batch(batch_id)):
-                return True
-    return False
+            batch = repo.get_ingest_batch(batch_id) if batch_id and batch_id != ignore_batch_id else None
+            if _active(batch):
+                statuses.append(str(batch["status"]))
+    if not statuses:
+        return None
+    return "learner" if all(status == "waiting_for_input" for status in statuses) else "worker"
 
 
 # ---------------------------------------------------------------------------
@@ -1595,24 +1611,34 @@ def _wanted_chapters(repo, vault_root: Path, source_id: str, state: Mapping[str,
 
 def reconcile_reading_builds(ingest_jobs, *, skip: Iterable[str] = ()) -> list[str]:
     """Act on every book's pending reading request: at startup, on reconnection
-    (review F7). A request that fails here is not only logged (finishing pass,
-    F8): it is marked failed with a fresh set of worker retries, so the worker
-    retries it and the Reader's next report asks again. Returns the books whose
-    build was queued."""
+    (review F7). A failure here is never only logged (finishing pass, F8;
+    reading-hardening): a failed act is recorded with a fresh backoff, and a
+    request whose act could not even start (its read failed) stays pending,
+    which is due for the reading sweep. Returns the books whose build was
+    queued."""
 
     repo = ingest_jobs.repository
     skipped = set(skip)
     started: list[str] = []
-    for state in repo.sources_with_wanted_reading():
+    try:
+        pending = repo.pending_reading_requests()
+    except Exception:  # noqa: BLE001 - the requests stay due for the sweep
+        import logging
+
+        logging.getLogger(__name__).warning("could not read the pending reading positions", exc_info=True)
+        ingest_jobs.wake_reading_retries()
+        return started
+    for state in pending:
         source_id = str(state["source_id"])
         if source_id in skipped:
-            continue  # a build was just asked for; the worker acts after it
+            continue  # a build was just asked for; the sweep acts after it
         try:
             outcome = act_on_reading_request(ingest_jobs, source_id, rearm=True)
-        except Exception:  # noqa: BLE001 - one book's failure is kept for its retries
+        except Exception:  # noqa: BLE001 - one book's failure is kept for the sweep
             import logging
 
             logging.getLogger(__name__).warning("could not act on a book's pending reading position", exc_info=True)
+            ingest_jobs.wake_reading_retries()
             continue
         if outcome and outcome.get("batch_id"):
             started.append(source_id)
@@ -1636,8 +1662,9 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
     repo = ingest_jobs.repository
     if not _keep_ahead_ready(repo, ingest_jobs.vault_root, source_id):
         return None
-    if _source_work_active(repo, source_id):
-        return {"deferred": True, "source_id": source_id, "section_id": section_id}
+    waiting_on = _source_work_waiting_on(repo, source_id)
+    if waiting_on is not None:
+        return {"deferred": True, "source_id": source_id, "section_id": section_id, "waiting_on": waiting_on}
     if repo.get_extraction_run(extraction_id) is None:
         return None
     chapters = outline_chapters(_unit_tree(repo, extraction_id))
@@ -1649,21 +1676,26 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
     return {"batch_id": batch_id, "source_id": source_id, "chapters": [chapter.label for chapter in wanted]}
 
 
-def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False) -> dict[str, Any] | None:
+def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False,
+                           now: datetime | None = None) -> dict[str, Any] | None:
     """Act on the book's pending reading request, exactly its current revision
     (finishing pass, F8 and F9). Raises when acting fails, after recording it.
 
-    One lock serialises the acting (the Reader's RPC, the worker's retries and
-    the start), so a request is never acted on twice at once. Recording a newer
-    request does not wait for the lock: it advances the revision, so settling
-    the older one cannot erase it, and the newer one is acted on next.
+    One lock serialises the acting (the Reader's RPC, the reading sweep, the
+    start and a cancel), so a request is never acted on twice at once.
+    Recording a newer request does not wait for the lock: it advances the
+    revision, so settling the older one cannot erase it, and the newer one is
+    acted on next.
 
     * queued, or nothing to do: the request is settled;
-    * deferred (the book's work is running): it stays, due, for the worker to
-      act on once that work ends;
-    * failed: its attempts are counted and the worker's next retry is set
-      (``rearm`` starts a fresh set, as the start does); the Reader's next
-      report asks again meanwhile."""
+    * deferred (the book's work is unfinished): it stays due, and the reading
+      sweep acts on it once that work ends. A deferral is not a failure: a
+      failed attempt it follows is forgotten. Work that waits on the worker
+      makes sure the worker runs (after a restart nothing else may start it);
+    * failed: its attempts are counted and its retry time is set, backed off
+      from ``now`` (default: the host's reading clock); ``rearm`` starts a
+      fresh backoff, as the start does. The Reader's next report asks again
+      meanwhile. A request is never given up."""
 
     repo = ingest_jobs.repository
     with ingest_jobs.reading_lock:
@@ -1674,25 +1706,37 @@ def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False) 
             outcome = plan_reading_advance(ingest_jobs, source_id, request["extraction_id"], request["section_id"])
         except Exception:
             attempts = 1 if rearm else request["attempts"] + 1
-            _note_reading_failure(ingest_jobs, source_id, request["revision"], attempts)
+            _note_reading_failure(ingest_jobs, source_id, request["revision"], attempts, now=now)
             raise
         if not (outcome or {}).get("deferred"):
             repo.settle_reading_request(source_id, request["revision"])
-        return outcome
+            return outcome
+        if request["attempts"] or request["retry_at"] is None:
+            repo.defer_reading_request(source_id, request["revision"],
+                                       retry_at=utc_now_iso(FrozenClock(now or ingest_jobs.reading_now())))
+    if outcome.get("waiting_on") == "worker":
+        ingest_jobs.wake_blocking_work()
+    return outcome
 
 
-def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: int) -> None:
-    """Best effort: count a failed attempt and wake the worker for its retry
-    (timed from now, by the wall clock). If even that write fails, the request
-    stays due and the worker acts on it."""
+def _reading_retry_delay(ingest_jobs, attempts: int) -> float:
+    """Seconds before the ``attempts``-th failed attempt is tried again: the
+    host's delays in turn, the last one repeating (never given up)."""
+
+    delays = tuple(ingest_jobs.READING_RETRY_DELAYS) or (0.0,)
+    return float(delays[min(max(attempts, 1), len(delays)) - 1])
+
+
+def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: int, *,
+                          now: datetime | None = None) -> None:
+    """Best effort: count a failed attempt, set its retry time and bring the
+    sweep's next pass forward. If even that write fails, the request stays
+    due and the sweep's next pass acts on it."""
 
     from datetime import timedelta
 
-    delays = ingest_jobs.READING_RETRY_DELAYS
-    retry_at = None
-    if attempts <= len(delays):
-        moment = datetime.now(UTC)
-        retry_at = utc_now_iso(FrozenClock(moment + timedelta(seconds=delays[attempts - 1])))
+    moment = now or ingest_jobs.reading_now()
+    retry_at = utc_now_iso(FrozenClock(moment + timedelta(seconds=_reading_retry_delay(ingest_jobs, attempts))))
     try:
         ingest_jobs.repository.fail_reading_request(source_id, revision, attempts=attempts, retry_at=retry_at)
     except Exception:  # noqa: BLE001 - the request itself is durable already
@@ -1700,6 +1744,52 @@ def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: 
 
         logging.getLogger(__name__).warning("could not record a failed reading request", exc_info=True)
     ingest_jobs.wake_reading_retries()
+
+
+def books_of_batch(repo, batch_id: str) -> set[str]:
+    """The books whose automatic-build work a batch holds: an Add's or a
+    build's planner, or a planner's build batch."""
+
+    books: set[str] = set()
+    jobs = repo.ingest_jobs_for_batch(batch_id)
+    imported = {
+        str(source_id)
+        for job in jobs if job["job_type"] == "import"
+        for source_id in [(job.get("result") or {}).get("source_id") or (job.get("payload") or {}).get("source_id")]
+        if source_id
+    }
+    for job in jobs:
+        if job["job_type"] == AUTO_STUDY_MAP_JOB:
+            source_id = _job_source_id(job)
+            if source_id:
+                books.add(str(source_id))
+            else:
+                books.update(imported)  # an Add's planner, before it knew its book
+        auto = (job.get("payload") or {}).get("auto_build")
+        if isinstance(auto, Mapping) and auto.get("source_id"):
+            books.add(str(auto["source_id"]))
+    if batch_id.startswith(AUTO_BUILD_BATCH_PREFIX):
+        planner = repo.get_ingest_job(batch_id[len(AUTO_BUILD_BATCH_PREFIX):])
+        source_id = _job_source_id(planner) if planner else None
+        if source_id:
+            books.add(str(source_id))
+    return books
+
+
+def settle_reading_for_cancelled_batch(repo, batch_id: str) -> list[str]:
+    """A cancel answers the reading request of every book whose work the
+    batch held (reading-hardening, part 1): each is settled at the revision
+    it has now, so nothing re-plans the cancelled work behind the learner's
+    back. A request recorded after this (the learner reads on into a new
+    section) is a new revision and is acted on as usual. Returns the books
+    settled."""
+
+    settled: list[str] = []
+    for source_id in sorted(books_of_batch(repo, batch_id)):
+        request = repo.pending_reading_request(source_id)
+        if request is not None and repo.settle_reading_request(source_id, request["revision"]):
+            settled.append(source_id)
+    return settled
 
 
 def _extraction_source(repo, extraction_id: str) -> str | None:
@@ -1732,9 +1822,10 @@ def keep_ahead_for_reader(ingest_jobs, extraction_id: str, section_id: str) -> d
     ``reader.mark_section_progress`` recorded ``section_id`` as the book's
     reading request in the same transaction as the progress itself, so a
     saved report never loses its ask. This acts on that request now. A failure
-    is kept (finishing pass, F8): the request is marked failed, the ingest
-    worker retries it off the RPC path, the next start asks again, and until it
-    settles the Reader's next report asks again instead of being coalesced."""
+    is kept (finishing pass, F8): the request is marked failed, the reading
+    sweep retries it off the RPC path (reading-hardening), the next start asks
+    again, and until it settles the Reader's next report asks again instead of
+    being coalesced."""
 
     try:
         source_id = _extraction_source(ingest_jobs.repository, extraction_id)
@@ -2357,6 +2448,7 @@ __all__ = [
     "Coverage",
     "act_on_reading_request",
     "add_source",
+    "books_of_batch",
     "admit_auto_build_job",
     "advance_reading_build",
     "after_auto_build",
@@ -2396,6 +2488,7 @@ __all__ = [
     "request_auto_build",
     "retry_build",
     "run_auto_study_map",
+    "settle_reading_for_cancelled_batch",
     "share_with_ai",
     "source_status_line",
     "spent_today_usd",

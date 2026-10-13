@@ -124,23 +124,30 @@ def test_f8_a_keep_ahead_that_failed_is_retried_off_the_rpc_path(tmp_path, monke
     assert _planners(ctx) == planners + 1
 
 
-def test_f8_the_worker_retries_a_bounded_number_of_times_then_the_next_report_asks_again(tmp_path, monkeypatch):
+def test_f8_a_failing_keep_ahead_is_never_given_up_and_the_next_report_asks_again(tmp_path, monkeypatch):
+    """The worker's retries used to run out after three; reading-hardening
+    (part 1) replaced them with the reading sweep's backoff, which never gives
+    a request up (``tests/test_reading_request_sweep.py``). Meanwhile, while
+    it is unsettled, the Reader's next report still asks again at once."""
+
+    from datetime import timedelta
+
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     jobs = ctx.ingest_jobs
     calls = _failing(monkeypatch, failures=None)
 
     _report(ctx, extraction_id, 1)
+    moment = _LATER
     for _ in range(10):
-        jobs.retry_reading_advances(now=_LATER)
+        jobs.retry_reading_advances(now=moment)
+        moment += timedelta(seconds=300)  # every retry time comes
 
-    retries = len(jobs.READING_RETRY_DELAYS)
-    assert calls == ["u3"] * (1 + retries)
-    # Still not settled: the Reader's next report asks again (and re-arms the
-    # worker's retries), rather than treating the section as handled.
+    assert calls == ["u3"] * 11
+    assert jobs.reading_advance_pending(extraction_id)
     _report(ctx, extraction_id, 2)
-    assert calls == ["u3"] * (2 + retries)
-    jobs.retry_reading_advances(now=_LATER)
-    assert calls == ["u3"] * (3 + retries)
+    assert calls == ["u3"] * 12
+    jobs.retry_reading_advances(now=moment + timedelta(seconds=300))
+    assert calls == ["u3"] * 13
 
 
 def test_f8_the_newest_position_wins_a_pending_retry(tmp_path, monkeypatch):
