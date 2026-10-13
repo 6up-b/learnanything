@@ -44,10 +44,9 @@ from learnloop.ids import new_ulid
 from learnloop.ops.contamination.detectors import (
     DETECTORS, POSITIVE_VERDICT, SCANNERS, Candidate, DetectorScan, StoredVectors,
 )
-from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.ops.contamination.judge import (
-    METERED_JUDGE_TYPES, OPERATIONS, PRIMARY_PASS, PROMPT_VERSIONS, REPEAT_PASS, JudgeRequest,
-    build_requests, estimate, judge_settings, owner_rows, rows_by_id, run_judgments,
+    METERED_JUDGE_TYPES, PRIMARY_PASS, PROMPT_VERSIONS, REPEAT_PASS, JudgeRequest,
+    build_requests, decider_profiles, estimate, judge_settings, owner_rows, rows_by_id, run_judgments,
 )
 from learnloop.ops.contamination.recipes import CONTAMINATION_RECIPES
 from learnloop.ops.contamination.symbolic import SYMBOLIC_VERSION
@@ -398,7 +397,8 @@ def contamination_report(
         raise ValueError("judge_revision must be nonempty")
     # mvp-0.20 (Tier 1): the Decider judges leak / reveal pairs first; the
     # LLM judge is the fallback for a pair it gives no answer.
-    migrated = any(decider_enabled(loaded.config, task) for task in OPERATIONS.values())
+    deciders = decider_profiles(loaded)
+    migrated = bool(deciders)
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     if not sqlite_path.exists():
         raise ValueError("The vault has no database; initialize it first")
@@ -428,13 +428,20 @@ def contamination_report(
     )
 
     def plan() -> tuple[list[JudgeRequest], dict[str, dict[str, Any]], list[JudgeRequest]]:
-        requests = build_requests(candidates, settings, repeats=repeat_questions) if judge else []
+        requests = build_requests(candidates, settings, repeats=repeat_questions, deciders=deciders) if judge else []
         verifier_ids = [verifier_judgment_id(c) for c in candidates if c.symbolic is not None and c.symbolic.decides]
         rows = rows_by_id(sqlite_path, [r.judgment_id for r in requests] + verifier_ids)
         return requests, rows, [r for r in requests if r.judgment_id not in rows]
 
     requests, rows, pending = plan()
     budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription and not migrated)
+    # The up-front refusal covers every request that goes to the LLM judge
+    # first, under the budget it had before Tier 1 (review F6); a request the
+    # Decider judges first is admitted one at a time.
+    upfront = budget if not migrated else SpendBudget(caps, cancelled=cancelled, subscription=subscription)
+
+    def llm_first(requests: list[JudgeRequest]) -> list[JudgeRequest]:
+        return [request for request in requests if request.candidate.task not in deciders]
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "report": REPORT_VERSION, "shadow": True, "proposals_executed": 0,
@@ -496,8 +503,7 @@ def contamination_report(
         return report
 
     try:
-        if not migrated:
-            budget.check(estimate(pending, price_per_million))
+        upfront.check(estimate(llm_first(pending), price_per_million))
     except AIInterrupted:
         return finish("cancelled")
     except SpendLimitExceeded as exc:
@@ -553,8 +559,7 @@ def contamination_report(
         run_id = new_ulid()
         report["run_id"] = run_id
         try:
-            if not migrated:
-                budget.check(estimate(pending, price_per_million))
+            upfront.check(estimate(llm_first(pending), price_per_million))
 
             def saved(_request: JudgeRequest) -> None:
                 report["judge"]["completed"] += 1

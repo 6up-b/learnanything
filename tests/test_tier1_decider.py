@@ -654,3 +654,35 @@ def test_settings_and_eval_judges_disclose_the_tier1_routes(tmp_path):
     for words in ("stuck answers", "tutor questions", "Perplexity"):
         assert words in gaps["disclosure"], words
     assert "Nothing is sent yet" in entries["router_decider"]["disclosure"]
+
+
+def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger(tmp_path,
+                                                                                               monkeypatch):
+    """Review F6: with the leak judgment on and the reveal judgment off, reveal requests are mvp-0.19's."""
+
+    from learnloop import decider_judgments as tier1
+    from learnloop.ai.execution import content_key
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.vault.loader import load_vault
+    from tests.test_contamination_report import Judge, run, tutor_vault
+
+    _paths, loaded, repository, _event = tutor_vault.__wrapped__(tmp_path)
+    loaded.config.algorithms.algorithm_version = "mvp-0.19"
+    first = Judge("clean")
+    assert run(loaded, first)["judge"]["completed"] == 1 and len(first.calls) == 1
+    (row,) = [row for row in _rows(repository) if row["task"] == "reveal"]
+    # The LLM row's input hash is the request's checkpoint hash, as before Tier 1.
+    question = [row["task"], row["left_kind"], row["left_id"], row["right_kind"], row["right_id"]]
+    assert "ctj_" + content_key({"input_hash": row["input_hash"], "question": question, "pass": 1}) == row["id"]
+
+    loaded.config.algorithms.algorithm_version = "mvp-0.20"
+    loaded.config.decider_routes.contamination_reveal_judgment = False
+    assert loaded.config.decider_routes.contamination_leak_judgment
+    monkeypatch.setattr(tier1, "client_for", lambda *a: pytest.fail("the reveal judgment is switched off"))
+    second = Judge("clean")
+    report = run(loaded, second)
+    # The paid reveal verdict keeps its checkpoint: never bought again.
+    assert report["judge"]["cached"] == 1 and not second.calls
+    # The up-front over-budget refusal still covers the LLM-only requests.
+    over = run(loaded, Judge(), dry_run=True, judge_revision="2", caps=SpendCaps(max_total_tokens=1))
+    assert over["status"] == "over_budget"
