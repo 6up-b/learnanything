@@ -1195,6 +1195,13 @@ export const api = {
     revealed?: boolean;
     completed?: boolean;
   }) => mutatingReader(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input })),
+  /** How far into a section the learner has read (usability round 1, U3):
+   *  only the progress read is stale afterwards, so following the learner
+   *  never makes the Reader re-read its other per-source state. */
+  readerNoteReadingProgress: (input: { extractionId: string; sectionId: string; spansSeen: number; spanCount: number }) =>
+    settled(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input }), () =>
+      invalidate({ key: ["reader_get_progress", input.extractionId] })
+    ),
   readerBlockHealth: (input: { extractionId: string; spanId: string }) =>
     call<Record<string, unknown>>("reader_block_health", { input }),
   readerBlockOriginalRegion: (input: { extractionId: string; spanId: string }) =>

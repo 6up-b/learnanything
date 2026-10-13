@@ -615,7 +615,10 @@ export interface VaultSummary {
   root: string;
   schemaVersion: number;
   algorithmVersion: string;
+  /** Subject ids, the ones the learner practises most first (usability round 1, U10). */
   subjects: string[];
+  /** Each subject's title, in the same order. Absent from older sidecars. */
+  subjectTitles?: Array<{ id: string; title: string }>;
   counts: {
     learningObjects: number;
     practiceItems: number;
@@ -2921,6 +2924,8 @@ export interface SourceLibraryCard {
   kindNoun?: string;
   /** The subject the source is filed under (automatic for Add), if any. */
   subjectId?: string | null;
+  /** That subject's title: what the learner reads (usability round 1). */
+  subjectTitle?: string | null;
   /** The card's one learner-facing status line, or null when there is nothing to say. */
   statusLine?: SourceStatusLineDto | null;
   /** "Keep this book on this computer": nothing of it is sent to an AI. */
@@ -6293,6 +6298,10 @@ export interface ReaderPdfViewDto {
   sourceId: string | null;
   revisionId: string | null;
   blocks: ReaderPdfBlockDto[];
+  /** Every passage's page, geometry or not (usability round 1, U2): a
+   *  text-only extraction has no boxes, but the Reader still jumps to,
+   *  follows and resumes a page. Absent from older sidecars. */
+  pageSpans?: Array<{ spanId: string; page: number }>;
 }
 
 /** A raw display-coordinate selection captured by TS (design §A.2). */

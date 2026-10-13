@@ -121,8 +121,8 @@ def test_adding_a_book_builds_questions_for_the_first_chapter_and_the_next(tmp_p
     # Questions are built as the learner reads (Q6), not up front.
     assert synthesis["payload"]["brief"]["practice_items"] == "as_you_read"
     line = source_status_line(repo, load_vault(root), source_id)
-    assert line["text"] == "Questions ready for Ch. 1–2"
-    assert line["action"]["kind"] == "undo_questions"
+    assert line["text"] == "Questions for Ch. 1–2 come up as you read"
+    assert line["action"] is None  # Undo lives in details (usability round 1, U8)
     _assert_plain(line)
 
 
@@ -344,7 +344,10 @@ def test_reading_into_the_next_chapter_builds_one_chapter_ahead(tmp_path):
     # this used to pass while the append lane failed on the bootstrap fake).
     _assert_build_applied(repo, newest["id"])
     line = source_status_line(repo, load_vault(root), source_id)
-    assert line["text"] == "Questions ready for Ch. 3"
+    # The line names every chapter built so far, not only the newest build
+    # (usability round 1: "Questions for Conditional probability" read oddly
+    # while the learner was in Ch. 1).
+    assert line["text"] == "Questions for Ch. 1–3 come up as you read"
 
 
 def test_jumping_ahead_builds_the_chapter_jumped_to(tmp_path):

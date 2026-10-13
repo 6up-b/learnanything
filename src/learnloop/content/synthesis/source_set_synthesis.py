@@ -1484,12 +1484,17 @@ def _reusable_bootstrap_run(
 # --- lock refusal -----------------------------------------------------------
 
 
-def _bootstrap_lock_refusal(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
-    """§8.2 enforcement 1: bootstrap is legal only where nothing is identity-locked."""
+def _bootstrap_lock_refusal(
+    vault: LoadedVault, repository: Repository, subject_id: str | None
+) -> list[dict[str, Any]]:
+    """§8.2 enforcement 1: bootstrap is legal only where nothing *touched* is
+    identity-locked: the subject being built. Another subject's locks never
+    refuse it (UX Phase 1 usability round 1, U1); apply re-checks every
+    entity it touches."""
 
     from learnloop.curriculum.curriculum_locks import identity_locks
 
-    locked = identity_locks(vault, repository)
+    locked = identity_locks(vault, repository, subject_id=subject_id)
     reasons: list[dict[str, Any]] = []
     for facet_id, lock_reasons in locked.items():
         for reason in lock_reasons:
@@ -1685,7 +1690,7 @@ def _create_study_map(
     # 1. lock check — typed refusal for a locked subject. It follows the cache
     # lookup because a reused run only re-applies, and apply re-checks locks
     # under the vault mutation lock.
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
+    lock_reasons = _bootstrap_lock_refusal(vault, repository, subject_id)
     if lock_reasons:
         raise StudyMapError(
             "subject_identity_locked",
@@ -2105,7 +2110,7 @@ def revalidate_synthesis_candidate(
         raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
     subject_id = resolve_subject_id(source_set, vault)
 
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
+    lock_reasons = _bootstrap_lock_refusal(vault, repository, subject_id)
     if lock_reasons:
         raise StudyMapError(
             "subject_identity_locked",

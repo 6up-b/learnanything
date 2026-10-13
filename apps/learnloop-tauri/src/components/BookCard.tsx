@@ -121,7 +121,7 @@ export function BookCard({
       {detailsOpen ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 5, borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
           {line?.details ? <div style={{ color: COLOR.textFaint, wordBreak: "break-word" }}>{line.details}</div> : null}
-          {card.subjectId ? <div>Subject: {card.subjectId}</div> : null}
+          {card.subjectId ? <div>Subject: {card.subjectTitle ?? card.subjectId}</div> : null}
           {ready && readable ? (
             <button type="button" style={linkButton} onClick={() => onAction("build_whole_book", card)}>
               Build questions for the whole book

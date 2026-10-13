@@ -45,3 +45,39 @@ export function spanAtPosition(blocks: ReaderPdfBlockDto[], position: ReadingPos
   const below = onPage.find((block) => block.bbox[3] > edge);
   return (below ?? onPage[onPage.length - 1]).spanId;
 }
+
+/** The page under a reading marker ``fraction`` of the way down ``scroller``'s
+ * viewport, and how far into that page the marker is (usability round 1, U2:
+ * the original PDF follows the learner without block geometry). */
+export function pagePositionAt(scroller: HTMLElement | null, fraction: number): ReadingPosition | null {
+  if (!scroller) return null;
+  const box = scroller.getBoundingClientRect();
+  const marker = box.top + box.height * fraction;
+  const pages = Array.from(scroller.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+  let last: ReadingPosition | null = null;
+  for (const pageEl of pages) {
+    const rect = pageEl.getBoundingClientRect();
+    const page = Number(pageEl.dataset.pdfPage);
+    if (rect.height <= 0 || !Number.isFinite(page)) continue;
+    if (rect.top > marker) break;
+    last = { page, offset: Math.min(Math.max((marker - rect.top) / rect.height, 0), 1) };
+    if (rect.bottom >= marker) return last;
+  }
+  return last;
+}
+
+/** The passage a page position lands on when passages only know their page
+ * (a text-only extraction): the page's passages split it evenly; a page with
+ * none (a figure, a blank page) belongs to the last passage before it. */
+export function spanOnPage(
+  pageSpans: ReadonlyArray<{ spanId: string; page: number }>,
+  position: ReadingPosition
+): string | null {
+  const onPage = pageSpans.filter((entry) => entry.page === position.page);
+  if (onPage.length > 0) {
+    const index = Math.min(onPage.length - 1, Math.floor(position.offset * onPage.length));
+    return onPage[index].spanId;
+  }
+  const before = pageSpans.filter((entry) => entry.page < position.page);
+  return before.length > 0 ? before[before.length - 1].spanId : (pageSpans[0]?.spanId ?? null);
+}

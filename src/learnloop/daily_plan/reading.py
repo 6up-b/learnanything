@@ -2,7 +2,10 @@
 
 A source imported ``as_you_read`` (and uncommitted: DL1 has no intent) puts at
 most one reading block a day in the new lane: the reader guide's next
-unfinished section, carried as a :class:`ReadingTarget`. Its estimate is the
+unfinished section, carried as a :class:`ReadingTarget`. "Next" counts from
+where the learner left off (the furthest section they read into), and front
+and back matter (contents, preface, index) are never the step while a chapter
+is left (UX Phase 1 usability round 1, U4). Its estimate is the
 section's words left over ``plan.read_words_per_minute``, where words left =
 section words x (1 - spans seen / span count) from ``reader_section_progress``.
 Section completion still triggers item generation as today, and those items
@@ -15,6 +18,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from learnloop.content.sources.front_matter import is_front_matter_label
 from learnloop.daily_plan.types import ReadingTarget
 from learnloop.reader.reader_guidance import extraction_sections
 
@@ -99,7 +103,19 @@ def _first_unfinished(
     revision = repository.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
     source_id = str((revision or {}).get("source_id") or "")
     sections, _block_by_span, _span_to_section = extraction_sections(ir)
-    for section in sections:
+    # Contents, preface, index and the like are never the step to continue
+    # with while the book has a chapter left (UX Phase 1 usability round 1,
+    # U4); a source that is nothing but such sections still offers them.
+    readable = [section for section in sections if not is_front_matter_label(section.get("label"))]
+    candidates = readable or sections
+    # Continue where the learner left off: from the furthest section they have
+    # read into, not a section they skipped on the way (usability round 1, U4).
+    touched = [
+        index for index, section in enumerate(candidates)
+        if _has_progress(progress.get(str(section["id"])))
+    ]
+    start = max(touched) if touched else 0
+    for section in candidates[start:] + candidates[:start]:
         row = progress.get(str(section["id"]))
         if row is not None and row.get("completed_at"):
             continue
@@ -121,6 +137,10 @@ def _first_unfinished(
             partial=False,
         )
     return None
+
+
+def _has_progress(row: dict[str, Any] | None) -> bool:
+    return bool(row) and bool(int(row.get("spans_seen") or 0) > 0 or row.get("completed_at") or row.get("revealed_at"))
 
 
 def section_start_span(repository: Any, extraction_id: str, section_id: str) -> str | None:

@@ -7,14 +7,20 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import type { ReaderPdfViewDto, SourceLibraryCard } from "../../api/dto";
-import { readableTitle } from "../../components/BookCard";
+import type { ReaderPdfViewDto, SourceActionKind, SourceLibraryCard } from "../../api/dto";
+import { readableTitle, StatusLine } from "../../components/BookCard";
 import { PdfReaderPane } from "../../components/PdfReaderPane";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { errorMessage } from "../../errors";
 import { readingPositionIn, type ReadingPosition } from "./readingPosition";
 
 const POLL_MS = 3000;
 const NO_SPANS = new Set<string>();
+// The actions a status line can offer that run on the book itself; the ones
+// that open another place (connect, settings, changes) stay on its card.
+const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([
+  "retry", "text_recognition", "allow_upload", "build_now", "share_with_ai"
+]);
 
 export function PreparingView({
   card,
@@ -77,6 +83,13 @@ export function PreparingView({
 
   const noun = current.kindNoun ?? card.kindNoun ?? "book";
   const line = current.statusLine?.text ?? `Getting this ${noun} ready`;
+  // Still being prepared, or stopped (a scan, a failed import): a stopped book
+  // says so with its one action and promises nothing (usability round 1, U7).
+  const working = !current.statusLine || current.statusLine.tone === "working";
+  const statusLine = current.statusLine;
+  const runAction = (kind: SourceActionKind) => {
+    void api.sourceAction({ sourceId: current.sourceId, action: kind }).catch((error: unknown) => onError(errorMessage(error)));
+  };
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "16px 32px", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -90,12 +103,28 @@ export function PreparingView({
           </button>
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>{readableTitle(card.title)}</span>
         </div>
-        <div role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.cyan }}>
-          ◐ {line}
-        </div>
-        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textFaint }}>
-          Highlights, notes, Ask and questions on each section — available in a minute or two, when the text is ready.
-        </div>
+        {working || !statusLine ? (
+          <>
+            <div role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.cyan }}>
+              ◐ {line}
+            </div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textFaint }}>
+              Highlights, notes, Ask and questions on each section — available in a minute or two, when the text is ready.
+            </div>
+          </>
+        ) : (
+          <>
+            <div role="status">
+              <StatusLine
+                line={statusLine.action && BOOK_ACTIONS.has(statusLine.action.kind) ? statusLine : { ...statusLine, action: null }}
+                onAction={runAction}
+              />
+            </div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textFaint }}>
+              You can look through the pages here. Highlights, notes, Ask and questions need its text.
+            </div>
+          </>
+        )}
       </div>
       <div
         ref={scrollRef}

@@ -416,10 +416,12 @@ export function App() {
     () => restoredPracticeDraft(practiceItemId, localDraft, session?.checkpoint),
     [session, practiceItemId, localDraft]
   );
-  const subjectOptions = useMemo(
-    () => (snapshot?.vault?.subjects ?? []).map((id) => ({ id, title: id })),
-    [snapshot?.vault?.subjects]
-  );
+  // Practised subjects first (the sidecar's order), by title: a new book's
+  // subject never becomes the default elsewhere (usability round 1, U10).
+  const subjectOptions = useMemo(() => {
+    const titles = new Map((snapshot?.vault?.subjectTitles ?? []).map((entry) => [entry.id, entry.title]));
+    return (snapshot?.vault?.subjects ?? []).map((id) => ({ id, title: titles.get(id) ?? id }));
+  }, [snapshot?.vault?.subjects, snapshot?.vault?.subjectTitles]);
   const manualGrading = snapshot?.health.ai?.manualGrading ?? false;
   // In manual mode the sidecar reports ready=true (it's an intentional choice,
   // not an outage) — but practice screens must still start in self-grade mode.
@@ -628,6 +630,14 @@ export function App() {
   function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string) {
     setBlockReview({ blockEnd, learningObjectId, learningObjectTitle });
     setTodayStage("blockReview");
+  }
+
+  // The Reader's "← Library": the one shelf, Library → Books (spec K5; usability
+  // round 1: the Reader's own list read as a second Library). The open book
+  // stays remembered, so the Reader tab returns to it.
+  function openLibraryShelf() {
+    setLibraryView("books");
+    gotoTab("library");
   }
 
   // "View in Library" from the feedback source panel: open that vault file.
@@ -1235,11 +1245,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} />;
     }
     if (tab === "maintain") {
       return (
@@ -1419,6 +1429,9 @@ export function App() {
           onConnected={(connection) => {
             setAiConnection(connection);
             invalidateAllQueries();
+            // The settings dot reads the new connection at once, not after a
+            // restart (usability round 1: it stayed red after "Connected").
+            void api.getRuntimeHealth().then(applyHealth).catch(() => undefined);
           }}
           onOpenSettings={() => {
             setConnectOpen(false);

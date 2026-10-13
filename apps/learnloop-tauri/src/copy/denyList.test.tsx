@@ -58,7 +58,7 @@ function card(statusLine: SourceStatusLineDto | null, overrides: Partial<SourceL
 const LINES: SourceStatusLineDto[] = [
   { text: "Getting this book ready", tone: "working", action: null, details: null },
   { text: "Questions for Ch. 1–2 in about 5 min", tone: "working", action: null, details: null },
-  { text: "Questions ready for Ch. 1–2", tone: "quiet", action: { kind: "undo_questions", label: "Undo" }, details: null },
+  { text: "Questions for Ch. 1–2 come up as you read", tone: "quiet", action: null, details: null },
   { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: null },
   { text: "Building questions for Ch. 1–2 would cost about $3.10", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
@@ -79,7 +79,10 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Kept on this computer — this recording can't be read here", tone: "quiet", action: null, details: null },
   { text: "Paused — today's AI budget is used", tone: "quiet", action: { kind: "open_settings", label: "Raise it" }, details: null },
   { text: "Questions for Ch. 3 would cost more than expected", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
-  { text: "Some pages look scanned", tone: "quiet", action: { kind: "open_settings", label: "Set up text recognition" }, details: null },
+  // Usability round 1 (U7): a scan, with and without text recognition installed.
+  { text: "This PDF is a scan", tone: "quiet", action: { kind: "text_recognition", label: "Read it with text recognition" }, details: null },
+  { text: "This PDF is a scan — LearnLoop can show its pages but can't read them yet", tone: "quiet", action: null, details: null },
+  { text: "Some pages look scanned — their words can't be read here yet", tone: "quiet", action: null, details: null },
   { text: "Text recognition isn't set up", tone: "problem", action: { kind: "open_settings", label: "Set it up" }, details: null }
 ];
 

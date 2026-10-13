@@ -323,10 +323,17 @@ def identity_locks(
     Enumerates every registered facet and reports those a facet merge/split
     could not be applied to. Not a second lock implementation — it drives the
     same ``can_apply`` closure (§8.2).
+
+    With ``subject_id``, only the facets that subject's learning objects (and
+    their practice items) exercise are read: a bootstrap of one subject touches
+    nothing in another, so another subject's locks never refuse it
+    (source-ingestion §8.2, "nothing touched is identity-locked"; UX Phase 1
+    usability round 1, U1). Apply still re-checks every touched entity.
     """
 
+    facet_ids = list(vault.evidence_facets) if subject_id is None else _subject_facets(vault, subject_id)
     locks: dict[str, list[LockReason]] = {}
-    for facet_id in vault.evidence_facets:
+    for facet_id in facet_ids:
         result = can_apply(
             vault,
             repository,
@@ -335,3 +342,17 @@ def identity_locks(
         if not result.legal:
             locks[facet_id] = result.lock_reasons
     return locks
+
+
+def _subject_facets(vault: LoadedVault, subject_id: str) -> list[str]:
+    """Registered facets a subject's learning objects or their items exercise."""
+
+    owned: set[str] = set()
+    for lo in vault.learning_objects.values():
+        if subject_id not in lo.subjects:
+            continue
+        owned.update(vault.canonical_facet_id(facet) for facet in learning_object_facet_union(lo))
+        for item in vault.practice_items.values():
+            if item.learning_object_id == lo.id:
+                owned.update(vault.canonical_facet_id(facet) for facet in item.evidence_facets)
+    return [facet_id for facet_id in vault.evidence_facets if facet_id in owned]

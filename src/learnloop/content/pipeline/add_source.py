@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.sources.front_matter import FRONT_MATTER
 from learnloop.ids import kebab_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
@@ -75,7 +76,7 @@ AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
 # The learner's Undo as an owner verdict in judgment_ledger (review F12).
 UNDO_JUDGMENT_TASK = "auto_applied_content"
 TEXT_RECOGNITION_UNAVAILABLE_MESSAGE = (
-    "Text recognition isn't set up, so this was added without it. Settings → Advanced → Import can set it up."
+    "Text recognition isn't installed on this computer, so this was added without it."
 )
 # A first build accumulates tiny units (page-per-unit extractions) up to this
 # much text, so it is never one page; never past the scope cap.
@@ -96,12 +97,6 @@ _ROLE_BY_CATEGORY = {
     "web": "reference",
     "textfile": "reference",
 }
-_FRONT_MATTER = re.compile(
-    r"^\s*(?:(?:table of )?contents|preface|foreword|acknowledge?ments?|copyright|dedication|"
-    r"about the authors?|index|bibliography|references|title page|half[- ]title|"
-    r"list of (?:figures|tables|symbols)|notation|front matter|cover)\s*$",
-    re.IGNORECASE,
-)
 _CHAPTER_NUMBER = re.compile(r"^\s*(?:chapter|ch\.?|part|lecture|unit)?\s*(\d+)\b", re.IGNORECASE)
 _JUNK_PDF_TITLES = re.compile(r"^(?:untitled|microsoft word|document\d*|\s*)$|\.(?:docx?|tex|dvi|pdf)$", re.IGNORECASE)
 _CONSENT_LABEL = {"codex": "ChatGPT", "chatgpt": "ChatGPT", "openrouter": "OpenRouter"}
@@ -325,7 +320,7 @@ def outline_chapters(outline) -> list[Chapter]:
                 label=readable_label(str(top.label or top.unit_id)),
                 unit_ids=tuple(member.unit_id for member in members),
                 tokens=sum(int(member.approx_tokens or 0) for member in members),
-                front_matter=bool(_FRONT_MATTER.match(str(top.label or ""))),
+                front_matter=bool(FRONT_MATTER.match(str(top.label or ""))),
             )
         )
     return chapters
@@ -346,7 +341,7 @@ def readable_label(label: str) -> str:
 
 
 def _is_front_matter(chapter: Chapter) -> bool:
-    return chapter.front_matter or bool(_FRONT_MATTER.match(chapter.label))
+    return chapter.front_matter or bool(FRONT_MATTER.match(chapter.label))
 
 
 def reading_order_scope(
@@ -1678,7 +1673,19 @@ def _line(text: str, tone: str = "quiet", action: tuple[str, str] | None = None,
     }
 
 
-def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[str, Any]:
+_SCAN_DETAILS = (
+    "Reading the words of a scan needs text recognition, which isn't installed on this computer "
+    "(it comes with LearnLoop's PDF tools, marker-pdf). The pages still show in the Reader."
+)
+
+
+def _is_scan_failure(lowered: str) -> bool:
+    """An import that found no text layer at all: a scanned PDF."""
+
+    return "no extractable text" in lowered or "likely scanned" in lowered
+
+
+def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_local: bool = False) -> dict[str, Any]:
     error = job.get("error") or {}
     message = str(error.get("message") or "")
     code = str(error.get("code") or "")
@@ -1698,6 +1705,14 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[s
         return _line("Text recognition isn't set up", "problem", ("open_settings", "Set it up"), message or None)
     if category == "youtube" and ("caption" in lowered or "transcript" in lowered):
         return _line("This video has no captions", "problem", retry, message or None)
+    if _is_scan_failure(lowered):
+        # A scan reads the same way on every try (usability round 1, U7): the
+        # one action that can help, or one plain line when nothing can.
+        if text_recognition_available(keep_local=keep_local):
+            return _line("This PDF is a scan", "quiet", ("text_recognition", "Read it with text recognition"),
+                         message or None)
+        return _line("This PDF is a scan — LearnLoop can show its pages but can't read them yet", "quiet",
+                     None, f"{_SCAN_DETAILS} ({message})" if message else _SCAN_DETAILS)
     if category in {"web", "arxiv", "youtube"} or any(
         marker in lowered for marker in ("http", "fetch", "connection", "timed out", "timeout", "network", "unreachable")
     ):
@@ -1736,8 +1751,8 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
     if scanned:
         if text_recognition_available(keep_local=repo.source_kept_local(source_id)):
             return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
-        return _line("Some pages look scanned", "quiet", ("open_settings", "Set up text recognition"),
-                     "text_recognition_unavailable")
+        # Settings can't install it (usability round 1, U7): say so, no dead end.
+        return _line("Some pages look scanned — their words can't be read here yet", "quiet", None, _SCAN_DETAILS)
     if "marker_failed_pypdf_fallback" in flags:
         return _line("Maths may look rough in the text view", "quiet", ("open_settings", "Fix it"),
                      "marker_failed_pypdf_fallback")
@@ -1782,7 +1797,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if latest_import is None:
             return None
         if latest_import["status"] in {"failed", "blocked", "cancelled"}:
-            return _import_failure_line(latest_import, category)
+            return _import_failure_line(latest_import, category, keep_local=bool(artifact.get("keep_local")))
         return _line(f"Getting this {noun} ready", "working")
 
     latest, outcome = latest_planner(repo, source_id)
@@ -1846,7 +1861,28 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     health = _health_line(repo, source_id)
     if health is not None:
         return health
-    return _line(f"Questions ready for {phrase}", "quiet", ("undo_questions", "Undo"))
+    # Questions come as the learner reads (a check at each section break, then
+    # practice once a section is done), so the line says where they come from;
+    # Undo lives in details (usability round 1, U8: "Questions ready · Undo"
+    # sent learners looking for questions and wondering what Undo would undo).
+    return _line(f"Questions for {_built_phrase(repo, source_id, outcome, noun) or phrase} come up as you read", "quiet")
+
+
+def _built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None:
+    """Every chapter the book's questions cover so far (``Ch. 1–3``), not
+    only the newest build's (usability round 1)."""
+
+    if outcome.get("whole_source"):
+        return None
+    resolved = _completed_extraction(repo, source_id)
+    if resolved is None:
+        return None
+    from learnloop.content.sources.source_outline import build_source_outline
+
+    built = coverage(repo, source_id).built
+    labels = [chapter.label for chapter in outline_chapters(build_source_outline(repo, resolved[1]))
+              if chapter.unit_id in built]
+    return chapter_phrase(labels, noun=noun) if labels else None
 
 
 def _category_of(source: Any) -> str | None:
@@ -1875,12 +1911,30 @@ def pending_adds(repo, *, limit: int = 30) -> list[dict[str, Any]]:
             "source": source,
             "kind": category,
             "kind_noun": kind_noun(category),
-            "title": source,
+            "title": pending_title(source, category),
             "status_line": source_status_line(repo, None, None, batch_id=batch["id"]),
         })
         if len(entries) >= limit:
             break
     return entries
+
+
+def pending_title(source: str, category: str | None) -> str:
+    """A readable name for a link still being fetched (usability round 1: the
+    video's card was titled with its raw URL)."""
+
+    from urllib.parse import urlparse
+
+    if category == "youtube":
+        return "YouTube video"
+    arxiv = re.search(r"(\d{4}\.\d{4,5})(?:v\d+)?", source) if category == "arxiv" else None
+    if arxiv:
+        return f"arXiv {arxiv.group(1)}"
+    parsed = urlparse(source)
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        host = parsed.netloc.removeprefix("www.")
+        return f"{host}{parsed.path}".rstrip("/") or host
+    return source
 
 
 def latest_add_batch(repo, source_id: str) -> str | None:
@@ -1972,6 +2026,7 @@ __all__ = [
     "learner_title",
     "outline_chapters",
     "pending_adds",
+    "pending_title",
     "planner_outcome",
     "preview_auto_build",
     "reading_order_scope",

@@ -5,7 +5,7 @@ import type { SourceLibraryCard } from "../../api/dto";
 import { PreparingView } from "./PreparingView";
 
 const { api, pane } = vi.hoisted(() => ({
-  api: { readerPdfView: vi.fn(), getSourceLibrary: vi.fn() },
+  api: { readerPdfView: vi.fn(), getSourceLibrary: vi.fn(), sourceAction: vi.fn() },
   pane: vi.fn()
 }));
 vi.mock("../../api/client", () => ({ api }));
@@ -67,6 +67,28 @@ describe("PreparingView", () => {
     expect(api.readerPdfView).toHaveBeenCalledWith({ extractionId: "src_1" });
     // Text-dependent features say when, on their own line; nothing is greyed out silently.
     expect(screen.getByText(/available in a minute or two/)).toBeTruthy();
+  });
+
+  // Usability round 1 (U7): a scan showed "◐ Couldn't read this PDF" over
+  // "available in a minute or two". A book LearnLoop couldn't read says so,
+  // offers its one action, and promises nothing.
+  it("a book LearnLoop couldn't read says so, with its one action, and promises nothing", async () => {
+    const scan: SourceLibraryCard = {
+      ...CARD,
+      readiness: "needs_extraction",
+      statusLine: { text: "This PDF is a scan", tone: "quiet", action: { kind: "text_recognition", label: "Read it with text recognition" }, details: null }
+    };
+    api.readerPdfView.mockResolvedValue(MANIFEST);
+    api.getSourceLibrary.mockResolvedValue({ version: 1, sources: [scan] });
+    api.sourceAction.mockResolvedValue({ version: 1, sourceId: "src_1", action: "text_recognition", batchId: "b2" });
+    render(<PreparingView card={scan} onBack={vi.fn()} onReady={vi.fn()} onError={vi.fn()} />);
+    expect(await screen.findByTestId("pdf")).toBeTruthy();
+
+    expect(screen.getByText("This PDF is a scan")).toBeTruthy();
+    expect(screen.queryByText(/◐/)).toBeNull();
+    expect(screen.queryByText(/available in a minute or two/)).toBeNull();
+    screen.getByRole("button", { name: "Read it with text recognition" }).click();
+    await waitFor(() => expect(api.sourceAction).toHaveBeenCalledWith({ sourceId: "src_1", action: "text_recognition" }));
   });
 
   it("says the book opens here when there is no original to show", async () => {

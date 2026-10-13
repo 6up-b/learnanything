@@ -509,9 +509,16 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
         )
     available = stored is not None and is_pdf_file(stored)
     blocks: list[dict[str, Any]] = []
+    # Every passage's page, geometry or not (UX Phase 1 usability round 1, U2):
+    # a text-only (pypdf) extraction has no boxes to paint, but the Reader
+    # still needs the page to jump to a section, follow the reading position
+    # through the original and resume it.
+    page_spans: list[dict[str, Any]] = []
     if available and not preparing:
         ir = repository.load_document_ir(resolved)
         for block in sorted(ir.blocks, key=lambda b: b.ordinal) if ir is not None else []:
+            if block.page is not None:
+                page_spans.append({"span_id": block.span_id, "page": block.page})
             if block.page is None or not block.bbox:
                 continue
             blocks.append(
@@ -536,6 +543,7 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
             "source_id": source_id,
             "revision_id": (revision or {}).get("id"),
             "blocks": blocks,
+            "page_spans": page_spans,
         }
     )
 
@@ -1489,7 +1497,10 @@ def reader_mark_section_progress(
     # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
     # chapter ahead. Best effort, like the plan receipt below: it never fails
     # the Reader.
-    if params.revealed or params.completed:
+    # The Reader reports how far into each section the learner has read
+    # (``spans_seen``, usability round 1 U4): reaching a section is reading
+    # progress too, not only a reveal or a finished check.
+    if params.revealed or params.completed or (params.spans_seen or 0) > 0:
         try:
             from learnloop.content.pipeline import add_source as auto_build
 

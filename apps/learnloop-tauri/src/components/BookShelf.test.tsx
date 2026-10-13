@@ -64,6 +64,17 @@ describe("BookCard", () => {
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ sourceId: "src_1" }));
   });
 
+  // Usability round 1: details showed "Subject: introduction-to-probability".
+  it("names the book's subject by its title in details", () => {
+    const line: SourceStatusLineDto = { text: "Questions for Ch. 1–2 come up as you read", tone: "quiet", action: null, details: null };
+    render(<BookCard card={card(line, { subjectId: "introduction-to-probability", subjectTitle: "Introduction to Probability" })} onContinue={vi.fn()} onAction={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    expect(screen.getByText("Subject: Introduction to Probability")).toBeTruthy();
+    expect(screen.queryByText(/introduction-to-probability/)).toBeNull();
+    // Undo stays one tap away, in details.
+    expect(screen.getByRole("button", { name: "Undo this book's questions" })).toBeTruthy();
+  });
+
   it("can be opened while it is still being prepared", () => {
     const onContinue = vi.fn();
     const line: SourceStatusLineDto = { text: "Getting this book ready", tone: "working", action: null, details: null };

@@ -326,14 +326,17 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         if not core.text_recognition_available(keep_local=keep_local):
             raise SidecarError(
                 "text_recognition_unavailable",
-                "Text recognition isn't set up yet. Settings → Advanced → Import can set it up.",
+                "Text recognition isn't installed on this computer, so LearnLoop can't read the words of a scan yet.",
                 details={"action": "open_settings"},
             )
         source = str(artifact.get("canonical_uri") or "")
+        # A book that never had text (a scan) gets its questions once it is
+        # read (usability round 1, U7); one already read keeps the ones it has.
+        never_read = core._completed_extraction(repository, params.source_id) is None
         result["batch_id"] = ctx.ingest_jobs.enqueue_add_source(
             source,
             source_id=params.source_id,
             options=core.AddSourceOptions(text_recognition=True, keep_local=keep_local),
-            auto_build=False,
+            auto_build=never_read,
         )
     return versioned(result)

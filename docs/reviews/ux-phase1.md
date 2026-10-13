@@ -169,3 +169,165 @@ cd apps/learnloop-tauri && npx vitest run src/copy src/components src/screens/re
 - **Q-G.** `Ctrl+V` outside a text field adds a pasted link from any place. Keep it app-wide, or only on the Library?
 - **Q-H.** `CLAUDE.md`'s line on the desktop's default vault is stale (§3 notes); update it.
 - **Q-I.** In-flight merges (router R1, learner-text gaps, facet identity, Reader work) will conflict in `config/template.py`'s defaults snapshots (recompute at merge) and possibly in `ReaderScreen.tsx` (this branch touches only the preparing branch, the picker list, the enabled default and the quick-check timeout).
+
+## Usability round 1
+
+**Who and how.** Two scripted personas drove the real frontend and sidecar (branch at `67ece2c7f`) through the stage's headless harness, against a scripted fake AI built on the suite's fakes (`StructuredClientFake`, the house inventory/synthesis/append fakes, `ReviewFakeClient`; every learner-visible AI sentence starts with `[fake AI]`), with fresh scratch `HOME` and `LEARNLOOP_CONFIG_DIR`, no network and no real provider:
+- **A**, a first-time grad student: empty `HOME`, "Continue with ChatGPT" through a simulated sign-in, then the honest no-AI path.
+- **B**, a three-month user: a backup-API copy of the worktree's tracked linear-algebra library, Codex reading as ready.
+- **C**, an optional third reviewer (Codex), who read both sessions and 27 screenshots and reacted in persona. C also qualified the findings, and the triage keeps those qualifications: the AI is fake, so nothing here says anything about grading quality; "tomorrow" was a same-day restart; and the timings include the harness's own pauses.
+
+The sessions, screenshots and logs are in the stage's scratchpad (`usability/_personas_round1/{a,b}/`), not in the repository.
+
+### Triage
+
+De-duplicated across A, B and C, there are **5 blockers, 14 majors and 25 minors**.
+
+What happens to them:
+- **Fixed now:** all 5 blockers, 5 majors and 5 minors.
+- **Deferred to a named later phase:** 9 majors and 11 minors.
+- **Rejected with a reason:** 9 minors.
+
+"Scope" means Phase 1's path: ingest, first run, the book cards, the preparing state, Connect AI, the cost pause, and the copy on that path. The first question is on that path too: the Phase 1 exit test is T1–T4, and §6.3 makes the section check the first question.
+
+| # | Finding (who) | Severity | Decision |
+|---|---|---|---|
+| U1 | In a library with months of practice, every new book's questions were refused: "Bootstrap synthesis refused: subject '…' has locked identities". This hit both Add and "Build questions for the whole book", and Retry failed instantly (B; C) | blocker | **Fixed.** The lock check read every facet in the library, not the subject being built. |
+| U2 | The original PDF didn't follow the learner. Contents didn't move it. Scrolling wasn't tracked, so no quick check ever came in the default view; one came only in "extracted text" (A, B, C) | blocker | **Fixed** |
+| U3 | The Reader lost the learner's place: a tab switch, Library → Continue and a restart all opened the title page. Jumping to a section ticked every section before it as read (A, B, C) | blocker | **Fixed** |
+| U4 | Today's reading step was "Continue Table of Contents · about 10 min", even after reading to §1.4 (A, C) | blocker (T4) | **Fixed** for the reading step. The rest of that moment ("Today complete · 0 min · 0 items" and a streak after two seconds) → Phase 3. |
+| U7 | A scanned PDF was a dead end (T8). It showed "◐ Couldn't read this PDF" above "available in a minute or two". Details said "install marker-pdf". The scan's card had no text-recognition action, and Try again failed the same way (A, B, C) | blocker (T8) | **Fixed.** The OCR itself needs text recognition installed (`--extra pdf`), which this environment does not have. |
+| U5 | The quick check couldn't be reached. "quick check →" at the section break did nothing, and the check was "waiting below" the whole Contents list (A, B, C) | major | **Fixed** |
+| U6 | "compare with the source ↵" didn't send on Enter, and the learner's own answer vanished on compare, leaving nothing to compare. Ask had the same ↵ label with no shortcut at all (A, C) | major | **Fixed** |
+| U8 | "Questions ready for … · Undo" sent the learner looking for questions while Today said "Nothing due", and Undo read as "undo the good thing" (A, C) | major | **Fixed** (copy). Practising a book's questions on demand is a Phase 3/4 flow. |
+| U9 | Two Libraries. The Reader's "← library" went to its own list, which also offered "open demo chapter (fixture)" (A, B, C) | major | **Fixed** |
+| U10 | Every new book's subject became the default in the Tutor-subject and Maintain dropdowns, and subjects showed as slugs (B; A) | major (trust) | **Fixed** |
+| M-a | The feedback page speaks database: grader_tier, FSRS, Kalman, nats, "manual review recommended: unanchored_diagnosis_facet…", a 0.92 "conceptual_schema_error" beside "demonstrated ✓" (A, B, C) | major | Defer → **Phase 4** (4.2) |
+| M-b | No "I think I was right". `r` regrades silently to the same score, **duplicates the rubric row** and moves the next-due time. The reply was "This is a ledger fact, not a request for your verdict", and "request review" was only "saved locally" (A, B, C) | major | Defer → **Phase 4** (4.2). The duplicated rubric row is a bug to fix there. |
+| M-c | The learner can't say what they've learned. There is no Progress place, the well is a radar of `facet_…` labels, the graph is the table of contents in boxes, and Today showed "0 demonstrated" after a 4/4 (A, B, C) | major | Defer → **Phase 5** |
+| M-d | Start on relaunch: "session warm-up", an epigraph typewriter (fake-AI text), "learning_objects", "+ create a new vault". Also "Today complete · 0 min" plus a streak, "0 demonstrated · 0 assumed · 4 untested", "41 retrieval reps" for 10 minutes, and "(why)" saying 21 minutes (A, B, C) | major | Defer → **Phase 3** (3.1, 3.3) |
+| M-e | Ten tabs (Ingest, Proposals, Registry, Maintain). "Imports & builds" leads to a tab called Ingest, whose screen and errors are for developers ("learnloop[pdf]", "chatgpt_plan"). The build-plan modal's Escape steps back instead of closing (A, B, C) | major | Defer → **Phase 2** (2.1, 2.2) |
+| M-f | The practice card header shows raw ids, "constructed_response" and "mastery estimate 0.50 ±0.43" before any answer (A) | major | Defer → **Phase 4** (4.1) |
+| M-g | The extracted-text view is rough: hyphenation, page headers glued into paragraphs, mangled maths (A, C) | major | Defer → **Phase 1b / D1** (Marker, chapter-first extraction) and the Reader doc. U2 means the learner no longer has to use this view. |
+| M-h | Proposals grows on every practice, with duplicate error-type proposals (B) | major | Defer → **Phase 2** (Under the hood). It is outside this path. |
+| M-i | "○ no streak yet" and "SESSION 001" after months of use (B) | major (trust) | Defer → **Phase 3** (streak and footer). Not caused by Phase 1. It is likely the copied fixture's dates (C: "not proven"); verify in round 2. |
+| m1 | The settings dot stayed red after "Connected to ChatGPT" (A) | minor | **Fixed**: the sheet refreshes the health on connect (it turned green after a restart) |
+| m2 | "+ Add" wrapped onto two lines, and the library switcher was squeezed to "l." (A, B) | minor | **Fixed** (CSS). The crowded bar itself → Phase 2. |
+| m3 | A paper is labelled "book" (A, B) | minor | Defer → **Phase 7** (needs a paper/notes detector) |
+| m4 | A video still being fetched was titled with its raw URL (A) | minor | **Fixed** ("YouTube video", "arXiv 1706.03762", a host and path) |
+| m5 | "Questions … in about 13 min" for an 11-page paper (A, B) | minor | Defer: calibrate the estimate from round 2's timings |
+| m6 | "Subject: introduction-to-probability" in details (A) | minor | **Fixed** with U10 (titles) |
+| m7 | A book added through the old Ingest route gets a file-name title, no status line and no automatic questions (B) | minor | Reject: Ingest is the deliberate path the spec keeps as it is (§6.4); "Build questions for the whole book" is in details |
+| m8 | Notes & files opens previewing `vault.lock` (B) | minor | Defer → **Phase 2** (Under the hood → Files, Q18) |
+| m9 | The one-time OK names ChatGPT while the status bar says "ai:codex_low" and Settings says the ChatGPT plan isn't signed in (B) | minor | Defer → **Phase 6**. Glossary §9 keeps "Codex" in Settings; Phase 6 names the provider the same way everywhere. |
+| m10 | The Reader key bar: "capture box union", "sweep blocks" (A) | minor | Defer → Reader doc / **Phase 7** |
+| m11 | Ask prints the question twice and shows a raw "answer_directly" tag (A) | minor | Defer → Reader doc |
+| m12 | The no-AI self-grade box doesn't say "out of 4", and shows "fallback provider_auth_required" (A) | minor | Defer → **Phase 4** |
+| m13 | "Optional, one line: what made this case fit?" under a question that isn't about a case; "(2/3)" numbering (A) | minor | Defer → **Phase 4** |
+| m14 | Two identical "Explain Probability and counting" items (A) | minor | Reject: the fake AI's canned output |
+| m15 | Adding a paper opened it at once when the learner wanted it on the shelf (A, C) | minor | Reject: spec §6.2 opens the first file. If it recurs, it becomes an owner question. |
+| m16 | `Ctrl+V` outside a field adds a link, and nothing says so (A) | minor | Defer: already Q-G |
+| m17 | Remove a failed link without a confirmation (A) | minor | Reject: nothing is lost, because the link never arrived |
+| m18 | A React duplicate-key warning in the Graph key bar (B) | minor | Defer → **Phase 5** |
+| m19 | No classic-shell switch (B) | minor | Reject: Phase 2's switch doesn't exist yet; the classic shell is still the shell |
+| m20 | Axler's Continue opens at 1% (B) | minor | Reject: the copied fixture has no reading position for it. New reading is tracked now (U2, U3). |
+| m21 | Small, dim text is tiring (C) | minor | Defer → **Phase 7** |
+| m22 | "Couldn't reach the page" for the YouTube link and the arXiv id (A, B) | minor | Reject: the harness has no network; this is the designed line |
+| m23 | "Connect an AI" shows again under `--ai none` (A) | minor | Reject: the harness artefact (`--ai none` removes the connection) |
+| m24 | "My answer was right but got 2/4" (A, B) | minor | Reject as a grading claim: the fake AI's rubric counts words (C). The missing way to contest a grade is M-b. |
+| m25 | In the paper, Abstract was ticked ✓ before a word was read (B) | minor | **Fixed** by U3 (ticks only for sections read through) |
+
+### What changed
+
+Python: `tests/test_ux_phase1_usability_round1.py`. Vitest: `screens/ReaderScreen.followsLearner.test.tsx` plus additions to `PreparingView.test.tsx` and `BookShelf.test.tsx`. Every test below failed before its fix.
+
+- **U1. Locks are read per subject.** `identity_locks(…, subject_id=)` now honours the argument it already had: only the facets the subject's learning objects and items exercise. `_bootstrap_lock_refusal` passes the subject being built. Source-ingestion §8.2 says "legal only where nothing *touched* is identity-locked", and a new subject touches nothing in another. Apply still re-checks every entity it touches (`_accept_time_rechecks`), and a locked subject is still refused. Tests:
+  - the per-subject read;
+  - a second subject builds and applies beside a locked one;
+  - the locked subject is still refused.
+
+  Re-run in the harness: B's paper in the practised library went to "Questions for this book come up as you read" (`u1-06`).
+- **U2. The original PDF follows the learner without block geometry.**
+  - `reader.pdf_view` gains `pageSpans`: every passage's page, which a text-only (pypdf) extraction knows even though it has no boxes. This is additive.
+  - In the Reader, a Contents click scrolls the original to the section's page.
+  - The reading position comes from the page under the reading marker and how far down it the marker is (`pagePositionAt`, `spanOnPage`), so section progress moves smoothly through a one-page section.
+  - A resume and the preparing hand-over land on the page.
+  - The section check now triggers in the original, and the original has its own section-break offer, held at the foot of the reading area (U5).
+
+  Re-run: Contents moved to Chapter 1 (`u1-01`). Scrolling through §1.1 wrote the check about 3 s after passing 60% of the section (`u1-02`).
+- **U3. Places and ticks.**
+  - Contents ticks a section only when it was read through or its check was done; a jump never ticks the sections it passes.
+  - The Reader saves how far into each section the learner has read (`reader.mark_section_progress` `spans_seen`/`span_count`). The new `readerNoteReadingProgress` call gathers those writes for 1.5 s and sends them again when the Reader closes. The Reader reads them back on open, so the ticks survive a restart.
+  - Opening a book, a jump and a resume hold their position for a moment (1.5 s), so the first layout pass no longer overwrites a restored place. Before, that pass overwrote the saved place with the top of the book.
+
+  Re-run: after a restart, Library → Continue opened at §1.2 with only §1.1 ticked (`u1-04`).
+- **U4. Today's reading step.**
+  - The step is never front or back matter while a chapter is left. The heading pattern moved to `content/sources/front_matter.py`, shared with the automatic build's scope.
+  - The step continues from the furthest section the learner has read into, not a section they skipped.
+  - The Reader's progress reports also keep the questions one chapter ahead (`advance_reading_build`); before, only a reveal or a finished check did.
+
+  Re-run: the computed target became "Sample spaces and Pebble World" (§1.2). The plan already composed that same day kept its old row (same-day restart).
+- **U5. The quick check is reachable.**
+  - "quick check →" opens the Guide, puts the check directly under the section card (above Contents), scrolls to it and starts it with the answer box focused.
+  - Open checks always sit above Contents.
+  - The rail line reads "A quick check on this section is ready, just below."
+- **U6. Answer and keys.**
+  - After compare, "YOUR ANSWER" stays above "INTENDED ANSWER — COMPARE, DON'T GRADE" (`u1-03`).
+  - Enter stays a new line, because answers can need several. The buttons name the key that sends: "compare with the source · ctrl+↵", "record answer · ctrl+↵", "ask · ctrl+↵".
+  - Ask and the boundary answer gain the `Ctrl+Enter` they advertised.
+- **U7. Scans.**
+  - An import that found no text layer says "This PDF is a scan · Read it with text recognition" when an extractor that recognises text is installed.
+  - Otherwise it says "This PDF is a scan — LearnLoop can show its pages but can't read them yet", with no futile Try again and the reason in details.
+  - "Some pages look scanned" without text recognition no longer sends the learner to a Settings page that can't install it.
+  - `source_action text_recognition` on a book that never had text also builds its questions.
+  - The preparing view tells a stopped book from a working one: no ◐, no "in a minute or two", the line's own action, and "You can look through the pages here. Highlights, notes, Ask and questions need its text." (`u1-05`).
+- **U8. The done line** is "Questions for Ch. 1–2 come up as you read", with no action; Undo stays in details. It names every chapter built so far, not only the newest build.
+- **U9.** The Reader's "← Library" (now a button) and the preparing view's go to Library → Books, and the open book stays remembered. The demo chapter shows only while the background service is down (spec §7.3).
+- **U10.** The snapshot's `subjects` come practised-first (active items, then topics, then name), and the snapshot gains `subjectTitles`. The Tutor-subject and Maintain dropdowns show titles, and cards gain `subjectTitle`. Re-run: B's tutor subject stayed "vector spaces" after a new paper.
+- **Minors fixed:**
+  - m1: health refreshed on connect.
+  - m2: `+ Add` doesn't wrap, and the switcher keeps 7ch.
+  - m4: readable names for links being fetched.
+  - m6: subject titles.
+  - m25: covered by U3.
+
+**Deviations this round adds:**
+- **D12.** The done line differs from §6.3's "Questions ready for Ch. 1" (U8).
+- **D13.** The daily plan's reading step now means "from where the learner left off" and skips front matter (U4). This is a workflow suggestion, not scoring or scheduling, so it gets no algorithm successor. A plan already composed keeps its row.
+- **D14.** `snapshot.vault.subjects` changes order: it was alphabetical. `subjectTitles` and `reader.pdf_view.pageSpans` are additive.
+
+No migration. No change under `src-tauri`.
+
+### Before and after on the plan's measures
+
+The "after" column is a scripted re-walk by the agent on the fixed branch, not a new persona. Its times include the harness's command latency and about a minute spent working out its scroll command.
+
+| Measure (target) | Before (A, round 1) | After (re-walk) |
+|---|---|---|
+| TTFR, local PDF (≤ 10 s after the drop) | ≈ 5 s | ≈ 3.4 s to the Reader on the original |
+| Required decisions before reading (0) | 0 | 0 |
+| TTFP with AI (≤ 10 min) | ≈ 5 min 47 s. It came only after finding "extracted text →"; the default view never asked. | ≈ 2 min 20 s from launch, in the **original PDF**: Contents → §1.1 → scroll → section-break offer → answer |
+| Moderator questions, T1–T3 (≤ 1) | 2: "Why doesn't Contents take me there?" and "Where's the quick check?" | Both are answered by the UI now (U2, U5). Not re-measured with a fresh person. |
+| T3 for an existing library (questions for a new source) | ✗: "locked identities" | ✓: the paper's questions built and applied |
+| T4 next day (plan started with ↵) | ◐: the plan was "read the Table of Contents" | The reading step continues at §1.2. Phase 3 still owns "Today complete" and the streak. |
+| T8 scan (OCR started from the card) | ✗: "install marker-pdf" | An honest line with no false promise. OCR starts from the card when text recognition is installed (tested with it faked as installed). This environment has none, so T8's target needs `--extra pdf`. |
+| Internal words asked about (0), SEQ T1/T2 (≥ 6), unaided T1–T5 (5/5) | many; 6 and 2; 2½/5 | Needs round 2 with a persona. The words left are on Phase 2–5 screens (M-a to M-f). |
+
+### Gate (this round)
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 14 kept, 0 broken |
+| `flock … uv run pytest -n auto -q -p no:cacheprovider` | 8734 passed, 0 failed (6 min 12 s). An earlier run made while vitest ran alongside failed 2 timing tests (`test_the_deadline_shuts_a_stalled_stream`, a 250 ms bench limit); both pass alone, and the rerun on its own was clean. |
+| `flock … uv run pytest -m durability -n auto -q -p no:cacheprovider` | 94 passed |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | installed · clean · 46 files, 264 tests passed · built |
+| `cargo check` | not run: `src-tauri` unchanged |
+
+The harness instances were stopped, and their ports are free. No key or credential file was read. No real AI or network was used. The owner's working vaults were not opened. Instance b's library is a backup-API copy of the worktree's tracked fixture, which is unchanged in `git status`.
+
+### Open questions for the owner (round 1)
+
+- **Q-J.** The done line. Is "Questions for Ch. 1–2 come up as you read" (D12) right, or should the card offer "Practise these" once a section's questions exist (a Phase 3/4 flow)?
+- **Q-K.** The reading step (D13). Is "continue from the furthest section read" right for a learner who jumps around, or should skipped sections come back first?
+- **Q-L.** Text recognition on a desktop install. Should the app offer to set up marker-pdf, or the hosted Marker runtime, from the scan's card? Today it can only say it isn't installed.

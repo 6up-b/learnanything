@@ -181,7 +181,7 @@ def test_the_whole_path_runs_with_the_queue_draining(tmp_path):
     item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
     assert card["readiness"] == "ready"
-    assert card["statusLine"]["text"] == "Questions ready for Ch. 1–2"
+    assert card["statusLine"]["text"] == "Questions for Ch. 1–2 come up as you read"
     assert card["subjectId"] == "probability-book"
     assert list(load_vault(root).subjects) == ["probability-book"]
     # Undo from the card, in one tap.

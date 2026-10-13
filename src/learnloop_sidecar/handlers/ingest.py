@@ -563,6 +563,8 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "kind_noun": auto.kind_noun(artifact.get("acquisition_kind")),
                 "keep_local": bool(artifact.get("keep_local", 0)),
                 "subject_id": subject_by_source.get(artifact["id"]),
+                # The learner reads the subject's title, never its id (usability round 1).
+                "subject_title": _subject_title(vault, subject_by_source.get(artifact["id"])),
                 "status_line": auto.source_status_line(repository, vault, artifact["id"]),
             }
         )
@@ -1533,3 +1535,8 @@ def get_recent_ingests(ctx: SidecarContext, _params) -> dict[str, Any]:
 
     entries.sort(key=lambda e: e.get("created_at") or e.get("retrieved_at") or "", reverse=True)
     return versioned({"ingests": entries[:_RECENT_LIMIT]})
+
+
+def _subject_title(vault, subject_id: str | None) -> str | None:
+    subject = vault.subjects.get(subject_id) if subject_id else None
+    return subject.metadata.title if subject is not None else None
