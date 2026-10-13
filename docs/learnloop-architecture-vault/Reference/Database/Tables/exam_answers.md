@@ -3,8 +3,8 @@ title: "exam_answers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcc1b02bb77059ad70b4ed4b98ffdb2935a85735"
-source_commit_timestamp: "2026-10-13T18:08:34-04:00"
+source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
+source_commit_timestamp: "2026-10-13T18:47:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_answers"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `tests/test_held_grade_evidence.py`
 - `tests/test_post_attempt_pipeline.py`
 - `tests/test_exam_calibration.py`
+- `tests/test_exam_protection_review.py`
 - `tests/test_sidecar_exams.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

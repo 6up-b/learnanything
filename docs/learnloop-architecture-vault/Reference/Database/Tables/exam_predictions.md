@@ -3,8 +3,8 @@ title: "exam_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcc1b02bb77059ad70b4ed4b98ffdb2935a85735"
-source_commit_timestamp: "2026-10-13T18:08:34-04:00"
+source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
+source_commit_timestamp: "2026-10-13T18:47:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_predictions"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_characterization_assessment_exam.py`
+- `tests/test_exam_protection_review.py`
 - `tests/test_exam_session.py`
 - `tests/test_exam_calibration.py`
 

@@ -3,8 +3,8 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcc1b02bb77059ad70b4ed4b98ffdb2935a85735"
-source_commit_timestamp: "2026-10-13T18:08:34-04:00"
+source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
+source_commit_timestamp: "2026-10-13T18:47:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 - `tests/test_build_study_map_routing.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
+- `tests/test_exam_protection_review.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_latency_journey.py`
 - `tests/test_ingest_ownership.py`
