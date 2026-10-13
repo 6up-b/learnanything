@@ -3,8 +3,8 @@ title: "Config - fitting"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml fitting"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/scheduling/fsrs_fitting.py"
   - "src/learnloop/cli/fit.py"
   - "tests/test_fsrs_fitting.py"
+  - "tests/test_held_grade_evidence.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/fitting"
@@ -41,12 +42,12 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `fitting.fsrs.min_reviews` | `50` | integer | modeled default or validator seed | Sets the minimum reviews required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1312`; `src/learnloop/scheduling/fsrs_fitting.py:109` |
-| `fitting.fsrs.min_elapsed_days` | `0.5` | number | modeled default or validator seed | Sets the minimum elapsed days required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1313`; `src/learnloop/scheduling/fsrs_fitting.py:107` |
+| `fitting.fsrs.min_reviews` | `50` | integer | modeled default or validator seed | Sets the minimum reviews required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1312`; `src/learnloop/scheduling/fsrs_fitting.py:113` |
+| `fitting.fsrs.min_elapsed_days` | `0.5` | number | modeled default or validator seed | Sets the minimum elapsed days required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1313`; `src/learnloop/scheduling/fsrs_fitting.py:111` |
 | `fitting.fsrs.l2_lambda` | `1.0` | number | modeled default or validator seed | Controls l2 lambda in offline fitting of learner-specific scheduler parameters, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1314` |
-| `fitting.fsrs.max_iterations` | `300` | integer | modeled default or validator seed | Caps iterations allowed by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1315`; `src/learnloop/scheduling/fsrs_fitting.py:140` |
-| `fitting.fsrs.initial_step` | `0.05` | number | modeled default or validator seed | Controls initial step in offline fitting of learner-specific scheduler parameters, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1316`; `src/learnloop/scheduling/fsrs_fitting.py:134` |
-| `fitting.fsrs.min_relative_improvement` | `0.01` | number | modeled default or validator seed | Sets the minimum relative improvement required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1317`; `src/learnloop/cli/fit.py:84`; `src/learnloop/scheduling/fsrs_fitting.py:186` |
+| `fitting.fsrs.max_iterations` | `300` | integer | modeled default or validator seed | Caps iterations allowed by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1315`; `src/learnloop/scheduling/fsrs_fitting.py:144` |
+| `fitting.fsrs.initial_step` | `0.05` | number | modeled default or validator seed | Controls initial step in offline fitting of learner-specific scheduler parameters, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1316`; `src/learnloop/scheduling/fsrs_fitting.py:138` |
+| `fitting.fsrs.min_relative_improvement` | `0.01` | number | modeled default or validator seed | Sets the minimum relative improvement required by offline fitting of learner-specific scheduler parameters. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1317`; `src/learnloop/cli/fit.py:84`; `src/learnloop/scheduling/fsrs_fitting.py:190` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -56,6 +57,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_fsrs_fitting.py`
+- `tests/test_held_grade_evidence.py`
 
 ## Extension and modification guidance
 

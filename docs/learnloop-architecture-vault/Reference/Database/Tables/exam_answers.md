@@ -3,8 +3,8 @@ title: "exam_answers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_answers"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 
 - `tests/test_exam_session.py`
 - `tests/test_grade_resolution_pipeline.py`
+- `tests/test_held_grade_evidence.py`
 - `tests/test_post_attempt_pipeline.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_sidecar_exams.py`
