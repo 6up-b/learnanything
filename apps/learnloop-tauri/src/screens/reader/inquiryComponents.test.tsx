@@ -92,6 +92,8 @@ it("the quick check is pending until it lands, then shows the intended answer be
   expect(handlers.onSelfCheck).toHaveBeenCalledWith("no");
   fireEvent.click(screen.getByRole("button", { name: "add to practice →" }));
   expect(handlers.onEscalate).toHaveBeenCalled();
+  rerender(<InquiryQuickCheck phase="landed" question={{ ...question, status: "dismissed" }} {...handlers} />);
+  expect(screen.getByText(/You set this quick check aside/)).toBeTruthy();
 });
 
 const exchange = (id: string, parent: string | null, resolution: "open" | "resolved" = "open"): ReaderExchange => ({

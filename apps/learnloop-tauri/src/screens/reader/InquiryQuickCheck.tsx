@@ -65,7 +65,11 @@ export function InquiryQuickCheck({
       />
     );
   }
-  if (question.status === "dismissed") return null;
+  if (question.status === "dismissed") {
+    // Set aside earlier ("don't bring this back"): it never comes back, but a
+    // press of "quick check" still lands somewhere (W14).
+    return <MeaningLabel>You set this quick check aside; it won’t come back.</MeaningLabel>;
+  }
   const answered = question.status === "answered" || question.status === "escalated";
   return (
     <section aria-label="Quick check" data-inquiry-check={question.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0", borderTop: `1px solid ${COLOR.border}` }}>
