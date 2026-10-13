@@ -3,8 +3,8 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7cf36ed9ce346f78efea1f8611b14ae674676dd8"
-source_commit_timestamp: "2026-10-13T16:45:16-04:00"
+source_commit: "e5c4bbca75e836b196f87d31fda6ea64837084de"
+source_commit_timestamp: "2026-10-13T18:09:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/182_learner_text_gaps.sql"
+  - "src/learnloop/ai/disclosures.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/gaps.py"
+  - "src/learnloop/cli/probability_arms.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/learner_gaps.py"
-  - "src/learnloop/diagnosis/split/history.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -137,6 +138,8 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`
 - `tests/test_mvp016_upgrade.py`
+- `tests/test_probability_cli.py`
+- `tests/test_tier1_decider.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
