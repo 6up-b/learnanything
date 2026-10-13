@@ -230,7 +230,11 @@ def test_a_book_with_no_questions_says_so_with_one_action(tmp_path):
     assert batch_id
 
 
-def test_a_book_already_in_a_study_map_never_says_it_has_no_questions(tmp_path):
+def test_a_book_filed_in_a_collection_still_says_it_has_no_questions(tmp_path):
+    """Round 2 expected silence here; the Codex review of round 2 (F6) found
+    that filing a book builds nothing. Silence needs applied questions:
+    tests/test_ux_phase1_round2_review.py (F6)."""
+
     from learnloop.vault.writer import upsert_source_set
 
     root = fresh_library(tmp_path)
@@ -247,7 +251,7 @@ def test_a_book_already_in_a_study_map_never_says_it_has_no_questions(tmp_path):
     })
     ctx.reload(maintenance=False)
 
-    assert _card(ctx, card["sourceId"])["statusLine"] is None
+    assert _card(ctx, card["sourceId"])["statusLine"]["text"] == "No questions for this book yet"
 
 
 # ---------------------------------------------------------------------------

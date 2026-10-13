@@ -636,7 +636,7 @@ def _prepare_plan(
     reading: ReadingTarget | None = None
     reading_full: float | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
-        reading = next_reading_target(env.repository)
+        reading = next_reading_target(env.repository, from_furthest=bool(config.reading_from_furthest))
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)

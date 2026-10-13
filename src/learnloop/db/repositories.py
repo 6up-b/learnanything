@@ -12798,6 +12798,14 @@ class Repository(
             ).fetchone()
         return dict(row)
 
+    def reader_section_progress_row(self, extraction_id: str, section_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
+                (extraction_id, section_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def reader_section_progress_for(self, extraction_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(

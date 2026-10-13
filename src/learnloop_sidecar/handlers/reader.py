@@ -1449,6 +1449,7 @@ def reader_mark_section_progress(
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
+    before = repository.reader_section_progress_row(resolved, params.section_id)
     row = repository.upsert_reader_section_progress(
         extraction_id=resolved,
         section_id=params.section_id,
@@ -1499,8 +1500,11 @@ def reader_mark_section_progress(
     # the Reader.
     # The Reader reports how far into each section the learner has read
     # (``spans_seen``, usability round 1 U4): reaching a section is reading
-    # progress too, not only a reveal or a finished check.
-    if params.revealed or params.completed or (params.spans_seen or 0) > 0:
+    # progress too, not only a reveal or a finished check. Reading on inside
+    # a section it already reached plans nothing new, so only the first
+    # report for a section asks (round-2 review F1: every report used to).
+    first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
+    if params.revealed or params.completed or first_reach:
         try:
             from learnloop.content.pipeline import add_source as auto_build
 

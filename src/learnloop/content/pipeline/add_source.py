@@ -1500,11 +1500,13 @@ def _keep_ahead_ready(repo, vault_root: Path, source_id: str) -> bool:
     automatic build that was not undone, auto-build is on and nothing for it
     is running."""
 
-    from learnloop.vault.loader import load_vault
+    from learnloop.config.loader import load_config
 
     if repo.source_kept_local(source_id):
         return False
-    if not load_vault(vault_root).config.ingest.auto_build:
+    # The config alone (review F1): this runs on the Reader's progress path,
+    # and parsing the whole vault there stalled the serial sidecar.
+    if not load_config(Path(vault_root) / "learnloop.toml").ingest.auto_build:
         return False
     generation = current_generation(repo, source_id)
     for job in auto_jobs(repo, source_id):
@@ -1517,15 +1519,13 @@ def _keep_ahead_ready(repo, vault_root: Path, source_id: str) -> bool:
 def _wanted_chapters(repo, vault_root: Path, source_id: str, state: Mapping[str, Any]) -> list[str]:
     """The chapters a pending reading position asks for (none: nothing to do)."""
 
-    from learnloop.content.sources.source_outline import build_source_outline
-
     if not _keep_ahead_ready(repo, vault_root, source_id):
         return []
     extraction_id = str(state.get("wanted_extraction_id") or "")
     section_id = str(state.get("wanted_section_id") or "")
     if not extraction_id or not section_id or repo.get_extraction_run(extraction_id) is None:
         return []
-    chapters = outline_chapters(build_source_outline(repo, extraction_id))
+    chapters = outline_chapters(_unit_tree(repo, extraction_id))
     cover = coverage(repo, source_id)
     # Failed chapters wait for the card's Retry instead of looping here.
     return [chapter.unit_id for chapter in chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)]
@@ -1555,7 +1555,13 @@ def advance_reading_build(ingest_jobs, extraction_id: str, section_id: str) -> d
 
     Only for sources added through Add whose questions were built and not
     undone. While a build for the book is running the position is remembered
-    (the latest one wins) and acted on when that work finishes (review F7)."""
+    (the latest one wins) and acted on when that work finishes (review F7).
+
+    It runs on the Reader's progress RPC, so it stays cheap (round-2 review
+    F1): the chapter list comes from the unit tree, never the full outline
+    (which loads the book's text once per unit), the switch from the config,
+    never the whole vault, and the build itself is only queued; its planning
+    runs on the ingest worker."""
 
     repo = ingest_jobs.repository
     run = repo.get_extraction_run(extraction_id)
@@ -1567,9 +1573,7 @@ def advance_reading_build(ingest_jobs, extraction_id: str, section_id: str) -> d
         repo.set_source_wanted_reading(source_id, extraction_id, section_id)
         return {"deferred": True, "source_id": source_id, "section_id": section_id}
 
-    from learnloop.content.sources.source_outline import build_source_outline
-
-    chapters = outline_chapters(build_source_outline(repo, extraction_id))
+    chapters = outline_chapters(_unit_tree(repo, extraction_id))
     cover = coverage(repo, source_id)
     wanted = chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)
     repo.clear_source_wanted_reading(source_id)
@@ -1908,13 +1912,18 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         health = _health_line(repo, source_id)
         if health is not None or vault is None:
             return health
-        # A book added another way (the Ingest screen) that no study map
-        # covers: one line and the one action, never silence (usability
-        # round 2: its card had no line at all).
-        if (artifact.get("reader_enabled", 1) and not artifact.get("keep_local")
-                and not _in_a_study_map(repo, vault, source_id)):
-            return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them"))
-        return None
+        # A book added another way (the Ingest screen) whose questions were
+        # never applied: one line and the one action, never silence
+        # (usability round 2: its card had no line at all). Filing it in a
+        # collection builds nothing (round-2 review F6).
+        if not artifact.get("reader_enabled", 1) or artifact.get("keep_local"):
+            return None
+        built = _study_map_questions(repo, source_id)
+        if built == "applied":
+            return None
+        if built == "pending":
+            return _line(f"Questions for this {noun} need a look", "quiet", ("open_changes", "Review"))
+        return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them"))
     if outcome is None and _active(latest):
         # The text is ready; LearnLoop is choosing what to build (§6.3 states).
         return _line("Chapters found", "working")
@@ -1988,30 +1997,36 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     return line
 
 
-def _in_a_study_map(repo, vault, source_id: str) -> bool:
-    """Whether any study map covers this source: a source set names it, or a
-    completed study-map build read one of its extractions."""
+def _study_map_questions(repo, source_id: str) -> str | None:
+    """What study-map builds that read this book left (round-2 review F6):
+    ``"applied"`` when a finished build's questions were applied and are still
+    in, ``"pending"`` when a finished build's questions still wait for a look,
+    else ``None``. The applied proposal items are the receipt; collection
+    membership and a build that failed or was turned down count for nothing."""
 
-    if any(member.source_id == source_id for source_set in vault.source_sets for member in source_set.members):
-        return True
     extraction_ids = [
         run["id"]
         for revision in repo.source_revisions_for(source_id)
         for run in repo.extraction_runs_for_revision(revision["id"])
     ]
     if not extraction_ids:
-        return False
+        return None
+    pending = False
     with repo.connection() as connection:
         for extraction_id in extraction_ids:
-            row = connection.execute(
-                "SELECT 1 FROM synthesis_manifests m WHERE m.extraction_ids_json LIKE ? "
-                "AND EXISTS (SELECT 1 FROM synthesis_runs r WHERE r.manifest_id = m.id AND r.status = 'completed') "
-                "LIMIT 1",
+            rows = connection.execute(
+                "SELECT i.decision AS decision, i.applied_change_batch_id AS applied "
+                "FROM synthesis_manifests m "
+                "JOIN synthesis_runs r ON r.manifest_id = m.id AND r.status = 'completed' "
+                "JOIN proposed_patch_items i ON i.proposed_patch_id = r.proposal_id "
+                "WHERE m.extraction_ids_json LIKE ?",
                 (f'%"{extraction_id}"%',),
-            ).fetchone()
-            if row is not None:
-                return True
-    return False
+            ).fetchall()
+            for row in rows:
+                if row["decision"] == "accepted" and row["applied"]:
+                    return "applied"
+                pending = pending or row["decision"] == "pending"
+    return "pending" if pending else None
 
 
 def _built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None:
@@ -2033,8 +2048,9 @@ def _built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -
 def _unit_tree(repo, extraction_id: str) -> Any:
     """Just the extraction's units (id, parent, label), enough for
     ``outline_chapters``' chapter list and labels: the card's line is read on
-    every library poll, and the full outline loads the book's text once per
-    unit (usability round 2: 6-8 s per read for a 630-page book)."""
+    every library poll and keeping a chapter ahead on every reading-progress
+    report, and the full outline loads the book's text once per unit
+    (usability round 2: 6-8 s per read for a 630-page book; review F1)."""
 
     from types import SimpleNamespace
 
