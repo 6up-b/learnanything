@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "55b62f2b0d35a6bf3198c95c4e7ef0caa5af3bd9"
+source_commit_timestamp: "2026-10-12T21:03:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 176
+schema_head: 177
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -158,8 +158,8 @@ Database triggers:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
+- `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/tutor/durable_promotion.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "55b62f2b0d35a6bf3198c95c4e7ef0caa5af3bd9"
+source_commit_timestamp: "2026-10-12T21:03:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
   - "table post_attempt_jobs"
-schema_head: 176
+schema_head: 177
 table_name: "post_attempt_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -25,7 +25,6 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop_sidecar/context.py"
-  - "src/learnloop_sidecar/post_attempt_worker.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -52,7 +51,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/170_blind_grading_diagnosis_split.sql`.
-- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`.
+- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `177_learner_text_gaps.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

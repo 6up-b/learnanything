@@ -3,13 +3,13 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
-source_commit_timestamp: "2026-10-12T18:26:31-04:00"
+source_commit: "55b62f2b0d35a6bf3198c95c4e7ef0caa5af3bd9"
+source_commit_timestamp: "2026-10-12T21:03:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
   - "table embedding_vectors"
-schema_head: 176
+schema_head: 177
 table_name: "embedding_vectors"
 table_role: "workflow"
 functionality_status: "active"
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_graph_nomination.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_knowledge_map_text_neighbors.py`
+- `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_success_head_cli.py`
