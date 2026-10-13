@@ -4,8 +4,9 @@
 `learnanything-guide-fix`, base `main` at `19798a0c`). Owner-directed
 2026-10-12 ("launch the guide fix now"). This is a display-only change, so it
 needs no algorithm successor, no migration and no config change; the
-defaults fingerprint is untouched, so no snapshot was recomputed. There is no
-frontend change. Nothing was merged or pushed. The reader workbench spec's
+defaults fingerprint is untouched, so no snapshot was recomputed. This first
+pass had no frontend change; the Codex review fix (F1) added the Reader's
+refresh, see `guide-overlay-codex-review.md`. Nothing was merged or pushed. The reader workbench spec's
 RW3a (`spec_reader_workbench_v1.md` §3.4 item 1, §6.2, G30) builds on this
 fix.
 
@@ -41,8 +42,11 @@ It should have named the diagnoser's statement.
   (`db/repositories.py:1977`) is the per-LO counterpart of
   `error_events_for_attempt`.
   - It reads the same rows in the same order and fetches the live views of
-    their attempts in one query. `DiagnosisStoreMixin.live_causal_views` now
-    takes optional `attempt_ids`; without them it behaves as before.
+    their attempts in one batch: a table check, one diagnoses read and one
+    blind-grade read for all of the LO's attempts, so four statements with
+    the error-event read (corrected after the Codex review, which counted
+    them). `DiagnosisStoreMixin.live_causal_views` now takes optional
+    `attempt_ids`; without them it behaves as before.
   - It applies the existing `merge_causal_view_into_events`, so no overlay
     logic is duplicated.
   - Only the view's keys change (`_EVENT_VIEW_KEYS`,
