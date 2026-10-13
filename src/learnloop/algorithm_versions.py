@@ -100,8 +100,30 @@ STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 # as mvp-0.12 and it was relabelled mvp-0.14 when it merged after recurrence
 # groups (mvp-0.12) and the stuck prompt (mvp-0.13). Kill switch:
 # ``plan.enabled`` (sub-switches ``plan.new_admission_enabled`` and
-# ``plan.reading_blocks``); off, Today is mvp-0.13's.
+# ``plan.reading_blocks``); off, Today is mvp-0.13's. New vaults started here
+# until mvp-0.15 merged.
 DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
+
+# mvp-0.15 (PLACEHOLDER label: the branch grading/proof-alternatives built it
+# over mvp-0.14 while router R1 and learner-text gaps were taking mvp-0.15 and
+# mvp-0.16 on their way to main; relabel it to the next free tag at its merge):
+# the valid-alternative gate extended to proofs and explanations, on top of
+# mvp-0.14 (the chain stays linear: the mvp-0.10 split PLUS placement PLUS
+# recurrence groups PLUS the stuck prompt PLUS the plan PLUS the route check).
+# On an item an LLM reads as proof-like (cached per item content in
+# judgment_ledger), each new blind grade is followed by one independent
+# re-derivation of the learner's own route on a route that is not the
+# grader's model where one is configured; the deterministic gate restores a
+# criterion the grader marked down without locating an error when the check
+# validates the route, records one it disputes on a located step unverified
+# (PF-c's unassessed type; a clarification only when the dispute turns on
+# what the learner meant), and flags a step the grader accepted that the
+# check refutes with a verbatim quote. Persisted meaning changes for NEW
+# grades only (the blind record's grading_support.proof_route_check, the
+# restored points, the route-check verdict in judgment_ledger, migration 185's
+# clarification trigger); replay reads every record as written and the
+# projection namespace is unchanged. Kill switch: ``proof_check.enabled``.
+PROOF_ROUTE_CHECK_ALGORITHM_VERSION = "mvp-0.15"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -117,6 +139,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     STUCK_PROMPT_ALGORITHM_VERSION,
     DAILY_PLAN_ALGORITHM_VERSION,
+    PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
 )
 
 
@@ -168,6 +191,11 @@ PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION
 # Every later successor keeps the plan; gates must use this set, never
 # equality against DAILY_PLAN_ALGORITHM_VERSION.
 DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
+
+# Versions whose blind grades get the proofs-and-explanations route check
+# (behind ``proof_check.enabled``). Every later successor keeps it; gates must
+# use this set, never equality against PROOF_ROUTE_CHECK_ALGORITHM_VERSION.
+PROOF_ROUTE_CHECK_VERSIONS: frozenset[str] = successors_from(PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

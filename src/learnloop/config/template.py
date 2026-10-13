@@ -914,7 +914,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
+    # The proofs-and-explanations route check (grading/proof-alternatives,
+    # mvp-0.15, a placeholder tag) adds [proof_check] enabled = true (modelled
+    # default, left out of the decision-only template) and the unset
+    # ai.routing.proof_check route. Both are dormant below mvp-0.15 (the
+    # algorithm version gates the check), so mvp-0.9 to mvp-0.14 grading is
+    # unchanged; every snapshot moves only because the effective config gains
+    # them and was recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "d276c16a97f6508bbbd535798391c70e977e977ca5055b903e5fdb45cd349d78",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -929,7 +936,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.10": "242c227e595bd6a63a7cf458bf1de13560ca7156ada28791acd103d2b21e2314",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -952,7 +960,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.11": "6079c4ae6480d64e8369ab2763efc9463bcab2bea778b2695a25febfafd72284",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -969,7 +978,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.12": "93f359a69f6623edca8f872fd7742c62043ede5d87d894b282cc394620e71e94",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -983,18 +993,33 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
     # change).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.13": "289e7ee2aaea85eccdcbdba78122c9600c5ae916c93b1f268c38f6c031925a05",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
     # admission, block-by-block choice through the §6.8 source/chooser seam,
     # goal-optional re-entry and reading blocks. Kill switch plan.enabled.
     # Built as mvp-0.12 and relabelled at its merge. Existing vaults reach it
-    # by `learnloop upgrade` (default target) from mvp-0.13, or from mvp-0.9
-    # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
+    # by `learnloop upgrade --to mvp-0.14` from mvp-0.13, or from mvp-0.9 to
+    # mvp-0.12 through the chain (under mvp-0.12's guard). New vaults started
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
-    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
+    # 2026-10-12) until mvp-0.15 merged. The route check's [proof_check] and
+    # route move it too (see mvp-0.9; no grading change).
+    "mvp-0.14": "b179de290259263b55688f9a3ff3a2a40d37cfe7170138b9011b0046eb5f4577",
+    # mvp-0.15 (PLACEHOLDER tag, relabelled at its merge): mvp-0.14's split,
+    # placement, recurrence groups, stuck prompt and plan plus the
+    # valid-alternative gate for proofs and explanations (proof_check.enabled
+    # = true; ai.routing.proof_check unset = the first configured route with a
+    # model other than the grader's): on an item an LLM reads as proof-like,
+    # an independent re-derivation of the learner's route restores a
+    # criterion marked down without a located error, records one disputed on
+    # a located step unassessed, and flags an accepted step it refutes.
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # mvp-0.14, or from mvp-0.9 to mvp-0.13 through the chain (under
+    # mvp-0.12's guard). New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.15": "71e0ece38be3e32c1e9cb51b1e1c42e4de538051ba7426dc2ee3f9e2024e0552",
 }
 
 

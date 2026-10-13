@@ -240,6 +240,8 @@ def regrade_attempt(
     # reading is a new judgment superseding the attempt's current one.
     stuck_judgment: dict | None = None
     unverified: set[str] = set()
+    # mvp-0.15: the route check's verdict, written with the regrade.
+    proof_result = None
     try:
         if blind_plan is not None:
             from learnloop.attempts.blind_grading import (
@@ -249,6 +251,18 @@ def regrade_attempt(
             from learnloop.attempts.grading_support import request_blind_grading_run
 
             run = request_blind_grading_run(client, blind_plan.context, rubric=rubric)
+            from learnloop.attempts.proof_check import checked_run
+
+            # mvp-0.15: a regrade of a proof-like answer is checked again (with
+            # the clarification exchange, when that is what triggered it).
+            run = checked_run(
+                run, vault, repository, item=item, rubric=rubric,
+                learner_answer_md=attempt.get("learner_answer_md") or "",
+                grader_model=getattr(client, "model", None) or getattr(client, "model_id", None),
+                created_at=utc_now_iso(clock),
+                clarification_exchange=blind_plan.context.clarification_exchange,
+            )
+            proof_result = run.proof_check
             validated_blind = validate_blind_grading_proposal(
                 run.proposal,
                 attempt_id=attempt["id"],
@@ -299,6 +313,11 @@ def regrade_attempt(
                         rubric=rubric,
                     ),
                 )
+            if (
+                proof_result is not None and proof_result.clarification
+                and validated.clarification is None
+            ):
+                validated = replace(validated, clarification=dict(proof_result.clarification))
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
             from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
@@ -435,6 +454,13 @@ def regrade_attempt(
                 ),
                 clock=clock,
             )
+            if proof_result is not None and proof_result.judgment is not None:
+                from learnloop.attempts.proof_check import record_route_check_judgment
+
+                record_route_check_judgment(
+                    repository.connection(), attempt_id=attempt["id"],
+                    judgment=proof_result.judgment, created_at=now,
+                )
             if stuck_judgment is not None:
                 from learnloop.attempts.stuck import record_stuck_reading_judgment
 

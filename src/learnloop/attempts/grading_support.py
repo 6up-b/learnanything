@@ -430,6 +430,10 @@ class BlindGradingRun:
     #: ``mvp-0.13``: the winning sample's reading of a stuck answer (None for
     #: an ordinary answer). The caller verifies and records it.
     stuck_reading: StuckReading | None = None
+    #: ``mvp-0.15``: the proofs-and-explanations route check
+    #: (:class:`learnloop.attempts.proof_check.ProofCheckResult`), None when it
+    #: did not run. The caller records its verdict and any clarification.
+    proof_check: Any = None
 
 
 def gated_review_reason(
@@ -455,7 +459,8 @@ def gated_review_reason(
     evidence rows and the blind record, whichever reason is recorded.
     """
 
-    if not run.grading_support.get("valid_alternative_gate_applied"):
+    proof = run.grading_support.get("proof_route_check") or {}
+    if not run.grading_support.get("valid_alternative_gate_applied") and not proof.get("applied"):
         return None
     own = None
     if run.ungated_proposal is not None:
@@ -467,7 +472,24 @@ def gated_review_reason(
             learner_answer_md=learner_answer_md,
             rubric=rubric,
         ).grade.manual_review_reason
-    return own if own is not None else UNVERIFIED_REVIEW_REASON
+    if own is not None:
+        return own
+    if not proof.get("applied"):
+        return UNVERIFIED_REVIEW_REASON
+    # mvp-0.15: the route check's own concerns, most serious first. A flag (or
+    # a disputed fatal error) is a real review; a pending clarification is A8's
+    # provisional state; an unverified criterion is PF-c's non-blocking log; a
+    # restore alone leaves nothing to review.
+    from learnloop.attempts.grading import PROVISIONAL_PENDING_CLARIFICATION
+    from learnloop.attempts.proof_check import PROOF_ROUTE_REVIEW_REASON
+
+    if proof.get("flagged_criterion_ids") or proof.get("disputed_fatal"):
+        return PROOF_ROUTE_REVIEW_REASON
+    if proof.get("clarification"):
+        return PROVISIONAL_PENDING_CLARIFICATION
+    if run.grading_support.get("unverified_criterion_ids"):
+        return UNVERIFIED_REVIEW_REASON
+    return None
 
 
 def request_blind_grading_run(

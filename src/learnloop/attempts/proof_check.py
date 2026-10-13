@@ -1,0 +1,846 @@
+"""The valid-alternative gate for proofs and explanations (successor ``mvp-0.15``).
+
+PF-c's gate (:mod:`learnloop.attempts.grading_support`) protects a learner's
+different route only when a deterministic check verifies the final answer.
+"Prove", "show that", "justify", "derive" and "explain why" items have no such
+check, and LLM judges wrongly reject 13-91% of valid alternative proof steps
+and wrongly accept 7-71% of wrong ones; the error is mostly a property of the
+model, and showing the reference did not help (arXiv 2605.16207). This module
+adds the smallest sound path for those items (owner decision 2026-10-13):
+
+* **Which items.** An LLM reads the item's prompt, rubric and metadata (never
+  a keyword list) and says whether credit depends on the validity of the
+  learner's own reasoning (``proof_like``). The reading is cached per item
+  content in ``judgment_ledger`` (task :data:`ITEM_KIND_TASK`), so each item
+  version is classified once.
+* **An independent re-derivation.** On a proof-like item every blind grade is
+  followed by one isolated call on a route that is NOT the grader's model
+  where one is configured (:func:`proof_check_route`). It sees the item, the
+  rubric and the answer, never the grader's verdict or the reference, and
+  checks each criterion on the learner's own terms: ``established``,
+  ``not_established`` (quoting the first failing step verbatim) or
+  ``cannot_tell``. Its agreement or disagreement with the grader goes to
+  ``judgment_ledger`` (task :data:`ROUTE_CHECK_TASK`).
+* **The gate** (:func:`apply_proof_route_gate`, deterministic, server side),
+  per criterion, following PF-c's outcome types and its rule that a criterion
+  may be marked down only where a concrete error is located in the learner's
+  words:
+
+  - grader below full points, checker ``established``, the grader located no
+    step in the answer -> **restored** (full points, assessed);
+  - grader below full points, checker ``established``, the grader quoted a
+    concrete step -> **disputed**: unverified, which PF-c's rule makes
+    unassessed (no credit, no failure), and provisional: a clarification
+    question goes to the learner only when the checker says the dispute turns
+    on what the learner meant (principle 8: a disagreement between two models
+    about a written step is machine-resident and never costs the learner);
+  - grader at full points, checker ``not_established`` with the failing step
+    quoted verbatim -> **flagged**: the grade stands, never silently: a review
+    reason and a note on the criterion;
+  - everything else (agreement, ``cannot_tell``) leaves the grade as the grader
+    gave it, recorded.
+
+  A grade with fatal errors is never restored; a checker that disputes it is a
+  flag.
+
+Kill switch: ``proof_check.enabled = false`` grades exactly as ``mvp-0.14``
+for new answers. The algorithm version gates it; replay never reads either
+(the blind record, the evidence rows and the ledger are what an attempt was).
+Any failure to classify or check leaves the grader's grade in force and is
+recorded on the blind record (``status = unavailable``): a bonus check never
+fails a grade.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import hashlib
+import json
+import logging
+import re
+from typing import Any, Callable, Literal, Mapping, Sequence
+
+from pydantic import Field
+
+from learnloop.ai.schemas import WireModel
+from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
+from learnloop.algorithm_versions import PROOF_ROUTE_CHECK_VERSIONS
+from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+
+LOGGER = logging.getLogger(__name__)
+
+PROOF_CHECK_VERSION = "proof-route-check-v1"
+ITEM_KIND_PROMPT_VERSION = "proof-like-item-v1"
+ROUTE_CHECK_PROMPT_VERSION = "proof-route-check-v1"
+#: ``judgment_ledger.task`` of the item classification (left = the item, the
+#: input hash its content) and of one attempt's route check (left = the attempt).
+ITEM_KIND_TASK = "proof_like_item"
+ROUTE_CHECK_TASK = "proof_route_check"
+#: The attempt's review reason when the check flags a step the grader accepted
+#: (or disputes a grade carrying fatal errors). A real review concern: the
+#: grade is in doubt, so it is not a non-blocking log like PF-c's.
+PROOF_ROUTE_REVIEW_REASON = "proof_route_check_flag"
+#: ``grading_clarifications.trigger`` of a question licensed by a dispute that
+#: turns on the learner's meaning (migration 185).
+CLARIFICATION_TRIGGER = "route_check_disagreement"
+#: How a restored criterion is shown (beside PF-c's "not assessed" label).
+RESTORED_CRITERION_LABEL = "restored: an independent check found your route valid"
+#: Support key on the blind record.
+SUPPORT_KEY = "proof_route_check"
+PROOF_LIKE_KINDS = frozenset({"proof", "derivation", "justification", "explanation"})
+#: Clarification reasons that are learner-resident (A8): what the learner
+#: meant, not whether a written step is valid.
+_LEARNER_RESIDENT_REASONS = frozenset({"ambiguous_notation", "skipped_step", "method_ambiguity"})
+
+
+def proof_check_active(vault: Any) -> bool:
+    """Does this vault run the route check on NEW blind grades?
+
+    The algorithm version gates it; ``proof_check.enabled`` is its kill
+    switch. Read only when an answer is graded or regraded.
+    """
+
+    config = vault.config
+    if config.algorithms.algorithm_version not in PROOF_ROUTE_CHECK_VERSIONS:
+        return False
+    section = getattr(config, "proof_check", None)
+    return bool(getattr(section, "enabled", True))
+
+
+# -- wire models -------------------------------------------------------------------------
+
+
+class ItemKindReading(WireModel):
+    """What one item asks for, read from its prompt, rubric and metadata."""
+
+    response_kind: Literal[
+        "proof", "derivation", "justification", "explanation",
+        "computation", "recall", "classification", "other",
+    ]
+    reasoning_is_graded: bool = Field(
+        description=(
+            "True when the rubric credits the validity of the learner's own reasoning "
+            "steps, not only a final result."
+        ),
+    )
+    rationale: str = ""
+
+    @property
+    def proof_like(self) -> bool:
+        return self.response_kind in PROOF_LIKE_KINDS and self.reasoning_is_graded
+
+
+class CriterionRouteVerdict(WireModel):
+    criterion_id: str
+    verdict: Literal["established", "not_established", "cannot_tell"]
+    invalid_step_quote: str | None = Field(
+        default=None,
+        description=(
+            "not_established: the learner's text of the first step that fails, copied "
+            "verbatim. For a missing step, the sentence whose conclusion relies on it."
+        ),
+    )
+    error_kind: Literal["invalid_step", "unjustified_step", "missing_step", "false_claim"] | None = None
+    reason_md: str = ""
+
+
+class ProofRouteCheck(WireModel):
+    """One independent re-derivation of the learner's own route."""
+
+    route_md: str = Field(description="The learner's route, restated step by step in their order.")
+    step_checks_md: str = Field(description="Each step checked on its own terms: valid, invalid or unjustified, and why.")
+    criteria: list[CriterionRouteVerdict] = Field(default_factory=list)
+    clarification_question_md: str | None = None
+    clarification_reason: Literal[
+        "ambiguous_notation", "skipped_step", "method_ambiguity", "not_learner_resident"
+    ] = "not_learner_resident"
+
+
+ITEM_KIND_RULES = (
+    "Decide what this practice item asks the learner to produce, from its prompt, rubric "
+    "criteria and metadata (the learner's answer is not shown). response_kind: proof (prove "
+    "or show that a statement holds), derivation (derive a formula or result step by step), "
+    "justification (justify or argue that a claim or choice is right), explanation (explain "
+    "why or how something holds), computation (calculate a value; working may be shown but "
+    "the result is what is assessed), recall (state a definition, fact or formula), "
+    "classification (pick or label), other. reasoning_is_graded: true when the rubric gives "
+    "credit for the validity of the learner's own reasoning steps (an argument, derivation "
+    "or explanation), false when it grades only results, recall or labels. Judge what the "
+    "rubric rewards, not the words the prompt happens to use."
+)
+
+ROUTE_CHECK_RULES = (
+    "You are an independent checker of ONE learner's answer to a proof, derivation, "
+    "justification or explanation item. No reference solution is given on purpose: check "
+    "the learner's OWN route. First restate the route step by step (route_md), then check "
+    "each step on its own terms (step_checks_md). For EVERY rubric criterion return one "
+    "verdict. established: the learner's steps, each valid on its own terms, establish what "
+    "the criterion is for. A criterion phrased in terms of one method is established by any "
+    "valid method that establishes the same fact; an unusual, terse or differently ordered "
+    "route is not an error when each step is valid and its justification is standard. "
+    "not_established: a step the criterion depends on is invalid, unjustified, missing, or "
+    "a stated claim is false; copy into invalid_step_quote the learner's text of the FIRST "
+    "such step VERBATIM (for a missing step, the sentence whose conclusion relies on it). "
+    "Never accept a step because its conclusion happens to be true. cannot_tell: you cannot "
+    "decide from the answer. Ask clarification_question_md only when one short question to "
+    "the learner would settle a disputed or undecidable step that turns on what THEY meant "
+    "(ambiguous notation, a step they may have skipped as obvious, which method they "
+    "intended), and set clarification_reason accordingly; never ask about whether a written "
+    "step is valid (that is your job), and never reveal or hint at the answer."
+)
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def _digest(value: Any) -> str:
+    return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+def _rubric_payload(rubric: Rubric) -> list[dict[str, Any]]:
+    return [
+        {"id": criterion.id, "description": criterion.description, "points": criterion.points}
+        for criterion in rubric.criteria
+    ]
+
+
+def item_kind_payload(item: PracticeItem, rubric: Rubric) -> dict[str, Any]:
+    """What the classifier reads: item-side only, no answer, no reference."""
+
+    return {
+        "prompt": item.prompt,
+        "rubric_criteria": _rubric_payload(rubric),
+        "metadata": {
+            "practice_mode": item.practice_mode,
+            "capability": item.capability,
+            "has_trace_contract": item.trace_contract is not None,
+            "attempt_types_allowed": list(item.attempt_types_allowed),
+        },
+    }
+
+
+def item_kind_input_hash(item: PracticeItem, rubric: Rubric) -> str:
+    return _digest({"version": ITEM_KIND_PROMPT_VERSION, "item": item_kind_payload(item, rubric)})
+
+
+def item_kind_prompt(item: PracticeItem, rubric: Rubric) -> str:
+    return render_structured_prompt(
+        "learnloop practice item kind",
+        ITEM_KIND_PROMPT_VERSION,
+        {"task": ITEM_KIND_RULES, "context": item_kind_payload(item, rubric)},
+    )
+
+
+def route_check_payload(
+    item: PracticeItem,
+    rubric: Rubric,
+    learner_answer_md: str,
+    *,
+    clarification_exchange: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "prompt": item.prompt,
+        "rubric_criteria": _rubric_payload(rubric),
+        "learner_answer_md": learner_answer_md,
+    }
+    if clarification_exchange:
+        payload["clarification_exchange"] = dict(clarification_exchange)
+    return payload
+
+
+def route_check_prompt(
+    item: PracticeItem,
+    rubric: Rubric,
+    learner_answer_md: str,
+    *,
+    clarification_exchange: Mapping[str, str] | None = None,
+) -> str:
+    return render_structured_prompt(
+        "learnloop proof route check",
+        ROUTE_CHECK_PROMPT_VERSION,
+        {
+            "task": ROUTE_CHECK_RULES,
+            "context": route_check_payload(
+                item, rubric, learner_answer_md, clarification_exchange=clarification_exchange,
+            ),
+        },
+        context_tail_fields=("learner_answer_md",),
+    )
+
+
+# -- the deterministic gate ------------------------------------------------------------
+
+_WS = re.compile(r"\s+")
+
+
+def _squash(text: str | None) -> str:
+    return _WS.sub(" ", text or "").strip().casefold()
+
+
+def _in_answer(quote: str | None, answer: str) -> bool:
+    squashed = _squash(quote)
+    return bool(squashed) and squashed in _squash(answer)
+
+
+def _criteria_of(attribution: Any) -> set[str]:
+    criteria = {str(value) for value in (attribution.target_criterion_ids or [])}
+    ref = attribution.target_ref
+    if ref is not None and getattr(ref, "kind", None) == "criterion":
+        criteria.add(str(getattr(ref, "criterion_id", "")))
+    divergence = attribution.first_divergence
+    if divergence is not None and getattr(divergence, "criterion_id", None):
+        criteria.add(str(divergence.criterion_id))
+    return criteria
+
+
+def _grader_located(attribution: Any, answer: str) -> bool:
+    """A concrete error in the learner's words, still in force (PF-c's rule)."""
+
+    if attribution.validity_scope == "grader_interpretation":
+        return False
+    divergence = attribution.first_divergence
+    return _in_answer(getattr(divergence, "quote", None) if divergence is not None else None, answer)
+
+
+@dataclass(frozen=True)
+class ProofGateOutcome:
+    proposal: Any
+    outcomes: dict[str, str]
+    restored: tuple[str, ...] = ()
+    unverified: tuple[str, ...] = ()
+    flagged: tuple[str, ...] = ()
+    disputed_fatal: bool = False
+    clarification: dict[str, Any] | None = None
+    assessed_shortfall: bool = True
+    withdrawn_attributions: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def applied(self) -> bool:
+        return bool(self.restored or self.unverified or self.flagged or self.disputed_fatal or self.clarification)
+
+
+def apply_proof_route_gate(
+    proposal: Any,
+    *,
+    rubric: Rubric,
+    learner_answer_md: str,
+    check: ProofRouteCheck,
+    unverified_before: Sequence[str] = (),
+    grader_review_recommended: bool = False,
+    checker_model: str | None = None,
+    clarification_allowed: bool = True,
+) -> ProofGateOutcome:
+    """Combine the blind grade with the independent check (see the module doc).
+
+    ``proposal`` is the blind proposal after PF-c's gate; ``unverified_before``
+    the criteria PF-c already recorded unverified. ``grader_review_recommended``
+    is the grader's OWN review flag (before PF-c forced one), so a gate that
+    resolves everything leaves no forced review behind.
+    """
+
+    maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
+    awarded = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
+    below = {cid for cid, maximum in maxima.items() if awarded.get(cid, maximum) + 1e-9 < maximum}
+    located: set[str] = set()
+    for attribution in proposal.error_attributions:
+        if _grader_located(attribution, learner_answer_md):
+            located.update(_criteria_of(attribution))
+    verdicts = {row.criterion_id: row for row in check.criteria if row.criterion_id in maxima}
+    previously_unverified = {str(value) for value in unverified_before}
+    fatal = bool(proposal.fatal_errors)
+
+    outcomes: dict[str, str] = {}
+    restored: list[str] = []
+    disputed: list[str] = []
+    flagged: list[str] = []
+    disputed_fatal = False
+    for cid in maxima:
+        row = verdicts.get(cid)
+        verdict = row.verdict if row is not None else "cannot_tell"
+        quoted = row is not None and _in_answer(row.invalid_step_quote, learner_answer_md)
+        if cid in below:
+            if verdict == "established":
+                if fatal:
+                    outcomes[cid] = "disputed_fatal"
+                    disputed_fatal = True
+                elif cid in located:
+                    outcomes[cid] = "disputed"
+                    disputed.append(cid)
+                else:
+                    outcomes[cid] = "restored"
+                    restored.append(cid)
+            elif verdict == "not_established":
+                outcomes[cid] = "agree_shortfall"
+            else:
+                outcomes[cid] = "cannot_tell"
+        else:
+            if verdict == "not_established" and quoted:
+                outcomes[cid] = "flagged"
+                flagged.append(cid)
+            elif verdict == "not_established":
+                outcomes[cid] = "questioned_unlocated"
+            elif verdict == "established":
+                outcomes[cid] = "agree_full"
+            else:
+                outcomes[cid] = "cannot_tell"
+
+    restored_set = set(restored)
+    unverified = (previously_unverified - restored_set) | set(disputed)
+    # Rows: a restored criterion gets full points; flagged and disputed
+    # criteria carry a note naming what the check found.
+    evidence = []
+    for row in proposal.criterion_evidence:
+        cid = row.criterion_id
+        verdict = verdicts.get(cid)
+        reason = (verdict.reason_md or "").strip() if verdict is not None else ""
+        model = checker_model or "an independent model"
+        if cid in restored_set:
+            row = row.model_copy(update={
+                "points_awarded": maxima[cid],
+                "evidence": (
+                    f"Restored by an independent check of the learner's route ({model}): "
+                    f"{reason or 'each step it depends on is valid on its own terms.'}"
+                ),
+                "notes": f"Grader's mark-down, which named no step in the answer: {row.evidence}",
+            })
+        elif cid in flagged:
+            quote = (verdict.invalid_step_quote or "").strip() if verdict is not None else ""
+            row = row.model_copy(update={
+                "notes": (
+                    f"An independent check ({model}) questioned this step: “{quote}”. "
+                    f"{reason}".strip() + " The grade stands until it is reviewed."
+                ),
+            })
+        elif cid in disputed:
+            row = row.model_copy(update={
+                "notes": (
+                    f"An independent check ({model}) found this step valid: {reason}".strip()
+                    + " Not assessed while the two checks disagree."
+                ),
+            })
+        evidence.append(row)
+
+    # Attributions on a restored criterion are refuted by the restore: they
+    # leave the grade (kept on the record); on an unverified one they are the
+    # grader's interpretation, as PF-c rescopes them.
+    attributions = []
+    withdrawn: list[dict[str, Any]] = []
+    attribution_in_force = False
+    for attribution in proposal.error_attributions:
+        criteria = _criteria_of(attribution)
+        if criteria and criteria <= restored_set:
+            withdrawn.append(attribution.model_dump(mode="json"))
+            continue
+        if criteria and criteria & unverified and not criteria - unverified - restored_set:
+            if attribution.validity_scope != "grader_interpretation":
+                attribution = attribution.model_copy(update={"validity_scope": "grader_interpretation"})
+        elif attribution.validity_scope != "grader_interpretation":
+            attribution_in_force = True
+        attributions.append(attribution)
+
+    score_points = {row.criterion_id: float(row.points_awarded) for row in evidence}
+    still_below = {
+        cid for cid, maximum in maxima.items() if score_points.get(cid, maximum) + 1e-9 < maximum
+    }
+    assessed_shortfall = bool(still_below - unverified) or attribution_in_force or fatal
+
+    clarification = None
+    if (
+        clarification_allowed
+        and disputed
+        and (check.clarification_question_md or "").strip()
+        and check.clarification_reason in _LEARNER_RESIDENT_REASONS
+    ):
+        clarification = {
+            "question_md": check.clarification_question_md.strip(),
+            "reason": check.clarification_reason,
+            "criterion_id": disputed[0],
+            "trigger": CLARIFICATION_TRIGGER,
+        }
+    review = bool(grader_review_recommended or unverified or flagged or disputed_fatal or clarification)
+    gated = proposal.model_copy(update={
+        "criterion_evidence": evidence,
+        "error_attributions": attributions,
+        "rubric_score": int(round(sum(score_points.values()))) if restored else proposal.rubric_score,
+        "manual_review_recommended": review,
+    })
+    return ProofGateOutcome(
+        proposal=gated,
+        outcomes=outcomes,
+        restored=tuple(restored),
+        unverified=tuple(sorted(unverified)),
+        flagged=tuple(flagged),
+        disputed_fatal=disputed_fatal,
+        clarification=clarification,
+        assessed_shortfall=assessed_shortfall,
+        withdrawn_attributions=tuple(withdrawn),
+    )
+
+
+# -- routes ---------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CheckerRoute:
+    provider: str | None
+    model: str | None
+    independent: bool
+    reason: str
+
+
+def _profile_model(vault: LoadedVault, provider: str) -> str | None:
+    profile = vault.config.ai.providers.get(provider)
+    return getattr(profile, "model", None) if profile is not None else None
+
+
+def proof_check_route(vault: LoadedVault, *, grader_model: str | None) -> CheckerRoute:
+    """The route the check runs on: NOT the grader's model where possible.
+
+    ``ai.routing.proof_check`` when set (the owner's choice, independent or
+    not). Otherwise the first route the vault already sends learner text to
+    (diagnosis, same-cause judge, diagnosis judge, tutor, the active and
+    fallback providers) whose configured model differs from the grader's; if
+    none differs, the grading route itself, recorded as not independent.
+    Learner text never goes to a provider the vault does not already use.
+    """
+
+    from learnloop.ai.routing import is_generation_profile, provider_for_task
+
+    config = vault.config
+    explicit = (getattr(config.ai.routing, "proof_check", None) or "").strip()
+    if explicit:
+        model = _profile_model(vault, explicit)
+        return CheckerRoute(
+            explicit, model, bool(model and grader_model and model != grader_model),
+            "ai.routing.proof_check",
+        )
+    candidates: list[tuple[str, str]] = []
+    for task in ("diagnosis", "same_cause_judge", "diagnosis_judge", "tutor_qa"):
+        name = provider_for_task(config, task, allow_env=False).provider_name  # type: ignore[arg-type]
+        candidates.append((name, f"ai.routing.{task}"))
+    candidates.append((config.ai.active_provider, "ai.active_provider"))
+    candidates.append(((config.ai.fallback_provider or "").strip(), "ai.fallback_provider"))
+    for name, source in candidates:
+        if not name or name not in config.ai.providers or not is_generation_profile(config, name):
+            continue
+        model = _profile_model(vault, name)
+        if model and grader_model and model != grader_model:
+            return CheckerRoute(name, model, True, source)
+    grading = provider_for_task(config, "grading", allow_env=False).provider_name
+    return CheckerRoute(
+        grading or None, _profile_model(vault, grading) if grading else None, False,
+        "no configured route with a different model: the grading route",
+    )
+
+
+def resolve_check_client(vault: LoadedVault, route: CheckerRoute) -> Any | None:
+    """A ready client for the route, or None (tests replace this)."""
+
+    from learnloop.ai.routing import ready_client_for_task
+
+    if not route.provider:
+        return None
+    resolved = ready_client_for_task(vault.root, vault.config, "proof_check", explicit=route.provider)
+    return resolved.client if resolved.ready else None
+
+
+# -- one check ---------------------------------------------------------------------------------
+
+
+@dataclass
+class ProofCheckResult:
+    support: dict[str, Any]
+    gate: ProofGateOutcome | None = None
+    #: The per-attempt verdict for ``judgment_ledger`` (written by the caller in
+    #: the grading transaction), or None when nothing was checked.
+    judgment: dict[str, Any] | None = None
+    clarification: dict[str, Any] | None = None
+
+
+def _current_judgment(connection: Any, *, task: str, left_kind: str, left_id: str,
+                      input_hash: str | None = None) -> Any:
+    sql = (
+        "SELECT j.id, j.verdict, j.judge_model, j.input_hash FROM judgment_ledger j "
+        "WHERE j.task = ? AND j.left_kind = ? AND j.left_id = ? AND j.right_kind IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id)"
+    )
+    params: list[Any] = [task, left_kind, left_id]
+    if input_hash is not None:
+        sql += " AND j.input_hash = ?"
+        params.append(input_hash)
+    return connection.execute(sql + " ORDER BY j.created_at DESC, j.id DESC LIMIT 1", params).fetchone()
+
+
+def classify_item(
+    repository: Any,
+    item: PracticeItem,
+    rubric: Rubric,
+    client: OperationClient | None,
+    *,
+    created_at: str,
+) -> tuple[ItemKindReading | None, dict[str, Any]]:
+    """The item's cached kind, or one classification call recorded in the ledger."""
+
+    from learnloop.db.stores.judgments import append_judgment
+
+    input_hash = item_kind_input_hash(item, rubric)
+    with repository.connection() as connection:
+        cached = _current_judgment(
+            connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id, input_hash=input_hash,
+        )
+    if cached is not None:
+        try:
+            stored = json.loads(cached[1])
+            # The verdict also records the derived ``proof_like`` for readers.
+            reading = ItemKindReading.model_validate(
+                {key: value for key, value in stored.items() if key in ItemKindReading.model_fields}
+            )
+        except (ValueError, AttributeError):
+            reading = None
+        if reading is not None:
+            return reading, {"cached": True, "judgment_id": str(cached[0]), "model": cached[2]}
+    if client is None:
+        return None, {"cached": False, "error": "no ready client for the item classification"}
+    reading = execute_structured_operation(
+        client, purpose="proof_item_classification", prompt=item_kind_prompt(item, rubric),
+        result_model=ItemKindReading, isolated=True,
+    )
+    model = getattr(client, "model", None) or "unknown"
+    with repository.connection() as connection:
+        previous = _current_judgment(connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id)
+        judgment_id = append_judgment(
+            connection, task=ITEM_KIND_TASK, left_kind="practice_item", left_id=item.id,
+            judge="llm", judge_model=str(model), prompt_version=ITEM_KIND_PROMPT_VERSION,
+            input_hash=input_hash,
+            verdict=_canonical({**reading.model_dump(mode="json"), "proof_like": reading.proof_like}),
+            rationale=reading.rationale or reading.response_kind,
+            supersedes_id=str(previous[0]) if previous is not None else None,
+            created_at=created_at,
+        )
+        connection.commit()
+    return reading, {"cached": False, "judgment_id": judgment_id, "model": model}
+
+
+def run_proof_route_check(
+    vault: LoadedVault,
+    repository: Any,
+    *,
+    item: PracticeItem,
+    rubric: Rubric,
+    learner_answer_md: str,
+    proposal: Any,
+    unverified_before: Sequence[str],
+    grader_review_recommended: bool,
+    grader_model: str | None,
+    created_at: str,
+    clarification_exchange: Mapping[str, str] | None = None,
+    client_resolver: Callable[[LoadedVault, CheckerRoute], Any] | None = None,
+) -> ProofCheckResult:
+    """Classify the item (cached), check the route, apply the gate.
+
+    Never raises: anything that stops the check leaves the grader's grade in
+    force, with ``status = unavailable`` and the error type recorded.
+    """
+
+    support: dict[str, Any] = {"version": PROOF_CHECK_VERSION, "status": "unavailable", "applied": False}
+    resolver = client_resolver or resolve_check_client
+    try:
+        route = proof_check_route(vault, grader_model=grader_model)
+        support["checker"] = {
+            "provider": route.provider, "model": route.model, "independent": route.independent,
+            "route": route.reason, "grader_model": grader_model,
+        }
+        client = resolver(vault, route)
+        if client is not None:
+            resolved_model = getattr(client, "model", None)
+            if resolved_model:
+                support["checker"]["model"] = resolved_model
+                support["checker"]["independent"] = bool(grader_model and resolved_model != grader_model)
+        reading, provenance = classify_item(repository, item, rubric, client, created_at=created_at)
+        if reading is None:
+            support["error"] = provenance.get("error", "item kind unavailable")
+            return ProofCheckResult(support)
+        support["item_kind"] = {
+            "response_kind": reading.response_kind,
+            "reasoning_is_graded": reading.reasoning_is_graded,
+            "proof_like": reading.proof_like,
+            **provenance,
+        }
+        if not reading.proof_like:
+            support["status"] = "not_proof_like"
+            return ProofCheckResult(support)
+        if client is None:
+            support["error"] = "no ready client for the route check"
+            return ProofCheckResult(support)
+        prompt = route_check_prompt(
+            item, rubric, learner_answer_md, clarification_exchange=clarification_exchange,
+        )
+        check = execute_structured_operation(
+            client, purpose="proof_route_check", prompt=prompt, result_model=ProofRouteCheck, isolated=True,
+        )
+        checker_model = support["checker"]["model"]
+        gate = apply_proof_route_gate(
+            proposal, rubric=rubric, learner_answer_md=learner_answer_md, check=check,
+            unverified_before=unverified_before, grader_review_recommended=grader_review_recommended,
+            checker_model=checker_model,
+            # One question per attempt: an answered exchange is never re-asked.
+            clarification_allowed=not clarification_exchange,
+        )
+    except Exception as exc:  # a bonus check never fails a grade
+        LOGGER.warning("proof route check unavailable for item %s", item.id, exc_info=True)
+        support["error"] = f"{type(exc).__name__}: {exc}"[:500]
+        return ProofCheckResult(support)
+
+    verdicts = {
+        row.criterion_id: {
+            "verdict": row.verdict,
+            "error_kind": row.error_kind,
+            "quote_located": _in_answer(row.invalid_step_quote, learner_answer_md),
+        }
+        for row in check.criteria if row.criterion_id in {c.id for c in rubric.criteria}
+    }
+    agreement = {
+        "agree": sum(value in {"agree_full", "agree_shortfall"} for value in gate.outcomes.values()),
+        "disagree": sum(
+            value in {"restored", "disputed", "disputed_fatal", "flagged", "questioned_unlocated"}
+            for value in gate.outcomes.values()
+        ),
+        "cannot_tell": sum(value == "cannot_tell" for value in gate.outcomes.values()),
+    }
+    support.update(
+        status="checked",
+        applied=gate.applied,
+        prompt_version=ROUTE_CHECK_PROMPT_VERSION,
+        verdicts=verdicts,
+        outcomes=dict(gate.outcomes),
+        agreement=agreement,
+        restored_criterion_ids=list(gate.restored),
+        unverified_criterion_ids=list(gate.unverified),
+        flagged_criterion_ids=list(gate.flagged),
+        disputed_fatal=gate.disputed_fatal,
+        clarification=gate.clarification,
+        assessed_shortfall=gate.assessed_shortfall,
+        withdrawn_attributions=list(gate.withdrawn_attributions),
+        route_md=check.route_md,
+        step_checks_md=check.step_checks_md,
+    )
+    judgment = {
+        "verdict": _canonical({
+            "outcomes": gate.outcomes, "verdicts": verdicts, "agreement": agreement,
+            "checker": support["checker"],
+        }),
+        "judge_model": str(checker_model or "unknown"),
+        "input_hash": _digest({"prompt": prompt}),
+        "rationale": (
+            f"route check: {agreement['agree']} agree, {agreement['disagree']} disagree, "
+            f"{agreement['cannot_tell']} cannot tell"
+        ),
+        "score": (
+            agreement["agree"] / (agreement["agree"] + agreement["disagree"])
+            if agreement["agree"] + agreement["disagree"] else None
+        ),
+    }
+    return ProofCheckResult(support, gate=gate, judgment=judgment, clarification=gate.clarification)
+
+
+def record_route_check_judgment(connection: Any, *, attempt_id: str, judgment: Mapping[str, Any],
+                                created_at: str) -> str:
+    """Append the attempt's route-check verdict (a regrade supersedes it).
+
+    Called inside the transaction that records the grade.
+    """
+
+    from learnloop.db.stores.judgments import append_judgment
+
+    current = _current_judgment(connection, task=ROUTE_CHECK_TASK, left_kind="attempt", left_id=attempt_id)
+    return append_judgment(
+        connection, task=ROUTE_CHECK_TASK, left_kind="attempt", left_id=attempt_id,
+        judge="llm", judge_model=str(judgment["judge_model"]), prompt_version=ROUTE_CHECK_PROMPT_VERSION,
+        input_hash=str(judgment["input_hash"]), verdict=str(judgment["verdict"]),
+        score=judgment.get("score"), rationale=str(judgment["rationale"]),
+        supersedes_id=str(current[0]) if current is not None else None, created_at=created_at,
+    )
+
+
+def checked_run(
+    run: Any,
+    vault: LoadedVault,
+    repository: Any,
+    *,
+    item: PracticeItem,
+    rubric: Rubric,
+    learner_answer_md: str,
+    grader_model: str | None,
+    created_at: str,
+    clarification_exchange: Mapping[str, str] | None = None,
+) -> Any:
+    """The blind run with the route check applied (unchanged when inactive).
+
+    The run's ``grading_support`` gains :data:`SUPPORT_KEY`; when the gate
+    applied, PF-c's own keys are rewritten over both gates, so every reader of
+    ``unverified_criterion_ids``, ``valid_alternative_gate_applied`` and
+    ``assessed_shortfall`` (the attempt step, diagnosis, placement, the field)
+    treats a route-check outcome exactly as a PF-c one.
+    """
+
+    from dataclasses import replace
+
+    from learnloop.substrate.canonical_projection import (
+        UNASSESSED_INTERPRETATION,
+        UNVERIFIED_INTERPRETATION_KEY,
+    )
+
+    if not proof_check_active(vault):
+        return run
+    support = dict(run.grading_support)
+    unverified_before = [str(value) for value in support.get("unverified_criterion_ids") or ()]
+    own_review = bool(getattr(run.ungated_proposal or run.proposal, "manual_review_recommended", False))
+    result = run_proof_route_check(
+        vault, repository, item=item, rubric=rubric, learner_answer_md=learner_answer_md,
+        proposal=run.proposal, unverified_before=unverified_before,
+        grader_review_recommended=own_review, grader_model=grader_model, created_at=created_at,
+        clarification_exchange=clarification_exchange,
+    )
+    support[SUPPORT_KEY] = result.support
+    proposal = run.proposal
+    if result.gate is not None and result.gate.applied:
+        gate = result.gate
+        proposal = gate.proposal
+        pfc_applied = bool(support.get("valid_alternative_gate_applied"))
+        support.update(
+            unverified_criterion_ids=list(gate.unverified),
+            valid_alternative_gate_applied=True,
+            valid_alternative_gate={"final_answer": pfc_applied, "proof_route": True},
+            assessed_shortfall=gate.assessed_shortfall,
+        )
+        if gate.unverified:
+            support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
+    return replace(run, proposal=proposal, grading_support=support, proof_check=result)
+
+
+__all__ = [
+    "CLARIFICATION_TRIGGER",
+    "CheckerRoute",
+    "CriterionRouteVerdict",
+    "ITEM_KIND_TASK",
+    "ItemKindReading",
+    "PROOF_CHECK_VERSION",
+    "PROOF_ROUTE_REVIEW_REASON",
+    "ProofCheckResult",
+    "ProofGateOutcome",
+    "ProofRouteCheck",
+    "RESTORED_CRITERION_LABEL",
+    "ROUTE_CHECK_TASK",
+    "SUPPORT_KEY",
+    "apply_proof_route_gate",
+    "checked_run",
+    "classify_item",
+    "item_kind_prompt",
+    "proof_check_active",
+    "proof_check_route",
+    "record_route_check_judgment",
+    "resolve_check_client",
+    "route_check_prompt",
+    "run_proof_route_check",
+]

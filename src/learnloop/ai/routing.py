@@ -69,6 +69,9 @@ AITask = Literal[
     "router_llm",
     "llm_probability_decider",
     "llm_probability_llm",
+    # mvp-0.15: the proofs-and-explanations route check and its item reading
+    # (unset: chosen by attempts.proof_check.proof_check_route).
+    "proof_check",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -143,6 +146,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "contamination_reveal_judgment": "contamination_judge",
     # Router R0: the learner field's llm_probability LLM judge (field §7.2).
     "llm_probability_prediction": "llm_probability_llm",
+    # mvp-0.15: the independent re-derivation of a proof or explanation and
+    # the once-per-item proof-like reading.
+    "proof_route_check": "proof_check",
+    "proof_item_classification": "proof_check",
 }
 
 

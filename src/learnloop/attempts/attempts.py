@@ -1152,6 +1152,7 @@ def complete_codex_graded_attempt(
     grader_identity: tuple[str, str] | None = None,
     manual_review_override: str | None = None,
     unverified_criterion_ids: Iterable[str] = (),
+    clarification_override: dict[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -1197,6 +1198,11 @@ def complete_codex_graded_attempt(
                 unassessed_criterion_ids=unverified,
             ),
         )
+    if clarification_override and validated.clarification is None:
+        # mvp-0.15: a question the route check licensed (a dispute that turns
+        # on what the learner meant). The grader's own question, if it asked
+        # one, wins: one question per attempt.
+        validated = replace(validated, clarification=dict(clarification_override))
     manual_review_reason = manual_review_override or validated.manual_review_reason
     result = apply_attempt(
         vault,
@@ -1624,6 +1630,17 @@ def _complete_blind_graded_attempt(
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
+    from learnloop.attempts.proof_check import checked_run, record_route_check_judgment
+
+    # mvp-0.15: on a proof-like item, the independent route check and its
+    # gate (a no-op below mvp-0.15 or with proof_check.enabled = false).
+    run = checked_run(
+        run, vault, repository, item=item, rubric=rubric,
+        learner_answer_md=draft.learner_answer_md, grader_model=_client_model(ai_client),
+        created_at=utc_now_iso(clock),
+        clarification_exchange=blind.context.clarification_exchange,
+    )
+    proof_result = run.proof_check
     try:
         validated = validate_blind_grading_proposal(
             run.proposal,
@@ -1691,8 +1708,15 @@ def _complete_blind_graded_attempt(
             grader_identity=identity,
             manual_review_override=review_override,
             unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
+            clarification_override=proof_result.clarification if proof_result is not None else None,
             clock=clock,
         )
+        if proof_result is not None and proof_result.judgment is not None:
+            # The route check's agreement or disagreement, with the grade.
+            record_route_check_judgment(
+                repository.connection(), attempt_id=attempt_id,
+                judgment=proof_result.judgment, created_at=utc_now_iso(clock),
+            )
         repository.insert_blind_grade_record(
             attempt_id=attempt_id,
             agent_run_id=agent_run_id,

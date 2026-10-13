@@ -1148,6 +1148,10 @@ class AIRoutingConfig(BaseModel):
     router_llm: str | None = None
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
+    # mvp-0.15: the independent re-derivation of a proof or explanation (and the
+    # once-per-item proof-like reading). Empty = the first configured route the
+    # vault already sends learner text to whose model differs from the grader's.
+    proof_check: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1586,6 +1590,21 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class ProofCheckConfig(BaseModel):
+    """The valid-alternative gate for proofs and explanations (successor ``mvp-0.15``).
+
+    Dormant below ``mvp-0.15``: the algorithm version decides whether new blind
+    grades get the independent route check. ``enabled`` is the kill switch:
+    off, an ``mvp-0.15`` vault grades new answers exactly as ``mvp-0.14``.
+    Grades already recorded keep their meaning (the blind record and the
+    evidence rows carry the outcome; replay never reads this switch). The
+    check's model is ``ai.routing.proof_check`` (unset: the first configured
+    route the vault already uses whose model differs from the grader's).
+    """
+
+    enabled: bool = True
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1942,6 +1961,7 @@ class LearnLoopConfig(BaseModel):
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
+    proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
 
     @model_validator(mode="before")
     @classmethod
