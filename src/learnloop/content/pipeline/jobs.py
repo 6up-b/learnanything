@@ -3027,6 +3027,10 @@ class DurableIngestJobs:
         # request waits on a wake-up. A wake only brings a pass forward.
         self._reading_sweep_thread: threading.Thread | None = None
         self._reading_sweep_wake = threading.Event()
+        # Set on the thread running a sweep pass: what fails inside a pass
+        # never wakes that same sweep (Codex review F2). The pass's outcome
+        # alone sets its next wait, so a failure's backoff cannot collapse.
+        self._in_sweep_pass = threading.local()
         #: The clock the reading sweep and a failed request's backoff read
         #: (``None``: the wall clock; tests script it).
         self.reading_clock: Clock | None = None
@@ -3238,8 +3242,16 @@ class DurableIngestJobs:
     def wake_reading_retries(self) -> None:
         """Bring the reading sweep's next pass forward (a background host;
         a foreground host calls :meth:`sweep_reading_requests` itself). Never
-        needed for correctness: the sweep's own pace reaches every request."""
+        needed for correctness: the sweep's own pace reaches every request.
 
+        A no-op inside the sweep's own pass (Codex review F2): an act that
+        failed there, even one whose failure could not be recorded, must wait
+        the sweep's backoff, not cut it to nothing by waking the sweep it runs
+        on. A wake from anywhere else (the Reader's RPC, the start, the
+        worker) still brings the pass forward."""
+
+        if getattr(self._in_sweep_pass, "active", False):
+            return
         if self._background and self._runner is not None:
             self._ensure_reading_sweep()
             self._reading_sweep_wake.set()
@@ -3341,7 +3353,11 @@ class DurableIngestJobs:
         if self._runner is None:
             return failures, delay
         try:
-            sweep = self.sweep_reading_requests()
+            self._in_sweep_pass.active = True
+            try:
+                sweep = self.sweep_reading_requests()
+            finally:
+                self._in_sweep_pass.active = False
             if not sweep.failed:
                 return 0, self._reading_sweep_delay(sweep)
             delay = self._reading_sweep_delay(sweep)
