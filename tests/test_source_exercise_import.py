@@ -209,10 +209,10 @@ def test_a_retried_written_import_restores_a_missing_check(textbook, monkeypatch
     paths, repository, spans = textbook
     llm = FakeServiceLLM()
 
-    def old_commit(repository, import_id, item, content_hash, *, clock):
+    def old_commit(repository, import_id, item, *, clock):
         with repository.connection() as connection:
             SEI.update_import(connection, import_id, updated_at="2026-10-12T00:00:00Z", status="written",
-                              practice_item_id=item.id, content_hash=content_hash)
+                              practice_item_id=item.id, content_hash=reference_content_hash(item))
         raise _ProcessDeath()
 
     real = SEI._commit_written
@@ -327,3 +327,47 @@ def test_the_sidecar_resumes_pending_checks_at_startup(textbook, monkeypatch):
     context = SidecarContext()
     context.load(paths.root)
     assert done.wait(10) and seen == [str(paths.root)]
+
+
+@pytest.mark.parametrize("recovery", ["job_retry", "startup"])
+def test_recovery_never_binds_a_verdict_to_content_edited_before_the_commit(textbook, monkeypatch, recovery):
+    """Codex re-review F1: the ladder verified the draft, the item was written,
+    the process died before ``_commit_written``, and the item was edited before
+    recovery. The persisted verdict belongs to the draft's content only."""
+
+    from learnloop.content.authoring.item_authoring import edit_item
+
+    paths, repository, spans = textbook
+    llm = FakeServiceLLM()
+    real = SEI._commit_written
+
+    def die(*_args, **_kwargs):
+        raise _ProcessDeath()
+
+    monkeypatch.setattr(SEI, "_commit_written", die)
+    import_id = "sei_edit_before_commit"
+    with pytest.raises(_ProcessDeath):
+        _import(paths, repository, spans["exercises"][1], llm, import_id=import_id)
+    monkeypatch.setattr(SEI, "_commit_written", real)
+    row = _row(repository, import_id)
+    item_id = row["practice_item_id"]
+    checked_hash = reference_content_hash(loaded(paths).practice_items[item_id])
+    assert row["verification"]["ladder_result"]["key_status"] == "book_solution"
+    # The write-ahead record names the content the verdict is for.
+    assert row["verification"]["ladder_result"]["content_hash"] == checked_hash
+    edit_item(paths.root, repository, practice_item_id=item_id, expected_answer="6")
+    calls = len(llm.calls)
+    if recovery == "job_retry":
+        _import(paths, repository, spans["exercises"][1], llm, import_id=import_id)
+    else:
+        SEI.recover_import_checks(paths.root, repository, clients=service_clients(llm))
+    assert len(llm.calls) == calls  # recovery makes no model call
+    edited = loaded(paths).practice_items[item_id]
+    with repository.connection() as connection:
+        # The unchecked "6" is never verified by the draft's verdict.
+        assert effective_key_status(connection, edited) not in ("book_solution", "checked", "panel_agrees")
+    row = _row(repository, import_id)
+    assert row["status"] == "written" and row["reason"] == "superseded_by_edit"
+    assert row["content_hash"] == checked_hash
+    # The verdict stays bound to the content it checked, and only to it.
+    assert [check["content_hash"] for check in _checks(repository, item_id)] == [checked_hash]

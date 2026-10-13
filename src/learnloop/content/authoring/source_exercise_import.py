@@ -585,11 +585,22 @@ def record_key_check(repository: Repository, *, item: PracticeItem, result: Ladd
                              clock=clock)
 
 
-def _ladder_record(result: LadderResult, started_at: str) -> dict[str, Any]:
-    """A ladder's result as the import row keeps it (durable before the write, F5)."""
+def _ladder_record(result: LadderResult, started_at: str, content_hash: str) -> dict[str, Any]:
+    """A ladder's result as the import row keeps it (durable before the write, F5),
+    bound to the hash of the draft it verified (Codex re-review F1)."""
 
     return {"key_status": result.key_status, "rung": result.rung, "verification": dict(result.verification),
-            "ledger_ids": list(result.ledger_ids), "skip_reason": result.skip_reason, "started_at": started_at}
+            "ledger_ids": list(result.ledger_ids), "skip_reason": result.skip_reason, "started_at": started_at,
+            "content_hash": content_hash}
+
+
+def draft_content_hash(draft: AuthoredDraft, extra_payload: Mapping[str, Any] | None = None) -> str:
+    """``reference_content_hash`` of a draft as it will be written: the content
+    the ladder checks before anything reaches the vault (Codex re-review F1)."""
+
+    stamp = "1970-01-01T00:00:00Z"
+    payload = {"created_at": stamp, "updated_at": stamp, **draft.payload, **dict(extra_payload or {})}
+    return reference_content_hash(PracticeItem.model_validate(payload))
 
 
 def _ladder_from_record(record: Mapping[str, Any]) -> LadderResult:
@@ -923,8 +934,14 @@ def _import_source_exercise(
         return fail("rejected", f"validation: {validation.get('reason') or 'the draft does not fit the request'}",
                     validation=validation)
 
+    canonical = {"source_id": source_id or extraction_id, "revision_id": revision_id,
+                 "extraction_id": extraction_id, "span_ids": [str(span) for span in span_ids],
+                 "label": label or draft.label, "relation": "verbatim"}
+    # The content the ladder checks, hashed before anything is written: every
+    # verdict below is bound to this hash and to nothing else (re-review F1).
+    checked_hash = draft_content_hash(draft, {"canonical_exercise": canonical})
     started_at = utc_now_iso(clock)
-    pending = _Pending(import_id=import_id, started_at=started_at, root=Path(root))
+    pending = _Pending(import_id=import_id, started_at=started_at, root=Path(root), content_hash=checked_hash)
     ladder: LadderResult | None
     if service.exercise_verification:
         remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
@@ -949,30 +966,27 @@ def _import_source_exercise(
     if caller == "need" and not verified:
         return fail("rejected", f"a need is fulfilled only by a verified key ({key_status})",
                     key_status=key_status, verification=verification)
-    canonical = {"source_id": source_id or extraction_id, "revision_id": revision_id,
-                 "extraction_id": extraction_id, "span_ids": [str(span) for span in span_ids],
-                 "label": label or draft.label, "relation": "verbatim"}
     # Write-ahead (Codex review F5): before the vault write, the import names
-    # its item and keeps the ladder's result, or the pending check, durably,
-    # so a process that dies anywhere after this point is resumed from it.
+    # its item, the hash of the content it writes, and the ladder's result or
+    # the pending check, durably, so a process that dies anywhere after this
+    # point is resumed from it. Recovery binds the verdict to that hash only
+    # and detects an edit made in between (re-review F1).
     if ladder is not None and ladder.rung != "skipped":
-        verification["ladder_result"] = _ladder_record(ladder, started_at)
+        verification["ladder_result"] = _ladder_record(ladder, started_at, checked_hash)
     elif ladder is None:
         verification["pending_check"] = {"trigger": "background", "started_at": started_at,
-                                         "process": PROCESS_TOKEN}
+                                         "process": PROCESS_TOKEN, "content_hash": checked_hash}
     with repository.connection() as connection:
         update_import(connection, import_id, updated_at=utc_now_iso(clock), practice_item_id=str(draft.payload["id"]),
-                      key_status=key_status, verification=verification)
+                      key_status=key_status, verification=verification, content_hash=checked_hash)
     item_id = write_draft(root, repository, draft, extraction_id=extraction_id, clock=clock,
                           mechanism="source_exercise_import", extra_payload={"canonical_exercise": canonical})
     written = load_vault(root).practice_items[item_id]
-    content_hash = reference_content_hash(written)
-    check_id = _commit_written(repository, import_id, written, content_hash, clock=clock)
+    check_id = _commit_written(repository, import_id, written, clock=clock)
     if ladder is None:
         # The check finishes in the background, against the content it was given.
         with pending.lock:
             pending.item = written
-            pending.content_hash = content_hash
         _finish_pending(repository, pending, clock)
     family = {"status": "disabled"}
     if service.family_attachment:
@@ -987,27 +1001,49 @@ def _import_source_exercise(
             "elapsed_ms": int(round((time.monotonic() - started) * 1000))}
 
 
-def _commit_written(repository: Repository, import_id: str, item: PracticeItem, content_hash: str, *,
+def _commit_written(repository: Repository, import_id: str, item: PracticeItem, *,
                     clock: Clock | None) -> str | None:
     """The written status and, when the ladder finished, its check row: one
-    transaction, so neither exists without the other (F5)."""
+    transaction, so neither exists without the other (F5).
 
-    with repository.connection() as connection:
+    The check row is bound to the hash the ladder verified, persisted before
+    the write, never to the item as it is now (re-review F1). When the item
+    has been edited since the import wrote it, the import records
+    ``superseded_by_edit`` and the edited content stays unverified until its
+    own check. A record with no verified hash (written before this rule)
+    binds nothing."""
+
+    current_hash = reference_content_hash(item)
+    with repository.atomic():
+        connection = repository.connection()
         row = import_row(connection, import_id) or {}
         verification = dict(row.get("verification") or {})
         record = verification.get("ladder_result")
-        update_import(connection, import_id, updated_at=utc_now_iso(clock), status="written",
-                      practice_item_id=item.id, content_hash=content_hash)
+        pending = verification.get("pending_check") or {}
+        checked_hash = (record or {}).get("content_hash") or pending.get("content_hash") or row.get("content_hash")
+        edited = bool(checked_hash) and checked_hash != current_hash
+        fields: dict[str, Any] = {"status": "written", "practice_item_id": item.id,
+                                  "content_hash": checked_hash or current_hash}
+        if edited:
+            fields["reason"] = "superseded_by_edit"
+        update_import(connection, import_id, updated_at=utc_now_iso(clock), **fields)
         if not record:
+            return None
+        if not record.get("content_hash"):
+            update_import(connection, import_id, updated_at=utc_now_iso(clock), key_status="model_answer",
+                          reason="unbound_verdict",
+                          verification={**verification, "unbound_verdict": "the ladder's result names no content "
+                                        "hash, so it verifies nothing"})
             return None
         existing = connection.execute(
             "SELECT id FROM reference_key_checks WHERE import_id=? AND content_hash=? AND trigger='import'",
-            (import_id, content_hash)).fetchone()
+            (import_id, checked_hash)).fetchone()
         if existing is not None:
             return str(existing[0])
-        return _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=content_hash,
+        return _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=str(checked_hash),
                                result=_ladder_from_record(record), trigger="import",
-                               started_at=str(record.get("started_at") or utc_now_iso(clock)), clock=clock)
+                               started_at=str(record.get("started_at") or utc_now_iso(clock)), clock=clock,
+                               edited=edited)
 
 
 def resume_import(root: Path, repository: Repository, import_id: str, *, clients: Mapping[str, Any] | None = None,
@@ -1032,12 +1068,10 @@ def resume_import(root: Path, repository: Repository, import_id: str, *, clients
     item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
     action = "nothing_to_do"
     if row["status"] == "checking" and item is not None:
-        _commit_written(repository, import_id, item, row.get("content_hash") or reference_content_hash(item),
-                        clock=clock)
+        _commit_written(repository, import_id, item, clock=clock)
         action = "committed_write"
     elif row["status"] == "written" and item is not None and (row.get("verification") or {}).get("ladder_result"):
-        if _commit_written(repository, import_id, item, str(row.get("content_hash") or reference_content_hash(item)),
-                           clock=clock):
+        if _commit_written(repository, import_id, item, clock=clock):
             action = "restored_check"
     with repository.connection() as connection:
         row = import_row(connection, import_id) or row
