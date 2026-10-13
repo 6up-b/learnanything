@@ -43,7 +43,7 @@ from learnloop.ai.execution import (
     requested_reasoning_effort,
     single_request,
 )
-from learnloop.ai.output_budget import TruncationRetry, output_budget, reasoning_effort
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling, reasoning_effort
 from learnloop.ai.routing import provider_for_task, provider_list_for_task, ready_client_for_task
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
@@ -315,7 +315,8 @@ class PFCaller:
             raise PFUnavailable(f"PF role {role!r} route {entry.provider!r} cannot run an isolated, tool-free turn")
         budget = self.subscription if entry.subscription else self.metered
         truncation = TruncationRetry(output_tokens, role=role, provider=entry.provider, model=entry.model,
-                                     owner_kind=self.owner_kind, owner_id=self.run_id)
+                                     owner_kind=self.owner_kind, owner_id=self.run_id,
+                                     ceiling=output_ceiling(entry.client))
         tokens = estimate_tokens(prompt, result_model, output_tokens)
         usage: dict[str, Any] = {}
         attempts = 0

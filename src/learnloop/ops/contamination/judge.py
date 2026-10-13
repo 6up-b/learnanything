@@ -36,7 +36,7 @@ from pydantic import Field
 
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
-from learnloop.ai.output_budget import TruncationRetry, output_budget
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling
 from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
@@ -293,7 +293,8 @@ def run_judgments(
             attempts = 0
             truncation = TruncationRetry(current.output_tokens, role=JUDGE_ROUTE,
                                          provider=settings.get("provider"), model=settings.get("model"),
-                                         owner_kind="contamination_report", owner_id=run_id)
+                                         owner_kind="contamination_report", owner_id=run_id,
+                                         ceiling=output_ceiling(client))
             while True:
                 planned = estimate([replace(current, output_tokens=truncation.budget)], price_per_million)
                 request = SpendEstimate(

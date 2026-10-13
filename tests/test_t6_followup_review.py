@@ -185,7 +185,7 @@ def test_paid_calls_reserve_and_record_the_real_increased_limit(practice_vault, 
     again = PaidCalls(route=route, budget=SpendBudget(_caps()), price_per_million=1.0,
                       repository=Repository(practice_vault.sqlite_path), owner_kind="test", owner_id="raised2")
     with closing(connect(practice_vault.sqlite_path)) as connection:
-        connection.execute("DELETE FROM model_checkpoints")
+        connection.execute("DELETE FROM model_work_checkpoints")
         connection.commit()
     assert again.call(client, purpose="source_query_rewrite", prompt="q", result_model=QueryRewrite,
                       output_tokens=8000, metadata={}).keywords == ["eigenvalue"]

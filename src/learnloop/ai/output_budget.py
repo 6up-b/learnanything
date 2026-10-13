@@ -7,19 +7,24 @@ the T6 rerun Claude Haiku 5.5 was truncated on 28 of 36 question-writer calls
 and 6 of 68 rewrites. The policy:
 
 * **One generous default.** ``ai.output_tokens`` (16,384), large enough for a
-  reasoning model's thinking and its answer. A profile's own ``max_tokens`` (the
-  provider or profile maximum) replaces it for that profile, and
-  ``ai.route_output_tokens.<route>`` replaces both for one route. The budget is
-  what a request sends as ``max_tokens`` and what spend admission reserves.
+  reasoning model's thinking and its answer. ``ai.route_output_tokens.<route>``
+  replaces it for one route. A profile's own ``max_tokens`` (the provider or
+  profile maximum) is a ceiling: it replaces the default for that profile, and a
+  route override above it is held to it, because the chat transport never
+  sends more (review F6). The budget is what a request sends as ``max_tokens``
+  and what spend admission reserves.
 * **A truncation is never accepted.** A response that stops for length
   (``finish_reason = "length"``, or the provider's equivalent) raises
   ``AIOutputTruncated``; it is logged as an event with its role, provider and
   model (:func:`record_truncation`, and the attempt's receipt has status
-  ``truncated``), then retried once at double the budget. A second truncation
-  fails the call. Callers that own their spend admission (one physical request
-  per admitted attempt) retry in their own loop with :class:`TruncationRetry`,
-  which admits the doubled budget and tags the retry's receipt; elsewhere the
-  chat transport retries itself.
+  ``truncated``), then retried once at double the budget, held to the
+  transport's ceiling (:func:`output_ceiling`). A call already at its ceiling,
+  or truncated twice, fails. Callers that own their spend admission (one
+  physical request per admitted attempt) retry in their own loop with
+  :class:`TruncationRetry`, which admits the increased budget it will send and
+  tags the retry's receipt; elsewhere the chat transport retries itself, and
+  the admitting caller reserves each physical request at the allowance it is
+  sent with.
 * **Reasoning effort per route.** ``ai.route_reasoning_effort.<route>`` asks
   for an effort where the provider supports one (OpenRouter's
   ``reasoning.effort``, Codex's turn effort); T6's rewrite and verification
@@ -65,7 +70,8 @@ def _profile_for(config: Any, route: str | None, provider: str | None) -> Any:
 def output_budget(config: Any | None, route: str | None = None, *, provider: str | None = None) -> int:
     """The output-token budget for one LLM call on ``route``.
 
-    ``ai.route_output_tokens.<route>`` if set, else the serving profile's own
+    ``ai.route_output_tokens.<route>`` if set (held to the serving profile's
+    ``max_tokens``, the transport's ceiling), else the profile's own
     ``max_tokens``, else ``ai.output_tokens``. ``config`` None (a caller with no
     vault) is the code default. ``provider`` names the serving profile when the
     caller already resolved it (an injected or pinned client).
@@ -74,14 +80,32 @@ def output_budget(config: Any | None, route: str | None = None, *, provider: str
     ai = getattr(config, "ai", None)
     if ai is None:
         return DEFAULT_OUTPUT_TOKENS
+    profile = _profile_for(config, route, provider)
+    declared = _positive(getattr(profile, "max_tokens", None) if profile is not None else None)
     override = (getattr(ai, "route_output_tokens", None) or {}).get(route or "")
     if override is not None:
-        return int(override)
-    profile = _profile_for(config, route, provider)
-    declared = getattr(profile, "max_tokens", None) if profile is not None else None
-    if isinstance(declared, int) and not isinstance(declared, bool) and declared > 0:
+        # The profile maximum is a ceiling the transport enforces: a route
+        # override above it would be reserved but never sent.
+        return min(int(override), declared) if declared is not None else int(override)
+    if declared is not None:
         return declared
     return int(getattr(ai, "output_tokens", None) or DEFAULT_OUTPUT_TOKENS)
+
+
+def _positive(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def output_ceiling(client: Any) -> int | None:
+    """The most output tokens ``client``'s transport will ever send, or None.
+
+    The chat transport clamps every request to its profile's ``max_tokens``, so
+    a truncation retry above it would re-send the same limit (review F6). Codex
+    and other transports without a hard output cap have no ceiling.
+    """
+
+    profile = getattr(client, "profile", None)
+    return _positive(getattr(profile, "max_tokens", None)) if profile is not None else None
 
 
 def reasoning_effort(config: Any | None, route: str | None) -> str | None:
@@ -123,11 +147,12 @@ def record_truncation(*, role: str | None, provider: str | None, model: str | No
 
 @dataclass
 class TruncationRetry:
-    """One logical call's output budget: doubled once after a truncation.
+    """One logical call's output budget: increased once after a truncation.
 
     Use in a caller-owned retry loop::
 
-        retry = TruncationRetry(budget, role=role, provider=provider, model=model)
+        retry = TruncationRetry(budget, role=role, provider=provider, model=model,
+                                ceiling=output_ceiling(client))
         while True:
             admit(estimate(retry.budget))
             try:
@@ -138,7 +163,11 @@ class TruncationRetry:
                     raise
                 continue
 
-    ``after_truncation`` logs the event and returns True exactly once.
+    ``after_truncation`` logs the event and returns True at most once: the
+    retry asks for double the budget, held to ``ceiling`` (the transport's
+    maximum, :func:`output_ceiling`), and a call already at its ceiling fails
+    at once, since another request could not have more room (review F6).
+    ``budget`` is then what the retry sends, reserves and records.
     """
 
     budget: int
@@ -149,25 +178,36 @@ class TruncationRetry:
     owner_id: str | None = None
     retried: bool = False
     events: list[dict[str, Any]] = field(default_factory=list)
+    #: The most output tokens the transport sends (None: no hard maximum).
+    ceiling: int | None = None
+    previous_budget: int | None = None
 
     @property
     def initial_budget(self) -> int:
-        return self.budget // TRUNCATION_RETRY_FACTOR if self.retried else self.budget
+        return self.previous_budget if self.retried and self.previous_budget is not None else self.budget
 
     def after_truncation(self, *, allowed: bool = True) -> bool:
-        """Record a truncation; True when the call should retry at double the budget.
+        """Record a truncation; True when the call should retry with a larger budget.
 
         ``allowed`` False (the caller's retry cap is spent) records the event as
-        a failure without retrying.
+        a failure without retrying, as does a budget already at the ceiling.
         """
 
-        retry_budget = self.budget * TRUNCATION_RETRY_FACTOR if (allowed and not self.retried) else None
-        self.events.append(record_truncation(
+        retry_budget = None
+        if allowed and not self.retried and (self.ceiling is None or self.budget < self.ceiling):
+            retry_budget = self.budget * TRUNCATION_RETRY_FACTOR
+            if self.ceiling is not None:
+                retry_budget = min(retry_budget, self.ceiling)
+        event = record_truncation(
             role=self.role, provider=self.provider, model=self.model, budget=self.budget,
-            retry_budget=retry_budget, owner_kind=self.owner_kind, owner_id=self.owner_id))
+            retry_budget=retry_budget, owner_kind=self.owner_kind, owner_id=self.owner_id)
+        if self.ceiling is not None and self.budget >= self.ceiling:
+            event["reason"] = "at_transport_ceiling"
+        self.events.append(event)
         if retry_budget is None:
             return False
         self.retried = True
+        self.previous_budget = self.budget
         self.budget = retry_budget
         return True
 
@@ -191,6 +231,7 @@ __all__ = [
     "TRUNCATION_RETRY_FACTOR",
     "TruncationRetry",
     "output_budget",
+    "output_ceiling",
     "reasoning_effort",
     "record_truncation",
 ]

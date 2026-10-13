@@ -29,7 +29,7 @@ from pydantic import Field
 
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls
-from learnloop.ai.output_budget import TruncationRetry, output_budget
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling
 from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.schemas import WireModel
@@ -436,7 +436,7 @@ def propose_families(
                     attempts = 0
                     truncation = TruncationRetry(current.output_tokens, role=JUDGE_ROUTE, provider=provider,
                                                  model=settings["model"], owner_kind="family_proposals",
-                                                 owner_id=run_id)
+                                                 owner_id=run_id, ceiling=output_ceiling(client))
                     while True:
                         estimate = _estimate([replace(current, output_tokens=truncation.budget)],
                                              price_per_million)

@@ -1137,9 +1137,11 @@ class AIConfig(BaseModel):
     providers: dict[str, AIProviderProfile] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
     # Output budget of every LLM role, in tokens (the request's max_tokens and
-    # the spend reservation). A profile's own max_tokens replaces it for that
-    # profile; route_output_tokens replaces both for one route. A truncated
-    # answer is logged and retried once at double the budget, never accepted.
+    # the spend reservation). route_output_tokens replaces it for one route. A
+    # profile's own max_tokens is a ceiling: it replaces the default for that
+    # profile and holds a route override to it (the transport never sends
+    # more). A truncated answer is logged and retried once at double the
+    # budget (held to that ceiling; a call at it fails), never accepted.
     output_tokens: int = Field(default=DEFAULT_OUTPUT_TOKENS, ge=256)
     route_output_tokens: dict[str, int] = Field(default_factory=dict)
     # Reasoning effort per route ("low", "medium", ...; "" or "profile" keeps

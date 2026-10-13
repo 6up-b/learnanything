@@ -63,18 +63,21 @@ def is_subscription_client(client: Any) -> bool:
 def admitted_output_limit(route: str, profile_max_tokens: Any, config: Any | None = None) -> int:
     """The route's output budget under the shared policy (0 for an embedding).
 
-    ``ai.route_output_tokens.<route>``, else the profile's declared
+    ``ai.route_output_tokens.<route>`` (held to the profile's declared
+    ``max_tokens``, which the transport never exceeds), else the profile's
     ``max_tokens``, else ``ai.output_tokens`` (the code default without a config).
     """
 
     if route in NO_OUTPUT_ROUTES:
         return 0
     ai = getattr(config, "ai", None)
+    declared = (profile_max_tokens if isinstance(profile_max_tokens, int)
+                and not isinstance(profile_max_tokens, bool) and profile_max_tokens > 0 else None)
     override = (getattr(ai, "route_output_tokens", None) or {}).get(route)
     if override is not None:
-        return int(override)
-    if isinstance(profile_max_tokens, int) and not isinstance(profile_max_tokens, bool) and profile_max_tokens > 0:
-        return profile_max_tokens
+        return min(int(override), declared) if declared is not None else int(override)
+    if declared is not None:
+        return declared
     return int(getattr(ai, "output_tokens", None) or DEFAULT_OUTPUT_TOKENS)
 
 

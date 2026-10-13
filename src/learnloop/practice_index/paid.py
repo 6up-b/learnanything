@@ -57,7 +57,13 @@ from learnloop.ai.execution import (
     requested_reasoning_effort,
     single_request,
 )
-from learnloop.ai.output_budget import TRUNCATION_RETRY_FACTOR, TruncationRetry, output_budget, reasoning_effort
+from learnloop.ai.output_budget import (
+    TRUNCATION_RETRY_FACTOR,
+    TruncationRetry,
+    output_budget,
+    output_ceiling,
+    reasoning_effort,
+)
 from learnloop.ai.routing import MANUAL_PROVIDER, AITask, provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import (
@@ -244,11 +250,13 @@ def receipt_answer(
                          output_tokens=output_tokens)
     schema_hash = content_key(result_model.model_json_schema())
     receipts = completed_root_receipts(connection, purpose=purpose, prompt_hash=content_key(prompt))
-    # A truncation retry ran the same request at double the budget.
-    budgets = {output_tokens, output_tokens * TRUNCATION_RETRY_FACTOR}
+    # A truncation retry ran the same request with a larger budget: double,
+    # or less when the transport's ceiling held it.
     for receipt in receipts:
+        budget = receipt["output_budget_tokens"]
         if (receipt["declared"].get("request_key") != key or receipt["schema_hash"] != schema_hash
-                or receipt["output_budget_tokens"] not in budgets):
+                or not isinstance(budget, int)
+                or not output_tokens <= budget <= output_tokens * TRUNCATION_RETRY_FACTOR):
             continue
         try:
             answer = result_model.model_validate_json(receipt["output_text"])
@@ -365,7 +373,7 @@ class PaidCalls:
             raise UnboundedTransport(problem)
         truncation = TruncationRetry(output_tokens, role=purpose, provider=self.route.provider,
                                      model=self.route.model, owner_kind=self.owner_kind,
-                                     owner_id=self.owner_id)
+                                     owner_id=self.owner_id, ceiling=output_ceiling(client))
         attempt = 0
         while True:
             tokens = estimated_call_tokens(prompt, result_model, truncation.budget)

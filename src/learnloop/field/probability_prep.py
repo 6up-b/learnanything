@@ -37,7 +37,7 @@ from typing import Any
 
 from learnloop.ai.decisions import DecisionResponseInvalid, NoulQuestion, request_body
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
-from learnloop.ai.output_budget import TruncationRetry
+from learnloop.ai.output_budget import TruncationRetry, output_ceiling
 from learnloop.ai.execution import (
     call_labels, generation_limit, observe_model_calls, single_request,
 )
@@ -547,7 +547,8 @@ def prepare_judge(
             current_digest = request.request_digest
             attempt = 0
             truncation = TruncationRetry(route.output_tokens, role=TASK, provider=route.provider,
-                                         model=route.model, owner_kind=TASK, owner_id=current_digest)
+                                         model=route.model, owner_kind=TASK, owner_id=current_digest,
+                                         ceiling=output_ceiling(client))
             while True:
                 current.usage.clear()
                 current.physical_calls = 0
