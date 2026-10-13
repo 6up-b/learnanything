@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa47537b5203f923088e33b88174f61c08d027"
-source_commit_timestamp: "2026-10-13T13:46:55-04:00"
+source_commit: "ceae5937a316da6e1123f885ae77fa80847f273f"
+source_commit_timestamp: "2026-10-13T14:44:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/facets.py"
   - "src/learnloop/cli/families.py"
-  - "src/learnloop/cli/grading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/grading_support.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/content/facet_identity/actions.py`
