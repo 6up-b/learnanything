@@ -69,9 +69,22 @@ SLICE2_T6_RPCS = (
 )
 
 
+# The ChatGPT-plan provider's desktop sign-in ("Continue with ChatGPT"), its
+# status and plan-usage actions. Machine credentials: desktop only, never phone.
+CHATGPT_PLAN_RPCS = (
+    "chatgpt_plan_status",
+    "chatgpt_plan_signin_start",
+    "chatgpt_plan_signin_cancel",
+    "chatgpt_plan_signout",
+    "chatgpt_plan_acknowledge_welcome",
+    "chatgpt_plan_resume",
+)
+
+
 @pytest.mark.parametrize(
     "method",
-    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS,
+    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
+    + CHATGPT_PLAN_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

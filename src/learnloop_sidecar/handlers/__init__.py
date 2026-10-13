@@ -7,6 +7,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     app,
     calibration,
     capture,
+    chatgpt_plan,
     claims,
     cli,
     diagnosis_card,

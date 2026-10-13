@@ -53,6 +53,7 @@ import type {
   OpenrouterKeyResult,
   RequestConceptAnimationResult,
   SettingsDto,
+  ChatGPTPlanDto,
   TranscriptionKeyResult,
   UpdateAiSettingsInput,
   UpdateIngestSettingsInput,
@@ -819,6 +820,15 @@ export const api = {
     afterSettingsMutation(call<SettingsDto>("update_ai_settings", { input })),
   setOpenrouterApiKey: (apiKey: string) =>
     mutating([TAG.settings], call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey })),
+  chatgptPlanStatus: () => call<ChatGPTPlanDto>("chatgpt_plan_status", { input: {} }),
+  chatgptPlanSigninStart: (input: { consent?: boolean; newAccount?: boolean } = {}) =>
+    mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signin_start", { input })),
+  chatgptPlanSigninCancel: () =>
+    mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signin_cancel", { input: {} })),
+  chatgptPlanSignout: () => mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signout", { input: {} })),
+  chatgptPlanAcknowledgeWelcome: () =>
+    mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_acknowledge_welcome", { input: {} })),
+  chatgptPlanResume: () => mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_resume", { input: {} })),
   updateIngestSettings: (input: UpdateIngestSettingsInput) =>
     afterSettingsMutation(call<SettingsDto>("update_ingest_settings", { input })),
   detectProviderCapabilities: (input: DetectProviderCapabilitiesInput) =>

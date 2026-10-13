@@ -44,7 +44,7 @@ from learnloop.ai.transport import execute_structured_operation
 from learnloop.config import LearnLoopConfig
 from learnloop.projects.experiment_store import ProjectStore
 
-SUBSCRIPTION_PROVIDER_TYPES = frozenset({"codex_sdk"})
+SUBSCRIPTION_PROVIDER_TYPES = frozenset({"codex_sdk", "chatgpt_plan"})
 # Reference rate for the *estimate* of subscription usage (USD per million
 # tokens, input and output alike). Nothing is billed per token on the
 # subscription; the figure only makes usage comparable across routes.

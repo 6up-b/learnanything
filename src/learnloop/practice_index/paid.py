@@ -2,8 +2,8 @@
 
 Two billing modes (Slice A §5 rule 6):
 
-* **subscription** (Codex: ``codex_sdk`` and the Codex HTTP adapter) runs on
-  the owner's ChatGPT subscription. It has no marginal dollar cost and its
+* **subscription** (Codex: ``codex_sdk`` and the Codex HTTP adapter; and the
+  ``chatgpt_plan`` provider) runs on the owner's ChatGPT subscription. It has no marginal dollar cost and its
   app-server turns expose no physical-request bound, so no token or dollar cap
   applies. Tokens and cost are still estimated, from reported usage when the
   turn reports it and from the input + output estimate otherwise, and are
@@ -65,7 +65,7 @@ from learnloop.vault.models import LoadedVault
 
 
 Billing = Literal["subscription", "metered"]
-SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
+SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter", "chatgpt_plan"})
 #: Framing allowance for system prompts and transport envelopes, in tokens.
 FRAMING_TOKENS = 512
 #: Physical requests per admitted metered attempt (``single_request()``).

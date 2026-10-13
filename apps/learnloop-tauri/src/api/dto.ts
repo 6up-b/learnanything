@@ -169,10 +169,67 @@ export interface SettingsJudgeRouteDto {
   disclosure: string;
 }
 
+// One chatgpt_plan profile in the open vault and the routes that name it.
+export interface ChatGPTPlanProfileDto {
+  name: string;
+  model: string | null;
+  enabled: boolean;
+  responseFormat: string | null;
+  reasoningEffort: string | null;
+  usageLimitPauseMinutes: number;
+  routes: string[];
+  activeProvider: boolean;
+  fallbackProvider: boolean;
+  inUse: boolean;
+}
+
+export type ChatGPTPlanState =
+  | "ready"
+  | "signed_out"
+  | "plan_usage_disabled"
+  | "not_eligible"
+  | "usage_exhausted"
+  | "store_error";
+
+// The desktop sign-in attempt (one at a time; the sidecar runs it in the background).
+export interface ChatGPTPlanAttemptDto {
+  id: string;
+  status: "waiting" | "succeeded" | "failed" | "cancelled";
+  result: { email: string | null; planUsageEnabled: boolean; welcomePending: boolean } | null;
+  error: { code: string; message: string } | null;
+  startedAt: number;
+  finishedAt: number | null;
+}
+
+// "Continue with ChatGPT": this machine's sign-in (local files only, never a
+// token) and the open vault's chatgpt_plan profiles.
+export interface ChatGPTPlanDto {
+  version?: number;
+  signedIn: boolean;
+  planUsageEnabled: boolean;
+  email: string | null;
+  clientId: string | null;
+  secretStore: string | null;
+  accessExpiresAt: string | null;
+  pausedUntil: string | null;
+  welcomePending: boolean;
+  signedOutReason: string | null;
+  state: ChatGPTPlanState;
+  message: string;
+  manageUsageUrl: string;
+  attempt: ChatGPTPlanAttemptDto | null;
+  profiles: ChatGPTPlanProfileDto[];
+  usingPlan: boolean;
+  authorizeUrl?: string;
+  cancelled?: boolean;
+  signout?: { signedOut: boolean; revoked: boolean | null; message: string };
+}
+
 export interface SettingsDto {
   version: number;
   ai: SettingsAiDto;
   openrouter: OpenrouterKeyStateDto;
+  chatgptPlan?: ChatGPTPlanDto;
   embedding: {
     enabled: boolean;
     backfillEnabled: boolean;

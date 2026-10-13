@@ -33,7 +33,7 @@ from typing import Any, Callable, Iterator
 from learnloop.ai.execution import generation_limit, observe_model_calls
 from learnloop.ai.spend import SpendBudget, SpendCancelled, SpendCaps, SpendCharge, SpendEstimate
 
-SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter"})
+SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter", "chatgpt_plan"})
 ESTIMATED_ONLY = "estimated_only"
 REPORTED = "reported"
 #: Published per-million input price of the one Slice 1 embedding model.

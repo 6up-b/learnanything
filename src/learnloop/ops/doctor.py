@@ -136,6 +136,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     if config is None:
         return DoctorReport(root=vault_root, issues=issues)
     _check_retired_config(vault_root, issues)
+    _check_chatgpt_plan_routes(vault_root, config, issues)
     codex_runtime, ai_runtime = _requested_ai_runtimes(vault_root, config, ai=ai, ai_provider=ai_provider)
 
     paths = VaultPaths(vault_root, config)
@@ -215,6 +216,43 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         contract_reachability=reachability,
         storage=storage,
     )
+
+
+def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None:
+    """Warn when a route uses a ``chatgpt_plan`` profile this machine cannot serve.
+
+    Reads the profile and the machine's sign-in status files only: no network,
+    no token, no provider process. A profile no route uses is not checked.
+    """
+
+    from learnloop.ai.chatgpt_plan.routes import plan_profiles
+    from learnloop.ai.chatgpt_plan.session import PlanSession
+
+    profiles = [entry for entry in plan_profiles(config) if entry["in_use"]]
+    if not profiles:
+        return
+    status = PlanSession().status()
+    path = root / "learnloop.toml"
+    for entry in profiles:
+        uses = entry["routes"] + (["active_provider"] if entry["active_provider"] else []) + (
+            ["fallback_provider"] if entry["fallback_provider"] else [])
+        details = {"provider": entry["name"], "routes": uses}
+        if not entry["model"]:
+            issues.append(_issue("warning", "ai:chatgpt_plan_missing_model",
+                                 f"ai.providers.{entry['name']} (chatgpt_plan) has no model; pick one from "
+                                 "`learnloop ai models chatgpt`.", path, details=details))
+            continue
+        if not entry["enabled"]:
+            issues.append(_issue("warning", "ai:chatgpt_plan_disabled",
+                                 f"ai.providers.{entry['name']} is disabled (enabled = false) but "
+                                 f"{', '.join(uses)} still name it; those routes fall back or stay unavailable.",
+                                 path, details=details))
+            continue
+        state, message = status.readiness(pause_minutes=entry["usage_limit_pause_minutes"])
+        if state != "ready":
+            issues.append(_issue("warning", f"ai:chatgpt_plan_{state}",
+                                 f"{', '.join(uses)} use ai.providers.{entry['name']}: {message}",
+                                 path, details={**details, "state": state}))
 
 
 def _requested_ai_runtimes(

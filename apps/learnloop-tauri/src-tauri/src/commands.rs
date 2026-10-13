@@ -777,6 +777,12 @@ pub async fn set_openrouter_api_key(
 }
 
 sidecar_passthrough!(update_ingest_settings, "update_ingest_settings");
+sidecar_passthrough!(chatgpt_plan_status, "chatgpt_plan_status");
+sidecar_passthrough!(chatgpt_plan_signin_start, "chatgpt_plan_signin_start");
+sidecar_passthrough!(chatgpt_plan_signin_cancel, "chatgpt_plan_signin_cancel");
+sidecar_passthrough!(chatgpt_plan_signout, "chatgpt_plan_signout");
+sidecar_passthrough!(chatgpt_plan_acknowledge_welcome, "chatgpt_plan_acknowledge_welcome");
+sidecar_passthrough!(chatgpt_plan_resume, "chatgpt_plan_resume");
 sidecar_passthrough!(detect_provider_capabilities, "detect_provider_capabilities");
 sidecar_passthrough!(update_provider_modalities, "update_provider_modalities");
 

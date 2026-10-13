@@ -67,6 +67,10 @@ def make_ai_provider_client_from_profile(
         from learnloop.ai.providers.decider import DeciderProviderClient
 
         return DeciderProviderClient(provider_name, profile)
+    if provider_type == "chatgpt_plan":
+        from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
+
+        return ChatGPTPlanProviderClient(provider_name, profile)
     raise AIProviderUnavailable(f"Unsupported AI provider type {profile.type!r} for {provider_name!r}")
 
 
