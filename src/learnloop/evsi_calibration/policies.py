@@ -49,6 +49,23 @@ POLICIES = ("evsi", "eig", "incumbent", "caps_only", "random", "max_entropy")
 #: change the action alone no longer ends the episode by itself.
 VARIANTS = ("evsi_lcb_only", "evsi_lookahead", "eig_no_gate")
 ALL_POLICIES = POLICIES + VARIANTS
+#: Stage evsi-multisim: the value-of-information successor (branch
+#: ``serving/voi-stopping``, mvp-0.17) as built, and the package of changes
+#: the multi-family study proposes for it. Not in ``ALL_POLICIES``, so the
+#: single-family study's arms are unchanged.
+#:
+#: ``voi_successor``: today's per-episode stops (``_incumbent_stop``: the
+#: observation budget, decision stable, action equivalent, the robust
+#: completion gate) and, on every next observation, the successor's value gate
+#: (``voi_stopping.value_candidates``): where the plausible hypotheses route to
+#: two or more repairs, ``rank_feasible``'s robust EVSI stop; where it abstains
+#: on a flip, or no decision is at stake, the robust EIG times
+#: ``VALUE_PER_NAT_MINUTES`` against the minutes. It serves the incumbent's
+#: highest-EIG instrument when that one pays, else the best paying one.
+#: ``voi_proposed``: the caps without the robust completion gate, and the
+#: ``evsi_lookahead`` value rule (loss-derived, no flip abstention, the best
+#: 2-3 checks valued jointly).
+SUCCESSOR_POLICIES = ("voi_successor", "voi_proposed")
 LOOKAHEAD_MAX = 3
 
 #: The forced-choice grading channel: the recorded option IS the chosen
@@ -312,6 +329,67 @@ def decide_capped(
     return Decision("measure", best, "measure", "hypothesis_eig")
 
 
+def _successor_value_gate(state: EpisodeState, settings: PolicySettings) -> tuple[dict[str, float], str]:
+    """``voi_stopping.value_candidates`` on this episode: the paying candidates
+    (ref -> robust value in minutes) and the method that valued them."""
+
+    config = ProbeEpisodeConfig()
+    plausible = [h for h, p in state.belief.items() if p >= config.action_equivalence_plausible_threshold]
+    at_stake = len({state.actions_by_hypothesis[h] for h in plausible}) >= 2
+    refs = _prefilter(state, settings)
+    cost = settings.lambda_time * settings.check_minutes + settings.burden_cost
+    paying: dict[str, float] = {}
+    method = "eig_value"
+    if at_stake and refs:
+        candidates = [
+            EV.DiagnosticCandidate(ref=q, members=state.ensembles[q][1], prior=dict(state.belief),
+                                   expected_minutes=settings.check_minutes, burden_minutes=0.0,
+                                   prior_basis="support_weighted")
+            for q in refs
+        ]
+        result = EV.rank_feasible(candidates, state.loss_table, quantile=settings.robust_quantile,
+                                  lambda_time=settings.lambda_time, burden_cost=settings.burden_cost,
+                                  perturbation_delta=settings.perturbation_delta)
+        if result.verdict != "abstain":
+            if result.verdict == "measure":
+                for ranked in result.ranked:
+                    if ranked.evsi.lcb > ranked.stop_threshold:
+                        paying[ranked.ref] = ranked.evsi.lcb
+            return paying, "robust_evsi"
+        method = f"eig_value:evsi_{result.reason}"
+    for q in refs:
+        eigs = [rc.expected_information_gain(member, state.belief) for member in state.ensembles[q][1]]
+        robust = settings.value_per_nat_minutes * rc.robust_quantile(eigs, settings.robust_quantile)
+        if robust > cost:
+            paying[q] = robust
+    return paying, method
+
+
+def decide_successor(state: EpisodeState, settings: PolicySettings) -> Decision:
+    config = ProbeEpisodeConfig()
+    reason = _incumbent_stop(state, settings, config)
+    if reason is not None:
+        return Decision("stop", None, "stop", reason)
+    pool = list(state.remaining)
+    if not pool:
+        return Decision("stop", None, "stop", "no_question_left")
+    chosen = max(sorted(pool), key=lambda q: rc.expected_information_gain(state.ensembles[q][0], state.belief))
+    paying, method = _successor_value_gate(state, settings)
+    if not paying:
+        return Decision("stop", None, "stop", f"value_of_information_stop:{method}")
+    if chosen in paying:
+        return Decision("measure", chosen, "measure", f"value_pays:{method}")
+    best = max(sorted(paying), key=lambda q: paying[q])
+    return Decision("measure", best, "measure", f"value_pays_other:{method}")
+
+
+def decide_proposed(state: EpisodeState, settings: PolicySettings) -> Decision:
+    reason = _cap_stop(state, ProbeEpisodeConfig())
+    if reason is not None:
+        return Decision("stop", None, "stop", reason)
+    return decide_lookahead(state, settings)
+
+
 def decide(policy: str, state: EpisodeState, settings: PolicySettings) -> Decision:
     if not state.remaining:
         return Decision("stop", None, "stop", "no_question_left")
@@ -333,4 +411,8 @@ def decide(policy: str, state: EpisodeState, settings: PolicySettings) -> Decisi
         return decide_capped(state, settings, chooser="eig")
     if policy in ("random", "max_entropy"):
         return decide_capped(state, settings, chooser=policy)
+    if policy == "voi_successor":
+        return decide_successor(state, settings)
+    if policy == "voi_proposed":
+        return decide_proposed(state, settings)
     raise ValueError(f"unknown policy {policy!r}")
