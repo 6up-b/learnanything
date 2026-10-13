@@ -40,7 +40,8 @@ class CallerContext:
 
     ``context`` is the tutor's question context when there is one
     (``practice``, ``feedback``, ``library``, ``reader``). ``cold`` is true
-    while a cold administration of ``item_id`` is open. ``window_open`` says
+    while a cold administration of ``item_id`` is open, or while the item is
+    reserved for a held-out exam (``notes`` then names ``exam_reserved``). ``window_open`` says
     whether the item's attempt window is still open (a redo, guided redo or
     retry is possible); None when no item is bound.
     """
@@ -78,6 +79,8 @@ def derive_policy(caller: CallerContext) -> tuple[str, str]:
     """``(policy, how it was derived)`` for ``caller`` (§5.2)."""
 
     if caller.cold:
+        if "exam_reserved" in caller.notes:
+            return "cold_attempt", "the item is reserved for a held-out exam"
         return "cold_attempt", "a cold administration is open for this item"
     if caller.item_id is not None and (caller.context in ITEM_BOUND_CONTEXTS or caller.post_attempt_requested):
         if caller.post_attempt_requested and caller.window_open is False:

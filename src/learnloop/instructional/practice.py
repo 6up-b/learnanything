@@ -25,6 +25,7 @@ from typing import Any
 
 from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.sources.exam_material import exam_reserved
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
@@ -208,11 +209,27 @@ def record_proposal_impressions(vault: LoadedVault, repository: Repository, *, p
             "dropped": dropped}
 
 
+#: What a learner is told when a picked proposal's item is reserved for a held-out exam.
+EXAM_RESERVED_PICK = ("that item is reserved for a held-out exam: it can't be practised until the exam is "
+                      "done, so the exam stays a fair test")
+
+
+def refuse_exam_reserved_pick(repository: Repository, practice_item_id: str) -> None:
+    """A pick of an item reserved for a goal's held-out exam is refused before
+    anything is recorded or served (ValueError), however old the proposal:
+    the reservation may postdate it (exam protection, 2026-10-13; the one
+    exam predicate, ``content.sources.exam_material.exam_reserved``)."""
+
+    if exam_reserved(repository, practice_item_id):
+        raise ValueError(EXAM_RESERVED_PICK)
+
+
 def record_proposal_selection(repository: Repository, *, proposal_id: str, practice_item_id: str,
                               clock: Clock | None = None, vault: LoadedVault | None = None) -> dict[str, Any]:
     """The learner's selection of a proposed item: the ``practised`` usage
     signal (idempotent), recorded before serving so a bad proposal is refused
-    before anything is served.
+    before anything is served. An item reserved for a held-out exam since it
+    was proposed is refused (:func:`refuse_exam_reserved_pick`).
 
     A pick of a ``discriminate`` or ``retention`` proposal re-checks
     independence (§5.4): if the candidate was exposed since it was valued,
@@ -220,6 +237,7 @@ def record_proposal_selection(repository: Repository, *, proposal_id: str, pract
     and the reason shown. Nothing here says the item was delivered: that is
     :func:`record_proposal_delivery`, after the serving path succeeded."""
 
+    refuse_exam_reserved_pick(repository, practice_item_id)
     result = dict(record_practice_usage(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
                                         signal="practised", clock=clock))
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -398,6 +416,7 @@ def imported_exercise_selection(repository: Repository, *, proposal_id: str, imp
 
     from learnloop.db.stores.source_service import import_row
 
+    refuse_exam_reserved_pick(repository, practice_item_id)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = import_row(connection, import_id)
         found = stored_proposal(connection, proposal_id)
@@ -429,6 +448,7 @@ def imported_exercise_selection(repository: Repository, *, proposal_id: str, imp
 
 
 __all__ = [
+    "EXAM_RESERVED_PICK",
     "SHOWN_PROMPT_CHARS",
     "constrain_for_caller",
     "continuation_cursor",
@@ -442,5 +462,6 @@ __all__ = [
     "record_proposal_delivery",
     "record_proposal_pick",
     "record_proposal_selection",
+    "refuse_exam_reserved_pick",
     "service_enabled",
 ]

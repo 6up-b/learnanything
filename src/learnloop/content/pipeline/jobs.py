@@ -2340,6 +2340,19 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
     raw_selection = payload.get("raw_selection") or {}
     if not extraction_id or not raw_selection.get("nodes"):
         raise IngestRunnerError("reader_exercise_import needs extraction_id and raw_selection nodes.")
+    # Exam protection (2026-10-13): held-out material (the one exam predicate's
+    # held-out partition) never becomes practice, whoever selects it. Checked
+    # before any model call.
+    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.vault.loader import load_vault
+
+    exam = exam_material(load_vault(ctx.vault_root), ctx.repo)
+    held = [str(node.get("span_id")) for node in raw_selection.get("nodes") or ()
+            if isinstance(node, dict) and exam.is_held_out(extraction_id, str(node.get("span_id") or ""))]
+    if held:
+        raise IngestRunnerError(
+            "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
+            code="exam_material", details={"extraction_id": extraction_id, "span_ids": held})
     ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
     client = ctx.services.exercise_import_client(ctx)
     source_id = str(payload.get("source_id") or "") or None

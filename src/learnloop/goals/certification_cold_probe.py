@@ -587,6 +587,21 @@ def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
         return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
 
 
+def _shown_items(vault: LoadedVault, repository: Repository, item_ids: Any) -> set[str]:
+    """Candidates whose own material the learner has already been shown, ever
+    (exam protection, owner default 2026-10-13: such material never becomes a
+    cold check; ``db.stores.source_service.shown_items``)."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import shown_items
+
+    items = [vault.practice_items[item_id] for item_id in item_ids if item_id in vault.practice_items]
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return set(shown_items(connection, items))
+
+
 def select_held_out_probe_item(
     vault: LoadedVault,
     repository: Repository,
@@ -632,9 +647,13 @@ def select_held_out_probe_item(
     # Canonical sources S1 (C3): an imported exercise whose answer key is not
     # verified is never a certification cold probe.
     unverified = _unverified_imports(vault, repository)
+    # Exam protection (2026-10-13): an item whose own material the learner was
+    # already shown (a reveal of its answer, its exercise or book solution read
+    # in a source, its prompt rendered in a proposal) is never a cold probe.
+    shown = _shown_items(vault, repository, cells_by_item)
     for item_id, covered in cells_by_item.items():
         item = vault.practice_items.get(item_id)
-        if item is None or item_id in unverified:
+        if item is None or item_id in unverified or item_id in shown:
             continue
         # The certificate is a claim about THIS learning object, integration
         # included. A same-cell item under another LO measures the cell but not

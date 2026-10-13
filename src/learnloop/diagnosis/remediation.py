@@ -10,6 +10,7 @@ from typing import Any
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.ingest.locators import parse_block_span
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
@@ -184,7 +185,9 @@ def prescribe_remediation(
     package never imports the service) ranks and verifies passages for the
     misconception, at most one per role. When it is absent, returns nothing,
     or fails, today's first linked span per facet is used, so the prescription
-    is byte-identical (G11).
+    is byte-identical (G11), except that a link into exam or held-out material
+    (the one exam predicate, ``content.sources.exam_material``) is never the
+    passage a repair teaches from (exam protection, 2026-10-13).
     """
     episode = repository.remediation_episode(episode_id)
     if episode is None:
@@ -220,6 +223,7 @@ def prescribe_remediation(
             return repository.update_remediation_episode(
                 episode_id, state="prescribed", passages_shown=passages, clock=clock
             ) or episode
+    exam = None
     for role, facet_id in (
         ("target", case_value(misconception, "target_facet")),
         ("confused_with", case_value(misconception, "confused_with_facet")),
@@ -233,6 +237,10 @@ def prescribe_remediation(
             if parsed is None:
                 continue
             extraction_id, span_id = parsed
+            if exam is None:
+                exam = exam_material(vault, repository)
+            if exam.covers(extraction_id, span_id):
+                continue
             try:
                 view = build_span_view(
                     repository,
@@ -603,8 +611,20 @@ def start_remediation_treatment(
     from learnloop.substrate.canonical_projection import surface_group_id
 
     primed_surface = surface_group_id(primed)
+    # Exam protection (owner default 2026-10-13): an item whose own material
+    # the learner was already shown (a reveal of its answer outside its own
+    # attempt's feedback, its exercise or book solution read in a source, its
+    # prompt rendered in a proposal) is never the cold check.
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import shown_items
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        shown = set(shown_items(connection, ranked[1:]))
     cold = next(
-        (item for item in ranked[1:] if surface_group_id(item) != primed_surface),
+        (item for item in ranked[1:]
+         if surface_group_id(item) != primed_surface and item.id not in shown),
         None,
     )
     updates: dict[str, Any] = {

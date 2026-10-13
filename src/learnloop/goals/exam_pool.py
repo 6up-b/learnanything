@@ -305,13 +305,29 @@ def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
         return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
 
 
+def _shown_items(vault: LoadedVault, repository: Repository) -> set[str]:
+    """Items whose own material the learner has already been shown (exam
+    protection, owner default 2026-10-13: such material never becomes an exam
+    item): a reveal of the answer, the canonical exercise or its book solution
+    read in a source, or the prompt rendered in a proposal, ever."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import shown_items
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return set(shown_items(connection, [item for item in vault.practice_items.values()
+                                            if item.status == "active"]))
+
+
 def _candidates(
     vault: LoadedVault,
     repository: Repository,
     scope: dict[str, set[str]],
     own_reserved_ids: set[str],
 ) -> list[_Candidate]:
-    """Reservable items: active, never attempted, not reserved elsewhere.
+    """Reservable items: active, never attempted, never shown, not reserved elsewhere.
 
     ``own_reserved_ids`` (this goal's standing reservation) are treated as
     reservable so the idempotent branch can recompute their facet coverage.
@@ -331,6 +347,9 @@ def _candidates(
     # Canonical sources S1 (C3): an imported exercise whose answer key is not
     # verified never enters a held-out exam.
     unverified = _unverified_imports(vault, repository)
+    # Exam protection (2026-10-13): material the learner has already been
+    # shown is not held out, so it never becomes an exam item.
+    shown = _shown_items(vault, repository)
 
     candidates: list[_Candidate] = []
     for item in vault.practice_items.values():
@@ -342,6 +361,8 @@ def _candidates(
         if item.id in attempted or item.id in reserved_elsewhere:
             continue
         if item.id in staged_owned or item.id in unverified:
+            continue
+        if item.id in shown and item.id not in own_reserved_ids:
             continue
         state = item_states.get(item.id)
         if state is not None and not state.active:

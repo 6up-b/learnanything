@@ -14,6 +14,7 @@ from contextlib import closing
 from typing import Any
 
 from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+from learnloop.content.sources.exam_material import exam_reserved
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.source_retrieval.policy import ITEM_BOUND_CONTEXTS, CallerContext, PolicyRefused, derive_policy
@@ -25,11 +26,24 @@ from learnloop.vault.models import LoadedVault
 WINDOW_CLOSING_CORRECTNESS = 0.999
 
 
+#: A caller note: the item is reserved for a goal's held-out exam.
+EXAM_RESERVED_NOTE = "exam_reserved"
+
+
 def cold_administration_open(repository: Repository, item_id: str | None) -> bool:
-    """Whether ``item_id`` is reserved by an open cold follow-up task."""
+    """Whether ``item_id`` is reserved by an open cold follow-up task, or for a
+    goal's held-out exam.
+
+    An item reserved for a held-out exam is a cold administration until its
+    pool is released (exam protection, 2026-10-13): nothing is retrieved,
+    compared or proposed for it, and the tutor grounds in nothing, exactly as
+    for an open cold check (the one exam predicate,
+    ``content.sources.exam_material.exam_reserved``)."""
 
     if not item_id:
         return False
+    if exam_reserved(repository, item_id):
+        return True
     for kind in sorted(COLD_FOLLOWUP_TASK_KINDS):
         for task in repository.open_followup_tasks_of_kind(kind):
             if str(task.get("selected_item_id") or "") == item_id:
@@ -59,6 +73,12 @@ def attempt_window_open(repository: Repository, item_id: str | None) -> bool | N
         return True
     correctness = row[1]
     return held or not (correctness is not None and float(correctness) >= WINDOW_CLOSING_CORRECTNESS)
+
+
+def cold_notes(repository: Repository, item_id: str | None) -> tuple[str, ...]:
+    """Why a cold administration is open, when it is for the exam's sake."""
+
+    return (EXAM_RESERVED_NOTE,) if exam_reserved(repository, item_id) else ()
 
 
 def learning_objects_for_event(vault: LoadedVault, event: Mapping[str, Any]) -> tuple[str, ...]:
@@ -97,7 +117,7 @@ def caller_for_question_event(vault: LoadedVault, repository: Repository, event_
         learning_object_ids=learning_objects_for_event(vault, event),
         cold=cold_administration_open(repository, item_id),
         window_open=attempt_window_open(repository, item_id) if item_id else None,
-        post_attempt_requested=post_attempt,
+        post_attempt_requested=post_attempt, notes=cold_notes(repository, item_id),
     )
 
 
@@ -112,7 +132,7 @@ def caller_for(repository: Repository, kind: str, ref: str | None = None, *,
         learning_object_ids=tuple(learning_object_ids),
         cold=cold_administration_open(repository, item_id),
         window_open=attempt_window_open(repository, item_id) if item_id else None,
-        post_attempt_requested=post_attempt,
+        post_attempt_requested=post_attempt, notes=cold_notes(repository, item_id),
     )
 
 
@@ -132,12 +152,14 @@ def check_named_ids(caller: CallerContext, *, item_id: str | None = None,
 
 
 __all__ = [
+    "EXAM_RESERVED_NOTE",
     "WINDOW_CLOSING_CORRECTNESS",
     "attempt_window_open",
     "caller_for",
     "caller_for_question_event",
     "check_named_ids",
     "cold_administration_open",
+    "cold_notes",
     "learning_objects_for_event",
     "policy_for",
 ]

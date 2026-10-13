@@ -265,3 +265,40 @@ def test_with_the_plan_off_delivery_is_recorded_when_the_item_is_opened(ctx, kin
     [row] = _interventions(repository)
     assert row["kind"] == ("practice_pick" if kind == "item" else "source_exercise")
     assert row["session_id"] == session_id
+
+
+def _reserve_for_an_exam(repository, item_id):
+    repository.insert_exam_pool_items([{"id": "epi_test", "goal_id": "goal_exam", "practice_item_id": item_id,
+                                        "facet_id": None, "difficulty_stratum": "mid",
+                                        "reserved_at": "2026-10-12T09:00:00Z", "released_at": None}])
+
+
+def test_a_pick_of_an_item_reserved_for_an_exam_since_its_proposal_is_refused_before_serving(ctx):
+    """Exam protection (2026-10-13, gap c): the plan's pick re-checks the exam
+    reservation, so nothing is recorded or served."""
+
+    context, _paths = ctx
+    _vault, repository = context.require_vault()
+    _reserve_for_an_exam(repository, "pi_extra_1")
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    with pytest.raises(SidecarError, match="reserved for a held-out exam"):
+        _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
+                                             "proposalId": "pp_test"})
+    assert _usage(repository) == []
+
+
+def test_the_open_list_refuses_an_item_reserved_for_an_exam_after_its_pick(ctx):
+    """With the plan off the pick is recorded first; the open-list serve re-checks
+    the reservation BEFORE the item is served and records no delivery."""
+
+    context, paths = ctx
+    set_config(paths, "plan", enabled=False)
+    context.load(paths.root)
+    _vault, repository = context.require_vault()
+    pick = {"practiceItemId": "pi_extra_1", "proposalId": "pp_test"}
+    assert _call(context, "plan_learner_pick", pick)["proposalPick"]["delivery"] == "on_open"
+    _reserve_for_an_exam(repository, "pi_extra_1")
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    with pytest.raises(SidecarError, match="reserved for a held-out exam"):
+        _call(context, "get_practice_item", {**pick, "sessionId": session_id})
+    assert _interventions(repository) == []
