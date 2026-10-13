@@ -493,6 +493,7 @@ def ask(
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
     learning_object_suggester: Any | None = None,
+    tool_request_handler: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
@@ -618,6 +619,7 @@ def ask(
         selection_quote_md=selection_quote_md,
         reader_thread=thread,
         learning_object_suggester=learning_object_suggester,
+        tool_request_handler=tool_request_handler,
         clock=clock,
     )
 
@@ -737,6 +739,8 @@ def ask(
     if result.get("suggested_learning_objects"):
         # Slice 2 T6: labelled nearest-LO suggestions (absent when there are none).
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    if "tool_requests" in result:
+        response["tool_requests"] = result["tool_requests"]
     return response
 
 

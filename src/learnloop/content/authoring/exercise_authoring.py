@@ -24,6 +24,9 @@ rung (``select_rung`` owns that).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
+from dataclasses import dataclass, field
 import json
 import re
 from pathlib import Path
@@ -77,16 +80,24 @@ class ExerciseAuthoringError(ValueError):
 
 
 def request_exercise_authoring(
-    client: StructuredTransport, context: ExerciseAuthoringContext
+    client: StructuredTransport, context: ExerciseAuthoringContext, *,
+    admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
 ) -> ExerciseAuthoring:
-    """Author selected exercises through the shared transport."""
+    """Author selected exercises through the shared transport.
 
-    return execute_structured_operation(
-        client,
-        purpose="exercise_authoring",
-        prompt=exercise_authoring_prompt(context),
-        result_model=ExerciseAuthoring,
-    )
+    ``admit(prompt, result_model)``, when given, admits the request under the
+    caller's spend caps before it is sent (canonical sources' imports); None
+    keeps the Reader's import unchanged.
+    """
+
+    prompt = exercise_authoring_prompt(context)
+    with admit(prompt, ExerciseAuthoring) if admit is not None else nullcontext():
+        return execute_structured_operation(
+            client,
+            purpose="exercise_authoring",
+            prompt=prompt,
+            result_model=ExerciseAuthoring,
+        )
 
 
 def _normalize(text: str) -> str:
@@ -238,7 +249,34 @@ def _uniform_criterion_smear(
     )
 
 
-def import_exercises(
+@dataclass
+class AuthoredDraft:
+    """One authored exercise, validated and ready to write (nothing written yet)."""
+
+    payload: dict[str, Any]
+    summary: dict[str, Any]
+    label: str
+    statement: str
+    #: ``authored`` when the author named facets; ``lo_fallback`` when the
+    #: import gave the item its LO's whole facet union (§8.1).
+    facet_basis: str
+    cited_quote: str = ""
+
+
+@dataclass
+class AuthoredBatch:
+    """``author_exercises``' result: drafts plus today's skipped/warnings report."""
+
+    extraction_id: str
+    span_ids: list[str]
+    exercise_text: str
+    drafts: list[AuthoredDraft] = field(default_factory=list)
+    skipped: list[dict[str, Any]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    anchor_status: str = "exact"
+
+
+def author_exercises(
     root: Path,
     repository: Repository,
     client: Any,
@@ -250,13 +288,17 @@ def import_exercises(
     revision_id: str | None = None,
     learning_object_hint: str | None = None,
     clock: Clock | None = None,
-) -> dict[str, Any]:
-    """Author the learner's selected exercise(s) into schedulable PracticeItems.
+    book_solution: Mapping[str, Any] | None = None,
+    admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
+) -> AuthoredBatch:
+    """Author the selected exercise(s) into validated drafts. Writes nothing.
 
-    Returns ``{items, skipped, warnings, anchor_status}`` where ``items`` are
-    written-card summaries and ``skipped`` carries per-exercise reasons
-    (paraphrased statement, unknown learning object, duplicate, ...). Raises
-    :class:`ExerciseAuthoringError` when nothing can proceed at all.
+    The split of ``import_exercises`` (canonical sources S1, §7.2): a check
+    can run between authoring and writing. The drafts keep today's rules: the
+    verbatim re-anchored stem, the facet registry, rubric arithmetic, the
+    capability vocabulary and the task-feature schema. ``book_solution`` (the
+    verifier ladder's first rung) is passed to the author so the key can be
+    written from the source.
     """
 
     translation = translate_selection(
@@ -348,8 +390,9 @@ def import_exercises(
         learning_objects=_catalog(vault, learning_object_hint),
         learning_object_hint=learning_object_hint or "",
         task_feature_schema=schema_dims,
+        book_solution=dict(book_solution or {}),
     )
-    result = request_exercise_authoring(client, context)
+    result = request_exercise_authoring(client, context, admit=admit)
 
     warnings = [str(warning) for warning in result.warnings if str(warning).strip()]
     if transliterated:
@@ -376,8 +419,9 @@ def import_exercises(
         if item.status == "active"
     }
     now = utc_now_iso(clock)
-    summaries: list[dict[str, Any]] = []
-    skipped: list[dict[str, Any]] = []
+    batch = AuthoredBatch(extraction_id=extraction_id, span_ids=span_ids, exercise_text=exercise_text,
+                          warnings=warnings, anchor_status=str(translation.get("status") or "exact"))
+    skipped = batch.skipped
 
     for ordinal, entry in enumerate(result.items, start=1):
         label = entry.title.strip() or f"exercise {ordinal}"
@@ -430,7 +474,9 @@ def import_exercises(
             mapped = canonical(facet)
             if mapped in vault.evidence_facets and mapped not in facets:
                 facets.append(mapped)
+        facet_basis = "authored"
         if not facets:
+            facet_basis = "lo_fallback"
             for facet in learning_object_facet_union(lo):
                 mapped = canonical(facet)
                 if mapped in vault.evidence_facets and mapped not in facets:
@@ -537,29 +583,10 @@ def import_exercises(
             payload["task_features"] = features
             payload["task_feature_schema"] = TASK_FEATURE_SCHEMA_SLUG
 
-        upsert_practice_item(root, payload, clock=clock)
         existing_prompts[_normalize(statement)] = item_id
-        try:
-            repository.append_interaction_event(
-                kind="learner_item_authored",
-                origin="learner",
-                subject_type="practice_item",
-                subject_id=item_id,
-                payload_json=json.dumps(
-                    {
-                        "learning_object_id": lo_id,
-                        "mechanism": "reader_exercise_import",
-                        "extraction_id": extraction_id,
-                    },
-                    sort_keys=True,
-                ),
-                clock=clock,
-            )
-        except Exception:  # noqa: BLE001 - provenance trail is best-effort
-            pass
-
-        summaries.append(
-            {
+        batch.drafts.append(AuthoredDraft(
+            payload=payload,
+            summary={
                 "practice_item_id": item_id,
                 "title": entry.title.strip(),
                 "prompt": statement,
@@ -572,17 +599,90 @@ def import_exercises(
                 "difficulty": difficulty,
                 "hint_count": len(hints),
                 "classification_reason": entry.classification_reason.strip(),
-            }
+            },
+            label=label,
+            statement=statement,
+            facet_basis=facet_basis,
+            cited_quote=str(getattr(entry, "cited_quote", "") or "").strip(),
+        ))
+    return batch
+
+
+def write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, extraction_id: str,
+                clock: Clock | None = None, mechanism: str = "reader_exercise_import",
+                extra_payload: Mapping[str, Any] | None = None) -> str:
+    """Write one draft as a vault item and mark it with ``learner_item_authored``."""
+
+    payload = {**draft.payload, **dict(extra_payload or {})}
+    upsert_practice_item(root, payload, clock=clock)
+    try:
+        repository.append_interaction_event(
+            kind="learner_item_authored",
+            origin="learner",
+            subject_type="practice_item",
+            subject_id=payload["id"],
+            payload_json=json.dumps(
+                {
+                    "learning_object_id": payload["learning_object_id"],
+                    "mechanism": mechanism,
+                    "extraction_id": extraction_id,
+                },
+                sort_keys=True,
+            ),
+            clock=clock,
         )
+    except Exception:  # noqa: BLE001 - provenance trail is best-effort
+        pass
+    return str(payload["id"])
 
-    if not summaries and skipped:
-        reasons = "; ".join(str(row["reason"]) for row in skipped)
+
+def write_exercises(root: Path, repository: Repository, batch: AuthoredBatch, *,
+                    clock: Clock | None = None) -> dict[str, Any]:
+    """Write every draft of ``batch`` (the Reader import's write step)."""
+
+    summaries: list[dict[str, Any]] = []
+    for draft in batch.drafts:
+        write_draft(root, repository, draft, extraction_id=batch.extraction_id, clock=clock)
+        summaries.append(draft.summary)
+    if not summaries and batch.skipped:
+        reasons = "; ".join(str(row["reason"]) for row in batch.skipped)
         raise ExerciseAuthoringError(f"no exercise could be authored: {reasons}")
-
     return {
-        "extraction_id": extraction_id,
+        "extraction_id": batch.extraction_id,
         "items": summaries,
-        "skipped": skipped,
-        "warnings": warnings,
-        "anchor_status": str(translation.get("status") or "exact"),
+        "skipped": batch.skipped,
+        "warnings": batch.warnings,
+        "anchor_status": batch.anchor_status,
     }
+
+
+def import_exercises(
+    root: Path,
+    repository: Repository,
+    client: Any,
+    *,
+    extraction_id: str,
+    raw_selection: Mapping[str, Any],
+    render_view_id: str | None = None,
+    source_id: str | None = None,
+    revision_id: str | None = None,
+    learning_object_hint: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Author the learner's selected exercise(s) into schedulable PracticeItems.
+
+    Returns ``{items, skipped, warnings, anchor_status}`` where ``items`` are
+    written-card summaries and ``skipped`` carries per-exercise reasons
+    (paraphrased statement, unknown learning object, duplicate, ...). Raises
+    :class:`ExerciseAuthoringError` when nothing can proceed at all.
+
+    The composition of :func:`author_exercises` and :func:`write_exercises`,
+    so the item the Reader's path writes is unchanged (parity test G5).
+    """
+
+    batch = author_exercises(
+        root, repository, client, extraction_id=extraction_id, raw_selection=raw_selection,
+        render_view_id=render_view_id, source_id=source_id, revision_id=revision_id,
+        learning_object_hint=learning_object_hint, clock=clock,
+    )
+    return write_exercises(root, repository, batch, clock=clock)

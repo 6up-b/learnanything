@@ -178,6 +178,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # the attempt, reveal, tutor-question and source-exposure ledgers, and the
     # FSRS fold of the attempt ledger under the fitted weights).
     DerivedStateReplayer("router_outcomes", frozenset({"router_outcomes"})),
+    # Canonical sources S5: what retrieval showed or served, joined to the
+    # attempts that followed (persisted rows only; no model call).
+    DerivedStateReplayer(
+        "retrieval_intervention_outcomes", frozenset({"retrieval_intervention_outcomes"}), ("learning_state",),
+    ),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -533,6 +538,16 @@ def _run_router_outcomes(
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 
 
+def _run_retrieval_intervention_outcomes(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.substrate.intervention_outcomes import rebuild_intervention_outcomes
+
+    report = rebuild_intervention_outcomes(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -544,6 +559,7 @@ _RUNNERS = {
     "item_fingerprints": _run_item_fingerprints,
     "source_block_fts": _run_source_block_fts,
     "router_outcomes": _run_router_outcomes,
+    "retrieval_intervention_outcomes": _run_retrieval_intervention_outcomes,
 }
 
 

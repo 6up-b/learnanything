@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 186
+schema_head: 195
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/field/probability_states.py"
-  - "src/learnloop/learner/facet_diagnostics.py"
+  - "src/learnloop/instructional/interventions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -140,6 +140,8 @@ Indexes and uniqueness:
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/instructional/interventions.py`
+- `src/learnloop/instructional/policy.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
@@ -174,11 +176,11 @@ Indexes and uniqueness:
 - `tests/test_reveal_ledger.py`
 - `tests/test_source_retrieval_tutor.py`
 - `tests/test_tutor_qa.py`
+- `tests/source_service_fakes.py`
 - `tests/test_contamination_report.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_composition.py`
-- `tests/test_placement_signals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

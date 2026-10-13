@@ -143,6 +143,32 @@ def take_over_claim(
     return epoch if cursor.rowcount == 1 else None
 
 
+def renew_claim(
+    connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int, now: str, lease_seconds: int
+) -> bool:
+    """Extend a live lease (a heartbeat); False (and no change) when it is no longer this worker's."""
+
+    expires = (parse_utc(now) + timedelta(seconds=max(1, int(lease_seconds)))).isoformat()
+    cursor = connection.execute(
+        "UPDATE judgment_work_claims SET lease_expires_at = ?, updated_at = ? WHERE claim_key = ? "
+        "AND state = 'leased' AND lease_owner = ? AND lease_epoch = ?",
+        (expires, now, claim_key, owner, int(epoch)),
+    )
+    return cursor.rowcount == 1
+
+
+def live_lease(connection: sqlite3.Connection, *, claim_key: str, now: str) -> bool:
+    """True when someone holds an unexpired lease on the claim (read-only)."""
+
+    row = _row(connection, claim_key)
+    return bool(
+        row is not None
+        and row["state"] == "leased"
+        and row["lease_expires_at"]
+        and parse_utc(str(row["lease_expires_at"])) > parse_utc(now)
+    )
+
+
 def release_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int, now: str) -> bool:
     """Give an unanswered claim back (a failed or refused call) so another run may take it."""
 
@@ -155,6 +181,6 @@ def release_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str,
 
 
 __all__ = [
-    "CLAIMED", "DONE", "HELD", "claim_work", "complete_claim", "holds_claim", "lease_holder", "release_claim",
-    "take_over_claim",
+    "CLAIMED", "DONE", "HELD", "claim_work", "complete_claim", "holds_claim", "lease_holder", "live_lease",
+    "release_claim", "renew_claim", "take_over_claim",
 ]

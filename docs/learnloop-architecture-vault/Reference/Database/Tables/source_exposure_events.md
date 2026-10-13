@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 186
+schema_head: 195
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,10 +22,12 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/instructional/exposure.py"
+  - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/router/outcomes.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/reader/span_view.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,7 +98,10 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/instructional/exposure.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers
 
@@ -108,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outcome_analytics.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/instructional/interventions.py`
 - `src/learnloop/reader/span_view.py`
 
 > [!note] Static-reference boundary
@@ -118,10 +124,16 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_restoration.py`
+- `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
+- `tests/test_discriminating_search.py`
+- `tests/test_intervention_outcomes_replayer.py`
+- `tests/test_source_exercise_rpcs.py`
+- `tests/test_source_first_needs.py`
+- `tests/test_valuation_calibration_fields.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

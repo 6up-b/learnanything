@@ -10,18 +10,28 @@ planned without any call by ``--dry-run``). ``suggest-lo`` shows a span's proven
 objects or, when it has none, the labelled nearest-LO suggestions. Neither
 writes anything except receipts, cached query vectors and checkpoints of the
 calls a deep search makes.
+
+Canonical sources (spec_source_practice_and_probes_v1) adds owner-run batch
+work over textbook exercises (``exercises harvest``, ``exercises verify``), the
+typed tools for external agents (``tools``, ``tool``) and the intervention
+report (``outcomes``). Every paid command has ``--dry-run`` (no client is
+built, nothing is sent or written) and a money cap.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
+from learnloop.cli.runtime import _repository, _root
 from learnloop.vault.loader import load_vault
 
 sources_app = typer.Typer(no_args_is_help=True, help="Slice 2 T6 source retrieval: search and span -> LO suggestions.")
+exercises_app = typer.Typer(no_args_is_help=True,
+                            help="Textbook exercises as practice: harvest thin facets, verify answer keys.")
+sources_app.add_typer(exercises_app, name="exercises")
 
 
 def _open(vault: Path, *, migrate: bool = True):
@@ -155,3 +165,150 @@ def sources_report(
             typer.echo(f"  {entry['purpose']} {entry['model'] or '?'}: {entry['truncated']}")
     else:
         typer.echo("truncated LLM answers: none")
+
+
+def _emit(report: dict[str, Any], json_output: bool) -> None:
+    typer.echo(json.dumps(report, sort_keys=True, default=str) if json_output
+               else json.dumps(report, indent=2, sort_keys=True, default=str))
+
+
+def _exit_for(report: dict[str, Any], ok: set[str]) -> None:
+    if report.get("status") not in ok:
+        raise typer.Exit(code=1)
+
+
+@exercises_app.command("harvest")
+def exercises_harvest(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    learning_object: Annotated[list[str] | None, typer.Option("--lo", help="Only facets of these LOs.")] = None,
+    facet: Annotated[list[str] | None, typer.Option("--facet", help="Only these facets.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: no client, nothing written.")] = False,
+    max_cost_usd: Annotated[float | None, typer.Option("--max-cost-usd", min=0.0,
+                                                       help="Stop once metered spend reaches this.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Import judged textbook exercises for thin facets, each key checked before writing."""
+    from learnloop.instructional.harvest import harvest
+
+    root = _root(vault)
+    try:
+        report = harvest(load_vault(root), _repository(root), dry_run=dry_run, max_cost_usd=max_cost_usd,
+                         learning_object_ids=tuple(learning_object or ()), facet_ids=tuple(facet or ()),
+                         on_progress=None if json_output else typer.echo)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output)
+    _exit_for(report, {"dry_run", "complete", "over_budget"})
+
+
+@exercises_app.command("verify")
+def exercises_verify(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    item: Annotated[list[str] | None, typer.Option("--item", help="Only these practice items.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: no client, nothing written.")] = False,
+    max_cost_usd: Annotated[float | None, typer.Option("--max-cost-usd", min=0.0,
+                                                       help="Stop once metered spend reaches this.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Check imported exercises' answer keys whose current content is not verified."""
+    from learnloop.instructional.harvest import verify
+
+    root = _root(vault)
+    try:
+        report = verify(load_vault(root), _repository(root), dry_run=dry_run, max_cost_usd=max_cost_usd,
+                        item_ids=tuple(item or ()))
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output)
+    _exit_for(report, {"dry_run", "complete", "over_budget"})
+
+
+@sources_app.command("outcomes")
+def sources_outcomes(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """What retrieval showed or served, and what followed (associations, not causes; no model call)."""
+    from learnloop.instructional.interventions import outcomes_report
+
+    root = _root(vault)
+    report = outcomes_report(load_vault(root), _repository(root))
+    if json_output:
+        _emit(report, True)
+        return
+    typer.echo(report["label"])
+    typer.echo(f"interventions: {report['interventions']} (recording {report['recording']})")
+    overall = report["overall"]
+    typer.echo(f"R_next: {overall['R_next']['successes']}/{overall['R_next']['n']} "
+               f"interval {overall['R_next']['interval_95']}")
+    typer.echo(f"R_cold: {overall['R_cold']['successes']}/{overall['R_cold']['n']} "
+               f"interval {overall['R_cold']['interval_95']}; states {overall['R_cold']['states']}")
+    for name, groups in report["by"].items():
+        for value, rates in groups.items():
+            typer.echo(f"  {name}={value}: n={rates['n']} R_next={rates['R_next']['successes']}/"
+                       f"{rates['R_next']['n']} R_cold={rates['R_cold']['successes']}/{rates['R_cold']['n']}")
+    typer.echo(f"key labels: {report['key_labels']}")
+    typer.echo(f"certification gate: {report['certification_gate']['unverified_attempts']} unverified attempt(s)")
+    typer.echo(f"exposure exclusions: {report['exposure_exclusions']}")
+    typer.echo(f"valuation: {report['valuation']['by_group_and_regime']} ({report['valuation']['scale']})")
+
+
+@sources_app.command("tools")
+def sources_tools(json_output: Annotated[bool, typer.Option("--json")] = False) -> None:
+    """Every source tool's declaration (name, description, JSON schema, model call)."""
+    from learnloop.instructional.tools import tool_schemas
+
+    _emit({"version": 1, "tools": tool_schemas()}, json_output)
+
+
+def _agent_injections(vault: Any, repository: Any) -> dict[str, Any]:
+    from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+    from learnloop.instructional.wiring import find_practice_injections
+
+    evidence = load_duration_evidence(repository, latency_cap_minutes=vault.config.plan.latency_cap_minutes)
+    estimator = Estimator(evidence, read_words_per_minute=vault.config.plan.read_words_per_minute).estimate
+    return find_practice_injections(vault, estimator=estimator)
+
+
+@sources_app.command("tool")
+def sources_tool(
+    name: Annotated[str, typer.Argument(help="find_practice, find_sources, compare_sources, find_facets or "
+                                             "practice_availability.")],
+    args: Annotated[str, typer.Option("--args", help="The tool's arguments as a JSON object.")] = "{}",
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Validate and show the policy; run nothing.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run one tool as an external agent (caller kind ``agent``, policy ``reading``)."""
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.tools import ToolArgumentsInvalid, drop_unknown_ids, run_tool, validate_arguments
+    from learnloop.practice_index.retrieval import IntentUnavailable
+    from learnloop.source_retrieval.policy import PolicyRefused, derive_policy
+
+    root = _root(vault)
+    loaded = load_vault(root)
+    repository = _repository(root)
+    try:
+        arguments = json.loads(args)
+        if not isinstance(arguments, dict):
+            raise ValueError("--args must be a JSON object")
+    except ValueError as exc:
+        _emit({"version": 1, "status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1)
+    caller = caller_for(repository, "agent", "cli")
+    policy, derived_from = derive_policy(caller)
+    try:
+        if dry_run:
+            parsed, dropped = drop_unknown_ids(loaded, repository, validate_arguments(name, arguments))
+            report = {"version": 1, "status": "dry_run", "tool": name, "policy": policy,
+                      "policy_derived_from": derived_from, "arguments": parsed.model_dump(), "dropped": dropped,
+                      "note": "Nothing was run or recorded."}
+        else:
+            report = {"version": 1, "status": "ran", **run_tool(loaded, repository, name, arguments, caller=caller,
+                                                                injections=_agent_injections(loaded, repository))}
+    except ToolArgumentsInvalid as exc:
+        report = {"version": 1, "status": "invalid", "code": exc.code, "reason": str(exc), "details": exc.details}
+    except (PolicyRefused, IntentUnavailable) as exc:
+        report = {"version": 1, "status": "refused", "code": exc.code, "reason": str(exc)}
+    _emit(report, json_output)
+    _exit_for(report, {"dry_run", "ran"})

@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.source_retrieval.tutor import TutorSpanProvider
+from pydantic import Field
+
+from learnloop.source_retrieval.tutor import PinnedSpanProvider, TutorSpanProvider
 from learnloop.tutor import question_queue as QQ
 from learnloop.tutor.question_queue import QuestionQueueError
 from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -47,6 +49,10 @@ class AskTutorQuestionInput(ParamsModel):
     hints_used_before: int | None = None
     direct_explanation_request: bool = False
     attempt_progress: str | None = None
+    # Canonical sources S4 (§10.3), "Explain this with my work": the passages
+    # the learner chose (span keys "<extraction>:<span>") and their current draft.
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    learner_draft_md: str | None = Field(default=None, max_length=8000)
 
 
 class RateTutorAnswerInput(ParamsModel):
@@ -157,6 +163,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             response["learner_gap"] = queue_tutor_question_gap(
                 ctx, vault, repository, event_id, (event.get("source_context") or {}).get("learner_gap")
             )
+            _with_offers(vault, repository, response, event_id, _stored_tool_requests(repository, event_id))
         if response is not None:
             return finish_route(ctx, repository, params.capture_id, "ask_tutor",
                                 {"question_event_id": event_id, "note_id": response["note_id"]}, response)
@@ -238,7 +245,12 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             },
             # Slice 2 T6: question-dependent, verified source spans (kill switch
             # source_retrieval.enabled; any failure keeps the linked spans).
-            source_span_provider=TutorSpanProvider(),
+            # S4's "Explain this with my work" pins the learner's chosen spans.
+            source_span_provider=_span_provider(vault, repository, params),
+            learner_draft_md=params.learner_draft_md,
+            # Canonical sources S4: the answer's typed tool requests (None when
+            # source_service.tutor_tools is off: S0's tutor byte for byte).
+            tool_request_handler=_tool_request_handler(vault),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -254,27 +266,105 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
             retryable=True,
         ) from exc
+    _record_citations(vault, repository, result["event_id"])
+    response = {
+        "note_id": note_id,
+        "event_id": result["event_id"],
+        "answer_md": result["answer_md"],
+        "question_type": result["question_type"],
+        "facets": result["facets"],
+        "hint_equivalent": result["hint_equivalent"],
+        "leak_suspected": result["leak_suspected"],
+        # ING M8 (§9.2): source-span citations; chips open Open-in-source.
+        "citations": result.get("citations", []),
+        "remaining": result["remaining"],
+        # Learner-text gaps: the question is read for a named gap off the
+        # request path; the overlay polls get_learner_text_gap.
+        "learner_gap": queue_tutor_question_gap(
+            ctx, vault, repository, result["event_id"], result.get("learner_gap")
+        ),
+    }
+    _with_offers(vault, repository, response, result["event_id"], result.get("tool_requests") or [])
     return finish_route(
         ctx, repository, params.capture_id, "ask_tutor",
-        {"question_event_id": result["event_id"], "note_id": note_id},
-        {
-            "note_id": note_id,
-            "event_id": result["event_id"],
-            "answer_md": result["answer_md"],
-            "question_type": result["question_type"],
-            "facets": result["facets"],
-            "hint_equivalent": result["hint_equivalent"],
-            "leak_suspected": result["leak_suspected"],
-            # ING M8 (§9.2): source-span citations; chips open Open-in-source.
-            "citations": result.get("citations", []),
-            "remaining": result["remaining"],
-            # Learner-text gaps: the question is read for a named gap off the
-            # request path; the overlay polls get_learner_text_gap.
-            "learner_gap": queue_tutor_question_gap(
-                ctx, vault, repository, result["event_id"], result.get("learner_gap")
-            ),
-        }
+        {"question_event_id": result["event_id"], "note_id": note_id}, response,
     )
+
+
+def _with_offers(vault: Any, repository: Any, response: dict[str, Any], event_id: str,
+                 tool_requests: list[dict[str, Any]]) -> None:
+    """Canonical sources S0 (§6.2): a deterministic "Practice this" request the
+    frontend runs once the answer is on screen. S4 (§10.3): the tutor's typed
+    requests (present only when it wrote some); its own find_practice request
+    replaces S0's. A recovered response is built the same way, from the rows."""
+
+    response["practice_request"] = (None if any(entry.get("tool") == "find_practice" for entry in tool_requests)
+                                    else tutor_practice_request(vault, repository, event_id))
+    if tool_requests:
+        response["tool_requests"] = tool_requests
+
+
+def _stored_tool_requests(repository: Any, event_id: str | None) -> list[dict[str, Any]]:
+    if not event_id:
+        return []
+    from learnloop.instructional.tools import offered_tool_requests
+
+    try:
+        return offered_tool_requests(repository, event_id)
+    except Exception:  # noqa: BLE001 - a vault before migration 192 has no rows
+        return []
+
+
+def _record_citations(vault: Any, repository: Any, event_id: str) -> None:
+    """S5: a tutor answer citing retrieved spans is an intervention (best effort)."""
+
+    from learnloop.instructional.interventions import record_tutor_citations
+
+    try:
+        record_tutor_citations(vault, repository, event_id)
+    except Exception:  # noqa: BLE001 - telemetry never fails the answer
+        import logging
+
+        logging.getLogger(__name__).warning("intervention record failed for %s", event_id, exc_info=True)
+
+
+def _span_provider(vault: Any, repository: Any, params: AskTutorQuestionInput) -> Any:
+    if not params.pinned_span_keys:
+        return TutorSpanProvider(intent_for=_tutor_intent_for)
+    from learnloop.instructional.policy import cold_administration_open
+
+    item_id = params.practice_item_id if params.context in ("practice", "feedback") else None
+    return PinnedSpanProvider(params.pinned_span_keys, cold=cold_administration_open(repository, item_id))
+
+
+def _tool_request_handler(vault: Any) -> Any:
+    from learnloop.instructional.tools import tutor_request_handler
+
+    return tutor_request_handler(vault)
+
+
+
+
+def _tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None:
+    """Canonical sources S3: remediate when the item's LO has an active misconception."""
+
+    from learnloop.instructional.sources import tutor_intent_for
+
+    return tutor_intent_for(vault, repository, context=context, item=item)
+
+
+def tutor_practice_request(vault: Any, repository: Any, event_id: str) -> dict[str, Any] | None:
+    """The answer's practice request, or None when the offer is switched off."""
+
+    from learnloop.instructional.offers import practice_request_for_answer
+
+    service = vault.config.source_service
+    if not (service.enabled and service.tutor_offers and vault.config.practice_index.enabled):
+        return None
+    event = repository.question_event(event_id)
+    if event is None:
+        return None
+    return practice_request_for_answer(vault, event, exercise_arm=bool(service.exercise_arm))
 
 
 class PreviewTutorOpeningInput(ParamsModel):

@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 186
+schema_head: 195
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
+- `src/learnloop/instructional/policy.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/context.py`

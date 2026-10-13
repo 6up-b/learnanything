@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 186
+schema_head: 195
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/recurrence/benchmarks.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
-  - "src/learnloop/diagnosis/split/reports.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -52,7 +52,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `195_source_service_spend_accounting.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -103,6 +103,8 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_model_calls_parent` on `parent_call_id`.
+- `idx_model_calls_started` on `started_at`.
 - `idx_model_calls_owner` on `owner_kind`, `owner_id`, `started_at`.
 - `sqlite_autoindex_model_call_receipts_1` on `id` (unique).
 
@@ -117,6 +119,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -151,12 +154,12 @@ None found by exact static reference scan.
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_judge_routes.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
-- `tests/test_output_budget.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "coldness_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite coldness_receipts"
   - "table coldness_receipts"
-schema_head: 186
+schema_head: 195
 table_name: "coldness_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/placement/state.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop/substrate/intervention_outcomes.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
 tags:
@@ -109,6 +110,7 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers
 

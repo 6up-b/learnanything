@@ -454,6 +454,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         policy = resolve_attempt_activity_policy(
             attempt_type=attempt["attempt_type"], hints_used=hints, primed=primed,
             recorded=activity_by_attempt.get(attempt["id"]),
+            reference_status=attempt.get("reference_status"),
         )
         lo_id = attempt["learning_object_id"]
         points = {

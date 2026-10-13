@@ -157,8 +157,36 @@ LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 # reads every record as written and the projection namespace is unchanged. The
 # branch built it as mvp-0.15 (a placeholder) and it was relabelled mvp-0.17
 # when it merged after probe ties (mvp-0.15) and learner-text gaps (mvp-0.16).
-# Kill switch: ``proof_check.enabled``.
+# Kill switch: ``proof_check.enabled``. New vaults started here until mvp-0.18
+# merged.
 PROOF_ROUTE_CHECK_ALGORITHM_VERSION = "mvp-0.17"
+
+# mvp-0.18 (canonical sources S1, spec_source_practice_and_probes_v1 §7.3a):
+# certification follows the answer key, on top of mvp-0.17 (the chain stays
+# linear: mvp-0.18 means the mvp-0.10 split PLUS placement PLUS recurrence
+# groups PLUS the stuck prompt PLUS the plan PLUS probe ties PLUS learner-text
+# gaps PLUS the route check PLUS this). An attempt on an imported textbook
+# exercise records ``practice_attempts.reference_status`` from the served
+# item's effective key status (the latest check of its CURRENT prompt, key and
+# rubric), and an ``unverified`` attempt schedules and teaches but earns no
+# certification credit (owner decision C3: an unverified solution never
+# certifies anything). DL3's attempt-time gate (spec_daily_loop_v1 §4.4), built
+# here first. Never retroactive: attempts before the tag keep
+# ``not_applicable`` and replay reads the stored column, so a shadow rebuild
+# shows zero deltas. No kill switch re-enables certification; vaults below the
+# tag never run the gate. The branch built it as mvp-0.15 (a placeholder) and
+# it was relabelled mvp-0.18 when it merged after probe ties (mvp-0.15),
+# learner-text gaps (mvp-0.16) and the route check (mvp-0.17).
+SOURCE_REFERENCE_GATE_ALGORITHM_VERSION = "mvp-0.18"
+
+# mvp-0.19 (canonical sources S2b, §8.5): intervention needs are fulfilled from
+# the learner's sources before generating, on top of mvp-0.18. It changes which
+# item a follow-up serves (a verified, validated textbook exercise that passes
+# the follow-up chooser's own gate). Kill switch
+# ``source_service.source_first_needs``: off, the generation lane is
+# byte-identical. The branch built it as mvp-0.16 (a placeholder) and it was
+# relabelled mvp-0.19 at the same merge.
+SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.19"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -177,6 +205,8 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PROBE_TIE_ALGORITHM_VERSION,
     LEARNER_TEXT_GAP_ALGORITHM_VERSION,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
+    SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
+    SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
 )
 
 
@@ -244,6 +274,14 @@ LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALG
 # (behind ``proof_check.enabled``). Every later successor keeps it; gates must
 # use this set, never equality against PROOF_ROUTE_CHECK_ALGORITHM_VERSION.
 PROOF_ROUTE_CHECK_VERSIONS: frozenset[str] = successors_from(PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
+
+# Versions whose attempts record the answer-key gate (canonical sources S1).
+# Every later successor keeps it; gates must use this set, never equality.
+SOURCE_REFERENCE_GATE_VERSIONS: frozenset[str] = successors_from(SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
+
+# Versions whose intervention needs try the learner's sources before
+# generating (canonical sources S2b, behind source_service.source_first_needs).
+SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

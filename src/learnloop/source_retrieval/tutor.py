@@ -41,17 +41,21 @@ reveal-accounted by ``tutor_qa``).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from contextlib import closing
 from dataclasses import dataclass, field
 import time
 from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.content.authoring.practice_leakage import build_cross_source_spans
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
 from learnloop.source_retrieval.corpus import Scope, teaching_scope
+from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
-from learnloop.source_retrieval.search import SpanHit, SpanSearch, search_spans
+from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
 from learnloop.source_retrieval.verify import verification_route, verify_spans
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -133,6 +137,7 @@ def tutor_pool(
     rewrite_client: Any | None = None, owner_id: str = "", deadline: float | None = None,
     query_vectors: Mapping[str, Any] | None = None, rewrite: bool | None = None,
     rewritten: Rewrite | None = None, pool: str | None = None, pool_extras: int | None = None,
+    extra_lists: Mapping[str, Sequence[SpanKey]] | None = None, scope: Scope | None = None,
 ) -> TutorPool:
     """The tutor's candidate pool for one question (steps 1 and its withholding).
 
@@ -144,12 +149,16 @@ def tutor_pool(
     The T6 report calls this with ``query_vectors`` (and a ``rewritten``
     query) it already paid for, and ``pool`` / ``pool_extras`` for the pool it
     measures, so it verifies exactly what the tutor would (review F5).
+    ``extra_lists`` join the ``provenance`` list (canonical sources S3: a
+    remediate intent's correction lists), and ``scope`` reuses a scope the
+    caller already built with :func:`tutor_scope`.
     """
 
     config = vault.config.source_retrieval
     item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
     lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
-    scope = tutor_scope(vault, repository, context=context, learning_object_ids=lo_ids, item=item)
+    if scope is None:
+        scope = tutor_scope(vault, repository, context=context, learning_object_ids=lo_ids, item=item)
     provenance = [
         (span.extraction_id, span.span_id)
         for lo_id in lo_ids
@@ -158,11 +167,14 @@ def tutor_pool(
     ]
     if rewrite is None:
         rewrite = None if config.tutor_query_rewrite else False
+    lists: dict[str, list[SpanKey]] = {"provenance": provenance}
+    for name, keys in (extra_lists or {}).items():
+        lists.setdefault(name, []).extend(keys)
     # The learner's question alone: the practice question would rank the
     # item's own exercise and solution first (and so would a rewrite of it).
     search = search_spans(
         vault, repository, question_md, scope, limit=config.tutor_candidate_pool * 2,
-        deep=True, rewrite=rewrite, extra_lists={"provenance": provenance}, embedder=embedder,
+        deep=True, rewrite=rewrite, extra_lists=lists, embedder=embedder,
         rewrite_client=rewrite_client, owner_id=owner_id, deadline=deadline,
         pool_dense=config.tutor_candidate_pool + WITHHOLD_SPARE, query_vectors=query_vectors,
         rewritten=rewritten, pool=pool, pool_extras=pool_extras,
@@ -180,10 +192,12 @@ def tutor_pool(
     if any(hit.pool_role for hit in hits):
         # dense_plus_bm25: the dense top-k, then every widening list's top
         # pool_keyword_extras (a spare dense hit that is also in one of
-        # those stays, as that list's extra).
+        # those stays, as that list's extra; a remediate intent's correction
+        # lists widen it like the linked spans).
         dense = [hit for hit in hits if hit.pool_role == "dense"]
         extras_m = (search.pool or {}).get("extras_m", config.pool_keyword_extras)
-        widening = [name for name in ("keyword", "provenance") if name in search.lists]
+        widening = [name for name in ("keyword", "provenance", *sorted(set(lists) - {"provenance"}))
+                    if name in search.lists]
         spare = [hit for hit in dense[config.tutor_candidate_pool:]
                  if any(hit.ranks.get(name, extras_m + 1) <= extras_m for name in widening)]
         hits = (dense[: config.tutor_candidate_pool] + spare
@@ -200,11 +214,16 @@ class TutorSpanProvider:
     a ``None`` manifest (kill switch off) records nothing."""
 
     def __init__(self, *, embedder: Any | None = None, rewrite_client: Any | None = None,
-                 rerank_client: Any | None = None, clock: Clock | None = None) -> None:
+                 rerank_client: Any | None = None, clock: Clock | None = None,
+                 intent_for: Any | None = None) -> None:
         self.embedder = embedder
         self.rewrite_client = rewrite_client
         self.rerank_client = rerank_client
         self.clock = clock
+        # Canonical sources S3 (§9.5): ``intent_for(vault, repository, context=,
+        # item=)`` -> ``{"intent": "remediate", "misconceptions": [...]}`` or
+        # None (explain). Injected by the adapter; None keeps T6's behaviour.
+        self.intent_for = intent_for
 
     def __call__(self, vault: LoadedVault, repository: Repository, *, context: str,
                  question_md: str, learning_object_ids: Sequence[str],
@@ -225,12 +244,34 @@ class TutorSpanProvider:
                           "reason": f"verification {ready.skip}" + (f" ({ready.reason})" if ready.reason else ""),
                           "verification": {"status": ready.skip, "reason": ready.reason}}
         owner_id = "tq_" + new_ulid()
+        item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+        intent = None
+        if self.intent_for is not None:
+            try:
+                intent = self.intent_for(vault, repository, context=context, item=item if item_bound else None)
+            except Exception:  # noqa: BLE001 - an intent hint never blocks grounding
+                intent = None
+        scope = tutor_scope(vault, repository, context=context, learning_object_ids=learning_object_ids,
+                            item=item)
+        extra_lists: dict[str, list[SpanKey]] = {}
+        if intent and intent.get("intent") == "remediate":
+            from learnloop.source_retrieval.find_sources import correction_lists
+
+            for misconception in intent.get("misconceptions") or ():
+                lists, _report = correction_lists(vault, repository, misconception, sorted(scope.extractions))
+                for name, keys in lists.items():
+                    extra_lists.setdefault(name, []).extend(keys)
         built = tutor_pool(vault, repository, context=context, question_md=question_md,
                            learning_object_ids=learning_object_ids, item=item, embedder=self.embedder,
-                           rewrite_client=self.rewrite_client, owner_id=owner_id, deadline=deadline)
+                           rewrite_client=self.rewrite_client, owner_id=owner_id, deadline=deadline,
+                           extra_lists=extra_lists, scope=scope)
         search, pool, withheld = built.search, built.pool, built.withheld
         if not config.tutor_query_rewrite:
             search.rewrite = {"status": "disabled", "reason": "source_retrieval.tutor_query_rewrite is false"}
+        if intent and intent.get("intent") == "remediate" and pool:
+            return self._remediate(vault, repository, question_md=question_md, pool=pool, intent=intent,
+                                   item=item if item_bound else None, search=search, withheld=withheld,
+                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started)
         verify_started = time.monotonic()
         verification = verify_spans(
             vault, repository, question=question_md, pool=pool, pick_at_most=config.tutor_spans,
@@ -258,10 +299,106 @@ class TutorSpanProvider:
         return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
                        "span_keys": [hit.record_id for hit in verification.picks]}
 
+    def _remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit],
+                   intent: dict[str, Any], item: PracticeItem | None, search: SpanSearch, withheld: list[str],
+                   owner_id: str, ready: Any, deadline: float | None, started: float) -> tuple[Any, dict[str, Any]]:
+        """The remediate intent: same retrieval, the intent's verification prompt (no extra call).
+
+        Its receipt carries the same timing fields as an explain question's
+        (``timings_ms``, ``over_soft_deadline``; the soft deadline unless
+        ``tutor_deadline_cancels``)."""
+
+        from learnloop.source_retrieval.find_sources import _verify
+
+        config = vault.config.source_retrieval
+        misconceptions = intent.get("misconceptions") or ()
+        context: dict[str, Any] = {"misconceptions": [
+            {"statement": getattr(m, "statement", ""), "correction": getattr(m, "correction_statement", "")}
+            for m in misconceptions]}
+        if item is not None:
+            context["practice_question"] = " ".join(item.prompt.split())[:700]
+        verify_started = time.monotonic()
+        status, rows, picks, reason = _verify(
+            vault, repository, intent="remediate", question=question_md, pool=pool,
+            pick_at_most=config.tutor_spans, context=context, client=ready.client, owner_id=owner_id,
+            deadline=deadline, clock=self.clock)
+        verification_ms = int(round((time.monotonic() - verify_started) * 1000))
+        elapsed_ms = int(round((time.monotonic() - started) * 1000))
+        timings = step_timings(search.timings_ms, verification_ms=verification_ms, total_ms=elapsed_ms)
+        manifest: dict[str, Any] = {
+            "search": search.describe(), "candidates": len(pool), "candidate_keys": [hit.record_id for hit in pool],
+            "pool": dict(search.pool),
+            "withheld_answer_overlap": len(withheld), "withheld_keys": withheld, "intent": "remediate",
+            "verification": {"status": status, "reason": reason, "judged": len(rows), "picked": len(picks)},
+            "owner_id": owner_id, "time_box_seconds": config.retrieval_timeout_seconds,
+            "deadline": "cancels" if config.tutor_deadline_cancels else "soft",
+            "timings_ms": timings,
+            "over_soft_deadline": over_soft_deadline(timings, config.retrieval_timeout_seconds),
+            "elapsed_ms": elapsed_ms,
+        }
+        if status not in ("verified", "cached"):
+            return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
+        by_key = {hit.key: hit for hit in pool}
+        chosen = [by_key[key] for key in picks if key in by_key]
+        spans = [span_context(hit) for hit in chosen]
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
+                       "span_keys": [hit.record_id for hit in chosen]}
+
+
+class PinnedSpanProvider:
+    """"Explain this with my work" (canonical sources S4, §10.3): the tutor is
+    grounded in the passages the learner chose, through the same filters any
+    retrieved span passes (an item-bound question never receives an exercise,
+    a solution, a span linked to its item or one that reproduces its answer).
+
+    ``cold`` (decided by the adapter from the caller) grounds in nothing."""
+
+    def __init__(self, span_keys: Sequence[Any], *, cold: bool = False) -> None:
+        self.span_keys = list(span_keys)
+        self.cold = cold
+
+    def __call__(self, vault: LoadedVault, repository: Repository, *, context: str,
+                 question_md: str, learning_object_ids: Sequence[str],
+                 item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+        if self.cold:
+            return [], {"basis": "pinned", "policy": "cold_attempt", "spans": 0,
+                        "reason": "nothing is grounded during a cold administration"}
+        item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+        policy = "assisted_practice" if item_bound else "reading"
+        lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
+        scope = scope_for(vault, repository, policy=policy, scope="library", learning_object_ids=lo_ids,
+                          item=item if item_bound else None)
+        keys = sorted(span_keys(self.span_keys))
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            blocks = blocks_by_key(connection, keys)
+        spans: list[dict[str, Any]] = []
+        dropped: list[dict[str, Any]] = []
+        for key in keys:
+            block = blocks.get(key)
+            why = None
+            if block is None:
+                why = "no such passage"
+            elif not scope.allows(*key):
+                why = "not available while you're practising this item" if item_bound else "not in your sources"
+            elif item_bound and span_leaks_expected(block.text, item.expected_answer):
+                why = "it reproduces the answer to the item you are practising"
+            if why is not None:
+                dropped.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
+                continue
+            extraction = scope.extractions[key[0]]
+            spans.append(span_context(SpanHit(
+                extraction_id=key[0], span_id=key[1], source_id=extraction.source_id,
+                source_title=extraction.title, text=block.text, block_type=block.block_type, section_path=[],
+                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})))
+        return spans, {"basis": "pinned", "policy": policy, "spans": len(spans),
+                       "span_keys": [f"{s['extraction_id']}:{s['span_id']}" for s in spans],
+                       "dropped_pins": dropped}
+
 
 __all__ = [
     "ITEM_BOUND_CONTEXTS",
     "PROVENANCE_SPANS_PER_LO",
+    "PinnedSpanProvider",
     "SPAN_TEXT_CAP",
     "TIMED_STEPS",
     "TutorPool",

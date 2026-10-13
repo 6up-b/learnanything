@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 186
+schema_head: 195
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/maintenance_feed.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/source_retrieval/corpus.py`
+- `src/learnloop/source_retrieval/find_sources.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -146,6 +147,9 @@ Indexes and uniqueness:
 - `tests/test_source_sets.py`
 - `tests/test_tutor_citations.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_compare_sources.py`
+- `tests/test_find_sources_intents.py`
+- `tests/test_prescription_passages.py`
 - `tests/test_provenance_service.py`
 - `tests/test_revision_refresh.py`
 - `tests/test_source_deletion.py`

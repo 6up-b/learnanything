@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 186
+schema_head: 195
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/field/signals.py"
   - "src/learnloop/ops/pf_reports.py"
-  - "src/learnloop/reader/reader_dialogue.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/scheduling/action_loss.py`
@@ -163,6 +164,7 @@ Indexes and uniqueness:
 - `tests/test_reader_capture.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_reader_inquiry_status.py`
+- `tests/test_source_exercise_import.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
@@ -172,6 +174,7 @@ Indexes and uniqueness:
 - `tests/test_reader_inquiry_kill_switch.py`
 - `tests/test_reader_reconnect.py`
 - `tests/test_reader_restoration.py`
+- `tests/test_reference_gate_imports.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

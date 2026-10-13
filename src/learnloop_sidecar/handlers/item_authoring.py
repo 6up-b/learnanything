@@ -213,7 +213,44 @@ def edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> di
     except ItemAuthoringError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     ctx.reload(maintenance=False)
-    return versioned({"practiceItemId": params.practice_item_id, "changed": result["changed"]})
+    recheck = _queue_key_recheck(ctx, params.practice_item_id) if result["changed"] else None
+    response = {"practiceItemId": params.practice_item_id, "changed": result["changed"]}
+    if recheck is not None:
+        response["keyRecheck"] = recheck
+    return versioned(response)
+
+
+def _queue_key_recheck(ctx: SidecarContext, practice_item_id: str) -> str | None:
+    """Canonical sources S1 (§7.3a, D20): an edited exercise import is unverified
+    until a check of its NEW prompt, key and rubric passes; with
+    ``exercise_verification`` on, that check is queued here (in the background).
+    Its signature and response are otherwise unchanged."""
+
+    import threading
+    from contextlib import closing
+
+    from learnloop.content.authoring.source_exercise_import import verify_item_key
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import effective_key_status
+
+    vault, repository = ctx.require_vault()
+    service = vault.config.source_service
+    item = vault.practice_items.get(practice_item_id)
+    if item is None or not (service.enabled and service.exercise_verification):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        status = effective_key_status(connection, item)
+    if status not in ("changed_since_check", "model_answer", "checking"):
+        return None
+
+    def run() -> None:
+        try:
+            verify_item_key(vault.root, repository, practice_item_id, trigger="edit")
+        except Exception:  # noqa: BLE001 - `learnloop sources exercises verify` covers it
+            pass
+
+    threading.Thread(target=run, name="edit-key-recheck", daemon=True).start()
+    return "queued"
 
 
 @method("retire_practice_item", RetirePracticeItemInput)

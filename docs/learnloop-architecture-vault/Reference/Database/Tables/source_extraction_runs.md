@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 186
+schema_head: 195
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
-  - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -120,6 +121,8 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/instructional/exercises.py`
+- `src/learnloop/instructional/interventions.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -127,9 +130,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
-- `src/learnloop/reader/span_view.py`
-- `src/learnloop/source_retrieval/b4.py`
-- `src/learnloop/source_retrieval/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

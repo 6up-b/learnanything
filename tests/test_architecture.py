@@ -56,6 +56,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/field.py",
         "src/learnloop/db/stores/families.py",
         "src/learnloop/db/stores/practice_index.py",
+        # Canonical sources (spec_source_practice_and_probes_v1): impressions,
+        # imports, key checks, comparisons, tool calls and interventions.
+        "src/learnloop/db/stores/source_service.py",
         # Slice 1 M2: blind grades, diagnoses, card taps and the job queue.
         "src/learnloop/db/stores/diagnoses.py",
         # Shared capture domain owns only the M1 mobile/inbox workflow tables.

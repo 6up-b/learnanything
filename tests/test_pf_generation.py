@@ -973,3 +973,46 @@ def test_a_selection_whose_parent_contract_changed_is_never_published(pf, change
     with pytest.raises(Exception):
         publish_candidate(load_vault(paths.root), repository, row["id"], clock=NEXT_DAY)
     assert StaleSelection
+
+
+@needs_bwrap
+def test_a_published_variant_of_a_textbook_exercise_keeps_its_own_verification(pf):
+    """Codex sources-build review F11: PF verified the variant, then publication
+    copied ``canonical_exercise`` (``variant_of``) and the C3 gate read it as an
+    unchecked exercise import (``model_answer``). The publication now records a
+    check bound to the published content, from PF's own verification of it."""
+
+    from learnloop.db.stores.source_service import (
+        VERIFIED_STATUSES, effective_key_status, key_checks_for_item, reference_content_hash,
+        reference_status_for_item,
+    )
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    _, repository, paths = pf
+    parent_path = next(paths.root.rglob("pi_linear_001.yaml"))
+    payload = read_yaml(parent_path)
+    payload["canonical_exercise"] = {"source_id": "src_text", "revision_id": "rev_text", "extraction_id": "ext_text",
+                                     "span_ids": ["t7"], "label": "Exercise 1", "relation": "verbatim"}
+    write_yaml(parent_path, payload)
+    report = run(paths)
+    assert report["status"] == "complete" and report["published_item_ids"]
+    vault = load_vault(paths.root)
+    with repository.connection() as connection:
+        parent_checks = key_checks_for_item(connection, "pi_linear_001")
+        for item_id in report["published_item_ids"]:
+            item = vault.practice_items[item_id]
+            assert item.canonical_exercise.relation == "variant_of"
+            status = effective_key_status(connection, item)
+            assert status in VERIFIED_STATUSES, status
+            assert reference_status_for_item(connection, item) == "verified"
+            [check] = key_checks_for_item(connection, item_id)
+            assert check["content_hash"] == reference_content_hash(item)  # bound to the published content
+            assert check["verification"]["source"] == "pf_publish"
+    assert parent_checks == []  # nothing is inherited from, or written for, the parent
+    # Publication is idempotent: a retried publish writes no second check.
+    from learnloop.ops.pf_publish import publish_candidate
+
+    published = rows(repository, "status='published'")
+    publish_candidate(load_vault(paths.root), repository, published[0]["id"])
+    with repository.connection() as connection:
+        assert len(key_checks_for_item(connection, published[0]["published_item_id"])) == 1

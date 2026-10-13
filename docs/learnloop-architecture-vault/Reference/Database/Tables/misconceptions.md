@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 186
+schema_head: 195
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,9 +29,9 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/authoring/persona_gate.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/content/authoring/persona_gate.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
@@ -143,17 +144,17 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/scoreboard.py`
-- `src/learnloop/learner/independence_audit.py`
-- `src/learnloop/learner/learner_review_feed.py`
-- `src/learnloop/learner/surfaced_beliefs.py`
-- `src/learnloop/tutor/durable_promotion.py`
-- `src/learnloop/tutor/promotions.py`
+- `src/learnloop/instructional/needs.py`
+- `src/learnloop/instructional/screen.py`
+- `src/learnloop/instructional/sources.py`
+- `src/learnloop/instructional/tools.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/source_service_fakes.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_cli_commands.py`
@@ -161,6 +162,7 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_gate.py`
 - `tests/test_durable_promotion_arms.py`
+- `tests/test_find_sources_intents.py`
 - `tests/test_guided_redo.py`
 - `tests/test_hypothesis_sets.py`
 - `tests/test_independent_group_counting.py`
@@ -170,10 +172,8 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_misconception_registry.py`
 - `tests/test_p2_acceptance.py`
+- `tests/test_prescription_passages.py`
 - `tests/test_primed_attempts.py`
-- `tests/test_probability_prep.py`
-- `tests/test_recurrence_benchmarks.py`
-- `tests/test_recurrence_live.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -312,6 +312,14 @@ def observed_update(
 # Robust ranking, stopping, agreement gate, abstention (§3)
 # ---------------------------------------------------------------------------
 
+class EnsembleShapeError(ValueError):
+    """``evaluate_selection`` was given ensembles of unequal member counts."""
+
+    def __init__(self, sizes: Sequence[int]) -> None:
+        self.sizes = tuple(sizes)
+        super().__init__(f"evaluate_selection pairs members by index; got member counts {list(sizes)}")
+
+
 @dataclass(frozen=True)
 class RobustDecision:
     """Robust products of one selection decision, snapshotted so historical
@@ -369,6 +377,12 @@ def evaluate_selection(
 
     if not candidates:
         return RobustDecision(None, 0.0, 0.0, 0.0, True, False, "stop")
+    sizes = {len(ens.members) for _slot, ens, _secs in candidates}
+    if len(sizes) > 1:
+        # Members are paired by index below; unequal credible sets would index
+        # past the end or silently read a prefix. Mixed shapes are
+        # evaluate_selection_credible_sets' (canonical sources S2a).
+        raise EnsembleShapeError(sorted(sizes))
 
     scored = [
         (slot, robust_eig_per_second(ens, posterior, secs), ens, secs)
@@ -434,6 +448,98 @@ def evaluate_selection(
     return RobustDecision(
         best_slot, best_score, lcb_advantage, agreement_fraction, False, True,
         "couldnt_reliably_distinguish",
+    )
+
+
+def evaluate_series_selection(
+    *,
+    candidates: Sequence[tuple[str, Sequence[float], float]],
+    winner_eig_nats: Sequence[float] | None = None,
+    quantile: float = ROBUST_QUANTILE,
+    lambda_time: float = LAMBDA_TIME,
+    burden_cost: float = BURDEN_COST,
+    value_per_nat_minutes: float = VALUE_PER_NAT_MINUTES,
+    agreement_threshold: float = ENSEMBLE_ACTION_AGREEMENT_THRESHOLD,
+) -> RobustDecision:
+    """The robust selection rule over independent credible sets (canonical sources S2a, §8.3.4).
+
+    ``candidates``: ``[(ref, eig_nats_per_member, expected_seconds), ...]``, each
+    candidate's members an equally weighted credible set of its OWN (nothing is
+    paired by index). The rank score is the lower quantile of the candidate's
+    own EIG per second, as :func:`robust_eig_per_second`; the winner's margin is
+    the lower quantile of winner-minus-runner-up over EVERY pair of their
+    members; action agreement is the probability that the winner tops every
+    rival when each candidate's member is drawn independently (ties go to the
+    winner); the stop rule and verdicts are :func:`evaluate_selection`'s, on
+    the winner's own members (``winner_eig_nats`` overrides them for a
+    conditional, branch-averaged series). No sampling: comparisons only.
+    """
+
+    if not candidates:
+        return RobustDecision(None, 0.0, 0.0, 0.0, True, False, "stop")
+    per_second = []
+    for ref, series, seconds in candidates:
+        secs = max(float(seconds), 1e-6)
+        values = [float(value) / secs for value in series]
+        per_second.append((ref, values, float(seconds), list(series)))
+    scored = sorted(((ref, robust_quantile(values, quantile), values, secs, nats)
+                     for ref, values, secs, nats in per_second), key=lambda t: t[1], reverse=True)
+    best_ref, best_score, best_values, best_secs, best_nats = scored[0]
+    if len(scored) >= 2:
+        runner_values = scored[1][2]
+        differences = [b - r for b in best_values for r in runner_values]
+        lcb_advantage = robust_quantile(differences, quantile)
+    else:
+        lcb_advantage = best_score
+    eig_series = list(winner_eig_nats) if winner_eig_nats is not None else best_nats
+    robust_evsi_minutes = value_per_nat_minutes * robust_quantile(eig_series, quantile)
+    stop_threshold = lambda_time * (best_secs / 60.0) + burden_cost
+    should_stop = robust_evsi_minutes <= stop_threshold
+    rivals = [sorted(values) for _ref, _score, values, _secs, _nats in scored[1:]]
+    if rivals and best_values:
+        import bisect
+
+        total = 0.0
+        for value in best_values:
+            product = 1.0
+            for ordered in rivals:
+                product *= bisect.bisect_right(ordered, value) / len(ordered)
+            total += product
+        agreement_fraction = total / len(best_values)
+    else:
+        agreement_fraction = 1.0 if best_values else 0.0
+    robust_winner = lcb_advantage > 0.0
+    passes_gate = agreement_fraction >= agreement_threshold
+    if should_stop:
+        if robust_winner and passes_gate:
+            return RobustDecision(best_ref, best_score, lcb_advantage, agreement_fraction, True, False, "stop")
+        return RobustDecision(best_ref, best_score, lcb_advantage, agreement_fraction, True, True,
+                              "couldnt_reliably_distinguish")
+    if robust_winner and passes_gate:
+        return RobustDecision(best_ref, best_score, lcb_advantage, agreement_fraction, False, False, "act")
+    return RobustDecision(best_ref, best_score, lcb_advantage, agreement_fraction, False, True,
+                          "couldnt_reliably_distinguish")
+
+
+def evaluate_selection_credible_sets(
+    *,
+    candidates: Sequence[tuple[str, Ensemble, float]],
+    posterior: Mapping[str, float],
+    lambda_time: float = LAMBDA_TIME,
+    burden_cost: float = BURDEN_COST,
+    value_per_nat_minutes: float = VALUE_PER_NAT_MINUTES,
+    agreement_threshold: float = ENSEMBLE_ACTION_AGREEMENT_THRESHOLD,
+) -> RobustDecision:
+    """:func:`evaluate_selection` for candidates whose credible sets differ in size
+    or construction (canonical sources S2a, §8.3.4). Each candidate's members
+    are its own independent credible set; see :func:`evaluate_series_selection`."""
+
+    series = [(ref, [expected_information_gain(member, posterior) for member in ens.members], secs)
+              for ref, ens, secs in candidates]
+    quantile = candidates[0][1].quantile if candidates else ROBUST_QUANTILE
+    return evaluate_series_selection(
+        candidates=series, quantile=quantile, lambda_time=lambda_time, burden_cost=burden_cost,
+        value_per_nat_minutes=value_per_nat_minutes, agreement_threshold=agreement_threshold,
     )
 
 

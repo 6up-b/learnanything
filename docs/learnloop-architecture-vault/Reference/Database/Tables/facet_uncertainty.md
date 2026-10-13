@@ -3,13 +3,13 @@ title: "facet_uncertainty"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_uncertainty"
   - "table facet_uncertainty"
-schema_head: 186
+schema_head: 195
 table_name: "facet_uncertainty"
 table_role: "compat"
 functionality_status: "legacy-preserved"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
+- `src/learnloop/instructional/valuation.py`
 - `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/substrate/replay.py`
 - `src/learnloop/tutor/promotions.py`

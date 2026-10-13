@@ -1566,6 +1566,12 @@ def _misconception_discrimination(
     return True, best_j_lb, mc_eig
 
 
+#: The follow-up chooser's own diagnostic-eligibility gate, public so the
+#: canonical-sources need step (S2b) can apply the chooser's rule to a draft
+#: instead of inventing an authority of its own.
+misconception_discrimination = _misconception_discrimination
+
+
 def _choose_intervention_item(
     vault: LoadedVault,
     repository: Repository,
@@ -1869,6 +1875,14 @@ def _choose_intervention_item(
                 row["filtered_reason"] = "no_misconception_discrimination"
                 misconception_filtered = True
 
+    # Canonical sources §5.4 / §8.5 item 4: an item a need was fulfilled with
+    # from the learner's own textbook was checked for independence when it
+    # was retrieved; the follow-up re-checks it now, immediately before it is
+    # committed as an independent check. A contaminated one is not served as
+    # one (``exposed_since_valuation``): the next candidate is chosen, or a
+    # need is recorded and the caller re-queries.
+    _recheck_source_first_independence(vault, repository, slate, candidates, clock=clock)
+
     eligible = [row for row in slate if row["gate_passed"]]
     eligible.sort(
         key=lambda row: (
@@ -1903,6 +1917,58 @@ def _choose_intervention_item(
         unservable_skips=unservable_skips,
         administered_diagnostic_skips=administered_diagnostic_skips,
     )
+
+
+def _recheck_source_first_independence(
+    vault: LoadedVault, repository: Repository, slate: list[dict[str, Any]],
+    candidates: list[PracticeItem], *, clock: Clock | None = None,
+) -> None:
+    """Serve-time independence of source-first imports (no model call).
+
+    The retrieval provenance (the need's import row: need, proposal, book
+    solution) is carried onto the slate row with the serve-time verdict, so
+    the follow-up's own record says why a check was or was not served.
+    """
+
+    from contextlib import closing
+
+    from learnloop.clock import SystemClock
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import exercise_key, need_source_import, serve_time_exposure
+    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+
+    by_id = {item.id: item for item in candidates}
+    now = (clock or SystemClock()).now()
+    since = (now - COLD_RETRIEVAL_DELAY).astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        for row in slate:
+            item = by_id.get(str(row["practice_item_id"]))
+            if item is None:
+                continue
+            provenance = need_source_import(connection, item.id)
+            if provenance is None:
+                continue
+            canonical = getattr(item, "canonical_exercise", None)
+            extraction_id = canonical.extraction_id if canonical is not None else provenance.get("extraction_id")
+            span_ids = list(canonical.span_ids) if canonical is not None else list(provenance.get("span_ids") or ())
+            solution = (provenance.get("verification") or {}).get("book_solution") or {}
+            family = ({other.id for other in vault.practice_items.values() if other.family_id == item.family_id}
+                      if item.family_id else set())
+            # Rule 4's shortlist scope, recorded when the need was fulfilled
+            # (older rows: every extraction, the conservative reading).
+            retrieval = (provenance.get("validation") or {}).get("retrieval") or {}
+            scope = retrieval.get("scope_extraction_ids")
+            verdict = serve_time_exposure(
+                connection, practice_item_id=item.id, family_item_ids=family, extraction_id=extraction_id,
+                span_ids=span_ids, solution_span_ids=solution.get("span_ids") or (),
+                candidate_keys=[exercise_key(str(extraction_id), span_ids)] if extraction_id else (),
+                studied_extraction_ids=None if scope is None else {*map(str, scope), str(extraction_id)},
+                since=since)
+            row["source_first"] = {"import_id": provenance.get("id"), "need_id": provenance.get("need_id"),
+                                   "proposal_id": provenance.get("proposal_id"), "serve_time": verdict}
+            if not verdict["eligible"] and row["gate_passed"]:
+                row["gate_passed"] = False
+                row["filtered_reason"] = "exposed_since_valuation"
 
 
 def _jaccard(left: set[str], right: set[str]) -> float:

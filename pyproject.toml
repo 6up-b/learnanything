@@ -196,6 +196,46 @@ forbidden_modules = ["learnloop.daily_plan", "learnloop.daily_plan_upgrade"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "instructional-service-is-a-composition-layer"
+name = "Domains, the practice index and source retrieval reach the instructional service only by injection (sources G17)"
+type = "forbidden"
+source_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    # learnloop.content is an implicit namespace package that grimp does not
+    # traverse; tests/test_instructional_layering.py scans it (and every
+    # package here) for any import of the service, function-local ones too.
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+    "learnloop.projects",
+    "learnloop.practice_index",
+    "learnloop.source_retrieval",
+    "learnloop.daily_plan",
+    "learnloop.db",
+    "learnloop.vault",
+    "learnloop.ai",
+    "learnloop.config",
+]
+forbidden_modules = ["learnloop.instructional"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "instructional-service-never-imports-the-plan"
+name = "The instructional service takes expected minutes by injection, never from the daily plan (sources SC12)"
+type = "forbidden"
+source_modules = ["learnloop.instructional"]
+forbidden_modules = ["learnloop.daily_plan"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "primitives-have-no-internal-dependencies"
 name = "Primitive modules stay dependency free"
 type = "forbidden"

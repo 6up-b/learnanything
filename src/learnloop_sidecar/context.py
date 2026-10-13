@@ -107,11 +107,58 @@ class SidecarContext:
             run_startup_maintenance(self.vault, self.repository)
             # A previous process may have left queued or leased jobs; resume.
             self.resume_post_attempt_jobs()
+            # ... and imported exercises' key checks it never committed
+            # (canonical sources, Codex review F5).
+            self.recover_import_key_checks()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
             return None
         return self.vault, self.repository.sqlite_path
+
+    def recover_import_key_checks(self) -> None:
+        """Resume the key checks of imported exercises a dead process left
+        incomplete. The durable state is the import row (its pending marker and
+        content binding); the check runs off the request path and commits with
+        the import's completion. Nothing runs when nothing is pending."""
+
+        if self.vault is None or self.repository is None or self.vault_root is None:
+            return
+        service = self.vault.config.source_service
+        if not (service.enabled and service.exercise_verification):
+            return
+        from learnloop.content.authoring.source_exercise_import import (
+            CHECK_LEASE_SECONDS,
+            pending_import_checks,
+            recover_import_checks,
+        )
+
+        if not pending_import_checks(self.repository, include_held=True):
+            return
+        root, repository = self.vault_root, self.repository
+
+        def run() -> None:
+            import time
+
+            try:
+                # A check under a live lease is someone's running check; it is
+                # retried only once its lease lapses (a dead process's lease
+                # outlives it by at most CHECK_LEASE_SECONDS; Codex re-review F9).
+                while True:
+                    report = recover_import_checks(root, repository)
+                    wait = report.get("retry_after_seconds")
+                    if wait is None:
+                        break
+                    time.sleep(min(float(wait), float(CHECK_LEASE_SECONDS)) + 1.0)
+            except Exception:  # noqa: BLE001 - the markers stay; the next start resumes them
+                import logging
+
+                logging.getLogger(__name__).warning("recovering imported exercises' key checks failed",
+                                                    exc_info=True)
+
+        import threading
+
+        threading.Thread(target=run, name="import-key-check-recovery", daemon=True).start()
 
     def resume_post_attempt_jobs(self) -> None:
         """Wake the worker when the durable queue holds unfinished jobs."""

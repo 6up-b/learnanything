@@ -420,3 +420,37 @@ it("never restores stuck mode where the vault does not offer it", async () => {
   expect(answer.getAttribute("placeholder")).not.toBe(STUCK);
   expect(screen.queryByRole("status", { name: "stuck prompt" })).toBeNull();
 });
+
+// Canonical sources S1/S4: a textbook exercise names its book and its key's
+// honest label; asking the tutor carries the draft for "explain with my work".
+it("shows a textbook exercise's provenance and key label, and passes the draft to Ask", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "old-item", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text",
+    attemptTypesAllowed: ["independent_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+    canonicalExercise: { sourceId: "src", revisionId: "rev", extractionId: "ext", spanIds: ["t7"],
+                         label: "Exercise 1, p. 9", relation: "verbatim", sourceTitle: "Matrix Theory",
+                         keyStatus: "panel_agrees_unconfirmed",
+                         keyLabel: "Independent model solvers agree; the symbolic check couldn't run here",
+                         authorship: "the statement is the book's" }
+  });
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  const line = await screen.findByTestId("canonical-exercise");
+  expect(line.textContent).toContain("From Matrix Theory: Exercise 1, p. 9");
+  expect(line.textContent).toContain("the symbolic check couldn't run here");
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.change(answer, { target: { value: "x = 5" } });
+  fireEvent.keyDown(window, { key: "?" });
+  expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({ draftMd: "x = 5" }));
+});
+
+// Codex re-review F10: with the plan off, opening a picked proposal's item is
+// its serve; the serve carries the proposal so the sidecar records the delivery.
+it("serves a plan-off pick with its proposal so the open records the delivery", async () => {
+  const origin = { proposalId: "pp_1", importId: "imp" };
+  render(<PracticeScreen {...props()} proposalOrigin={origin} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(api.getPracticeItem).toHaveBeenCalledWith("old-item", "old-session", origin);
+});

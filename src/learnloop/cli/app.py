@@ -78,7 +78,8 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16 or mvp-0.17); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19); "
+                "default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -115,10 +116,18 @@ def upgrade(
     maintenance LO's next check forward) over an mvp-0.15 vault (or an mvp-0.9
     to mvp-0.14 vault through the chain; kill switch:
     ``learner_text_gaps.sooner_check_enabled = false``). ``--to mvp-0.17``
-    (default, the latest successor) extends the valid-alternative gate to
-    proofs and explanations with an independent route check over an mvp-0.16
-    vault (or an mvp-0.9 to mvp-0.15 vault through the chain; kill switch:
-    ``proof_check.enabled = false``)."""
+    extends the valid-alternative gate to proofs and explanations with an
+    independent route check over an mvp-0.16 vault (or an mvp-0.9 to
+    mvp-0.15 vault through the chain; kill switch:
+    ``proof_check.enabled = false``). ``--to mvp-0.18`` makes certification
+    follow the answer key (an attempt on an imported textbook exercise with an
+    unverified key schedules and teaches but never certifies) over an
+    mvp-0.17 vault (or an mvp-0.9 to mvp-0.16 vault through the chain; no
+    kill switch re-enables certification). ``--to mvp-0.19`` (default, the
+    latest successor) fulfils intervention needs from the learner's sources
+    before generating over an mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault
+    through the chain; kill switch: ``source_service.source_first_needs =
+    false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -162,11 +171,19 @@ def upgrade(
         from learnloop.proof_check_upgrade import upgrade_to_mvp017
 
         result = upgrade_to_mvp017(_root(vault))
+    elif to == "mvp-0.18":
+        from learnloop.sources_upgrade import upgrade_to_mvp018
+
+        result = upgrade_to_mvp018(_root(vault))
+    elif to == "mvp-0.19":
+        from learnloop.sources_upgrade import upgrade_to_mvp019
+
+        result = upgrade_to_mvp019(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16 or mvp-0.17."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18 or mvp-0.19."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2609,6 +2626,27 @@ def populate_goal(
             typer.echo(f"Populated goal {goal_id}: accepted proposal {result.patch_id} ({applied_count} item(s)).")
         _echo_practice_generation_plan(result.plan)
 
+def _source_first_needs(loaded: Any, repository: Any, learning_object_id: str | None,
+                        max_needs: int) -> list[dict[str, Any]]:
+    """Canonical sources S2b (mvp-0.16): textbook exercises before generation."""
+
+    from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+    from learnloop.instructional.needs import fulfil_need_from_sources, pending_causal_decision
+
+    estimator = Estimator(load_duration_evidence(repository, latency_cap_minutes=loaded.config.plan.latency_cap_minutes)
+                          ).estimate
+    outcomes = []
+    for need in repository.pending_intervention_needs(learning_object_id)[:max_needs]:
+        try:
+            outcome = fulfil_need_from_sources(loaded, repository, need, path="cli", estimator=estimator,
+                                               pending_decision=pending_causal_decision(loaded, repository, need))
+        except Exception as exc:  # noqa: BLE001 - generation proceeds exactly as today
+            outcome = {"outcome": "generate", "reason": f"source-first failed: {type(exc).__name__}"}
+        outcomes.append({"need_id": need["id"], **{key: outcome.get(key) for key in (
+            "outcome", "reason", "practice_item_id", "import_id", "intent", "verdict")}})
+    return outcomes
+
+
 @app.command("generate-diagnostics")
 def generate_diagnostics(
     learning_object_id: Annotated[str | None, typer.Option("--learning-object-id", help="Limit to one Learning Object id.")] = None,
@@ -2636,11 +2674,30 @@ def generate_diagnostics(
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+    source_first: list[dict[str, Any]] = []
+    from learnloop.instructional.needs import source_first_active
+
+    if plan.targets and source_first_active(loaded):
+        if dry_run:
+            source_first = [{"need_id": need["id"], "outcome": "would_try_sources_first"}
+                            for need in repository.pending_intervention_needs(learning_object_id)[:max_needs]]
+        else:
+            source_first = _source_first_needs(loaded, repository, learning_object_id, max_needs)
+            plan = build_diagnostic_practice_plan(load_vault(vault_root), repository,
+                                                  learning_object_id=learning_object_id, max_needs=max_needs)
     if dry_run:
         if json_output:
-            typer.echo(_dump({"version": 1, "plan": plan.as_dict()}))
+            typer.echo(_dump({"version": 1, "plan": plan.as_dict(),
+                              **({"source_first": source_first} if source_first else {})}))
         else:
             _echo_diagnostic_generation_plan(plan)
+        return
+    if not plan.targets and source_first:
+        message = "Every targeted need was settled from your sources; nothing to generate."
+        if json_output:
+            typer.echo(_dump({"version": 1, "source_first": source_first, "plan": plan.as_dict()}))
+        else:
+            typer.echo(message)
         return
     if not plan.targets:
         message = "No pending intervention needs require diagnostic Practice Items."

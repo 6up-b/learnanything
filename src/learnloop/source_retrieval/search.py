@@ -51,7 +51,7 @@ from learnloop.db.stores.source_block_fts import (
 )
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.practice_index.text import reciprocal_rank_fusion
-from learnloop.source_retrieval.corpus import Scope
+from learnloop.source_retrieval.corpus import Scope, role_keys, role_proposal_keys
 from learnloop.source_retrieval.dense import DenseIndex, load_dense_index
 from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
@@ -120,6 +120,19 @@ class SpanSearch:
     pool: dict[str, Any] = field(default_factory=dict)
     #: Wall time of each step in milliseconds (rewrite, query_embedding, total).
     timings_ms: dict[str, int] = field(default_factory=dict)
+    #: Per list, whether it reached its source's end at the depth asked
+    #: (canonical sources §8.3.4: paging ends only on exhaustion).
+    list_ends: dict[str, bool] = field(default_factory=dict)
+    #: The whole pool's order: in a hybrid_rrf pool every key any list ranked
+    #: (the fused order), in a dense_plus_bm25 pool the pool itself; not just
+    #: the hits.
+    fused_keys: list[SpanKey] = field(default_factory=list)
+    #: The depth each list was asked for.
+    list_depths: dict[str, int] = field(default_factory=dict)
+    roles: list[str] = field(default_factory=list)
+    #: With ``roles``: how many spans each kind of role evidence admitted
+    #: (ingest hints, RW4e proposals, low-confidence proposals).
+    role_basis: dict[str, int] = field(default_factory=dict)
 
     @property
     def basis(self) -> str:
@@ -137,10 +150,14 @@ class SpanSearch:
         return "+".join(kinds + extra) or "none"
 
     def describe(self) -> dict[str, Any]:
-        return {"basis": self.basis, "lists": list(self.lists), "scope": self.scope,
-                "dense": self.dense, "query_embedding": self.query_embedding,
-                "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits),
-                "pool": dict(self.pool), "timings_ms": dict(self.timings_ms)}
+        value = {"basis": self.basis, "lists": list(self.lists), "scope": self.scope,
+                 "dense": self.dense, "query_embedding": self.query_embedding,
+                 "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits),
+                 "pool": dict(self.pool), "timings_ms": dict(self.timings_ms)}
+        if self.roles:
+            value["roles"] = list(self.roles)
+            value["role_basis"] = dict(self.role_basis)
+        return value
 
 
 def _hit(block: BlockRow, scope: Scope, ranks: Mapping[str, int], titles: Mapping[str, str],
@@ -216,6 +233,8 @@ def search_spans(
     pool: str | None = None,
     pool_dense: int | None = None,
     pool_extras: int | None = None,
+    roles: Sequence[str] = (),
+    list_depth: int | Mapping[str, int] = LIST_DEPTH,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
@@ -233,29 +252,67 @@ def search_spans(
     ``source_retrieval.pool_keyword_extras``) from each widening list. It
     needs a deep search over a complete dense index, else it falls back to
     ``hybrid_rrf`` (``result.pool["fallback"]`` says why).
+
+    Canonical sources S1: ``roles`` is a positive filter (every list keeps only
+    blocks whose effective role hint is one of them); ``list_depth`` (one depth,
+    or one per list name) deepens recall, which ``limit`` never does, and the
+    result says per list whether it reached its source's end (``list_ends``)
+    and gives the whole pool's order (``fused_keys``). The defaults keep every
+    existing caller byte-identical. A caller that pages by list exhaustion or
+    walks the whole fused order passes ``pool="hybrid_rrf"``: a
+    ``dense_plus_bm25`` pool is cut to its dense top and extras whatever the
+    depth asked.
     """
 
     config = vault.config.source_retrieval
     started = time.monotonic()
     text = normalize_query(query)[:MAX_QUERY_CHARS]
-    result = SpanSearch(query=text, scope=scope.describe())
+    result = SpanSearch(query=text, scope=scope.describe(), roles=list(roles))
     if len(text) < 2 or not scope.extractions:
         return result
     retrieval_text = text if not context_text else f"{text} {normalize_query(context_text)}"
     extraction_ids = sorted(scope.extractions)
     lists: dict[str, list[SpanKey]] = {}
 
+    def depth(name: str) -> int:
+        if isinstance(list_depth, Mapping):
+            return int(list_depth.get(name, LIST_DEPTH))
+        return int(list_depth)
+
+    permitted_roles: set[SpanKey] | None = None
+    if roles:
+        # Ingest's effective hints and the Reader's RW4e role proposals; a
+        # low-confidence proposal only when nothing better exists (§9.1).
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            hinted = role_keys(connection, extraction_ids, roles)
+            proposed, low = role_proposal_keys(connection, repository, extraction_ids, roles)
+        permitted_roles = hinted | proposed
+        result.role_basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
+        if not permitted_roles and low:
+            permitted_roles = set(low)
+            result.role_basis["low_confidence"] = len(low)
+
+    def keep(key: SpanKey) -> bool:
+        return scope.allows(*key) and (permitted_roles is None or key in permitted_roles)
+
     def allowed(keys: Sequence[SpanKey]) -> list[SpanKey]:
-        return [key for key in dict.fromkeys(keys) if scope.allows(*key)]
+        return [key for key in dict.fromkeys(keys) if keep(key)]
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        keyword = allowed([(m.extraction_id, m.span_id) for m in search_blocks(
-            connection, retrieval_text, extraction_ids=extraction_ids, limit=LIST_DEPTH,
-            prefix_last=prefix_last)])
+        raw = search_blocks(connection, retrieval_text, extraction_ids=extraction_ids, limit=depth("keyword"),
+                            prefix_last=prefix_last)
+        result.list_depths["keyword"] = depth("keyword")
+        # Counted before the scope filter: fewer rows than asked means the
+        # keyword source itself has no more matches.
+        result.list_ends["keyword"] = len(raw) < depth("keyword")
+        keyword = allowed([(m.extraction_id, m.span_id) for m in raw])
         if keyword:
             lists["keyword"] = keyword
     if include_substring:
-        rows = repository.search_source_blocks(query=text, extraction_ids=extraction_ids, limit=LIST_DEPTH)
+        rows = repository.search_source_blocks(query=text, extraction_ids=extraction_ids,
+                                               limit=depth("substring"))
+        result.list_depths["substring"] = depth("substring")
+        result.list_ends["substring"] = len(rows) < depth("substring")
         substring = allowed([(str(row["extraction_id"]), str(row["span_id"])) for row in rows])
         if substring:
             lists["substring"] = substring
@@ -277,9 +334,11 @@ def search_spans(
             result.rewrite = {"status": "not_needed"}
         if rewrite_result is not None and rewrite_result.ok:
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-                rewritten_keyword = allowed([(m.extraction_id, m.span_id) for m in search_blocks(
-                    connection, rewritten_text(rewrite_result), extraction_ids=extraction_ids,
-                    limit=LIST_DEPTH)])
+                raw_rewrite = search_blocks(connection, rewritten_text(rewrite_result),
+                                            extraction_ids=extraction_ids, limit=depth("rewrite_keyword"))
+            result.list_depths["rewrite_keyword"] = depth("rewrite_keyword")
+            result.list_ends["rewrite_keyword"] = len(raw_rewrite) < depth("rewrite_keyword")
+            rewritten_keyword = allowed([(m.extraction_id, m.span_id) for m in raw_rewrite])
             if rewritten_keyword:
                 lists["rewrite_keyword"] = rewritten_keyword
         if query_vectors is None and embedder is None and not vault.config.embedding.enabled:
@@ -308,7 +367,7 @@ def search_spans(
                 result.timings_ms["query_embedding"] = _ms(step)
 
             def permit(record_id: str) -> bool:
-                return scope.allows(*split_record_id(record_id))
+                return keep(split_record_id(record_id))
 
             for name, key in (("meaning", "query"), ("rewrite_meaning", "rewrite")):
                 vector = vectors.get(key)
@@ -316,16 +375,20 @@ def search_spans(
                     continue
                 try:
                     ranked = [split_record_id(record_id) for record_id, _score in
-                              index.rank(vector, limit=LIST_DEPTH, allow=permit)]
+                              index.rank(vector, limit=depth(name), allow=permit)]
                 except ValueError:  # a query vector of another width: never ranked
                     result.notes.append(f"{name}: the query vector does not match the index width")
                     continue
+                # The dense rank applies the scope filter before counting.
+                result.list_depths[name] = depth(name)
+                result.list_ends[name] = len(ranked) < depth(name)
                 if ranked:
                     lists[name] = ranked
         elif index.reason:
             result.notes.append(index.reason)
     for name, keys in (extra_lists or {}).items():
         extra = allowed(list(keys))
+        result.list_ends[name] = True  # complete as passed
         if extra:
             lists[name] = extra
 
@@ -340,17 +403,17 @@ def search_spans(
             fallback = f"the dense index is {dense_status or 'unused'}, not complete"
         elif not by_id.get("meaning"):
             fallback = "no query vector, so no meaning list"
-    roles: dict[str, str] = {}
+    pool_roles: dict[str, str] = {}
     if mode == POOL_DENSE_PLUS_BM25 and deep and fallback is None:
         extras_m = config.pool_keyword_extras if pool_extras is None else pool_extras
         dense_k = pool_dense if pool_dense is not None else max(1, limit - extras_m)
         widening = ["keyword", *sorted(name for name in by_id if name not in _NON_WIDENING | {"keyword"})]
-        order, roles, ranks = dense_plus_bm25(by_id, dense_k=dense_k, extras_m=extras_m,
-                                              rrf_k=config.rrf_k, widening=widening)
+        order, pool_roles, ranks = dense_plus_bm25(by_id, dense_k=dense_k, extras_m=extras_m,
+                                                   rrf_k=config.rrf_k, widening=widening)
         result.pool = {"mode": POOL_DENSE_PLUS_BM25, "fallback": None, "dense_k": dense_k,
-                       "extras_m": extras_m, "dense": sum(1 for role in roles.values() if role == "dense"),
-                       "extras": {name: sum(1 for role in roles.values() if role == name)
-                                  for name in widening if any(role == name for role in roles.values())}}
+                       "extras_m": extras_m, "dense": sum(1 for role in pool_roles.values() if role == "dense"),
+                       "extras": {name: sum(1 for role in pool_roles.values() if role == name)
+                                  for name in widening if any(role == name for role in pool_roles.values())}}
         wanted_ids = order
     else:
         order, ranks = reciprocal_rank_fusion(by_id, k=config.rrf_k)
@@ -358,18 +421,19 @@ def search_spans(
                        "fallback": fallback if mode == POOL_DENSE_PLUS_BM25 else None}
         wanted_ids = order[: max(limit * 2, limit + 20)]
     result.lists = sorted(lists)
+    result.fused_keys = [split_record_id(record_id) for record_id in order]
     wanted = [split_record_id(record_id) for record_id in wanted_ids]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, wanted)
         titles = {extraction_id: section_header_titles(connection, extraction_id)
                   for extraction_id in sorted({key[0] for key in blocks})}
-    cap = len(wanted) if roles else limit
+    cap = len(wanted) if pool_roles else limit
     for key in wanted:
         block = blocks.get(key)
         if block is None:  # an index row whose block is gone: never shown
             continue
         record_id = block_record_id(*key)
-        result.hits.append(_hit(block, scope, ranks[record_id], titles[key[0]], roles.get(record_id)))
+        result.hits.append(_hit(block, scope, ranks[record_id], titles[key[0]], pool_roles.get(record_id)))
         if len(result.hits) >= cap:
             break
     result.timings_ms["total"] = _ms(started)

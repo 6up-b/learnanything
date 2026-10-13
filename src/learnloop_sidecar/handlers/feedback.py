@@ -599,6 +599,17 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
     generated = False
 
     sibling, unservable_skips = _pick_primed_sibling(vault, repository, attempt, need)
+    source_first = None
+    if sibling is None and need is not None and need.get("status") == "pending":
+        # Canonical sources S2b (mvp-0.19): the learner's own textbook
+        # exercises first; generation only when none passes every check.
+        source_first = _source_first(ctx, vault, repository, need)
+        if source_first is not None and source_first.get("outcome") == "fulfilled":
+            ctx.reload(maintenance=False)
+            vault, repository = ctx.require_vault()
+            sibling, unservable_skips = _pick_primed_sibling(vault, repository, attempt, need)
+            if sibling is not None and sibling.id == source_first.get("practice_item_id"):
+                _record_need_served(vault, repository, need, source_first, attempt)
     if sibling is None:
         provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
         if not runtime.ready or client is None:
@@ -651,12 +662,41 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
     return {
         "available": True,
         "generated": generated,
+        **({"source_first": source_first} if source_first is not None else {}),
         "practice_item": practice_item_detail(vault, repository, sibling.id),
         # Present on the SUCCESS response too: the retry the learner got is not
         # the retry the picker would have chosen, and the record of what was
         # refused is what makes that visible instead of silent.
         "unservable_skips": unservable_skips,
     }
+
+
+def _source_first(ctx: SidecarContext, vault: Any, repository: Any, need: dict[str, Any]) -> dict[str, Any] | None:
+    """S2b's step in the primed-retry adapter; None when it is not active."""
+
+    from learnloop.instructional.needs import fulfil_need_from_sources, source_first_active
+
+    if not source_first_active(vault):
+        return None
+    try:
+        return fulfil_need_from_sources(vault, repository, need, path="primed_retry")
+    except Exception as exc:  # noqa: BLE001 - generation proceeds exactly as today
+        return {"outcome": "generate", "reason": f"source-first failed: {type(exc).__name__}"}
+
+
+def _record_need_served(vault: Any, repository: Any, need: dict[str, Any], outcome: dict[str, Any],
+                        attempt: dict[str, Any]) -> None:
+    """S5: a need fulfilled from the sources and served (best effort)."""
+
+    from learnloop.instructional.interventions import record_need_served
+
+    try:
+        record_need_served(vault, repository, need, practice_item_id=str(outcome["practice_item_id"]),
+                           proposal_id=outcome.get("proposal_id"), session_id=attempt.get("session_id"))
+    except Exception:  # noqa: BLE001 - telemetry never fails the serve
+        import logging
+
+        logging.getLogger(__name__).warning("intervention record failed", exc_info=True)
 
 
 def _pick_primed_sibling(

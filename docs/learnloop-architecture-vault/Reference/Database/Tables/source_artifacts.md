@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 186
+schema_head: 195
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers
 
@@ -126,6 +128,7 @@ Indexes and uniqueness:
 
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
+- `tests/source_service_fakes.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`

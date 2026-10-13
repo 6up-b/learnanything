@@ -1,0 +1,210 @@
+"""S1 (G4): the source-exercise arm proposes textbook exercises, never served, never held out."""
+from __future__ import annotations
+
+import json
+
+from learnloop.instructional.exercises import exercise_candidates, exercise_label, imported_span_keys
+from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
+from learnloop.source_retrieval.corpus import library_scope
+from learnloop.source_retrieval.search import search_spans
+from learnloop.vault.writer import upsert_practice_item
+from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded, table_counts
+
+QUERY = "solve for the eigenvalue x"
+
+
+def test_the_positive_role_filter_keeps_only_effective_exercise_blocks(tmp_path):
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    search = search_spans(vault, repository, "eigenvalue determinant", library_scope(repository),
+                          deep=False, roles=("exercise",))
+    keys = {hit.key for hit in search.hits}
+    assert keys and keys <= {("ext_text", span) for span in spans["exercises"]}
+    # The "Exercises" heading itself is not an exercise region lead.
+    assert ("ext_text", spans["exercises"][0]) not in {
+        (candidate["extraction_id"], candidate["span_ids"][0])
+        for candidate in exercise_candidates(vault, repository, "eigenvalue", PracticeConstraints(),
+                                             pool_size=10).candidates}
+    assert search.list_ends["keyword"] is True and search.fused_keys
+
+
+def test_the_arm_returns_regions_in_the_teaching_scope_only(tmp_path):
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    pool = exercise_candidates(vault, repository, QUERY, PracticeConstraints(learning_object_ids=("lo_matrices",)),
+                               pool_size=10)
+    assert pool.candidates
+    for candidate in pool.candidates:
+        assert candidate["extraction_id"] == "ext_text"  # never the exam
+        assert set(candidate["span_ids"]) <= set(spans["exercises"])
+        assert candidate["kind"] == "source_exercise" and candidate["statement"]
+        assert candidate["source_title"] == "Matrix Theory" and candidate["page"] == 9
+        assert candidate["label"].startswith("Exercise")
+    assert all("Exam" not in candidate["statement"] for candidate in pool.candidates)
+
+
+def test_an_already_imported_exercise_is_dropped(tmp_path):
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    first = exercise_candidates(vault, repository, QUERY, PracticeConstraints(), pool_size=10).candidates
+    taken = first[0]
+    upsert_practice_item(paths.root, {
+        "id": "pi_imported", "learning_object_id": "lo_matrices", "practice_mode": "short_answer",
+        "attempt_types_allowed": ["independent_attempt"], "prompt": taken["statement"], "expected_answer": "5",
+        "evidence_facets": ["facet_eigen"], "evidence_weights": {"facet_eigen": 1.0},
+        "provenance": {"origin": "canonical_extract", "source_refs": []},
+        "canonical_exercise": {"source_id": "src_text", "extraction_id": "ext_text",
+                               "span_ids": taken["span_ids"], "relation": "verbatim"},
+        "created_at": "2026-10-12T00:00:00Z", "updated_at": "2026-10-12T00:00:00Z",
+    })
+    vault = loaded(paths)
+    assert ("ext_text", taken["span_ids"][0]) in imported_span_keys(vault, repository)
+    second = exercise_candidates(vault, repository, QUERY, PracticeConstraints(), pool_size=10)
+    assert taken["key"] not in {candidate["key"] for candidate in second.candidates}
+    assert second.dropped.get("already_imported") == 1
+
+
+def test_find_practice_judges_items_and_exercises_in_one_pool(tmp_path):
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    before = table_counts(repository, ["practice_attempts"])
+    llm = FakeServiceLLM()
+    result = find_practice(vault, repository, QUERY, {"learning_object_ids": ["lo_matrices"]},
+                           exercise_arm=exercise_candidates, rerank_client=llm, caller={"kind": "tutor", "ref": "q"})
+    assert result["kinds"] == "both"
+    assert [name for _purpose, name in llm.calls] == ["MixedPracticeRerank"]
+    exercises = result["source_exercises"]
+    assert exercises and all(entry["kind"] == "source_exercise" for entry in exercises)
+    entry = exercises[0]
+    assert entry["label_line"].startswith("From Matrix Theory, p. 9")
+    assert "facet_eigen" in entry["provisional"]["facets"]
+    assert entry["provisional"]["basis"].startswith("matched on the exercise's text")
+    with repository.connection() as connection:
+        row = connection.execute("SELECT proposed_json, manifest_json FROM practice_index_proposals").fetchone()
+    proposed = json.loads(row["proposed_json"])
+    assert any(item.get("kind") == "source_exercise" for item in proposed)
+    assert json.loads(row["manifest_json"])["rerank_prompt_version"] == "practice_rerank.v2"
+    # Proposing never serves.
+    assert table_counts(repository, ["practice_attempts"]) == before
+
+
+def test_unjudged_exercises_are_never_proposed(tmp_path):
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    result = find_practice(vault, repository, QUERY, {"rerank": False}, exercise_arm=exercise_candidates)
+    assert result["source_exercises"] == []
+    assert "not proposed" in result["source_exercises_status"]
+
+
+def test_kinds_items_skips_the_arm_and_source_exercises_skips_items(tmp_path):
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    llm = FakeServiceLLM()
+    items_only = find_practice(vault, repository, QUERY, {"kinds": "items"}, exercise_arm=exercise_candidates,
+                               rerank_client=llm)
+    assert "source_exercises" not in items_only and llm.calls[-1][1] == "PracticeRerank"
+    exercises_only = find_practice(vault, repository, QUERY, {"kinds": "source_exercises"},
+                                   exercise_arm=exercise_candidates, rerank_client=llm)
+    assert exercises_only["items"] == [] and exercises_only["source_exercises"]
+
+
+def test_exercise_labels():
+    assert exercise_label("Exercise 4.12 Show that ...", 3) == "Exercise 4.12"
+    assert exercise_label("Problem 7 Compute", None) == "Problem 7"
+    assert exercise_label("3. Explain why", 9) == "Exercise 3, p. 9"
+    assert exercise_label("Show that A is invertible.", 11) == "Exercise on p. 11"
+
+
+def test_page_furniture_and_empty_blocks_never_form_an_exercise(tmp_path):
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.instructional.exercises import exercise_regions
+    from tests.source_service_fakes import build_textbook_vault, seed_textbook
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    units = {"exercises": ("Exercises", [("1. Solve 2x = 4 for x.", 9), ("", 9),
+                                         ("2. Solve 3x = 9 for x.", 10)])}
+    seed_textbook(repository, source_id="src_furn", revision_id="rev_furn", extraction_id="ext_furn",
+                  title="Furniture", units=units)
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_document_blocks (extraction_id, span_id, extractor_block_id, block_type, "
+                           "role_hint, page, bbox_json, polygon_json, section_path_json, text, content_hash, "
+                           "asset_ids_json, ordinal) SELECT extraction_id, 'pf1', NULL, 'PageFooter', 'exercise', page, "
+                           "bbox_json, polygon_json, section_path_json, '12', content_hash || 'f', asset_ids_json, "
+                           "ordinal FROM source_document_blocks WHERE extraction_id='ext_furn' AND span_id='t3'")
+        connection.commit()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        regions = exercise_regions(connection, "ext_furn")
+    assert [region.text for region in regions] == ["1. Solve 2x = 4 for x.", "2. Solve 3x = 9 for x."]
+
+
+def test_an_exercise_keeps_its_setup_and_its_unnumbered_lines(tmp_path):
+    """Under an "Exercises" heading every block carries the heading's hint;
+    only a numbered or labelled block starts a new exercise (a real textbook
+    split "20 Suppose U = ..." from "Find a subspace W ...")."""
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.instructional.exercises import exercise_regions
+    from tests.source_service_fakes import build_textbook_vault, seed_textbook
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    units = {"exercises": ("Exercises 1C", [
+        ("20 Suppose U is the set of vectors (x, x, y, y) in F^4.", 38),
+        ("Find a subspace W of F^4 such that F^4 is the direct sum of U and W.", 38),
+        ("21 Suppose U is the set of vectors (x, y, x + y) in F^3.", 38),
+        ("(a) Find a complement of U.", 38),
+    ])}
+    seed_textbook(repository, source_id="src_setup", revision_id="rev_setup", extraction_id="ext_setup",
+                  title="Setup", units=units)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        regions = exercise_regions(connection, "ext_setup")
+    assert [region.text.split("\n\n")[0][:2] for region in regions] == ["20", "21"]
+    assert "Find a subspace W" in regions[0].text and "(a) Find a complement" in regions[1].text
+
+
+def test_exercise_paging_reaches_every_region_through_exhaustion(tmp_path, monkeypatch):
+    """F9 (Codex sources-build review): continuations re-read the same leading
+    pool and dropped the judged exercises only afterwards, so regions past the
+    first pool (and past the first retrieval depth) were never reached."""
+
+    from tests import source_service_fakes
+
+    count = 60
+    monkeypatch.setattr(source_service_fakes, "TEXTBOOK", {"exercises": ("Exercises", [
+        (f"{n}. Find the eigenvalue of the matrix with diagonal entry {n} and solve for x.", 9)
+        for n in range(1, count + 1)])})
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    vault = loaded(paths)
+    vault.config.practice_index.candidate_pool = 5
+    llm = FakeServiceLLM()
+    depths: list[object] = []
+
+    def shallow_arm(*args, **kwargs):
+        # A first retrieval depth of 20 spans: a third of the regions lie
+        # beyond it, reached only by a continuation that searches deeper.
+        kwargs.setdefault("list_depth", 20)
+        depths.append(kwargs["list_depth"])
+        return exercise_candidates(*args, **kwargs)
+
+    seen: list[str] = []
+    cursor = None
+    for _page in range(40):
+        result = find_practice(vault, repository, "find the eigenvalue of the matrix and solve for x",
+                               {"kinds": "source_exercises", "limit": 5}, exercise_arm=shallow_arm,
+                               rerank_client=llm, cursor=cursor)
+        judged = [key for key in result["paging"].get("cursor", {}).get("judged_exercises", [])
+                  if key not in seen] if result["paging"].get("cursor") else []
+        page_keys = [entry["key"] for entry in result["source_exercises"]]
+        assert not set(page_keys) & set(seen), "a continuation proposed an exercise judged on an earlier page"
+        seen += [key for key in page_keys if key not in seen]
+        seen += [key for key in judged if key not in seen]
+        if result["paging"]["outcome"] == "exhausted":
+            break
+        assert result["paging"]["outcome"] == "page"
+        cursor = result["paging"]["cursor"]
+    else:
+        raise AssertionError("paging never reached exhaustion")
+    assert len(set(seen)) == count
+    assert depths[0] == 20 and any(isinstance(depth, dict) and depth.get("keyword", 0) > 20 for depth in depths)

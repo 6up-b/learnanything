@@ -154,6 +154,12 @@ class ServePracticeItemInput(ParamsModel):
     #: feedback screen re-reading the prompt, the inspector), which must not be
     #: offered an elicitation at all — see `get_practice_item`.
     session_id: str | None = None
+    #: Canonical sources (Codex re-review F10): the ``find_practice`` proposal
+    #: (and, for a textbook exercise, its import) the learner picked this item
+    #: from with the daily plan off. This open-list serve records the pick's
+    #: delivery, once.
+    proposal_id: str | None = None
+    source_exercise_import_id: str | None = None
 
 
 def _require_active_item(vault, practice_item_id: str):
@@ -205,6 +211,12 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         from learnloop_sidecar.handlers.queue import record_diagnosis_serve
 
         record_diagnosis_serve(ctx, repository, params.session_id)
+        if params.proposal_id:
+            from learnloop_sidecar.handlers.daily_plan import deliver_on_open
+
+            detail["proposalDelivery"] = to_camel(deliver_on_open(
+                ctx, practice_item_id=params.practice_item_id, session_id=params.session_id,
+                proposal_id=params.proposal_id, source_exercise_import_id=params.source_exercise_import_id))
     detail["elicitation"] = (
         None
         if params.session_id is None

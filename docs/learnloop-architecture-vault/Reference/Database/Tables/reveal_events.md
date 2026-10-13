@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 186
+schema_head: 195
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/diagnosis/split/card.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -98,8 +98,12 @@ Database triggers:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/instructional/exposure.py`
+- `src/learnloop/practice_index/retrieval.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers
 
@@ -121,6 +125,7 @@ Database triggers:
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
+- `tests/test_find_sources_intents.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_router_coldness_covariates.py`

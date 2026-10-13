@@ -307,7 +307,7 @@ def _heading(row: HintRow, titles: Mapping[str, str]) -> str:
     return ""
 
 
-def _effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
+def effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
     """The block's role hint, unless only a heading substring gave it.
 
     Heading cues tag every block under a heading such as "Solutions of linear
@@ -324,6 +324,133 @@ def _effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
     return hint
 
 
+#: Kept for callers written before the hint was public (canonical sources S1).
+_effective_hint = effective_hint
+
+
+def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -> set[tuple[str, str]]:
+    """Blocks whose EFFECTIVE role hint is one of ``roles`` (a positive filter).
+
+    The effective hint discounts heading-only cues (:func:`effective_hint`), so
+    a block under "Solutions of linear systems" is not a solution.
+    """
+
+    wanted = {str(role) for role in roles if role}
+    found: set[tuple[str, str]] = set()
+    if not wanted:
+        return found
+    cued = wanted & _CUED_ROLES
+    for extraction_id in sorted({str(value) for value in extraction_ids if value}):
+        titles = section_header_titles(connection, extraction_id) if cued else {}
+        for row in extraction_hint_rows(connection, extraction_id):
+            if row.role_hint not in wanted:
+                continue
+            if effective_hint(row, titles) in wanted:
+                found.add(row.key)
+    return found
+
+
+def role_proposal_keys(connection, repository: Repository, extraction_ids: Iterable[str],
+                       roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
+    """Spans a Reader RW4e role proposal gives one of ``roles``: ``(confident, low)``.
+
+    RW4e writes its proposals as ``source_object_versions.authorial_role``
+    (proposed or reviewed) with the spans they cite; a ``low``-confidence
+    proposal counts only when nothing better exists (the caller decides).
+    A proposal only ever widens the positive filter: the scope, ingest's
+    exclusions and item links still apply (the Reader's G44). Feature-detected:
+    no table, or no proposal, gives nothing."""
+
+    wanted = {str(role) for role in roles if role}
+    extractions = {str(value) for value in extraction_ids if value}
+    strong: set[tuple[str, str]] = set()
+    weak: set[tuple[str, str]] = set()
+    if not wanted or not extractions or connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+        return strong, weak
+    marks = ",".join("?" for _ in wanted)
+    rows = connection.execute(
+        "SELECT v.content_json, c.revision_id, c.span_id FROM source_object_versions v "
+        "JOIN source_object_citations c ON c.source_object_version_id = v.id "
+        f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
+        tuple(sorted(wanted))).fetchall()
+    resolved: dict[str, str | None] = {}
+    for content_json, revision_id, span_id in rows:
+        revision = str(revision_id)
+        if revision not in resolved:
+            resolved[revision] = resolve_extraction_id(repository, revision)
+        extraction_id = resolved[revision]
+        if extraction_id is None or extraction_id not in extractions:
+            continue
+        try:
+            confidence = (json.loads(content_json or "{}") or {}).get("confidence")
+        except (TypeError, ValueError):
+            confidence = None
+        (weak if confidence == "low" else strong).add((extraction_id, str(span_id)))
+    return strong, weak - strong
+
+
+def block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str | None]:
+    """Each block's EFFECTIVE role (:func:`effective_hint`), a solution region's
+    body included: the unhinted text after a "Solution:" lead is ``solution``.
+
+    The Marker ``block_type`` (``Text``, ``ListGroup``) is not a role; readers
+    that must withhold solutions read this instead (spec §5.3, SC3).
+    """
+
+    wanted = {(str(key[0]), str(key[1])) for key in keys}
+    roles: dict[tuple[str, str], str | None] = {}
+    for extraction_id in sorted({key[0] for key in wanted}):
+        titles = section_header_titles(connection, extraction_id)
+        rows = extraction_hint_rows(connection, extraction_id)
+        hints = {row.key: effective_hint(row, titles) for row in rows}
+
+        def mark(row: HintRow, hints: Mapping[tuple[str, str], str | None] = hints) -> str:
+            hint = hints[row.key]
+            if hint in _REGION_ROLE_HINTS:
+                return "region"
+            return "body" if hint in REGION_BODY_HINTS else "stop"
+
+        solution_region = lead_regions(rows, mark)
+        for key in wanted:
+            if key[0] != extraction_id or key not in hints:
+                continue
+            roles[key] = "solution" if key in solution_region else (hints[key] or None)
+    return roles
+
+
+#: Effective roles a model reader never receives (spec §5.3, SC3).
+MODEL_WITHHELD_ROLES = frozenset({"solution"})
+
+
+def model_reader_withheld(vault: LoadedVault, repository: Repository,
+                          keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str]:
+    """The spans a result returned to a MODEL must drop, each with its reason.
+
+    Whatever the policy (``reading`` included, and whether or not an item is
+    bound): ``solution`` for a solution block or the body after its lead, by
+    effective role; ``assessment_lane`` for material without teaching
+    authority (exam, problem-set and unknown-role members, held-out units) and
+    every span an ``exercise`` or ``assessment_alignment`` link cites
+    (:func:`teaching_exclusions`). A learner still reads all of it in the
+    Reader; only what a model receives is narrowed.
+    """
+
+    wanted = {(str(key[0]), str(key[1])) for key in keys}
+    if not wanted:
+        return {}
+    exclusions = teaching_exclusions(vault, repository)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        roles = block_roles(connection, wanted)
+    withheld: dict[tuple[str, str], str] = {}
+    for key in wanted:
+        if roles.get(key) in MODEL_WITHHELD_ROLES:
+            withheld[key] = "solution"
+        elif key in exclusions.spans or key[0] in exclusions.extractions:
+            withheld[key] = "assessment_lane"
+    return withheld
+
+
 def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]:
     """Exercise and solution blocks (a solution with the body after its lead)."""
 
@@ -332,7 +459,7 @@ def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tupl
         titles = section_header_titles(connection, extraction_id)
 
         def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
-            hint = _effective_hint(row, titles)
+            hint = effective_hint(row, titles)
             if hint in ITEM_BOUND_EXCLUDED_ROLE_HINTS:
                 return "region" if hint in _REGION_ROLE_HINTS else "block"
             return "body" if hint in REGION_BODY_HINTS else "stop"
@@ -418,7 +545,7 @@ def item_exclusions(repository: Repository, item: PracticeItem) -> Exclusions:
             titles = section_header_titles(connection, extraction_id)
 
             def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
-                hint = _effective_hint(row, titles)
+                hint = effective_hint(row, titles)
                 if row.key in linked:
                     return "region" if hint in _ITEM_LEAD_REGION_HINTS else "block"
                 return "body" if hint in REGION_BODY_HINTS else "stop"
@@ -521,11 +648,17 @@ __all__ = [
     "ITEM_BOUND_EXCLUDED_ROLE_HINTS",
     "Scope",
     "SourceExtraction",
+    "MODEL_WITHHELD_ROLES",
     "assessment_spans",
+    "block_roles",
     "current_extractions",
+    "effective_hint",
     "extraction_scope",
     "item_exclusions",
     "library_scope",
+    "model_reader_withheld",
+    "role_keys",
+    "role_proposal_keys",
     "teaching_exclusions",
     "teaching_scope",
 ]

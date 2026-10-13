@@ -573,6 +573,20 @@ class HeldOutSelection:
         }
 
 
+def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
+    from contextlib import closing
+
+    from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import unverified_import_ids
+
+    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
+    if not gated:
+        return set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
+
+
 def select_held_out_probe_item(
     vault: LoadedVault,
     repository: Repository,
@@ -615,9 +629,12 @@ def select_held_out_probe_item(
     unservable: list[str] = []
     administered_diagnostic: list[str] = []
     ranked: list[tuple[tuple[Any, ...], str, str, bool]] = []
+    # Canonical sources S1 (C3): an imported exercise whose answer key is not
+    # verified is never a certification cold probe.
+    unverified = _unverified_imports(vault, repository)
     for item_id, covered in cells_by_item.items():
         item = vault.practice_items.get(item_id)
-        if item is None:
+        if item is None or item_id in unverified:
             continue
         # The certificate is a claim about THIS learning object, integration
         # included. A same-cell item under another LO measures the cell but not

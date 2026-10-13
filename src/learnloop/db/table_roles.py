@@ -211,6 +211,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
+    # Canonical sources S0: rendered proposals (append-only facts of what
+    # reached the screen; never the activity_exposure_events burn boundary).
+    ("instructional_impressions", TableRole.RAW_LEDGER),
     ("interaction_events", TableRole.RAW_LEDGER),
     ("intervention_needs", TableRole.WORKFLOW),
     # A measured calibration artifact which may include provider trials and
@@ -338,8 +341,15 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # The guard's registered planted cases (an M1 run's); required inputs of
     # the mvp-0.12 switch, append-only (Slice 2 T1 §3.6).
     ("recurrence_guard_cases", TableRole.RAW_LEDGER),
+    # Canonical sources S1: captured answer-key verifier output, bound to the
+    # content it checked (append-only).
+    ("reference_key_checks", TableRole.RAW_LEDGER),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
+    # Canonical sources S5: what retrieval showed or served (append-only facts)
+    # and its outcome join (one replayer: retrieval_intervention_outcomes).
+    ("retrieval_intervention_outcomes", TableRole.DERIVED),
+    ("retrieval_interventions", TableRole.RAW_LEDGER),
     ("reveal_events", TableRole.RAW_LEDGER),
     # Router R1: append-only decision facts (candidate sets, chosen candidate,
     # true propensity). Replay reads them and never re-decides.
@@ -372,12 +382,17 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Migration 089 defines an additive, versioned analyzer artifact.  Some
     # analyzer inputs (for example equation confidence) live only in this row.
     ("source_block_health", TableRole.RAW_LEDGER),
+    # Canonical sources S3: stored comparisons (paid outputs, never re-run).
+    ("source_comparisons", TableRole.WORKFLOW),
     ("source_conflict_resolutions", TableRole.RECEIPT),
     ("source_conflicts", TableRole.WORKFLOW),
     ("source_document_assets", TableRole.RAW_LEDGER),
     ("source_document_blocks", TableRole.RAW_LEDGER),
     ("source_document_units", TableRole.RAW_LEDGER),
     ("source_exam_profiles", TableRole.COMPAT),
+    # Canonical sources S1: imports of textbook exercises (paid outputs and
+    # their import lifecycle; never re-run on rebuild).
+    ("source_exercise_imports", TableRole.WORKFLOW),
     ("source_exposure_events", TableRole.RAW_LEDGER),
     ("source_extraction_runs", TableRole.WORKFLOW),
     ("source_locator_schemes", TableRole.COMPAT),
@@ -388,7 +403,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_render_block_crosswalk", TableRole.RAW_LEDGER),
     ("source_render_views", TableRole.WORKFLOW),
     ("source_revisions", TableRole.RAW_LEDGER),
+    # The daily cap's shared reservations (canonical sources, Codex re-review
+    # F2; sources-spend-accounting): in-flight, settled and released request
+    # charges with their owners' leases, never rebuilt.
+    ("source_service_spend", TableRole.WORKFLOW),
     ("source_span_reanchors", TableRole.RAW_LEDGER),
+    ("source_tool_calls", TableRole.RECEIPT),
     ("source_unit_inventories", TableRole.RAW_LEDGER),
     ("source_unit_selections", TableRole.WORKFLOW),
     ("subject_identifiability_watermarks", TableRole.DERIVED),

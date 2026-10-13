@@ -1101,6 +1101,14 @@ class AIRoutingConfig(BaseModel):
     source_rerank: str | None = None
     source_query_writer: str | None = None
     source_relevance_judge: str | None = None
+    # Canonical sources: the book's-solution match (S1), compare_sources (S3),
+    # the exercise discrimination screen and the worked-example equivalence
+    # judge (S2a). Empty = ai.active_provider; a metered route needs
+    # source_service.llm_price_per_million or the step is skipped and labelled.
+    source_solution_match: str | None = None
+    source_compare: str | None = None
+    exercise_discrimination: str | None = None
+    worked_example_equivalence: str | None = None
 
     # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.
@@ -2096,6 +2104,59 @@ class SourceRetrievalConfig(BaseModel):
     tutor_spans: int = Field(default=4, ge=1, le=4)
 
 
+class SourceServiceConfig(BaseModel):
+    """Canonical sources as a shared instructional service
+    (``spec_source_practice_and_probes_v1.md`` §13).
+
+    One master switch and one kill switch per phase. Tools propose and serving
+    paths serve (SC1). Every key here is a kill switch, a time or prompt-size
+    bound, or a money cap; none decides learning (SC6). ``enabled = false``
+    turns every phase off at once. No key turns off the certification gate for
+    unverified imported answer keys (C3, §7.3a): it is versioned by the
+    algorithm tag, not switched.
+    """
+
+    enabled: bool = True
+    # S0: a practice request on every tutor answer (practice, feedback, library
+    # and reader contexts).
+    tutor_offers: bool = True
+    # S1: textbook exercises as practice candidates, their verifier ladder,
+    # whether an import whose key does not verify is still written (labelled),
+    # and attachment to an existing practice family.
+    exercise_arm: bool = True
+    exercise_verification: bool = True
+    unverified_imports: bool = True
+    family_attachment: bool = True
+    # S2a: the value intents (discriminate, retention, remediate); off, only
+    # ``practice`` is accepted. S2b: source-first fulfilment of intervention
+    # needs (a successor; vaults below its tag never run it).
+    discriminating_search: bool = True
+    source_first_needs: bool = True
+    # S3: the tutor's intent-aware grounding, ranked remediation passages and
+    # compare_sources.
+    tutor_intents: bool = True
+    remediation_passages: bool = True
+    compare: bool = True
+    # S4: the tutor's typed tool requests. S5: the intervention records.
+    tutor_tools: bool = True
+    interventions: bool = True
+    # Time bound (seconds) on the interactive import's verifier ladder; past it
+    # the item is written labelled "being checked" and the check finishes later.
+    verify_timeout_seconds: float = Field(default=90.0, gt=0, le=900)
+    # Prompt-size bound on one comparison (sources that do not fit are listed,
+    # uncompared, never dropped).
+    compare_max_prompt_tokens: int = Field(default=24_000, ge=1_000, le=400_000)
+    # Money caps (USD, metered routes; Codex is estimated_only).
+    import_max_cost_usd: float = Field(default=0.25, ge=0)
+    compare_max_cost_usd: float = Field(default=0.05, ge=0)
+    max_daily_cost_usd: float = Field(default=1.00, ge=0)
+    # USD per million tokens for the service's own metered judge routes
+    # (source_solution_match, source_compare, exercise_discrimination,
+    # worked_example_equivalence). Unset: those steps are skipped and labelled
+    # on a metered route, never guessed.
+    llm_price_per_million: float | None = Field(default=None, gt=0)
+
+
 class PlacementConfig(BaseModel):
     """Learner field F2: starting new material without ceremony (spec §5.2).
 
@@ -2224,6 +2285,7 @@ class LearnLoopConfig(BaseModel):
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
+    source_service: SourceServiceConfig = Field(default_factory=SourceServiceConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)

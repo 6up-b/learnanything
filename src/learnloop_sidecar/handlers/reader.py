@@ -136,6 +136,9 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             cold_attempt_id=params.cold_attempt_id,
             # Slice 2 T6: a labelled nearest-LO suggestion for an unmapped span.
             learning_object_suggester=suggested_learning_objects,
+            # Canonical sources S4: typed tool requests (the Reader spec renders them).
+            # None during a cold administration: every tool is refused then (G2).
+            tool_request_handler=None if params.cold_active else _reader_tool_handler(vault),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -178,7 +181,24 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         # Slice 2 T6: labelled nearest-LO suggestions, shown in the Ask overlay
         # (absent when there are none, so the kill switch changes nothing).
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    # Canonical sources S0 (§6.1): the reader context gets the same practice
+    # request; the Reader spec renders it (absent when the offer is off).
+    from learnloop_sidecar.handlers.tutor_qa import tutor_practice_request
+
+    practice_request = tutor_practice_request(vault, repository, result["event_id"])
+    if result.get("tool_requests"):
+        response["tool_requests"] = result["tool_requests"]
+        if any(entry.get("tool") == "find_practice" for entry in result["tool_requests"]):
+            practice_request = None
+    if practice_request is not None:
+        response["practice_request"] = practice_request
     return versioned(response)
+
+
+def _reader_tool_handler(vault: Any) -> Any:
+    from learnloop.instructional.tools import tutor_request_handler
+
+    return tutor_request_handler(vault)
 
 
 class ReaderAskHistoryInput(ParamsModel):

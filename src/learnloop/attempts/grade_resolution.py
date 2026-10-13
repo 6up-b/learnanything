@@ -825,32 +825,64 @@ def append_adjudication_evidence_revision(
                 "grading_revision": (max((r.grading_revision or 0) for r in live_rows)) + 1,
             }
         )
-    repository.insert_regrade_evidence(
-        attempt_id=attempt_id,
-        new_evidence_rows=new_rows,
-        superseded_by_evidence_id=str(new_rows[0]["id"]),
-        # Supersede every live tier: an adjudication is the response-level
-        # authority, including over a prior adjudication (re-adjudication).
-        supersede_tiers=(0, 1, 2, 3, 4),
-        clock=clock,
-    )
-    # Mirror the regrade door's cache refresh so the attempt summary agrees
-    # with the ledger. Review state is preserved: a grade-class adjudication
-    # does not answer a pending clarification or manual-review obligation.
-    attempt = repository.fetch_practice_attempt(attempt_id)
-    if attempt is not None:
-        rubric_total = sum(points_by_criterion.values()) or 1.0
-        repository.update_attempt_grade(
-            attempt_id,
-            rubric_score=max(0, round(fraction * rubric_total)),
-            correctness=fraction,
-            grader_confidence=float(attempt.get("grader_confidence") or 0.0),
-            manual_review=bool(attempt.get("manual_review")),
-            manual_review_reason=attempt.get("manual_review_reason"),
-            error_type=attempt.get("error_type"),
+    # One transaction: the revision, the attempt's grade and, for a verdict
+    # against the key, its C3 binding commit together.
+    with repository.atomic():
+        repository.insert_regrade_evidence(
+            attempt_id=attempt_id,
+            new_evidence_rows=new_rows,
+            superseded_by_evidence_id=str(new_rows[0]["id"]),
+            # Supersede every live tier: an adjudication is the response-level
+            # authority, including over a prior adjudication (re-adjudication).
+            supersede_tiers=(0, 1, 2, 3, 4),
             clock=clock,
         )
+        # Mirror the regrade door's cache refresh so the attempt summary agrees
+        # with the ledger. Review state is preserved: a grade-class adjudication
+        # does not answer a pending clarification or manual-review obligation.
+        attempt = repository.fetch_practice_attempt(attempt_id)
+        if attempt is not None:
+            rubric_total = sum(points_by_criterion.values()) or 1.0
+            repository.update_attempt_grade(
+                attempt_id,
+                rubric_score=max(0, round(fraction * rubric_total)),
+                correctness=fraction,
+                grader_confidence=float(attempt.get("grader_confidence") or 0.0),
+                manual_review=bool(attempt.get("manual_review")),
+                manual_review_reason=attempt.get("manual_review_reason"),
+                error_type=attempt.get("error_type"),
+                clock=clock,
+            )
+            _bind_key_adjudication(repository, vault, attempt, adjudicator_source=adjudicator_source, clock=clock)
     return {"status": "revised", "evidence_ids": [str(r["id"]) for r in new_rows]}
+
+
+#: Adjudicator sources whose verdict is a comparison against the item's stored
+#: key. A human or expert verdict, or a learner's clarification, is not read
+#: from the key, so C3's binding does not apply to it.
+KEY_BASED_ADJUDICATOR_SOURCES = frozenset({"deterministic_key"})
+
+
+def _bind_key_adjudication(repository: Repository, vault: "LoadedVault | None", attempt: Mapping[str, Any], *,
+                           adjudicator_source: str, clock: Clock | None) -> None:
+    """C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the
+    key binds like a regrade. Without the vault the item and the tag are
+    unknown, so nothing is bound (every grade adjudication caller passes it)."""
+
+    if adjudicator_source not in KEY_BASED_ADJUDICATOR_SOURCES or vault is None:
+        return
+    item = vault.practice_items.get(str(attempt.get("practice_item_id")))
+    if item is None:
+        return
+    from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores.source_service import bind_replacement_grade
+
+    bind_replacement_grade(
+        repository.connection(), attempt_id=str(attempt["id"]), item=item,
+        gated=vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS,
+        grading=f"adjudication:{adjudicator_source}", created_at=utc_now_iso(clock),
+    )
 
 
 def append_adjudication(

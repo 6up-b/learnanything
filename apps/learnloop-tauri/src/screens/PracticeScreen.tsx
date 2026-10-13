@@ -94,6 +94,7 @@ export function PracticeScreen({
   session,
   practiceItemId,
   schedulerCandidateId = null,
+  proposalOrigin = null,
   gradingReady,
   gradingProvider,
   restoredAnswer,
@@ -119,6 +120,9 @@ export function PracticeScreen({
   session: SessionSnapshot;
   practiceItemId: string;
   schedulerCandidateId?: string | null;
+  /** The proposal a plan-off pick of this item came from: this serve records
+   *  the pick's delivery (canonical sources, Codex re-review F10). */
+  proposalOrigin?: { proposalId: string; importId: string | null } | null;
   /** This item is a primed retry launched from the feedback source panel. */
   primed?: boolean;
   /** Fix 3 guided partial redo: the preserved learner work is rendered locked
@@ -163,6 +167,7 @@ export function PracticeScreen({
     openedAtMs: number;
     attemptProgress: AttemptProgress;
     proactiveOpen?: boolean;
+    draftMd?: string;
   }) => void;
   /** Registers a reader of this screen's ask state (when the item opened, and
    *  whether an answer was started) so App's command-palette ask carries the
@@ -212,6 +217,9 @@ export function PracticeScreen({
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const mountedRef = useRef(true);
+  // Read at serve time, not an effect dependency: the item's serve happens once.
+  const proposalOriginRef = useRef(proposalOrigin);
+  proposalOriginRef.current = proposalOrigin;
   const submissionId = useRef(restoredSubmissionId?.trim() || crypto.randomUUID());
   const latestDraft = useRef({
     sessionId: session.sessionId,
@@ -281,6 +289,9 @@ export function PracticeScreen({
       // "No work yet" is logged explicitly: nothing typed in the answer or the
       // why-line when the learner asks (hints revealed are help, not work).
       attemptProgress: answer.trim() || whyLine.trim() ? "draft_started" : "no_draft",
+      // Canonical sources S4: "Explain this with my work" grounds the tutor in
+      // a chosen passage and this draft.
+      ...(answer.trim() ? { draftMd: answer } : {}),
       ...options
     });
   // The editor grows with its content but is capped so the answer card never
@@ -434,8 +445,9 @@ export function PracticeScreen({
       }
 
       // No committed result exists, so this really is an item serve. The
-      // session id lets the sidecar decide (and bound) the §3.A6 elicitation.
-      api.getPracticeItem(practiceItemId, session.sessionId)
+      // session id lets the sidecar decide (and bound) the §3.A6 elicitation;
+      // a plan-off pick's proposal records its delivery with this serve.
+      api.getPracticeItem(practiceItemId, session.sessionId, proposalOriginRef.current)
         .then((detail) => {
           if (cancelled) return;
           teachBackRef.current = detail.practiceMode === "teach_back";
@@ -955,6 +967,17 @@ export function PracticeScreen({
               renderer both practice and exams mount so a surface cannot carry
               one and forget the other. */}
           <ItemPresentation presentation={item.presentation} />
+          {item.canonicalExercise ? (
+            // Canonical sources S1: where this exercise comes from and how far
+            // its answer key has been checked, said plainly.
+            <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
+              <Faint>
+                From {item.canonicalExercise.sourceTitle ?? "your book"}: {item.canonicalExercise.label}
+                {item.canonicalExercise.relation === "variant_of" ? " (a variant)" : ""}
+                {item.canonicalExercise.keyLabel ? ` · ${item.canonicalExercise.keyLabel}` : ""}
+              </Faint>
+            </div>
+          ) : null}
           {!probeActive ? (
             <CardControls
               key={`${item.id}:${item.prompt}`}

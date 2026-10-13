@@ -3,13 +3,13 @@ title: "remediation_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
   - "table remediation_episodes"
-schema_head: 186
+schema_head: 195
 table_name: "remediation_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_guided_redo.py`
+- `tests/test_prescription_passages.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_sidecar_remediation_surfaces.py`
 

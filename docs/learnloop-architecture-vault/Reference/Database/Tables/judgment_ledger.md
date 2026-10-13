@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 186
+schema_head: 195
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -103,12 +103,14 @@ None found by exact static reference scan.
 - `src/learnloop/attempts/proof_check.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/offline_review/links.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
@@ -131,6 +133,7 @@ None found by exact static reference scan.
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/substrate/families.py`
+- `src/learnloop/substrate/intervention_outcomes.py`
 
 ### Direct SQL writers
 
@@ -148,6 +151,7 @@ None found by exact static reference scan.
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_assumed_known.py`
+- `tests/test_attach_to_family.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
@@ -161,10 +165,9 @@ None found by exact static reference scan.
 - `tests/test_grading_hardcases.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
-- `tests/test_learner_text_gaps.py`
-- `tests/test_learner_text_gaps_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

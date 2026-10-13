@@ -66,14 +66,18 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_195"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
-def test_the_route_check_successor_is_the_latest_and_keeps_every_predecessor():
+def test_the_route_check_successor_keeps_every_predecessor():
     assert PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
-    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({"mvp-0.17"})
+    # Canonical sources' answer-key gate (mvp-0.18) and source-first needs
+    # (mvp-0.19, the latest successor, tests/test_mvp018_upgrade.py) followed
+    # it and keep the route check.
+    assert SUCCESSOR_CHAIN[-3] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.19"
+    assert PROOF_ROUTE_CHECK_VERSIONS == frozenset({"mvp-0.17", "mvp-0.18", "mvp-0.19"})
     # The chain is linear: mvp-0.17 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the route check.
@@ -97,6 +101,8 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.15": (True, True, True, True, False, False),
         "mvp-0.16": (True, True, True, True, True, False),
         "mvp-0.17": (True, True, True, True, True, True),
+        "mvp-0.18": (True, True, True, True, True, True),
+        "mvp-0.19": (True, True, True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -105,6 +111,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
             split_grading_active(vault), placement_active(vault), plan_active(vault),
             probe_ties_admitted(vault.config), gap_sooner_checks_active(vault), proof_check_active(vault),
         ) == flags, version
+    set_algorithm_version(paths, "mvp-0.17")
     vault = load_vault(paths.root)
     assert recurrence_active(vault) and stuck_prompt_active(vault)
     append_config_toml(paths.root, "[proof_check]\nenabled = false\n")
@@ -212,14 +219,15 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     assert result.exit_code == 0, result.output
 
 
-def test_new_vaults_start_at_the_route_check_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
+def test_new_vaults_start_at_the_latest_successor_with_the_route_check(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
+    (mvp-0.19 since canonical sources merged), which keeps the route check."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.17"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.19"
     assert proof_check_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 

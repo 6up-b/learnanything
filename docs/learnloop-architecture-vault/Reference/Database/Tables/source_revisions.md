@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 186
+schema_head: 195
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,10 +25,10 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
-  - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
@@ -118,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/instructional/interventions.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -125,8 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
-- `src/learnloop/reader/span_view.py`
-- `src/learnloop/source_retrieval/b4.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
+- `tests/source_service_fakes.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`

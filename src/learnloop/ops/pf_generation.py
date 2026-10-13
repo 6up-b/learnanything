@@ -73,6 +73,7 @@ from learnloop.content.authoring.practice_leakage import (
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
+from learnloop.ops import pf_verify
 from learnloop.ops.pf_calls import (
     ROLE_TASKS,
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
@@ -110,6 +111,10 @@ NOT_APPLICABLE_FILTERS = ("closed_book", "figure_only", "provenance")
 # (learnloop.ai.output_budget via PFCaller; the per-role caps of 800 to 8,000
 # tokens are retired, owner 2026-10-12).
 MIN_QUOTE_WORDS = 4
+#: The agreement report PF keeps on a candidate (``panel``), unchanged by the
+#: extraction to ``ops.pf_verify``.
+PF_AGREEMENT_KEYS = ("agree", "total", "answer_kind", "usable", "sympy_checked", "normal_form",
+                     "degenerate_check", "verifier_model")
 PLAN_ROLES = ("skeleton", "program", "single_shot", "source", "proposer", "panel", "equivalence",
               "span_support", "closed_book", "structure", "freshness", "selection")
 LEASE_SECONDS = 3600
@@ -804,30 +809,14 @@ class _FamilyRun:
     def _span_support(self, candidate: Candidate) -> dict[str, Any]:
         """The reference verifier's independent check that the cited span supports the key."""
         payload = candidate.payload
-        entry = self.ctx.role("span_support")[0]
-        call = self._call(
-            entry, attribute=[candidate], prompt=C.span_support_prompt(
-                question=payload["stem"], cited_span=payload["cited_quote"], reference_answer=payload["answer"],
-                explanation=payload["solution"], item_kind=payload["item_kind"]),
-            prompt_version=C.SPAN_SUPPORT_PROMPT, result_model=C.SpanSupportVerdict,
+        support = pf_verify.span_support(
+            self._verifier(), subject_kind="pf_candidate", subject_id=candidate.id,
+            question=payload["stem"], cited_quote=payload["cited_quote"],
+            reference_answer=payload["answer"], explanation=payload["solution"],
+            item_kind=payload["item_kind"], on_call=self._attributor([candidate]),
         )
-        result = call.result
-        executable = payload["item_kind"] == "what_if" and result.executable_consequence
-        supported = result.answer_supported and result.rationale_supported and not executable
-        self.ctx.caller.ledger(
-            task="reference_verified", left_kind="pf_candidate", left_id=candidate.id,
-            judge="llm", judge_model=call.model, prompt_version=C.SPAN_SUPPORT_PROMPT,
-            input_hash=call.input_hash, verdict="pass" if supported else "fail",
-            rationale={"check": "span_supports_answer", "answer_supported": result.answer_supported,
-                       "rationale_supported": result.rationale_supported,
-                       "executable_consequence": result.executable_consequence,
-                       "item_kind": payload["item_kind"]},
-        )
-        return {"supported": supported, "answer_supported": result.answer_supported,
-                "rationale_supported": result.rationale_supported,
-                # An executable what-if needs the execution check, which is not
-                # built: its reference stays unverified (§5.3).
-                "execution_check_required": executable, "model": call.model}
+        support.pop("span_answer", None)
+        return support
 
     def _verify_source_anchored(self) -> None:
         """Quote-verified span (exact key) that supports the answer, provenance, then closed-book.
@@ -993,79 +982,38 @@ class _FamilyRun:
             sympy_normal_form=payload.get("sympy_normal_form"),
         )
 
-    # verification
+    # verification (ops.pf_verify: shared with the canonical-sources key ladder)
+    def _verifier(self) -> pf_verify.VerifierEnv:
+        return pf_verify.VerifierEnv(caller=self.ctx.caller, role=self.ctx.role, limits=self.ctx.limits)
+
+    def _attributor(self, attribute: list[Candidate] | None):
+        """Share each call's usage equally across ``attribute`` (cost_json), as ``_call`` does."""
+        if not attribute:
+            return None
+
+        def on_call(call: Any) -> None:
+            for candidate in attribute:
+                self._attribute(candidate, call, 1.0 / len(attribute))
+
+        return on_call
+
     def _panel_solves(self, stem: str, *, solves_per_model: int,
                       attribute: list[Candidate] | None = None) -> list[dict[str, Any]]:
-        solves = []
-        for entry in self.ctx.role("panel"):
-            for index in range(solves_per_model):
-                call = self._call(
-                    entry, attribute=attribute, prompt=C.panel_solve_prompt(stem=stem, solve_index=index),
-                    prompt_version=C.PANEL_SOLVE_PROMPT, result_model=C.PanelSolve,
-                )
-                solves.append({"model": call.model, "index": index, "input_hash": call.input_hash,
-                               "final_answer": call.result.final_answer,
-                               "answer_kind": call.result.answer_kind})
-        return solves
-
-    def _equivalence(self, stem: str, reference: str, solves: list[dict[str, Any]],
-                     attribute: list[Candidate] | None = None) -> tuple[Any, Any]:
-        entry = self.ctx.role("equivalence")[0]
-        call = self._call(
-            entry, attribute=attribute, prompt=C.equivalence_prompt(stem=stem, reference=reference,
-                                               answers=[solve["final_answer"] for solve in solves]),
-            prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
-        )
-        return call, call.result
+        return pf_verify.panel_solves(self._verifier(), stem, solves_per_model=solves_per_model,
+                                      on_call=self._attributor(attribute))
 
     def _agreement(self, subject_kind: str, subject_id: str, input_hash: str, stem: str,
                    reference: str, solves: list[dict[str, Any]],
                    attribute: list[Candidate] | None = None) -> dict[str, Any]:
-        """LLM agreement per solve, confirmed by the sandboxed sympy check where numeric/symbolic."""
-        call, result = self._equivalence(stem, reference, solves, attribute=attribute)
-        usable = len(result.agreements) == len(solves)
-        symbolic = result.answer_kind in {"numeric", "symbolic"}
-        confirmations: list[bool | None] = [None] * len(solves)
-        normal_form = None
-        degenerate = False
-        if usable and symbolic and result.sympy_check:
-            sandbox = run_equivalence_checks(
-                {"check": result.sympy_check},
-                [{"program": "check", "reference": reference, "answer": solve["final_answer"]} for solve in solves],
-                normal_forms={"reference": reference}, limits=self.ctx.limits,
-            )
-            if sandbox.ok:
-                normal_form = ((sandbox.output or {}).get("normal_forms") or {}).get("reference")
-            # A degenerate check (it accepts a wrong answer) confirms nothing.
-            confirmations, degenerate = equivalence_confirmations(sandbox, len(solves))
-        agrees = []
-        for index, solve in enumerate(solves):
-            llm = bool(usable and result.agreements[index])
-            confirmed = (not symbolic) or confirmations[index] is True
-            agrees.append(llm and confirmed)
-            self.ctx.caller.ledger(
-                task="answer_equivalence", left_kind=subject_kind, left_id=subject_id,
-                judge="llm", judge_model=call.model, prompt_version=C.EQUIVALENCE_PROMPT,
-                input_hash=content_key([input_hash, solve["input_hash"], call.input_hash]),
-                verdict=("agree" if llm else "disagree") if usable else "unusable",
-                rationale={"solve_model": solve["model"], "solve_index": solve["index"],
-                           "answer_kind": result.answer_kind},
-            )
-            if symbolic:
-                self.ctx.caller.ledger(
-                    task="answer_equivalence", left_kind=subject_kind, left_id=subject_id,
-                    judge="verifier", prompt_version="pf-equivalence-v1",
-                    input_hash=content_key([input_hash, solve["input_hash"], call.input_hash, "sympy"]),
-                    verdict=("degenerate_check" if degenerate else
-                             {True: "agree", False: "disagree", None: "error"}[confirmations[index]]),
-                    rationale={"solve_model": solve["model"], "solve_index": solve["index"],
-                               "program_hash": _sha(result.sympy_check or "")},
-                )
-        return {"agree": sum(agrees), "total": len(solves), "answer_kind": result.answer_kind,
-                "usable": usable, "sympy_checked": symbolic, "normal_form": normal_form,
-                "degenerate_check": degenerate,
-                "verifier_model": call.model, "per_solve": [
-                    {"model": solve["model"], "agree": agree} for solve, agree in zip(solves, agrees)]}
+        """LLM agreement per solve, confirmed by the sandboxed sympy check where numeric/symbolic.
+
+        PF decides on the combined ``agree`` exactly as before the extraction,
+        and keeps the report it always kept (the separated model and symbolic
+        results are the source-import ladder's)."""
+        outcome = pf_verify.agreement(self._verifier(), subject_kind, subject_id, input_hash, stem,
+                                      reference, solves, on_call=self._attributor(attribute))
+        return {key: outcome[key] for key in PF_AGREEMENT_KEYS} | {
+            "per_solve": [{"model": row["model"], "agree": row["agree"]} for row in outcome["per_solve"]]}
 
     def _parent_rate(self) -> tuple[int, int]:
         if self.parent_rate is None:

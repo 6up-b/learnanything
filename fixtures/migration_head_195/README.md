@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-186. Migration 167 adds the learner-field F1 read model
+195. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -65,10 +65,27 @@ columns, index and trigger) so its `trigger` CHECK also accepts
 built on grading/proof-alternatives as 185 with the placeholder tag mvp-0.15
 while main's merge chain added 181-184, it kept 185 at its merge after 184,
 where its tag became mvp-0.17, and was renumbered 186 when it landed after
-RW1a's 185).
-Built as a backup-API copy of `migration_head_185` with only 186 applied
-(checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
-clean). It pins
+RW1a's 185). Migrations 187-195 add the canonical-sources service
+(spec_source_practice_and_probes_v1; built on sources/canonical-practice as
+184-192 and renumbered at its merge after main's 184-186): 187 the proposal
+callers (`practice_index_proposals.caller`, `caller_ref`, `intent`) and the
+append-only `instructional_impressions`; 188 textbook-exercise imports
+(`source_exercise_imports`, WORKFLOW), the append-only `reference_key_checks`
+and `practice_attempts.reference_status` (the certification gate, C3,
+mvp-0.18); 189 `source_comparisons` (WORKFLOW); 190
+`practice_index_proposals.valuation_json` and `provisional_json`; 191
+`source_exercise_imports.need_id`; 192 the append-only tool receipts
+`source_tool_calls` (RECEIPT); 193 the append-only `retrieval_interventions`
+(RAW_LEDGER) and their DERIVED outcome join `retrieval_intervention_outcomes`
+(one replayer); 194 the daily cap's shared reservations `source_service_spend`
+(WORKFLOW); 195 rebuilds it for the spend accounting (`legacy`,
+`lease_expires_at`, `resolved_by`, the `released` state) and indexes
+`model_call_receipts` by `started_at` and `parent_call_id`.
+Built as a backup-API copy of `migration_head_186` with only 187-195 applied
+through `learnloop.db.migrate.apply_migrations` (checkpointed with
+`wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
+`foreign_key_check` clean); `migration_head_186` was renamed to this
+directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

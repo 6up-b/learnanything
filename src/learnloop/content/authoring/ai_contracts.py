@@ -51,6 +51,10 @@ class ExerciseAuthoredItem(WireModel):
     transfer_distance: float | None = Field(default=None, ge=0.0, le=1.0)
     scaffold_level: float | None = Field(default=None, ge=0.0, le=1.0)
     classification_reason: str = ""
+    # Canonical sources S1 (§7.3 rung 1): when the context carries the book's
+    # own solution, a verbatim quote from it that states the answer (checked
+    # in code against the solution passage); empty otherwise.
+    cited_quote: str = ""
 
 BANNED_RESPONSE_MODES: tuple[str, ...] = (
     "multiple_choice",
@@ -74,6 +78,11 @@ class ExerciseAuthoringContext:
     learning_objects: list = field(default_factory=list)
     learning_object_hint: str = ""
     task_feature_schema: dict = field(default_factory=dict)
+    # Canonical sources S1: the book's own solution to this exercise, when the
+    # verifier ladder's first rung found one ({"label", "text", "instructions"}).
+    # Left out of the prompt when empty, so a Reader import's prompt is
+    # byte-identical to before.
+    book_solution: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -362,8 +371,15 @@ def exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str:
     return render_structured_prompt(
         "learnloop exercise import",
         EXERCISE_AUTHORING_PROMPT_VERSION,
-        {"task": EXERCISE_AUTHORING_PROMPT, "context": asdict(context)},
+        {"task": EXERCISE_AUTHORING_PROMPT, "context": _exercise_context(context)},
     )
+
+
+def _exercise_context(context: ExerciseAuthoringContext) -> dict:
+    values = asdict(context)
+    if not values.get("book_solution"):
+        values.pop("book_solution", None)
+    return values
 
 
 def concept_animation_prompt(context: ConceptAnimationContext) -> str:

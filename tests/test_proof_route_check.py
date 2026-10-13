@@ -1162,10 +1162,10 @@ def test_migration_186_widens_the_trigger_and_keeps_every_clarification(tmp_path
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.db.migrate import discover_migrations
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_195"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
-    assert max(m.version for m in discover_migrations()) == 186
+    assert max(m.version for m in discover_migrations()) == 195
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]

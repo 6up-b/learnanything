@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -24,6 +24,7 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/source_retrieval_fakes.py"
+  - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/test_cli_generate_practice.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_output_schema.py"
-  - "tests/test_concept_animation_service.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -80,6 +80,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/source_retrieval_fakes.py`
+- `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
@@ -88,7 +89,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_cli_generate_practice.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_output_schema.py`
-- `tests/test_concept_animation_service.py`
 
 ## Extension and modification guidance
 

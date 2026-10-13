@@ -3,13 +3,13 @@ title: "source_annotation_anchor_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_anchor_versions"
   - "table source_annotation_anchor_versions"
-schema_head: 186
+schema_head: 195
 table_name: "source_annotation_anchor_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -9,7 +9,9 @@ import type {
   LearnerTextGapViewDto,
   PromotionIntent,
   QuestionPromotionDto,
+  PracticeRequestDto,
   QuestionPromotionRequestDto,
+  SourceToolRequestDto,
   SuggestedLearningObjectDto,
   TutorCitationDto,
   TutorQuestionContext,
@@ -20,6 +22,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
+import { SourceOffers } from "./SourceOffers";
 
 /**
  * The Reader exchange a continued dialogue attaches to, when the sidecar
@@ -68,6 +71,9 @@ export interface AskTarget {
   /** §12.1: open with the tutor's persisted typed move before the learner
    *  types anything (diagnostic block just routed to tutoring). */
   proactiveOpen?: boolean;
+  /** Practice context: the learner's current draft, for "Explain this with
+   *  my work" (canonical sources S4). */
+  draftMd?: string;
 }
 
 const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> = {
@@ -101,6 +107,10 @@ interface ThreadEntry {
   /** Learner-text gaps: what the question was read as, once the worker ran
    *  (only a label for something that actually happened), with one-tap undo. */
   gap?: LearnerTextGapViewDto | null;
+  /** Canonical sources S0/S4: the answer's offers (practice, passages,
+   *  comparison). Ephemeral, like citations. */
+  practiceRequest?: PracticeRequestDto | null;
+  toolRequests?: SourceToolRequestDto[];
 }
 
 /** How long the overlay waits for a question's gap reading (polls). */
@@ -151,11 +161,15 @@ function entityIdOf(target: AskTarget): string {
 export function AskOverlay({
   target,
   onClose,
-  onToast
+  onToast,
+  onOpenPractice
 }: {
   target: AskTarget | null;
   onClose: () => void;
   onToast: (message: string) => void;
+  /** The open-list path for a picked offer while the daily plan is off; the
+   *  proposal it came from rides along so opening it records its delivery. */
+  onOpenPractice?: (practiceItemId: string, origin?: { proposalId: string; importId: string | null }) => void;
 }) {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   // ING M8 (§9.2): the citation span currently open in the source viewer.
@@ -389,9 +403,9 @@ export function AskOverlay({
 
   if (!target) return null;
 
-  async function send() {
+  async function send(pinned?: { text: string; spanKeys: string[] }) {
     if (!target || pending || limitReached) return;
-    const text = question.trim();
+    const text = (pinned?.text ?? question).trim();
     if (!text) return;
     setPending(true);
     setInlineError(null);
@@ -409,7 +423,7 @@ export function AskOverlay({
         promotionRequest: null
       }
     ]);
-    setQuestion("");
+    if (!pinned) setQuestion("");
     try {
       let answer: {
         eventId: string;
@@ -420,6 +434,8 @@ export function AskOverlay({
         suggestions?: SuggestedLearningObjectDto[];
         remaining: number;
         learnerGap?: LearnerGapQueuedDto;
+        practiceRequest?: PracticeRequestDto | null;
+        toolRequests?: SourceToolRequestDto[];
       };
       if (target.context === "reader") {
         if (!target.extractionId || !target.spanId) {
@@ -467,6 +483,12 @@ export function AskOverlay({
         if (target.context === "practice" && target.attemptProgress) {
           input.attemptProgress = target.attemptProgress;
         }
+        if (pinned) {
+          // "Explain this with my work": a normal tutor question grounded in
+          // the passage the learner chose, with their current draft.
+          input.pinnedSpanKeys = pinned.spanKeys;
+          if (target.draftMd?.trim()) input.learnerDraftMd = target.draftMd;
+        }
         const tutorAnswer = await api.askTutorQuestion(input);
         routedCaptureRef.current = target.captureId ?? null;
         captureNoteRef.current = tutorAnswer.noteId ?? null;
@@ -477,7 +499,9 @@ export function AskOverlay({
           hintEquivalent: tutorAnswer.hintEquivalent,
           citations: tutorAnswer.citations,
           remaining: tutorAnswer.remaining,
-          learnerGap: tutorAnswer.learnerGap
+          learnerGap: tutorAnswer.learnerGap,
+          practiceRequest: tutorAnswer.practiceRequest ?? null,
+          toolRequests: tutorAnswer.toolRequests ?? []
         };
       }
       setThread((prev) =>
@@ -494,7 +518,9 @@ export function AskOverlay({
                 promotion: null,
                 promotionRequest: null,
                 citations: answer.citations,
-                suggestions: answer.suggestions
+                suggestions: answer.suggestions,
+                practiceRequest: answer.practiceRequest ?? null,
+                toolRequests: answer.toolRequests ?? []
               }
             : entry
         )
@@ -511,7 +537,7 @@ export function AskOverlay({
         setRemaining(0);
       } else {
         setInlineError(commandError.message);
-        setQuestion(text);
+        if (!pinned) setQuestion(text);
       }
     } finally {
       setPending(false);
@@ -660,6 +686,22 @@ export function AskOverlay({
                         </span>
                       ))}
                     </div>
+                  ) : null}
+                  {entry.eventId && target.context !== "reader" &&
+                  (entry.practiceRequest || (entry.toolRequests ?? []).length > 0) ? (
+                    <SourceOffers
+                      answer={{
+                        eventId: entry.eventId,
+                        practiceRequest: entry.practiceRequest,
+                        toolRequests: entry.toolRequests
+                      }}
+                      sessionId={target.sessionId}
+                      onToast={onToast}
+                      onOpenPractice={onOpenPractice}
+                      onExplainWithWork={(spanKey) =>
+                        void send({ text: "Explain this passage using my work.", spanKeys: [spanKey] })
+                      }
+                    />
                   ) : null}
                   {suggestionLine(entry.suggestions) ? (
                     <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>

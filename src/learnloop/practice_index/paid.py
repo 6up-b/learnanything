@@ -560,6 +560,9 @@ class PaidCalls:
             self.totals.estimated_only_tokens += used
             if self.totals.estimated_only_usd is not None and self.price is not None:
                 self.totals.estimated_only_usd += used * self.price / 1_000_000
+            # Shared envelopes tally subscription usage (estimated_only); never a refusal.
+            charge.note_estimated_only(total_tokens=used, estimated_usd=(
+                used * self.price / 1_000_000 if self.price is not None else None))
             return
         cost = sum(reported_cost) if reported_cost else None
         if reported is not None and self.price is not None:

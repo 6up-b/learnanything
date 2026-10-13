@@ -3,13 +3,13 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
-source_commit_timestamp: "2026-10-13T09:45:30-04:00"
+source_commit: "e238fa07afea9026fb46ed058676a80830162515"
+source_commit_timestamp: "2026-10-13T10:36:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
   - "table causal_attribution_reports"
-schema_head: 186
+schema_head: 195
 table_name: "causal_attribution_reports"
 table_role: "receipt"
 functionality_status: "active"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/instructional/needs.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 

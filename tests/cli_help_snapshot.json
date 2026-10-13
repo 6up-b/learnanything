@@ -1016,8 +1016,24 @@
     "sha256": "f79086ca4300ae8c3f1919f1ccd95498a043eedbf08584936087260a2c2b9e1e"
   },
   "sources": {
-    "bytes": 1927,
-    "sha256": "3a7460387b4b5af79426b29f49b85766d3d603860d90393d42a5dd39cfbf136b"
+    "bytes": 2607,
+    "sha256": "ebaab25b5a26ca15a85d98a2deb680eb13c3af72e44d03b641869de5dfc14b80"
+  },
+  "sources exercises": {
+    "bytes": 1757,
+    "sha256": "9298591e6374b4465a06a5f3cb0a82120544aa28759eb0fc92877a72b7b23a1a"
+  },
+  "sources exercises harvest": {
+    "bytes": 1716,
+    "sha256": "ba7a89fc849f4b173fa5fc5c588e0b69c2dc92ebc0f570453b82bbcef3447060"
+  },
+  "sources exercises verify": {
+    "bytes": 1550,
+    "sha256": "144a384a4ee8215b7af23c45dac43ec2dfa28787fc2ddd5e3120dc9790414de0"
+  },
+  "sources outcomes": {
+    "bytes": 1206,
+    "sha256": "301c9d745edd095761413d304ad27da7fd8d2689e1e2ec1084c0b36b7e6669b3"
   },
   "sources report": {
     "bytes": 1291,
@@ -1030,6 +1046,14 @@
   "sources suggest-lo": {
     "bytes": 1376,
     "sha256": "c5a1c51f5e3d2e1d47e963b5b14f96cc72f0ae704070e29442601a5c80eebdc0"
+  },
+  "sources tool": {
+    "bytes": 2010,
+    "sha256": "d79f66b53b0ab96736b5e593b13afa626838a11ead99b9cc257ce070baf05ae5"
+  },
+  "sources tools": {
+    "bytes": 1040,
+    "sha256": "d087674ad932ef909f723e8500a6a70818f8329dad414c0b08d71ae2873b77bf"
   },
   "surfaces": {
     "bytes": 1844,
@@ -1068,8 +1092,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 4216,
-    "sha256": "5036ad5de972a29893539a86ab0dd872c122e88ca9a6fa6b47e2b0405bb5864c"
+    "bytes": 4949,
+    "sha256": "cf52bed9f331e2be2a3b72742e4157dbbfa72cb49f0e51c4e60cf6c7508c3929"
   },
   "usage": {
     "bytes": 1546,

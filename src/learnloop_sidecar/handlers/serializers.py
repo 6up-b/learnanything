@@ -415,8 +415,30 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             # Learner field F2: the practice screen offers "I know this" (a
             # routing preference, labelled as such) only while placement is on.
             "placement_active": _placement_active(vault),
+            # Canonical sources S1: a textbook exercise's provenance and its
+            # answer key's honest label (absent for every other item).
+            **_canonical_exercise_dto(repository, item),
         }
     )
+
+
+def _canonical_exercise_dto(repository: Repository, item: Any) -> dict[str, Any]:
+    canonical = getattr(item, "canonical_exercise", None)
+    if canonical is None:
+        return {}
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import KEY_STATUS_LABELS, effective_key_status
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        status = effective_key_status(connection, item)
+        row = connection.execute("SELECT display_title FROM source_artifacts WHERE id=?",
+                                 (canonical.source_id,)).fetchone()
+    return {"canonical_exercise": {
+        **canonical.model_dump(mode="json"), "source_title": row[0] if row is not None else None,
+        "key_status": status, "key_label": KEY_STATUS_LABELS.get(status, status),
+        "authorship": "the statement is the book's; the answer key and rubric are LearnLoop's"}}
 
 
 def _placement_active(vault: LoadedVault) -> bool:
