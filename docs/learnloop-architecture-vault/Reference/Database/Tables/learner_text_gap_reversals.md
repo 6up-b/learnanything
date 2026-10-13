@@ -3,13 +3,13 @@ title: "learner_text_gap_reversals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "28da3101f65026ca0d14ca21946d7c2c92e97469"
-source_commit_timestamp: "2026-10-13T00:28:21-04:00"
+source_commit: "dcb96638dc5d8b8a968192f860d17075d578ea1f"
+source_commit_timestamp: "2026-10-13T00:46:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_reversals"
   - "table learner_text_gap_reversals"
-schema_head: 182
+schema_head: 183
 table_name: "learner_text_gap_reversals"
 table_role: "raw_ledger"
 functionality_status: "active"

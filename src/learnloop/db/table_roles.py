@@ -170,6 +170,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Paid practice-index dossiers (Slice 2 §5.9): persisted inputs keyed by
     # facet/source revision, model and prompt; never regenerated on rebuild.
     ("facet_dossiers", TableRole.WORKFLOW),
+    # Facet identity: each applied merge/absorb and the facets.yaml entries
+    # its undo restores (lifecycle state; the verdicts are judgment_ledger's).
+    ("facet_identity_actions", TableRole.WORKFLOW),
     ("facet_merges", TableRole.RAW_LEDGER),
     ("facet_outcome_observations", TableRole.DERIVED),
     ("facet_recall_state", TableRole.DERIVED),

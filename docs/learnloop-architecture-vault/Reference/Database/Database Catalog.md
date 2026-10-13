@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "28da3101f65026ca0d14ca21946d7c2c92e97469"
-source_commit_timestamp: "2026-10-13T00:28:21-04:00"
+source_commit: "dcb96638dc5d8b8a968192f860d17075d578ea1f"
+source_commit_timestamp: "2026-10-13T00:46:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 182
-table_count: 306
+schema_head: 183
+table_count: 307
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_182/state.sqlite"
+  - "fixtures/migration_head_183/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-182"
+  - "learnloop/database/schema-head-183"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 306 user tables at migration head 182. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 307 user tables at migration head 183. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 306 user tables at migration head 182. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 139 |
 | [[Table Roles#Derived|`derived`]] | 18 |
 | [[Table Roles#Receipt|`receipt`]] | 64 |
-| [[Table Roles#Workflow|`workflow`]] | 75 |
+| [[Table Roles#Workflow|`workflow`]] | 76 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 293 |
+| `active` | 294 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -139,6 +139,7 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]] — `compat` · `legacy-preserved` · Preserves the pre-canonical learning-object-scoped facet recall projection for old vaults. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `facet_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]] — `derived` · `active` · Materializes canonical evidence contributions from facets into capabilities. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `algorithm_version`, `capability`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_dossiers|facet_dossiers]] — `workflow` · `active` · Gives facet dossier a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `facet_id`, `model_id`, `run_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/facet_identity_actions|facet_identity_actions]] — `workflow` · `active` · Gives facet identity action a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `run_id`, `proposal_id`, `survivor_facet_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_merges|facet_merges]] — `raw_ledger` · `active` · Gives facet merge a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `retired_facet_id`, `surviving_facet_id`, `proposal_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]] — `derived` · `active` · Records observations used to evaluate facet outcome so learner-facing mastery and capability decisions use a reproducible evidence projection. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `attempt_id`, `facet_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_recall_state|facet_recall_state]] — `derived` · `active` · Materializes canonical per-facet recall evidence and uncertainty for the current knowledge model. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.

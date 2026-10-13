@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_182/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_183/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_182" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_183" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 182
+SCHEMA_HEAD = 183
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -839,6 +839,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
     "graph_nomination": "Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps",
+    "facet_identity": "facet identity at mint time and the dedupe command: the cheap judge's neighbourhood size, shortlist rank, lock policy and spend caps (merges apply live with an undo)",
     "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "field": "offline learner-field analysis, revision exclusions, and opt-in paid experiments",
     "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",
@@ -1808,7 +1809,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_182/state.sqlite",
+                "fixtures/migration_head_183/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

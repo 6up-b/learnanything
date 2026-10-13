@@ -894,6 +894,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "publish cap). Publishing verified items is a content change; difficulty "
                 "comes from the solver panel and judges/verifiers decide, so these knobs "
                 "carry no measurement authority."),
+    _ConfigRule(_prefix("facet_identity."), "structural", "operational",
+                "Facet-identity judge bounds (neighbourhood size, shortlist rank, spend "
+                "caps, owner price); the judge decides which facets are one skill, a "
+                "vault-content change with an undo, with no measurement or scheduling "
+                "authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

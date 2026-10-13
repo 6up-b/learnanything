@@ -623,6 +623,23 @@ def _echo_ingest_embedding_plan(plan: dict) -> None:
         f"{caps['max_query_calls']} calls, {caps['max_query_tokens']} tokens, ${caps['max_query_cost_usd']})"
     )
     typer.echo(f"  {plan['covers']}.")
+    judge = plan.get("facet_identity") or {}
+    if not judge.get("enabled"):
+        typer.echo("  facet-identity judge: off (facet_identity.enabled = false)")
+        return
+    route = judge["route"]
+    typer.echo(
+        f"  facet-identity judge: {judge['status']} ({route['provider']}, {route['model']}, {judge['billing']}, "
+        f"{judge['cost_basis']})"
+    )
+    if route.get("problem"):
+        typer.echo(f"    {route['problem']}")
+    usd = judge["max_estimated_usd"]
+    typer.echo(
+        f"  judge calls: up to {judge['max_calls']} this run (~{judge['max_total_tokens']} tokens at most, "
+        + (f"at most ${usd:.2f})" if usd is not None else "dollars estimated only on the subscription)")
+    )
+    typer.echo(f"  {judge['covers']}.")
 
 
 @app.command("synthesize")

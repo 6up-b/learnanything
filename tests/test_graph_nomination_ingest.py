@@ -63,6 +63,11 @@ def _enable(root: Path, *, nominations: bool = True) -> None:
         [graph_nomination]
         enabled = {'true' if nominations else 'false'}
         top_k = 2
+
+        # T5 in isolation: its kill switch pins the pre-T5 request and manifest,
+        # which facet identity (a separate switch) also changes.
+        [facet_identity]
+        enabled = false
     """)
 
 

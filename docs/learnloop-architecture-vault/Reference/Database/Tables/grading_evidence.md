@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "28da3101f65026ca0d14ca21946d7c2c92e97469"
-source_commit_timestamp: "2026-10-13T00:28:21-04:00"
+source_commit: "dcb96638dc5d8b8a968192f860d17075d578ea1f"
+source_commit_timestamp: "2026-10-13T00:46:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 182
+schema_head: 183
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`

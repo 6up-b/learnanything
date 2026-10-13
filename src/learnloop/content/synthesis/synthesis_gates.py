@@ -347,10 +347,31 @@ def _has_semantic_authority(item: GateItem) -> bool:
     return False
 
 
-def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
-    known_facets = set(ctx.registered_facet_ids) | {
+def _known_facet_references(proposal: GateProposal, ctx: GateContext) -> set[str]:
+    """Facet ids a reference may name: registered, proposed, or an alias of either.
+
+    An alias resolves to its facet at load (``vault.facet_aliases``); facet
+    identity keeps a merged candidate's id as the survivor's alias. Aliases
+    count only while facet identity is on: off, the gate is today's.
+    """
+
+    known = set(ctx.registered_facet_ids) | {
         item.entity_id or item.client_item_id for item in proposal.items if item.item_type == "facet"
     }
+    vault = getattr(ctx, "vault", None)
+    settings = getattr(getattr(vault, "config", None), "facet_identity", None)
+    if settings is not None and not getattr(settings, "enabled", True):
+        return known
+    if vault is not None:
+        known |= set(getattr(vault, "facet_aliases", {}) or {})
+    for item in proposal.items:
+        if item.item_type == "facet" and isinstance(item.payload, dict):
+            known |= {str(alias) for alias in item.payload.get("aliases") or [] if alias}
+    return known
+
+
+def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
+    known_facets = _known_facet_references(proposal, ctx)
     out: list[GateDiagnostic] = []
     for item in proposal.items:
         criteria = _criteria_of(item)
@@ -399,9 +420,7 @@ def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> lis
 
 
 def _gate_recipe_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
-    known_facets = set(ctx.registered_facet_ids) | {
-        item.entity_id or item.client_item_id for item in proposal.items if item.item_type == "facet"
-    }
+    known_facets = _known_facet_references(proposal, ctx)
     out: list[GateDiagnostic] = []
     for item in proposal.items:
         blueprints = _blueprints_of(item)
@@ -763,6 +782,13 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
     return out
 
 
+#: Facet fields a facet-identity absorb may grow on a registered facet (an
+#: append-legal, provably additive update: entries are only appended). Only
+#: worked examples: a precondition narrows the facet's contract, so it is never
+#: added through this alias-only path (review F2).
+ATTACH_GROWABLE_FIELDS = ("positive_examples",)
+
+
 def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
     """Is this a D2 alias registration — provably additive, so append-legal?
 
@@ -782,7 +808,7 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
 
     if item.item_type != "facet" or item.operation != "update":
         return False
-    if set(item.payload) - {"id", "aliases"}:
+    if set(item.payload) - {"id", "aliases", *ATTACH_GROWABLE_FIELDS}:
         return False
     proposed = {str(alias) for alias in (item.payload.get("aliases") or [])}
     if not proposed:
@@ -795,6 +821,15 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
         if existing_facet is not None
         else set()
     )
+    # Facet identity's absorb (handoff §4) may also grow the worked examples;
+    # every current entry must stay, in order (growth only).
+    for field_name in ATTACH_GROWABLE_FIELDS:
+        if field_name not in item.payload:
+            continue
+        current = [str(value) for value in (getattr(existing_facet, field_name, None) or [])]
+        grown = [str(value) for value in (item.payload.get(field_name) or [])]
+        if grown[: len(current)] != current or len(grown) <= len(current):
+            return False
     return existing < proposed
 
 

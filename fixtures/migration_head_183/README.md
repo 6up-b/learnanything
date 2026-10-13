@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-182. Migration 167 adds the learner-field F1 read model
+183. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -46,8 +46,12 @@ cache (`router_outcomes`, DERIVED; built as R1's 176 and renumbered at its
 merge); migration 182 adds learner-text gaps (`learner_text_gaps` and
 `learner_text_gap_reversals`, RAW_LEDGER, append-only; `learner_text_gap_jobs`,
 WORKFLOW; `learner_gap_check_advances` and `learner_gap_commitments`,
-RECEIPT; built as the branch's 177 and renumbered at its merge).
-Built as a backup-API copy of `migration_head_181` with only 182 applied
+RECEIPT; built as the branch's 177 and renumbered at its merge); migration
+183 adds facet identity's action ledger (`facet_identity_actions`, WORKFLOW:
+each judge-applied merge or absorb with the facets.yaml entries before and
+after it and its undo; built as the branch's 172 and renumbered at its
+merge).
+Built as a backup-API copy of `migration_head_182` with only 183 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

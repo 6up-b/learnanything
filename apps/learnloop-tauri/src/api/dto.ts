@@ -2824,6 +2824,59 @@ export interface IngestJobView {
   dependsOn: string[];
 }
 
+/** Facet identity (handoff §4): one merge or absorb a judge applied, with its undo state. */
+export interface FacetIdentityFacetRef {
+  id: string;
+  claim: string;
+}
+
+export interface FacetIdentityActionDto {
+  id: string;
+  origin: "ingest" | "append" | "dedupe";
+  scope: "in_run" | "attach" | "vault";
+  runId: string;
+  proposalId: string | null;
+  action: "merge" | "absorb";
+  absorbAs: "example" | "precondition" | null;
+  survivor: FacetIdentityFacetRef;
+  retired: FacetIdentityFacetRef[];
+  rationale: string;
+  locked: boolean;
+  /** Why a facet's identity is locked: attempts, probe, goal_certified_scope, independent_surface_groups, ... */
+  lockSources?: string[];
+  /** Why an attach left a registered facet's contract as it was. */
+  contractNote?: string | null;
+  /** What an undo does not move back (rows graded while the merge stood). */
+  undoLimits?: string | null;
+  judge: string;
+  judgeModel: string | null;
+  /**
+   * proposed = applies with its proposal; applied = undoable now; undone.
+   * applying/undoing = interrupted mid-write (doctor --fix-state finishes it);
+   * abandoned = withdrawn before it was written.
+   */
+  status: "proposed" | "applying" | "applied" | "undoing" | "undone" | "abandoned";
+  undoable: boolean;
+  /** Why this merge has no undo, when it has none by construction. */
+  note?: string | null;
+  createdAt: string;
+  undoneAt: string | null;
+}
+
+/** The facet-identity block of a synthesis/append job result (absent when switched off). */
+export interface FacetIdentitySummaryDto {
+  status: string;
+  /** The run whose actions the panel re-reads for their live undo state. */
+  runId?: string | null;
+  groups: number;
+  groupsJudged: number;
+  inRunRetired: number;
+  attached: number;
+  judge: string | null;
+  notes: string[];
+  actions: FacetIdentityActionDto[];
+}
+
 export interface IngestBatchDto {
   version?: number;
   id: string;

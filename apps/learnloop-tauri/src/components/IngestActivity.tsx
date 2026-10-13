@@ -8,6 +8,7 @@ import type {
   SynthesisCandidateSummary
 } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, type PillColor } from "./term";
+import { FacetIdentityPanel, facetIdentityOf } from "./FacetIdentityPanel";
 import { readableSourceTail } from "./sourceTail";
 
 // Ingest activity stack — durable batches rendered inline on the merged Ingest
@@ -371,6 +372,14 @@ function BatchCard({
     && synthesisOutput >= 1_000 && synthesisOutput <= 200_000);
   const resumable = (batch.status === "failed" || batch.status === "cancelled") && !failedSynthesis;
   const sourceId = importedSourceId(batch);
+  const facetIdentity = batch.jobs
+    .filter(
+      (job) =>
+        (job.jobType === "bootstrap_synthesis" || job.jobType === "append_synthesis") &&
+        job.status === "completed"
+    )
+    .map((job) => facetIdentityOf(job.result))
+    .find((block) => block !== null) ?? null;
 
   // Force-scroll the focused batch into view whenever the focus target changes.
   useEffect(() => {
@@ -585,6 +594,8 @@ function BatchCard({
           </div>
         </div>
       ) : null}
+
+      {facetIdentity && <FacetIdentityPanel summary={facetIdentity} onError={onError} />}
 
       {sourceId && (
         <div style={{ marginTop: 12, fontSize: 12 }}>

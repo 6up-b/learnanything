@@ -131,12 +131,16 @@ ROUTER_R1_LOGGING_RPCS = (
 # queue a reading and return learnerGap. Desktop only.
 LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "ask_tutor_question", "reader.ask")
 
+# Facet identity adds the ingest activity's merge list and its one-tap undo
+# (a facets.yaml rewrite and owner verdicts). Desktop only.
+FACET_IDENTITY_RPCS = ("list_facet_identity_actions", "undo_facet_identity_action")
+
 
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
-    + LEARNER_TEXT_GAP_RPCS,
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

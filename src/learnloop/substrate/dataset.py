@@ -31,6 +31,9 @@ _CAPTURED_WORKFLOW_TABLES = frozenset({
     "ingest_batches",
     "ingest_jobs",
     "attempt_completion_work",
+    # Facet identity: every judged merge/absorb, its facet_merges rows and its
+    # undo. An undo removes the facet_merges rows; this keeps the history.
+    "facet_identity_actions",
 })
 
 # Version 2 adds `split_policy` with the temporal default; a manifest without

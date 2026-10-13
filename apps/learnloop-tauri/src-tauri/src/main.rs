@@ -354,6 +354,8 @@ fn main() {
             get_span_view,
             get_subject_registry,
             propose_facet_merge,
+            list_facet_identity_actions,
+            undo_facet_identity_action,
             propose_graph_edits,
             queue_restructure_request,
             resolve_edge_direction,

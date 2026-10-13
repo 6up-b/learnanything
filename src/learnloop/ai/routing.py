@@ -43,6 +43,8 @@ AITask = Literal[
     "source_relevance_judge",
     # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
     "contamination_judge",
+    # Facet identity (handoff §4): the cheap same-skill partition judge.
+    "facet_identity_judge",
     "grading",
     # Slice 1: the history-aware diagnoser (unset -> the resolved grading
     # route, so a vault that never configures it diagnoses with its grader),
@@ -158,6 +160,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "contamination_reveal_judgment": "contamination_judge",
     # Router R0: the learner field's llm_probability LLM judge (field §7.2).
     "llm_probability_prediction": "llm_probability_llm",
+    # Facet identity at ingest and in `learnloop facets dedupe`.
+    "facet_identity_judgment": "facet_identity_judge",
 }
 
 
