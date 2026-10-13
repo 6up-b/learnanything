@@ -1197,6 +1197,7 @@ run (read-only sandbox); see the review file.
    multi-family study (F4). That study is merged and out of this stage's
    scope; rerun it without the bound before relying on its `eig_no_gate`
    numbers? *Recommended: yes, as a follow-up.*
+   *Done 2026-10-13* ([`evsi-single-family-unbounded.md`](evsi-single-family-unbounded.md)): the bound stopped 2 of 400 `eig_no_gate` episodes at Eedi's strength; no other number, claim, conclusion or rank moved, and §6 stands.
 
 ## Appendix A. Every regime
 

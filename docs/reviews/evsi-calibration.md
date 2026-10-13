@@ -8,6 +8,35 @@ and follow-ups (the four count caps are being lifted onto it), so this stage
 measures what it can, labels what it cannot, and instruments the live
 decisions so the rest gets measured from the owner's own data.
 
+## Addendum (2026-10-13): rerun without the count bound
+
+Every episode below ran under `PolicySettings.safety_bound = 25`, a bound
+the multi-family review found binding there (its F4). The study was rerun
+without it, with the same seeds and the stored fit:
+[`evsi-single-family-unbounded.md`](evsi-single-family-unbounded.md),
+report in `fixtures-local/evsi-calibration-v3-unbounded/`.
+
+* **What the bound stopped:** 2 of 400 episodes, both `eig_no_gate` at
+  Eedi's fitted strength (learners 42 and 206; unbounded they stop at 26 and
+  34 checks, with the same wrong action).
+* **Everything else is identical:** every other arm in every cell
+  reproduces number for number. No number moved beyond its CI, and no
+  conclusion, recommendation (§5, §9) or ranking of the arms changes.
+* **Superseded numbers** (struck through and marked † in place): the
+  `eedi_fitted` `eig_no_gate` rows of §4.1 and §4.2, and the `eig_no_gate`
+  column of §4.3's Eedi rows.
+  * Minutes per episode: 8.44 → **8.46** [7.89, 9.07] at repair 3, 12.39 →
+    12.41 at 10, 23.69 → 23.71 at 30.
+  * Checks: 6.74 → 6.77.
+  * Value stops: 317 → 319.
+  * Log loss: 1.212 → 1.213.
+  * Predicted EIG: 0.069 → 0.068.
+  * Realized gain CI: [0.063, 0.085] → [0.063, 0.084].
+
+The study now runs unbounded by default; `learnloop evsi simulate
+--safety-bound 25` reproduces this file's run, and `learnloop evsi compare`
+lines two reports up.
+
 ## Summary
 
 Revised after the Codex review
@@ -223,7 +252,9 @@ Fitted world, repair 3 minutes, checks pooled over each policy's episodes.
 | eedi_fitted | incumbent | 1.109 | **0.013** | 0.110 | 0.105 | **0.103** [0.071, 0.133] | 0.058 / 0.061 | 0.024 / 0.000 |
 | eedi_fitted | caps_only | 1.162 | 0.011 | 0.097 | 0.096 | 0.097 [0.077, 0.119] | 0.070 / 0.064 | 0.027 / 0.004 |
 | eedi_fitted | max_entropy | 1.176 | 0.010 | 0.088 | 0.096 | 0.092 [0.072, 0.109] | 0.053 / 0.058 | 0.017 / 0.013 |
-| eedi_fitted | eig_no_gate | 1.212 | 0.003 | 0.069 | 0.073 | 0.073 [0.063, 0.085] | 0.067 / 0.067 | 0.023 / 0.017 |
+| eedi_fitted | eig_no_gate | ~~1.212~~ 1.213† | 0.003 | ~~0.069~~ 0.068† | 0.073 | 0.073 ~~[0.063, 0.085]~~ [0.063, 0.084]† | 0.067 / 0.067 | 0.023 / 0.017 |
+
+† Superseded by the unbounded rerun (addendum, 2026-10-13).
 
 Reliability of the answer forecasts (incumbent): under `hand_set`, answers
 given 0.7–0.8 happen 28% of the time and answers given 0.0–0.1 happen 11%;
@@ -248,13 +279,15 @@ minutes.
 | eedi_fitted | random | 3.38 | 5.17 [4.93, 5.39] | 0.45 | 0.17 | 4.79 | budget 260 |
 | eedi_fitted | max_entropy | 3.36 | 5.12 [4.87, 5.36] | 0.47 | 0.16 | 4.72 | budget 259 |
 | eedi_fitted | eig | 0.01 | 1.82 [1.70, 1.95] | 0.40 | 0.03 | 1.82 | abstain (agreement gate) 354 |
-| eedi_fitted | eig_no_gate | 6.74 | 8.44 [7.88, 9.02] | 0.53 | 0.31 | 6.96 | value stop 317 |
+| eedi_fitted | eig_no_gate | ~~6.74~~ 6.77† | ~~8.44 [7.88, 9.02]~~ 8.46 [7.89, 9.07]† | 0.53 | 0.31 | ~~6.96~~ 6.99† | value stop ~~317~~ 319† |
 | eedi_fitted | evsi | 0.00 | 1.81 [1.67, 1.96] | 0.40 | 0.03 | 1.81 | LCB below cost 396 |
 | eedi_fitted | evsi_lookahead | 0.00 | 1.81 [1.67, 1.95] | 0.40 | 0.03 | 1.81 | LCB below cost 396 |
 | hand_set | **incumbent** | 2.05 | 4.17 [3.96, 4.45] | 0.50 | 0.20 | 3.48 | can't reliably distinguish 193, decision stable 178 |
 | hand_set | caps_only | 2.84 | 4.96 [4.64, 5.28] | 0.55 | 0.23 | 3.79 | decision stable 224 |
 | hand_set | evsi | 0.01 | 2.09 [1.93, 2.26] | 0.40 | 0.05 | 2.09 | LCB below cost 368, flip abstain 28 |
 | hand_set | evsi_lcb_only | 0.10 | 2.23 [2.02, 2.42] | 0.41 | 0.06 | 2.17 | LCB below cost 396 |
+
+† Superseded by the unbounded rerun (addendum, 2026-10-13).
 
 With Eedi's signal, today's two checks lift the right-action rate from 0.40 to
 0.44 and identify the exact misconception 15% of the time (four checks without
@@ -270,9 +303,9 @@ world runs on its own histories.
 
 | Consistency | Repair min | **incumbent** | caps_only | eig (as built) | eig_no_gate | **evsi (as built)** | evsi_lcb_only | evsi_lookahead |
 |---|---:|---|---|---|---|---|---|---|
-| Eedi 0.41 | 3 | 3.77 (2.0; .44) | 5.18 (3.4; .46) | 1.82 (0.0; .40) | 8.44 (6.7; .53) | **1.81** (0.0; .40) | 1.81 | 1.81 |
-| Eedi 0.41 | 10 | 7.98 (2.0; .44) | 9.36 (3.4; .46) | 6.04 | 12.39 | 6.03 (0.0) | **6.00** | **6.00** |
-| Eedi 0.41 | 30 | 20.03 (2.0; .44) | 21.31 (3.4; .46) | 18.09 | 23.69 | 18.08 (0.0) | 18.06 | **18.02** (0.1) |
+| Eedi 0.41 | 3 | 3.77 (2.0; .44) | 5.18 (3.4; .46) | 1.82 (0.0; .40) | ~~8.44 (6.7; .53)~~ 8.46 (6.8; .53)† | **1.81** (0.0; .40) | 1.81 | 1.81 |
+| Eedi 0.41 | 10 | 7.98 (2.0; .44) | 9.36 (3.4; .46) | 6.04 | ~~12.39~~ 12.41† | 6.03 (0.0) | **6.00** | **6.00** |
+| Eedi 0.41 | 30 | 20.03 (2.0; .44) | 21.31 (3.4; .46) | 18.09 | ~~23.69~~ 23.71† | 18.08 (0.0) | 18.06 | **18.02** (0.1) |
 | 0.7 | 3 | 3.53 (2.0; .58) | 4.53 (3.2; .67) | 1.90 | 6.54 | **1.80** (0.0) | 1.80 | 1.80 |
 | 0.7 | 10 | 7.05 (2.0; .58) | 7.53 (3.2; .67) | 6.01 | 8.85 | 6.04 (0.0) | **5.96** (0.2) | 6.02 (0.2) |
 | 0.7 | 30 | 17.10 (2.0; .58) | 16.07 (3.2; .67) | 17.76 | **15.45** (5.5; .77) | 18.17 (0.0; .41) | 17.11 (0.4; .49) | 16.25 (0.7; .53) |
@@ -282,7 +315,8 @@ world runs on its own histories.
 
 Per-policy 95% CIs at 0.9/30: incumbent [11.65, 15.05], caps_only [8.14,
 11.28], evsi [16.44, 19.36], evsi_lcb_only [11.11, 14.02], evsi_lookahead
-[9.09, 12.59], eig_no_gate [7.77, 11.17].
+[9.09, 12.59], eig_no_gate [7.77, 11.17]. † Superseded by the unbounded
+rerun (addendum, 2026-10-13); every other cell is unchanged.
 
 Where checks are weak or cheap to skip, every value rule beats the incumbent
 by 1.1–2.0 minutes per episode (and the cap-only comparator by 1.6–3.4). Where
