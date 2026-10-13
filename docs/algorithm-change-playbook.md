@@ -43,6 +43,15 @@ amendment is recorded beside the version and in
 Any other in-place amendment takes its own owner decision; by default a change
 to persisted meaning mints a new tag.
 
+Recorded owner decision, 2026-10-13 (route-check-in-grader): mvp-0.17's
+separate proofs route check was removed from serving. Its kill switch already
+defined that state (`proof_check.enabled = false` grades new answers as
+mvp-0.16), so an mvp-0.17 vault now serves that permitted state without a new
+tag, while its records keep their meaning and replay exactly
+(`fixtures/mvp017_route_check_replay`). The rules that replaced it change
+grading for new answers, so they mint a successor (mvp-0.18, a placeholder).
+See `docs/reviews/route-check-in-grader.md`.
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.
