@@ -907,15 +907,23 @@ export function PracticeScreen({
             <div className="hint-banner" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone="cyan">Diagnostic check</Pill>
-                <BlockBar
-                  value={(probe?.observationNumber ?? 1) - 1}
-                  max={probe?.maximumObservations ?? 4}
-                  width={probe?.maximumObservations ?? 4}
-                  color={COLOR.cyan}
-                />
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
-                  question {probe?.observationNumber ?? 1} of up to {probe?.maximumObservations ?? 4}
-                </span>
+                {probe?.valueStopping ? (
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
+                    question {probe?.observationNumber ?? 1} · continues while the next question is worth your time
+                  </span>
+                ) : (
+                  <>
+                    <BlockBar
+                      value={(probe?.observationNumber ?? 1) - 1}
+                      max={probe?.maximumObservations ?? 4}
+                      width={probe?.maximumObservations ?? 4}
+                      color={COLOR.cyan}
+                    />
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
+                      question {probe?.observationNumber ?? 1} of up to {probe?.maximumObservations ?? 4}
+                    </span>
+                  </>
+                )}
                 <span style={{ fontSize: 12, opacity: 0.75 }}>
                   Answer with what you know — this helps find exactly where to focus next. Full
                   feedback arrives once this short check wraps up; hints and ask-tutor are paused

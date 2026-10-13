@@ -478,6 +478,11 @@ ignore_imports = [
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.error_taxonomy_map",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_episodes",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probes",
+    # mvp-0.21: the scheduler values probe episodes and further teach-backs
+    # with diagnosis.voi_stopping, which sits beside the probe machinery it
+    # composes (robust_composition, probe_families, probe_robust) and reads
+    # scheduling's evsi and action_loss in the allowed direction.
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.voi_stopping",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.remediation",
     "learnloop.sim.diagnostic_validation -> learnloop.attempts.attempts",
     "learnloop.sim.diagnostic_validation -> learnloop.attempts.grading",

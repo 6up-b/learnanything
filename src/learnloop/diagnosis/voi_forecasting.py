@@ -18,6 +18,13 @@ probable hypothesis's triage route (``action_proxy: triage_route_of_map``),
 or the most probable label itself when a label has no active route
 (``map_hypothesis``). Logging only: every function returns quietly on any
 failure and changes nothing the decision does.
+
+Value-of-information stopping (mvp-0.21, merged after this stage) decides
+four more things by value: whether a probe episode asks again, whether a
+follow-up is queued, which teach-backs an offer keeps and which due project
+probes a plan admits. :func:`record_value_decision_forecast` records each such
+decision where it acts (one ``voi_forecasts`` row per decision, its own
+receipt key), at the sites in :data:`VALUE_DECISION_SITES`.
 """
 
 from __future__ import annotations
@@ -431,7 +438,157 @@ def record_followup_forecast(
         return None
 
 
+#: The value-of-information successor's sites (``voi_stopping.SITES``) and the
+#: ``voi_forecasts`` site each records its stop/continue decisions at.
+VALUE_DECISION_SITES: dict[str, str] = {
+    "probe_episode": "probe_episode_value_decision",
+    "followup_intervention": "followup_value_decision",
+    "teach_back": "teach_back_value_decision",
+    "project_probe": "project_probe_value_decision",
+}
+
+#: Receipts a value site writes that are not value decisions: a check the plan
+#: already holds or the learner asked for (conditioned on, never valued) and a
+#: check a plan refresh cannot take (never valued). They record no forecast.
+_NOT_VALUED_REASONS = frozenset({"already_planned", "learner_request", "not_available_to_this_plan"})
+
+
+def value_decision_is_forecast(body: Mapping[str, Any] | None) -> bool:
+    """Whether a ``voi_stopping`` receipt is a valued decision (it carries the
+    valuation of the check it is about), so a forecast."""
+
+    if not body or body.get("reason") in _NOT_VALUED_REASONS:
+        return False
+    return bool(body.get("served") or body.get("subject") or body.get("best"))
+
+
+def _coarse_parameters(parameters: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    """The decision's own parameter list on ``voi_forecasts``' coarse
+    provenance vocabulary: a provenance outside it (the multi-family study's
+    ``evsi_multisim`` recommendations, set by simulation, never measured on
+    this learner) reads ``heuristic`` and keeps its own as ``fine_provenance``."""
+
+    out: list[dict[str, Any]] = []
+    for entry in parameters or ():
+        item = dict(entry)
+        provenance = item.get("provenance")
+        if provenance not in VF.PROVENANCES:
+            item["provenance"] = "heuristic"
+            item["fine_provenance"] = provenance
+        out.append(item)
+    return out
+
+
+def record_value_decision_forecast(
+    vault: Any,
+    repository: Repository,
+    body: Mapping[str, Any] | None,
+    *,
+    receipt_key: str,
+    scheduler_exploration: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+    **columns: Any,
+) -> str | None:
+    """One value-of-information stop/continue decision (``SiteDecision.as_dict``
+    or a per-check receipt) as a ``voi_forecasts`` row.
+
+    The forecast describes one check, named by ``forecast_of`` (main's F3/F5
+    vocabulary, extended by one): ``committed`` is the observation actually
+    administered (the ``served`` check of a committed probe presentation or a
+    queued follow-up), ``subject`` the check a per-check receipt is about (a
+    teach-back an offer kept or dropped, a due project probe a plan admitted
+    or held back), ``nominal_best`` the value rule's best check when nothing
+    was administered (a stop). Its predicted outcomes, likelihood rows, EIG,
+    P(action change) and EVSI point/robust are that check's; the lookahead's
+    batch, when it decided, is the described check's value (``method``
+    ``robust_evsi_lookahead_<k>``, the batches under ``lookahead``). The whole
+    decision rides along as ``value_decision`` (the successor's own receipt),
+    and ``selection`` carries how a committed check came to the front: the
+    serving path's ``served_by`` and router R1's ``scheduler_exploration``
+    marker, verbatim, when the seeded exploration drew it. The verdict is
+    ``measure`` (continue) or ``stop``. Logging only, behind
+    ``evsi.forecast_logging``; never raises."""
+
+    try:
+        if not value_decision_is_forecast(body):
+            return None
+        assert body is not None
+        site = VALUE_DECISION_SITES.get(str(body.get("site")))
+        if site is None:
+            return None
+        decision = str(body.get("decision"))
+        if body.get("served"):
+            described, forecast_of = dict(body["served"]), "committed"
+        elif body.get("subject"):
+            described, forecast_of = dict(body["subject"]), "subject"
+        else:
+            described, forecast_of = dict(body["best"]), "nominal_best"
+        context = dict(body.get("context") or {})
+        forecast: dict[str, Any] = {
+            **dict(described.get("forecast") or {}),
+            "forecast_of": forecast_of,
+            "decision": decision,
+            "reason": body.get("reason"),
+            "method": described.get("method"),
+            "described_ref": described.get("ref"),
+            "recommended_ref": body.get("recommended_ref"),
+            "cap_comparison": body.get("cap_comparison"),
+            "value_decision": dict(body),
+        }
+        if body.get("lookahead") is not None:
+            forecast["lookahead"] = body["lookahead"]
+        selection: dict[str, Any] = {}
+        if body.get("served_by"):
+            selection["served_by"] = dict(body["served_by"])
+        if scheduler_exploration:
+            selection["scheduler_exploration"] = dict(scheduler_exploration)
+        if selection:
+            forecast["selection"] = selection
+        parameters = _coarse_parameters(body.get("parameters"))
+        for action, estimate in sorted((context.get("loss_durations") or {}).items()):
+            source = str((estimate or {}).get("source") or "")
+            parameters.append(VF.parameter(
+                f"minutes[{action}]", (estimate or {}).get("minutes"), VF.provenance_of(source),
+                source=source, sample_count=int((estimate or {}).get("sample_count") or 0),
+            ))
+        administered = forecast_of == "committed" or (forecast_of == "subject" and decision == "continue")
+        ref = described.get("ref")
+        values = {
+            "learning_object_id": body.get("learning_object_id")
+            or (described.get("detail") or {}).get("learning_object_id"),
+            "chosen_ref": ref,
+            "chosen_practice_item_id": ref if administered else None,
+            "eig_nats": described.get("eig_nats"),
+            "evsi_point_minutes": described.get("evsi_point_minutes"),
+            "evsi_lcb_minutes": described.get("evsi_robust_minutes"),
+            **columns,
+        }
+        return VF.record_forecast(
+            repository,
+            vault=vault,
+            site=site,
+            receipt_key=receipt_key,
+            verdict="measure" if decision == "continue" else "stop",
+            forecast=forecast,
+            parameters=parameters,
+            versions={
+                "value_decision_forecast_version": body.get("forecast_version"),
+                "loss_table_hash": context.get("loss_table_hash"),
+                "loss_regime": context.get("loss_regime"),
+            },
+            candidate_count=int(body.get("candidate_count") or 1),
+            clock=clock,
+            **values,
+        )
+    except Exception:  # noqa: BLE001 - logging must never break a decision
+        logger.warning("value decision forecast not recorded (key=%s)", receipt_key, exc_info=True)
+        return None
+
+
 __all__ = [
+    "VALUE_DECISION_SITES",
+    "record_value_decision_forecast",
+    "value_decision_is_forecast",
     "record_followup_forecast",
     "record_probe_presentation_forecast",
     "record_robust_selection_forecast",

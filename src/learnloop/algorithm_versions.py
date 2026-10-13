@@ -219,6 +219,27 @@ SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.19"
 # when it merged after the sources track (mvp-0.18, mvp-0.19).
 ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.20"
 
+# mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13), on
+# top of mvp-0.20 (the chain stays linear: mvp-0.21 means the split PLUS
+# placement PLUS recurrence groups PLUS the stuck prompt PLUS the plan PLUS
+# probe ties PLUS learner-text gaps PLUS the route check PLUS the answer-key
+# gate PLUS source-first needs PLUS the route rules PLUS this). Two parts, one
+# successor: Part 1 lifts four count caps onto value of information (a probe
+# episode keeps asking, a further follow-up is queued, a teach-back is offered
+# and a due project probe enters the plan while the next observation's value
+# pays for its minutes; an episode whose next observation no longer pays ends
+# with completion_reason 'value_of_information_stop', migration 200;
+# diagnosis.voi_stopping), kill switch ``voi_stopping.enabled`` (per-site
+# sub-switches); Part 2 makes the probe hypothesis lane read the diagnoser's
+# verdict through the diagnosis overlay under split grading and leave out an
+# event whose diagnosis is pending, kill switch
+# ``diagnosis.probe_lane_reads_diagnosis``. Both change what is SERVED, not
+# the projection, so it is another successor tag on the mvp-0.8 namespace.
+# The branch built it as mvp-0.17 (a placeholder, migrations 187/188) and it
+# was relabelled mvp-0.21 (migrations 200/201) when it merged after the route
+# rules (mvp-0.20).
+VOI_STOPPING_ALGORITHM_VERSION = "mvp-0.21"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -239,6 +260,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     ROUTE_RULES_ALGORITHM_VERSION,
+    VOI_STOPPING_ALGORITHM_VERSION,
 )
 
 
@@ -316,6 +338,13 @@ SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS
 # ROUTE_RULES_ALGORITHM_VERSION. (mvp-0.17's separate check has no gate any
 # more: no version runs it.)
 ROUTE_RULES_VERSIONS: frozenset[str] = successors_from(ROUTE_RULES_ALGORITHM_VERSION)
+
+# Versions whose serving values the four former count caps (behind
+# ``voi_stopping.enabled``) and whose probe hypothesis lane reads the diagnosis
+# overlay (behind ``diagnosis.probe_lane_reads_diagnosis``). Every later
+# successor keeps both; gates must use this set, never equality against
+# VOI_STOPPING_ALGORITHM_VERSION.
+VOI_STOPPING_VERSIONS: frozenset[str] = successors_from(VOI_STOPPING_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

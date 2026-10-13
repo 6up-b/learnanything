@@ -85,7 +85,9 @@ def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_pat
     assert "prompt" not in demand and "expected_answer" not in demand
     assert features["ability_vector"]["learning_object_id"] == learning_object.id
     assert {"lo_mastery", "facet_recall_mean_by_facet", "mastery"} <= set(features["ability_vector"])
-    assert features["context"] == {"feature_schema": SELECTION_FEATURE_SCHEMA}
+    # The ability vector reads error events through the diagnosis overlay
+    # (2026-10-13), and the receipt says so.
+    assert features["context"] == {"feature_schema": SELECTION_FEATURE_SCHEMA, "error_events": "diagnosis_overlay"}
     with connect(paths.sqlite_path) as connection:
         largest_row = connection.execute(
             "SELECT MAX(LENGTH(ability_vector_json) + LENGTH(item_demand_vector_json) + LENGTH(context_json)) FROM decision_features WHERE decision_type = 'selection'"

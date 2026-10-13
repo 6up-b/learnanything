@@ -15,7 +15,8 @@ recorded before the tag keep ``reference_status = not_applicable``
 route-check-in-grader (owner decision 2026-10-13) removed mvp-0.17's separate
 route check from serving, so mvp-0.17 to mvp-0.19 grade new answers as its kill
 switch defined (as mvp-0.16), and the route rules in the grader followed as
-mvp-0.20, the latest successor (``tests/test_mvp020_upgrade.py``).
+mvp-0.20 (``tests/test_mvp020_upgrade.py``), then value-of-information
+stopping as mvp-0.21, the latest successor (``tests/test_mvp021_upgrade.py``).
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from learnloop.algorithm_versions import (
     SOURCE_REFERENCE_GATE_VERSIONS,
     STUCK_PROMPT_VERSIONS,
     SUCCESSOR_CHAIN,
+    VOI_STOPPING_ALGORITHM_VERSION,
 )
 from learnloop.attempts.grading_support import route_rules_active
 from learnloop.cli import app
@@ -67,20 +69,21 @@ from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
 def test_the_sources_successors_follow_the_route_check_and_keep_every_predecessor():
     assert (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION) == ("mvp-0.18", "mvp-0.19")
-    # The route rules in the grader (mvp-0.20) followed them.
-    assert SUCCESSOR_CHAIN[-4:] == (
+    # The route rules in the grader (mvp-0.20) and value-of-information
+    # stopping (mvp-0.21) followed them.
+    assert SUCCESSOR_CHAIN[-5:] == (
         PROOF_ROUTE_CHECK_ALGORITHM_VERSION, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
-        SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
+        SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION,
     )
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.20"
-    assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset({"mvp-0.18", "mvp-0.19", "mvp-0.20"})
-    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20"})
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset({"mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21"})
+    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20", "mvp-0.21"})
     # The chain is linear: each means every predecessor's semantics PLUS its own.
     for version in (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION):
         for versions in (
@@ -182,7 +185,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.17 -> mvp-0.20" in result.output
+    assert "mvp-0.17 -> mvp-0.21" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output

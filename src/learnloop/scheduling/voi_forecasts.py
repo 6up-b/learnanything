@@ -57,6 +57,18 @@ VOI_SITES = (
     # Canonical sources S2b (mvp-0.19): a source-first need's decision-mode
     # valuation (stop marks the need stale; measure orders its imports).
     "source_need_selection",
+    # Value-of-information stopping (mvp-0.21): each stop/continue decision
+    # where it acts (diagnosis.voi_forecasting.VALUE_DECISION_SITES): a probe
+    # episode's next observation (at its committed presentation; a stop at
+    # the episode's completion or at the offer it withheld the probe from), a
+    # follow-up (one per followup_value_decisions receipt), a teach-back kept
+    # or dropped (one per Today offer, router R1's grain) and a due project
+    # probe admitted or held back (one per plan-block decision, R1's
+    # plan_block row as its decision_ref).
+    "probe_episode_value_decision",
+    "followup_value_decision",
+    "teach_back_value_decision",
+    "project_probe_value_decision",
 )
 
 PROVENANCES = ("measured", "population_prior", "heuristic", "structural")

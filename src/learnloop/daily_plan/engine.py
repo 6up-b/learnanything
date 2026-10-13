@@ -76,6 +76,7 @@ from learnloop.daily_plan.reentry import ReentryGap, reentry_gap
 from learnloop.daily_plan.split import redistribute, split_v1
 from learnloop.daily_plan.types import (
     AFTER_REENTRY_LANE_PRIORITY,
+    BLOCK_MAX_MINUTES,
     CONTINUE_CURRENT,
     LANE_ACTIONS,
     LANES,
@@ -468,6 +469,11 @@ class _Pool:
     estimator: Estimator
     deadlines: dict[str, str]
     repair_rule: str = REPAIR_RULE_DIAGNOSIS
+    #: A build's requests (L3), selected once before the due project probes
+    #: are valued (Codex review of voi-v2, F14): requested probes and ordinary
+    #: requests under one rule, in pool order. None: the split selects them
+    #: from the classified pool (no probe valuation, as before).
+    request_ids: tuple[str, ...] | None = None
 
 
 def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
@@ -488,6 +494,85 @@ def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
         return store.open_diagnosed_problem_learning_object_ids(connection), REPAIR_RULE_DIAGNOSIS
 
 
+def _select_requests(pool: Sequence[PoolItem], *, budget: float, per_session: int) -> tuple[list[PoolItem], float]:
+    """Requests first (L3): up to ``per_session`` requested items with a lane,
+    in pool order, while their estimates fit the budget; they go in the first
+    block and their minutes come off the budget before the split."""
+
+    requests: list[PoolItem] = []
+    requested_minutes = 0.0
+    for item in pool:
+        if len(requests) >= per_session:
+            break
+        if not item.requested or item.lane is None:
+            continue
+        if requested_minutes + item.est_minutes > budget + _EPS:
+            continue
+        requests.append(item)
+        requested_minutes += item.est_minutes
+    return requests, requested_minutes
+
+
+def _request_candidate(item: PoolItem, lanes_allowed: Sequence[str]) -> PoolItem:
+    """A pool item as the request rule sees it before the probes are valued.
+
+    A requested project probe is a learner request like any other (L3: the
+    learner's explicit choice is honoured, and lane eligibility never blocks
+    it): it is eligible in the maintain lane, its lane, whenever the plan
+    allows maintain, whatever the probes' value or the former daily count
+    (Codex review of voi-v2, F14). Every other item keeps its classification.
+    """
+
+    if item.requested and item.check_kind == "project_probe":
+        return replace(item, lane="maintain" if "maintain" in set(lanes_allowed) else None)
+    return item
+
+
+def _plan_availability(record: PlanRecord, held: Iterable[str]) -> Callable[[str], str | None]:
+    """Why a due project probe cannot join this plan on a refresh, or None
+    (Codex review of voi-v2, F10).
+
+    The refresh's admission values only probes the plan can still take, the
+    same ones :func:`_context` leaves in the pool: in the plan's frozen
+    universe, and neither skipped nor answered in it. ``held`` (planned, not
+    yet answered, or a request a crash left unplaced) are conditioned on, not
+    excluded. A skipped or answered probe, or one outside the universe, would
+    otherwise be admitted, suppress an overlapping probe the plan can take,
+    and then be dropped by the context, leaving neither."""
+
+    universe = set(record.split.get("universe") or [])
+    keep = set(held)
+    skipped = {item.practice_item_id for item in record.items() if item.skipped}
+    answered = {item.practice_item_id for item in record.items() if item.done and not item.displaced}
+
+    def why(item_id: str) -> str | None:
+        if item_id in keep:
+            return None
+        if item_id in skipped:
+            return "skipped_in_this_plan"
+        if item_id in answered:
+            return "answered_in_this_plan"
+        if item_id not in universe:
+            return "outside_plan_universe"
+        return None
+
+    return why
+
+
+def _usable_probe_minutes(*, minutes: float, reserved: float, lanes_allowed: Sequence[str]) -> float:
+    """The minutes due project probes are admitted against (final verify F10):
+    the plan's minutes (its budget on a build, its minutes left on a refresh)
+    less what is reserved before the split (the requested items), and none
+    when the plan's lanes exclude maintain, the probes' lane. The maintain
+    lane's share is not a bound: idle lanes release their minutes to maintain
+    first (``redistribute``), so a probe that fits these minutes can be
+    planned."""
+
+    if "maintain" not in set(lanes_allowed):
+        return 0.0
+    return max(float(minutes) - float(reserved), 0.0)
+
+
 def _classified_pool(
     env: PlanEnv,
     *,
@@ -495,7 +580,27 @@ def _classified_pool(
     lanes_allowed: Sequence[str],
     day: Sequence[PlanRecord],
     reentry: bool,
+    record: PlanRecord | None = None,
+    minutes_left: float | None = None,
 ) -> _Pool:
+    """The scheduler's ranked list, classified into lanes (§6.1).
+
+    ``record`` is the open plan on a refresh (None on a build). At mvp-0.21
+    the due project probes are valued together against the minutes the plan
+    can use (final verify F10): on a build, the budget less the requested
+    items reserved before the split; on a refresh, the plan's minutes left
+    (``minutes_left`` when a minutes change is re-planning the rest), with the
+    probes it already holds (planned, not yet answered) conditioned on and not
+    charged again.
+
+    Codex review of voi-v2: on a build the requests are selected first, once,
+    requested probes and ordinary requests under the one rule (F14,
+    :func:`_request_candidate`); a requested probe chosen as a request is
+    conditioned on, not valued or charged again, and the split uses exactly
+    these requests (``_Pool.request_ids``). On a refresh only probes the plan
+    can still take are valued (F10, :func:`_plan_availability`).
+    """
+
     scheduled = env.build_eligible(minutes)
     estimator = _estimator(env)
     states = env.repository.practice_item_states()
@@ -503,27 +608,195 @@ def _classified_pool(
     ids = [item.practice_item_id for item in scheduled]
     checks = scheduled_checks(env.vault, env.repository, ids)
     probes_planned = sum(
-        1 for record in day for item in record.active_items() if item.check_kind == "project_probe"
+        1 for record_ in day for item in record_.active_items() if item.check_kind == "project_probe"
     )
     deadlines = _deadlines(env.vault, env.repository)
     open_problems, repair_rule = _open_problems(env)
-    pool = classify_pool(
-        scheduled,
-        item_states=states,
-        requested_ids=requested,
-        now=env.now(),
-        estimate=lambda item_id: estimator.item_minutes(env.vault, item_id),
-        checks=checks,
-        probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
-        deadline_learning_object_ids=deadlines,
-        open_problem_learning_object_ids=open_problems,
-    )
-    if reentry:
-        pool = reentry_order(pool)
-    pool = [item if item.lane in lanes_allowed else replace(item, lane=None) for item in pool]
+
+    def classify(admission: Any) -> list[PoolItem]:
+        classified = classify_pool(
+            scheduled,
+            item_states=states,
+            requested_ids=requested,
+            now=env.now(),
+            estimate=lambda item_id: estimator.item_minutes(env.vault, item_id),
+            checks=checks,
+            probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
+            deadline_learning_object_ids=deadlines,
+            open_problem_learning_object_ids=open_problems,
+            project_probe_admission=admission,
+        )
+        if reentry:
+            classified = reentry_order(classified)
+        return [item if item.lane in lanes_allowed else replace(item, lane=None) for item in classified]
+
+    admission = None
+    request_ids: tuple[str, ...] | None = None
+    from learnloop.diagnosis import voi_stopping as voi
+
+    if voi.voi_stopping_active(env.vault.config, voi.SITE_PROJECT_PROBE):
+        held: dict[str, str] = {}
+        availability: Callable[[str], str | None] | None = None
+        if record is None:
+            # A build: requests first (L3), before the probes are valued, so
+            # they do not depend on the probes' value. Requested probes and
+            # ordinary requests share the rule, the order and the limit (F14);
+            # each request is charged once, here.
+            requests, reserved = _select_requests(
+                [_request_candidate(item, lanes_allowed) for item in classify(None)],
+                budget=float(minutes),
+                per_session=int(env.vault.config.tutor_promotion.requested_items_per_session),
+            )
+            request_ids = tuple(item.practice_item_id for item in requests)
+            usable = _usable_probe_minutes(minutes=minutes, reserved=reserved, lanes_allowed=lanes_allowed)
+            held = {
+                item.practice_item_id: voi.REASON_LEARNER_REQUEST
+                for item in requests
+                if item.check_kind == "project_probe"
+            }
+        else:
+            # A refresh: the minutes left already exclude every planned block;
+            # requests a crash left unplaced (the plan row without its first
+            # block) are still to come off them, and a requested probe among
+            # them is conditioned on as the build would have.
+            pending = 0.0
+            if not record.blocks and not record.receipts:
+                for row in record.split.get("requested") or []:
+                    pending += float(row.get("est_minutes") or 0.0)
+                    held[str(row.get("practice_item_id"))] = voi.REASON_LEARNER_REQUEST
+            usable = _usable_probe_minutes(
+                minutes=record.minutes_left() if minutes_left is None else float(minutes_left),
+                reserved=pending,
+                lanes_allowed=lanes_allowed,
+            )
+            for item in record.items():
+                if item.check_kind == "project_probe" and not item.resolved:
+                    held.setdefault(item.practice_item_id, voi.REASON_ALREADY_PLANNED)
+            availability = _plan_availability(record, held)
+        admission = _project_probe_admission(
+            env,
+            probes_planned,
+            minutes_budget=usable,
+            preselected=held,
+            availability=availability,
+        )
+    pool = classify(admission)
     return _Pool(
-        scheduled=list(scheduled), pool=pool, estimator=estimator, deadlines=deadlines, repair_rule=repair_rule
+        scheduled=list(scheduled),
+        pool=pool,
+        estimator=estimator,
+        deadlines=deadlines,
+        repair_rule=repair_rule,
+        request_ids=request_ids,
     )
+
+
+def _project_probe_admission(
+    env: PlanEnv,
+    probes_planned: int,
+    *,
+    minutes_budget: float | None = None,
+    preselected: Mapping[str, str] | Sequence[str] = (),
+    availability: Callable[[str], str | None] | None = None,
+) -> Callable[[Sequence[tuple[Any, float]]], list[tuple[str, Mapping[str, Any]]]] | None:
+    """mvp-0.21 (``voi_stopping``, site ``project_probe``): value today's due
+    project probes instead of counting them; ``None`` keeps the former daily
+    cap.
+
+    A project probe has no locked hypothesis set, so no next-action decision
+    is at stake: its information is the scheduler's ``probe_eig_total`` for
+    the item (LO-mastery and facet-recall entropy reduction, familiarity
+    discounted), decomposed from the item's reward body so each probe is
+    valued given the belief the probes admitted before it are expected to
+    leave, converted to minutes and set against the plan's own estimate of its
+    minutes. Probes are admitted greedily by robust value per minute while the
+    best remaining one pays (``voi_stopping.greedy_information_admission``),
+    the first included. The former cap's counterfactual counts the probes
+    already planned today plus those admitted before each step.
+
+    Feasibility is part of the selection (review F10): with the plan's
+    ``minutes_budget``, a probe is admissible only while it fits the minutes
+    the probes admitted before it leave, and only when it fits one block
+    (``BLOCK_MAX_MINUTES``, never more than the budget), so a probe the plan
+    could not hold neither takes a slot nor discounts the probes after it.
+    ``minutes_budget`` is what the plan can use (final verify F10,
+    :func:`_usable_probe_minutes`): after the requested items and on a
+    refresh the minutes left, never the plan's whole budget; ``preselected``
+    are the probes the plan already holds, conditioned on and not charged
+    (a mapping names each one's reason: ``already_planned``, or
+    ``learner_request`` for a requested probe chosen as a request, F14).
+    ``availability`` (a refresh, F10) names why a probe cannot join the plan:
+    such a probe is neither valued nor conditioned on, and its receipt says
+    ``not_available_to_this_plan``. The lanes' shares are not a bound: the
+    maintain lane can receive the plan's whole minutes when the other lanes
+    are idle.
+    """
+
+    from learnloop.diagnosis import voi_stopping as voi
+
+    if not voi.voi_stopping_active(env.vault.config, voi.SITE_PROJECT_PROBE):
+        return None
+    context = voi.VoiContext(env.vault, env.repository)
+    cap = int(env.plan_config.project_probes_max_per_day)
+
+    reasons = (
+        {str(ref): str(reason) for ref, reason in preselected.items()}
+        if isinstance(preselected, Mapping)
+        else {str(ref): voi.REASON_ALREADY_PLANNED for ref in preselected}
+    )
+
+    def admit(probes: Sequence[tuple[Any, float]]) -> list[tuple[str, Mapping[str, Any]]]:
+        entries = []
+        unavailable: list[tuple[str, str]] = []
+        for order, (scheduled, est_minutes) in enumerate(probes):
+            why = availability(scheduled.practice_item_id) if availability is not None else None
+            if why is not None:
+                unavailable.append((scheduled.practice_item_id, why))
+                continue
+            components = getattr(scheduled, "components", {}) or {}
+            eig = float(components.get("probe_eig_total", 0.0) or 0.0)
+            entries.append(
+                voi.InformationEntry(
+                    ref=scheduled.practice_item_id,
+                    learning_object_id=scheduled.learning_object_id,
+                    eig_nats=eig,
+                    minutes=voi.MinutesEstimate(float(est_minutes), "plan_estimate"),
+                    predicted_correct=components.get("predicted_correctness"),
+                    terms=voi.InformationTerms.from_reward_debug(
+                        scheduled.learning_object_id,
+                        getattr(scheduled, "reward_debug", None),
+                        total_nats=eig,
+                        hypothesis_channel=getattr(scheduled, "hypothesis_channel", None),
+                    ),
+                    detail={"former_order": order},
+                )
+            )
+        # A requested probe chosen as a request is not planned yet; the former
+        # cap's counterfactual counts it with the probes planned today.
+        refs = {entry.ref for entry in entries}
+        requested = sum(1 for ref, reason in reasons.items() if ref in refs and reason == voi.REASON_LEARNER_REQUEST)
+        admission = voi.greedy_information_admission(
+            context,
+            voi.SITE_PROJECT_PROBE,
+            entries,
+            cap_value=cap,
+            cap_count=int(probes_planned) + requested,
+            context={"probes_planned_today": int(probes_planned)},
+            minutes_budget=minutes_budget,
+            max_item_minutes=(
+                None if minutes_budget is None else min(float(BLOCK_MAX_MINUTES), float(minutes_budget))
+            ),
+            preselected=tuple(reasons),
+            preselected_reasons=reasons,
+        )
+        first = list(admission.preselected) + list(admission.admitted)
+        ordered = first + [entry.ref for entry in entries if entry.ref not in set(first)]
+        decided = [(ref, receipt) for ref in ordered if (receipt := admission.receipt_for(ref)) is not None]
+        return decided + [
+            (ref, voi.not_in_plan_receipt(voi.SITE_PROJECT_PROBE, ref, why)) for ref, why in unavailable
+        ]
+
+    return admit
 
 
 def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
@@ -643,17 +916,16 @@ def _prepare_plan(
     # Requests first (L3): up to requested_items_per_session go in the first
     # block, their estimates deducted from the budget before the split.
     per_session = int(env.vault.config.tutor_promotion.requested_items_per_session)
-    requests: list[PoolItem] = []
-    requested_minutes = 0.0
-    for item in pool:
-        if len(requests) >= per_session:
-            break
-        if not item.requested or item.lane is None:
-            continue
-        if requested_minutes + item.est_minutes > budget + _EPS:
-            continue
-        requests.append(item)
-        requested_minutes += item.est_minutes
+    if built.request_ids is not None:
+        # Selected once, before the due project probes were valued (F14): the
+        # same requests whose minutes the probes' admission left out.
+        by_id = {item.practice_item_id: item for item in pool}
+        requests = [
+            by_id[item_id] for item_id in built.request_ids if item_id in by_id and by_id[item_id].lane is not None
+        ]
+        requested_minutes = sum(item.est_minutes for item in requests)
+    else:
+        requests, requested_minutes = _select_requests(pool, budget=budget, per_session=per_session)
     request_ids = {item.practice_item_id for item in requests}
     rest = [item for item in pool if item.practice_item_id not in request_ids]
     loads = {lane: 0.0 for lane in LANES}
@@ -957,13 +1229,17 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     )
 
 
-def _live_context(env: PlanEnv, record: PlanRecord) -> tuple[PoolContext, _Pool]:
+def _live_context(
+    env: PlanEnv, record: PlanRecord, *, minutes_left: float | None = None
+) -> tuple[PoolContext, _Pool]:
     built = _classified_pool(
         env,
         minutes=record.budget,
         lanes_allowed=record.lanes_allowed,
         day=day_records(env),
         reentry=record.kind == "reentry",
+        record=record,
+        minutes_left=minutes_left,
     )
     return _context(env, record, built, day=()), built
 
@@ -1317,6 +1593,11 @@ def _boundary(
             for item in forced
         ],
     }
+    voi_decisions = [dict(item.voi) for item in context.pool if item.voi is not None]
+    if voi_decisions:
+        # mvp-0.21: the value-of-information decisions on today's due project
+        # probes (admitted or held back), logged with the block decision.
+        detail["voi_decisions"] = voi_decisions
     candidate = decision.candidate
     if candidate is None and not forced:
         _close(
@@ -1392,7 +1673,26 @@ def _boundary(
             releases=releases,
             block_id=block_id,
         )
+    _record_probe_value_forecasts(env, detail, block_id=block_id, decision_ref=decision_ref)
     return block_id
+
+
+def _record_probe_value_forecasts(
+    env: PlanEnv, detail: Mapping[str, Any], *, block_id: str, decision_ref: str | None
+) -> None:
+    """mvp-0.21 composed with EVSI calibration: the block decision's due
+    project probe receipts as ``voi_forecasts`` rows, after the block (and
+    router R1's ``plan_block`` row, its ``decision_ref``) committed. Logging
+    only, behind ``evsi.forecast_logging``."""
+
+    receipts = detail.get("voi_decisions") or ()
+    if not receipts:
+        return
+    from learnloop.diagnosis import voi_stopping as voi
+
+    voi.record_plan_value_forecasts(
+        env.vault, env.repository, list(receipts), block_id=block_id, decision_ref=decision_ref
+    )
 
 
 def _persist_receipt(
@@ -1498,6 +1798,10 @@ def _close(
             updated_at=now,
             completed_at=now,
         )
+    if stop_detail is not None and log_decision:
+        # The chooser's stop is a block-boundary decision too: its due project
+        # probes' value decisions are forecasts (after the stop committed).
+        _record_probe_value_forecasts(env, detail, block_id=receipt_id, decision_ref=decision_ref)
 
 
 # -- reconciliation ---------------------------------------------------------------
@@ -1870,6 +2174,7 @@ def advance_with_context(
         lanes_allowed=record.lanes_allowed,
         day=day_records(env),
         reentry=record.kind == "reentry",
+        record=record,
     )
     record, forced = _insert_followups(env, record, built)
     context = _context(env, record, built, day=())
@@ -2162,7 +2467,9 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
     now = env.now_iso()
     split = record.split
     if abs(budget - record.budget) > _EPS and record.status in ("open", "complete"):
-        context, built = _live_context(env, record)
+        # The pool the new split is sized from; due project probes are valued
+        # against the minutes the NEW budget leaves (final verify F10).
+        context, built = _live_context(env, record, minutes_left=max(budget - record.minutes_planned(), 0.0))
         allotment, spent = record.ledger()
         pool_loads = {lane: 0.0 for lane in LANES}
         for item in context.pool:

@@ -84,6 +84,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/learner_gaps.py",
         # EVSI calibration Part B: the append-only voi_forecasts receipts.
         "src/learnloop/db/stores/voi_forecasts.py",
+        # mvp-0.21 value-of-information stopping: the follow-up value
+        # decisions' append-only receipts (one row per decision).
+        "src/learnloop/db/stores/followup_value.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

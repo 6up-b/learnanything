@@ -1053,7 +1053,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # moves only because the effective config loses the route; all twelve
     # were recomputed from the composed defaults, UX Phase 1's keys included
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "14f06b9c5ba397fdb1b1d13fb879cc0de343078ad5e9c62e4053df14be3d3c53",
+    # Value-of-information stopping (serving/voi-stopping; built as successor
+    # mvp-0.17, a placeholder tag, and relabelled mvp-0.21 at its merge after
+    # the route rules) adds [voi_stopping] (modelled defaults only, left out of
+    # the decision-only template: the kill switch, one sub-switch per site and
+    # voi-v2's three switches from the multi-family EVSI study,
+    # robust_gate_with_value, lookahead_max_checks and robust_quantile) and
+    # diagnosis.probe_lane_reads_diagnosis / diagnosis.probe_lane_pending
+    # (Part 2's switch and pending rule). All are dormant below mvp-0.21 (the
+    # algorithm version gates them), so mvp-0.9 to mvp-0.20 serving is
+    # unchanged; every snapshot moves only because the effective config gains
+    # the keys, and all thirteen were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "02083a7806a7e456b1860d2a99ae8a4caeece46092278d998a647eb10a00a7c3",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1079,7 +1091,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.10": "485484f6921445d002fb4a2649783db9ce2360e0e1bd633b0a13bc8e14937b22",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.10": "7971d0019e2e94dac2aec50401684271dffcec9c3628006e9a768aaf871cfa0d",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1113,7 +1127,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.11": "1284007007d9480542032dfbc5a76229831395f93befdd943ec1ace2ac0ff700",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.11": "576a1854e3e7054af101dd61735f2d2ecfcdc0f9a8fe27799a8ae92e145432b2",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1141,7 +1157,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.12": "5f39daf29a9161b66e531b525f2584068ce45df35d78918ebb9f9c14b2205842",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.12": "a40600230389c6c9bf2313adc24537126e33e36a6ce76e753673e49031aa4d3b",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1164,7 +1182,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.13": "121a33dd788ad7102048d68884166e76c0de1f84c3b453fe5f1a7be1255e6c1f",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.13": "d8fde6ce04bdf1804f02455143b490d0e369d0ceca8103cf2e5ba74177d94e43",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1186,7 +1206,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.14": "29505eb752008dc7ad9759576930ff36972ac932a64807ea8ca16860eac8d79c",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.14": "b493a387a0ecfa0493ec263833d0630acf44aaa8dd76c040c07df6433c425d3d",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1206,7 +1228,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.15": "d59b23c3853e018820a2e49aabf788f45c76006a9d56be53b96677a0eb42da8b",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.15": "7579862a8e63fc7078d0abe4a978ae561421e2bd1df64519ad562d673e5254a8",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1233,7 +1257,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.16": "4c05869a2983ef128300bee267de3d9a5022afc093de7e8fe996a24954ec821c",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.16": "dd17cdd9b2cc7b3da9086f23282c31de1c8f479081dc97469453638a731725f6",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1256,7 +1282,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # check from serving: an mvp-0.17 vault grades new answers as its kill
     # switch defined (as mvp-0.16), and the retired route moves it too (see
     # mvp-0.9).
-    "mvp-0.17": "52ff49144c88d63db69ae4e22297be1c9faa584c74f5b74839b63bd2683231f3",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.17": "488b43883fe08313db8293db5cfe980ba7e8b8ccc310168f1d28b662f88f07ef",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1272,7 +1300,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9; the
     # separate check no longer runs here either).
-    "mvp-0.18": "3f58d2eaefb82ebd67960307b58d0d4d9cad71cf13abc0337a11471a0ae48a2f",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.18": "48febe4958bc2c6afdfc01bde0ba21ac9dc1b91f6a6fc9fc2346a9c993e3bde5",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1288,7 +1318,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9; the
     # separate check no longer runs here either).
-    "mvp-0.19": "7841482e1a953b46322bb25f20a75d1d76e28c9e118d52a709f2a5fabd95aeda",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.19": "8f6fc3e6e46f5ee3d9fe4c14a73cb62e1abbb43d8c8fb358c9d2032f22aaaeb3",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1298,9 +1330,33 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # switch proof_check.enabled (default on). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.19, or from mvp-0.9 to
     # mvp-0.18 through the chain (under mvp-0.12's advisory guard). New
-    # vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
-    # decision 2026-10-12).
-    "mvp-0.20": "c1d73f956bb1685a0592817d295e3778e894e4f0a3645bee7a96ada98149ceb3",
+    # vaults started here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12) until mvp-0.21 merged.
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.21).
+    "mvp-0.20": "47dab860c1097138c20faf555e5ecd83b8358f3fd285e719f21b33c70806ca6e",
+    # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
+    # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
+    # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
+    # value of information (probe observations per session, further follow-ups
+    # per LO per session, further teach-backs per queue, due project probes per
+    # day: each served while its value pays for its minutes; kill switch
+    # voi_stopping.enabled, a sub-switch per site), and Part 2, the probe
+    # hypothesis lane reading the diagnoser's verdict through the diagnosis
+    # overlay and holding out a pending diagnosis (kill switch
+    # diagnosis.probe_lane_reads_diagnosis; diagnosis.probe_lane_pending =
+    # "hold_out"). No new constants: the value rule reads robust_composition's
+    # heuristic decision parameters. voi-v2: the value rule also reads the
+    # multi-family EVSI study's switches, at its recommendations (the robust
+    # completion gate does not end a value-decided episode, a 2-3 check
+    # lookahead at probe episodes, the value gate's robust quantile 0.25);
+    # true / 1 / 0.10 restore the successor as it was before the study.
+    # evsi.measured_loss_enabled (default off) also reaches its loss table at
+    # the merge (rank 4). Existing vaults reach it by `learnloop upgrade`
+    # (default target) from mvp-0.20, or from mvp-0.9 to mvp-0.19 through the
+    # chain (under mvp-0.12's advisory guard). New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.21": "6ea276fa7e5774d049089f95466354cd59b5861a8f9813f47f89823820edcdad",
 }
 
 

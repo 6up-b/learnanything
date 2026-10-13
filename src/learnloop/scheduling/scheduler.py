@@ -33,6 +33,7 @@ from learnloop.diagnosis.probe_episodes import (
     presentation_commit_payload,
     probe_serving_block_reason,
     record_presentation_forecast,
+    robust_gate_counterfactual,
 )
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
@@ -47,6 +48,7 @@ from learnloop.scheduling.serving_exclusions import (
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
 )
+from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling.selection_rewards import (
     SchedulerIntent,
     ability_vector,
@@ -87,6 +89,13 @@ class ScheduledItem:
     followup_kind: str | None = None
     scheduler_slate_id: str | None = None
     scheduler_candidate_id: str | None = None
+    #: mvp-0.21 (voi_stopping): an in-episode probe's likelihood rows over its
+    #: open episode's hypotheses (``{belief_key, prior, likelihood,
+    #: objective}``), so checks chosen together (teach-backs, project probes)
+    #: value its hypothesis information over the expected posterior branches
+    #: the others leave (``voi_stopping.HypothesisChannel``). Never persisted,
+    #: never compared; None below mvp-0.21 and for every other item.
+    hypothesis_channel: Mapping[str, Any] | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -140,6 +149,12 @@ class OfferTrace:
     session_context: dict[str, Any] = field(default_factory=dict)
     #: The configuration that shaped the build (hashed into the decision).
     config_snapshot: dict[str, Any] = field(default_factory=dict)
+    #: mvp-0.21: every value-of-information stop/continue decision the build
+    #: made (probe episodes, further teach-backs), each with its forecast.
+    voi_decisions: tuple[dict[str, Any], ...] = ()
+    #: The exclusion reason for teach-back items the composition dropped:
+    #: the count cap below mvp-0.21, their value at it.
+    teach_back_exclusion_reason: str = "teach_back_session_cap"
 
 
 @pinned_repository_call
@@ -195,6 +210,19 @@ def build_due_queue(
         repository,
         session_id=session.session_id,
         cap_lifted=cap_lifted,
+    )
+    # mvp-0.21 (voi_stopping): the session's qualifying-observation cap no
+    # longer blocks probes; each episode's next observation is served while
+    # its value pays for its minutes. A calibration session (an explicit
+    # learner opt-in) lifts the value gate as it lifted the cap.
+    voi_context = voi.VoiContext(vault, repository)
+    voi_probe_active = voi.voi_stopping_active(config, voi.SITE_PROBE_EPISODE) and not cap_lifted
+    voi_probe_decisions: dict[str, voi.SiteDecision] = {}
+    # Checks chosen together (teach-backs here, project probes in the plan)
+    # need an in-episode probe's likelihood rows to value its hypothesis
+    # information conditionally (review F2 reopened).
+    carry_hypothesis_channels = voi.voi_stopping_active(config, voi.SITE_TEACH_BACK) or voi.voi_stopping_active(
+        config, voi.SITE_PROJECT_PROBE
     )
     item_states = repository.practice_item_states()
     quality_states = repository.practice_item_quality_states()
@@ -481,6 +509,7 @@ def build_due_queue(
             goal_frontier_component *= exposure
         components["goal_frontier"] = goal_frontier_component
         probe_familiarity_discount = 1.0
+        hypothesis_channel: dict[str, Any] | None = None
 
         probe_surface_repeat = False
         if in_probe and episode.hypothesis_set_id is not None:
@@ -511,7 +540,28 @@ def build_due_queue(
             # this episode's locked set (admitted card, or the logged registry
             # fallback) are probe candidates. Everything else scores zero
             # hypothesis EIG and stays ordinary practice.
-            if context is not None and eligible_entry is not None:
+            voi_withheld = False
+            if context is not None and eligible_entry is not None and voi_probe_active:
+                voi_decision = voi_probe_decisions.get(episode.id)
+                if voi_decision is None:
+                    voi_decision = voi.probe_episode_decision(
+                        voi_context,
+                        episode,
+                        list(_load_episode_eligible(vault, repository, episode, context, episode_eligible_cache).values()),
+                        context[1],
+                        session_id=session.session_id,
+                    )
+                    voi_probe_decisions[episode.id] = voi_decision
+                voi_value = voi_decision.value_for(item.id)
+                if voi_value is not None:
+                    components["voi_value_minutes"] = voi_value.value_robust_minutes
+                    components["voi_cost_minutes"] = voi_value.cost_minutes
+                if not voi_decision.admits(item.id):
+                    # Not worth its minutes this refresh: the item is not a
+                    # probe candidate (a diagnostic surface stays reserved).
+                    components["voi_stop"] = 1.0
+                    voi_withheld = True
+            if context is not None and eligible_entry is not None and not voi_withheld:
                 hypothesis_set, posterior, entropy_before = context
                 rubric = vault.rubric_for_item(item)
                 prospective_coverage = resolve_coverage(
@@ -560,6 +610,13 @@ def build_due_queue(
                     components["probe_eig_familiarity_discount"] = probe_familiarity_discount
                     probe_item_ids[item.id] = episode.hypothesis_set_id
                     probe_entropy_before[item.id] = entropy_before
+                    if carry_hypothesis_channels:
+                        hypothesis_channel = voi.hypothesis_channel_body(
+                            str(episode.id),
+                            eligible_entry,
+                            posterior,
+                            objective="predictive_eig" if predictive_primary else "hypothesis_eig",
+                        )
 
         if item.practice_mode == "diagnostic_probe" and components.get("probe_eig", 0.0) <= 0.0:
             # In an open probe episode but not servable as a probe this refresh
@@ -570,7 +627,11 @@ def build_due_queue(
             reason = (
                 "diagnostic probe excluded: surface group already administered"
                 if probe_surface_repeat
-                else "diagnostic probe reserved: no eligible probe binding this refresh"
+                else (
+                    "diagnostic probe withheld: its value does not pay for its minutes this refresh"
+                    if components.get("voi_stop", 0.0) > 0.0
+                    else "diagnostic probe reserved: no eligible probe binding this refresh"
+                )
             )
             probe_reserved_exclusions.append(
                 ScheduledItem(
@@ -584,7 +645,10 @@ def build_due_queue(
                     reward_debug=None,
                 )
             )
-            withheld("diagnostic_reserved", item.id)
+            withheld(
+                "voi_value_below_minutes_cost" if components.get("voi_stop", 0.0) > 0.0 else "diagnostic_reserved",
+                item.id,
+            )
             continue
 
         legacy_priority = _priority(components, config)
@@ -657,6 +721,7 @@ def build_due_queue(
                 selected_mode=item.practice_mode,
                 plain_english=plain_english,
                 reward_debug=reward.as_debug(),
+                hypothesis_channel=hypothesis_channel,
             )
         )
 
@@ -674,6 +739,13 @@ def build_due_queue(
     # policy, which is what off-policy estimation reweights by.
     propensity_by_id = _selection_propensities(queue, session, config)
     greedy_queue = list(queue)
+    # mvp-0.21 (voi_stopping): no teach-back count; each teach-back stays
+    # while its value, conditional on those already kept, pays for its
+    # minutes (a teach-back is a valued probe, router D11). Valued once,
+    # before the draw.
+    teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
+        vault, voi_context, greedy_queue, config
+    )
     queue = _apply_seeded_exploration(queue, session, config, now)
 
     def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
@@ -681,7 +753,9 @@ def build_due_queue(
         # for the live build and for router R1's counterfactual outcomes, so an
         # offer's logged propensity is computed through exactly these steps;
         # ``record`` is False only for those counterfactuals (no audit rows).
-        composed = _enforce_teach_back_session_cap(composed, config.teach_back.session_cap)
+        composed = _enforce_teach_back_session_cap(
+            composed, config.teach_back.session_cap, admitted=teach_back_admitted
+        )
         # Goal-composition quota: guarantee a floor share of goal-frontier items in the
         # ordered queue while a goal has at-risk facets. Applied before the limit slice
         # so the floor holds even in short sessions, and before follow-up insertion
@@ -833,6 +907,55 @@ def build_due_queue(
                                     "greedy_item_id": greedy_queue[0].practice_item_id,
                                 },
                             }
+                        voi_decision = voi_probe_decisions.get(episode.id)
+                        if voi_decision is not None:
+                            # mvp-0.21: the continue decision that admitted
+                            # this observation. It names value's own pick
+                            # (``recommended_ref``) and the item served, with
+                            # the SERVED item's complete forecast and how it
+                            # came to the front (router R1's seeded
+                            # exploration and its propensity, or the queue's
+                            # greedy order), so calibration scores the answer
+                            # against the forecast of the question asked.
+                            explored = selected.components.get("exploration_selected", 0.0) > 0.0
+                            served_by: dict[str, Any] = {
+                                "mechanism": (
+                                    "scheduler_seeded_exploration" if explored else "scheduler_greedy_order"
+                                ),
+                                # Review F11: the probability this item heads
+                                # the COMPOSED queue (every draw outcome
+                                # recomposed as the build composes), not the
+                                # pre-composition draw's, which is kept apart.
+                                "selection_propensity": _composed_head_probability(
+                                    selected.practice_item_id,
+                                    greedy_queue=greedy_queue,
+                                    considered=considered_queue,
+                                    session=session,
+                                    config=config,
+                                    compose=compose,
+                                    pinned_item_id=None,
+                                ),
+                                "selection_propensity_kind": "composed_outcomes",
+                                "base_draw_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
+                                "greedy_item_id": greedy_queue[0].practice_item_id,
+                            }
+                            if explored:
+                                served_by["exploration_rate"] = selected.components.get("exploration_rate")
+                            # The multi-family EVSI study's rank 1: where value
+                            # outranked the robust completion gate, the
+                            # committed receipt says what the gate would have
+                            # said (computed once per committed observation).
+                            gate_applies, gate_verdict = robust_gate_counterfactual(
+                                vault, repository, episode, context[1]
+                            )
+                            if gate_applies:
+                                voi_decision = voi.with_robust_gate_counterfactual(voi_decision, gate_verdict)
+                            extra_components = {
+                                **(extra_components or {}),
+                                "voi_stopping": voi_decision.as_dict(
+                                    served_ref=selected.practice_item_id, served_by=served_by
+                                ),
+                            }
                         probe_presentation = presentation_commit_payload(
                             vault,
                             repository,
@@ -844,6 +967,13 @@ def build_due_queue(
                         )
                         probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
         ability_by_lo: dict[str, dict[str, object]] = {}
+        # The decision_features receipt reads the error events through the
+        # diagnosis overlay (owner decision 2026-10-12/13, the Guide-fix
+        # audit's question 3): on a split vault its misconception posterior is
+        # the diagnoser's verdict, not the blind grader's taxonomy prior. A
+        # joint-graded event reads as stored, so a joint vault logs what it
+        # always logged. Logging only: nothing here is served.
+        feature_errors_by_lo = _errors_by_learning_object(repository.active_error_events_overlaid())
         for explanation in explanations:
             explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
             explanation["propensity_kind"] = UNAVAILABLE_PROPENSITY_KIND
@@ -855,7 +985,7 @@ def build_due_queue(
                 decision_item,
                 mastery_states=mastery_states,
                 facet_states_by_lo=facet_states_by_lo,
-                errors_by_lo=errors_by_lo,
+                errors_by_lo=feature_errors_by_lo,
                 quality_states=quality_states,
                 ability_by_lo=ability_by_lo,
             )
@@ -874,6 +1004,31 @@ def build_due_queue(
         )
         candidates = {row["practice_item_id"]: row["id"] for row in repository.scheduler_slate_candidates(slate_id)}
         queue = [replace(scheduled, scheduler_slate_id=slate_id, scheduler_candidate_id=candidates[scheduled.practice_item_id]) for scheduled in queue]
+        if voi_probe_decisions or teach_back_voi_decisions:
+            # mvp-0.21 composed with EVSI calibration: the value decisions this
+            # offer acted on (teach-backs kept or dropped, probes withheld) are
+            # forecasts, one per decision per offer (router R1's grain), with
+            # R1's exploration marker on a teach-back the draw moved forward.
+            voi.record_offer_value_forecasts(
+                vault,
+                repository,
+                slate_id=slate_id,
+                candidate_ids=candidates,
+                probe_decisions=voi_probe_decisions,
+                teach_back_receipts=teach_back_voi_decisions,
+                exploration_by_item={
+                    scheduled.practice_item_id: {
+                        "mechanism": "scheduler_seeded_exploration",
+                        "exploration_selected": True,
+                        "exploration_rate": scheduled.components.get("exploration_rate"),
+                        "exploration_propensity": propensity_by_id.get(scheduled.practice_item_id, 0.0),
+                        "greedy_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
+                    }
+                    for scheduled in queue
+                    if scheduled.components.get("exploration_selected", 0.0) > 0.0
+                },
+                clock=clock,
+            )
         committed = repository.active_probe_presentation_for_session(session.session_id)
         if (
             committed is not None
@@ -932,6 +1087,12 @@ def build_due_queue(
                 session, short_session=short_session, readiness_factor=readiness_factor
             ),
         )
+        offer_trace.voi_decisions = tuple(
+            [decision.as_dict() for _episode_id, decision in sorted(voi_probe_decisions.items())]
+            + list(teach_back_voi_decisions)
+        )
+        if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
+            offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"
     return queue
 
 
@@ -1087,6 +1248,9 @@ def _fill_offer_trace(
         "requested_items_per_session": config.tutor_promotion.requested_items_per_session,
         "router": config.router.model_dump(mode="json"),
     }
+    if config.algorithms.algorithm_version in voi.VOI_STOPPING_VERSIONS:
+        # mvp-0.21: the value-of-information switches shape the build too.
+        trace.config_snapshot["voi_stopping"] = config.voi_stopping.model_dump(mode="json")
     rate = clamp(config.scheduler.selection_exploration_rate)
     window = max(config.scheduler.selection_exploration_reward_window, 0.0)
     support = _exploration_support(greedy_queue, session, config)
@@ -1126,12 +1290,31 @@ def _fill_offer_trace(
             ).hexdigest()[:32],
         }
     )
+    outcomes = _support_outcomes(greedy_queue, support, compose, pinned_item_id)
+    realized = next(
+        (index for index, outcome in enumerate(outcomes) if outcome.explored_item_id == realized_item_id),
+        0,
+    )
+    trace.exploration = exploration
+    trace.outcomes = tuple(outcomes)
+    trace.realized = realized
+
+
+def _support_outcomes(
+    greedy_queue: list[ScheduledItem],
+    support: tuple[float, list[ScheduledItem]],
+    compose,
+    pinned_item_id: str | None,
+) -> list[ExplorationOutcome]:
+    """Every outcome of the seeded draw, each recomposed through ``compose``
+    (the live build's own composition, without audit writes) and the committed
+    presentation pin: the greedy order (when ``1 - rate > 0``) first, then one
+    outcome per near-tie alternative."""
+
+    support_rate, alternatives = support
     outcomes: list[ExplorationOutcome] = []
-    realized = 0
     greedy_probability = 1.0 - support_rate
     if greedy_probability > 0:
-        if realized_item_id is None:
-            realized = len(outcomes)
         outcomes.append(
             ExplorationOutcome(
                 None,
@@ -1141,8 +1324,6 @@ def _fill_offer_trace(
         )
     share = support_rate / len(alternatives)
     for alternative in alternatives:
-        if alternative.practice_item_id == realized_item_id:
-            realized = len(outcomes)
         pre = _explore_to_front(list(greedy_queue), alternative, support_rate)
         outcomes.append(
             ExplorationOutcome(
@@ -1151,9 +1332,38 @@ def _fill_offer_trace(
                 tuple(_pin_presentation(compose(pre, record=False), pinned_item_id)),
             )
         )
-    trace.exploration = exploration
-    trace.outcomes = tuple(outcomes)
-    trace.realized = realized
+    return outcomes
+
+
+def _composed_head_probability(
+    practice_item_id: str,
+    *,
+    greedy_queue: list[ScheduledItem],
+    considered: list[ScheduledItem],
+    session: SchedulerSession,
+    config: LearnLoopConfig,
+    compose,
+    pinned_item_id: str | None,
+) -> float:
+    """``P(practice_item_id heads the composed queue)`` over the seeded draw's
+    whole support: each outcome recomposed exactly as the live build composes
+    (router R1's offer-trace machinery), so a teach-back value dropped, a
+    requested floor or a follow-up insertion is accounted for. Review F11: the
+    pre-composition draw probability (``_selection_propensities``) is the
+    probability of the draw, not of the item served."""
+
+    support = _exploration_support(greedy_queue, session, config)
+    if support is None:
+        outcomes = [ExplorationOutcome(None, 1.0, tuple(considered))]
+    else:
+        outcomes = _support_outcomes(greedy_queue, support, compose, pinned_item_id)
+    return float(
+        sum(
+            outcome.probability
+            for outcome in outcomes
+            if outcome.composed and outcome.composed[0].practice_item_id == practice_item_id
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -1366,7 +1576,12 @@ def _selection_decision_features(
     return {
         "ability_vector": ability,
         "item_demand_vector": item_demand,
-        "context": {"feature_schema": SELECTION_FEATURE_SCHEMA},
+        "context": {
+            "feature_schema": SELECTION_FEATURE_SCHEMA,
+            # The ability vector's misconception posterior reads the diagnoser's
+            # verdict where one is in force (the overlay); said, not silent.
+            "error_events": "diagnosis_overlay",
+        },
         "item_snapshot": {
             "content_hash": snapshot_hash,
             "practice_item_id": item.id,
@@ -1985,19 +2200,90 @@ def _rotate_same_day_frontier_repeats(
     return reordered
 
 
-def _enforce_teach_back_session_cap(queue: list[ScheduledItem], cap: int) -> list[ScheduledItem]:
+def _enforce_teach_back_session_cap(
+    queue: list[ScheduledItem],
+    cap: int,
+    *,
+    admitted: frozenset[str] | None = None,
+) -> list[ScheduledItem]:
     """Keep at most ``cap`` teach_back items per built queue (config
-    ``teach_back.session_cap``), preserving order for everything else."""
+    ``teach_back.session_cap``), preserving order for everything else.
+
+    ``admitted`` (mvp-0.21, ``voi_stopping``): the teach-backs whose value of
+    information pays for their minutes, each valued conditionally on those
+    admitted before it; exactly these stay, the first included (the count is
+    neither a cap nor a floor). ``None`` is the count cap exactly.
+    """
 
     capped: list[ScheduledItem] = []
     teach_back_count = 0
     for scheduled in queue:
         if scheduled.selected_mode == "teach_back":
-            if teach_back_count >= cap:
+            if admitted is not None:
+                if scheduled.practice_item_id not in admitted:
+                    continue
+            elif teach_back_count >= cap:
                 continue
             teach_back_count += 1
         capped.append(scheduled)
     return capped
+
+
+def _teach_back_value_admission(
+    vault: LoadedVault,
+    context: "voi.VoiContext",
+    greedy_queue: list[ScheduledItem],
+    config: LearnLoopConfig,
+) -> tuple[frozenset[str] | None, list[dict[str, Any]]]:
+    """mvp-0.21 (c): value every teach-back, greedily and conditionally.
+
+    Returns ``(admitted, receipts)``: ``admitted`` is ``None`` (the count cap
+    serves exactly) unless the teach-back site is on. A teach-back's
+    information is its reward's ``probe_eig_total`` (the existing LO-mastery
+    and facet-recall entropy reduction, familiarity-discounted), decomposed
+    from the reward's own body so each next teach-back is valued given the
+    belief the ones already admitted are expected to leave
+    (``voi_stopping.greedy_information_admission``): two teach-backs that
+    would tell LearnLoop the same thing are not both kept. No hypothesis set
+    is locked for a teach-back, so no next-action decision is at stake and its
+    robust EIG in minutes must exceed its minutes. One receipt per
+    teach-back: the step that admitted it, or the stop that left it out.
+    """
+
+    if not voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
+        return None, []
+    teach_backs = [scheduled for scheduled in greedy_queue if scheduled.selected_mode == "teach_back"]
+    if not teach_backs:
+        return frozenset(), []
+    entries = []
+    for index, scheduled in enumerate(teach_backs):
+        item = vault.practice_items.get(scheduled.practice_item_id)
+        eig = float(scheduled.components.get("probe_eig_total", 0.0) or 0.0)
+        entries.append(
+            voi.InformationEntry(
+                ref=scheduled.practice_item_id,
+                learning_object_id=scheduled.learning_object_id,
+                eig_nats=eig,
+                minutes=context.item_minutes(item),
+                predicted_correct=scheduled.components.get("predicted_correctness"),
+                terms=voi.InformationTerms.from_reward_debug(
+                    scheduled.learning_object_id,
+                    scheduled.reward_debug,
+                    total_nats=eig,
+                    hypothesis_channel=scheduled.hypothesis_channel,
+                ),
+                detail={"greedy_rank": index},
+            )
+        )
+    admission = voi.greedy_information_admission(
+        context, voi.SITE_TEACH_BACK, entries, cap_value=int(config.teach_back.session_cap)
+    )
+    receipts = [
+        receipt
+        for receipt in (admission.receipt_for(scheduled.practice_item_id) for scheduled in teach_backs)
+        if receipt is not None
+    ]
+    return frozenset(admission.admitted), receipts
 
 
 def _load_episode_context(

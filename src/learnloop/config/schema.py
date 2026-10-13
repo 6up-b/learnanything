@@ -37,6 +37,9 @@ class SchedulerFollowupConfig(BaseModel):
     tau_repeated_item_failures: int = 2
     tau_repeated_facet_failures: int = 2
     tau_unfamiliar_intervention: float = 0.85
+    # From mvp-0.21 the kill-switch path only (voi_stopping.followups off):
+    # with it on, a further intervention is queued while its value of
+    # information pays for its minutes.
     max_interventions_per_lo_per_session: int = 1
     cold_start_min_lo_evidence: float = 2.0
     min_target_facet_overlap: float = 0.5
@@ -221,6 +224,9 @@ class ProbeEpisodeConfig(BaseModel):
     open_set_trigger_threshold: float = 0.35
     hinted_evidence_weight: float = 0.5
     contaminated_evidence_weight: float = 0.3
+    # From mvp-0.21 the kill-switch path only (voi_stopping.probe_episodes
+    # off): with it on, each next observation is served while its value of
+    # information pays for its minutes.
     session_qualifying_observation_cap: int = 4
     # Explicit §11 fast path replacing the legacy claim_skip_threshold: a strong
     # prior claim plus a highly discriminating cross-facet instrument may complete
@@ -617,11 +623,16 @@ class TeachBackConfig(BaseModel):
     applied to facet evidence contributed by transfer-tier rubric criteria —
     both success and failure are discounted equally, and the multiplier is
     read from config at apply time so replay reproduces it. ``session_cap``
-    is the maximum number of teach_back items in one built practice queue.
+    is the maximum number of teach_back items in one built practice queue
+    below mvp-0.21 (or with ``voi_stopping.teach_back`` off); from mvp-0.21 it
+    is a floor, and each teach-back beyond it stays while its value of
+    information pays for its minutes.
     """
 
     max_followups: int = Field(default=4, ge=1)
     transfer_evidence_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
+    # From mvp-0.21 the floor only (voi_stopping.teach_back): a teach-back
+    # beyond it stays while its value of information pays for its minutes.
     session_cap: int = Field(default=1, ge=0)
 
 
@@ -1650,6 +1661,18 @@ class DiagnosisConfig(BaseModel):
     knn_limit: int = Field(default=8, ge=1, le=64)
     hybrid_keep: int = Field(default=6, ge=1, le=64)
     rrf_k: int = Field(default=60, ge=1)
+    # mvp-0.21 Part 2 (the Guide-fix audit's question 1, owner decision
+    # 2026-10-12/13): under split grading the probe hypothesis lane (the
+    # follow-up misconception gate's hypothesis set) reads the diagnoser's
+    # verdict through the diagnosis overlay instead of the blind grader's
+    # taxonomy prior. Dormant below mvp-0.21; off, the lane reads the stored
+    # events exactly as mvp-0.16 does.
+    probe_lane_reads_diagnosis: bool = True
+    # While an event's live diagnosis is pending: "hold_out" leaves it out of
+    # the lane until the diagnoser's verdict arrives (the recommended default);
+    # "keep_prior" admits it on the stored flag meanwhile. A failed or skipped
+    # diagnosis never arrives, so its event is read as stored either way.
+    probe_lane_pending: Literal["hold_out", "keep_prior"] = "hold_out"
 
 
 class RecurrenceBlockingCutoff(BaseModel):
@@ -2308,7 +2331,10 @@ class PlanConfig(BaseModel):
     # D11: a re-entry plan's caps (§7).
     reentry_minutes: int = Field(default=15, ge=1, le=120)
     reentry_max_items: int = Field(default=8, ge=1, le=100)
-    # §6.9: due project probes in the maintain lane per day.
+    # §6.9: due project probes in the maintain lane per day. From mvp-0.21
+    # the kill-switch path only (voi_stopping.project_probes off): with it on,
+    # every due probe whose value pays for its minutes competes for the
+    # plan's minutes.
     project_probes_max_per_day: int = Field(default=4, ge=0, le=50)
     # D7: the optional one-line Today headline.
     headline: bool = True
@@ -2338,6 +2364,62 @@ class RouterConfig(BaseModel):
 
     log_decisions: bool = True
     probe_tie_admission: bool = True
+
+
+class VoiStoppingConfig(BaseModel):
+    """mvp-0.21 Part 1: four count caps lifted onto value of information.
+
+    Acts only on a vault at a value-of-information successor (``mvp-0.21`` or
+    later, ``VOI_STOPPING_VERSIONS``). ``enabled`` is the kill switch: off (or
+    below ``mvp-0.21``) the four former caps serve exactly as ``mvp-0.16``:
+    ``probe.episode.session_qualifying_observation_cap``,
+    ``scheduler.followup.max_interventions_per_lo_per_session``,
+    ``teach_back.session_cap`` and ``plan.project_probes_max_per_day``. Each
+    site has a narrower sub-switch that restores its own cap alone.
+
+    On, the next observation at each site is served while its value of
+    information pays for its minutes (``diagnosis.voi_stopping``): robust EVSI
+    and ``evsi.rank_feasible``'s stop rule where a next-action decision is at
+    stake, otherwise the robust EIG converted to minutes. The decision
+    parameters are the existing heuristic ones in
+    ``diagnosis.robust_composition`` (lambda_time, burden, the nat-to-minutes
+    scale), and the three below.
+
+    The multi-family EVSI study (``docs/reviews/evsi-multisim.md`` §6.1,
+    ranks 1 to 3; the owner may flip each) adds one switch per change, each
+    at the study's recommendation; the value in brackets restores the
+    successor as it was before the study, exactly:
+
+    * ``robust_gate_with_value`` (false; true restores): whether the mvp-0.8
+      robust completion gate (``couldnt_reliably_distinguish``) may still end
+      an episode while value decides it. Off, a value-decided episode ends on
+      its value stop (or a stability stop), and that stop's receipt records
+      the gate's verdict as a counterfactual. Where value does not decide (the
+      site off, below the successor, a calibration session) the gate serves
+      as before.
+    * ``lookahead_max_checks`` (3; 1 restores): in a probe episode, when a
+      decision is at stake, ``rank_feasible`` did not abstain and no single
+      check pays, the best 2 to this many ranked checks that can be
+      administered together (one per canonical surface group) are valued
+      jointly (robust EVSI of their product table) against their summed
+      minutes; a paying batch continues with the site's own choice among it.
+      The follow-up and teach-back sites wait for live calibration (the
+      study's §6.2). A valuation depth, never a count of observations
+      (bounded at 4: the joint table grows as the alphabet to the power k).
+    * ``robust_quantile`` (0.25; 0.10 restores): the lower quantile of the
+      credible set the value gate reads (``rank_feasible``'s robust EVSI, the
+      robust EIG, the lookahead's batch value). The mvp-0.8 paths keep
+      ``robust_composition.ROBUST_QUANTILE`` (0.10).
+    """
+
+    enabled: bool = True
+    probe_episodes: bool = True
+    followups: bool = True
+    teach_back: bool = True
+    project_probes: bool = True
+    robust_gate_with_value: bool = False
+    lookahead_max_checks: int = Field(default=3, ge=1, le=4)
+    robust_quantile: float = Field(default=0.25, gt=0.0, le=0.5)
 
 
 class LearnLoopConfig(BaseModel):
@@ -2392,6 +2474,7 @@ class LearnLoopConfig(BaseModel):
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
+    voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
 
     @model_validator(mode="before")
     @classmethod

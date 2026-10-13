@@ -17,10 +17,14 @@ from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.numeric import sigmoid
 from learnloop.diagnosis.gate_score import GATE_FEATURES, GATE_FEATURE_VERSION, subscores_from_diagnostics
+from learnloop.diagnosis.voi_stopping import VALUATION_SUPPRESSION_REASONS
 
 # Rows whose silence says nothing about signal quality (budget gates, item
-# availability) are excluded from the negative pool.
-_UNINFORMATIVE_SILENT_REASONS = frozenset({"no_time", "session_cap_reached", "no_suitable_item"})
+# availability, and mvp-0.21's value-of-information stop, which outvalued a
+# trigger that fired) are excluded from the negative pool.
+_UNINFORMATIVE_SILENT_REASONS = (
+    frozenset({"no_time", "session_cap_reached", "no_suitable_item"}) | VALUATION_SUPPRESSION_REASONS
+)
 _SILENT_NEGATIVE_WEIGHT = 0.25
 
 STRONG_LABEL_SOURCES = frozenset({"manual_override", "rating_useful", "rating_not_useful"})
@@ -71,8 +75,11 @@ def assemble_gate_training_set(repository: Repository, config: LearnLoopConfig) 
 
         if manual:
             # A user-forced follow-up where the automatic gate would have
-            # stayed silent is a gate false negative.
-            if gate.get("would_auto_fire") is False:
+            # stayed silent is a gate false negative. Trigger quality and
+            # valuation stay separate (mvp-0.21): where only the value of
+            # information would have stopped it, the trigger did fire, so the
+            # override says nothing about the trigger.
+            if gate.get("would_auto_fire") is False and not _only_valuation_would_suppress(gate):
                 examples.append(
                     GateExample(row["attempt_id"], features, 1, "manual_override", 1.0)
                 )
@@ -93,6 +100,18 @@ def assemble_gate_training_set(repository: Repository, config: LearnLoopConfig) 
                 GateExample(row["attempt_id"], features, 0, "silent_gate", _SILENT_NEGATIVE_WEIGHT)
             )
     return examples
+
+
+def _only_valuation_would_suppress(gate: dict) -> bool:
+    """The trigger fired naturally and only a value-of-information stop would
+    have kept the automatic follow-up silent."""
+
+    suppress = [str(reason) for reason in gate.get("would_suppress") or []]
+    return (
+        bool(gate.get("natural_trigger_reasons"))
+        and bool(suppress)
+        and all(reason in VALUATION_SUPPRESSION_REASONS for reason in suppress)
+    )
 
 
 def fit_gate_weights(

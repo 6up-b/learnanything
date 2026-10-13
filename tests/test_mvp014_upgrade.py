@@ -57,7 +57,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
@@ -67,13 +67,14 @@ def test_the_plan_successor_keeps_every_predecessor():
     # learner-text gaps' sooner check (mvp-0.16, tests/test_mvp016_upgrade.py),
     # the proofs-and-explanations route check (mvp-0.17,
     # tests/test_mvp017_upgrade.py), canonical sources' answer-key gate
-    # (mvp-0.18) and source-first needs (mvp-0.19, tests/test_mvp018_upgrade.py)
-    # and the route rules in the grader (mvp-0.20, the latest successor,
-    # tests/test_mvp020_upgrade.py) followed it and keep the plan.
-    assert SUCCESSOR_CHAIN[-7] == DAILY_PLAN_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    # (mvp-0.18) and source-first needs (mvp-0.19, tests/test_mvp018_upgrade.py),
+    # the route rules in the grader (mvp-0.20, tests/test_mvp020_upgrade.py)
+    # and value-of-information stopping (mvp-0.21, the latest successor,
+    # tests/test_mvp021_upgrade.py) followed it and keep the plan.
+    assert SUCCESSOR_CHAIN[-8] == DAILY_PLAN_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.21"
     assert DAILY_PLAN_VERSIONS == frozenset(
-        {"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"}
+        {"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21"}
     )
     # The chain is linear: mvp-0.14 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan.

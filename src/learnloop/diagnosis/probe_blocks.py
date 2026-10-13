@@ -29,6 +29,7 @@ from learnloop.diagnosis.probe_episodes import (
     EpisodePosterior,
     _evaluate_completion,
     _set_target_decision,
+    episode_maximum_binds,
     episode_posterior,
     persist_episode_beliefs,
 )
@@ -76,8 +77,12 @@ def block_complete(
         return False
 
     rows = repository.probe_observations_for_episode(episode.id)
-    qualifying = sum(1 for row in rows if row["observation"].eligible_for_completion)
-    if qualifying >= episode.maximum_observations:
+    qualifying_rows = [row for row in rows if row["observation"].eligible_for_completion]
+    qualifying = len(qualifying_rows)
+    # mvp-0.21 (voi_stopping): while value decides, the episode's own count
+    # neither closes the block nor bounds its size.
+    maximum_binds = episode_maximum_binds(vault, repository, qualifying_rows)
+    if maximum_binds and qualifying >= episode.maximum_observations:
         return True
 
     segment_rows = [
@@ -88,11 +93,52 @@ def block_complete(
         if target <= 0:
             target = vault.config.probe.block.default_block_observations
         return len(segment_rows) >= target
-    target = min(
-        vault.config.probe.block.default_block_observations,
-        episode.maximum_observations,
+    target = (
+        min(vault.config.probe.block.default_block_observations, episode.maximum_observations)
+        if maximum_binds
+        else vault.config.probe.block.default_block_observations
     )
-    return len(segment_rows) >= target
+    if len(segment_rows) >= target:
+        return True
+    # mvp-0.21 (voi_stopping): a sequential block also closes when the
+    # episode's next observation no longer pays for its minutes, so the
+    # learner's deferred feedback is released and the completion policy (which
+    # then ends the episode on that value stop) runs now, not never.
+    return _next_observation_does_not_pay(vault, repository, episode, rows)
+
+
+def _next_observation_does_not_pay(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    rows: list[dict],
+) -> bool:
+    from learnloop.diagnosis import voi_stopping as voi
+    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
+
+    if not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
+        return False
+    qualifying = [row for row in rows if row["observation"].eligible_for_completion]
+    if not qualifying:
+        return False
+    attempt = repository.fetch_practice_attempt(str(qualifying[-1].get("attempt_id") or ""))
+    session_id = attempt.get("session_id") if attempt else None
+    if session_id is not None:
+        from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
+
+        if calibration_cap_lifted(repository, str(session_id)):
+            return False
+    posterior = episode_posterior(vault, repository, episode)
+    if posterior is None:
+        return False
+    candidates = eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+    if not candidates:
+        # An empty pool keeps its own rule (the completion policy parks it).
+        return False
+    decision = voi.probe_episode_decision(
+        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
+    )
+    return decision.decision == voi.STOP
 
 
 def evaluate_open_set_trigger(

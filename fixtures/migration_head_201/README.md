@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-199. Migration 167 adds the learner-field F1 read model
+201. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -101,12 +101,23 @@ this book on this computer") and the WORKFLOW table `source_auto_build_state`
 position a running build could not act on yet); 199 makes that position one
 durable request per book, adding `source_auto_build_state.wanted_revision`,
 `wanted_attempts` and `wanted_retry_at`.
-Built as a backup-API copy of `migration_head_197` (itself a backup-API copy of
+Migrations 200-201 come from value-of-information stopping (successor
+mvp-0.21, `serving/voi-stopping`; built there as 187-188 with the placeholder
+tag mvp-0.17 and renumbered at their landing after main's 184-199): 200
+rebuilds `probe_episodes` (same columns, rows and indexes) so its
+`completion_reason` CHECK also accepts `value_of_information_stop` and adds
+the nullable `completion_detail_json` (the stop decision with its forecast);
+201 adds `followup_value_decisions` (RECEIPT, append-only by trigger: one row
+per follow-up value decision, with its own id, per-attempt ordinal and
+source-attempt link) and backfills it from legacy `decision_features`
+follow-up rows that carry a `voi_stopping` body (none here).
+Built as a backup-API copy of `migration_head_199` (itself a backup-API copy
+of `migration_head_197` with only 198-199 applied, that of
 `migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 198-199 applied through
+`migration_head_186` with 187-195 applied) with only 200-201 applied through
 `learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_197` was renamed to this
+`foreign_key_check` clean); `migration_head_199` was renamed to this
 directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.

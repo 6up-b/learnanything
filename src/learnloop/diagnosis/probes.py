@@ -203,7 +203,11 @@ def build_hypothesis_set(
 
     # Legacy raw error-event path: only misconception events with NO registry link
     # (old vaults). Events already normalized into a registry row above are skipped.
-    for error in repository.active_errors_by_learning_object(learning_object_id):
+    # mvp-0.21 Part 2: under split grading ``is_misconception`` on a blind-graded
+    # event is the taxonomy prior, so the lane reads the diagnoser's verdict
+    # through the overlay, and leaves out an event whose diagnosis is pending
+    # (``diagnosis.probe_lane_pending``). Joint-graded events read as stored.
+    for error in _lane_error_events(vault, repository, learning_object_id):
         if not error.is_misconception:
             continue
         if error.misconception_id is not None:
@@ -683,7 +687,7 @@ def item_registry_discrimination(
     return rows, discriminated
 
 
-def expected_information_gain(
+def hypothesis_conditionals(
     hypothesis_set: HypothesisSet,
     item: PracticeItem,
     rubric: Rubric | None = None,
@@ -693,10 +697,14 @@ def expected_information_gain(
     irt: ProbeIRTConfig | None = None,
     discrimination: dict[str, ItemMisconceptionDiscrimination] | None = None,
     discriminated_ids: set[str] | None = None,
-) -> float:
+) -> dict[str, dict[Outcome, float]]:
+    """``{label: P(outcome | hypothesis)}`` for one item over a hypothesis set:
+    the conditionals :func:`expected_information_gain` integrates over (and
+    mvp-0.21's value of information forecasts with)."""
+
     fatal_error_ids = _fatal_error_ids(item, rubric)
     known_error_types = hypothesis_set.known_error_types
-    conditionals = {
+    return {
         hypothesis.label: conditional_distribution(
             hypothesis,
             item_a=item_a,
@@ -709,6 +717,29 @@ def expected_information_gain(
         )
         for hypothesis in hypothesis_set.hypotheses
     }
+
+
+def expected_information_gain(
+    hypothesis_set: HypothesisSet,
+    item: PracticeItem,
+    rubric: Rubric | None = None,
+    *,
+    item_a: float = 1.0,
+    item_b: float = 0.0,
+    irt: ProbeIRTConfig | None = None,
+    discrimination: dict[str, ItemMisconceptionDiscrimination] | None = None,
+    discriminated_ids: set[str] | None = None,
+) -> float:
+    conditionals = hypothesis_conditionals(
+        hypothesis_set,
+        item,
+        rubric,
+        item_a=item_a,
+        item_b=item_b,
+        irt=irt,
+        discrimination=discrimination,
+        discriminated_ids=discriminated_ids,
+    )
     prior = hypothesis_set.prior
     outcomes = next(iter(conditionals.values())).keys()
     mixture: dict[Outcome, float] = {outcome: 0.0 for outcome in outcomes}
@@ -1439,6 +1470,47 @@ def _decay(created_at: str | None, now: datetime) -> float:
     return exp(-days_since / 7)
 
 
+def _lane_error_events(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str | None,
+) -> list[ActiveErrorEvent]:
+    """The active error events the probe hypothesis lane reads.
+
+    Below mvp-0.21, or with ``diagnosis.probe_lane_reads_diagnosis`` off, the
+    stored events exactly (one LO, or all of them for the neighbour lane). At
+    mvp-0.21 they come through the diagnosis overlay, so a blind-graded event's
+    ``is_misconception`` is the diagnoser's verdict once its live diagnosis is
+    in force, and an event whose live diagnosis is still pending is left out
+    under ``probe_lane_pending = "hold_out"``. A failed or skipped diagnosis
+    never arrives, so its event reads as stored.
+    """
+
+    from learnloop.diagnosis.voi_stopping import (
+        probe_lane_holds_out_pending,
+        probe_lane_reads_diagnosis,
+    )
+
+    if not probe_lane_reads_diagnosis(vault.config):
+        if learning_object_id is None:
+            return repository.active_error_events()
+        return repository.active_errors_by_learning_object(learning_object_id)
+    if learning_object_id is None:
+        events = repository.active_error_events_overlaid()
+    else:
+        events = repository.active_errors_by_learning_object_overlaid(learning_object_id)
+    if not probe_lane_holds_out_pending(vault.config) or not events:
+        return events
+    pending = set(
+        repository.pending_live_diagnoses_for_active_errors(
+            sorted({event.learning_object_id for event in events})
+        )
+    )
+    if not pending:
+        return events
+    return [event for event in events if event.attempt_id is None or event.attempt_id not in pending]
+
+
 def _neighbor_misconceptions(
     vault: LoadedVault,
     repository: Repository,
@@ -1457,7 +1529,7 @@ def _neighbor_misconceptions(
         return []
 
     mastery_states = repository.mastery_states()
-    active_errors = repository.active_error_events()
+    active_errors = _lane_error_events(vault, repository, None)
     concept_to_los: dict[str, list[str]] = {}
     for lo_id, learning_object in vault.learning_objects.items():
         concept_to_los.setdefault(learning_object.concept, []).append(lo_id)

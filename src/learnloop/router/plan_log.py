@@ -214,6 +214,10 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "state": detail.get("state"),
         "redistribution": detail.get("redistribution"),
     }
+    if detail.get("voi_decisions"):
+        # mvp-0.21: value-of-information stop/continue decisions (due project
+        # probes) with their forecasts; absent below it.
+        row_detail["voi_decisions"] = list(detail["voi_decisions"])
     return {
         "id": new_ulid(),
         "receipt_key": f"{DECISION_KIND}:{decision.block_id}",

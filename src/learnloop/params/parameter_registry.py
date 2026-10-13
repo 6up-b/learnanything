@@ -157,6 +157,10 @@ MODULE_INVENTORY: dict[str, str] = {
     # EVSI calibration Part C -- the measured cost of an unresolved misconception
     # (Eedi population prior + heuristics it is shrunk from; docs/reviews/evsi-calibration.md).
     "unresolved_cost": "src/learnloop/scheduling/unresolved_cost.py",
+    # mvp-0.21 -- four count caps lifted onto value of information. Its value
+    # rule reads robust_composition's and evsi's heuristic decision parameters;
+    # its own constants only shape estimates and receipts.
+    "voi_stopping": "src/learnloop/diagnosis/voi_stopping.py",
     "predictive_targets": "src/learnloop/scheduling/predictive_targets.py",
     # P4 step 4 -- dispersion/interleaving constraints + the single randomization
     # layer (spec_p4 §9, U-024, design §E).
@@ -722,6 +726,48 @@ _reg_const("unresolved_cost:MIN_TIMED_ATTEMPTS", "threshold", owner="unresolved_
 _reg_const("unresolved_cost:LATENCY_CAP_MINUTES", "threshold", owner="unresolved_cost",
            rationale="heuristic: one attempt's wall-clock latency counts at most this many minutes "
            "(a break is not repeated-error time).")
+_reg_const("voi_stopping:DURATION_PSEUDO_OBSERVATIONS", "prior", owner="voi_stopping",
+           rationale="mvp-0.21: pseudo-observations behind a duration prior when a candidate's "
+           "minutes come from its practice mode's median shrunk toward the authored estimate; DL1's "
+           "own constant (daily_plan/estimates.PSEUDO_OBSERVATIONS) repeated because serving never "
+           "imports the plan. Sizes the minutes cost the value of information must pay.")
+_reg_const("voi_stopping:DEFAULT_LATENCY_CAP_MINUTES", "numerical", kind="structural",
+           owner="voi_stopping",
+           rationale="winsorizing cap on one latency (minutes) when a vault config has no "
+           "plan.latency_cap_minutes; the plan's own default, a numerical clamp.")
+_reg_const("voi_stopping:_ROUND_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="decimal places a value-of-information receipt keeps for probabilities and "
+           "nats; display of the logged forecast only.")
+_reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structural",
+           owner="voi_stopping",
+           rationale="how many candidates' summaries one value-of-information receipt keeps (the "
+           "best keeps its full forecast); receipt size only, never a decision.")
+_reg_const("voi_stopping:_VARIANCE_FLOOR", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.21 greedy conditional valuation: the selection reward's own variance "
+           "floor (selection_rewards.probe_information_gain_components, 1e-6) repeated so a check's "
+           "information decomposed from its reward body reproduces the reward's probe_eig_total; a "
+           "numerical clamp, not a decision knob.")
+_reg_const("voi_stopping:_DEFAULT_FACET_VARIANCE", "prior", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.21 greedy conditional valuation: the facet-recall variance the selection "
+           "reward reads for a facet with no state (0.25, Beta(1,1)'s), repeated so the decomposed "
+           "information reproduces the reward's; not a new prior.")
+_reg_const("voi_stopping:_RECONSTRUCTION_TOLERANCE", "numerical", kind="structural",
+           owner="voi_stopping",
+           rationale="mvp-0.21 greedy conditional valuation: relative tolerance for 'the decomposed "
+           "terms reproduce the logged probe_eig_total'; a body that does not is valued on its total "
+           "alone and labelled conditioning: unavailable. A floating-point check, never a decision.")
+_reg_const("voi_stopping:_BRANCH_MERGE_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.21 conditional hypothesis valuation (Codex re-review F2): two expected "
+           "posteriors that agree to 12 decimals are one belief branch; floating-point identity, "
+           "not a decision knob.")
+_reg_const("voi_stopping:_MAX_BELIEF_BRANCHES", "operational", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.21 conditional hypothesis valuation (Codex re-review F2): a bound on the "
+           "arithmetic of the expected posterior branches kept per hypothesis variable (4096), never "
+           "on how many checks are admitted; past it the branches merge at fewer decimals (keeping "
+           "their mean) and the receipt says hypothesis_branches: coarsely_merged.")
+_reg_const("voi_stopping:_COARSE_MERGE_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="mvp-0.21 conditional hypothesis valuation: the coarser decimal places tried, in "
+           "order, once _MAX_BELIEF_BRANCHES is passed; arithmetic only, labelled in the receipt.")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",
@@ -1133,6 +1179,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
+    # mvp-0.21 value-of-information stopping: the multi-family EVSI study's
+    # switches (docs/reviews/evsi-multisim.md §6.1, ranks 2 and 3; rank 1 is a
+    # boolean). Heuristic until live voi_forecasts calibrate them.
+    _ConfigRule(_exact("voi_stopping.robust_quantile"), "decision", "threshold",
+                "value-of-information gate's lower credible-set quantile (rank_feasible's robust EVSI, the "
+                "robust EIG, the lookahead's batch value); the multi-family study's rank 3 (0.25, "
+                "directional in all four simulator families); 0.10 restores "
+                "robust_composition.ROBUST_QUANTILE, which the mvp-0.8 paths keep."),
+    _ConfigRule(_exact("voi_stopping.lookahead_max_checks"), "decision", "threshold",
+                "how many ranked checks the probe-episode value gate values jointly when a decision is at "
+                "stake and no single check pays (the study's rank 2; one check per surface group); a "
+                "valuation depth, never a count of observations served; 1 turns the lookahead off."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

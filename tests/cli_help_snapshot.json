@@ -636,8 +636,8 @@
     "sha256": "1c4df5113ab72ed69a4f4454b6102e34ec24d10ec3b2fc4e6d2b64ea2450765f"
   },
   "misconceptions": {
-    "bytes": 1295,
-    "sha256": "7d28cd99e73105ac52937eebf2ad659666a30259ed210d945a2b3042a25deaa9"
+    "bytes": 1700,
+    "sha256": "f756fe092d606333312ded559c243ca9629235a61e3e394a0f3c3d21c8fd49a8"
   },
   "observation-templates": {
     "bytes": 1048,
@@ -1104,8 +1104,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 5192,
-    "sha256": "86071332efab8d13f5d55a33a6341bcfe45cc39c4b4913f610a4b6ed6b5c3355"
+    "bytes": 5678,
+    "sha256": "588d9b25ecddc86fbcf2dd21b9fd39989baf78633cc9f65a265fe40cfdadef73"
   },
   "usage": {
     "bytes": 1546,

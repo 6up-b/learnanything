@@ -33,6 +33,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
     next_probe_item,
     probe_serving_block_reason,
+    probe_value_block_reason,
     serve_presentation,
     stop_diagnosing_and_teach,
     validate_presentation_for_submission,
@@ -358,6 +359,16 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
         planner = routine_planner_shadow(vault, repository, episode.id)
         if planner is not None:
             extra_components = {"shadow_planner": planner}
+    # mvp-0.21 (voi_stopping): a new observation is committed only while its
+    # value of information pays for its minutes; the decision is logged on the
+    # presentation it admits.
+    value_reason, value_decision = probe_value_block_reason(
+        vault, repository, episode, item.id, session_id=params.session_id, cap_lifted=cap_lifted
+    )
+    if value_reason is not None:
+        return versioned({"active": False, "reason": value_reason})
+    if value_decision is not None:
+        extra_components = {**(extra_components or {}), "voi_stopping": value_decision}
     presentation = commit_item_presentation(
         vault, repository, episode, item, hypothesis_set,
         extra_selection_components=extra_components,

@@ -51,7 +51,7 @@ from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.split_live_helpers import append_config, split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
@@ -61,13 +61,14 @@ def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     # (mvp-0.15), learner-text gaps' sooner check (mvp-0.16), the
     # proofs-and-explanations route check (mvp-0.17, tests/test_mvp017_upgrade.py),
     # canonical sources' answer-key gate (mvp-0.18) and source-first needs
-    # (mvp-0.19, tests/test_mvp018_upgrade.py) and the route rules in the
-    # grader (mvp-0.20, the latest successor, tests/test_mvp020_upgrade.py)
+    # (mvp-0.19, tests/test_mvp018_upgrade.py), the route rules in the grader
+    # (mvp-0.20, tests/test_mvp020_upgrade.py) and value-of-information
+    # stopping (mvp-0.21, the latest successor, tests/test_mvp021_upgrade.py)
     # followed it and keep the stuck prompt.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
-    assert SUCCESSOR_CHAIN[-8] == STUCK_PROMPT_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert SUCCESSOR_CHAIN[-9] == STUCK_PROMPT_ALGORITHM_VERSION
     assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-                                     "mvp-0.18", "mvp-0.19", "mvp-0.20"}
+                                     "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     # The chain is linear: mvp-0.13 means the split PLUS placement PLUS

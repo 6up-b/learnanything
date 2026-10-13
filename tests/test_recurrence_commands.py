@@ -46,7 +46,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -95,7 +95,8 @@ def test_successor_vocabulary():
     plan (mvp-0.14), probe ties (mvp-0.15), learner-text gaps (mvp-0.16) and
     the proofs route check (mvp-0.17), then canonical sources' answer-key gate
     (mvp-0.18) and source-first needs (mvp-0.19), then the route rules in the
-    grader (mvp-0.20) follow it and keep recurrence groups."""
+    grader (mvp-0.20) and value-of-information stopping (mvp-0.21) follow it
+    and keep recurrence groups."""
 
     from learnloop.algorithm_versions import (
         DAILY_PLAN_ALGORITHM_VERSION,
@@ -108,6 +109,7 @@ def test_successor_vocabulary():
         SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
         STUCK_PROMPT_ALGORITHM_VERSION,
+        VOI_STOPPING_ALGORITHM_VERSION,
     )
 
     assert RECURRENCE_GROUP_ALGORITHM_VERSION == "mvp-0.12"
@@ -117,14 +119,16 @@ def test_successor_vocabulary():
     # The stuck prompt (mvp-0.13), daily-loop DL1's plan (mvp-0.14), router
     # R1's probe ties (mvp-0.15), learner-text gaps' sooner check (mvp-0.16)
     # the proofs-and-explanations route check (mvp-0.17), canonical sources'
-    # answer-key gate (mvp-0.18) and source-first needs (mvp-0.19) and the
-    # route rules in the grader (mvp-0.20) follow it and keep recurrence groups.
+    # answer-key gate (mvp-0.18) and source-first needs (mvp-0.19), the route
+    # rules in the grader (mvp-0.20) and value-of-information stopping
+    # (mvp-0.21) follow it and keep recurrence groups.
     assert RECURRENCE_GROUP_VERSIONS == {
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
         PROBE_TIE_ALGORITHM_VERSION, LEARNER_TEXT_GAP_ALGORITHM_VERSION, PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
+        VOI_STOPPING_ALGORITHM_VERSION,
     }
-    assert LATEST_ALGORITHM_VERSION == ROUTE_RULES_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION == VOI_STOPPING_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
@@ -481,9 +485,9 @@ def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
     _pass_guard(tmp_path, vault, repository)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The latest is LATEST_ALGORITHM_VERSION (mvp-0.20 since the route rules
-    # moved into the grader); the chain still passes through mvp-0.12 and its
-    # guard.
+    # The latest is LATEST_ALGORITHM_VERSION (mvp-0.21 since value-of-
+    # information stopping merged after the route rules); the chain still
+    # passes through mvp-0.12 and its guard.
     assert f"mvp-0.10 -> {LATEST_ALGORITHM_VERSION}" in result.output
 
 

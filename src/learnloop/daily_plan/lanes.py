@@ -32,7 +32,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -133,6 +133,18 @@ class PoolItem:
     due: bool = False
     goal_frontier: bool = False
     deadline: bool = False
+    #: mvp-0.21: a due project probe's value-of-information decision (its
+    #: forecast), when the plan valued it instead of counting it.
+    voi: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
+    #: mvp-0.21: the rank an admitted project probe plans at (the value
+    #: order); None means the scheduler's ``rank``.
+    plan_rank: int | None = None
+
+    @property
+    def order_rank(self) -> int:
+        """The rank the plan orders by: ``plan_rank`` when set, else ``rank``."""
+
+        return self.rank if self.plan_rank is None else self.plan_rank
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -146,6 +158,7 @@ class PoolItem:
             "requested": self.requested,
             "check_kind": self.check_kind,
             "followup": self.followup,
+            **({"plan_rank": self.plan_rank} if self.plan_rank is not None else {}),
         }
 
 
@@ -168,8 +181,13 @@ def classify_item(
     probe_slot_available: bool,
     deadline: bool = False,
     open_problem: bool | None = None,
+    probe_value: Mapping[str, Any] | None = None,
 ) -> PoolItem:
     """§6.1: the first lane that matches, in order.
+
+    ``probe_value`` (mvp-0.21) is a due project probe's value-of-information
+    decision: when given, the probe takes the maintain lane exactly when that
+    decision continues (its value pays for its minutes), whatever the count.
 
     ``open_problem`` says whether the item's LO has an open diagnosed problem
     (owner decision 2026-10-12). ``None`` means the diagnosis split is off and
@@ -198,7 +216,23 @@ def classify_item(
     if float(components.get("assumed_check", 0.0) or 0.0) > 0.0 and (check is None or check.kind != "project_probe"):
         check = ScheduledCheck("assumed_check")
     if check is not None:
-        if check.kind == "project_probe" and not probe_slot_available:
+        if check.kind == "project_probe" and probe_value is not None:
+            base["voi"] = dict(probe_value)
+            if probe_value.get("decision") != "continue":
+                return PoolItem(
+                    lane=None,
+                    reason=(
+                        "a due project probe that does not fit today's minutes"
+                        if probe_value.get("reason") == "does_not_fit_plan_minutes"
+                        else "a due project probe this plan no longer takes (skipped, answered, or new since it was built)"
+                        if probe_value.get("reason") == "not_available_to_this_plan"
+                        else "a due project probe whose value does not pay for its minutes today"
+                    ),
+                    check_kind=check.kind,
+                    check_priority=check.priority,
+                    **base,
+                )
+        elif check.kind == "project_probe" and not probe_slot_available:
             return PoolItem(lane=None, reason="a due project probe beyond today's probe limit", check_kind=check.kind, check_priority=check.priority, **base)
         reasons = {
             "assumed_check": ASSUMED_CHECK_REASON,
@@ -243,12 +277,26 @@ def classify_pool(
     probe_cap_left: int,
     deadline_learning_object_ids: Iterable[str] = (),
     open_problem_learning_object_ids: Iterable[str] | None = None,
+    project_probe_admission: (
+        Callable[[Sequence[tuple[Any, float]]], Sequence[tuple[str, Mapping[str, Any]]]] | None
+    ) = None,
 ) -> list[PoolItem]:
     """Classify the scheduler's ranked list, in rank order (§6.1).
 
     ``open_problem_learning_object_ids`` are the LOs with an open diagnosed
     problem (the repair lane, owner decision 2026-10-12); ``None`` while the
     diagnosis split is off, when repair falls back to the recency rule.
+
+    ``project_probe_admission`` (mvp-0.21, ``voi_stopping``) values today's
+    due project probes together: ``[(scheduled item, its estimated minutes)]``
+    in the former cap's order ``-> [(item id, decision)]``, the admitted
+    probes first in the order they were admitted (greedily, each valued
+    conditionally on those admitted before it, by robust value per minute),
+    then the rest. With it there is no count cap: exactly the admitted probes
+    take the maintain lane, in that order, and they carry that order in
+    ``plan_rank`` so the block source scores and the re-entry order follow it;
+    the plan's finite minutes bound how many are planned. Without it the
+    former cap (``probe_cap_left``) serves exactly.
     """
 
     requested = set(requested_ids)
@@ -265,6 +313,15 @@ def classify_pool(
         key=lambda pair: (-checks[pair[1]].priority, pair[0]),
     )
     probe_slots = {item_id for _index, item_id in probes[: max(int(probe_cap_left), 0)]}
+    values: dict[str, Mapping[str, Any]] = {}
+    admitted_order: list[str] = []
+    if project_probe_admission is not None and probes:
+        for item_id, decision in project_probe_admission(
+            [(scheduled_items[index], estimate(item_id)) for index, item_id in probes]
+        ):
+            values[item_id] = decision
+            if decision.get("decision") == "continue":
+                admitted_order.append(item_id)
     pool = []
     for rank, scheduled in enumerate(scheduled_items):
         item_id = scheduled.practice_item_id
@@ -280,9 +337,35 @@ def classify_pool(
                 probe_slot_available=item_id in probe_slots,
                 deadline=scheduled.learning_object_id in deadline_los,
                 open_problem=None if open_problems is None else scheduled.learning_object_id in open_problems,
+                probe_value=values.get(item_id),
             )
         )
+    if values:
+        pool = _order_probes_by_value(pool, admitted_order)
     return pool
+
+
+def _order_probes_by_value(pool: list[PoolItem], admitted_order: Sequence[str]) -> list[PoolItem]:
+    """Admitted project probes take their own positions in admission order
+    (the best conditional value per minute first); every other item keeps its
+    place. Each admitted probe takes the rank of the position it moves into as
+    its ``plan_rank``, so the pool stays in plan-rank order and everything
+    that ranks by it (the block source's ``planner_value`` and so the
+    chooser's tie-break, the new lane's and the re-entry order) follows the
+    value order, not the scheduler's: the best probe per minute is planned
+    first and the plan's minutes decide how many fit."""
+
+    position = {item_id: index for index, item_id in enumerate(admitted_order)}
+    slots = [
+        index
+        for index, item in enumerate(pool)
+        if item.check_kind == "project_probe" and item.lane is not None and item.practice_item_id in position
+    ]
+    ordered = sorted((pool[index] for index in slots), key=lambda item: position[item.practice_item_id])
+    reordered = list(pool)
+    for index, item in zip(slots, ordered):
+        reordered[index] = replace(item, plan_rank=pool[index].rank)
+    return reordered
 
 
 def reentry_order(pool: Sequence[PoolItem]) -> list[PoolItem]:
@@ -294,7 +377,7 @@ def reentry_order(pool: Sequence[PoolItem]) -> list[PoolItem]:
         key=lambda item: (
             0 if item.check_kind == "assumed_check" else 1,
             0 if item.deadline else 1,
-            item.rank,
+            item.order_rank,
         ),
     )
 
@@ -362,7 +445,8 @@ class LegacyLanesSource:
     - there is no minimum: one due item, a lane's last items, or the plan's last
       minutes are a complete block.
 
-    ``planner_value`` is the source's own score: its rank order.
+    ``planner_value`` is the source's own score: its rank order (an admitted
+    project probe's ``plan_rank``, the value order, at mvp-0.21).
     """
 
     pool: Sequence[PoolItem]
@@ -380,7 +464,7 @@ class LegacyLanesSource:
         if lane == "new":
             items = [item for item in items if item.practice_item_id in self.admitted_new_ids]
             # Never-attempted learner requests take the first new-lane slots (§6.3).
-            items.sort(key=lambda item: (0 if item.requested else 1, item.rank))
+            items.sort(key=lambda item: (0 if item.requested else 1, item.order_rank))
         return items
 
     def candidates(self, state: PlanState) -> list[BlockCandidate]:
@@ -417,7 +501,7 @@ class LegacyLanesSource:
                         item_ids=ids,
                         reading=None,
                         est_minutes=sum(item.est_minutes for item in block),
-                        planner_value=1.0 / (1.0 + min(item.rank for item in block)),
+                        planner_value=1.0 / (1.0 + min(item.order_rank for item in block)),
                         reason=_lane_reason(lane, block, titles),
                         item_minutes=tuple(item.est_minutes for item in block),
                     )

@@ -61,7 +61,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
@@ -69,10 +69,12 @@ def test_probe_tie_successor_keeps_every_predecessor():
     assert PROBE_TIE_ALGORITHM_VERSION == "mvp-0.15"
     # Learner-text gaps' sooner check (mvp-0.16), the proofs route check
     # (mvp-0.17), canonical sources' answer-key gate (mvp-0.18) and
-    # source-first needs (mvp-0.19) and the route rules in the grader
-    # (mvp-0.20) followed it and keep it.
-    assert SUCCESSOR_CHAIN[-6] == PROBE_TIE_ALGORITHM_VERSION
-    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"})
+    # source-first needs (mvp-0.19), the route rules in the grader (mvp-0.20)
+    # and value-of-information stopping (mvp-0.21) followed it and keep it.
+    assert SUCCESSOR_CHAIN[-7] == PROBE_TIE_ALGORITHM_VERSION
+    assert PROBE_TIE_VERSIONS == frozenset(
+        {"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21"}
+    )
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.
     for versions in (
@@ -97,6 +99,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.18": (True, True, True, True),
         "mvp-0.19": (True, True, True, True),
         "mvp-0.20": (True, True, True, True),
+        "mvp-0.21": (True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)

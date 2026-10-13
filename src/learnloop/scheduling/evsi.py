@@ -502,3 +502,171 @@ def _winner_flips_under_stress(
         if re_scored and re_scored[0][0] != nominal_best:
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# A batch of checks valued jointly (the multi-family study's lookahead).
+# ---------------------------------------------------------------------------
+
+
+def joint_conditionals(
+    tables: Sequence[Mapping[str, Mapping[Any, float]]], hypotheses: Sequence[str]
+) -> dict[str, dict[tuple[Any, ...], float]]:
+    """``P(e_1, ..., e_k | h)`` for checks conditionally independent given the
+    hypothesis: the product of their ``P(E | H)`` rows. A joint emission is the
+    tuple of the checks' emissions; zero-probability ones are dropped."""
+
+    joint: dict[str, dict[tuple[Any, ...], float]] = {}
+    for h in hypotheses:
+        row: dict[tuple[Any, ...], float] = {(): 1.0}
+        for table in tables:
+            nxt: dict[tuple[Any, ...], float] = {}
+            for prefix, p in row.items():
+                for e, q in table.get(h, {}).items():
+                    q = float(q)
+                    if q > 0.0:
+                        nxt[prefix + (e,)] = p * q
+            row = nxt
+        joint[h] = row
+    return joint
+
+
+@dataclass(frozen=True)
+class BatchEVSI:
+    """The robust EVSI of k checks asked together (minutes), persistable.
+
+    ``point`` is member 0's (the mean member's) joint EVSI, ``lcb``/``ucb`` the
+    lower/upper ``quantile`` over the paired members; ``stop_threshold`` is the
+    summed minutes cost of the k checks (each ``lambda_time * minutes +
+    burden``). ``p_action_change`` is member 0's probability that the action
+    after the k answers differs from the current one."""
+
+    refs: tuple[str, ...]
+    point: float
+    lcb: float
+    ucb: float
+    member_count: int
+    quantile: float
+    stop_threshold: float
+    current_action: str
+    p_action_change: float
+    emission_count: int
+
+    @property
+    def k(self) -> int:
+        return len(self.refs)
+
+    @property
+    def pays(self) -> bool:
+        return self.lcb > self.stop_threshold
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": EVSI_SCHEMA_VERSION,
+            "refs": list(self.refs),
+            "k": self.k,
+            "point": round(self.point, 6),
+            "lcb": round(self.lcb, 6),
+            "ucb": round(self.ucb, 6),
+            "member_count": self.member_count,
+            "quantile": self.quantile,
+            "stop_threshold": round(self.stop_threshold, 6),
+            "current_action": self.current_action,
+            "p_action_change": round(self.p_action_change, 8),
+            "emission_count": self.emission_count,
+        }
+
+
+def robust_batch_evsi(
+    candidates: Sequence[DiagnosticCandidate],
+    loss_table: AL.LossTable,
+    *,
+    k: int,
+    quantile: float = ROBUST_QUANTILE,
+    lambda_time: float = LAMBDA_TIME,
+    burden_cost: float = BURDEN_COST,
+) -> BatchEVSI:
+    """Robust EVSI of the first ``k`` candidates asked together.
+
+    The multi-family study's lookahead (``docs/reviews/evsi-multisim.md`` §6.1
+    rank 2, ``evsi_calibration/policies.py:_paying_batch``): per credible-set
+    member, the product of the k candidates' ``P(E | H)`` tables (the checks
+    are conditionally independent given the hypothesis), its EVSI against the
+    first candidate's belief and the loss table, then the robust ``quantile``
+    over the members. Members are paired by index (as the study pairs them),
+    over the smallest credible set among the k; each candidate's ensemble is
+    its own credible set, so a pair is a product of draws, not one shared
+    channel draw. The value is the exact joint decision value, never a sum or
+    a scaling of single values: a check that repeats a revealing one adds
+    nothing.
+
+    The product table has ``|E|^k`` joint emissions, so each member's EVSI is
+    computed as one matrix product (``current_loss - sum_e min_a L(a, .) .
+    p * P(e | .)``) with :func:`evsi_for_conditionals`' own argmin rule
+    (expected losses rounded to 9 places, ties by the loss table's
+    ``tie_break_order`` then lexically): the same number it returns on
+    :func:`joint_conditionals`, up to floating-point summation order.
+    Fail-closed like it (raises :class:`EVSIInputError`).
+    """
+
+    import numpy as np
+
+    batch = tuple(candidates[: max(int(k), 0)])
+    if len(batch) < 1:
+        raise EVSIInputError("empty_batch")
+    prior = batch[0].prior
+    positive = {h for h, v in prior.items() if float(v) > 0.0}
+    missing_loss = sorted(positive - set(loss_table.hypotheses))
+    if missing_loss:
+        raise EVSIInputError("incomplete_loss_table", missing_loss)
+    member_count = min(len(c.members) for c in batch)
+    if member_count < 1:
+        raise EVSIInputError("no_members", tuple(c.ref for c in batch))
+    hypotheses = [h for h in loss_table.hypotheses if h in positive]
+    for c in batch:
+        for member in c.members[:member_count]:
+            missing = sorted(positive - set(member))
+            if missing:
+                raise EVSIInputError("incomplete_likelihoods", missing)
+    p = _normalized_prior(prior, hypotheses)
+    order = {a: i for i, a in enumerate(loss_table.tie_break_order)}
+    actions = sorted(loss_table.actions, key=lambda a: (order.get(a, len(order)), a))
+    losses = np.array([[loss_table.loss(h, a) for h in hypotheses] for a in actions], dtype=float)
+    weights = np.array([p[h] for h in hypotheses], dtype=float)
+    current_action = loss_table.argmin_action(p)
+    current_loss = loss_table.expected_loss(current_action, p)
+
+    values: list[float] = []
+    change = 0.0
+    emission_count = 0
+    for index in range(member_count):
+        joint = weights[:, None]
+        for c in batch:
+            table = c.members[index]
+            emissions = sorted({e for h in hypotheses for e in table[h]})
+            rows = np.array([[float(table[h].get(e, 0.0)) for e in emissions] for h in hypotheses], dtype=float)
+            joint = (joint[:, :, None] * rows[:, None, :]).reshape(len(hypotheses), -1)
+        mass = joint.sum(axis=0)
+        live = mass > 0.0
+        weighted = losses @ joint[:, live]
+        expected = np.round(weighted / mass[live], 9)
+        chosen = np.argmin(expected, axis=0)
+        future = float(weighted[chosen, np.arange(weighted.shape[1])].sum())
+        values.append(max(current_loss - future, 0.0))
+        if index == 0:
+            emission_count = int(live.sum())
+            moved = np.array([actions[i] != current_action for i in chosen], dtype=bool)
+            change = float(mass[live][moved].sum())
+    threshold = sum(_stop_threshold(c, lambda_time, burden_cost) for c in batch)
+    return BatchEVSI(
+        refs=tuple(c.ref for c in batch),
+        point=values[0],
+        lcb=robust_quantile(values, quantile),
+        ucb=-robust_quantile([-v for v in values], quantile),
+        member_count=member_count,
+        quantile=quantile,
+        stop_threshold=threshold,
+        current_action=current_action,
+        p_action_change=min(max(change, 0.0), 1.0),
+        emission_count=emission_count,
+    )
