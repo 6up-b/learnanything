@@ -94,6 +94,11 @@ def test_request_shape_follows_the_plan_route_rules(server):
     assert not set(body) & UNSUPPORTED_FIELDS  # no max_output_tokens, temperature, tools, metadata, ...
 
 
+def test_a_chunked_event_stream_is_reassembled(server):
+    server.replies.append(Reply(events=completed_events('{"ok": true, "note": "chunked"}'), chunked=True))
+    assert _ask(_client(server)).note == "chunked"
+
+
 def test_output_budget_rides_in_the_prompt_never_as_max_output_tokens(server):
     client = _client(server)
     server.replies.append(Reply(events=completed_events('{"ok": true, "note": "x"}')))

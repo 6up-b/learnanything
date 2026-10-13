@@ -167,7 +167,8 @@ class Reply:
 
     def __init__(self, *, events: list[dict[str, Any]] | None = None, status: int = 200,
                  body: Any = None, delay: float = 0.0, stall: float = 0.0, truncate: bool = False,
-                 headers: dict[str, str] | None = None) -> None:
+                 headers: dict[str, str] | None = None, chunked: bool = False) -> None:
+        self.chunked = chunked
         self.events = events or []
         self.status = status
         self.body = body
@@ -377,13 +378,22 @@ class FakeChatGPT:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("x-request-id", "req_ok")
-                self.send_header("Connection", "close")
+                if reply.chunked:
+                    # The real API streams with chunked transfer encoding.
+                    self.send_header("Transfer-Encoding", "chunked")
+                else:
+                    self.send_header("Connection", "close")
                 self.end_headers()
                 self.close_connection = True
                 for index, event in enumerate(reply.events):
                     if reply.truncate and event.get("type") == "response.completed":
                         break
                     chunk = f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
+                    if reply.chunked:
+                        # Split each event across two chunks to exercise reassembly.
+                        half = len(chunk) // 2
+                        chunk = b"".join(f"{len(part):x}\r\n".encode() + part + b"\r\n"
+                                         for part in (chunk[:half], chunk[half:]))
                     try:
                         self.wfile.write(chunk)
                         self.wfile.flush()
@@ -391,6 +401,12 @@ class FakeChatGPT:
                         return
                     if reply.stall and index == 0:
                         time.sleep(reply.stall)
+                if reply.chunked:
+                    try:
+                        self.wfile.write(b"0\r\n\r\n")
+                        self.wfile.flush()
+                    except OSError:
+                        return
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._server.daemon_threads = True
