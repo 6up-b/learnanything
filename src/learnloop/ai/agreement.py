@@ -15,7 +15,8 @@ shadow stages): it reports what the ordinary course already produced.
   LLM, so it adds no pair. The latest answer of each judge counts, never the
   product of retries.
 * A **fallback** is a Decider row holding no answer (``unavailable``,
-  ``refused`` or ``failed``) whose input an LLM-family judge then answered.
+  ``refused``, ``failed``, or ``tied`` top options) whose input an LLM-family
+  judge then answered.
 * A **label** is an owner or verifier verdict: bound to a Decider row by an
   explicit ``label_for`` (the span-support card's confirm, keep or undo) or a
   ``supersedes_id`` chain, else by the same input, else by the same question
@@ -41,7 +42,7 @@ import re
 from typing import Any
 
 #: A Decider row's verdict when it holds no answer (``decider_judgments.FAILURE_VERDICTS``).
-FAILURES = frozenset({"unavailable", "refused", "failed"})
+FAILURES = frozenset({"unavailable", "refused", "failed", "tied"})
 LLM_JUDGES = frozenset({"llm", "diagnoser"})
 LABEL_JUDGES = frozenset({"owner", "verifier"})
 #: Tasks whose ledger entities do not identify the judged content: a facet's

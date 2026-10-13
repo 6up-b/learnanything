@@ -121,13 +121,13 @@ def _decided_match(
     """
 
     from learnloop.ai.decisions import MAX_CHOICE_OPTIONS, ChoiceQuestion
-    from learnloop.decider_judgments import decide, enabled, log_llm
+    from learnloop.decider_judgments import FAILURE_VERDICTS, decide, enabled, log_llm
 
     decision = None
     ids = [row.id for row in candidates]
     if (
         vault is not None and repository is not None and enabled(vault.config, MATCH_TASK)
-        and len(ids) < MAX_CHOICE_OPTIONS and NEW_BELIEF not in ids
+        and len(ids) < MAX_CHOICE_OPTIONS and NEW_BELIEF not in ids and not FAILURE_VERDICTS & set(ids)
     ):
         question = ChoiceQuestion(
             "Which registry belief is the SAME underlying belief as the statement? "

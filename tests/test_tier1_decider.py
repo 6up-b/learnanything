@@ -537,3 +537,63 @@ def test_only_new_authoritative_decider_links_reach_recurrence(tmp_path):
         _source_judgments(build, c)
     assert len(edges) == 1
     assert edges[0]["ref"] == "judgment:authoritative"
+
+
+# -- review fixes ------------------------------------------------------------------------------------
+
+
+class TiedDecider(Decider):
+    """Its two first options share the top probability (and its choice field names the first)."""
+
+    def decide(self, state, questions, *, purpose):
+        self.calls.append((state, questions, purpose))
+        answers = {}
+        for name, question in questions.items():
+            options = list(question.options)
+            probabilities = {k: (0.5 if i < 2 else 0.0) for i, k in enumerate(options)}
+            answers[name] = ChoiceAnswer(options[0], probabilities)
+        return DecisionResult(answers, self.model, 100, 0, 0.000002)
+
+
+def test_a_tied_top_option_is_no_answer_and_hands_over(tmp_path):
+    """Review F8: a tie for the top probability is no clear answer; the first option never wins it."""
+
+    from learnloop.decider_judgments import FAILURE_VERDICTS, decide, decide_many, log_llm
+
+    repo = Repository(tmp_path / "state.sqlite3")
+    question = ChoiceQuestion("Choose", {"yes": None, "no": None, "unsure": None})
+    result = decide(root=tmp_path, config=_config(), repository=repo, task="misconception_match", state="s",
+                    question=question, client_factory=TiedDecider)
+    assert (result.status, result.choice) == ("tied", None)
+    assert result.probabilities == {"yes": 0.5, "no": 0.5, "unsure": 0.0}
+    log_llm(repo, result, choice="no", model="fake/llm")
+    assert [(row["judge"], row["verdict"]) for row in _rows(repo)] == [("decider", "tied"), ("llm", "no")]
+    assert "tied" in FAILURE_VERDICTS
+
+
+def test_a_tied_batch_question_has_no_choice(tmp_path, monkeypatch):
+    from learnloop import decider_judgments as tier1
+
+    monkeypatch.setattr(tier1, "client_for", lambda *a: TiedDecider())
+    repo = Repository(tmp_path / "state.sqlite3")
+    decisions = tier1.decide_many(root=tmp_path, config=_config(), repository=repo,
+                                  task="field_question_classification", state="s",
+                                  questions={"q": ChoiceQuestion("Choose", {"yes": None, "no": None})},
+                                  left_kind="question_event", left_id="e")
+    assert (decisions["q"].status, decisions["q"].choice) == ("tied", None)
+
+
+def test_a_tied_gap_pair_goes_to_the_llm(tmp_path):
+    from learnloop.diagnosis.text_gaps.kinds import SAME_PREREQUISITE
+    from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, _judge_all
+    from tests.text_gap_fakes import GapLLMFake, always
+
+    vault, repo, pairs, budget = _gap_pair(tmp_path, _config())
+    llm = GapLLMFake(decide=always("different"))
+    clients = PipelineClients(judge=lambda: llm, decider=lambda: TiedDecider())
+    result = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
+                        decider_on=False)
+    # same / different tie: no match is made on the first option; the LLM decides.
+    assert result["selected"]["b"] == "different" and result["selected_judges"]["b"] == "llm"
+    assert [(row["judge"], row["verdict"]) for row in _rows(repo, SAME_PREREQUISITE.task)] == [
+        ("decider", "tied"), ("llm", "different")]

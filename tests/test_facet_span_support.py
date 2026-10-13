@@ -307,3 +307,21 @@ def test_keeping_a_card_that_went_stale_is_no_label(tmp_path, monkeypatch):
     assert _entry(paths, SHARED)["claim"] == THIRD_CLAIM
     assert actions.keep_current_wording(paths.root, repo, card["action_id"])["status"] == "kept"
     assert not [row for row in _rows(repo, "facet_span_support") if row["judge"] == "owner"]
+
+
+def test_a_tie_between_supports_and_another_option_holds_the_reword(tmp_path, monkeypatch):
+    """Review F8: supports tied for the top option is not a clear supports; the reword waits for the confirm."""
+
+    from learnloop.content.facet_identity import actions
+    from learnloop.vault.loader import load_vault
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_rewords import _entry
+    from tests.test_tier1_decider import TiedDecider
+
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, TiedDecider())
+    before = _entry(paths, SHARED)["claim"]
+    _apply_cited_reword(paths, repo, citation)
+    assert _entry(paths, SHARED)["claim"] == before
+    (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
+    assert card["span_support"]["status"] == "tied" and card["span_support"]["verdict"] is None
+    assert "could not tell" in card["message"]

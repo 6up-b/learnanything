@@ -51,9 +51,31 @@ SERVING_TASKS = (
 #: The content check, switched at every algorithm version.
 CONTENT_TASKS = ("facet_span_support",)
 #: The verdict of a Decider row that holds no answer: never an option of any Tier-1 question.
-FAILURE_VERDICTS = frozenset({"unavailable", "refused", "failed"})
+#: ``tied``: two or more options share its top probability, so the argmax
+#: names none of them (review F8); the judgment goes where a failure goes.
+FAILURE_VERDICTS = frozenset({"unavailable", "refused", "failed", "tied"})
 #: Admits one Decider request: ``(route, purpose, input_tokens)`` -> a context.
 Admit = Callable[[str, str, int], AbstractContextManager[Any]]
+
+
+class NoClearAnswer(ValueError):
+    """The Decider's top probability is shared by two or more options: it decides nothing (review F8)."""
+
+
+def argmax(probabilities: Mapping[str, float]) -> str | None:
+    """The single option with the highest probability; None when the top is tied (or nothing is there).
+
+    A tie is no clear answer: the first option in the question's order never
+    wins it (it would be the less cautious one for the span check and for a
+    same / different pair). This is not a confidence cutoff: any unique top
+    option decides, however small its lead.
+    """
+
+    if not probabilities:
+        return None
+    top = max(probabilities.values())
+    leaders = [option for option, probability in probabilities.items() if probability == top]
+    return leaders[0] if len(leaders) == 1 else None
 
 
 def enabled(config: Any, task: str) -> bool:
@@ -95,7 +117,7 @@ class Decision:
     left_id: str
     right_kind: str | None = None
     right_id: str | None = None
-    #: ``ok`` | ``disabled`` | ``unavailable`` | ``refused`` | ``failed``
+    #: ``ok`` | ``disabled`` | ``unavailable`` | ``refused`` | ``failed`` | ``tied``
     status: str = "disabled"
     choice: str | None = None
     probabilities: dict[str, float] = field(default_factory=dict)
@@ -175,9 +197,9 @@ def decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, qu
                       questions={question_name: question}, owner_id=decision.left_id, spend=spend,
                       candidates=candidates, pairs=pairs, admit=admit, route=route)
         decision.probabilities = choice_probabilities(result.answers[question_name], question)
-        decision.choice = max(decision.probabilities, key=decision.probabilities.__getitem__)
+        decision.choice = argmax(decision.probabilities)
         decision.model = str(result.model or decision.model)
-        decision.status = "ok"
+        decision.status = "ok" if decision.choice is not None else "tied"
     except AIInterrupted:
         raise  # a cancellation stops the caller; it is never a fallback
     except SpendLimitExceeded:
@@ -252,8 +274,9 @@ def decide_many(*, root: Any, config: Any, repository: Any, task: str, state: An
                          for name, question in questions.items()}
         for name, decision in decisions.items():
             decision.probabilities = distributions[name]
-            decision.choice = max(distributions[name], key=distributions[name].__getitem__)
-            decision.status, decision.model = "ok", str(result.model or model)
+            decision.choice = argmax(distributions[name])
+            decision.status = "ok" if decision.choice is not None else "tied"
+            decision.model = str(result.model or model)
     except AIInterrupted:
         raise
     except Exception as exc:  # noqa: BLE001 - the batch hands over to its LLM
@@ -275,6 +298,8 @@ __all__ = [
     "SERVING_TASKS",
     "VERSION",
     "Decision",
+    "NoClearAnswer",
+    "argmax",
     "client_for",
     "decide",
     "decide_many",

@@ -742,6 +742,8 @@ def span_support_text(support: Mapping[str, Any]) -> str:
     verdict = support.get("verdict")
     if verdict in _SPAN_SUPPORT_TEXT:
         return _SPAN_SUPPORT_TEXT[str(verdict)]
+    if support.get("status") == "tied":
+        return "the check could not tell whether the cited passages back it"
     return "the cited passages could not be checked against it just now"
 
 

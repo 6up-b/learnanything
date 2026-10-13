@@ -40,7 +40,9 @@ from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import content_key
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.decider_judgments import FAILURE_VERDICTS, VERSION, Decision, decide, record_failure
+from learnloop.decider_judgments import (
+    FAILURE_VERDICTS, VERSION, Decision, NoClearAnswer, argmax, decide, record_failure,
+)
 from learnloop.diagnosis.recurrence.judging import estimate_tokens
 from learnloop.diagnosis.text_gaps.contract import (
     DECIDER_PAIR_QUESTION_SET,
@@ -89,7 +91,10 @@ class ArgmaxPairExecutor(DeciderPairExecutor):
                                  output_tokens=0):
             result = self.client.decide(prompt, {"verdict": self.question}, purpose=purpose)
         probabilities = choice_probabilities(result.answers["verdict"], self.question)
-        choice = max(probabilities, key=probabilities.__getitem__)
+        choice = argmax(probabilities)
+        if choice is None:
+            # A same / different tie is no answer (review F8): the pair goes to the LLM.
+            raise NoClearAnswer("the Decider's top options are tied")
         rounded = {option: round(float(value), 4) for option, value in probabilities.items()}
         return result_model(verdict=choice, rationale=decider_rationale(DECIDER_PAIR_QUESTION_SET, rounded)), \
             self.producer
@@ -100,6 +105,8 @@ def _failure_status(pair: JudgedPair) -> str:
         return "refused"
     if pair.error == "AIProviderUnavailable":
         return "unavailable"
+    if pair.error == NoClearAnswer.__name__:
+        return "tied"
     return "failed"
 
 
