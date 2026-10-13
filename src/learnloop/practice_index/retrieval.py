@@ -556,6 +556,49 @@ def rank_dossier(snapshot: IndexSnapshot, repository: Repository, query_text: st
     return Ranking("dossier", order, ranks, sorted(lists), top, sorted(facet_lists))
 
 
+FACET_SHORTLIST_LABEL = "a shortlist by keyword and stored vectors; the caller's model decides"
+
+
+def facet_shortlist(vault: LoadedVault, repository: Repository, query: str, *,
+                    limit: int = 10) -> dict[str, Any]:
+    """Facets for a phrase: BM25 over labels and dossiers, plus stored dossier
+    vectors when the query's vector is already cached (canonical sources S4,
+    the router's ``facet_lookup``). Never calls a model or an embedder."""
+    snapshot = load_snapshot(vault, repository)
+    facets = snapshot.facets
+    text = " ".join(str(query or "").split())
+    lists: dict[str, list[str]] = {}
+    labels = BM25({facet_id: f"{facet_label(facets[facet_id])} {facet_id.replace('_', ' ')}"
+                   for facet_id in facets})
+    if keyword := labels.ranking(text):
+        lists["label_bm25"] = keyword
+    if snapshot.dossier_bm25 is not None and (dossier := snapshot.dossier_bm25.ranking(text)):
+        lists["dossier_bm25"] = dossier
+    vector_status = "unused: no stored dossier vectors"
+    if snapshot.dossier_vectors_complete and snapshot.dossier_manifests:
+        cached = cached_query_vectors(repository, vault.config.embedding.model,
+                                      {query_id(text): text}).get(query_id(text))
+        if cached is None:
+            vector_status = "unused: the query has no stored vector (no embedding call is made)"
+        else:
+            vector_status = "cached"
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                for name, manifest in snapshot.dossier_manifests.items():
+                    if manifest:
+                        lists[name.split("/", 1)[1]] = _vector_ranking(
+                            connection, snapshot, name, manifest, cached, None)
+    order, ranks = reciprocal_rank_fusion(lists, k=snapshot.rrf_k)
+    shortlist = []
+    for facet_id in order[:limit]:
+        learning_objects = sorted({vault.practice_items[item_id].learning_object_id
+                                   for item_id, item_facets_ in snapshot.item_facets.items()
+                                   if facet_id in item_facets_ and item_id in vault.practice_items})
+        shortlist.append({"facet_id": facet_id, "label": facet_label(facets[facet_id]),
+                          "learning_object_ids": learning_objects, "ranks": ranks.get(facet_id, {})})
+    return {"facets": shortlist, "lists": sorted(lists), "vectors": vector_status,
+            "label": FACET_SHORTLIST_LABEL}
+
+
 def choose_path(vault: LoadedVault, repository: Repository,
                 snapshot: IndexSnapshot) -> tuple[str, str]:
     """``(path, reason)`` under ``practice_index.retrieval_path``."""

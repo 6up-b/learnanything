@@ -55,7 +55,9 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     TUTOR_QA_PROMPT_VERSION,
+    TUTOR_QA_TOOLS_PROMPT_VERSION,
     TutorAnswer,
+    TutorAnswerWithTools,
     TutorQAContext,
     tutor_qa_prompt,
 )
@@ -85,14 +87,16 @@ READER_ANSWER_MODE_DEFAULT = "answer_directly"
 def request_tutor_answer(
     client: OperationClient,
     context: TutorQAContext,
+    *,
+    tools: bool = False,
 ) -> TutorAnswer:
-    """Run the feature-owned tutor-Q&A operation."""
+    """Run the feature-owned tutor-Q&A operation (``tools``: S4's request field)."""
 
     return execute_structured_operation(
         client,
         purpose="tutor_qa",
-        prompt=tutor_qa_prompt(context),
-        result_model=TutorAnswer,
+        prompt=tutor_qa_prompt(context, tools=tools),
+        result_model=TutorAnswerWithTools if tools else TutorAnswer,
         legacy_capability="tutor_qa",
         legacy_context=context,
     )
@@ -310,6 +314,8 @@ def ask_question(
     question_event_id: str | None = None,
     source_span_provider: SourceSpanProvider | None = None,
     learning_object_suggester: LearningObjectSuggester | None = None,
+    tool_request_handler: Callable[..., list[dict[str, Any]]] | None = None,
+    learner_draft_md: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -323,7 +329,13 @@ def ask_question(
     and library contexts' source spans from the question (None keeps the
     learning object's linked spans), and ``learning_object_suggester`` records a
     labelled nearest-LO suggestion for a reader span without provenance. Neither
-    changes the facet -> LO mapping, the candidate LOs or any evidence."""
+    changes the facet -> LO mapping, the candidate LOs or any evidence.
+
+    Canonical sources S4, injected by the adapter: ``tool_request_handler``
+    turns on the answer's ``tool_requests`` field (prompt and contract) and
+    validates the requests after the answer is stored; None keeps S0's tutor
+    byte for byte. ``learner_draft_md`` passes the learner's current draft as
+    context ("Explain this with my work")."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -442,6 +454,7 @@ def ask_question(
             selection_span_ids=selection_span_ids,
             selection_quote_md=selection_quote_md,
             provided_source_spans=provided_spans,
+            learner_draft_md=learner_draft_md,
         )
 
     if context == "reader":
@@ -499,6 +512,7 @@ def ask_question(
             )
             logger.warning("tutor context failed before the provider call: %s", type(exc).__name__)
             raise
+    tools = tool_request_handler is not None
     agent_run_id = repository.insert_agent_run(
         {
             "id": new_ulid(),
@@ -507,15 +521,15 @@ def ask_question(
             "provider_type": getattr(client, "provider_type", None),
             "model": getattr(client, "model", None),
             "prompt_template": "tutor_qa",
-            "prompt_version": TUTOR_QA_PROMPT_VERSION,
+            "prompt_version": TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION,
             "input_context_hash": _tutor_context_hash(ai_context),
-            "output_schema": "TutorAnswer",
+            "output_schema": "TutorAnswerWithTools" if tools else "TutorAnswer",
             "started_at": utc_now_iso(clock),
             "status": "running",
         }
     )
     try:
-        answer = request_tutor_answer(client, ai_context)
+        answer = request_tutor_answer(client, ai_context, tools=tools)
     except Exception as exc:
         finish_agent_run(
             repository, agent_run_id, client,
@@ -662,6 +676,18 @@ def ask_question(
         "citations": citations,
         "remaining": max(0, limit - used - 1),
     }
+    if tool_request_handler is not None:
+        # Canonical sources S4: validated before anything is shown; a failure
+        # here never costs the learner their answer.
+        try:
+            result["tool_requests"] = tool_request_handler(
+                vault, repository, event_id=event_id,
+                requests=list(getattr(answer, "tool_requests", None) or []),
+                model=getattr(client, "model", None), prompt_version=TUTOR_QA_TOOLS_PROMPT_VERSION, clock=clock,
+            )
+        except Exception as exc:  # noqa: BLE001 - offers are optional
+            logger.warning("tutor tool requests failed: %s", type(exc).__name__)
+            result["tool_requests"] = []
     suggested = (source_context or {}).get("suggested_learning_objects")
     if suggested:
         # Slice 2 T6: labelled suggestions for a reader span without provenance
@@ -1131,6 +1157,7 @@ def _build_context(
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
     provided_source_spans: list[dict[str, Any]] | None = None,
+    learner_draft_md: str | None = None,
 ) -> TutorQAContext:
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
@@ -1200,6 +1227,9 @@ def _build_context(
             ],
         }
 
+    if learner_answer is None and learner_draft_md and learner_draft_md.strip():
+        # S4's "Explain this with my work": the learner's current draft.
+        learner_answer = learner_draft_md
     return TutorQAContext(
         context=context,
         question_md=question_md,

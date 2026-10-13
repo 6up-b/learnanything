@@ -427,6 +427,65 @@ SERVICE_OWNER_KINDS = ("source_exercise_import", "source_solution_match", "sourc
                        "exercise_discrimination", "worked_example_equivalence")
 
 
+# -- S4: source_tool_calls (RECEIPT; append-only) ---------------------------------------
+
+_TOOL_CALL_JSON = {"context_json": ("context", {}), "arguments_json": ("arguments", {}),
+                   "dropped_json": ("dropped", []), "result_keys_json": ("result_keys", []),
+                   "source_versions_json": ("source_versions", {}), "cost_json": ("cost", None)}
+
+
+def insert_tool_call(connection: sqlite3.Connection, *, id: str, created_at: str, row_kind: str,
+                     caller_kind: str, caller_ref: str | None, context: Mapping[str, Any], policy: str,
+                     tool: str, arguments: Mapping[str, Any], status: str, parent_id: str | None = None,
+                     dropped: Sequence[Any] = (), ledger_id: str | None = None, result_ref: str | None = None,
+                     result_keys: Sequence[Any] = (), source_versions: Mapping[str, Any] | None = None,
+                     model: str | None = None, prompt_version: str | None = None, latency_ms: int | None = None,
+                     cost: Mapping[str, Any] | None = None) -> str:
+    connection.execute(
+        "INSERT INTO source_tool_calls (id, parent_id, row_kind, created_at, caller_kind, caller_ref, context_json, "
+        "policy, tool, arguments_json, dropped_json, ledger_id, status, result_ref, result_keys_json, "
+        "source_versions_json, model, prompt_version, latency_ms, cost_json) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (id, parent_id, row_kind, created_at, caller_kind, caller_ref, _dumps(dict(context)), policy, tool,
+         _dumps(dict(arguments)), _dumps(list(dropped)), ledger_id, status, result_ref, _dumps(list(result_keys)),
+         _dumps(dict(source_versions or {})), model, prompt_version, latency_ms,
+         None if cost is None else _dumps(dict(cost))),
+    )
+    return id
+
+
+def _tool_call(row: sqlite3.Row) -> dict[str, Any]:
+    value = dict(row)
+    for column, (key, default) in _TOOL_CALL_JSON.items():
+        value[key] = _loads(value.pop(column), default)
+    return value
+
+
+def tool_call(connection: sqlite3.Connection, call_id: str) -> dict[str, Any] | None:
+    row = connection.execute("SELECT * FROM source_tool_calls WHERE id=?", (call_id,)).fetchone()
+    return None if row is None else _tool_call(row)
+
+
+def tool_call_runs(connection: sqlite3.Connection, request_id: str) -> list[dict[str, Any]]:
+    rows = connection.execute("SELECT * FROM source_tool_calls WHERE parent_id=? ORDER BY created_at, id",
+                              (request_id,)).fetchall()
+    return [_tool_call(row) for row in rows]
+
+
+def tool_calls(connection: sqlite3.Connection, *, caller_kind: str | None = None,
+               caller_ref: str | None = None) -> list[dict[str, Any]]:
+    clauses, parameters = [], []
+    if caller_kind is not None:
+        clauses.append("caller_kind=?")
+        parameters.append(caller_kind)
+    if caller_ref is not None:
+        clauses.append("caller_ref=?")
+        parameters.append(caller_ref)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = connection.execute(f"SELECT * FROM source_tool_calls{where} ORDER BY created_at, id", parameters).fetchall()
+    return [_tool_call(row) for row in rows]
+
+
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> dict[str, Any]:
     """Provider-reported cost and count of physical requests (leaf receipts) since ``since``.

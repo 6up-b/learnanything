@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.source_retrieval.tutor import TutorSpanProvider
+from pydantic import Field
+
+from learnloop.source_retrieval.tutor import PinnedSpanProvider, TutorSpanProvider
 from learnloop.tutor import question_queue as QQ
 from learnloop.tutor.question_queue import QuestionQueueError
 from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -46,6 +48,10 @@ class AskTutorQuestionInput(ParamsModel):
     hints_used_before: int | None = None
     direct_explanation_request: bool = False
     attempt_progress: str | None = None
+    # Canonical sources S4 (§10.3), "Explain this with my work": the passages
+    # the learner chose (span keys "<extraction>:<span>") and their current draft.
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    learner_draft_md: str | None = Field(default=None, max_length=8000)
 
 
 class RateTutorAnswerInput(ParamsModel):
@@ -233,7 +239,12 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             },
             # Slice 2 T6: question-dependent, verified source spans (kill switch
             # source_retrieval.enabled; any failure keeps the linked spans).
-            source_span_provider=TutorSpanProvider(intent_for=_tutor_intent_for),
+            # S4's "Explain this with my work" pins the learner's chosen spans.
+            source_span_provider=_span_provider(vault, repository, params),
+            learner_draft_md=params.learner_draft_md,
+            # Canonical sources S4: the answer's typed tool requests (None when
+            # source_service.tutor_tools is off: S0's tutor byte for byte).
+            tool_request_handler=_tool_request_handler(vault),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -264,10 +275,32 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             "citations": result.get("citations", []),
             "remaining": result["remaining"],
             # Canonical sources S0 (§6.2): a deterministic "Practice this"
-            # request the frontend runs once the answer is on screen.
-            "practice_request": tutor_practice_request(vault, repository, result["event_id"]),
+            # request the frontend runs once the answer is on screen. S4: the
+            # tutor's own find_practice request replaces it when it wrote one.
+            "practice_request": (None if _wrote_find_practice(result) else
+                                 tutor_practice_request(vault, repository, result["event_id"])),
+            **({"tool_requests": result["tool_requests"]} if "tool_requests" in result else {}),
         }
     )
+
+
+def _span_provider(vault: Any, repository: Any, params: AskTutorQuestionInput) -> Any:
+    if not params.pinned_span_keys:
+        return TutorSpanProvider(intent_for=_tutor_intent_for)
+    from learnloop.instructional.policy import cold_administration_open
+
+    item_id = params.practice_item_id if params.context in ("practice", "feedback") else None
+    return PinnedSpanProvider(params.pinned_span_keys, cold=cold_administration_open(repository, item_id))
+
+
+def _tool_request_handler(vault: Any) -> Any:
+    from learnloop.instructional.tools import tutor_request_handler
+
+    return tutor_request_handler(vault)
+
+
+def _wrote_find_practice(result: dict[str, Any]) -> bool:
+    return any(entry.get("tool") == "find_practice" for entry in result.get("tool_requests") or ())
 
 
 def _tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None:

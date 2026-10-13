@@ -180,6 +180,28 @@ def exercise_scope(vault: LoadedVault, repository: Repository,
     return teaching_scope(vault, repository, learning_object_ids, item_bound=False)
 
 
+def exercise_region_count(vault: LoadedVault, repository: Repository,
+                          learning_object_ids: Sequence[str] = ()) -> dict[str, int]:
+    """Unimported exercise regions in the teaching scope (no search, no model call)."""
+
+    scope = exercise_scope(vault, repository, list(learning_object_ids))
+    counts = {"regions": 0, "already_imported": 0, "excluded": 0}
+    if not scope.extractions:
+        return counts
+    imported = imported_span_keys(vault, repository)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        imported |= _same_text_keys(connection, imported, sorted(scope.extractions))
+        for extraction_id in sorted(scope.extractions):
+            for region in exercise_regions(connection, extraction_id):
+                if any((region.extraction_id, span) in imported for span in region.span_ids):
+                    counts["already_imported"] += 1
+                elif any(not scope.allows(region.extraction_id, span) for span in region.span_ids):
+                    counts["excluded"] += 1
+                else:
+                    counts["regions"] += 1
+    return counts
+
+
 def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, constraints: Any, *,
                         pool_size: int, embedder: Any | None = None, rewrite_client: Any | None = None,
                         owner_id: str = "", deadline: float | None = None,

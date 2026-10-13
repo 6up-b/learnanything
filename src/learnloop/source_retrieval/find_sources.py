@@ -139,7 +139,7 @@ class SourceHits:
                 "manifest": dict(self.manifest), "cursor": self.cursor}
 
 
-def _span_keys(values: Sequence[Any]) -> set[SpanKey]:
+def span_keys(values: Sequence[Any]) -> set[SpanKey]:
     keys: set[SpanKey] = set()
     for value in values or ():
         if isinstance(value, (list, tuple)) and len(value) == 2:
@@ -303,6 +303,9 @@ def _hit_dict(hit: SpanHit, revision_ids: Mapping[str, str | None], *, verdict: 
         "block_type": hit.block_type, "authorship": "source", "label": "source-authored",
         "verdict": verdict, "rationale": rationale, "expansion": expansion, "ranks": dict(hit.ranks),
     }
+
+
+_span_keys = span_keys
 
 
 def _verify(vault: LoadedVault, repository: Repository, *, intent: str, question: str, pool: Sequence[SpanHit],

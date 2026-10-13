@@ -23,6 +23,7 @@ SOURCE_SERVICE_RPCS: tuple[str, ...] = (
     "get_source_exercise_import",
     "find_sources",
     "compare_sources",
+    "run_source_tool",
 )
 
 
@@ -231,6 +232,32 @@ def compare_sources_rpc(ctx: SidecarContext, params: CompareSourcesInput) -> dic
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(comparison.as_dict())
+
+
+class RunSourceToolInput(ParamsModel):
+    tool_call_id: str
+
+
+@method("run_source_tool", RunSourceToolInput)
+def run_source_tool_rpc(ctx: SidecarContext, params: RunSourceToolInput) -> dict[str, Any]:
+    """Run a tool request a tutor answer carried (S4, §10.3), under the caller
+    context stored with the request: the policy cannot change between the
+    answer and the run. find_practice and find_sources run when the offer is
+    shown; compare_sources when it is tapped."""
+
+    from learnloop.instructional.tools import ToolArgumentsInvalid, run_requested_tool
+    from learnloop.practice_index.retrieval import IntentUnavailable
+    from learnloop.source_retrieval.policy import PolicyRefused
+    from learnloop_sidecar.handlers.practice_index import _injected
+
+    vault, repository = ctx.require_vault()
+    try:
+        result = run_requested_tool(vault, repository, params.tool_call_id, injections=_injected(vault, repository))
+    except ToolArgumentsInvalid as exc:
+        raise SidecarError("not_found" if exc.code == "not_found" else "validation_error", str(exc)) from exc
+    except (PolicyRefused, IntentUnavailable) as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    return versioned(result)
 
 
 __all__ = ["SOURCE_SERVICE_RPCS", "server_caller"]

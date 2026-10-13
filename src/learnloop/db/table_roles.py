@@ -382,6 +382,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_render_views", TableRole.WORKFLOW),
     ("source_revisions", TableRole.RAW_LEDGER),
     ("source_span_reanchors", TableRole.RAW_LEDGER),
+    ("source_tool_calls", TableRole.RECEIPT),
     ("source_unit_inventories", TableRole.RAW_LEDGER),
     ("source_unit_selections", TableRole.WORKFLOW),
     ("subject_identifiability_watermarks", TableRole.DERIVED),

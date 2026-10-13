@@ -503,3 +503,47 @@ def service_clients(llm: FakeServiceLLM) -> dict[str, Any]:
 
     return {name: llm for name in ("authoring", "panel", "equivalence", "span_support", "solution_match",
                                    "family_judge", "exercise_discrimination", "worked_example_equivalence")}
+
+
+# -- S4: a tutor that writes typed tool requests ----------------------------------------
+
+
+def tool_tutor(requests: list[dict[str, Any]] | None = None, *, answer_md: str = "Think about the sign."):
+    """A structured tutor fake whose answers carry ``requests`` (S4) and that
+    records each prompt and result model it was asked for."""
+
+    from tests.structured_ai import StructuredClientFake
+
+    class ToolTutor(StructuredClientFake):
+        provider_name = "fake_tutor"
+        provider_type = "fake"
+        model = "fake-tutor-model"
+
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+            self.result_models: list[str] = []
+
+        def complete(self, request):
+            self.prompts.append(request.prompt)
+            self.result_models.append(request.result_model.__name__)
+            return super().complete(request)
+
+        def run_tutor_qa(self, context):
+            from learnloop.tutor.ai_contracts import TutorAnswer, TutorAnswerWithTools
+
+            if self.result_models and self.result_models[-1] == "TutorAnswerWithTools":
+                return TutorAnswerWithTools.model_validate({
+                    "answer_md": answer_md, "question_type": "mechanism", "facets": [],
+                    "tool_requests": list(requests or [])})
+            return TutorAnswer(answer_md=answer_md, question_type="mechanism", facets=[])
+
+    return ToolTutor()
+
+
+def set_item_answer(paths: VaultPaths, item_id: str, expected_answer: str) -> None:
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.practice_item_path("linear-algebra", item_id)
+    payload = read_yaml(path)
+    payload["expected_answer"] = expected_answer
+    write_yaml(path, payload)

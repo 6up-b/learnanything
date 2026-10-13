@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.ai.schemas import CandidateCause, WireModel
+from learnloop.ai.tool_requests import ToolRequest
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.content.authoring.ai_contracts import (
     BANNED_RESPONSE_MODES,
@@ -93,6 +94,15 @@ class TutorAnswer(WireModel):
     new_candidate_cause: CandidateCause | None = None
 
 
+class TutorAnswerWithTools(TutorAnswer):
+    """The tutor's answer with typed source-tool requests (canonical sources S4, §10.3).
+
+    Used only while ``source_service.tutor_tools`` is on; off, the contract and
+    the prompt are S0's, byte for byte."""
+
+    tool_requests: list[ToolRequest] = Field(default_factory=list)
+
+
 class TeachBackQuestion(WireModel):
     question_md: str
 
@@ -124,6 +134,8 @@ class PromotionAnalysis(WireModel):
 
 
 TUTOR_QA_PROMPT_VERSION = "mvp-0.8-tutor-qa-learner-embedded-prediction"
+#: The same prompt plus the source-tool request section (S4; tutor_tools on).
+TUTOR_QA_TOOLS_PROMPT_VERSION = "mvp-0.9-tutor-qa-source-tool-requests"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.1-source-item-quest-transfer"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
@@ -381,7 +393,20 @@ _TUTOR_QA_OPENING_SHARED = (
 )
 
 
-def tutor_qa_prompt(context: TutorQAContext) -> str:
+_TUTOR_QA_TOOLS_TASK = (
+    " You may also fill `tool_requests` to offer the learner material from their own vault. "
+    "LearnLoop's code runs each request and shows the result to the LEARNER; nothing comes back to you. "
+    "`find_practice` asks for practice on what the learner is struggling with (intent `practice`, or "
+    "`remediate` when they hold a misconception); `find_sources` asks for passages from their books for an "
+    "intent (`explain`, `remediate`, `alternative`, `worked_example`); `compare_sources` asks how their books "
+    "treat this question. Give each a one-line `reason` the learner will read. Use only facet ids from "
+    "context.candidate_facets ([] when none fit) and [] for learning_object_ids unless you know one. No "
+    "request, query or reason may carry or hint at the current item's answer. Leave `tool_requests` empty "
+    "when nothing would help."
+)
+
+
+def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     opening = not context.question_md.strip() and context.diagnostic_decision is not None
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
     if context.context == "reader" and context.answer_mode:
@@ -389,10 +414,11 @@ def tutor_qa_prompt(context: TutorQAContext) -> str:
     if context.diagnostic_decision is not None:
         task = task + " " + _TUTOR_QA_DIAGNOSTIC_DECISION_TASK
     shared = _TUTOR_QA_OPENING_SHARED if opening else _TUTOR_QA_SHARED
+    with_tools = tools and not opening
     return render_structured_prompt(
         "learnloop tutor qa",
-        TUTOR_QA_PROMPT_VERSION,
-        {"task": shared + " " + task, "context": asdict(context)},
+        TUTOR_QA_TOOLS_PROMPT_VERSION if with_tools else TUTOR_QA_PROMPT_VERSION,
+        {"task": shared + " " + task + (_TUTOR_QA_TOOLS_TASK if with_tools else ""), "context": asdict(context)},
     )
 
 

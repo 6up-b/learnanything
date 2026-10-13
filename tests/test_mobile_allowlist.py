@@ -135,6 +135,7 @@ SOURCE_SERVICE_RPCS = (
     "get_source_exercise_import",
     "find_sources",
     "compare_sources",
+    "run_source_tool",
 )
 SOURCE_SERVICE_EXTENDED_RPCS = (
     "prescribe_remediation",

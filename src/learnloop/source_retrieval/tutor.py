@@ -32,14 +32,18 @@ the facet -> LO mapping or scheduling (cited spans are reveal-accounted by
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import closing
 import time
 from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.content.authoring.practice_leakage import build_cross_source_spans
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
 from learnloop.source_retrieval.corpus import teaching_scope
+from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.search import SpanHit, search_spans
 from learnloop.source_retrieval.verify import verification_route, verify_spans
 from learnloop.tutor.tutor_qa import span_leaks_expected
@@ -205,4 +209,55 @@ class TutorSpanProvider:
                        "span_keys": [hit.record_id for hit in chosen]}
 
 
-__all__ = ["ITEM_BOUND_CONTEXTS", "PROVENANCE_SPANS_PER_LO", "SPAN_TEXT_CAP", "TutorSpanProvider", "span_context"]
+class PinnedSpanProvider:
+    """"Explain this with my work" (canonical sources S4, §10.3): the tutor is
+    grounded in the passages the learner chose, through the same filters any
+    retrieved span passes (an item-bound question never receives an exercise,
+    a solution, a span linked to its item or one that reproduces its answer).
+
+    ``cold`` (decided by the adapter from the caller) grounds in nothing."""
+
+    def __init__(self, span_keys: Sequence[Any], *, cold: bool = False) -> None:
+        self.span_keys = list(span_keys)
+        self.cold = cold
+
+    def __call__(self, vault: LoadedVault, repository: Repository, *, context: str,
+                 question_md: str, learning_object_ids: Sequence[str],
+                 item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+        if self.cold:
+            return [], {"basis": "pinned", "policy": "cold_attempt", "spans": 0,
+                        "reason": "nothing is grounded during a cold administration"}
+        item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+        policy = "assisted_practice" if item_bound else "reading"
+        lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
+        scope = scope_for(vault, repository, policy=policy, scope="library", learning_object_ids=lo_ids,
+                          item=item if item_bound else None)
+        keys = sorted(span_keys(self.span_keys))
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            blocks = blocks_by_key(connection, keys)
+        spans: list[dict[str, Any]] = []
+        dropped: list[dict[str, Any]] = []
+        for key in keys:
+            block = blocks.get(key)
+            why = None
+            if block is None:
+                why = "no such passage"
+            elif not scope.allows(*key):
+                why = "not available while you're practising this item" if item_bound else "not in your sources"
+            elif item_bound and span_leaks_expected(block.text, item.expected_answer):
+                why = "it reproduces the answer to the item you are practising"
+            if why is not None:
+                dropped.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
+                continue
+            extraction = scope.extractions[key[0]]
+            spans.append(span_context(SpanHit(
+                extraction_id=key[0], span_id=key[1], source_id=extraction.source_id,
+                source_title=extraction.title, text=block.text, block_type=block.block_type, section_path=[],
+                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})))
+        return spans, {"basis": "pinned", "policy": policy, "spans": len(spans),
+                       "span_keys": [f"{s['extraction_id']}:{s['span_id']}" for s in spans],
+                       "dropped_pins": dropped}
+
+
+__all__ = ["ITEM_BOUND_CONTEXTS", "PROVENANCE_SPANS_PER_LO", "SPAN_TEXT_CAP", "PinnedSpanProvider",
+           "TutorSpanProvider", "span_context"]
