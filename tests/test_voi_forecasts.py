@@ -419,14 +419,15 @@ def test_regret_counts_only_independent_truth():
 
 
 def _cold_verification(connection, verification_id: str, *, repair_class: str, hypothesis_ids: list[str],
-                       success: bool, support: dict | None = None) -> None:
+                       success: bool, support: dict | None = None, created_at: str = "2026-05-20T12:00:00Z") -> None:
     connection.execute(
         "INSERT INTO causal_cold_verifications (id, source_attempt_id, cold_attempt_id, repair_class_id, "
         "hypothesis_ids_json, source_surface_family, cold_surface_family, avoided_affordances_json, success, "
         "capability_update_json, diagnosis_support_update_json, repair_effect_support_json, created_at) "
-        "VALUES (?, 'a1', ?, ?, ?, 'f1', 'f2', '[]', ?, '{}', ?, '{}', '2026-05-20T12:00:00Z')",
+        "VALUES (?, 'a1', ?, ?, ?, 'f1', 'f2', '[]', ?, '{}', ?, '{}', ?)",
         (verification_id, f"cold_{verification_id}", repair_class, json.dumps(hypothesis_ids), 1 if success else 0,
-         json.dumps(support or {"delta": 0.0, "reason": "repair success does not retroactively prove the diagnosis"})),
+         json.dumps(support or {"delta": 0.0, "reason": "repair success does not retroactively prove the diagnosis"}),
+         created_at),
     )
 
 
@@ -457,31 +458,135 @@ def test_repair_outcomes_are_not_diagnostic_truth(tmp_path):
     ]
 
 
+def _blind_support(observation_id: str, delta: float, basis: str = "blind_probe_match") -> dict:
+    return {"delta": delta, "basis": basis, "observation_id": observation_id}
+
+
 def test_cold_verification_with_independent_diagnostic_support_is_truth(tmp_path):
+    # The cited observation resolves: admitted, independent, matched to one of the
+    # verification's own hypotheses. Support moves that hypothesis only.
     _vault_obj, repository = _vault(tmp_path)
+    forecast = {**_TRUTH_FORECAST, "created_at": "2026-05-21T00:00:00Z"}  # after the observations
     with repository.connection() as connection:
+        _discriminating_observation(connection, "obs_h2", probe_attempt_id="att_probe_h2", classified=["h2"],
+                                    created_at="2026-05-20T00:00:00Z")
         _cold_verification(connection, "cv_supported", repair_class="repair:b", hypothesis_ids=["h2"], success=True,
-                           support={"delta": 0.4, "basis": "blind_probe_match", "observation_id": "obs_blind_1"})
+                           support=_blind_support("obs_h2", 0.4), created_at="2026-05-22T00:00:00Z")
         _cold_verification(connection, "cv_refuted", repair_class="repair:a", hypothesis_ids=["h1"], success=True,
-                           support={"delta": -0.3, "basis": "adjudication", "observation_id": "obs_adj_1"})
+                           support=_blind_support("obs_h2", -0.3), created_at="2026-05-22T00:00:00Z")
         # A support delta with no admitted basis is not evidence.
         _cold_verification(connection, "cv_unbased", repair_class="repair:a", hypothesis_ids=["h1"], success=True,
-                           support={"delta": 0.5, "basis": "repair_success"})
-        truth = LR.truth_for(connection, _TRUTH_FORECAST)
+                           support={"delta": 0.5, "basis": "repair_success"}, created_at="2026-05-22T00:00:00Z")
+        truth = LR.truth_for(connection, forecast)
     assert truth["confirmed"] == ["h2"] and truth["ruled_out"] == ["h1"]
     assert truth["sources"] == ["cold_verification_diagnosis_support"]
 
 
+def test_cold_verification_support_counts_only_its_resolved_admitted_observation(tmp_path):
+    # Re-review F1: an admitted basis and a non-empty observation id are claims,
+    # not evidence. The cited observation must exist, be admitted with the
+    # basis's authority, be independent (not the forecast's own answer, not
+    # produced after a reveal), and match one of the verification's own
+    # hypotheses; support then moves only the hypothesis it matched.
+    _vault_obj, repository = _vault(tmp_path)
+    forecast = {**_TRUTH_FORECAST, "created_at": "2026-05-21T00:00:00Z"}
+    both = ["h1", "h2"]
+
+    def truth_with(support: dict, *, realized: str | None = None, hypothesis_ids: list[str] = both):
+        # The ledger is append-only: each case is inserted, read and rolled back.
+        with repository.connection() as connection:
+            _cold_verification(connection, "cv", repair_class="repair:b", hypothesis_ids=hypothesis_ids,
+                               success=True, support=support, created_at="2026-05-22T00:00:00Z")
+            truth = LR.truth_for(connection, forecast, realized_attempt_id=realized)
+            connection.rollback()
+            return truth
+
+    with repository.connection() as connection:
+        _discriminating_observation(connection, "obs_elsewhere", probe_attempt_id="att_p1", classified=["h_elsewhere"],
+                                    created_at="2026-05-20T00:00:00Z")
+        _discriminating_observation(connection, "obs_h2", probe_attempt_id="att_p2", classified=["h2"],
+                                    created_at="2026-05-20T00:00:00Z")
+        _discriminating_observation(connection, "obs_unadmitted", probe_attempt_id="att_p3", classified=["h2"],
+                                    admitted=False, created_at="2026-05-20T00:00:00Z")
+        _discriminating_observation(connection, "obs_model", probe_attempt_id="att_p4", classified=["h2"],
+                                    authority=None, created_at="2026-05-20T00:00:00Z")
+        _discriminating_observation(connection, "obs_revealed", probe_attempt_id="att_p5", classified=["h2"],
+                                    independent=0, created_at="2026-05-20T00:00:00Z")
+        _discriminating_observation(connection, "obs_ambiguous", probe_attempt_id="att_p6", classified=both,
+                                    outcome="matched_multiple", admitted=False, created_at="2026-05-20T00:00:00Z")
+        connection.commit()
+
+    unmoved = {"confirmed": [], "ruled_out": []}
+
+    def moved(truth):
+        return {"confirmed": truth["confirmed"], "ruled_out": truth["ruled_out"]}
+
+    # The cited observation does not exist.
+    assert moved(truth_with(_blind_support("obs_missing", 0.4))) == unmoved
+    # It exists, but supports a hypothesis this forecast does not hold.
+    assert moved(truth_with(_blind_support("obs_elsewhere", 0.4))) == unmoved
+    # Not admitted; admitted without the basis's authority; produced after a reveal; ambiguous.
+    for observation in ("obs_unadmitted", "obs_model", "obs_revealed", "obs_ambiguous"):
+        assert moved(truth_with(_blind_support(observation, 0.4))) == unmoved, observation
+    # The basis must be the one whose authority the receipt carries.
+    assert moved(truth_with(_blind_support("obs_h2", 0.4, basis="adjudication"))) == unmoved
+    # The forecast's own realized answer is not independent of it.
+    assert moved(truth_with(_blind_support("obs_h2", 0.4), realized="att_p2")) == unmoved
+    # A real, admitted, independent match on h2 confirms h2, never h1 beside it.
+    truth = truth_with(_blind_support("obs_h2", 0.4))
+    assert moved(truth) == {"confirmed": ["h2"], "ruled_out": []}
+    # Negative support needs the observation to have matched ANOTHER of the forecast's hypotheses.
+    assert moved(truth_with(_blind_support("obs_h2", -0.3), hypothesis_ids=["h1"])) == {
+        "confirmed": [], "ruled_out": ["h1"]}
+    assert moved(truth_with(_blind_support("obs_h2", -0.3), hypothesis_ids=["h2"])) == unmoved
+
+
+def test_one_cold_verification_is_one_repair_outcome(tmp_path):
+    # Re-review F10: a cold verification that also closes the forecast's factor
+    # (`repair_confirmed`, citing it by id) is one repair outcome, not two.
+    _vault_obj, repository = _vault(tmp_path)
+    forecast = {**_TRUTH_FORECAST, "factor_id": "factor_x", "site": "causal_shadow_selection"}
+    with repository.connection() as connection:
+        _cold_verification(connection, "cv_closing", repair_class="repair:b", hypothesis_ids=["h2"], success=True)
+        _factor(connection, "factor_x", "repair_confirmed", {"cold_verification_id": "cv_closing",
+                                                              "repair_class_id": "repair:b"})
+        truth = LR.truth_for(connection, forecast)
+        assert len(truth["repair_effect"]) == 1
+        assert truth["repair_effect"][0]["cold_verification_id"] == "cv_closing"
+        report = LR.summarize_joined([(forecast, {"status": "pending"}, truth)])
+        assert report["sites"]["causal_shadow_selection"]["repair_effect"] == {"success": 1, "failure": 0}
+        # A factor closed by another verification (not linked to these hypotheses)
+        # is a separate outcome, and keeps the verification it cites.
+        _factor(connection, "factor_y", "escalated_unrepaired", {"cold_verification_id": "cv_other",
+                                                                 "repair_class_id": "repair:a"})
+        other = LR.truth_for(connection, {**forecast, "factor_id": "factor_y"})
+    assert [(e["source"], e["cold_verification_id"], e["success"]) for e in other["repair_effect"]] == [
+        ("cold_verification", "cv_closing", True), ("factor_resolution", "cv_other", False)]
+
+
+def _factor(connection, factor_id: str, resolution_kind: str, detail: dict) -> None:
+    connection.execute(
+        "INSERT INTO unresolved_cause_factors (id, attempt_id, candidate_causes_json, status, algorithm_version, "
+        "created_at, updated_at, resolution_kind, resolution_detail_json) VALUES (?, 'att_src', '[]', "
+        "'resolved', 'test', '2026-05-19T00:00:00Z', '2026-05-21T00:00:00Z', ?, ?)",
+        (factor_id, resolution_kind, json.dumps(detail)),
+    )
+
+
 def _discriminating_observation(connection, observation_id: str, *, probe_attempt_id: str, classified: list[str],
-                                outcome: str = "matched_single", admitted: bool = True) -> None:
+                                outcome: str = "matched_single", admitted: bool = True,
+                                authority: str | None = "validator_owned", independent: int | None = None,
+                                created_at: str = "2026-05-20T12:00:00Z") -> None:
     connection.execute(
         "INSERT INTO causal_discriminating_observations (id, factor_id, attempt_id, probe_attempt_id, "
         "presentation_id, hypothesis_set_id, blind_bundle_ids_json, outcome, classified_as_json, supports_open_set, "
         "feature_source, observed_features_json, declared_keys_observed, admitted, admission_reason, "
-        "support_scores_json, resolved_factor, detail_json, decision_policy_version, formula_version, created_at) "
+        "support_authority, support_scores_json, resolved_factor, detail_json, decision_policy_version, "
+        "formula_version, admissible_as_independent, created_at) "
         "VALUES (?, 'factor_x', 'att_src', ?, 'pres_x', 'hs_x', '[]', ?, ?, 0, 'deterministic', '{}', 1, ?, 'test', "
-        "'{}', ?, '{}', 'v', 'v', '2026-05-20T12:00:00Z')",
-        (observation_id, probe_attempt_id, outcome, json.dumps(classified), int(admitted), int(admitted)),
+        "?, '{}', ?, '{}', 'v', 'v', ?, ?)",
+        (observation_id, probe_attempt_id, outcome, json.dumps(classified), int(admitted),
+         authority if admitted else None, int(admitted), independent, created_at),
     )
 
 
@@ -503,7 +608,7 @@ def test_factor_resolution_by_repair_is_repair_effect_and_by_observation_is_trut
         assert truth is not None and truth["confirmed"] == [] and truth["ruled_out"] == []
         assert truth["repair_effect"] == [
             {"source": "factor_resolution", "resolution_kind": "repair_confirmed", "repair_class_id": "repair:b",
-             "success": True}
+             "success": True, "cold_verification_id": "cv"}
         ]
         _discriminating_observation(connection, "obs_own", probe_attempt_id="att_probe", classified=["h2"])
         _discriminating_observation(connection, "obs_unadmitted", probe_attempt_id="att_other", classified=["h1"],
