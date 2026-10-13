@@ -589,7 +589,7 @@ def ask(
     # Exam protection (2026-10-13): a question about held-out material is
     # refused before any signal lands (the tutor refuses it too, before any
     # call: ``tutor_qa.HeldOutMaterialRefused``).
-    if held_out_among(held_out_material(repository), extraction_id, [span_id, *selection_span_ids]):
+    if held_out_among(held_out_material(vault, repository), extraction_id, [span_id, *selection_span_ids]):
         raise tutor_qa.HeldOutMaterialRefused(HELD_OUT_REFUSAL)
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.

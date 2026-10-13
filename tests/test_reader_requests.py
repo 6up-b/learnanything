@@ -174,7 +174,7 @@ def test_model_synthesis_lands_generated_content_as_proposed_object(tmp_path: Pa
     RR.enqueue_request(repo, source_id="src1", revision_id="rev1", extraction_id="ext1",
                        span_id="s1", preset="worked_example")
     client = _FakePresetClient()
-    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client, source_sets=()))
     assert len(result["completed"]) == 1
     assert len(client.calls) == 1
     assert client.calls[0].preset == "worked_example"
@@ -207,7 +207,7 @@ def test_model_synthesis_focuses_edited_latex_selection(tmp_path: Path) -> None:
     )
     client = _FakePresetClient()
 
-    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client, source_sets=()))
 
     assert len(result["completed"]) == 1
     assert client.calls[0].selected_text == selected
@@ -233,7 +233,7 @@ def test_model_synthesis_receives_every_selected_span_and_its_context(tmp_path: 
     )
     client = _FakePresetClient(span_ids=["s2", "s8"])
 
-    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client, source_sets=()))
 
     assert len(result["completed"]) == 1
     context = client.calls[0]
@@ -248,7 +248,7 @@ def test_model_synthesis_rejects_invented_spans(tmp_path: Path) -> None:
     RR.enqueue_request(repo, source_id="src1", revision_id="rev1", extraction_id="ext1",
                        span_id="s1", preset="ask")
     client = _FakePresetClient(span_ids=["s99"])
-    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client, source_sets=()))
     # Invalid citation -> failed (retryable), and nothing is landed.
     assert result["failed"] and not result["completed"]
     assert repo.source_objects_for_source("src1") == []
@@ -259,7 +259,7 @@ def test_model_synthesis_without_provider_support_fails_visibly(tmp_path: Path) 
     _ingest(repo)
     RR.enqueue_request(repo, source_id="src1", revision_id="rev1", extraction_id="ext1",
                        span_id="s1", preset="ask")
-    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(object()))
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(object(), source_sets=()))
     assert result["failed"] and not result["completed"]
     row = repo.get_reader_request(result["failed"][0])
     assert row["status"] == "failed"  # retryable; stub content never impersonates synthesis

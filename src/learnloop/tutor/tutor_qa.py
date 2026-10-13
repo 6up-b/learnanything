@@ -389,12 +389,13 @@ def ask_question(
             answer_mode = READER_ANSWER_MODE_DEFAULT
         if answer_mode not in READER_ANSWER_MODES:
             raise TutorQAError(f"Unknown reader answer mode {answer_mode!r}.")
-        # Exam protection (2026-10-13): held-out material (a unit held out for
-        # evaluation, the one exam predicate's rule 3) is never shown to a
-        # model as explanation, whoever selects it. A question about it is
-        # refused before anything is written or sent; a held-out neighbour of
-        # the passage is left out of the manifest (``_reader_source_spans``).
-        reader_held_out = held_out_material(repository)
+        # Exam protection (2026-10-13): held-out material (the one held-out
+        # partition: held-out units and exam units' held-out assessment
+        # signals, Codex review F3) is never shown to a model as explanation,
+        # whoever selects it. A question about it is refused before anything
+        # is written or sent; a held-out neighbour of the passage is left out
+        # of the manifest (``_reader_source_spans``).
+        reader_held_out = held_out_material(vault, repository)
         if held_out_among(reader_held_out, extraction_id, [span_id, *selection_span_ids]):
             raise HeldOutMaterialRefused(HELD_OUT_REFUSAL)
         note_id = reader_span_key(extraction_id, span_id)

@@ -67,7 +67,7 @@ from learnloop.content.authoring.pf_sandbox import (
     equivalence_confirmations, require_sandbox, run_equivalence_checks, run_generator_tests,
     sandbox_available,
 )
-from learnloop.content.sources.exam_material import exam_material
+from learnloop.content.sources.exam_material import exam_material, source_ref_protected
 from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
 )
@@ -763,12 +763,15 @@ class _FamilyRun:
             passages.append({"text": span.text, "label": span.label, "extraction_id": span.extraction_id,
                              "span_id": span.span_id, "source_id": span.source_id})
         for ref in self.parent.provenance.source_refs:
-            if ref.extraction_id and (exam.covers(ref.extraction_id) or any(
-                    exam.covers(ref.extraction_id, str(span)) for span in ref.span_ids or ())):
+            if not (ref.quote and ref.quote.strip()):
                 continue
-            if ref.quote and ref.quote.strip():
-                passages.append({"text": ref.quote.strip(), "label": ref.ref_type, "ref_id": ref.ref_id,
-                                 "extraction_id": ref.extraction_id, "span_id": (ref.span_ids or [None])[0]})
+            # Located through the shared parser (a locator, plain or namespaced
+            # span ids); a quote it cannot place in a partly protected
+            # extraction or source is dropped (Codex review F4).
+            if source_ref_protected(exam, ref, self.ctx.repository):
+                continue
+            passages.append({"text": ref.quote.strip(), "label": ref.ref_type, "ref_id": ref.ref_id,
+                             "extraction_id": ref.extraction_id, "span_id": (ref.span_ids or [None])[0]})
         return [{**passage, "ref": f"s{index}"} for index, passage in enumerate(passages)]
 
     def _generate_source_anchored(self) -> None:

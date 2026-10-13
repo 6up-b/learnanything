@@ -1028,7 +1028,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # recomputed (defaults_fingerprint_for_version) on its branch, and all
     # eleven again from the composed defaults when it landed after the sources
     # track.
-    "mvp-0.9": "02e7da343ab0c5dbe44ef7435050fca2147bdd1b381c197f4465a75c6209fc64",
+    # Exam protection's Codex review (F6; docs/reviews/
+    # exam-protection-codex-review.md) adds goals.held_out_selection = true
+    # (modelled default, left out of the decision-only template), the kill
+    # switch of the stage's serving rules (shown material never an exam item,
+    # cold probe or cold retry; exposed exam items withdrawn at the exam's
+    # start; items made from held-out material out of routine practice). A
+    # live change at every version under the owner's standing ruling (live
+    # changes behind kill switches, not successors, for serving changes replay
+    # never reads), so no successor; off restores the stage's predecessor
+    # selection. Every snapshot moves only because the effective config gains
+    # the key; all eleven were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "67a9cf0784fa5389f54566a4f36f1e120ee9ed31a14587f3ff5ce4eedf1f3947",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1052,7 +1063,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.10": "d5d33b0390b1e7cf340b9019246f40115c555aa1d6d8362c55d9aa9baa349463",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.10": "dd7fd524dbf3a54f0f63060f12cc8b4201abebcf179a1400f66d59d6f5eb4d2a",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1084,7 +1096,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.11": "91b0b095557b1f43adea18a1b8a96437075aacb5ea0f56310ab66a1e4a813505",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.11": "6337ab7aed46ec5ea015f7f09d49aad94490a6b7f88100ca2206dc8ccb86c318",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1110,7 +1123,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.12": "fa7c35501d0a8cb11c0a06ec25cbafbf452839272e722da16440ccac3b7110e6",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.12": "a8ee8bd408bca8efa0537b2e32376404ff4fbcc5785ec2e53fd3a3a2257710d3",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1131,7 +1145,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.13": "343afcd5537946bd1ca4a54cb3805cb96a50c4a79c250faeb60ff06dfeea9b77",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.13": "e9c7036ef92ead43f81fce386af71611fe4c1bc5103360d6d78bfd9a79790c24",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1151,7 +1166,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.14": "fe844e927ffac2dcf78847b2173205611709046de429e1fd261d9c4b894c1ba5",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.14": "19cddccdbff7585bc6a1d09c815009ef5de69fb408197fc81dcd9c35e9d4647b",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1169,7 +1185,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.15": "01c0f36cccadc62433ae6a0e2d1d06976927f425f00078e9035ccda94398e3ab",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.15": "af7ed5ed42d08ecb9f9deb9b9f086e75c9a62a57a928e74d6f5e4a7ae2ee8d00",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1194,7 +1211,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.16": "688b990fa71ad87249e5628adf63f8a26d011a9d568fd3c283ad439c6d8fba2f",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.16": "103bb0c48e2671c4a012c52e0d2f9c7a92feb9b618b503dc6a5e70493dd46dd2",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1212,7 +1230,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.18 merged.
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.17": "1220459e8dae8af9b78ca064c9503a69c26a8dadc29d9482bb7336257fb0c733",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.17": "6389dee7ba4b0780784665e314fe32867e0683a87c6bcaa6ff8523e543350551",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1225,7 +1244,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # from mvp-0.17, or from mvp-0.9 to mvp-0.16 through the chain (under
     # mvp-0.12's advisory guard); never retroactive.
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.18": "626d2b00f03cca87686560d1ae4e6ba0d72a70c06efe4fef2d60bdb22c81c78c",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.18": "4e8399017be29f3a8d9688396a58c4b0660b7e3e44b8db742a368321679205fb",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1237,7 +1257,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.17 through the chain (under mvp-0.12's advisory guard). New
     # vaults start here (the template's LATEST_ALGORITHM_VERSION).
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
-    "mvp-0.19": "5847a339a9c2b4772b6c7a57c0c05981aa80e2ab8adbafbf1204bf1882628400",
+    # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
+    "mvp-0.19": "228bf0fd4765a2e16aa2fc834b474d3dd274942ace5ed05d5c4940d590b86ed7",
 }
 
 

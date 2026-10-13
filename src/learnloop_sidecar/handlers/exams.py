@@ -13,7 +13,7 @@ from typing import Any
 
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import resolved_codex_grade
-from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.goals.exam_pool import reserve_exam_pool, withdrawn_note
 from learnloop.goals.exam_session import (
     ExamSessionError,
     exam_availability,
@@ -32,7 +32,7 @@ from learnloop.attempts.grading import (
     vault_grading_calibration_identity,
 )
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.goals import GoalIdInput, _find_goal
@@ -73,6 +73,7 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
     pool_count = 0
     deferred = False
     candidate_count = 0
+    withdrawn: list[dict[str, Any]] = []
     if goal.exam.enabled and goal.status == "active":
         # Idempotent: reserves on first ask (covers goals created before the
         # exam feature or via hand-edited YAML), returns the existing pool after.
@@ -85,6 +86,7 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
         pool_count = len(report.reserved_item_ids)
         deferred = report.deferred
         candidate_count = report.candidate_count
+        withdrawn = list(report.withdrawn)
     availability = exam_availability(vault, repository, goal)
     return versioned(
         {
@@ -99,6 +101,10 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
             # material to hold one out of. Self-healing: this read retries.
             "reservation_deferred": deferred,
             "reservable_candidate_count": candidate_count,
+            # Exam protection (Codex review F5): reserved items the learner
+            # has seen since were set aside, with the reason.
+            "withdrawn_items": withdrawn,
+            "withdrawn_note": withdrawn_note(withdrawn),
         }
     )
 
@@ -278,16 +284,23 @@ def _raise_exam_grading_error(exc: Exception) -> None:
 def start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     goal = _find_goal(vault, params.goal_id)
+    withdrawn: list[dict[str, Any]] = []
     if goal.exam.enabled and goal.status == "active":
         # The learner asked for the exam: reserve whatever is reservable rather
         # than deferring. A short exam beats a blocked one.
-        reserve_exam_pool(vault, repository, goal)
+        withdrawn = list(reserve_exam_pool(vault, repository, goal).withdrawn)
     try:
         view = start_exam(vault, repository, params.goal_id)
     except ExamSessionError as exc:
         raise SidecarError("exam_start_failed", str(exc)) from exc
     _schedule_pending_exam_grading(ctx, view["session_id"])
-    return _session_snapshot(ctx, view)
+    snapshot = _session_snapshot(ctx, view)
+    # Exam protection (Codex review F5): items set aside because the learner
+    # has seen them since they were held out, with the reason.
+    withdrawn += list(view.get("withdrawn_items") or [])
+    if withdrawn:
+        snapshot.update(to_camel({"withdrawn_items": withdrawn, "withdrawn_note": withdrawn_note(withdrawn)}))
+    return snapshot
 
 
 @method("submit_exam_answer", SubmitExamAnswerInput)

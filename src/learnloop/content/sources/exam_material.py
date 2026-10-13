@@ -34,17 +34,22 @@ database's unit selections when it is built:
    (fail closed).
 3. *A held-out unit, whatever its role.* Every unit marked
    ``held_out_evaluation`` in any unit selection of the source (in a source
-   set or not, whatever role its member has; owner, 2026-10-13): by id in the
-   extraction whose selection marks it, by label in every other extraction of
-   the source. A split child withholds its whole raw parent and a merged unit
-   its members; an id or label that does not resolve withholds the whole
-   extraction (fail closed).
+   set or not, whatever role its member has; owner, 2026-10-13). A mark is a
+   restriction on the source, so every extraction carries every mark (Codex
+   review F2): its own by unit id, another extraction's by label. A split
+   child withholds its whole raw parent and a merged unit its members; a
+   label that does not resolve withholds the whole extraction, and a mark
+   that resolves nowhere withholds every extraction of its source (fail
+   closed).
 
 The **held-out partition** (§8.5: what the leakage gate fingerprints and an
 import or a generated item must never reproduce) is rule 3 plus the held-out
 assessment signals of exam units (an exam unit's inventory signals marked
 ``held_out``, resolved in the member's pinned extraction):
-:func:`held_out_partition`.
+:func:`held_out_partition`. It is the one held-out predicate (Codex review
+F3): :attr:`ExamMaterial.held_out`, the Reader's refusals
+(:func:`held_out_material`, read with the vault's source sets) and the gate
+all read it.
 
 **Revisions.** A verdict names the revision of the extraction the span lies in
 and the pinned revisions of the members that made it exam material
@@ -53,7 +58,13 @@ pinned one.
 
 **Items** (:func:`item_exam_status`): an item reserved for a goal's held-out
 exam is exam material, and so is an item whose own source (its canonical
-exercise region, its block-level source refs) is.
+exercise region, its block-level source refs) is. Serving reads two item
+rules, behind one kill switch (``goals.held_out_selection``,
+:func:`held_out_selection_active`; Codex review F6): an item made from
+held-out material (:func:`held_out_items`) stays out of routine practice and
+is never a cold probe or retry (F1), and an item whose own material the
+learner has been shown (:func:`exposed_items`) is never an exam item, a cold
+probe or a cold retry, and leaves a reserved exam before it starts (F5).
 
 What a caller does with the answer is its own: teaching contexts and model
 readers withhold exam material under every policy, the leakage gate
@@ -75,6 +86,7 @@ from typing import Any
 from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_block_fts import UnitRow, extraction_units, source_extraction_ids
+from learnloop.db.stores.source_service import shown_items
 
 #: The exam use mode of a protected, held-out evaluation unit (spec_source_ingestion_v2 §4.2).
 HELD_OUT_EVALUATION = "held_out_evaluation"
@@ -163,6 +175,16 @@ class Material:
 
         wanted = {(str(key[0]), str(key[1])) for key in keys}
         return frozenset(key for key in wanted if self.covers(*key))
+
+    @property
+    def touched(self) -> frozenset[str]:
+        """Every extraction this material covers wholly or in part."""
+
+        return self.extractions | frozenset(key[0] for key in self.spans)
+
+    @property
+    def empty(self) -> bool:
+        return not self.extractions and not self.spans
 
     @classmethod
     def from_acc(cls, acc: _Acc) -> Material:
@@ -408,51 +430,75 @@ def _outline_exam_sources(connection: Any) -> list[tuple[str | None, str | None,
             for row in rows]
 
 
+def _label_occurrences(units: Sequence[UnitRow]) -> dict[str, tuple[str, int, str]]:
+    """``{unit id: (label, n, content hash)}``: the unit is the n-th (from 0, in
+    outline order) of its extraction's units with that label."""
+
+    seen: dict[str, int] = {}
+    found: dict[str, tuple[str, int, str]] = {}
+    for unit in units:
+        index = seen.get(unit.label, 0)
+        seen[unit.label] = index + 1
+        found[unit.unit_id] = (unit.label, index, unit.semantic_hash)
+    return found
+
+
 def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | None, marking: Iterable[str],
                     acc: _Acc) -> None:
     """Units marked ``held_out_evaluation`` in a unit selection of a source (any role).
 
-    By id in the extraction whose selection marks it, by its label elsewhere
-    (unit ids are positional); a split child withholds its raw parent; an id or
-    label that does not resolve withholds the whole extraction (fail closed).
+    A mark is a restriction on the SOURCE (Codex review F2 of the stage), so
+    every extraction of the source carries every mark, its own and the
+    others':
+
+    * its own marks by unit id (a split child withholds its raw parent, a
+      merged unit its members);
+    * another extraction's marks by label (unit ids are positional), every
+      unit with that label (labels can repeat: "Exercises" under each
+      chapter). The one exception: a mark is already carried by an extraction
+      that itself marks the same unit, the n-th with that label and the same
+      content hash (the unit marked again after a re-extraction);
+    * a label that does not resolve withholds the whole extraction; a mark
+      that does not resolve at all (its unit, so its label, is unknown)
+      withholds EVERY extraction of the source (fail closed).
     """
 
     extraction_ids = list(dict.fromkeys([*reader.source_extractions(source_id, revision_id), *sorted(marking)]))
     marked: dict[str, set[str]] = {}
-    unresolved: set[str] = set()
-    labels: set[str] = set()
+    marked_keys: dict[str, set[tuple[str, int, str]]] = {}
+    unresolved = False
     for extraction_id in extraction_ids:
         held = _held_out_ids(reader.selection(extraction_id))
         if not held:
             continue
         units = reader.units(extraction_id)
         by_id = {unit.unit_id: unit for unit in units}
+        occurrence = _label_occurrences(units)
         roots: set[str] = set()
         for unit_id in held:
             resolved = raw_roots(unit_id, by_id)
             if resolved is None:
-                unresolved.add(extraction_id)
-                break
+                unresolved = True
+                continue
             roots |= resolved
-        else:
-            marked[extraction_id] = roots
-            labels |= {by_id[unit_id].label for unit_id in roots}
-    for extraction_id in sorted(unresolved):
-        acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+        marked[extraction_id] = roots
+        marked_keys[extraction_id] = {occurrence[unit_id] for unit_id in roots}
+    if unresolved:
+        for extraction_id in extraction_ids:
+            acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+        return
     if not marked:
         return
     for extraction_id in extraction_ids:
-        if extraction_id in unresolved:
-            continue
         units = reader.units(extraction_id)
-        if extraction_id in marked:
-            roots = set(marked[extraction_id])
-        else:
-            roots = {unit.unit_id for unit in units if unit.label in labels}
-            if {unit.label for unit in units if unit.unit_id in roots} != labels:
-                acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
-                continue
-        chosen = descendants(units, roots)
+        own_keys = marked_keys.get(extraction_id, set())
+        labels = {key[0] for other, keys in marked_keys.items() if other != extraction_id
+                  for key in keys if key not in own_keys}
+        by_label = {unit.unit_id for unit in units if unit.label in labels}
+        if {unit.label for unit in units if unit.unit_id in by_label} != labels:
+            acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+            continue
+        chosen = descendants(units, marked.get(extraction_id, set()) | by_label)
         acc.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
                       HELD_OUT_UNIT, None)
 
@@ -498,6 +544,7 @@ def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
             for extraction_id in dict.fromkeys([*reader.source_extractions(source_id, revision_id), picked]):
                 acc.add_whole(extraction_id, EXAM_SOURCE, None)
         _add_held_out(connection, reader, held)
+        _add_signals(reader, vault_or_sets, held)
         held_material = Material.from_acc(held)
         material = Material.from_acc(acc).union(held_material)
         runs = _runs(connection, set(material.extractions) | {key[0] for key in material.spans})
@@ -537,15 +584,15 @@ HELD_OUT_REFUSAL = ("This passage is held out for evaluation (an exam you'll sit
                     "explain it or make questions from it: that keeps the exam a fair test.")
 
 
-def held_out_material(repository: Any) -> Material:
-    """The held-out units alone (rule 3), from the database's unit selections:
-    no vault needed, so a Reader surface that holds only a repository asks it.
-    The same material as :attr:`ExamMaterial.held_out`."""
+def held_out_material(vault_or_sets: Any, repository: Any) -> Material:
+    """The held-out partition (:func:`held_out_partition`, every subject): what
+    the Reader's model contexts refuse and a Reader import never turns into
+    practice. The same material as :attr:`ExamMaterial.held_out` and as the
+    leakage gate's fingerprint, so a caller that holds only a repository loads
+    the vault's source sets rather than reading a narrower partition (Codex
+    review F3: the exam units' held-out assessment signals need them)."""
 
-    held = _Acc()
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        _add_held_out(connection, _Reader(connection, repository), held)
-    return Material.from_acc(held)
+    return held_out_partition(vault_or_sets, repository)
 
 
 def held_out_among(material: Material, extraction_id: str | None, span_ids: Iterable[str | None]) -> list[str]:
@@ -583,11 +630,47 @@ def _signal_spans(inventory: Mapping[str, Any], *, held_out_only: bool) -> set[s
     return spans
 
 
+def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
+                 subjects: set[str] | None = None) -> None:
+    """The held-out assessment signals of exam units into ``held``: an exam
+    unit's inventory signals marked ``held_out`` (every signal of an exam unit
+    itself marked held out), resolved in the member's pinned extraction.
+    ``subjects`` narrows them to those subjects' source sets."""
+
+    repository = reader.repository
+    for source_set in _source_sets(vault_or_sets):
+        if subjects is not None and source_set.subject_id not in subjects:
+            continue
+        for member in source_set.members:
+            overrides = {str(entry.unit_id): entry.role_override for entry in member.scope if entry.role_override}
+            if not is_exam_role(member.default_role) and not any(is_exam_role(role) for role in overrides.values()):
+                continue
+            pinned = reader.pinned(member.revision_id)
+            if pinned is None:
+                continue
+            scope_units = [str(entry.unit_id) for entry in member.scope] or [
+                unit.unit_id for unit in reader.units(pinned)]
+            inventories = {str(row["unit_id"]): row["inventory"]
+                           for row in repository.unit_inventories_for_revision(member.revision_id)
+                           if row.get("inventory")}
+            modes = reader.selection(pinned).get("exam_use_modes") or {}
+            for unit_id in scope_units:
+                if not is_exam_role(overrides.get(unit_id, member.default_role)):
+                    continue
+                inventory = inventories.get(unit_id)
+                if inventory:
+                    held.add_spans(pinned, _signal_spans(inventory, held_out_only=modes.get(unit_id)
+                                                         != HELD_OUT_EVALUATION),
+                                   HELD_OUT_SIGNAL, str(member.revision_id or "") or None)
+
+
 def held_out_partition(vault_or_sets: Any, repository: Any, *,
                        subject_ids: Iterable[str] | None = None) -> Material:
     """The held-out partition: every held-out unit (rule 3, any role, every
     extraction, fail closed) plus the held-out assessment signals of exam units
-    (resolved in the member's pinned extraction).
+    (resolved in the member's pinned extraction). The one held-out predicate:
+    the leakage gate fingerprints it, the Reader refuses it
+    (:func:`held_out_material`) and :attr:`ExamMaterial.held_out` is it.
 
     ``subject_ids`` narrows the exam units' signals to those subjects' source
     sets; held-out units count wherever they sit."""
@@ -597,30 +680,7 @@ def held_out_partition(vault_or_sets: Any, repository: Any, *,
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reader = _Reader(connection, repository)
         _add_held_out(connection, reader, held)
-        for source_set in _source_sets(vault_or_sets):
-            if subjects is not None and source_set.subject_id not in subjects:
-                continue
-            for member in source_set.members:
-                overrides = {str(entry.unit_id): entry.role_override for entry in member.scope if entry.role_override}
-                if not is_exam_role(member.default_role) and not any(is_exam_role(role) for role in overrides.values()):
-                    continue
-                pinned = reader.pinned(member.revision_id)
-                if pinned is None:
-                    continue
-                scope_units = [str(entry.unit_id) for entry in member.scope] or [
-                    unit.unit_id for unit in reader.units(pinned)]
-                inventories = {str(row["unit_id"]): row["inventory"]
-                               for row in repository.unit_inventories_for_revision(member.revision_id)
-                               if row.get("inventory")}
-                modes = reader.selection(pinned).get("exam_use_modes") or {}
-                for unit_id in scope_units:
-                    if not is_exam_role(overrides.get(unit_id, member.default_role)):
-                        continue
-                    inventory = inventories.get(unit_id)
-                    if inventory:
-                        held.add_spans(pinned, _signal_spans(inventory, held_out_only=modes.get(unit_id)
-                                                             != HELD_OUT_EVALUATION),
-                                       HELD_OUT_SIGNAL, str(member.revision_id or "") or None)
+        _add_signals(reader, vault_or_sets, held, subjects=subjects)
     return Material.from_acc(held)
 
 
@@ -682,9 +742,37 @@ def _parse_block_span(locator: str) -> SpanKey | None:
     return None if parsed is None else (str(parsed[0]), str(parsed[1]))
 
 
+def source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]:
+    """One source ref's location, normalized: ``(block keys, extractions it
+    names without a block)``. The shared parser for provenance refs: a
+    ``block_span_v1`` locator, and span ids plain (under the ref's
+    extraction) or namespaced (``ext/span``, ``ext:span``)."""
+
+    keys: set[SpanKey] = set()
+    whole: set[str] = set()
+    extraction_id = getattr(ref, "extraction_id", None)
+    spans = [str(span) for span in getattr(ref, "span_ids", None) or () if span]
+    parsed = _parse_block_span(getattr(ref, "locator", None) or "")
+    if parsed is not None:
+        keys.add(parsed)
+    for span in spans:
+        if extraction_id and span.startswith((f"{extraction_id}/", f"{extraction_id}:")):
+            keys.add((str(extraction_id), span[len(extraction_id) + 1:]))
+        elif "/" in span or ":" in span:
+            # Block span ids never carry a separator (``s12``): this is ``ext/span`` or ``ext:span``.
+            cut = min(index for index in (span.find("/"), span.find(":")) if index >= 0)
+            head, tail = span[:cut], span[cut + 1:]
+            keys.add((head or str(extraction_id or ""), tail))
+        elif extraction_id:
+            keys.add((str(extraction_id), span))
+    if extraction_id and not spans and parsed is None:
+        whole.add(str(extraction_id))
+    return keys, whole
+
+
 def item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]:
     """The item's own source: ``(block keys, whole extractions)`` its canonical
-    exercise and its provenance source refs name."""
+    exercise and its provenance source refs name (:func:`source_ref_keys`)."""
 
     keys: set[SpanKey] = set()
     whole: set[str] = set()
@@ -693,22 +781,116 @@ def item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]:
         keys |= {(str(exercise.extraction_id), str(span)) for span in exercise.span_ids or ()}
     provenance = getattr(item, "provenance", None)
     for ref in getattr(provenance, "source_refs", None) or ():
-        extraction_id = getattr(ref, "extraction_id", None)
-        spans = [str(span) for span in getattr(ref, "span_ids", None) or () if span]
-        parsed = _parse_block_span(getattr(ref, "locator", None) or "")
-        if parsed is not None:
-            keys.add(parsed)
-        for span in spans:
-            if extraction_id and span.startswith((f"{extraction_id}/", f"{extraction_id}:")):
-                keys.add((str(extraction_id), span[len(extraction_id) + 1:]))
-            elif "/" in span:
-                head, _, tail = span.partition("/")
-                keys.add((head, tail))
-            elif extraction_id:
-                keys.add((str(extraction_id), span))
-        if extraction_id and not spans and parsed is None:
-            whole.add(str(extraction_id))
+        ref_keys, ref_whole = source_ref_keys(ref)
+        keys |= ref_keys
+        whole |= ref_whole
     return keys, whole
+
+
+def source_ref_protected(material: ExamMaterial, ref: Any, repository: Any) -> bool:
+    """Whether a source ref's text (its quote) may be exam or held-out material,
+    so a model context must not carry it (PF's parent quotes; Codex review F4).
+
+    Located through :func:`source_ref_keys`; conservative where it cannot place
+    the text: a block of the material, an extraction the ref names without a
+    block where any of it is material, a block id that is not a block of a
+    partly protected extraction, or a ref with no location whose source or
+    revision has material in it."""
+
+    keys, whole = source_ref_keys(ref)
+    touched = material.material.touched
+    if any(material.covers(*key) for key in keys) or whole & touched:
+        return True
+    partial = {extraction for extraction, _span in keys if extraction in touched}
+    if partial:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            for extraction in partial:
+                blocks = {str(row[0]) for row in connection.execute(
+                    "SELECT span_id FROM source_document_blocks WHERE extraction_id=?", (extraction,))}
+                if any(span not in blocks for key_extraction, span in keys if key_extraction == extraction):
+                    return True
+    if keys or whole:
+        return False
+    revision_id = getattr(ref, "revision_id", None)
+    source_id = getattr(ref, "source_id", None)
+    if not revision_id and not source_id:
+        return False
+    runs = [material.runs.get(extraction, (None, None)) for extraction in touched]
+    return any((revision_id and run[0] == str(revision_id)) or (source_id and run[1] == str(source_id))
+               for run in runs)
+
+
+def held_out_item_ids(items: Iterable[Any], held_out: Material) -> frozenset[str]:
+    """The items whose own source (:func:`item_source_keys`: the canonical
+    exercise, block-level provenance refs, an extraction named whole) lies in
+    ``held_out`` material (Codex review F1: an item imported before its unit
+    was marked held out). An extraction a ref names without a block counts
+    only when it is held out whole."""
+
+    if held_out.empty:
+        return frozenset()
+    found: set[str] = set()
+    for item in items:
+        keys, whole = item_source_keys(item)
+        if any(held_out.covers(*key) for key in keys) or any(held_out.covers(extraction) for extraction in whole):
+            found.add(str(item.id))
+    return frozenset(found)
+
+
+def held_out_items(vault: Any, repository: Any) -> frozenset[str]:
+    """The vault's practice items made from held-out material (:func:`held_out_material`)."""
+
+    items = list(getattr(vault, "practice_items", {}).values())
+    if not items:
+        return frozenset()
+    return held_out_item_ids(items, held_out_material(vault, repository))
+
+
+def held_out_selection_active(vault: Any) -> bool:
+    """``goals.held_out_selection``: the kill switch of the serving rules (Codex
+    review F6). On (the default): material the learner has been shown never
+    becomes an exam item, a certification cold probe or a cold retry; an exam
+    item shown after its reservation is withdrawn before the exam starts; an
+    item made from held-out material stays out of routine practice. Off, each
+    selection is the predecessor's. Live at every version: replay never reads
+    it. The model-context protections are not switched."""
+
+    goals = getattr(getattr(vault, "config", None), "goals", None)
+    return bool(getattr(goals, "held_out_selection", True))
+
+
+#: Why an item is made from held-out material (:func:`exposed_items`).
+HELD_OUT_MATERIAL = "held_out_material"
+
+
+def exposed_items(vault: Any, repository: Any, items: Iterable[Any], *,
+                  with_held_out: bool = False) -> dict[str, list[str]]:
+    """``{item id: reasons}`` for the items among ``items`` that are no longer
+    an independent check: the learner has been shown their own material
+    (``db.stores.source_service.shown_items``: ``revealed``,
+    ``source_exposed``, ``seen_in_proposal``) and, with ``with_held_out``,
+    items made from held-out material (``held_out_material``: a cold probe or
+    a cold retry would put an exam question in front of the learner).
+
+    The serving rules' one reader of shown material: the exam pool, the exam's
+    start, the certification cold probe and the cold retry. Empty with
+    ``goals.held_out_selection`` off (each selection is then the
+    predecessor's)."""
+
+    items = list(items)
+    if not items or not held_out_selection_active(vault):
+        return {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = {item_id: list(reasons) for item_id, reasons in shown_items(connection, items).items()}
+    if with_held_out:
+        for item_id in held_out_item_ids(items, held_out_material(vault, repository)):
+            found.setdefault(item_id, []).append(HELD_OUT_MATERIAL)
+    return {item_id: sorted(reasons) for item_id, reasons in sorted(found.items())}
+
+
+#: What a learner is told when a pick or a serve reaches an item made from held-out material.
+HELD_OUT_ITEM_REFUSAL = ("that item was made from material held out for evaluation (an exam you'll sit later), so "
+                         "it isn't practised: that keeps the exam a fair test")
 
 
 def item_exam_status(item: Any, *, material: ExamMaterial | None = None,
@@ -755,6 +937,8 @@ __all__ = [
     "ExamMaterial",
     "ExamVerdict",
     "HELD_OUT_EVALUATION",
+    "HELD_OUT_ITEM_REFUSAL",
+    "HELD_OUT_MATERIAL",
     "HELD_OUT_REFUSAL",
     "HELD_OUT_SIGNAL",
     "HELD_OUT_UNIT",
@@ -766,13 +950,19 @@ __all__ = [
     "exam_material",
     "exam_reserved",
     "exam_withheld",
+    "exposed_items",
     "held_out_among",
+    "held_out_item_ids",
+    "held_out_items",
     "held_out_material",
     "held_out_partition",
+    "held_out_selection_active",
     "held_out_spans",
     "is_exam_role",
     "item_exam_status",
     "item_source_keys",
     "raw_roots",
     "role_material",
+    "source_ref_keys",
+    "source_ref_protected",
 ]

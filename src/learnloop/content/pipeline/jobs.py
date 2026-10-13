@@ -2219,12 +2219,14 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
 
 def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None:
     """Exam protection (2026-10-13): a Reader check over held-out material (the
-    one exam predicate's rule 3) is refused before any model call, and before
-    a check authored before the mark is handed back (code ``exam_material``)."""
+    one held-out partition, read with the vault's source sets) is refused
+    before any model call, and before a check authored before the mark is
+    handed back (code ``exam_material``)."""
 
     from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+    from learnloop.vault.loader import load_vault
 
-    held = held_out_among(held_out_material(ctx.repo), extraction_id, span_ids)
+    held = held_out_among(held_out_material(load_vault(ctx.vault_root), ctx.repo), extraction_id, span_ids)
     if held:
         raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
                                 details={"extraction_id": extraction_id, "span_ids": held})
@@ -3884,10 +3886,12 @@ class DurableIngestJobs:
         client = self._resolve_reader_client(runner)
         if client is None:
             return 0
+        from learnloop.vault.loader import load_vault
+
         result = RR.drain_requests(
             runner.repo,
             worker_id=f"sidecar-{os.getpid()}",
-            synthesize=RR.model_synthesis(client),
+            synthesize=RR.model_synthesis(client, source_sets=lambda: load_vault(runner.vault_root).source_sets),
             limit=3,
         )
         return len(result["completed"]) + len(result["failed"]) + len(result["partial"])

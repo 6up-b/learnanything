@@ -622,7 +622,7 @@ def test_a_reader_preset_on_held_out_material_fails_before_any_model_call(textbo
     client = _NoCalls()
     queued = RR.enqueue_request(repository, source_id="src_text", revision_id="rev_text", extraction_id="ext_text",
                                 span_id=spans["exercises"][1], preset="alt_explanation")
-    drained = RR.drain_requests(repository, synthesize=RR.model_synthesis(client))
+    drained = RR.drain_requests(repository, synthesize=RR.model_synthesis(client, source_sets=loaded(paths)))
     assert drained["failed"] == [queued["request_id"]] and client.calls == []
     request = RR.request_status(repository, request_id=queued["request_id"])
     assert "held out for evaluation" in json_text(request)

@@ -356,25 +356,32 @@ def _land_proposals(
     return proposals
 
 
-def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]:
+def model_synthesis(
+    client: Any, *, source_sets: Any
+) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]:
     """Build the real ``synthesize`` seam for :func:`drain_requests`.
 
     The model output is candidate-only: span citations are validated against
     the request's own window and the content lands as a PROPOSED source object
     (§6.4). A provider lacking structured completion raises so the
     request resolves ``failed`` (retryable) — stub content is never presented
-    as synthesized."""
+    as synthesized.
+
+    ``source_sets`` is the vault's source sets (or the vault), or a callable
+    returning them when a request is sent: the held-out partition reads them
+    (exam units' held-out assessment signals; Codex review F3), so the Reader
+    refuses exactly what the leakage gate fingerprints."""
 
     def synthesize(
         repository: Repository, request: Mapping[str, Any], clock: Clock | None
     ) -> dict[str, Any]:
         window = json.loads(request.get("window_json") or "{}")
-        # Exam protection (2026-10-13): held-out material (the one exam
-        # predicate's rule 3) is never shown to a model as explanation. Checked
-        # here, when the request is sent (a mark may postdate the capture): a
+        # Exam protection (2026-10-13): held-out material (the one held-out
+        # partition) is never shown to a model as explanation. Checked here,
+        # when the request is sent (a mark may postdate the capture): a
         # request on a held-out passage fails with the reason, before any call;
         # a held-out neighbour is left out of the window.
-        held_out = held_out_material(repository)
+        held_out = held_out_material(source_sets() if callable(source_sets) else source_sets, repository)
         focus = [request.get("span_id"), *(window.get("selected_span_ids") or [])]
         if held_out_among(held_out, request["extraction_id"], focus):
             raise ReaderRequestError(HELD_OUT_REFUSAL)

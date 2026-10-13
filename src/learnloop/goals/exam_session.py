@@ -32,7 +32,7 @@ from learnloop.attempts.attempts import (
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.goals.exam_pool import release_exam_pool
+from learnloop.goals.exam_pool import release_exam_pool, withdraw_exposed_reservations, withdrawn_note
 from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
 from learnloop.scheduling.selection_rewards import (
@@ -118,8 +118,19 @@ def start_exam(
     if existing is not None:
         return _session_view(repository, existing["id"], already_started=True)
 
+    # Exam protection (Codex review F5): a reserved item the learner has been
+    # shown since it was reserved (an answer revealed, its exercise or
+    # solution read, its prompt in a suggestion) is no longer held out, so it
+    # is withdrawn (its reservation released, with the reason) before the
+    # exam freezes anything.
+    withdrawn = withdraw_exposed_reservations(vault, repository, goal_id, clock=clock)
     pooled = repository.reserved_exam_pool_items(goal_id)
     if not pooled:
+        if withdrawn:
+            raise ExamSessionError(
+                f"Every reserved exam item for goal {goal_id} has been shown to you since it was held out, "
+                "so none is a fair test any more; they rejoin practice. Reserve a new pool."
+            )
         raise ExamSessionError(
             f"Goal {goal_id} has no reserved exam pool; call reserve_exam_pool first."
         )
@@ -181,7 +192,10 @@ def start_exam(
         }
     )
     repository.insert_exam_predictions(prediction_rows)
-    return _session_view(repository, session_id, already_started=False)
+    view = _session_view(repository, session_id, already_started=False)
+    view["withdrawn_items"] = withdrawn
+    view["withdrawn_note"] = withdrawn_note(withdrawn)
+    return view
 
 
 # ----------------------------------------------------------------------

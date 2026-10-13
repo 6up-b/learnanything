@@ -10,7 +10,7 @@ from typing import Any
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.ingest.locators import parse_block_span
-from learnloop.content.sources.exam_material import exam_material
+from learnloop.content.sources.exam_material import exam_material, exposed_items
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
@@ -614,14 +614,9 @@ def start_remediation_treatment(
     # Exam protection (owner default 2026-10-13): an item whose own material
     # the learner was already shown (a reveal of its answer outside its own
     # attempt's feedback, its exercise or book solution read in a source, its
-    # prompt rendered in a proposal) is never the cold check.
-    from contextlib import closing
-
-    from learnloop.db.connection import connect
-    from learnloop.db.stores.source_service import shown_items
-
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        shown = set(shown_items(connection, ranked[1:]))
+    # prompt rendered in a proposal), or one made from held-out material, is
+    # never the cold check (off with ``goals.held_out_selection``).
+    shown = set(exposed_items(vault, repository, ranked[1:], with_held_out=True))
     cold = next(
         (item for item in ranked[1:]
          if surface_group_id(item) != primed_surface and item.id not in shown),

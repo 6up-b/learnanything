@@ -27,10 +27,11 @@ content gap to surface to the learner (they cannot be examined on it yet).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.content.sources.exam_material import exposed_items
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.goals.goal_projection import resolve_goal_scope
@@ -94,6 +95,9 @@ class ExamPoolReport:
     deferred: bool = False
     deferred_reason: str | None = None
     candidate_count: int = 0
+    #: Reserved items withdrawn because the learner has seen them since
+    #: (``[{"practice_item_id", "reasons"}]``; :func:`withdraw_exposed_reservations`).
+    withdrawn: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +111,8 @@ class ExamPoolReport:
             "deferred": self.deferred,
             "deferred_reason": self.deferred_reason,
             "candidate_count": self.candidate_count,
+            "withdrawn": [dict(entry) for entry in self.withdrawn],
+            "withdrawn_note": withdrawn_note(self.withdrawn),
         }
 
 
@@ -166,6 +172,10 @@ def reserve_exam_pool(
     scope = resolve_goal_scope(vault, goal, repository)
     scope_facets = set().union(*scope.values()) if scope else set()
 
+    # An item shown to the learner since it was reserved is no longer held
+    # out: it leaves the standing pool first (its row released, with the
+    # reason), and a pool left empty is reserved afresh (Codex review F5).
+    withdrawn = withdraw_exposed_reservations(vault, repository, goal.id, clock=clock)
     existing = repository.reserved_exam_pool_items(goal.id)
     own_reserved_ids = {row["practice_item_id"] for row in existing}
 
@@ -192,6 +202,7 @@ def reserve_exam_pool(
             strata=strata,
             already_reserved=True,
             candidate_count=len(candidates),
+            withdrawn=withdrawn,
         )
 
     if defer_if_insufficient and len(candidates) < requested + max(practice_floor, 0):
@@ -206,6 +217,7 @@ def reserve_exam_pool(
             deferred=True,
             deferred_reason="insufficient_pool",
             candidate_count=len(candidates),
+            withdrawn=withdrawn,
         )
 
     selected = _select(candidates, requested)
@@ -288,6 +300,7 @@ def reserve_exam_pool(
         strata=strata,
         already_reserved=False,
         candidate_count=len(candidates),
+        withdrawn=withdrawn,
     )
 
 
@@ -309,16 +322,63 @@ def _shown_items(vault: LoadedVault, repository: Repository) -> set[str]:
     """Items whose own material the learner has already been shown (exam
     protection, owner default 2026-10-13: such material never becomes an exam
     item): a reveal of the answer, the canonical exercise or its book solution
-    read in a source, or the prompt rendered in a proposal, ever."""
+    read in a source, or the prompt rendered in a proposal, ever. Empty with
+    ``goals.held_out_selection`` off (``exam_material.exposed_items``)."""
 
-    from contextlib import closing
+    return set(exposed_items(vault, repository, [item for item in vault.practice_items.values()
+                                                 if item.status == "active"]))
 
-    from learnloop.db.connection import connect
-    from learnloop.db.stores.source_service import shown_items
 
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return set(shown_items(connection, [item for item in vault.practice_items.values()
-                                            if item.status == "active"]))
+#: What the learner is told when exam items they have since seen are set aside.
+WITHDRAWN_NOTE = ("{count} exam item(s) were set aside because you've already seen them since they were held out "
+                  "({reasons}), so they would no longer be a fair test.")
+
+_WITHDRAWN_REASONS = {"revealed": "an answer revealed", "source_exposed": "its exercise or solution read",
+                      "seen_in_proposal": "shown in a suggestion"}
+
+
+def withdrawn_note(withdrawn: list[dict[str, Any]]) -> str | None:
+    """The learner-facing line for withdrawn exam items, or None."""
+
+    if not withdrawn:
+        return None
+    reasons = sorted({reason for entry in withdrawn for reason in entry["reasons"]})
+    return WITHDRAWN_NOTE.format(count=len(withdrawn),
+                                 reasons=", ".join(_WITHDRAWN_REASONS.get(reason, reason) for reason in reasons))
+
+
+def withdraw_exposed_reservations(
+    vault: LoadedVault,
+    repository: Repository,
+    goal_id: str,
+    *,
+    clock: Clock | None = None,
+) -> list[dict[str, Any]]:
+    """Release this goal's reserved exam items the learner has been shown since
+    (or before) they were reserved, and say why (Codex review F5).
+
+    Shown material is no longer held out, so it is never administered as the
+    exam's independent check: a reveal of its answer, its exercise or book
+    solution read in a source, its prompt in a proposal. The rows are released
+    (``released_at``), never deleted, so the reservation history stays; the
+    item rejoins practice as a finished exam's items do. Nothing is withdrawn
+    while the goal's exam is in progress (its items are frozen), nor with
+    ``goals.held_out_selection`` off.
+
+    Returns ``[{"practice_item_id", "reasons"}]``, in reservation order.
+    """
+
+    if repository.exam_session_in_progress_for_goal(goal_id) is not None:
+        return []
+    pooled = repository.reserved_exam_pool_items(goal_id)
+    items = [vault.practice_items[row["practice_item_id"]] for row in pooled
+             if row["practice_item_id"] in vault.practice_items]
+    exposed = exposed_items(vault, repository, items)
+    withdrawn = [{"practice_item_id": row["practice_item_id"], "reasons": exposed[row["practice_item_id"]]}
+                 for row in pooled if row["practice_item_id"] in exposed]
+    if withdrawn:
+        repository.release_exam_pool_items(goal_id, [entry["practice_item_id"] for entry in withdrawn], clock=clock)
+    return withdrawn
 
 
 def _candidates(

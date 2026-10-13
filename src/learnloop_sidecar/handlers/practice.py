@@ -58,7 +58,11 @@ from learnloop_sidecar.handlers.serializers import practice_item_detail
 from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object, refuse_unservable_item
+from learnloop_sidecar.serving import (
+    refuse_held_out_item,
+    refuse_inactive_learning_object,
+    refuse_unservable_item,
+)
 
 
 class PracticeDraftCheckpoint(ParamsModel):
@@ -202,9 +206,11 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
-        # A session serve of a dormant/resolved LO's item is refused; read-only
-        # opens (feedback, inspector) still render it.
+        # A session serve of a dormant/resolved LO's item, or of one made from
+        # held-out material, is refused; read-only opens (feedback, inspector)
+        # still render it.
         refuse_unservable_item(vault, item)
+        refuse_held_out_item(vault, repository, item)
     pick = None
     if params.session_id is not None and params.proposal_id:
         # A picked proposal is re-checked BEFORE anything is served (an item

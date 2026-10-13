@@ -359,6 +359,8 @@ class UnitRow:
     label: str
     parent_unit_id: str | None
     span_ids: tuple[str, ...]
+    #: The unit's content hash (``ingest.hashing.semantic_hash``).
+    semantic_hash: str = ""
 
 
 def extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list[UnitRow]:
@@ -366,7 +368,7 @@ def extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list
 
     units: list[UnitRow] = []
     for row in connection.execute(
-        "SELECT unit_id, label, parent_unit_id, span_ids_json FROM source_document_units "
+        "SELECT unit_id, label, parent_unit_id, span_ids_json, semantic_hash FROM source_document_units "
         "WHERE extraction_id = ? ORDER BY ordinal, unit_id", (extraction_id,),
     ):
         try:
@@ -375,7 +377,8 @@ def extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list
             span_ids = []
         units.append(UnitRow(str(row[0]), " ".join(str(row[1] or "").split()),
                              None if row[2] is None else str(row[2]),
-                             tuple(str(span) for span in span_ids or [] if span is not None)))
+                             tuple(str(span) for span in span_ids or [] if span is not None),
+                             str(row[4] or "")))
     return units
 
 

@@ -13,10 +13,24 @@ stale link cannot bring back what the queue no longer serves (re-review F8).
 
 Writes (draft saves, submissions) deliberately do not use this: an answer typed
 before the learner put the LO away still saves.
+
+A session serve also refuses an item made from material held out for
+evaluation (exam protection, Codex review F1): a queue built, a link copied or
+a session restored before the owner marked the unit still cannot put the
+exam's question in front of the learner (``refuse_held_out_item``; kill switch
+``goals.held_out_selection``).
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+from learnloop.content.sources.exam_material import (
+    HELD_OUT_ITEM_REFUSAL,
+    held_out_item_ids,
+    held_out_material,
+    held_out_selection_active,
+)
 from learnloop.vault.lifecycle import (
     LEARNER_TEXT_GAP_DISABLED,
     REFERENCE_ADOPTION_DISABLED,
@@ -27,6 +41,7 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 from learnloop_sidecar.errors import SidecarError
 
 INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
+HELD_OUT_MATERIAL_ERROR_CODE = "held_out_material"
 
 
 def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None:
@@ -61,5 +76,18 @@ def refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None:
             f"{item.id} was adopted from a reader reference question, and adoption is "
             "switched off (tutor_qa.adopt_reference_questions), so it is not served. "
             "Turn the switch back on to practise it again.",
+            details={"practice_item_id": item.id},
+        )
+
+
+def refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None:
+    """A session serve of an item made from held-out material is refused."""
+
+    if not held_out_selection_active(vault):
+        return
+    if held_out_item_ids([item], held_out_material(vault, repository)):
+        raise SidecarError(
+            HELD_OUT_MATERIAL_ERROR_CODE,
+            f"{item.id}: {HELD_OUT_ITEM_REFUSAL}.",
             details={"practice_item_id": item.id},
         )

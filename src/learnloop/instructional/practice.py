@@ -25,7 +25,9 @@ from typing import Any
 
 from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.content.sources.exam_material import exam_reserved
+from learnloop.content.sources.exam_material import (
+    HELD_OUT_ITEM_REFUSAL, exam_reserved, held_out_item_ids, held_out_material, held_out_selection_active,
+)
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
@@ -214,22 +216,31 @@ EXAM_RESERVED_PICK = ("that item is reserved for a held-out exam: it can't be pr
                       "done, so the exam stays a fair test")
 
 
-def refuse_exam_reserved_pick(repository: Repository, practice_item_id: str) -> None:
-    """A pick of an item reserved for a goal's held-out exam is refused before
-    anything is recorded or served (ValueError), however old the proposal:
-    the reservation may postdate it (exam protection, 2026-10-13; the one
-    exam predicate, ``content.sources.exam_material.exam_reserved``)."""
+def refuse_protected_pick(repository: Repository, practice_item_id: str, *,
+                          vault: LoadedVault | None = None) -> None:
+    """A pick of an item reserved for a goal's held-out exam, or (with the
+    vault) of an item made from held-out material, is refused before anything
+    is recorded or served (ValueError), however old the proposal: the
+    reservation or the mark may postdate it (exam protection, 2026-10-13, and
+    Codex review F1; the one exam predicate, ``content.sources.exam_material``).
+    The held-out-material refusal follows ``goals.held_out_selection``."""
 
     if exam_reserved(repository, practice_item_id):
         raise ValueError(EXAM_RESERVED_PICK)
+    if vault is None or not held_out_selection_active(vault):
+        return
+    item = vault.practice_items.get(practice_item_id)
+    if item is not None and held_out_item_ids([item], held_out_material(vault, repository)):
+        raise ValueError(HELD_OUT_ITEM_REFUSAL)
 
 
 def record_proposal_selection(repository: Repository, *, proposal_id: str, practice_item_id: str,
                               clock: Clock | None = None, vault: LoadedVault | None = None) -> dict[str, Any]:
     """The learner's selection of a proposed item: the ``practised`` usage
     signal (idempotent), recorded before serving so a bad proposal is refused
-    before anything is served. An item reserved for a held-out exam since it
-    was proposed is refused (:func:`refuse_exam_reserved_pick`).
+    before anything is served. An item reserved for a held-out exam, or made
+    from material held out for evaluation, since it was proposed is refused
+    (:func:`refuse_protected_pick`).
 
     A pick of a ``discriminate`` or ``retention`` proposal re-checks
     independence (§5.4): if the candidate was exposed since it was valued,
@@ -237,7 +248,7 @@ def record_proposal_selection(repository: Repository, *, proposal_id: str, pract
     and the reason shown. Nothing here says the item was delivered: that is
     :func:`record_proposal_delivery`, after the serving path succeeded."""
 
-    refuse_exam_reserved_pick(repository, practice_item_id)
+    refuse_protected_pick(repository, practice_item_id, vault=vault)
     result = dict(record_practice_usage(repository, proposal_id=proposal_id, practice_item_id=practice_item_id,
                                         signal="practised", clock=clock))
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -416,7 +427,7 @@ def imported_exercise_selection(repository: Repository, *, proposal_id: str, imp
 
     from learnloop.db.stores.source_service import import_row
 
-    refuse_exam_reserved_pick(repository, practice_item_id)
+    refuse_protected_pick(repository, practice_item_id, vault=vault)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = import_row(connection, import_id)
         found = stored_proposal(connection, proposal_id)
@@ -462,6 +473,6 @@ __all__ = [
     "record_proposal_delivery",
     "record_proposal_pick",
     "record_proposal_selection",
-    "refuse_exam_reserved_pick",
+    "refuse_protected_pick",
     "service_enabled",
 ]
