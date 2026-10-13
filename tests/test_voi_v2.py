@@ -515,6 +515,37 @@ def test_a_value_stop_records_the_gates_verdict_as_a_counterfactual(tmp_path, mo
     assert detail["former_cap"]["would_bind"] is True and detail["cap_comparison"] == "agree"
 
 
+def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_receipt(tmp_path, monkeypatch):
+    """The other side of rank 1, for calibration: where value outranks a
+    gate abstention and the episode continues, the next committed
+    observation's receipt says what the gate would have said ("later")."""
+
+    from learnloop.diagnosis import probe_episodes as pe
+    from learnloop.scheduling import scheduler as S
+    from tests.test_voi_stopping import CLOCK, _answer_probe, _minutes
+
+    vault, repository = _gate_vault(tmp_path)
+    _gate_abstains(monkeypatch)
+    monkeypatch.setattr(pe, "_robust_gate_verdict", lambda *_a, **_k: "couldnt_reliably_distinguish")
+    _minutes(monkeypatch, 0.0001)
+    episode = _answer_probe(vault, repository, score=0)
+    assert episode.status == "in_progress"
+    session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
+    S.build_due_queue(vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), persist_explanations=True)
+    presentation = repository.active_probe_presentation_for_session(session_id)
+    assert presentation is not None
+    body = presentation.selection_components["voi_stopping"]
+    assert body["decision"] == voi.CONTINUE
+    assert body["former_cap"]["robust_completion_gate"]["verdict"] == "couldnt_reliably_distinguish"
+    assert body["cap_comparison"] == "later"
+    # Where the gate decides (the switch on), no counterfactual: it ran.
+    restored, restored_repository = _gate_vault(tmp_path / "restored", toml="[voi_stopping]\nrobust_gate_with_value = true\n")
+    first = restored_repository.open_probe_episode("lo_svd_definition")
+    rows = restored_repository.probe_observations_for_episode(first.id)
+    assert pe.robust_gate_counterfactual(restored, restored_repository, first, {"a": 0.5, "b": 0.5}) == (False, None)
+    assert rows == []
+
+
 def test_in_the_real_probe_vault_the_gate_no_longer_ends_a_paying_episode(tmp_path, monkeypatch):
     """The pinned golden: with the gate restored the third episode ends
     couldnt_reliably_distinguish after two answers while value still pays;

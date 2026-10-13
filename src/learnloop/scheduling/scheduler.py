@@ -32,6 +32,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_posterior,
     presentation_commit_payload,
     probe_serving_block_reason,
+    robust_gate_counterfactual,
 )
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
@@ -925,6 +926,15 @@ def build_due_queue(
                             }
                             if explored:
                                 served_by["exploration_rate"] = selected.components.get("exploration_rate")
+                            # The multi-family EVSI study's rank 1: where value
+                            # outranked the robust completion gate, the
+                            # committed receipt says what the gate would have
+                            # said (computed once per committed observation).
+                            gate_applies, gate_verdict = robust_gate_counterfactual(
+                                vault, repository, episode, context[1]
+                            )
+                            if gate_applies:
+                                voi_decision = voi.with_robust_gate_counterfactual(voi_decision, gate_verdict)
                             extra_components = {
                                 **(extra_components or {}),
                                 "voi_stopping": voi_decision.as_dict(

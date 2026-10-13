@@ -1401,7 +1401,11 @@ def probe_value_block_reason(
     )
     if decision.admits(practice_item_id):
         # The item the learner opened is the one this door commits: the
-        # receipt carries ITS forecast (``served``), beside value's own pick.
+        # receipt carries ITS forecast (``served``), beside value's own pick,
+        # and (rank 1) the robust gate's verdict where value outranked it.
+        applies, verdict = robust_gate_counterfactual(vault, repository, episode, live.posterior)
+        if applies:
+            decision = voi.with_robust_gate_counterfactual(decision, verdict)
         return None, decision.as_dict(served_ref=practice_item_id, served_by={"mechanism": "learner_opened_item"})
     return "value_below_minutes_cost", decision.as_dict(subject_ref=practice_item_id)
 
@@ -2740,6 +2744,38 @@ def _plausible_actions_agree(
     return len(interventions) == 1
 
 
+def robust_gate_counterfactual(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    posterior: Mapping[str, float],
+) -> tuple[bool, str | None]:
+    """The robust completion gate's verdict for a value CONTINUE receipt (the
+    multi-family EVSI study's rank 1): ``(applies, verdict)``.
+
+    ``applies`` is true only where the gate was skipped because value decides
+    (``robust_gate_applies`` false) and the posterior is unstable (the gate's
+    own branch of the completion policy); ``verdict`` is then what the gate
+    would have said (``couldnt_reliably_distinguish``) or None. Elsewhere the
+    gate either ran (and did not stop the episode) or never applies, and the
+    receipt carries no counterfactual."""
+
+    rows = repository.probe_observations_for_episode(episode.id)
+    qualifying = [row for row in rows if row["observation"].eligible_for_completion]
+    if not qualifying or robust_gate_applies(vault, repository, qualifying):
+        return False, None
+    episode_config = vault.config.probe.episode
+    ordered = sorted((float(value) for value in posterior.values()), reverse=True)
+    top = ordered[0] if ordered else 0.0
+    second = ordered[1] if len(ordered) > 1 else 0.0
+    stable = top >= episode_config.posterior_stop_threshold and (
+        top <= 0 or second / top <= episode_config.ambiguity_threshold
+    )
+    if stable:
+        return False, None
+    return True, _robust_gate_verdict(vault, repository, episode, posterior)
+
+
 def _robust_completion_override(
     vault: LoadedVault,
     repository: Repository,
@@ -2752,6 +2788,17 @@ def _robust_completion_override(
     hypotheses on the episode-pinned channel; otherwise None (defer to legacy park).
 
     Legacy episodes (no pinned channel) always return None -- byte-identical path."""
+
+    return _robust_gate_verdict(vault, repository, episode, posterior.posterior)
+
+
+def _robust_gate_verdict(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    belief: Mapping[str, float],
+) -> str | None:
+    """:func:`_robust_completion_override` on a posterior mapping."""
 
     if episode.calibration_model_hash is None:
         return None
@@ -2770,7 +2817,7 @@ def _robust_completion_override(
     channel = load_pinned_channel(repository, episode.calibration_model_hash)
     if channel is None:
         return None
-    candidates = eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
+    candidates = eligible_instruments(vault, repository, episode, posterior=belief)
     if not candidates:
         # Out of instruments AND undecided is a genuine abstention only when the
         # legacy park would already fire; keep the legacy park semantics here so
@@ -2786,7 +2833,7 @@ def _robust_completion_override(
         for candidate in candidates
     ]
     decision = robust_selection(
-        channel, robust_candidates, posterior.posterior, episode_id=episode.id
+        channel, robust_candidates, belief, episode_id=episode.id
     )
     if decision.abstained:
         return "couldnt_reliably_distinguish"
