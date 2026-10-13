@@ -700,6 +700,31 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         target_type = obj.get("target_entity_type") or "learning_object"
         target_id = obj.get("target_entity_id") or ""
         operation = obj.get("operation") or "update"
+        if target_type == "facet":
+            payload, problem = _facet_restructure_payload(obj, vault, operation, target_id)
+            if payload is None:
+                dropped_diagnostics.append(
+                    {
+                        "gate": "facet_restructure",
+                        "severity": "review",
+                        "entity_refs": [client, target_id] if target_id else [client],
+                        "message": f"dropped facet restructure {client!r} of {target_id!r}: {problem}",
+                        "suggested_action": (
+                            "reword a registered facet with an update carrying its new facet_wording; "
+                            "merge facets from the facet inspector"
+                        ),
+                    }
+                )
+                continue
+            row = _row("facet", target_id, payload, [], client_id=client, now=now,
+                       target_entity_id=target_id, target_entity_type="facet")
+            row["operation"] = operation
+            rows.append(row)
+            gate_items.append(
+                GateItem(client_item_id=client, item_type="facet", operation=operation,
+                         entity_id=target_id, payload=payload, reconciliation_intent="restructure_unlocked")
+            )
+            continue
         payload = dict(obj.get("payload") or {})
         payload["id"] = target_id
         payload["expected_target_hash"] = obj.get("expected_target_hash")
@@ -725,6 +750,45 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         normalized.graph_nomination,
         normalized.facet_identity_actions,
     )
+
+
+def _facet_restructure_payload(
+    obj: dict[str, Any], vault: LoadedVault, operation: str, target_id: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """A facet restructure's proposal payload, or ``(None, why it cannot apply)``.
+
+    A facet restructure is a reword (Codex review F2): an ``update`` of a
+    registered facet whose new meaning arrives in ``facet_wording`` (declared,
+    so a strict-schema provider can fill it; the bare ``payload`` dict is read
+    too, for a provider that fills it). Only the meaning fields travel, and a
+    blank field keeps the facet's value. The apply writes a facet version
+    with an undo. ``expected_target_hash`` is stamped from the vault the
+    model saw: the neighborhood never shows the model a target hash, so its
+    own value can only be a guess, and a guess would refuse every accept.
+    """
+
+    from learnloop.content.facet_identity.actions import MEANING_FIELDS, meaning_changes
+
+    if operation != "update":
+        return None, "a facet is retired by a merge, never a deactivate"
+    facet = vault.evidence_facets.get(target_id)
+    if facet is None:
+        return None, "it names no registered facet"
+    wording = dict(obj.get("facet_wording") or {})
+    loose = dict(obj.get("payload") or {})
+    payload: dict[str, Any] = {}
+    for name in MEANING_FIELDS:
+        value = wording.get(name)
+        if value in (None, "", []):
+            value = loose.get(name)
+        if value not in (None, "", []):
+            payload[name] = value
+    current = facet.model_dump(mode="json", exclude_none=False)
+    if not meaning_changes(current, {**current, **payload}):
+        return None, "it carries no new wording"
+    payload["id"] = target_id
+    payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
+    return payload, None
 
 
 def _span_problem(span: dict[str, Any], inputs) -> str | None:

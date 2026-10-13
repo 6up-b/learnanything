@@ -1,14 +1,22 @@
 """``learnloop doctor --fix-content``: repair vault content doctor can fix safely.
 
-One repair today: practice-item criteria whose ``depends_on`` names something
-other than a sibling criterion of the same item (doctor
-``criterion:unknown_dependency``). Study-map synthesis copied the model's
-``depends_on`` verbatim until 2026-10-13, and models often wrote facet or
-blueprint ids there. Grading treats a dependency that names no criterion as
-passed, so those entries never gated anything; removing them changes no grade
-and no evidence. Each edited item's ``rubric_content_hash`` changes, so its
-next presentation snapshots a new assessment-contract version; attempts
-already graded keep the contract they were graded against.
+One repair today: practice-item criteria whose ``depends_on`` names no
+criterion of the same item (doctor ``criterion:unknown_dependency``).
+Study-map synthesis copied the model's ``depends_on`` verbatim until
+2026-10-13, and models often wrote facet or blueprint ids there. Grading
+treats a dependency that names no criterion as passed, so those entries never
+gated anything; removing them changes no grade and no evidence. Each edited
+item's ``rubric_content_hash`` changes, so its next presentation snapshots a
+new assessment-contract version; attempts already graded keep the contract
+they were graded against.
+
+A criterion that names ITSELF is not repaired (Codex review F3). That entry
+does change grading: when the criterion fails, first-error localization finds
+a failed dependency (itself), so the failure is unassessable and contributes
+no evidence. Removing it would make such failures count from then on, which
+is a semantic correction for the owner to make, not a neutral cleanup. Such
+criteria are listed under ``self_dependencies`` and left as they are (doctor
+reports them as ``criterion:dependency_cycle``).
 
 The edit is a YAML round trip of one ``grading_rubric.criteria[*].depends_on``
 list per item, under the vault mutation lock, written through a staged,
@@ -31,27 +39,36 @@ from learnloop.vault_lock import vault_mutation_lock
 FIX = "criterion_dependencies"
 
 
-def _sibling_filter(criteria: list[Any]) -> list[dict[str, Any]]:
-    """Per-criterion ``{criterion_id, removed, kept}`` for criteria that change."""
+def _sibling_filter(criteria: list[Any]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Per-criterion ``{criterion_id, removed, kept}`` for criteria that change,
+    and the ids of criteria that depend on themselves (kept, reported).
 
-    siblings = {str(criterion.get("id") or "") for criterion in criteria if isinstance(criterion, dict)} - {""}
+    Only an entry naming no criterion of the item is removed: grading already
+    treats it as passed. An entry naming a criterion of the item, the
+    criterion itself included, gates grading and is kept.
+    """
+
+    criterion_ids = {str(criterion.get("id") or "") for criterion in criteria if isinstance(criterion, dict)} - {""}
     changes: list[dict[str, Any]] = []
+    self_dependent: list[str] = []
     for criterion in criteria:
         if not isinstance(criterion, dict):
             continue
         own = str(criterion.get("id") or "")
         current = [str(dep) for dep in criterion.get("depends_on") or []]
+        if own and own in current:
+            self_dependent.append(own)
         kept: list[str] = []
         removed: list[str] = []
         for dep in current:
-            if dep in siblings and dep != own:
+            if dep in criterion_ids:
                 if dep not in kept:
                     kept.append(dep)
             elif dep not in removed:
                 removed.append(dep)
         if removed:
             changes.append({"criterion_id": own, "removed": removed, "kept": kept})
-    return changes
+    return changes, self_dependent
 
 
 def _plain(value: Any) -> Any:
@@ -63,11 +80,12 @@ def _plain(value: Any) -> Any:
 
 
 def fix_criterion_dependencies(root: Path, *, dry_run: bool = True) -> dict[str, Any]:
-    """Remove criterion ``depends_on`` entries that name no sibling criterion.
+    """Remove criterion ``depends_on`` entries that name no criterion of the item.
 
     ``dry_run`` (the default) lists every edit and writes nothing. Returns a
     JSON-safe report: the items and criteria changed, the entries removed,
-    and the files it could not read or would not rewrite.
+    the criteria left depending on themselves (``self_dependencies``), and
+    the files it could not read or would not rewrite.
     """
 
     root = Path(root).resolve()
@@ -80,10 +98,18 @@ def fix_criterion_dependencies(root: Path, *, dry_run: bool = True) -> dict[str,
         "changes": [],
         "unreadable": [],
         "not_rewritten": [],
+        "self_dependencies": [],
         "note": (
-            "Grading already treated these entries as passed, so no grade or evidence changes. "
-            "Each edited item's rubric_content_hash changes: its next presentation snapshots a new "
-            "assessment-contract version, and graded attempts keep the contract they were graded against."
+            "Each removed entry named no criterion of its item, and grading treats such an entry as "
+            "passed, so no grade or evidence changes. Each edited item's rubric_content_hash changes: "
+            "its next presentation snapshots a new assessment-contract version, and graded attempts "
+            "keep the contract they were graded against."
+        ),
+        "self_dependency_note": (
+            "Left as is: a criterion that depends on itself is blocked by its own failure, so a failed "
+            "attempt at it contributes no failure evidence. Removing the self-reference would make those "
+            "failures count from then on, which needs a semantic correction by hand "
+            "(doctor: criterion:dependency_cycle)."
         ),
     }
 
@@ -99,7 +125,13 @@ def fix_criterion_dependencies(root: Path, *, dry_run: bool = True) -> dict[str,
             criteria = rubric.get("criteria") if isinstance(rubric, dict) else None
             if not isinstance(criteria, list):
                 continue
-            changes = _sibling_filter(criteria)
+            changes, self_dependent = _sibling_filter(criteria)
+            for criterion_id in self_dependent:
+                report["self_dependencies"].append({
+                    "practice_item_id": str(data.get("id") or path.stem),
+                    "path": str(path),
+                    "criterion_id": criterion_id,
+                })
             if not changes:
                 continue
             planned.append((path, data, {

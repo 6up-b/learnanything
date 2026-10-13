@@ -106,8 +106,8 @@ in this slice, not facet". The method keeps its RPC name, so the desktop
 bridge is unchanged, but its client cache invalidation is now `mutatingAll`.
 
 **What locks protected becomes history: facet versions.**
-- `_compile_facet` (proposal apply, the one in-app path that writes an
-  existing facet) compares the entry before and after the write over
+- `_compile_facet` (proposal apply) compares the entry before and after the
+  write over
   `MEANING_FIELDS`: kind, claim, description, preconditions, postconditions,
   applicability, non-goals.
 - When one changes, the write bumps `version` by one. A `facet_version` side
@@ -122,6 +122,11 @@ bridge is unchanged, but its client cache invalidation is now `mutatingAll`.
 - Growth-only writes (aliases, examples) are not versions.
 - This covers append restructures, edited payloads, and a re-bootstrap whose
   minted id collides with a registered facet.
+- *Corrected by the Codex review* (`facet-locks-and-depends-on-codex-review.md`):
+  the desktop Library's edit of `facets.yaml` was a second, unversioned
+  writer (F1), append's contract could not name a facet (F2), a payload's
+  own `version` could overwrite the facet's (F5), and a reword undo wrote no
+  owner verdict (F4). All four are fixed there.
 
 **Synthesis and append gates.**
 - `_bootstrap_lock_refusal` and the `subject_identity_locked` refusal are
@@ -442,7 +447,9 @@ No paid calls are needed for anything here.
    On the tracked copies the result was 46 entries in 13 items
    (probability) and 46 in 15 (arxiv_v2), and `criterion:unknown_dependency`
    went from 46 to 0. The linear_algebra copy's dry run found nothing to
-   change. Your live vaults may differ. Grading does not change.
+   change. Your live vaults may differ. Grading does not change: since the
+   Codex review (F3) a criterion that depends on itself is reported under
+   "left as is" and not edited (none in the tracked copies).
    Each edited item gets a new assessment-contract version at its next
    presentation.
 2. **Fix the broken probability item by hand** (§5), then run

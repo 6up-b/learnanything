@@ -12,6 +12,7 @@ before the fix.
 
 from __future__ import annotations
 
+import itertools
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ from learnloop.content.synthesis.ai_contracts import (
     source_set_synthesis_prompt,
 )
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.learner.capability_mapping import CriterionOutcome, localize_criterion_outcomes
 from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -211,3 +213,82 @@ def test_fix_content_skips_unparseable_items_and_reports_them(tmp_path):
     assert report["items_changed"] == 1
     assert [entry["path"] for entry in report["unreadable"]] == [str(broken)]
     assert paths.root == root
+
+
+def _localizations(root: Path, item_id: str) -> dict[tuple[bool, ...], list]:
+    """First-error localization of the item's criteria for every pass/fail combination."""
+
+    criteria = load_vault(root).practice_items[item_id].grading_rubric.criteria
+    return {
+        combo: localize_criterion_outcomes([
+            CriterionOutcome(criterion_id=criterion.id, passed=passed, depends_on=tuple(criterion.depends_on))
+            for criterion, passed in zip(criteria, combo)
+        ])
+        for combo in itertools.product((True, False), repeat=len(criteria))
+    }
+
+
+def test_fix_content_keeps_a_self_dependency_because_removing_it_changes_failure_attribution(tmp_path):
+    """Codex review F3: a criterion that names itself is blocked by its own
+    failure (unassessable, no first error). Removing that entry would make the
+    failure count, so ``--fix-content`` removes only entries naming no
+    criterion, reports the self-reference for a hand correction, and the
+    localization of every outcome is the same before and after."""
+
+    from learnloop.ops.content_fixes import fix_criterion_dependencies
+
+    root = _applied(tmp_path)
+    path = _break_dependencies(root)
+    data = read_yaml(path)
+    criteria = data["grading_rubric"]["criteria"]
+    own = str(criteria[0]["id"])
+    criteria[0]["depends_on"] = [own, "facet_spectral_applicability"]
+    write_yaml(path, data)
+    before = _localizations(root, "pi_select_spectral")
+    alone_failed = tuple(index != 0 for index in range(len(criteria)))
+    (first, *_rest) = before[alone_failed]
+    assert (first.criterion_id, first.assessable, first.first_error) == (own, False, False)
+
+    dry = fix_criterion_dependencies(root, dry_run=True)
+    report = fix_criterion_dependencies(root, dry_run=False)
+
+    for result in (dry, report):
+        assert result["entries_removed"] == 1
+        assert [change["criteria"] for change in result["changes"]] == [[{
+            "criterion_id": own, "removed": ["facet_spectral_applicability"], "kept": [own],
+        }]]
+        assert result["self_dependencies"] == [
+            {"practice_item_id": "pi_select_spectral", "path": str(path), "criterion_id": own},
+        ]
+        assert "semantic correction" in result["self_dependency_note"]
+    assert _criteria(root, "pi_select_spectral")[own] == [own]
+    assert _localizations(root, "pi_select_spectral") == before
+    # Doctor still names the cycle, for the owner's hand correction.
+    assert "criterion:dependency_cycle" in {issue.code for issue in run_doctor(root).issues}
+    assert "criterion:unknown_dependency" not in {issue.code for issue in run_doctor(root).issues}
+
+
+def test_fix_content_never_changes_localization_for_the_entries_it_removes(tmp_path):
+    from learnloop.ops.content_fixes import fix_criterion_dependencies
+
+    root = _applied(tmp_path)
+    _break_dependencies(root)
+    before = _localizations(root, "pi_select_spectral")
+
+    fix_criterion_dependencies(root, dry_run=False)
+
+    assert _localizations(root, "pi_select_spectral") == before
+
+
+def test_doctor_fix_content_cli_reports_self_dependencies_it_leaves(tmp_path):
+    root = _applied(tmp_path)
+    path = _break_dependencies(root)
+    data = read_yaml(path)
+    own = str(data["grading_rubric"]["criteria"][0]["id"])
+    data["grading_rubric"]["criteria"][0]["depends_on"] = [own]
+    write_yaml(path, data)
+
+    result = CliRunner().invoke(app, ["doctor", "--vault", str(root), "--fix-content", "--dry-run"])
+
+    assert f"left as is (depends on itself): pi_select_spectral {own}" in result.stdout
+    assert "would remove 0 criterion depends_on entries" in result.stdout

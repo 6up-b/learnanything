@@ -1278,7 +1278,8 @@ def doctor(
     fix_content: Annotated[bool, typer.Option(
         "--fix-content",
         help="Repair vault content doctor can fix safely: remove criterion depends_on entries that name no "
-        "sibling criterion (criterion:unknown_dependency). Run with --dry-run first.",
+        "criterion of the item (criterion:unknown_dependency). A criterion that depends on itself is "
+        "reported, not changed. Run with --dry-run first.",
     )] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="With --fix-content: list the edits, write nothing.")] = False,
 ) -> None:
@@ -1334,6 +1335,10 @@ def _echo_fix_content(fix: dict) -> None:
         typer.echo(f"  not rewritten: {entry['path']}: {entry['reason']}")
     if fix["items_changed"]:
         typer.echo(f"  {fix['note']}")
+    for entry in fix["self_dependencies"]:
+        typer.echo(f"  left as is (depends on itself): {entry['practice_item_id']} {entry['criterion_id']}")
+    if fix["self_dependencies"]:
+        typer.echo(f"  {fix['self_dependency_note']}")
 
 
 def _storage_line(storage) -> str:

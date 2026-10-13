@@ -473,10 +473,20 @@ def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: s
         )
 
 
+#: Proposal bookkeeping that rides in a payload but is not part of the entity:
+#: written into ``facets.yaml`` it would persist as an unknown key.
+_FACET_PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash"})
+
+
 def _compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
     entity_id = _entity_id(item, payload)
     _refuse_learnable_on_legacy(vault, "facet", entity_id)
-    data = {**payload, "id": entity_id}
+    if item["operation"] == "update" and entity_id not in vault.evidence_facets:
+        # An update (an append restructure, an attach) whose facet was merged
+        # away or removed since synthesis: refuse rather than mint it again.
+        raise PatchApplicationError(f"Cannot update missing facet {entity_id}")
+    data = {key: value for key, value in payload.items() if key not in _FACET_PROPOSAL_ONLY_KEYS}
+    data["id"] = entity_id
     concept_id = data.get("concept_id")
     if concept_id is not None and concept_id not in vault.concepts:
         raise PatchApplicationError(f"Facet {entity_id} references missing concept {concept_id}")
@@ -507,6 +517,13 @@ def _facet_version(
     (``learnloop facets undo``). Growth-only writes (aliases, examples) and
     new facets are unchanged. ``vault`` is the staging vault, so ``before`` is
     the entry as the earlier items of this acceptance left it.
+
+    ``version`` is server-managed for an existing facet (review F5): a
+    payload's own ``version``, stale or oversized, is ignored. The facet keeps
+    its version when its meaning is unchanged and gets exactly one more when
+    it changes, so no write lowers or skips a version, and an earlier reword's
+    recorded after-state stays what the file shows until the facet really
+    changes again.
     """
 
     from learnloop.content.facet_identity.actions import meaning_changes
@@ -515,16 +532,16 @@ def _facet_version(
     if existing is None:
         return data, None
     before = existing.model_dump(mode="json", exclude_none=False)
+    current = int(before.get("version") or 1)
 
     def merged(values: dict[str, Any]) -> dict[str, Any]:
         # The same overlay ``upsert_facet`` writes: the payload over the entry.
         return EvidenceFacet.model_validate({**before, **values}).model_dump(mode="json", exclude_none=False)
 
     fields = meaning_changes(before, merged(data))
+    data = {**data, "version": current + 1 if fields else current}
     if not fields:
         return data, None
-    version = max(int(data.get("version") or 0), int(before.get("version") or 1) + 1)
-    data = {**data, "version": version}
     return data, {
         "kind": "facet_version",
         "row": {

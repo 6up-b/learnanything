@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from learnloop.content.facet_identity.actions import FacetIdentityActionError, save_registry_text
+from learnloop.vault.paths import VaultPaths
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -131,9 +133,17 @@ def write_vault_file(ctx: SidecarContext, params: WriteFileInput) -> dict[str, A
     Refuses binary files and creating new paths — this is an editor for the files
     the tree already surfaces, not a general write primitive. Returns the saved
     content so the caller can refresh in place.
+
+    ``facets.yaml`` is the facet registry, so a save of it goes through
+    :func:`save_registry_text` (Codex review F1): an edit that changes a
+    registered facet's meaning writes a facet version, keeps the replaced
+    wording and is undoable from the facet inspector, under the vault lock.
+    ``version`` is the server's, so the returned body (what was written) can
+    differ from the one sent. Text that is not a valid registry is refused
+    (``invalid_registry``) and nothing is written.
     """
 
-    vault, _repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     root = vault.root.resolve()
     target = _resolve_in_vault(root, params.path)
     if not target.is_file():
@@ -142,7 +152,15 @@ def write_vault_file(ctx: SidecarContext, params: WriteFileInput) -> dict[str, A
     if kind in {"binary", "sqlite"}:
         raise SidecarError("not_editable", f"{params.path} is a {kind} file and cannot be edited as text.")
 
-    target.write_text(params.body, encoding="utf-8")
+    body = params.body
+    if target == VaultPaths(vault.root, vault.config).facets_path.resolve():
+        try:
+            body = save_registry_text(vault.root, repository, params.body)["text"]
+        except FacetIdentityActionError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        ctx.reload(maintenance=False)
+    else:
+        target.write_text(body, encoding="utf-8")
     return versioned(
         {
             "path": _relative(target, root),
@@ -153,7 +171,7 @@ def write_vault_file(ctx: SidecarContext, params: WriteFileInput) -> dict[str, A
             "binary": False,
             "truncated": False,
             "database": False,
-            "body": params.body,
+            "body": body,
         }
     )
 

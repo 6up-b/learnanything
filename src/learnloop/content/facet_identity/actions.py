@@ -74,10 +74,10 @@ from learnloop.ids import new_ulid
 from learnloop.substrate.replay import record_content_recalibration
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import EvidenceFacet, LoadedVault, learning_object_facet_union
+from learnloop.vault.models import EvidenceFacet, EvidenceFacetsFile, LoadedVault, learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
-from learnloop.vault.yaml_io import read_yaml, yaml_to_string
+from learnloop.vault.yaml_io import read_yaml, yaml_from_string, yaml_to_string
 
 #: Lifecycle of an action row (migration 183). ``applying`` and ``undoing``
 #: are write-ahead intents that :func:`recover_interrupted_actions` completes.
@@ -157,9 +157,14 @@ def _index(facets: Sequence[Any], facet_id: str) -> int | None:
 def _write_facets(paths: VaultPaths, document: Mapping[str, Any]) -> None:
     """Replace facets.yaml atomically (staged, fsynced temp file and rename)."""
 
+    _write_registry_text(paths, yaml_to_string(dict(document)))
+
+
+def _write_registry_text(paths: VaultPaths, text: str) -> None:
+    """Replace facets.yaml with ``text`` atomically (staged, fsynced temp file and rename)."""
+
     from learnloop.content.proposals.apply_protocol import materialize_targets
 
-    text = yaml_to_string(dict(document))
     materialize_targets(paths.root, [{
         "rel_path": str(paths.facets_path.relative_to(paths.root)),
         "post_content": text,
@@ -530,6 +535,8 @@ def record_proposed_actions(
 MEANING_FIELDS = (
     "kind", "claim", "description", "preconditions", "postconditions", "applicability", "non_goals",
 )
+#: The ``judgment_ledger`` task of the owner's verdict on a reword (its undo).
+REWORD_TASK = "facet_reword"
 #: What a reword's undo leaves as it was (shown with the undo).
 REWORD_UNDO_LIMITS = (
     "attempts graded while the new wording stood keep the assessment contract they were graded "
@@ -587,6 +594,131 @@ def record_reword(
             "status": "applied", "created_at": now, "applied_at": now,
         })
     return action_id
+
+
+# --- the owner's own edit of facets.yaml (the desktop Library) ---------------------------
+
+#: ``run_id`` of the reword actions an owner's Library edit records.
+LIBRARY_RUN_ID = "library"
+
+
+def _parse_registry_text(text: str) -> dict[str, Any]:
+    """The edited facets.yaml as an editable document, or ``invalid_registry``."""
+
+    try:
+        document = yaml_from_string(text)
+    except Exception as exc:  # noqa: BLE001 - any parse error refuses the save
+        first = (str(exc).strip().splitlines() or [type(exc).__name__])[0]
+        raise FacetIdentityActionError("invalid_registry", f"facets.yaml does not parse: {first}") from exc
+    if document is None:
+        document = {}
+    if not isinstance(document, dict) or not isinstance(document.get("facets", []), list):
+        raise FacetIdentityActionError("invalid_registry", "facets.yaml must be a mapping with a facets list")
+    try:
+        EvidenceFacetsFile.model_validate(json.loads(json.dumps(document, default=str)))
+    except ValueError as exc:
+        lines = str(exc).strip().splitlines() or ["invalid entry"]
+        raise FacetIdentityActionError(
+            "invalid_registry", "facets.yaml is not a valid facet registry: " + " ".join(lines[:3]),
+        ) from exc
+    return document
+
+
+def save_registry_text(root: Path, repository: Repository, text: str, *, clock: Clock | None = None) -> dict[str, Any]:
+    """Write the owner's own edit of facets.yaml (the desktop Library) with facet versions.
+
+    The Library is the other supported way to change a registered facet
+    (review F1), so it keeps the same guarantee as a proposal apply: an edit
+    that changes an existing facet's :data:`MEANING_FIELDS` writes a facet
+    version, keeps the replaced entry in a ``reword`` action (origin
+    ``registry``, judge ``owner``, ``detail.via = "library"``) and is undoable
+    from the facet inspector or ``learnloop facets undo``.
+
+    ``version`` is server-managed (review F5): a reworded facet gets one more
+    than it had, and a facet whose meaning did not change keeps its version
+    whatever the text says. The text is written as typed unless a version (or
+    a reworded facet's stale ``semantic_fingerprint``) had to be corrected;
+    the result's ``text`` is what was written.
+
+    Under the vault mutation lock, write-ahead like a merge: the ``applying``
+    reword rows commit, then the file is replaced atomically, then the rows
+    become ``applied``. If the process stops in between, recovery marks a row
+    ``applied`` when facets.yaml shows the edit and withdraws it
+    (``abandoned``) when it does not: the save never landed, so nothing is
+    written on the owner's behalf. Text that does not parse, or is not a
+    valid facet registry, is refused (``invalid_registry``) and nothing is
+    written.
+    """
+
+    from learnloop.vault_lock import vault_mutation_lock
+
+    with vault_mutation_lock(root, purpose="facet_registry_edit"):
+        recover_interrupted_actions(root, repository, clock=clock)
+        vault = load_vault(root)
+        paths = VaultPaths(vault.root, vault.config)
+        document = _parse_registry_text(text)
+        try:
+            current = _current_entries(paths)
+        except Exception:  # noqa: BLE001 - a registry that no longer parses has no entries to keep
+            current = {}
+        rewords: list[tuple[str, dict[str, Any], dict[str, Any], list[str]]] = []
+        corrected = False
+        for entry in document.get("facets") or []:
+            facet_id = str(entry.get("id") or "")
+            old = current.get(facet_id)
+            if old is None:
+                continue  # a new facet: nothing to keep
+            old_version = int((normalized_entry(old) or {}).get("version") or 1)
+            fields = meaning_changes(old, entry)
+            version = old_version + 1 if fields else old_version
+            if (normalized_entry(entry) or {}).get("version") != version:
+                entry["version"] = version
+                corrected = True
+            if not fields:
+                continue
+            if "semantic_fingerprint" in entry:
+                fingerprint = semantic_fingerprint(EvidenceFacet.model_validate(json.loads(json.dumps(entry))))
+                if entry["semantic_fingerprint"] != fingerprint:
+                    entry["semantic_fingerprint"] = fingerprint
+                    corrected = True
+            rewords.append((facet_id, copy.deepcopy(old), entry, fields))
+        written = yaml_to_string(document) if corrected else text
+        records: list[dict[str, Any]] = []
+        if rewords:
+            evidence = facet_evidence(repository, [facet_id for facet_id, *_rest in rewords])
+            now = utc_now_iso(clock)
+            with repository.atomic():
+                connection = repository.connection()
+                for facet_id, old, new, fields in rewords:
+                    record = {
+                        "origin": "registry", "scope": "vault", "run_id": LIBRARY_RUN_ID, "proposal_id": None,
+                        "action": "reword", "survivor_facet_id": facet_id, "retired_facet_ids": [],
+                        "before": {"facets": {facet_id: old}, "order": {}},
+                        "after": {"facets": {facet_id: json.loads(json.dumps(new, default=str))}},
+                        "merge_rows": [], "judgment_ids": [], "judge": "owner",
+                        "judge_model": None, "prompt_version": None,
+                        "detail": {
+                            "via": "library", "fields": fields,
+                            "evidence": {facet_id: evidence[facet_id]} if facet_id in evidence else {},
+                        },
+                        "status": "applying", "created_at": now,
+                    }
+                    record["id"] = insert_action(connection, record)
+                    records.append(record)
+        try:
+            _write_registry_text(paths, written)
+        except Exception:
+            for record in records:
+                _abandon(repository, record, reason="facets.yaml could not be written", clock=clock)
+            raise
+        # A reword moves no evidence (the facet keeps its id): sync only.
+        refresh_derived_state(vault.root, repository, [], clock=clock)
+        if records:
+            with repository.atomic():
+                for record in records:
+                    store.set_status(repository.connection(), str(record["id"]), "applied",
+                                     applied_at=utc_now_iso(clock))
+    return {"text": written, "reword_action_ids": [str(record["id"]) for record in records]}
 
 
 def facet_history(repository: Repository, facet_id: str, vault: LoadedVault | None = None) -> list[dict[str, Any]]:
@@ -775,14 +907,36 @@ def append_owner_verdicts(connection: Any, record: Mapping[str, Any], *, created
     also get owner rows keyed by facet id (the ids they carry in the vault
     after the undo), unless a superseding row already is one, so a later
     dedupe or attach never merges them again (``judge.owner_vetoes``).
+
+    A reword has no pair: its undo is the owner rejecting that wording of the
+    facet (review F4). One row, task :data:`REWORD_TASK`, asks "is this the
+    facet's wording?" about ``facet:<id>`` and ``facet_wording:<hash of the
+    meaning fields written>``, verdict ``rejected``. It commits with the undo
+    intent (``undoing``), so a retried or recovered undo never appends it again.
     """
 
     from learnloop.ai.execution import content_key
     from learnloop.content.facet_identity.judge import TASK
     from learnloop.db.stores.judgments import append_judgment
 
-    survivor, retired, _before, _order, _after = _record_parts(record)
+    survivor, retired, before, _order, after = _record_parts(record)
     action_id = str(record["id"])
+    if record.get("action") == "reword":
+        old = normalized_entry(before.get(survivor)) or {}
+        new = normalized_entry(after.get(survivor)) or {}
+        wording = {name: new.get(name) for name in MEANING_FIELDS}
+        return [append_judgment(
+            connection, task=REWORD_TASK, left_kind="facet", left_id=survivor,
+            right_kind="facet_wording", right_id=content_key(wording), judge="owner",
+            input_hash=content_key({"owner_undo": action_id, "facet": survivor, "wording": wording}),
+            verdict="rejected",
+            rationale=json.dumps({
+                "origin": "undo", "action_id": action_id, "facet": survivor,
+                "from_version": old.get("version"), "to_version": new.get("version"),
+                "fields": meaning_changes(old, new),
+            }, sort_keys=True),
+            created_at=created_at,
+        )]
     rationale = json.dumps({"origin": "undo", "action_id": action_id, "facets": [survivor, *retired]},
                            sort_keys=True)
     ids: list[str] = []
@@ -892,10 +1046,17 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
             document = _facets_document(paths)
             state = file_state(record, document["facets"])
             survivor, retired, _before, _order, _after = _record_parts(record)
+            reword = record.get("action") == "reword"
             if record["status"] == "applying":
                 if state == "neither":
                     _abandon(repository, record, reason="facets.yaml changed before the merge was written",
                              clock=clock)
+                    out.append({"id": record["id"], "from": "applying", "to": "abandoned"})
+                    continue
+                if reword and state == "before":
+                    # An owner's Library save that never landed: the owner saw
+                    # it fail, so withdraw it rather than write one entry of it.
+                    _abandon(repository, record, reason="the registry edit was never written", clock=clock)
                     out.append({"id": record["id"], "from": "applying", "to": "abandoned"})
                     continue
                 if state == "before":
@@ -910,7 +1071,8 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                         out.append({"id": record["id"], "from": "applying", "to": "abandoned", "held_back": held})
                         continue
                     _write_facets(paths, _applied_document(document, record))
-                affected = affected_learning_objects(vault, (survivor, *retired))
+                # A reword moved no evidence (the facet keeps its id): sync only.
+                affected = [] if reword else affected_learning_objects(vault, (survivor, *retired))
                 refresh_derived_state(root, repository, affected, clock=clock)
                 with repository.atomic():
                     store.set_status(repository.connection(), str(record["id"]), "applied",
@@ -931,6 +1093,7 @@ __all__ = [
     "FacetIdentityActionError",
     "HELD_BACK_NOTE",
     "MEANING_FIELDS",
+    "REWORD_TASK",
     "REWORD_UNDO_LIMITS",
     "append_owner_verdicts",
     "action_by_id",
@@ -948,6 +1111,7 @@ __all__ = [
     "normalized_entry",
     "record_proposed_actions",
     "record_reword",
+    "save_registry_text",
     "file_state",
     "interrupted_actions",
     "recover_interrupted_actions",
