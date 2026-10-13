@@ -123,11 +123,22 @@ CHATGPT_PLAN_RPCS = (
 )
 
 
+# UX Phase 1 (docs/specs/ux_learnloop_v1.md §6, §10): one Add for any source,
+# the AI connection sheet with its one-time consent, and the book card's
+# actions (undo, build now, retry). It also extends four desktop RPCs:
+# initialize (create the default library), get_source_library (the card's
+# status line and links still being fetched), reader.pdf_view (a book still
+# being prepared) and reader.mark_section_progress (one chapter ahead, pinned
+# above). Machine paths, credentials and paid builds: desktop only.
+UX_PHASE1_RPCS = ("add_source", "get_ai_connection", "connect_ai", "source_action")
+UX_PHASE1_EXTENDED_RPCS = ("initialize", "get_source_library", "reader.pdf_view")
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS
-    + CHATGPT_PLAN_RPCS,
+    + CHATGPT_PLAN_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
