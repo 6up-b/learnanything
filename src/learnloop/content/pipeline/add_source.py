@@ -685,6 +685,140 @@ def spent_today_usd(repo, config, now: datetime) -> float:
     return spent + reserved
 
 
+def _receipt_tokens(row: Mapping[str, Any]) -> int:
+    return int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
+
+
+def auto_build_spend_report(vault, repo, *, days: int = 7, top: int = 5,
+                            now: datetime | None = None) -> dict[str, Any]:
+    """Automatic book preparation's actual spend, for setting caps from real
+    use (owner, 2026-10-13: spend is observed before caps are set). Reads only.
+
+    * ``daily_guard``: today, as admission counts it against
+      ``ingest.cost_pause.daily_cap_usd`` (every metered receipt today, of
+      which automatic builds'), what builds still running hold back
+      (``reserved_usd``: their estimate less what they spent) and what is left;
+    * ``days``: per UTC day (``days`` of them, today included), automatic
+      builds' metered receipts and dollars (``settled_usd``), the estimates
+      of the metered builds planned that day (``reserved_usd``), subscription
+      receipts (``estimated_only``, never counted against a cap) and every
+      metered receipt that day;
+    * ``largest_builds``: the costliest builds with receipts in the span,
+      reserved (their estimate) vs settled (their receipts)."""
+
+    from datetime import timedelta
+
+    config = vault.config
+    pause = config.ingest.cost_pause
+    moment = (now or datetime.now(UTC)).astimezone(UTC)
+    today = moment.date()
+    span = [(today - timedelta(days=offset)).isoformat() for offset in reversed(range(max(1, int(days))))]
+    since = span[0] + "T00:00:00"
+
+    def day_of(row: Mapping[str, Any]) -> str:
+        return str(row.get("started_at") or "")[:10]
+
+    daily: dict[str, dict[str, Any]] = {
+        day: {"day": day, "auto_builds": {"receipts": 0, "metered_receipts": 0, "settled_usd": 0.0,
+                                          "estimated_only": {"receipts": 0, "tokens": 0}},
+              "reserved_usd": 0.0, "all_metered_usd": 0.0}
+        for day in span
+    }
+    for row in repo.model_call_spend_rows(started_since=since):
+        entry = daily.get(day_of(row))
+        if entry is not None:
+            entry["all_metered_usd"] += _receipt_usd(config, row)
+    builds: dict[str, dict[str, Any]] = {}
+    for row in repo.ingest_batch_spend_rows(batch_prefix=AUTO_BUILD_BATCH_PREFIX, started_since=since):
+        entry = daily.get(day_of(row))
+        if entry is None:
+            continue
+        usd = _receipt_usd(config, row)
+        auto = entry["auto_builds"]
+        auto["receipts"] += 1
+        build = builds.setdefault(str(row["batch_id"]), {"receipts": 0, "settled_usd": 0.0, "estimated_only_tokens": 0})
+        build["receipts"] += 1
+        if usd > 0 or not (is_subscription_route(config, row.get("provider"))
+                           or "estimated_only" in str(row.get("usage_json") or "")):
+            auto["metered_receipts"] += 1
+            auto["settled_usd"] += usd
+            build["settled_usd"] += usd
+        else:
+            auto["estimated_only"]["receipts"] += 1
+            auto["estimated_only"]["tokens"] += _receipt_tokens(row)
+            build["estimated_only_tokens"] += _receipt_tokens(row)
+
+    planned: dict[str, dict[str, Any]] = {}
+    for batch in repo.ingest_batches_by_workflow("bootstrap_synthesis"):
+        batch_id = str(batch["id"])
+        if not batch_id.startswith(AUTO_BUILD_BATCH_PREFIX):
+            continue
+        created = str(batch.get("created_at") or "")[:10]
+        if batch_id not in builds and created not in daily:
+            continue
+        info = _child_auto_info(repo, batch_id) or {}
+        planned[batch_id] = {"batch": batch, "info": info}
+        if created in daily and not info.get("subscription") and info.get("estimate_usd") is not None:
+            daily[created]["reserved_usd"] += float(info["estimate_usd"])
+
+    titles: dict[str, str] = {}
+
+    def title_of(source_id: str) -> str:
+        if source_id not in titles:
+            artifact = repo.get_source_artifact(source_id) or {}
+            revision_id = artifact.get("current_revision_id")
+            revision = repo.get_source_revision(revision_id) if revision_id else None
+            titles[source_id] = learner_title(artifact, revision) if artifact else source_id
+        return titles[source_id]
+
+    largest = []
+    for batch_id, spent in builds.items():
+        entry = planned.get(batch_id) or {"batch": repo.get_ingest_batch(batch_id) or {}, "info": _child_auto_info(repo, batch_id) or {}}
+        info, batch = entry["info"], entry["batch"]
+        source_id = str(info.get("source_id") or "")
+        largest.append({
+            "batch_id": batch_id,
+            "source_id": source_id or None,
+            "title": title_of(source_id) if source_id else None,
+            "chapters": list(info.get("chapters") or []),
+            "status": batch.get("status"),
+            "created_at": batch.get("created_at"),
+            "subscription": bool(info.get("subscription")),
+            "reserved_usd": None if info.get("estimate_usd") is None or info.get("subscription")
+            else round(float(info["estimate_usd"]), 4),
+            "settled_usd": round(spent["settled_usd"], 4),
+            "receipts": spent["receipts"],
+            "estimated_only_tokens": spent["estimated_only_tokens"],
+        })
+    largest.sort(key=lambda build: (-build["settled_usd"], -(build["reserved_usd"] or 0.0), build["batch_id"]))
+
+    for entry in daily.values():
+        entry["all_metered_usd"] = round(entry["all_metered_usd"], 4)
+        entry["reserved_usd"] = round(entry["reserved_usd"], 4)
+        entry["auto_builds"]["settled_usd"] = round(entry["auto_builds"]["settled_usd"], 4)
+
+    counted = metered_spend_usd(config, repo.model_call_spend_rows(started_since=_day_start_iso(moment)))
+    planned_today = spent_today_usd(repo, config, moment)
+    cap = pause.daily_cap_usd
+    return {
+        "daily_guard": {
+            "day": today.isoformat(),
+            "cap_usd": None if cap is None else float(cap),
+            "counted_usd": round(counted, 4),
+            "auto_build_usd": daily[today.isoformat()]["auto_builds"]["settled_usd"],
+            "reserved_usd": round(max(planned_today - counted, 0.0), 4),
+            "remaining_usd": None if cap is None else round(max(float(cap) - planned_today, 0.0), 4),
+            "threshold_usd": float(pause.threshold_usd),
+        },
+        "days": [daily[day] for day in span],
+        "largest_builds": largest[:max(0, int(top))],
+        "basis": ("metered dollars from the receipts of automatic builds' jobs (reported cost, else tokens at "
+                  "ingest.cost_pause prices); the daily guard counts every metered receipt today plus what builds "
+                  "still running hold back (their estimate less what they spent); subscription requests are "
+                  "estimated_only and never counted against a cap"),
+    }
+
+
 @dataclass(frozen=True)
 class CostDecision:
     """What an automatic build may spend, and whether it must ask first."""
@@ -2375,6 +2509,7 @@ __all__ = [
     "after_auto_build",
     "authoring_route_for",
     "auto_apply_allowed",
+    "auto_build_spend_report",
     "built_unit_ids",
     "chapter_phrase",
     "child_batch_id",

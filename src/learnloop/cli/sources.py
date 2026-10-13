@@ -131,12 +131,15 @@ def sources_report(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     since: Annotated[str | None, typer.Option("--since", help="Only questions asked at or after this ISO time.")] = None,
     spend_days: Annotated[int, typer.Option("--spend-days", min=0, max=366,
-                                            help="Days of the source service's actual spend to show (0: none).")] = 7,
+                                            help="Days of actual spend to show for the source service and for "
+                                                 "automatic book preparation (0: none).")] = 7,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Tutor-span retrieval timing per step (p50/p90, over the soft deadline) and truncated answers,
-    and the source service's actual spend per day (receipt cost, reserved vs settled, largest operations)."""
+    the source service's actual spend per day (receipt cost, reserved vs settled, largest operations),
+    and automatic book preparation's per day under its daily guard (ingest.cost_pause.daily_cap_usd)."""
 
+    from learnloop.content.pipeline.add_source import auto_build_spend_report
     from learnloop.source_retrieval.service_spend import spend_report
     from learnloop.source_retrieval.timing import tutor_timing_report
 
@@ -147,6 +150,9 @@ def sources_report(
     spend = spend_report(loaded, repository, days=spend_days) if spend_days else None
     if spend is not None:
         report["service_spend"] = spend
+    auto_spend = auto_build_spend_report(loaded, repository, days=spend_days) if spend_days else None
+    if auto_spend is not None:
+        report["auto_build_spend"] = auto_spend
     if json_output:
         typer.echo(json.dumps(report, sort_keys=True))
         return
@@ -174,6 +180,34 @@ def sources_report(
         typer.echo("truncated LLM answers: none")
     if spend is not None:
         _echo_spend(spend)
+    if auto_spend is not None:
+        _echo_auto_build_spend(auto_spend)
+
+
+def _echo_auto_build_spend(spend: dict[str, Any]) -> None:
+    guard = spend["daily_guard"]
+
+    def money(value: Any) -> str:
+        return "none" if value is None else f"${float(value):.4f}"
+
+    cap = "no cap" if guard["cap_usd"] is None else f"${guard['cap_usd']:.2f}"
+    typer.echo(f"automatic book preparation spend (metered, from receipts; subscription is estimated only): "
+               f"daily guard {money(guard['counted_usd'])} counted + {money(guard['reserved_usd'])} held by "
+               f"builds running, of {cap} today ({money(guard['remaining_usd'])} left; automatic builds "
+               f"{money(guard['auto_build_usd'])}); a build asks first above ${guard['threshold_usd']:.2f}")
+    typer.echo(f"{'day':<12}{'receipts':>9}{'settled $':>11}{'reserved $':>12}{'est. only':>11}{'all metered $':>15}")
+    for day in spend["days"]:
+        auto = day["auto_builds"]
+        typer.echo(f"{day['day']:<12}{auto['metered_receipts']:>9}{auto['settled_usd']:>11.4f}"
+                   f"{day['reserved_usd']:>12.4f}{auto['estimated_only']['receipts']:>11}"
+                   f"{day['all_metered_usd']:>15.4f}")
+    if spend["largest_builds"]:
+        typer.echo("largest builds:")
+        for build in spend["largest_builds"]:
+            chapters = ", ".join(build["chapters"]) or "?"
+            typer.echo(f"  {money(build['settled_usd'])} settled of {money(build['reserved_usd'])} reserved: "
+                       f"{build['title'] or build['source_id'] or '?'} ({chapters}) [{build['status']}] "
+                       f"{build['batch_id']}, {build['receipts']} receipt(s)")
 
 
 def _echo_spend(spend: dict[str, Any]) -> None:
