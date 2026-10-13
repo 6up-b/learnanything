@@ -3035,10 +3035,16 @@ class DurableIngestJobs:
         book's work ran. Returns how many settled (a request still waiting on
         running work does not count)."""
 
+        return self._retry_reading_due(_iso(now))
+
+    def _retry_reading_due(self, now: str) -> int:
+        """:meth:`retry_reading_advances` at ``now`` (ISO UTC): the worker
+        passes the instant its exit check also uses."""
+
         from learnloop.content.pipeline import add_source
 
         settled = 0
-        for request in self.repository.due_reading_requests(_iso(now)):
+        for request in self.repository.due_reading_requests(now):
             try:
                 outcome = add_source.act_on_reading_request(self, request["source_id"])
             except Exception:  # noqa: BLE001 - a retry never kills the worker
@@ -3050,9 +3056,13 @@ class DurableIngestJobs:
                 settled += 1
         return settled
 
-    def _reading_retry_waiting(self) -> bool:
+    def _reading_retry_waiting(self, now: str) -> bool:
+        """Whether a failed request's retry is still to come after ``now``,
+        the instant the round's due scan used: anything due by then was acted
+        on by that scan (Codex finish-review F1)."""
+
         try:
-            return self.repository.reading_retry_waiting(_iso(None))
+            return self.repository.reading_retry_waiting(now)
         except Exception:  # noqa: BLE001 - never keeps a broken worker spinning
             return False
 
@@ -3797,14 +3807,18 @@ class DurableIngestJobs:
                 ran += self._drain_reader_requests(runner)
             except Exception:  # noqa: BLE001 — reader synthesis must never kill the ingest drain
                 pass
+            # One reading of the clock for the round's due scan and its exit
+            # check: a retry cannot fall due between them unseen by both
+            # (Codex finish-review F1).
+            now = _iso(None)
             try:
-                ran += self.retry_reading_advances()
+                ran += self._retry_reading_due(now)
             except Exception:  # noqa: BLE001 — a keep-ahead retry must never kill the ingest drain
                 pass
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
             # A failed keep-ahead request keeps the worker polling until its
             # retries settle it or run out (F8).
-            if idle_rounds >= 3 and self._active_job_locked(runner) is None and not self._reading_retry_waiting():
+            if idle_rounds >= 3 and self._active_job_locked(runner) is None and not self._reading_retry_waiting(now):
                 with self._lock:
                     # A wake during this round (an enqueue, a failed request's
                     # retry) saw this thread alive: run another round for it.

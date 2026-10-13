@@ -160,6 +160,52 @@ def test_f8_the_start_rearms_a_request_whose_retries_ran_out(tmp_path, monkeypat
     assert _pending(restarted, source_id) == "u3"
 
 
+def test_f8_the_worker_stays_for_a_retry_that_falls_due_between_its_scan_and_its_exit(tmp_path, monkeypatch):
+    """Codex's follow-up F1 (finish review): the worker's idle round found no
+    request due, then the retry's deadline passed before its exit check, which
+    looked only for deadlines still to come. The worker stepped aside with a
+    due request and nothing to wake it. The real worker loop, on a scripted
+    clock: time passes between the round's due scan and its exit check."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.content.pipeline import jobs as jobs_module
+
+    _root, ctx, source_id, extraction_id = _added_book(tmp_path)
+    jobs = ctx.ingest_jobs
+    jobs._ensure_worker = lambda: None  # type: ignore[method-assign]  # nothing else wakes it
+    jobs._poll_interval = 0.01
+    planners = _planners(ctx)
+
+    start = datetime(2026, 10, 13, 12, 0, 1, tzinfo=UTC)
+    deadline = start + timedelta(seconds=1)
+    repo = ctx.repository
+    revision = repo.record_reading_request(source_id, extraction_id, "u3")
+    assert repo.fail_reading_request(source_id, revision, attempts=1, retry_at=jobs_module._iso(deadline))
+
+    clock = {"now": start}
+    real_iso = jobs_module._iso
+    monkeypatch.setattr(jobs_module, "_iso", lambda moment: real_iso(clock["now"] if moment is None else moment))
+    real_active = jobs._active_job_locked
+
+    def deadline_passes(runner):  # between the round's due scan and its exit check
+        clock["now"] = max(clock["now"], deadline)
+        return real_active(runner)
+
+    jobs._active_job_locked = deadline_passes  # type: ignore[method-assign]
+    worker = threading.Thread(target=jobs._worker_loop, daemon=True)
+    jobs._worker_thread = worker
+    worker.start()
+    worker.join(30)
+
+    assert not worker.is_alive()
+    assert jobs._worker_thread is None  # it stepped aside once nothing was left
+    # The retry ran: Ch. 3's build was planned and nothing is left due.
+    assert _pending(ctx, source_id) is None
+    assert _planners(ctx) == planners + 1
+    assert repo.due_reading_requests(real_iso(deadline + timedelta(days=1))) == []
+
+
 # ---------------------------------------------------------------------------
 # F9 — an older retry never erases a newer position
 # ---------------------------------------------------------------------------
