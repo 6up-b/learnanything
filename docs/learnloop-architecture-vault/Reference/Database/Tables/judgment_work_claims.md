@@ -3,13 +3,13 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6777d42da952c53386141ad338df97c1cf8d8346"
-source_commit_timestamp: "2026-10-13T08:23:27-04:00"
+source_commit: "06d90dbe08865312f5e41e42bff70bf75832df78"
+source_commit_timestamp: "2026-10-13T09:51:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 190
+schema_head: 191
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/176_recurrence_groups.sql"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
   - "src/learnloop/matching/judge.py"
 tags:
@@ -85,6 +86,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/db/stores/judgment_claims.py`
 
 ### Direct SQL writers

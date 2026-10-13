@@ -3,13 +3,13 @@ title: "task_blueprint_review_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6777d42da952c53386141ad338df97c1cf8d8346"
-source_commit_timestamp: "2026-10-13T08:23:27-04:00"
+source_commit: "06d90dbe08865312f5e41e42bff70bf75832df78"
+source_commit_timestamp: "2026-10-13T09:51:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite task_blueprint_review_events"
   - "table task_blueprint_review_events"
-schema_head: 190
+schema_head: 191
 table_name: "task_blueprint_review_events"
 table_role: "receipt"
 functionality_status: "active"

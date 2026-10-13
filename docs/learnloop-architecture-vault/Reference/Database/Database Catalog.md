@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6777d42da952c53386141ad338df97c1cf8d8346"
-source_commit_timestamp: "2026-10-13T08:23:27-04:00"
+source_commit: "06d90dbe08865312f5e41e42bff70bf75832df78"
+source_commit_timestamp: "2026-10-13T09:51:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 190
-table_count: 306
+schema_head: 191
+table_count: 307
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_190/state.sqlite"
+  - "fixtures/migration_head_191/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-190"
+  - "learnloop/database/schema-head-191"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 306 user tables at migration head 190. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 307 user tables at migration head 191. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 306 user tables at migration head 190. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 139 |
 | [[Table Roles#Derived|`derived`]] | 18 |
 | [[Table Roles#Receipt|`receipt`]] | 63 |
-| [[Table Roles#Workflow|`workflow`]] | 76 |
+| [[Table Roles#Workflow|`workflow`]] | 77 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 293 |
+| `active` | 294 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -308,6 +308,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/source_render_block_crosswalk|source_render_block_crosswalk]] — `raw_ledger` · `active` · Gives source render block crosswalk a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `render_view_id`, `display_node_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_render_views|source_render_views]] — `workflow` · `active` · Gives source render view a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `revision_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_revisions|source_revisions]] — `raw_ledger` · `active` · Records immutable revisions of canonical sources and their content identity. It supplies replay-stable input rather than a disposable cache. Rows bind `source_id`, `note_id`, `supersedes_revision_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/source_service_spend|source_service_spend]] — `workflow` · `active` · Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that checks the day's total (never less than the service's own receipts) plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. In flight a row counts its estimate (reconciled upward); once the request finished it counts the reported cost, else the estimate. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_span_reanchors|source_span_reanchors]] — `raw_ledger` · `active` · Gives source span reanchor a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `from_extraction_id`, `from_span_id`, `to_extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_tool_calls|source_tool_calls]] — `receipt` · `active` · Receipts for the typed source tools (canonical sources S4): a request row per validated request from the tutor, the router or an external agent (its stored caller context, derived policy, validated arguments and dropped ids, refused when it leaked the answer or arrived during a cold administration) and a run row per execution naming the request (result refs, keys, source versions, model, latency). Append-only. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `parent_id`, `ledger_id`, `row_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_unit_inventories|source_unit_inventories]] — `raw_ledger` · `active` · Gives source unit inventorie a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_revision_id`, `extraction_id`, `unit_id`, making the operational relationship explicit.

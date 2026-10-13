@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6777d42da952c53386141ad338df97c1cf8d8346"
-source_commit_timestamp: "2026-10-13T08:23:27-04:00"
+source_commit: "06d90dbe08865312f5e41e42bff70bf75832df78"
+source_commit_timestamp: "2026-10-13T09:51:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 190
+schema_head: 191
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,8 +29,8 @@ source_paths:
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/authoring/persona_gate.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/content/authoring/persona_gate.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/screen.py`
 - `src/learnloop/instructional/sources.py`
 - `src/learnloop/instructional/tools.py`
-- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
