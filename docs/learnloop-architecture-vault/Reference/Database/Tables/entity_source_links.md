@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d60b0b0a41c1b22a98abc031434ddb29e0e1be65"
-source_commit_timestamp: "2026-10-13T03:40:31-04:00"
+source_commit: "5a6eeb542d922d9dd9b95b45a6400a744fd420d5"
+source_commit_timestamp: "2026-10-13T05:32:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -140,6 +140,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_apply_write_ahead.py`
+- `tests/test_facet_reword_paths.py`
 - `tests/test_migrations.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
