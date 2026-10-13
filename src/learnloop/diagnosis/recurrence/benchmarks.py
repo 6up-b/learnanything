@@ -70,7 +70,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import generation_limit
@@ -302,16 +302,17 @@ def _complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], p
               output_tokens: int) -> tuple[Any, str | None]:
     """Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``).
 
-    Returns the result and the resolved model when the caller reports one. A
-    truncated output is not retried (the same budget truncates again); the
-    suite records the case as failed.
+    Returns the result and the resolved model when the caller reports one. An
+    invalid output (truncated, malformed or blank) is not retried: the suite
+    records the case as failed, and no retry reserves work the plan did not
+    admit (Codex review F2). Transport failures are still retried.
     """
 
     if hasattr(ctx, "complete"):
         return ctx.complete(role, prompt, result_model, purpose, output_tokens=output_tokens), None
     entry = ctx.role(role)[0]
     call = ctx.caller.call(entry, prompt=prompt, prompt_version=prompt_version, result_model=result_model,
-                           output_tokens=output_tokens, retry_truncated=False)
+                           output_tokens=output_tokens, retry_invalid_output=False)
     return call.result, getattr(call, "model", None)
 
 
@@ -503,6 +504,22 @@ class MisconceptionHypothesis(WireModel):
         description="The belief that leads a student to this wrong answer, stated as what the student thinks is true."
     )
 
+    @field_validator("misconception")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        """A blank hypothesis breaks the contract (Codex review F1).
+
+        Rejected where the provider's output is parsed, so it is invalid
+        output (one failed case) and never checkpointed; a blank checkpoint
+        saved before this check no longer validates and is discarded. A
+        validator, not ``min_length``: the JSON schema, and with it every
+        valid checkpoint's key, is unchanged.
+        """
+
+        if not value.strip():
+            raise ValueError("misconception is blank")
+        return value
+
 
 def b1_prompt(case: Mapping[str, Any]) -> str:
     return render_structured_prompt(
@@ -684,9 +701,10 @@ class B1Suite:
     def _write_hypotheses(self, data: B1Data, request: BenchRequest, ctx: Any) -> tuple[dict[str, str], dict[str, Any]]:
         """Each case's hypothesis, written or reused, and the writer's summary.
 
-        A truncated or invalid output is a failed case: recorded, not retried,
-        not cached (a rerun asks again), and a miss in the hypothesis view.
-        Provider outages, caps and cancellation still stop the run.
+        A truncated, malformed or blank output is a failed case: recorded, not
+        retried, never cached or checkpointed (a rerun asks again), and a miss
+        in the hypothesis view. Provider outages that outlast the retry cap,
+        caps and cancellation still stop the run.
         """
 
         output_tokens = requested_writer_output_tokens(request)

@@ -44,7 +44,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, model_settings, observe_model_calls, single_request
 from learnloop.ai.routing import provider_for_task, provider_list_for_task, ready_client_for_task
 from learnloop.ai.spend import (
@@ -371,11 +371,15 @@ class PFCaller:
 
     def call(self, entry: RoleClient, *, prompt: str, prompt_version: str,
              result_model: type[BaseModel], output_tokens: int,
-             candidates: int = 0, pairs: int = 0, retry_truncated: bool = True) -> CallResult:
+             candidates: int = 0, pairs: int = 0, retry_invalid_output: bool = True) -> CallResult:
         """One isolated, tool-free structured turn (never the vault, files or tools).
 
-        ``retry_truncated=False``: an output that exhausted ``output_tokens``
-        raises at once instead of spending a retry on the same budget.
+        ``retry_invalid_output=False``: an output that broke its contract
+        (``AIInvalidOutput``: malformed JSON, a schema or validator failure,
+        or a truncation at ``output_tokens``) raises at once instead of
+        spending a retry, so the caller can count it as one failed case
+        without reserving work the plan did not admit. Transport failures
+        (outages, timeouts) are still retried under ``max_retries``.
         """
         role = entry.role
         input_hash = self.input_hash(entry, prompt, result_model, output_tokens)
@@ -455,7 +459,7 @@ class PFCaller:
             except AIInterrupted:
                 raise
             except AIProviderUnavailable as exc:
-                if isinstance(exc, AIOutputTruncated) and not retry_truncated:
+                if isinstance(exc, AIInvalidOutput) and not retry_invalid_output:
                     raise
                 if self._shared_used("retries") >= self.caps.max_retries:
                     raise

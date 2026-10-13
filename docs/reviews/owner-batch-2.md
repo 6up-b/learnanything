@@ -168,12 +168,17 @@ record.
     with `reasoning_effort = "low"` sends `{"reasoning": {"effort": "low"}}`
     and `max_tokens = 2000` on every request.
   - The effort is part of the writer identity and the report.
-- Failed cases: B1 calls `PFCaller.call(..., retry_truncated=False)`, a new
-  keyword whose default is unchanged.
-  - An `AIInvalidOutput` (truncation included) or an empty hypothesis is one
-    failed case. It is not retried, not cached (a rerun asks again for it
-    only), and counts as a miss in the hypothesis view (`n` stays equal to
-    the raw view's).
+- Failed cases: B1 calls `PFCaller.call(..., retry_invalid_output=False)`, a
+  new keyword whose default is unchanged. (As first committed the keyword was
+  `retry_truncated` and only skipped retrying a truncation, and a blank
+  hypothesis was checkpointed before B1 rejected it, so the claim below did
+  not hold for malformed or blank outputs; fixed after the Codex review, see
+  `owner-batch-2-codex-review.md`, F1 and F2.)
+  - An `AIInvalidOutput` (truncated, malformed, or a blank hypothesis, which
+    `MisconceptionHypothesis` now rejects at parse time) is one failed case.
+    It is not retried, never cached or checkpointed (a rerun asks again for
+    it only), and counts as a miss in the hypothesis view (`n` stays equal
+    to the raw view's).
   - `results.writer` reports `written`, `cached`, `failed_cases` and
     `failed_by_error`, plus `resolved_models`, `settings` and
     `output_tokens`.
@@ -185,8 +190,8 @@ record.
   the harness merged (`recurrence bench` aliases `embeddings compare`). It got
   the writer budget, the writer-keyed cache and the shared Markdown, but not
   `billed`: its `ReviewSpend` already prefers reported cost per route.
-- `retry_truncated` is opt-out per call, not a global PF change: other PF
-  roles keep retrying a truncated output.
+- `retry_invalid_output` is opt-out per call, not a global PF change: other
+  PF roles keep retrying an invalid output.
 - Exact fail-first counts are recorded for B1 only:
   `tests/test_recurrence_benchmarks.py` at `37e2723e` gave 10 failed, 11
   passed. The T1 tests failed at `37e2723e` on `'RecurrenceConfig' object has
