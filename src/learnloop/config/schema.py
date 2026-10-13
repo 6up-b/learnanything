@@ -2146,10 +2146,15 @@ class SourceServiceConfig(BaseModel):
     # Prompt-size bound on one comparison (sources that do not fit are listed,
     # uncompared, never dropped).
     compare_max_prompt_tokens: int = Field(default=24_000, ge=1_000, le=400_000)
-    # Money caps (USD, metered routes; Codex is estimated_only).
-    import_max_cost_usd: float = Field(default=0.25, ge=0)
-    compare_max_cost_usd: float = Field(default=0.05, ge=0)
-    max_daily_cost_usd: float = Field(default=1.00, ge=0)
+    # Money caps (USD, metered routes; Codex and the ChatGPT plan are
+    # estimated_only, never counted). Owner (2026-10-13): the per-operation
+    # caps are off by default (None: no cap; set one to bound an import or a
+    # comparison) and the daily guard is 5.00, with headroom: spend is observed
+    # in real use (`learnloop sources report`) and caps set later from it; the
+    # provider key's own limit is the hard backstop.
+    import_max_cost_usd: float | None = Field(default=None, ge=0)
+    compare_max_cost_usd: float | None = Field(default=None, ge=0)
+    max_daily_cost_usd: float = Field(default=5.00, ge=0)
     # USD per million tokens for the service's own metered judge routes
     # (source_solution_match, source_compare, exercise_discrimination,
     # worked_example_equivalence). Unset: those steps are skipped and labelled

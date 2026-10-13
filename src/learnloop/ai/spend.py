@@ -108,12 +108,15 @@ class SpendCaps:
     max_retries: int = 2
     max_calls: int = 100
     max_total_tokens: int = 100_000
-    max_estimated_usd: float = 1.0
+    #: None: no money cap on this budget (an owner-unset operation cap; shared
+    #: envelopes such as a daily guard still bound it).
+    max_estimated_usd: float | None = 1.0
 
     def __post_init__(self) -> None:
         for name in _COUNTS:
             _count(f"max_{name}", getattr(self, f"max_{name}"))
-        _money("max_estimated_usd", self.max_estimated_usd)
+        if self.max_estimated_usd is not None:
+            _money("max_estimated_usd", self.max_estimated_usd)
 
     def as_dict(self) -> dict[str, int | float]:
         return asdict(self)
@@ -197,7 +200,7 @@ class SpendBudget:
                 continue
             if getattr(self._used, name) + getattr(estimate, name) > getattr(self.caps, f"max_{name}"):
                 raise SpendLimitExceeded(f"{name} exceeds max_{name}")
-        if not self._subscription and (
+        if not self._subscription and self.caps.max_estimated_usd is not None and (
             self._usd + Decimal(str(estimate.estimated_usd)) > Decimal(str(self.caps.max_estimated_usd))
         ):
             raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd")

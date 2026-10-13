@@ -1305,6 +1305,101 @@ def release_service_spend(connection: sqlite3.Connection, id: str, *, process: s
     connection.execute(f"DELETE FROM {SERVICE_SPEND_TABLE} WHERE id=? AND state='in_flight'{owned}", (id, *params))
 
 
+def service_spend_report(connection: sqlite3.Connection, *, envelope: str, days: Sequence[str],
+                         price_per_million: float | None = None, subscription_providers: Collection[str] = (),
+                         owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS, top: int = 5) -> dict[str, Any]:
+    """What the service actually spent, per UTC day in ``days`` (``YYYY-MM-DD``,
+    oldest first), read back from what was recorded (owner, 2026-10-13: caps
+    are set later from real use). Never writes.
+
+    Per day: ``receipts``, the service's metered leaf receipts that started
+    that day (its receipt kinds, or naming a reservation), priced as the daily
+    cap prices them (reported cost exactly, else tokens at the request's
+    recorded rate, else at the owner's rate; ``unpriced`` ones are counted,
+    never guessed), with the subscription requests as ``estimated_only``; and
+    ``reservations``, that day's ledger rows by state with what was reserved
+    (``reserved_usd``) and what was settled or charged (``charged_usd``).
+    ``largest_operations``: the operations (receipt ``owner_kind`` and
+    ``owner_id``: one import, one comparison, one search) with the most
+    metered dollars across the days, largest first."""
+
+    out: dict[str, Any] = {"days": [], "largest_operations": []}
+    if not days:
+        return out
+    rate = None if price_per_million is None else float(price_per_million) / 1_000_000
+    by_day: dict[str, dict[str, Any]] = {}
+    for day in days:
+        by_day[day] = {
+            "day": day,
+            "receipts": {"metered_requests": 0, "metered_usd": 0.0, "reporting_cost": 0, "unpriced": 0,
+                         "estimated_only": {"requests": 0, "tokens": 0,
+                                            "usd": 0.0 if rate is not None else None}},
+            "reservations": {state: {"rows": 0, "reserved_usd": 0.0, "charged_usd": 0.0}
+                             for state in ("in_flight", "settled", "released", "legacy")},
+        }
+        out["days"].append(by_day[day])
+    start, end = min(days), max(days)
+    end_floor = (datetime.fromisoformat(end) + timedelta(days=1)).strftime("%Y-%m-%d")
+    operations: dict[tuple[str, str], dict[str, Any]] = {}
+    if table_exists(connection, "model_call_receipts"):
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
+        usage = "r.usage_json" if "usage_json" in columns else "NULL"
+        budget = "r.budget_json" if "budget_json" in columns else "NULL"
+        cache: dict[str, str | None] = {}
+        for parent_id, owner_kind, owner_id, provider, started_at, cost, input_tokens, output_tokens, usage_json, \
+                budget_json in connection.execute(
+                    f"SELECT r.parent_call_id, r.owner_kind, r.owner_id, r.provider, r.started_at, r.cost, "
+                    f"r.input_tokens, r.output_tokens, {usage}, {budget} FROM model_call_receipts r "
+                    "WHERE r.started_at >= ? AND r.started_at < ? AND NOT EXISTS "
+                    "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)",
+                    (start, end_floor)).fetchall():
+            moment = _moment(started_at)
+            day = moment.strftime("%Y-%m-%d") if moment is not None else None
+            if day not in by_day:
+                continue
+            declared = _root_budget(connection, parent_id, budget_json, cache)
+            refs = [ref for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)]
+            if not (refs or owner_kinds is None or owner_kind in owner_kinds):
+                continue
+            entry = by_day[day]["receipts"]
+            tokens = int(input_tokens or 0) + int(output_tokens or 0)
+            if _receipt_billing(declared, provider, subscription_providers) == "subscription":
+                used = _estimated_tokens(tokens, usage_json)
+                entry["estimated_only"]["requests"] += 1
+                entry["estimated_only"]["tokens"] += used
+                if rate is not None:
+                    entry["estimated_only"]["usd"] += used * rate
+                continue
+            value, _basis = _metered_cost(cost, tokens, _recorded_rate(declared), rate)
+            entry["metered_requests"] += 1
+            entry["reporting_cost"] += int(cost is not None)
+            if value is None:
+                entry["unpriced"] += 1
+                continue
+            entry["metered_usd"] += value
+            key = (str(owner_kind or ""), str(owner_id or ""))
+            operation = operations.setdefault(key, {"owner_kind": key[0], "owner_id": key[1], "usd": 0.0,
+                                                    "requests": 0, "first_started_at": started_at})
+            operation["usd"] += value
+            operation["requests"] += 1
+            operation["first_started_at"] = min(str(operation["first_started_at"]), str(started_at))
+    if table_exists(connection, SERVICE_SPEND_TABLE):
+        legacy_column = "legacy" if column_exists(connection, SERVICE_SPEND_TABLE, "legacy") else "0"
+        for day, state, legacy, reserved, charged in connection.execute(
+                f"SELECT day, state, {legacy_column}, reserved_usd, charged_usd FROM {SERVICE_SPEND_TABLE} "
+                "WHERE envelope=? AND day >= ? AND day <= ?", (envelope, start, end)):
+            if day not in by_day:
+                continue
+            kind = "legacy" if legacy else (state if state in ("in_flight", "settled", "released") else "in_flight")
+            entry = by_day[day]["reservations"][kind]
+            entry["rows"] += 1
+            entry["reserved_usd"] += float(reserved or 0.0)
+            entry["charged_usd"] += float(charged or 0.0)
+    out["largest_operations"] = sorted(operations.values(), key=lambda op: (-op["usd"], op["first_started_at"]))[
+        :max(0, int(top))]
+    return out
+
+
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                 price_per_million: float | None = None,
@@ -1384,6 +1479,7 @@ __all__ = [
     "renew_service_spend_leases",
     "reserve_service_spend",
     "service_spend_accounting",
+    "service_spend_report",
     "settle_service_spend",
     "spend_since",
     "receipt_time_floor",

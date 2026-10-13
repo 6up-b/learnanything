@@ -99,7 +99,7 @@ def route_skip(route: PaidRoute, price: float | None, *, injected: bool,
     return None
 
 
-def listwise_caps(pool_size: int, *, max_total_tokens: int, max_estimated_usd: float) -> SpendCaps:
+def listwise_caps(pool_size: int, *, max_total_tokens: int, max_estimated_usd: float | None) -> SpendCaps:
     """One request and at most one retry, every candidate judged once."""
 
     return SpendCaps(max_candidates=pool_size, max_pairs=pool_size, max_retries=1, max_calls=2,

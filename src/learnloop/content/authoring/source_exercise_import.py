@@ -325,8 +325,9 @@ class _RecordingCaller(PFCaller):
 
 
 def import_caps(vault: LoadedVault) -> SpendCaps:
-    """One import's bound: the money cap is the owner's; the call and token
-    counts only keep a runaway loop bounded (never a learning decision)."""
+    """One import's bound: the money cap is the owner's (None, the default:
+    none; the daily guard still bounds it); the call and token counts only
+    keep a runaway loop bounded (never a learning decision)."""
 
     return SpendCaps(max_candidates=200, max_pairs=200, max_retries=4, max_calls=60,
                      max_total_tokens=3_000_000,
@@ -1078,9 +1079,10 @@ def import_source_exercise(
     verified key may fulfil a need (the caller checks ``key_status``).
 
     Every paid request of the import (the solution match, authoring, the
-    ladder, the family judge, and a background check) is admitted under one
-    shared envelope for ``source_service.import_max_cost_usd`` and the daily
-    envelope, before it is sent (Codex review F2).
+    ladder, the family judge, and a background check) is admitted under the
+    daily envelope and, when the owner set one, one shared envelope for
+    ``source_service.import_max_cost_usd`` (None, the default since the owner's
+    2026-10-13 decision: no per-import cap), before it is sent (Codex review F2).
     """
 
     if caller not in CALLERS:

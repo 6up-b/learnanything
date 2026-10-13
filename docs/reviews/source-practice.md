@@ -37,6 +37,24 @@
 >   a comparison, and imports pass the held-out leakage gate; search callers
 >   that page by exhaustion pin the `hybrid_rrf` pool (main's default is
 >   `dense_plus_bm25`).
+> - **Spend accounting (Codex verify 20261013-125339-TBEVSp).** A legacy
+>   reservation row no longer suppresses any receipt (amount and
+>   second-resolution matching could take another request's receipt for its
+>   own and undercount); its charge and every unlinked receipt count, the
+>   overlap reported as `legacy.uncertain_usd` (see
+>   `docs/reviews/sources-spend-accounting.md`).
+> - **Owner decision (2026-10-13): money caps.** The service's caps were sized
+>   for the old small output limits and refused ordinary priced imports at the
+>   policy budget. `source_service.import_max_cost_usd` and
+>   `compare_max_cost_usd` now default to None (no per-operation cap; a set
+>   one still refuses), and the daily guard `max_daily_cost_usd` is 5.00
+>   (was 1.00); subscription routes stay uncounted, and the provider key's
+>   own limit is the hard backstop. Spend is observed in real use and caps set
+>   later from it: `learnloop sources report` (`--spend-days`, default 7) now
+>   shows per day the metered receipt cost, reservations reserved vs settled
+>   and estimated-only requests, the largest operations, today's guard and
+>   the operation caps in force. Every defaults snapshot was recomputed (each
+>   moves only because of the three caps).
 
 **Branch:** `sources/canonical-practice` (worktree `learnanything-sources`, base `0a6f375b`).
 **Spec:** `docs/specs/spec_source_practice_and_probes_v1.md`, phases S0–S5, built in the spec's order (S0, S1, S3, S2a, S2b, S4, S5), then the frontend, snapshots and references, and a live sanity run on fixture copies.

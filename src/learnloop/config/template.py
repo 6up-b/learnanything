@@ -1007,7 +1007,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # every snapshot (each moves only because the effective config gains the
     # section and routes); all eleven were recomputed from the composed
     # defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "1859c53e7d123fb52c494f142f8c48481d20789231ac8111b37e563bf8322d54",
+    # Owner (2026-10-13): source service per-operation caps off by default
+    # (source_service.import_max_cost_usd and compare_max_cost_usd 0.25 / 0.05
+    # -> None, no cap; one can still be set) and the daily guard
+    # (max_daily_cost_usd) 1.00 -> 5.00; spend is observed in real use
+    # (`learnloop sources report`) and caps set later from it, the provider
+    # key's own limit the hard backstop. Money bounds only: no scoring,
+    # scheduling, projection or serving change; every snapshot moves because
+    # the effective config changed, and all eleven were recomputed.
+    "mvp-0.9": "80312e5835fcf9066df6369036147379567a7330176567330573104398028455",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1030,7 +1038,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.10": "0899a88e80b4e6cf5ed4f1d88cb1a9a37f64a916ba5222062200c86073de56e7",
+    "mvp-0.10": "c224dd76e20cb22deecc2745b1dbc3e121ce404f92e48d0131e123b0071e790b",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1061,7 +1069,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.11": "65f05a882e611e19d5e9c8c86f4c05470704033c7b888506019cfd5a58eeb73b",
+    "mvp-0.11": "82ea322c45cd79d514a23745ba2ed4a54774b444c4868c108a39fe5c477a3247",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1086,7 +1094,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.12": "e517d8f204621a304610ed1d73b63ca4a6ede416d9c2088a4ea2202f186cfb84",
+    "mvp-0.12": "f784fcd1bfeb3e0649162a156d058298d9abe65b0c69a8197cd2abfaa61185f3",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1106,7 +1114,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.13": "5456bc9e662ab37064fe124f1b0bc8376b2dea40f674dafa8094642bc5718869",
+    "mvp-0.13": "7f0db61b76a08d977fedecc48d75dc83720fc6add2b916e7befed43b3c106d3d",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1125,7 +1133,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.14": "04d2585221af80ed402d01a7c5947518a64aff4be6f6a53f5dd6d16ba58abbbc",
+    "mvp-0.14": "22a832555a3c920b891e4cab4aa4fe6d398d6d6b00775afe36f1c763e24a5311",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1142,7 +1150,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.15": "96934359ac76315be89479f2cd9ac9f644c7055707341c2915852a220cc32502",
+    "mvp-0.15": "e987e49abbdb93b3642d989e0e973b0d7dbb4bb5b841bd9564f3ba3de6777456",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1166,7 +1174,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
     # The route check's [proof_check] and route move it too (see mvp-0.9).
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.16": "923237ca5e07ac68ad54feba0898c0993efe1e86325e65a2da292bded1d7968d",
+    "mvp-0.16": "7747c975f0af9fa67050ecd23882932bc11778dc9dec2b600a4b1e65add6d88a",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1183,7 +1191,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
     # mvp-0.18 merged.
     # Canonical sources' [source_service] and routes move it too (see mvp-0.9).
-    "mvp-0.17": "3fbc5c7a75b8cdfd6e2a6d7103c668442f78ef1f4397b83430287e077297a598",
+    "mvp-0.17": "d40bdb15adb21fa34854a5b7ef099664a56f00ef004a6e447fddd9ee5d12244d",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1195,7 +1203,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # this tag. Existing vaults reach it by `learnloop upgrade --to mvp-0.18`
     # from mvp-0.17, or from mvp-0.9 to mvp-0.16 through the chain (under
     # mvp-0.12's advisory guard); never retroactive.
-    "mvp-0.18": "a1ec2106a88db4fefbac0131dd1b6620b1c260463fe24d0b1b039a6065d1cd1d",
+    "mvp-0.18": "cdd8c8134098436e2fcd9f5f49c7665e12850dc643d23067e7a716fb933bdea5",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1206,7 +1214,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # by `learnloop upgrade` (default target) from mvp-0.18, or from mvp-0.9
     # to mvp-0.17 through the chain (under mvp-0.12's advisory guard). New
     # vaults start here (the template's LATEST_ALGORITHM_VERSION).
-    "mvp-0.19": "f5af6af21259902723a98f2334864c87344803adb7b2bd64ce273f061b14e790",
+    "mvp-0.19": "33fed7bb6f48ff434de85887372004bfb94f8af8cdccdacd1d83494d4b90ab37",
 }
 
 

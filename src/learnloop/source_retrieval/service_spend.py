@@ -11,7 +11,11 @@ these envelopes bound the SUM (Codex review F2, re-review F2):
   it is sent, and a sidecar and a CLI batch cannot both spend the same
   allowance. Every complete service operation runs under it: retrieval
   (embeddings, rewrites, reranks, verification), valuation and imports;
-* **one operation's cap** (an import: ``import_max_cost_usd``);
+* **one operation's cap** (an import: ``import_max_cost_usd``; a comparison:
+  ``compare_max_cost_usd``), only when the owner sets one: both default to
+  None, no cap (owner, 2026-10-13: spend is observed in real use through
+  ``learnloop sources report`` and caps set later from it; the provider key's
+  own limit is the hard backstop);
 * **a batch's cap** (``--max-cost-usd`` of an owner-run harvest or verify).
 
 The day's total is ONE accounting function
@@ -55,6 +59,7 @@ from learnloop.db.stores.source_service import (
     renew_service_spend_leases,
     reserve_service_spend,
     service_spend_accounting,
+    service_spend_report,
     settle_service_spend,
 )
 from learnloop.ids import new_ulid
@@ -255,6 +260,37 @@ def service_spend_today(vault: LoadedVault, repository: Repository, clock: Clock
         return daily_accounting(connection, vault, midnight(clock))
 
 
+def spend_report(vault: LoadedVault, repository: Repository, *, days: int = 7, top: int = 5,
+                 clock: Clock | None = None) -> dict[str, Any]:
+    """The service's actual spend over the last ``days`` UTC days (today
+    included), for setting caps from real use (owner, 2026-10-13): per day the
+    metered receipt cost and the reservations, reserved vs settled; the
+    largest operations; and today's daily guard (what admission counts, the
+    cap and what remains). Reads only."""
+
+    today = utc_now_iso(clock)[:10]
+    first = datetime.fromisoformat(today) - timedelta(days=max(1, int(days)) - 1)
+    span = [(first + timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(max(1, int(days)))]
+    service = vault.config.source_service
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        report = service_spend_report(
+            connection, envelope=DAILY_ENVELOPE, days=span, price_per_million=service.llm_price_per_million,
+            subscription_providers=subscription_providers(vault), owner_kinds=SERVICE_OWNER_KINDS, top=top)
+        guard = daily_accounting(connection, vault, midnight(clock))
+    cap = float(service.max_daily_cost_usd)
+    report["daily_guard"] = {
+        "day": today, "cap_usd": cap, "counted_usd": float(guard["usd"]),
+        "remaining_usd": max(0.0, cap - float(guard["usd"])),
+        "uncertain_legacy_usd": float(guard["legacy"]["uncertain_usd"]),
+    }
+    report["operation_caps"] = {"import_max_cost_usd": service.import_max_cost_usd,
+                                "compare_max_cost_usd": service.compare_max_cost_usd}
+    report["basis"] = ("metered dollars from the receipts (reported cost, else tokens at the request's recorded "
+                       "rate, else at source_service.llm_price_per_million); subscription requests are "
+                       "estimated_only and never counted against a cap")
+    return report
+
+
 def daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | None = None) -> SpendEnvelope:
     """The daily envelope for this database and UTC day, shared through the
     database by every process (one object per process for its threads)."""
@@ -297,5 +333,6 @@ __all__ = [
     "midnight",
     "service_spend",
     "service_spend_today",
+    "spend_report",
     "subscription_providers",
 ]

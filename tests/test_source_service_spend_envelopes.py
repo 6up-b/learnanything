@@ -367,3 +367,116 @@ def test_a_settled_request_is_counted_once_not_by_its_receipt_and_its_reservatio
     with pytest.raises(SpendLimitExceeded):
         with spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.02)):
             pass  # $0.99 + $0.02 does not
+
+
+# -- Owner decision 2026-10-13: per-operation caps off by default, daily guard 5.00 ------------------
+
+
+def _priced_vault(tmp_path, **service):
+    """A metered, priced vault at the policy output budgets (no route pinned)."""
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    set_config(paths, "source_service", llm_price_per_million=PRICE, **service)
+    set_config(paths, "practice_index", rerank_price_per_million=PRICE, rerank_max_cost_usd=1.0)
+    return paths, repository, spans
+
+
+def test_the_defaults_have_no_operation_caps_and_a_five_dollar_daily_guard(tmp_path):
+    paths, _repository, _spans = _priced_vault(tmp_path)
+    service = loaded(paths).config.source_service
+    assert service.import_max_cost_usd is None and service.compare_max_cost_usd is None
+    assert service.max_daily_cost_usd == 5.00
+
+
+def test_an_ordinary_priced_import_is_never_refused_by_an_unset_operation_cap(tmp_path):
+    """At the policy budget (16,384 output tokens) and $10 per million an
+    import's requests reserve well over the old $0.25 per-import cap; unset,
+    nothing per-operation refuses it (the daily guard still bounds it)."""
+
+    paths, repository, spans = _priced_vault(tmp_path)
+    llm = MeteredServiceLLM()
+    result = _import(paths, repository, spans["exercises"][1], llm)
+    assert result["status"] == "written", result
+    assert "over_budget" not in str(result.get("reason") or "")
+    assert len(llm.calls) >= 3
+    # A cap the owner sets still refuses, before the request is sent.
+    capped_paths, capped_repository, capped_spans = _priced_vault(tmp_path / "capped", import_max_cost_usd=0.25)
+    capped = MeteredServiceLLM()
+    refused = _import(capped_paths, capped_repository, capped_spans["exercises"][1], capped)
+    assert refused["status"] == "failed" and refused["reason"].startswith("over_budget"), refused
+    assert len(capped.calls) < len(llm.calls)
+
+
+def test_a_comparison_is_capped_only_when_the_owner_sets_a_cap(tmp_path):
+    from learnloop.source_retrieval.compare import compare_sources
+    from learnloop.source_retrieval.policy import CallerContext
+
+    question = "Why does swapping two rows change the sign of the determinant?"
+    paths, repository, _spans = _priced_vault(tmp_path)
+    set_config(paths, "source_retrieval", llm_price_per_million=PRICE)  # the verification's own price
+    llm = MeteredServiceLLM()
+    free = compare_sources(loaded(paths), repository, question, caller=CallerContext(kind="reader"),
+                           client=llm, verify_client=llm)
+    assert free.status == "ok" and free.sources, free.status
+    capped_paths, capped_repository, _ = _priced_vault(tmp_path / "capped", compare_max_cost_usd=0.01)
+    set_config(capped_paths, "source_retrieval", llm_price_per_million=PRICE)
+    capped = compare_sources(loaded(capped_paths), capped_repository, question,
+                             caller=CallerContext(kind="reader"), client=llm, verify_client=llm)
+    assert capped.status.startswith("over_budget"), capped.status
+
+
+def test_the_daily_guard_refuses_past_five_dollars(tmp_path):
+    from decimal import Decimal
+
+    from learnloop.source_retrieval import service_spend as SS
+
+    paths, repository, _spans = _priced_vault(tmp_path)
+    SS._DAILY.clear()
+    envelope = SS.daily_envelope(loaded(paths), repository)
+    assert float(envelope.max_usd) == 5.00
+    handle = envelope.reserve(Decimal("4.99"))
+    envelope.settle(handle, Decimal("4.99"))
+    with pytest.raises(SpendLimitExceeded):
+        envelope.reserve(Decimal("0.02"))
+    SS._DAILY.clear()
+
+
+def test_the_sources_report_shows_actual_spend_reserved_vs_settled_and_the_largest_operations(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.clock import utc_now_iso
+    from learnloop.source_retrieval import service_spend as SS
+
+    paths, repository, _spans = _priced_vault(tmp_path)
+    today = utc_now_iso()[:10]
+    with repository.connection() as connection:
+        for receipt_id, owner_id, cost, budget in (
+                ("r_a", "sei_big", 0.40, {"billing": "metered"}),
+                ("r_b", "sei_big", 0.20, {"billing": "metered"}),
+                ("r_c", "cmp_small", 0.05, {"billing": "metered"}),
+                ("r_sub", "sei_codex", None, {"billing": "subscription"})):
+            connection.execute(
+                "INSERT INTO model_call_receipts(id, owner_kind, owner_id, purpose, provider, status, started_at, "
+                "input_tokens, output_tokens, cost, budget_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (receipt_id, "source_exercise_import" if owner_id.startswith("sei") else "source_compare",
+                 owner_id, "p", "openrouter", "completed", f"{today}T01:00:00+00:00", 1000, 100, cost,
+                 json.dumps(budget)))
+        connection.execute(
+            "INSERT INTO source_service_spend (id, envelope, day, reserved_usd, charged_usd, state, process, "
+            "created_at, updated_at) VALUES ('ssp_x', ?, ?, 0.50, 0.45, 'settled', 'proc_old', ?, ?)",
+            (SS.DAILY_ENVELOPE, today, f"{today}T01:00:00Z", f"{today}T01:00:05Z"))
+        connection.commit()
+    report = SS.spend_report(loaded(paths), repository, days=2)
+    day = report["days"][-1]
+    assert day["day"] == today and day["receipts"]["metered_usd"] == pytest.approx(0.65)
+    assert day["receipts"]["estimated_only"]["requests"] == 1
+    settled = day["reservations"]["settled"]
+    assert (settled["rows"], settled["reserved_usd"], settled["charged_usd"]) == (1, pytest.approx(0.50),
+                                                                                 pytest.approx(0.45))
+    assert [(op["owner_id"], op["usd"]) for op in report["largest_operations"]][:2] == [
+        ("sei_big", pytest.approx(0.60)), ("cmp_small", pytest.approx(0.05))]
+    assert report["daily_guard"]["cap_usd"] == 5.00
+    assert report["operation_caps"] == {"import_max_cost_usd": None, "compare_max_cost_usd": None}
+    shown = CliRunner().invoke(app, ["sources", "report", "--vault", str(paths.root), "--spend-days", "2"])
+    assert shown.exit_code == 0, shown.output
+    assert "largest operations:" in shown.output and "sei_big" in shown.output and "of $5.00" in shown.output

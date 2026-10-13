@@ -130,16 +130,23 @@ def sources_suggest_lo(
 def sources_report(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     since: Annotated[str | None, typer.Option("--since", help="Only questions asked at or after this ISO time.")] = None,
+    spend_days: Annotated[int, typer.Option("--spend-days", min=0, max=366,
+                                            help="Days of the source service's actual spend to show (0: none).")] = 7,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Tutor-span retrieval timing per step (p50/p90, over the soft deadline) and truncated answers."""
+    """Tutor-span retrieval timing per step (p50/p90, over the soft deadline) and truncated answers,
+    and the source service's actual spend per day (receipt cost, reserved vs settled, largest operations)."""
 
+    from learnloop.source_retrieval.service_spend import spend_report
     from learnloop.source_retrieval.timing import tutor_timing_report
 
     loaded, repository = _open(vault, migrate=False)
     config = loaded.config.source_retrieval
     report = tutor_timing_report(repository, soft_deadline_seconds=config.retrieval_timeout_seconds,
                                  cancels_at_deadline=config.tutor_deadline_cancels, since=since)
+    spend = spend_report(loaded, repository, days=spend_days) if spend_days else None
+    if spend is not None:
+        report["service_spend"] = spend
     if json_output:
         typer.echo(json.dumps(report, sort_keys=True))
         return
@@ -165,6 +172,34 @@ def sources_report(
             typer.echo(f"  {entry['purpose']} {entry['model'] or '?'}: {entry['truncated']}")
     else:
         typer.echo("truncated LLM answers: none")
+    if spend is not None:
+        _echo_spend(spend)
+
+
+def _echo_spend(spend: dict[str, Any]) -> None:
+    guard = spend["daily_guard"]
+    caps = spend["operation_caps"]
+
+    def cap(value: Any) -> str:
+        return "none" if value is None else f"${float(value):.2f}"
+
+    typer.echo(f"source service spend (metered, from receipts; subscription is estimated only): daily guard "
+               f"${guard['counted_usd']:.4f} of ${guard['cap_usd']:.2f} today; per-import cap "
+               f"{cap(caps['import_max_cost_usd'])}, per-comparison cap {cap(caps['compare_max_cost_usd'])}")
+    typer.echo(f"{'day':<12}{'requests':>9}{'actual $':>11}{'unpriced':>9}{'reserved $':>12}{'settled $':>11}"
+               f"{'est. only':>11}")
+    for day in spend["days"]:
+        receipts, rows = day["receipts"], day["reservations"]
+        reserved = sum(entry["reserved_usd"] for entry in rows.values())
+        settled = rows["settled"]["charged_usd"] + rows["legacy"]["charged_usd"]
+        typer.echo(f"{day['day']:<12}{receipts['metered_requests']:>9}{receipts['metered_usd']:>11.4f}"
+                   f"{receipts['unpriced']:>9}{reserved:>12.4f}{settled:>11.4f}"
+                   f"{receipts['estimated_only']['requests']:>11}")
+    if spend["largest_operations"]:
+        typer.echo("largest operations:")
+        for op in spend["largest_operations"]:
+            typer.echo(f"  ${op['usd']:.4f} {op['owner_kind']} {op['owner_id']} ({op['requests']} request(s), "
+                       f"from {op['first_started_at']})")
 
 
 def _emit(report: dict[str, Any], json_output: bool) -> None:

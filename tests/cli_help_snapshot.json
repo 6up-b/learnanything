@@ -1016,8 +1016,8 @@
     "sha256": "f79086ca4300ae8c3f1919f1ccd95498a043eedbf08584936087260a2c2b9e1e"
   },
   "sources": {
-    "bytes": 2607,
-    "sha256": "ebaab25b5a26ca15a85d98a2deb680eb13c3af72e44d03b641869de5dfc14b80"
+    "bytes": 2777,
+    "sha256": "1b06e7c3abfdb65d393755ee704a805dcfdf8486d5575f36b4820ab248bbee26"
   },
   "sources exercises": {
     "bytes": 1757,
@@ -1036,8 +1036,8 @@
     "sha256": "301c9d745edd095761413d304ad27da7fd8d2689e1e2ec1084c0b36b7e6669b3"
   },
   "sources report": {
-    "bytes": 1291,
-    "sha256": "f730b0d3b054a05ebab19da037dbb6bb9e135a00cfc00f7e2a76134d77ceec40"
+    "bytes": 1882,
+    "sha256": "62a18f1e38851a730ac7c05ca1dbafd5938d30bb7fc2579018d2cbef4fbf1953"
   },
   "sources search": {
     "bytes": 4560,
