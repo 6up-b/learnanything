@@ -10,6 +10,7 @@ import type {
   SettingsDto,
   UseCaseChoiceInput
 } from "../api/dto";
+import { ChatGPTPlanSettings } from "../components/ChatGPTPlanSettings";
 import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
 import { NativeMediaSettings } from "../components/NativeMediaSettings";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
@@ -178,7 +179,7 @@ export function SettingsScreen({
   }, [settingsQuery.error, onError]);
 
   const providerByName = useMemo(() => {
-    const map = new Map<string, { model: string | null }>();
+    const map = new Map<string, { model: string | null; type?: string }>();
     for (const provider of settings?.ai.providers ?? []) map.set(provider.name, provider);
     return map;
   }, [settings]);
@@ -415,6 +416,7 @@ export function SettingsScreen({
             ) : (
               <span style={{ flex: 1, color: COLOR.textFaint, fontSize: 11 }}>
                 {providerByName.get(draft.provider)?.model ?? ""}
+                {providerByName.get(draft.provider)?.type === "chatgpt_plan" ? " · Using ChatGPT plan" : ""}
               </span>
             )}
             <button
@@ -524,6 +526,18 @@ export function SettingsScreen({
           </button>
         ) : null}
       </div>
+
+      {settings.chatgptPlan ? (
+        <>
+          <SectionHeader>ChatGPT plan</SectionHeader>
+          <ChatGPTPlanSettings
+            plan={settings.chatgptPlan}
+            styles={{ row: rowStyle, label: labelStyle, hint: hintStyle, button: buttonStyle }}
+            onToast={onToast}
+            onError={onError}
+          />
+        </>
+      ) : null}
 
       <SectionHeader>Ingestion</SectionHeader>
       <NativeMediaSettings

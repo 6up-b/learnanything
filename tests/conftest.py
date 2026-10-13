@@ -18,6 +18,9 @@ os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEMP_ROOT))
 # a temp Codex checkout/revision are not overridden by the ambient environment.
 os.environ["LEARNLOOP_CONFIG_DIR"] = str(_TEMP_ROOT / "global_settings_isolated")
 os.environ.pop("LEARNLOOP_CODEX_CHECKOUT_PATH", None)
+# The ChatGPT-plan sign-in store lives under LEARNLOOP_CONFIG_DIR (isolated
+# above); forcing its file backend keeps every test away from an OS keyring.
+os.environ["LEARNLOOP_CHATGPT_SECRET_STORE"] = "file"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

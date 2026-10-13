@@ -155,6 +155,8 @@ def check_ai_runtime(
             model=settings.model,
             message="Decision model key is present.",
         )
+    if provider_type == "chatgpt_plan":
+        return _chatgpt_plan_runtime(selected, profile)
     return AIRuntimeReport(
         status="provider_unavailable",
         active_provider=selected,
@@ -162,3 +164,36 @@ def check_ai_runtime(
         model=profile.model,
         message=f"Unsupported AI provider type {profile.type!r}.",
     )
+
+
+_CHATGPT_PLAN_STATES: dict[str, AIRuntimeState] = {
+    "ready": "ready",
+    "signed_out": "provider_auth_required",
+    "plan_usage_disabled": "provider_auth_required",
+    "store_error": "provider_auth_required",
+    "not_eligible": "provider_unavailable",
+    "usage_exhausted": "provider_unavailable",
+}
+
+
+def _chatgpt_plan_runtime(selected: str, profile: AIProviderConfig) -> AIRuntimeReport:
+    """Local files only: the profile, the machine's sign-in and its pause state.
+
+    Readiness never refreshes a token or sends a request. An expired access
+    token with a refresh token is ready (the call refreshes it).
+    """
+
+    from learnloop.ai.chatgpt_plan.session import PlanSession
+
+    def report(status: AIRuntimeState, message: str) -> AIRuntimeReport:
+        return AIRuntimeReport(status=status, active_provider=selected, provider_type="chatgpt_plan",
+                               model=profile.model, message=message)
+
+    if not profile.model:
+        return report("provider_missing_config",
+                      f"AI provider {selected!r} needs a model; pick one from `learnloop ai models chatgpt`.")
+    if getattr(profile, "enabled", True) is False:
+        return report("provider_unavailable", f"AI provider {selected!r} is disabled (enabled = false).")
+    pause = int(getattr(profile, "usage_limit_pause_minutes", None) or 15)
+    state, message = PlanSession().status().readiness(pause_minutes=pause)
+    return report(_CHATGPT_PLAN_STATES.get(state, "provider_unavailable"), message)

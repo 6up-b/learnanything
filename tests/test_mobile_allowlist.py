@@ -111,10 +111,23 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
     assert set(DAILY_PLAN_RPCS) == set(registered)
 
 
+# The ChatGPT-plan provider's desktop sign-in ("Continue with ChatGPT"), its
+# status and plan-usage actions. Machine credentials: desktop only, never phone.
+CHATGPT_PLAN_RPCS = (
+    "chatgpt_plan_status",
+    "chatgpt_plan_signin_start",
+    "chatgpt_plan_signin_cancel",
+    "chatgpt_plan_signout",
+    "chatgpt_plan_acknowledge_welcome",
+    "chatgpt_plan_resume",
+)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
-    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS,
+    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS
+    + CHATGPT_PLAN_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

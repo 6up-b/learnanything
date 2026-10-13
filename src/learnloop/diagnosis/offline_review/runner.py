@@ -191,7 +191,7 @@ REVIEW_ROUTES: tuple[tuple[str, str], ...] = (
     ("generator", "diagnosis_generator"),
     ("embedding", "embedding"),
 )
-_SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
+_SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter", "chatgpt_plan"})
 
 
 def route_profiles(vault: LoadedVault) -> dict[str, dict[str, Any]]:

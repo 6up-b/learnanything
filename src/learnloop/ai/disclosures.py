@@ -55,6 +55,8 @@ def recipient(config: LearnLoopConfig, provider_name: str) -> str:
         )
     if kind in {"codex_sdk", "http"}:
         return "OpenAI, through your ChatGPT subscription (Codex)"
+    if kind == "chatgpt_plan":
+        return "OpenAI, through your ChatGPT plan (Sign in with ChatGPT; requests are sent with store=false)"
     if kind == "openrouter":
         return "OpenRouter and the upstream provider it routes the model to"
     if kind == "openai_chat":

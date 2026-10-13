@@ -589,6 +589,20 @@ timeout_seconds = 180
 # x_title = "LearnLoop"                      # optional attribution header
 # input_modalities = ["audio", "pdf"]        # native media this model accepts ([ingest.native])
 
+# ChatGPT plan ("Continue with ChatGPT"): OpenAI models billed to your ChatGPT
+# plan, one HTTPS request per call (no Codex process, no tools). Sign in once
+# per machine with `learnloop ai signin chatgpt`, pick a model from
+# `learnloop ai models chatgpt`, then point routes at the profile, e.g.
+# [ai.routing] source_query_rewrite = "chatgpt" and source_rerank = "chatgpt".
+# Unconfigured, nothing changes; enabled = false turns the profile off.
+# [ai.providers.chatgpt]
+# type = "chatgpt_plan"
+# model = "<a slug from learnloop ai models chatgpt>"
+# reasoning_effort = "low"
+# response_format = "json_schema"            # or "json_object" (JSON mode + one repair)
+# usage_limit_pause_minutes = 15             # pause after a usage-limit error
+# timeout_seconds = 60
+
 [codex]
 provider = "sdk"
 # Per-machine; set LEARNLOOP_CODEX_CHECKOUT_PATH in ~/.config/learnloop/settings.env.

@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 from learnloop_sidecar.context import SidecarContext, runtime_health
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.chatgpt_plan import chatgpt_plan_payload
 from learnloop_sidecar.handlers.ingest import (
     BUDGET_BOUNDS,
     PLAN_BUDGET_FIELDS,
@@ -130,6 +131,9 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "settings_env_path": str(global_settings_path()),
         },
         "embedding": config.embedding.model_dump(),
+        # Machine-local ChatGPT sign-in state and this vault's chatgpt_plan
+        # profiles (local files only; no network, no token).
+        "chatgpt_plan": chatgpt_plan_payload(ctx),
         # Read-only: who would receive learner text on each judgment route,
         # and whether its key is present (router spec §6.2, D6). No network.
         "judges": [

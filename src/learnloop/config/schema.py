@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 if TYPE_CHECKING:
     from learnloop.config.compat import CodexConfig
@@ -996,13 +996,62 @@ class DeciderProviderConfig(AIProviderConfig):
     max_input_tokens: int = Field(default=262_144, gt=0)
 
 
+CHATGPT_PLAN_PROFILE_TYPE = "chatgpt_plan"
+#: The only API the ChatGPT-plan access token is minted for (its OAuth
+#: ``resource``). A loopback base URL is allowed for local fakes and proxies.
+CHATGPT_PLAN_API_BASE_URL = "https://api.openai.com/v1"
+
+
+class ChatGPTPlanProviderConfig(AIProviderConfig):
+    """OpenAI models billed to the owner's ChatGPT plan ("Continue with ChatGPT").
+
+    Sign in once per machine with ``learnloop ai signin chatgpt``; the tokens
+    live in the machine's LearnLoop config directory, never in a vault. Each
+    request is one streamed Responses call with ``store=false`` and no tools.
+    ``model`` is a slug from ``learnloop ai models chatgpt``. ``enabled =
+    false`` is the per-profile kill switch: the profile reads as not ready, so
+    routes that allow fallback fall back. ``response_format`` is
+    ``json_schema`` (strict structured output) or ``json_object`` (JSON mode
+    plus one repair). After a usage-limit error the plan is paused for
+    ``usage_limit_pause_minutes`` before LearnLoop tries it again.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["chatgpt_plan"] = "chatgpt_plan"
+    enabled: bool = True
+    response_format: Literal["json_schema", "json_object"] = "json_schema"
+    usage_limit_pause_minutes: int = Field(default=15, ge=1, le=24 * 60)
+
+    @field_validator("base_url")
+    @classmethod
+    def _api_or_loopback(cls, value: str | None) -> str | None:
+        # The bearer token is a ChatGPT-plan credential: it may go only to
+        # OpenAI's API or to a loopback endpoint on this machine.
+        if value is None or not value.strip():
+            return None
+        from urllib.parse import urlsplit
+
+        cleaned = value.strip().rstrip("/")
+        parts = urlsplit(cleaned)
+        official = parts.scheme == "https" and parts.hostname == "api.openai.com"
+        loopback = parts.scheme in {"http", "https"} and parts.hostname in {"127.0.0.1", "localhost", "::1"}
+        if not (official or loopback):
+            raise ValueError(
+                "chatgpt_plan base_url must be https://api.openai.com/... or a loopback URL; "
+                "the plan's access token is never sent anywhere else"
+            )
+        return cleaned
+
+
 AIProviderProfile = Annotated[
     CodexSDKProviderConfig
     | CodexHTTPProviderConfig
     | OpenAICompatibleProviderConfig
     | OpenRouterProviderConfig
     | OpenAIEmbeddingProviderConfig
-    | DeciderProviderConfig,
+    | DeciderProviderConfig
+    | ChatGPTPlanProviderConfig,
     Field(discriminator="type"),
 ]
 

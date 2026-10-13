@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 23247,
-    "sha256": "49989c955b1e43df57e1b4df515c48b7d0a9f2bb8acb24ca91600db01ab95ab7"
+    "bytes": 23332,
+    "sha256": "4be13c29fb5b7911b21aab95ff7ef8a8c6cd268b930ac801d4ad814e514e1389"
   },
   "accept": {
     "bytes": 1593,
@@ -18,6 +18,34 @@
   "adjudicate-remediation": {
     "bytes": 2522,
     "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
+  },
+  "ai": {
+    "bytes": 2437,
+    "sha256": "ee20c39e6b525e84c9e5ddfe06ac7004a75a3763e1714d0b92d6c2891cd5f423"
+  },
+  "ai latency": {
+    "bytes": 3481,
+    "sha256": "98898f62d459ebe3f196fe5ab5bcb6882c43e15eb6eb77559f6a1a8e23099bb7"
+  },
+  "ai models": {
+    "bytes": 1921,
+    "sha256": "b921485f14f6bc61dd02dee4a62618a65404b6e89ab2c95651bbdc0498497b39"
+  },
+  "ai resume": {
+    "bytes": 1585,
+    "sha256": "fdd4799c20fc413247978c8f8535960a9ccc6b6a873cc367ac75528c8587fd61"
+  },
+  "ai signin": {
+    "bytes": 3261,
+    "sha256": "4c26747f902f817c51ab8fbd3231776fee30dfb03a576f900db4c0fbd0c2bd99"
+  },
+  "ai signout": {
+    "bytes": 1666,
+    "sha256": "cbcad5a3c30191668b9539b32a21a72d25dd26cc67afe12dbe27992df8691650"
+  },
+  "ai status": {
+    "bytes": 1836,
+    "sha256": "494c48c8c4d827b6d9c613023503d335e614914244854f50691ab6cfaf424690"
   },
   "attempt": {
     "bytes": 7499,

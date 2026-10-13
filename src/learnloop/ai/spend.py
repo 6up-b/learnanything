@@ -16,10 +16,10 @@ but does not discard an already-paid response. This is a serial, in-memory
 command budget, not a concurrent or cross-process quota. Resume skips finished
 work through existing model_work_checkpoints; a resumed command gets fresh caps.
 
-Subscription transports (Slice A §5 rule 6, owner 2026-10-12): Codex is billed
-to the owner's ChatGPT subscription, so a ``subscription`` budget has no
-marginal dollar cost. Its token and dollar caps are not enforced and an unknown
-price does not refuse the run. Tokens and cost are still estimated, from
+Subscription transports (Slice A §5 rule 6, owner 2026-10-12): Codex and the
+``chatgpt_plan`` provider are billed to the owner's ChatGPT subscription, so a
+``subscription`` budget has no marginal dollar cost. Its token and dollar caps
+are not enforced and an unknown price does not refuse the run. Tokens and cost are still estimated, from
 reported usage or else the input-plus-output estimate, and receipts record
 them as ``estimated_only``. The candidate, pair, call and retry caps still stop
 a runaway loop. Metered routes (OpenRouter, OpenAI API keys, embeddings) keep
@@ -39,16 +39,17 @@ from learnloop.ai.execution import declared_budgets
 
 _COUNTS = ("candidates", "pairs", "retries", "calls", "total_tokens")
 
-# Codex profile types (``codex_sdk``, the legacy ``http`` adapter) and the
-# matching client ``provider_type`` values. Everything else is metered.
-SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http"})
-SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter"})
+# Codex profile types (``codex_sdk``, the legacy ``http`` adapter), the
+# ChatGPT-plan provider (Sign in with ChatGPT, billed to the same plan) and
+# the matching client ``provider_type`` values. Everything else is metered.
+SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "chatgpt_plan"})
+SUBSCRIPTION_CLIENT_TYPES = frozenset({"codex_sdk", "http_adapter", "chatgpt_plan"})
 SUBSCRIPTION_UNENFORCED_CAPS = ("max_total_tokens", "max_estimated_usd")
 ESTIMATED_ONLY = "estimated_only"
 
 
 def is_subscription_transport(*, profile=None, client=None) -> bool:
-    """True for a Codex route billed to the owner's subscription."""
+    """True for a route billed to the owner's ChatGPT subscription (Codex or the plan provider)."""
     if client is not None:
         return getattr(client, "provider_type", None) in SUBSCRIPTION_CLIENT_TYPES
     return getattr(profile, "type", None) in SUBSCRIPTION_PROFILE_TYPES
