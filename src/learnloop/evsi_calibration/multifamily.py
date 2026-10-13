@@ -124,6 +124,8 @@ PAIRS: tuple[tuple[str, str], ...] = (
     ("voi_p_one_step", "voi_proposed"),
     ("voi_proposed", "voi_p_top_value"),
     ("evsi_lookahead", "voi_p_top_value"),
+    ("voi_successor", "voi_p_with_fallback"),
+    ("incumbent", "voi_p_with_fallback"),
 )
 
 
@@ -1083,6 +1085,14 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                      "voi_p_with_fallback-voi_proposed", +1)
         paired_claim(f"A3:{regime}", f"{regime}: inside the package, the 2-3 check lookahead saves minutes "
                      "(voi_proposed - voi_p_one_step < 0)", consistency, repair, "voi_proposed-voi_p_one_step", -1)
+        # The successor with only the gate dropped and the lookahead added (its
+        # flip-abstention handling and serving kept): what A2 leaves standing.
+        paired_claim(f"S5:{regime}", f"{regime}: the successor with the robust completion gate dropped and the "
+                     "lookahead added, its abstention handling kept (voi_p_with_fallback), costs fewer minutes "
+                     "than the successor as built (voi_p_with_fallback - voi_successor < 0)", consistency, repair,
+                     "voi_p_with_fallback-voi_successor", -1)
+        paired_claim(f"S6:{regime}", f"{regime}: voi_p_with_fallback costs fewer minutes than the incumbent",
+                     consistency, repair, "voi_p_with_fallback-incumbent", -1)
         # Review F1: the serving rule, ablated on its own.
         paired_claim(f"A4:{regime}", f"{regime}: inside the package, serving rank_feasible's top-ranked paying "
                      "check instead of the successor's choice (the highest-EIG check when it pays) saves minutes "
@@ -1104,6 +1114,7 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         ("incumbent-caps_only", +1, "the robust completion gate costs minutes"),
         ("evsi-incumbent", +1, "evsi as built costs more than the incumbent"),
         ("voi_proposed-voi_successor", -1, "the proposed package beats the successor as built"),
+        ("voi_p_with_fallback-voi_successor", -1, "the gate dropped and the lookahead added beat the successor as built"),
     ):
         by_regime: dict[str, list[dict[str, Any]]] = {}
         for value in _rotation_claim(report, families, key, sign, seed=seed, draws=draws):
