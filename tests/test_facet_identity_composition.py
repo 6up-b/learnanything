@@ -144,7 +144,7 @@ def test_an_absorb_into_a_registered_facet_grows_its_examples_whatever_its_histo
     (action,) = result.facet_identity["actions"]
     assert "locked" not in action and not action.get("contract_note")
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
-    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples", "meaning_support"}
     assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
 
 

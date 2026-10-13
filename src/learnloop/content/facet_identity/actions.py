@@ -61,13 +61,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 import copy
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.content.facet_identity.views import union_payload
+from learnloop.content.facet_identity import authority
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import facet_identity as store
 from learnloop.ids import new_ulid
@@ -154,22 +153,52 @@ def _index(facets: Sequence[Any], facet_id: str) -> int | None:
     return None
 
 
-def _write_facets(paths: VaultPaths, document: Mapping[str, Any]) -> None:
-    """Replace facets.yaml atomically (staged, fsynced temp file and rename)."""
+def _write_registry(
+    paths: VaultPaths, text: str, basis: Mapping[str, authority.Basis], *,
+    resolver: authority.CitationResolver | None = None,
+) -> None:
+    """Replace facets.yaml through the meaning-authority chokepoint (atomic, write-ahead safe).
 
-    _write_registry_text(paths, yaml_to_string(dict(document)))
+    Every facet whose meaning the new text changes must be covered by
+    ``basis``, which ``authority.write_registry_text`` verifies itself (a merge
+    is recomputed, a restore compared with the recorded entry, a cited entry's
+    citations resolved with ``resolver``, an owner save is the owner's audited
+    authority); otherwise nothing is written.
+    """
+
+    try:
+        authority.write_registry_text(paths, text, basis=basis, resolver=resolver)
+    except authority.FacetAuthorityError as exc:
+        raise FacetIdentityActionError(exc.code, str(exc)) from exc
 
 
-def _write_registry_text(paths: VaultPaths, text: str) -> None:
-    """Replace facets.yaml with ``text`` atomically (staged, fsynced temp file and rename)."""
+def _merge_basis(record: Mapping[str, Any]) -> dict[str, authority.Basis]:
+    """A merge or absorb of registered facets writes their union, recomputed by the writer."""
 
-    from learnloop.content.proposals.apply_protocol import materialize_targets
+    survivor, retired, _before, _order, _after = _record_parts(record)
+    return {survivor: authority.RegisteredMerge(
+        survivor, tuple(retired), str(record["action"]), (record.get("detail") or {}).get("absorb_as"),
+    )}
 
-    materialize_targets(paths.root, [{
-        "rel_path": str(paths.facets_path.relative_to(paths.root)),
-        "post_content": text,
-        "post_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-    }])
+
+def _restore_basis(record: Mapping[str, Any]) -> dict[str, authority.Basis]:
+    """An undo writes back exactly the entries the action recorded.
+
+    An entry that was in the registry before the action (a vault merge's
+    facets, a reword's facet, an attach's or in-run survivor) is restored as
+    recorded. A candidate an ingest run merged or absorbed was never in the
+    registry: undoing that run's consolidation mints it, so it is judged like
+    any new facet, on its own citations (it may not be exam material alone).
+    """
+
+    survivor, retired, before, _order, _after = _record_parts(record)
+    restore = authority.Restore(entries=dict(before))
+    basis: dict[str, authority.Basis] = {facet_id: restore for facet_id in before}
+    if record.get("scope") in {"in_run", "attach"}:
+        for facet_id in retired:
+            entry = dict(before.get(facet_id) or {})
+            basis[facet_id] = authority.Cited(authority.write_contributions(entry, before=None, after=entry))
+    return basis
 
 
 def _record_parts(record: Mapping[str, Any]) -> tuple[str, list[str], dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -441,7 +470,7 @@ def merge_registered_facets(
                 return {"status": "refused", "reason": "not_in_registry_file", "facet_ids": [facet_id]}
             before[facet_id] = copy.deepcopy(facets[index])
             order[facet_id] = index
-        new_survivor = stored_entry(union_payload(
+        new_survivor = stored_entry(authority.merged_survivor(
             before[survivor], [before[facet_id] for facet_id in retired],
             action=action, absorb_as=absorb_as, alias_ids=retired,
         ))
@@ -471,7 +500,7 @@ def merge_registered_facets(
         # A crash anywhere after 1 leaves an ``applying`` row that recovery
         # completes from whichever side of the file write it stopped on.
         try:
-            _write_facets(paths, _applied_document(document, record))
+            _write_registry(paths, yaml_to_string(_applied_document(document, record)), _merge_basis(record))
         except Exception:
             _abandon(repository, record, reason="facets.yaml could not be written", clock=clock)
             raise
@@ -621,6 +650,13 @@ def _parse_registry_text(text: str) -> dict[str, Any]:
         raise FacetIdentityActionError(
             "invalid_registry", "facets.yaml is not a valid facet registry: " + " ".join(lines[:3]),
         ) from exc
+    # One entry per facet id (Codex verification of F6, finding 7): the loader
+    # keeps the last of two, undo looks for the first, and each would get its
+    # own reword against the same snapshot.
+    try:
+        authority.registry_entries(document)
+    except authority.FacetAuthorityError as exc:
+        raise FacetIdentityActionError("invalid_registry", str(exc)) from exc
     return document
 
 
@@ -706,7 +742,11 @@ def save_registry_text(root: Path, repository: Repository, text: str, *, clock: 
                     record["id"] = insert_action(connection, record)
                     records.append(record)
         try:
-            _write_registry_text(paths, written)
+            # The owner's own save is the explicit, audited manual authority
+            # over a facet's meaning (each reword is an action with an undo).
+            _write_registry(paths, written, {
+                str(entry.get("id") or ""): authority.OwnerEdit() for entry in document.get("facets") or []
+            })
         except Exception:
             for record in records:
                 _abandon(repository, record, reason="facets.yaml could not be written", clock=clock)
@@ -983,7 +1023,10 @@ def _finish_undo(
     affected = affected_learning_objects(vault, (survivor, *retired))
     document = document if document is not None else _facets_document(paths)
     if file_state(record, document["facets"]) == "after":
-        _write_facets(paths, _restored_document(document, record))
+        basis = _restore_basis(record)
+        cited = any(isinstance(item, authority.Cited) for item in basis.values())
+        _write_registry(paths, yaml_to_string(_restored_document(document, record)), basis,
+                        resolver=authority.CitationResolver.for_vault(repository, vault) if cited else None)
     deleted = _delete_merge_rows(repository, record.get("merge_rows") or [])
     vault_after = load_vault(root)
     affected = sorted(set(affected) | set(affected_learning_objects(vault_after, (survivor, *retired))))
@@ -1070,7 +1113,8 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                                  reason="a criterion graded since the intent names two of its facets")
                         out.append({"id": record["id"], "from": "applying", "to": "abandoned", "held_back": held})
                         continue
-                    _write_facets(paths, _applied_document(document, record))
+                    _write_registry(paths, yaml_to_string(_applied_document(document, record)),
+                                    _merge_basis(record))
                 # A reword moved no evidence (the facet keeps its id): sync only.
                 affected = [] if reword else affected_learning_objects(vault, (survivor, *retired))
                 refresh_derived_state(root, repository, affected, clock=clock)

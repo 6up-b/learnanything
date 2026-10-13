@@ -46,6 +46,7 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.append_neighborhood import Neighborhood, select_neighborhood
 from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
+from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
     _facet_identity_plan,
@@ -55,6 +56,7 @@ from learnloop.content.synthesis.source_set_synthesis import (
     _resolve_span_requests,
     _row,
     _span_refs,
+    _support_citations,
     facet_identity_result,
 )
 from learnloop.content.synthesis.synthesis_gates import (
@@ -627,6 +629,24 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         relation = obj.get("relation") or _relation_for_intent(obj.get("reconciliation_intent"))
         gate_refs, yaml_refs, span_ids = _span_refs([obj.get("span") or {}], inputs, default_relation=relation)
         ref = yaml_refs[0] if yaml_refs else {}
+        # An exam span (its role resolved from the source set) only ever aligns
+        # assessment (§4.2, Codex verification of F6).
+        if ref.get("role") in ASSESSMENT_ONLY_ROLES:
+            relation = "assessment_alignment"
+        if relation == "assessment_alignment" and target_type == "facet":
+            dropped_diagnostics.append(
+                {
+                    "gate": "provenance_link_span",
+                    "severity": "review",
+                    "entity_refs": [client, target_id] if target_id else [client],
+                    "message": (
+                        f"dropped provenance_link {client!r} for facet {target_id!r}: its span is exam "
+                        "material, which aligns assessment and never supports a facet's meaning"
+                    ),
+                    "suggested_action": "attach exam material to a task blueprint, learning object or practice item",
+                }
+            )
+            continue
         current_hash = compute_target_hash(vault, _hash_type(target_type), target_id)
         payload = {
             "target_entity_type": target_type,
@@ -862,6 +882,11 @@ def _facet_reword(
             problem="it cites no span from the source set, so its authority cannot be judged (§4.2)",
         )
     gate_refs, yaml_refs, _spans = _span_refs(resolved, inputs, default_relation="support")
+    if not yaml_refs:
+        return _FacetReword(
+            None, unresolved=unresolved,
+            problem="it cites no span from the source set, so its authority cannot be judged (§4.2)",
+        )
     snapshot = dict(current.get("provenance") or {})
     source_refs = [dict(ref) for ref in snapshot.get("source_refs") or []]
     seen = {(ref.get("revision_id"), ref.get("locator"), ref.get("relation")) for ref in source_refs}
@@ -875,27 +900,26 @@ def _facet_reword(
     payload["provenance"] = {"origin": snapshot.get("origin") or "manual", "source_refs": source_refs}
     payload["id"] = target_id
     payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
+    # What the apply judges again, at the facet-meaning chokepoint.
+    payload["meaning_support"] = facet_meaning.support_entries(
+        facet_meaning.contributions(_support_citations(gate_refs), label="reword"),
+    )
     return _FacetReword(payload, provenance=gate_refs, unresolved=unresolved)
 
 
 def _span_problem(span: dict[str, Any], inputs) -> str | None:
-    """Why a provenance_link's cited span cannot attach, or None when it can.
+    """Why a cited span cannot attach, or None when it can.
 
-    Mirrors the three provenance gates (span_resolution / scope / unit_id_validity)
-    so a link that would hard-fail them is caught here, per item."""
+    The facet-meaning chokepoint's resolver decides (Codex verification of
+    F6): the extraction must be in the source set, the span must resolve, the
+    span must lie in the unit it is cited with, and that unit must be one the
+    source set selects. A link or reword citation that fails is dropped per
+    item rather than failing the run."""
 
-    extraction_id = str(span.get("extraction_id") or "")
-    span_id = str(span.get("span_id") or "")
-    if not extraction_id or not span_id:
-        return "no span cited"
-    if extraction_id not in inputs.extraction_ids:
-        return f"extraction run {extraction_id} is not in the source set"
-    if span_id not in inputs.extraction_spans.get(extraction_id, set()):
-        return f"span {span_id} does not resolve in extraction run {extraction_id}"
-    unit_id = str(span.get("unit_id") or "")
-    if unit_id and unit_id not in inputs.extraction_units.get(extraction_id, set()):
-        return f"unit {unit_id} is not valid for extraction run {extraction_id}"
-    return None
+    if inputs.resolver is None:
+        return "no source set to resolve it in"
+    resolved = inputs.resolver.resolve(dict(span or {}))
+    return None if isinstance(resolved, facet_meaning.ResolvedCitation) else resolved.problem
 
 
 def _relation_for_intent(intent: str | None) -> str:

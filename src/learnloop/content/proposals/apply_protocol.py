@@ -156,11 +156,15 @@ def stage_target_contents(
     patch_id: str,
     *,
     clock: Clock | None,
+    facet_authority: Any = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Replay the compiled writers against a throwaway staging copy and capture
     the final target file contents plus the DB side-effect plan.
 
-    The real vault tree is never mutated here. Returns ``(targets, db_plan)``.
+    ``facet_authority`` (``facet_identity.authority.ProposalAuthority``) checks
+    each facet item's meaning write; a facet item compiled without it is
+    refused. The real vault tree is never mutated here. Returns
+    ``(targets, db_plan)``.
     """
 
     from learnloop.content.proposals.patches import PatchApplicationError, compile_proposal_item
@@ -181,7 +185,7 @@ def stage_target_contents(
                 raise PatchApplicationError(
                     f"Proposal item {item['id']} is invalid and cannot be accepted"
                 )
-            compiled = compile_proposal_item(staging_vault, item)
+            compiled = compile_proposal_item(staging_vault, item, facet_authority=facet_authority)
             compiled.apply(staging_vault.root, clock)
             staging_vault = load_vault(staging_root)
             now = utc_now_iso(clock)
@@ -199,7 +203,10 @@ def stage_target_contents(
                     "change_batch_id": new_ulid(),
                     "content_event_id": new_ulid(),
                     "source_links": _entity_source_link_rows(
-                        compiled.entity_type, compiled.entity_id, payload, patch_id
+                        compiled.entity_type,
+                        compiled.entity_id,
+                        compiled.link_payload if compiled.link_payload is not None else payload,
+                        patch_id,
                     ),
                     "db_side_effect": _stamp_side_effect(compiled.db_side_effect, patch_id),
                 }

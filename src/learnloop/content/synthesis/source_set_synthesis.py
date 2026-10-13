@@ -56,8 +56,9 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.brief import validate_brief
+from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.facet_identity.plan import FacetIdentityPlan
-from learnloop.content.facet_identity.views import UNION_LIST_FIELDS, union_payload
+from learnloop.content.facet_identity.views import UNION_LIST_FIELDS
 from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_exam_profile
 from learnloop.content.synthesis.graph_nomination import (
     CONCEPT_RECIPE,
@@ -95,6 +96,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     persist_manifest,
 )
 from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
+from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.vault_epigraphs import (
     digest_from_proposal_rows,
     generate_vault_epigraphs,
@@ -105,11 +107,6 @@ from learnloop.vault.paths import VaultPaths
 
 SYNTHESIS_AGENT_PURPOSE = "source_set_synthesis"
 BOOTSTRAP_PROPOSAL_PURPOSE = "sourceset_bootstrap"
-
-# Roles allowed to support a canonical semantic claim (mirror of the gate set).
-_SEMANTIC_ROLES = frozenset(
-    {"primary_textbook", "lecture", "paper", "reference", "alternate_explanation"}
-)
 
 
 class StudyMapError(ValueError):
@@ -215,6 +212,10 @@ class _SynthesisInputs:
     membership: list[dict[str, Any]]
     unit_inventory_versions: dict[str, str]
     span_origin: dict[str, dict[str, str]]  # extraction_id -> {source_id, revision_id, role}
+    # Resolves a citation in this source set's selected units with its
+    # effective role (Codex verification of F6): the one resolver the
+    # facet-meaning chokepoint uses (``facet_identity.authority``).
+    resolver: facet_meaning.CitationResolver | None = None
 
 
 def _best_inventory(rows: list[dict[str, Any]], unit_id: str, requested_profile: str) -> dict[str, Any] | None:
@@ -391,6 +392,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         membership=membership,
         unit_inventory_versions=unit_inventory_versions,
         span_origin=span_origin,
+        resolver=facet_meaning.CitationResolver.for_source_set(repo, source_set),
     )
 
 
@@ -527,10 +529,17 @@ def _span_refs(
 ) -> tuple[list[ProvenanceRef], list[dict[str, Any]], list[str]]:
     """Build gate ProvenanceRefs + YAML source_refs from synth span refs.
 
-    Role/source/revision are resolved from the citation's extraction (untrusted-
-    text discipline: never trust the model's claimed role)."""
-
-    from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
+    Each citation resolves through the facet-meaning chokepoint's resolver
+    (``facet_identity.authority.CitationResolver``, Codex verification of F6):
+    its role is the cited unit's ``role_override`` when there is one, else its
+    member's role (never the model's claimed role); the span must lie in the
+    unit it is cited with and that unit must be selected; an exam citation's
+    relation is ``assessment_alignment``; and the recorded locator is derived
+    from the validated ids, never the model's. A citation that does not
+    resolve is not recorded and supports nothing (role ``unresolved``): the
+    span/scope/unit gates hard-fail one whose span, revision or unit does not
+    exist, and ``citation_scope`` reviews one outside the selected scope.
+    """
 
     gate_refs: list[ProvenanceRef] = []
     yaml_refs: list[dict[str, Any]] = []
@@ -545,43 +554,46 @@ def _span_refs(
             # "". Skipping it lets the adequate-provenance gate judge the item
             # (review) instead of three hard-fails naming an empty string.
             continue
-        origin = inputs.span_origin.get(extraction_id, {})
-        role = origin.get("role", ref.get("role") or "reference")
-        source_id = origin.get("source_id", ref.get("source_id") or "")
-        revision_id = origin.get("revision_id", ref.get("revision_id") or "")
-        relation = ref.get("relation") or default_relation
         namespaced = f"{extraction_id}:{span_id}"
         held_out = namespaced in inputs.held_out_span_ids
-        gate_refs.append(
-            ProvenanceRef(
-                extraction_id=extraction_id,
-                revision_id=revision_id,
-                # None is the gate's "no unit cited" spelling; "" would fail
-                # unit_id_validity even when the span itself resolves.
-                unit_id=unit_id or None,
-                span_id=span_id,
-                relation=relation,
-                role=role,
-                held_out=held_out,
+        resolved = (
+            inputs.resolver.resolve(ref, default_relation=default_relation)
+            if inputs.resolver is not None
+            else facet_meaning.CitationProblem(ref, "no source set to resolve it in")
+        )
+        if isinstance(resolved, facet_meaning.ResolvedCitation):
+            gate_refs.append(resolved.gate_ref(held_out=held_out))
+            yaml_refs.append(resolved.yaml_ref())
+        else:
+            origin = inputs.span_origin.get(extraction_id, {})
+            gate_refs.append(
+                ProvenanceRef(
+                    extraction_id=extraction_id,
+                    revision_id=origin.get("revision_id", ref.get("revision_id") or ""),
+                    # None is the gate's "no unit cited" spelling; "" would fail
+                    # unit_id_validity even when the span itself resolves.
+                    unit_id=unit_id or None,
+                    span_id=span_id,
+                    relation=str(ref.get("relation") or default_relation),
+                    role=facet_meaning.UNRESOLVED_ROLE,
+                    held_out=held_out,
+                    problem=resolved.problem,
+                )
             )
-        )
-        yaml_refs.append(
-            {
-                "ref_type": "canonical_source",
-                "ref_id": source_id,
-                "source_id": source_id,
-                "revision_id": revision_id,
-                "extraction_id": extraction_id,
-                "locator": ref.get("locator") or format_block_span(extraction_id, span_id),
-                "locator_scheme": BLOCK_SPAN_V1,
-                "relation": relation if relation in {"primary", "support", "alternate", "exercise", "assessment_alignment"} else "support",
-                "role": role,
-                "span_hash": ref.get("span_hash"),
-            }
-        )
         if span_id:
             span_ids.append(namespaced)
     return gate_refs, yaml_refs, span_ids
+
+
+def _support_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
+    """The validated citations of a candidate, as a proposal's ``meaning_support`` carries them."""
+
+    return [
+        {"extraction_id": ref.extraction_id, "unit_id": ref.unit_id or "", "span_id": ref.span_id,
+         "relation": ref.relation}
+        for ref in gate_refs
+        if ref.role != facet_meaning.UNRESOLVED_ROLE and ref.extraction_id and ref.span_id
+    ]
 
 
 def _normalize(
@@ -778,6 +790,7 @@ def _normalize(
             "status": "reviewed",
             "provenance": {"origin": "sourceset_synthesis", "source_refs": yaml_refs},
         }
+        support = _support_citations(gate_refs)
         candidate_facets.append(
             {
                 "fkey": fkey,
@@ -785,15 +798,26 @@ def _normalize(
                 "payload": payload,
                 "deps": [concept_client] if concept_client and concept_client in concept_ids else [],
                 "gate_refs": gate_refs,
+                "support": support,
+                # What supports the facet's meaning, one entry per source of it:
+                # the candidate itself, then each candidate whose meaning a
+                # consolidation joined to it. The proposal carries them
+                # (``meaning_support``) and the apply judges them again.
+                "contributions": [facet_meaning.Contribution(fkey, tuple(support))],
             }
         )
 
     # Facet identity (handoff §4): candidates the judge merged or absorbed are
     # not minted. In-run survivors take the union of their retirees first, so
-    # D2 and the gates see the consolidated facet.
+    # D2 and the gates see the consolidated facet. A retiree's meaning joins
+    # only through the facet-meaning chokepoint (Codex verification of F6): a
+    # candidate only exam material supports joins as an alias, never as a
+    # condition or an example of its survivor.
     retirements = dict(getattr(facet_identity_plan, "retirements", None) or {})
     retired_candidates: dict[str, dict[str, Any]] = {}
     pre_union: dict[str, dict[str, Any]] = {}
+    # Why a consolidation or attach kept a survivor's contract as it was.
+    contract_notes: dict[str, list[str]] = {}
     if retirements:
         by_client = {str(candidate["fkey"]): candidate for candidate in candidate_facets}
         for fkey, retirement in sorted(retirements.items()):
@@ -805,11 +829,24 @@ def _normalize(
                 if survivor is None or str(retirement.survivor_client) in retirements:
                     continue
                 pre_union.setdefault(str(survivor["fkey"]), copy.deepcopy(survivor["payload"]))
-                survivor["payload"] = union_payload(
-                    survivor["payload"], [candidate["payload"]],
-                    action=retirement.action, absorb_as=retirement.absorb_as,
+                contribution = facet_meaning.Contribution(fkey, tuple(candidate["support"]))
+                joined = facet_meaning.join_candidate(
+                    survivor["payload"], candidate["payload"], survivor_id=str(survivor["fid"]),
+                    action=retirement.action, absorb_as=retirement.absorb_as, contribution=contribution,
+                    registered=False, resolver=inputs.resolver,
                 )
-                survivor["payload"]["id"] = survivor["fid"]
+                survivor["payload"] = joined.payload
+                if joined.joined:
+                    survivor["contributions"].append(contribution)
+                else:
+                    contract_notes.setdefault(str(survivor["fid"]), []).append(
+                        f"{candidate['fid']} joined as an alias only: {joined.verdict.message}"
+                    )
+                    dropped_diagnostics.append(joined.verdict.diagnostic(
+                        entity_refs=[str(survivor["fid"]), str(candidate["fid"])],
+                        suggested_action="the candidate's meaning was not merged; corroborate it with an "
+                                         "explanatory span to add it to the facet",
+                    ))
             elif str(retirement.survivor_facet or "") not in vault.evidence_facets:
                 continue
             retired_candidates[fkey] = candidate
@@ -837,6 +874,10 @@ def _normalize(
     alias_additions: dict[str, list[str]] = {}
     minted_payload_by_id: dict[str, dict[str, Any]] = {}
     minted_client_by_id: dict[str, str] = {}
+    # Proposal bookkeeping per facet row (``meaning_support``, a target hash),
+    # added to the rows' payloads last so the facet dicts the identity actions
+    # record stay what facets.yaml will hold.
+    row_extras: dict[str, dict[str, Any]] = {}
     for candidate, verdict in zip(candidate_facets, mint_report.verdicts):
         fkey = str(candidate["fkey"])
         fid = str(candidate["fid"])
@@ -844,6 +885,28 @@ def _normalize(
         diagnostic = mint_diagnostic(verdict)
         if diagnostic is not None:
             dropped_diagnostics.append(diagnostic)
+        registered_entry = vault.evidence_facets.get(fid) if verdict.disposition is not MintDisposition.ALIAS else None
+        if registered_entry is not None:
+            # A candidate carrying a registered facet's id rewrites that facet
+            # (Codex verification of F6, finding 1). It is a reword: it must
+            # cite explanatory support for every source of its meaning, and it
+            # applies as a checked update against the facet as it was now.
+            before = registered_entry.model_dump(mode="json", exclude_none=False)
+            check = facet_meaning.check_meaning_write(
+                fid, before=before, after=facet_meaning.overlay(before, payload), registered=True,
+                contributions=candidate["contributions"], resolver=inputs.resolver,
+            )
+            if not check.allowed:
+                # References resolve to the registered facet, as it is.
+                facet_client_to_id[fkey] = fid
+                dropped_diagnostics.append(check.diagnostic(
+                    entity_refs=[fid, fkey],
+                    suggested_action=(
+                        f"kept registered facet {fid} as it is: a candidate carrying its id rewords it only "
+                        "with an explanatory span from the selected units (or reword it in the Library)"
+                    ),
+                ))
+                continue
         if verdict.disposition is MintDisposition.ALIAS:
             target = str(verdict.alias_of or "")
             # ALIAS-NOT-MINT: no facet row is emitted; every downstream reference
@@ -871,22 +934,32 @@ def _normalize(
         minted_client_by_id[fid] = fkey
         facet_payloads.append(payload)
         deps = list(candidate["deps"])
-        rows.append(_row("facet", fid, payload, deps, client_id=fkey, now=now))
+        row_extras[fkey] = {"meaning_support": facet_meaning.support_entries(candidate["contributions"])}
+        if registered_entry is not None:
+            row = _row("facet", fid, payload, deps, client_id=fkey, now=now,
+                       target_entity_id=fid, target_entity_type="facet")
+            row["operation"] = "update"
+            row_extras[fkey]["expected_target_hash"] = compute_target_hash(vault, "facet", fid)
+            rows.append(row)
+        else:
+            rows.append(_row("facet", fid, payload, deps, client_id=fkey, now=now))
         gate_items.append(
             GateItem(
                 client_item_id=fkey,
                 item_type="facet",
+                operation="update" if registered_entry is not None else "create",
                 entity_id=fid,
                 payload=payload,
                 depends_on=deps,
                 provenance=candidate["gate_refs"],
                 establishes_semantic=True,
+                reconciliation_intent="restructure_unlocked" if registered_entry is not None else None,
             )
         )
 
     # Facet identity: a retired candidate's references point at its survivor
     # (as D2's alias does) and its id becomes the survivor's alias.
-    attach_unions: dict[str, list[tuple[dict[str, Any], Any]]] = {}
+    attach_unions: dict[str, list[tuple[dict[str, Any], Any, facet_meaning.Contribution]]] = {}
     alias_canonical: dict[str, str] = {}
     retired_targets: dict[str, tuple[str, str, Any, dict[str, Any]]] = {}
     for fkey, candidate in retired_candidates.items():
@@ -898,7 +971,9 @@ def _normalize(
                 continue
         else:
             target = str(retirement.survivor_facet)
-            attach_unions.setdefault(target, []).append((candidate["payload"], retirement))
+            attach_unions.setdefault(target, []).append(
+                (candidate["payload"], retirement, facet_meaning.Contribution(fkey, tuple(candidate["support"]))),
+            )
         if target in vault.evidence_facets:
             # A registered survivor gains the alias through its update row, so
             # whatever references the alias depends on that row.
@@ -923,8 +998,6 @@ def _normalize(
     # Register the aliases. An in-batch target is edited in place (its create row
     # holds this very dict); an already-registered target earns an `update` row.
     registered_before: dict[str, dict[str, Any]] = {}
-    # Why an attach kept a registered facet's contract as it was (review F2).
-    contract_notes: dict[str, list[str]] = {}
     for target in sorted(set(alias_additions) | set(attach_unions)):
         new_aliases = [
             alias
@@ -960,9 +1033,13 @@ def _normalize(
             # the action says so. Evidence on the registered facet changes
             # nothing here: facet identity locks were removed (owner,
             # 2026-10-12), and an example only annotates the contract.
+            # A worked example is part of the facet's meaning, so it grows
+            # only through the facet-meaning chokepoint (Codex verification of
+            # F6): the absorbed candidate must cite an explanatory span.
             registered_before[target] = registered_facet.model_dump(mode="json")
             unioned = registered_facet.model_dump(mode="json")
-            for attached_payload, attach_retirement in attach_unions[target]:
+            grown_by: list[facet_meaning.Contribution] = []
+            for attached_payload, attach_retirement, contribution in attach_unions[target]:
                 if attach_retirement.action != "absorb":
                     continue
                 claim = str(attached_payload.get("claim") or "").strip()
@@ -972,10 +1049,29 @@ def _normalize(
                     )
                     continue
                 if claim and claim not in (unioned.get("positive_examples") or []):
-                    unioned["positive_examples"] = [*(unioned.get("positive_examples") or []), claim]
+                    grown = {**unioned, "positive_examples": [*(unioned.get("positive_examples") or []), claim]}
+                    check = facet_meaning.check_meaning_write(
+                        target, before=unioned, after=grown, registered=True, contributions=[contribution],
+                        resolver=inputs.resolver,
+                    )
+                    if not check.allowed:
+                        contract_notes.setdefault(target, []).append(
+                            f"{attached_payload.get('id') or contribution.label} kept as an alias only: "
+                            f"{check.message}"
+                        )
+                        dropped_diagnostics.append(check.diagnostic(
+                            entity_refs=[target, str(attached_payload.get("id") or contribution.label)],
+                            suggested_action="the absorbed candidate's claim was not added as an example; "
+                                             "corroborate it with an explanatory span to add it",
+                        ))
+                        continue
+                    unioned = grown
+                    grown_by.append(contribution)
             for field_name in ATTACH_GROWABLE_FIELDS:
                 if unioned.get(field_name) != registered_before[target].get(field_name):
                     alias_payload[field_name] = unioned[field_name]
+            if grown_by:
+                row_extras[f"facet_alias_{target}"] = {"meaning_support": facet_meaning.support_entries(grown_by)}
         alias_row = _row(
             "facet",
             target,
@@ -1502,6 +1598,13 @@ def _normalize(
                            for c in (d(x) for x in getattr(synth, "conflicts", []) or [])]
     dispositions = set(getattr(synth, "non_conflict_dispositions", []) or [])
 
+    # Proposal bookkeeping rides on the facet rows only (the gate items and the
+    # identity actions keep the facet as facets.yaml will hold it).
+    for row in rows:
+        extras = row_extras.get(str(row.get("client_item_id") or ""))
+        if row.get("item_type") == "facet" and extras:
+            row["payload"] = {**row["payload"], **extras}
+
     return _Normalized(
         rows=rows,
         gate_items=gate_items,
@@ -1568,10 +1671,9 @@ def _facet_identity_actions(
                 {"facet_id": fid, "action": r.action, "absorb_as": r.absorb_as, "group_id": r.group_id}
                 for _fkey, fid, r in kept
             ]
-        if scope == "attach":
-            notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
-            if notes:
-                detail["contract_note"] = "; ".join(notes)
+        notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
+        if notes:
+            detail["contract_note"] = "; ".join(notes)
         after_entry: dict[str, Any] | None = None
         before_entry: dict[str, Any] | None = None
         if scope == "in_run":
@@ -1597,7 +1699,7 @@ def _facet_identity_actions(
                 before_entry = vault.evidence_facets[target].model_dump(mode="json")
             update = next((row["payload"] for row in rows
                            if row.get("item_type") == "facet" and row.get("operation") == "update"
-                           and str((row.get("payload") or {}).get("id") or "") == target), None)
+                           and row.get("client_item_id") == f"facet_alias_{target}"), None)
             if before_entry is not None and update is not None:
                 after_entry = {**before_entry, **copy.deepcopy(update)}
         actions.append({

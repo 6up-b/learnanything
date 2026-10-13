@@ -18,7 +18,7 @@ role fails closed to the same.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import Iterable, Mapping
 
 # Known roles (§4.2). Unknown roles are NOT rejected — they produce doctor
 # warnings and fail closed for authority until confirmed.
@@ -199,3 +199,51 @@ def can_authorize_assessment(role: str | None, *, manual_grant=None) -> bool:
     """True iff this role may contribute assessment alignment (§4.2)."""
 
     return role_authority(role, manual_grant=manual_grant).assessment_alignment
+
+
+# --- what counts as support for a semantic claim (one definition) ------------------
+#
+# Codex verification of F6 (2026-10-13): the gates and the facet-meaning
+# chokepoint (``content.facet_identity.authority``) judge a claim's citations
+# with this one rule. Only an explanatory role cited as primary, support or
+# alternate supports a claim; an exam citation only ever aligns assessment, so
+# exam material with no explanatory span beside it is "exam_uncorroborated"
+# whatever other roles (notes, problem sets, unknown) are cited with it.
+
+#: Roles whose citations count only as assessment alignment, never as semantic support.
+ASSESSMENT_ONLY_ROLES: frozenset[str] = frozenset({"exam"})
+#: Citation relations that can carry semantic support.
+SEMANTIC_SUPPORT_RELATIONS: frozenset[str] = frozenset({"primary", "support", "alternate"})
+#: Citation relations a provenance ref may carry.
+CITATION_RELATIONS: frozenset[str] = frozenset(
+    {"primary", "support", "alternate", "exercise", "assessment_alignment"}
+)
+#: The verdicts of :func:`support_verdict`.
+EXPLANATORY = "explanatory"
+EXAM_UNCORROBORATED = "exam_uncorroborated"
+UNSUPPORTED = "unsupported"
+
+
+def is_semantic_support(role: str | None, relation: str | None) -> bool:
+    """True iff a citation with this effective role and relation supports a semantic claim."""
+
+    return can_authorize_semantic(role) and str(relation or "") in SEMANTIC_SUPPORT_RELATIONS
+
+
+def support_verdict(citations: Iterable[tuple[str | None, str | None]]) -> str:
+    """Judge a claim's ``(role, relation)`` citations (§4.2).
+
+    * ``explanatory``: at least one explanatory citation supports it (exam
+      citations beside it are corroborated);
+    * ``exam_uncorroborated``: exam material with no explanatory citation. A
+      notes, problem-set or unknown-role citation never corroborates;
+    * ``unsupported``: no exam and no explanatory citation (none at all, or
+      only non-authoritative roles).
+    """
+
+    pairs = list(citations)
+    if any(is_semantic_support(role, relation) for role, relation in pairs):
+        return EXPLANATORY
+    if any(str(role or "") in ASSESSMENT_ONLY_ROLES for role, _relation in pairs):
+        return EXAM_UNCORROBORATED
+    return UNSUPPORTED

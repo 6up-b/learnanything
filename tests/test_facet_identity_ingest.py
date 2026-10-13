@@ -297,7 +297,10 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
     assert [(row["operation"], row["payload"]["id"]) for row in facet_rows] == [("update", "facet_symmetry_definition")]
     assert "facet_symmetry_restated" in facet_rows[0]["payload"]["aliases"]
-    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    # The facet's content is the alias and the example; ``meaning_support`` is the
+    # proposal's record of the citation the example rests on, judged again at apply.
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples", "meaning_support"}
+    assert facet_rows[0]["payload"]["meaning_support"][0]["citations"][0]["extraction_id"] == "ext_alt"
     assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
     apply_accepted_items(root, result.proposal_id, item_ids=[row["id"] for row in repo.proposal_items(result.proposal_id)
                                                              if row["item_type"] in {"facet", "concept"}], clock=_CLOCK)
@@ -368,7 +371,7 @@ def test_the_retired_strict_lock_policy_no_longer_keeps_an_absorbed_example_out(
     (action,) = result.facet_identity["actions"]
     assert not action.get("contract_note")
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
-    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples", "meaning_support"}
     assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
 
 

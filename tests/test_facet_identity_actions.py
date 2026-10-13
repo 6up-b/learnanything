@@ -433,7 +433,7 @@ def _merge_rows(paths):
         "SELECT retired_facet_id, surviving_facet_id FROM facet_merges").fetchall()
 
 
-@pytest.mark.parametrize("killed_at", ["_write_facets", "refresh_derived_state"])
+@pytest.mark.parametrize("killed_at", ["_write_registry", "refresh_derived_state"])
 def test_an_interrupted_merge_is_finished_by_recovery(tmp_path, monkeypatch, killed_at):
     from learnloop.content.facet_identity.actions import recover_interrupted_actions
 
@@ -454,7 +454,7 @@ def test_an_interrupted_merge_is_finished_by_recovery(tmp_path, monkeypatch, kil
     assert DUP in load_vault(paths.root).evidence_facets and _merge_rows(paths) == []
 
 
-@pytest.mark.parametrize("killed_at", ["_write_facets", "_delete_merge_rows", "refresh_derived_state"])
+@pytest.mark.parametrize("killed_at", ["_write_registry", "_delete_merge_rows", "refresh_derived_state"])
 def test_an_interrupted_undo_is_finished_by_a_retry(tmp_path, monkeypatch, killed_at):
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     before_file = {entry["id"]: normalized_entry(entry) for entry in read_yaml(paths.facets_path)["facets"]}
@@ -476,7 +476,7 @@ def test_doctor_reports_an_interrupted_merge_and_fix_state_finishes_it(tmp_path,
 
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     with monkeypatch.context() as patched:
-        _kill_at(patched, "_write_facets")
+        _kill_at(patched, "_write_registry")
         with pytest.raises(_Killed):
             _merge(paths, repository)
     report = run_doctor(paths.root)
@@ -493,7 +493,7 @@ def test_a_merge_intent_whose_file_changed_meanwhile_is_withdrawn(tmp_path, monk
 
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     with monkeypatch.context() as patched:
-        _kill_at(patched, "_write_facets")
+        _kill_at(patched, "_write_registry")
         with pytest.raises(_Killed):
             _merge(paths, repository)
     document = read_yaml(paths.facets_path)
@@ -527,7 +527,7 @@ def test_a_merge_interrupted_before_its_file_write_keeps_the_facets_evidence_apa
 
     paths, repository, before = _graded_duplicate(tmp_path)
     with monkeypatch.context() as patched:
-        _kill_at(patched, "_write_facets")
+        _kill_at(patched, "_write_registry")
         with pytest.raises(_Killed):
             _merge(paths, repository)
     assert list_actions(repository)[0]["status"] == "applying" and DUP in load_vault(paths.root).evidence_facets
@@ -569,7 +569,7 @@ def test_the_sidecar_finishes_an_interrupted_merge_when_it_opens_the_vault(tmp_p
 
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     with monkeypatch.context() as patched:
-        _kill_at(patched, "_write_facets")
+        _kill_at(patched, "_write_registry")
         with pytest.raises(_Killed):
             _merge(paths, repository)
     context = SidecarContext()
@@ -585,7 +585,7 @@ def test_recovery_withdraws_a_merge_that_a_criterion_graded_meanwhile_names_both
 
     paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
     with monkeypatch.context() as patched:
-        _kill_at(patched, "_write_facets")
+        _kill_at(patched, "_write_registry")
         with pytest.raises(_Killed):
             _merge(paths, repository)
     _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 0}, FrozenClock(NOW))

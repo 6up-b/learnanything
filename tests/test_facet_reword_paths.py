@@ -151,19 +151,19 @@ def test_an_interrupted_reword_undo_records_the_verdict_once(tmp_path, monkeypat
                          clock=_CLOCK)
     (reword,) = list_actions(repository)
 
-    real_write = facet_actions._write_facets
+    real_write = facet_actions._write_registry
 
     def crash(*_args, **_kwargs):
         raise RuntimeError("power cut before facets.yaml was restored")
 
-    monkeypatch.setattr(facet_actions, "_write_facets", crash)
+    monkeypatch.setattr(facet_actions, "_write_registry", crash)
     with pytest.raises(RuntimeError):
         undo_action(paths.root, repository, reword["id"], clock=_CLOCK)
     assert facet_actions.action_by_id(repository, reword["id"])["status"] == "undoing"
     assert len(_ledger(repository)) == 1  # committed with the intent
     assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
 
-    monkeypatch.setattr(facet_actions, "_write_facets", real_write)
+    monkeypatch.setattr(facet_actions, "_write_registry", real_write)
     retried = undo_action(paths.root, repository, reword["id"], clock=_CLOCK)
 
     assert retried["status"] == "undone" and retried.get("recovered") is True
@@ -285,7 +285,7 @@ def test_a_library_reword_interrupted_before_the_write_is_withdrawn(tmp_path, mo
     def crash(*_args, **_kwargs):
         raise RuntimeError("disk full")
 
-    monkeypatch.setattr(facet_actions, "_write_registry_text", crash)
+    monkeypatch.setattr(facet_actions, "_write_registry", crash)
     with pytest.raises(RuntimeError):
         facet_actions.save_registry_text(paths.root, repository, _edited_registry(paths, claim=NEW_CLAIM),
                                          clock=_CLOCK)

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.facet_identity import authority
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
@@ -52,6 +53,10 @@ class CompiledPatch:
     # no-op for them; the write-ahead protocol carries this side effect in the
     # durable intent and performs it idempotently at apply/recovery time.
     db_side_effect: dict[str, Any] | None = None
+    # The payload whose ``provenance.source_refs`` become entity_source_links
+    # rows, when it is not the proposal payload itself (a facet write records
+    # the refs the meaning-authority check validated, not the raw payload's).
+    link_payload: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -127,9 +132,20 @@ def _apply_accepted_locked(
     if not ordered_items:
         return PatchApplyResult(applied_count=0, change_batch_ids=[])
 
+    # Facet meaning is checked once, at the chokepoint (Codex verification of
+    # F6): each facet item's compile judges its citations, resolved in the
+    # proposal's own source set, and the staged registry may change no facet's
+    # meaning that a checked item did not write.
+    facet_authority = authority.ProposalAuthority.for_proposal(vault, repository, patch_id)
     targets, db_plan = stage_target_contents(
-        vault.root, vault, ordered_items, origin, patch_id, clock=clock
+        vault.root, vault, ordered_items, origin, patch_id, clock=clock, facet_authority=facet_authority,
     )
+    try:
+        authority.verify_registry_transition(
+            VaultPaths(vault.root, vault.config), targets, checked=facet_authority.checked,
+        )
+    except authority.FacetAuthorityError as exc:
+        raise PatchApplicationError(f"Refusing to apply proposal {patch_id}: {exc}") from exc
     # 1. Durable intent commits FIRST (closure + target contents/hashes + DB plan).
     intent_id = repository.insert_apply_intent(
         proposed_patch_id=patch_id,
@@ -276,7 +292,14 @@ def reject_applied_items(
     return rejected
 
 
-def compile_proposal_item(vault: LoadedVault, item: dict[str, Any]) -> CompiledPatch:
+def compile_proposal_item(
+    vault: LoadedVault, item: dict[str, Any], *, facet_authority: authority.ProposalAuthority | None = None,
+) -> CompiledPatch:
+    """Compile one proposal item against ``vault`` (the staging vault at apply).
+
+    A facet item needs ``facet_authority``: its meaning write is judged there,
+    and without it the compile refuses (``_compile_facet``)."""
+
     payload = item["edited_payload"] if item.get("edited_payload") is not None else item["payload"]
     operation = item["operation"]
     item_type = item["item_type"]
@@ -297,7 +320,7 @@ def compile_proposal_item(vault: LoadedVault, item: dict[str, Any]) -> CompiledP
     if item_type == "error_type":
         return _compile_error_type(vault, item, payload)
     if item_type == "facet":
-        return _compile_facet(vault, item, payload)
+        return _compile_facet(vault, item, payload, facet_authority=facet_authority)
     if item_type == "task_blueprint":
         return _compile_task_blueprint(vault, item, payload)
     if item_type == "provenance_link":
@@ -473,24 +496,56 @@ def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: s
         )
 
 
-#: Proposal bookkeeping that rides in a payload but is not part of the entity:
-#: written into ``facets.yaml`` it would persist as an unknown key.
-_FACET_PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash"})
+def _compile_facet(
+    vault: LoadedVault,
+    item: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    facet_authority: authority.ProposalAuthority | None = None,
+) -> CompiledPatch:
+    """A facet create or update, through the meaning-authority chokepoint.
 
+    Whatever produced the item (bootstrap, append, a consolidation, an edited
+    payload, a create that carries a registered facet's id), the write is
+    judged here by ``authority.check_meaning_write`` from the citations in its
+    ``meaning_support`` (else the block-span refs it adds), resolved in the
+    proposal's source set: a registered facet's meaning changes only with an
+    explanatory citation in every contribution, and no facet takes meaning
+    that only exam material supports. The refs it records are the ones that
+    were validated (``authority.written_provenance``).
+    """
 
-def _compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, Any]) -> CompiledPatch:
     entity_id = _entity_id(item, payload)
     _refuse_learnable_on_legacy(vault, "facet", entity_id)
+    if facet_authority is None:
+        raise PatchApplicationError(
+            f"Refusing to compile facet {entity_id}: a facet write is checked by the meaning-authority "
+            "chokepoint (content.facet_identity.authority), and no authority context was given"
+        )
     if item["operation"] == "update" and entity_id not in vault.evidence_facets:
         # An update (an append restructure, an attach) whose facet was merged
         # away or removed since synthesis: refuse rather than mint it again.
         raise PatchApplicationError(f"Cannot update missing facet {entity_id}")
-    data = {key: value for key, value in payload.items() if key not in _FACET_PROPOSAL_ONLY_KEYS}
+    data = {key: value for key, value in payload.items() if key not in authority.PROPOSAL_ONLY_KEYS}
     data["id"] = entity_id
     concept_id = data.get("concept_id")
     if concept_id is not None and concept_id not in vault.concepts:
         raise PatchApplicationError(f"Facet {entity_id} references missing concept {concept_id}")
+    existing = vault.evidence_facets.get(entity_id)
+    before = existing.model_dump(mode="json", exclude_none=False) if existing is not None else None
+    after = authority.overlay(before, data)
+    verdict = authority.check_meaning_write(
+        entity_id, before=before, after=after, registered=existing is not None,
+        contributions=authority.write_contributions(payload, before=before, after=after),
+        resolver=facet_authority.resolver,
+    )
+    if not verdict.allowed:
+        raise PatchApplicationError(f"Refusing to apply facet {entity_id}: {verdict.message}")
+    data["provenance"] = authority.written_provenance(
+        before, after, verdict, facet_authority.resolver, record_support="provenance" in payload,
+    )
     data, side_effect = _facet_version(vault, item, entity_id, data)
+    facet_authority.record(entity_id, authority.overlay(before, data))
     return CompiledPatch(
         proposal_item_id=item["id"],
         entity_type="facet",
@@ -501,6 +556,7 @@ def _compile_facet(vault: LoadedVault, item: dict[str, Any], payload: dict[str, 
         + (f" (version {data['version']})" if side_effect is not None else ""),
         apply=lambda root, clock: upsert_facet(root, data, clock=clock),
         db_side_effect=side_effect,
+        link_payload=authority.added_provenance(before, data),
     )
 
 

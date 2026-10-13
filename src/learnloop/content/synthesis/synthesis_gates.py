@@ -21,12 +21,18 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
-# §4.2 authority matrix: roles that may independently support a semantic claim.
+from learnloop.content.sources.role_authority import (
+    ASSESSMENT_ONLY_ROLES,
+    EXAM_UNCORROBORATED,
+    EXPLANATORY,
+    support_verdict,
+)
+
+# §4.2 authority matrix: roles that may independently support a semantic claim
+# (``role_authority`` decides; kept for the readers that list them).
 SEMANTIC_AUTHORITY_ROLES: frozenset[str] = frozenset(
     {"primary_textbook", "lecture", "paper", "reference", "alternate_explanation"}
 )
-# Roles that contribute only assessment/task alignment, never semantic authority.
-ASSESSMENT_ONLY_ROLES: frozenset[str] = frozenset({"exam"})
 
 _SEMANTIC_ITEM_TYPES: frozenset[str] = frozenset({"facet", "learning_object", "concept"})
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -64,6 +70,10 @@ class ProvenanceRef:
     role: str = "reference"
     manual_authority: bool = False
     held_out: bool = False
+    # Why the citation did not resolve in the selected scope (span outside its
+    # unit, unit not selected, ...). Such a ref supports nothing: its role is
+    # ``unresolved`` and it is never recorded (Codex verification of F6).
+    problem: str | None = None
 
 
 @dataclass
@@ -254,6 +264,48 @@ def _gate_unit_id_validity(proposal: GateProposal, ctx: GateContext) -> list[Gat
     return out
 
 
+def _gate_citation_scope(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
+    """A citation outside the selected scope supports nothing (Codex verification of F6).
+
+    The producer resolves each citation against the source set: the span must
+    lie in the unit it is cited with, and that unit must be selected. One that
+    does not is dropped from the entity's recorded provenance and counts as no
+    support, so the provenance gates judge the entity without it. This review
+    names it; the span/scope/unit gates above still hard-fail a citation that
+    does not resolve at all.
+    """
+
+    out: list[GateDiagnostic] = []
+    for item in proposal.items:
+        for ref in item.provenance:
+            if not ref.problem or _hard_failed_citation(ref, ctx):
+                continue
+            out.append(
+                GateDiagnostic(
+                    gate="citation_scope",
+                    severity="review",
+                    entity_refs=item.refs(),
+                    message=f"citation {ref.extraction_id}:{ref.span_id} supports nothing: {ref.problem}",
+                    suggested_action="cite a span from the selected units, in the unit that contains it",
+                )
+            )
+    return out
+
+
+def _hard_failed_citation(ref: ProvenanceRef, ctx: GateContext) -> bool:
+    """Whether the span/scope/unit gates already fail this citation."""
+
+    if ref.span_id is not None and ref.extraction_id is not None:
+        if ref.span_id not in ctx.extraction_spans.get(ref.extraction_id, set()):
+            return True
+    if ctx.selected_revision_ids and ref.revision_id is not None and ref.revision_id not in ctx.selected_revision_ids:
+        return True
+    if ctx.extraction_units and ref.unit_id is not None and ref.extraction_id is not None:
+        if ref.unit_id not in ctx.extraction_units.get(ref.extraction_id, set()):
+            return True
+    return False
+
+
 def _gate_conflict_disposition(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
     covered: set[str] = set(proposal.non_conflict_dispositions)
     for item in proposal.items:
@@ -343,14 +395,9 @@ def _gate_adequate_provenance(proposal: GateProposal, ctx: GateContext) -> list[
 
 
 def _has_semantic_authority(item: GateItem) -> bool:
-    if item.manual_authority:
+    if item.manual_authority or any(ref.manual_authority for ref in item.provenance):
         return True
-    for ref in item.provenance:
-        if ref.manual_authority:
-            return True
-        if ref.role in SEMANTIC_AUTHORITY_ROLES and ref.relation in {"primary", "support", "alternate"}:
-            return True
-    return False
+    return support_verdict((ref.role, ref.relation) for ref in item.provenance) == EXPLANATORY
 
 
 def _known_facet_references(proposal: GateProposal, ctx: GateContext) -> set[str]:
@@ -547,12 +594,13 @@ def _gate_exam_authority(proposal: GateProposal, ctx: GateContext) -> list[GateD
     for item in proposal.items:
         if not item.is_semantic():
             continue
-        if item.manual_authority:
+        if item.manual_authority or any(ref.manual_authority for ref in item.provenance):
             continue
-        if not item.provenance:
-            continue
-        roles = {ref.role for ref in item.provenance if not ref.manual_authority}
-        if roles and roles <= ASSESSMENT_ONLY_ROLES:
+        # One rule (``role_authority.support_verdict``): exam material with no
+        # explanatory citation beside it fails, whatever else is cited. A
+        # notes, problem-set or unresolved citation never corroborates it
+        # (Codex verification of F6).
+        if support_verdict((ref.role, ref.relation) for ref in item.provenance) == EXAM_UNCORROBORATED:
             out.append(
                 GateDiagnostic(
                     gate="exam_authority",
@@ -788,6 +836,10 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
     return out
 
 
+#: Facet proposal payload keys that are bookkeeping, never facet content
+#: (mirrors ``facet_identity.authority.PROPOSAL_ONLY_KEYS``).
+_PROPOSAL_ONLY_KEYS = ("expected_target_hash", "meaning_support")
+
 #: Facet fields a facet-identity absorb may grow on a registered facet (an
 #: append-legal, provably additive update: entries are only appended). Only
 #: worked examples: a precondition narrows the facet's contract, so it is never
@@ -814,7 +866,9 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
 
     if item.item_type != "facet" or item.operation != "update":
         return False
-    if set(item.payload) - {"id", "aliases", *ATTACH_GROWABLE_FIELDS}:
+    # Proposal bookkeeping (the target hash, the citations that support a
+    # grown example) is never written to the facet.
+    if set(item.payload) - {"id", "aliases", *ATTACH_GROWABLE_FIELDS, *_PROPOSAL_ONLY_KEYS}:
         return False
     proposed = {str(alias) for alias in (item.payload.get("aliases") or [])}
     if not proposed:
@@ -884,6 +938,7 @@ _GATES: tuple[Callable[[GateProposal, GateContext], list[GateDiagnostic]], ...] 
     _gate_span_resolution,
     _gate_scope,
     _gate_unit_id_validity,
+    _gate_citation_scope,
     _gate_conflict_disposition,
     _gate_lock_guard,
     _gate_adequate_provenance,
