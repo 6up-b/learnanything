@@ -3,13 +3,13 @@ title: "source_auto_build_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "004d9ba0232bda1566d95e2b2905fd1e22cd679f"
-source_commit_timestamp: "2026-10-13T12:32:26-04:00"
+source_commit: "3d259303d141a43ddfa543550e5495b984a73989"
+source_commit_timestamp: "2026-10-13T12:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_auto_build_state"
   - "table source_auto_build_state"
-schema_head: 186
+schema_head: 187
 table_name: "source_auto_build_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/186_add_book_state.sql"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/sources/source_deletion.py"
 tags:
@@ -48,7 +49,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/186_add_book_state.sql`.
-- **Schema touched by:** `186_add_book_state.sql`.
+- **Schema touched by:** `186_add_book_state.sql`, `187_reading_request_revision.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -64,6 +65,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `wanted_section_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `wanted_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `wanted_revision` | `INTEGER` | yes | `0` | — | Stored value |
+| `wanted_attempts` | `INTEGER` | yes | `0` | — | Stored value |
+| `wanted_retry_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
 
@@ -79,10 +83,17 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._reading_request()`
+- `Repository._record_reading_request_for_extraction()`
 - `Repository.advance_source_auto_build_generation()`
-- `Repository.clear_source_wanted_reading()`
 - `Repository.delete_source_artifact()`
-- `Repository.set_source_wanted_reading()`
+- `Repository.due_reading_requests()`
+- `Repository.fail_reading_request()`
+- `Repository.pending_reading_request()`
+- `Repository.reading_request_unsettled()`
+- `Repository.reading_retry_waiting()`
+- `Repository.record_reading_request()`
+- `Repository.settle_reading_request()`
 - `Repository.source_auto_build_state()`
 - `Repository.sources_with_wanted_reading()`
 
@@ -97,13 +108,16 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/db/repositories.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_ux_phase1_finish.py`
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_rereview.py`
 
@@ -129,7 +143,7 @@ CREATE TABLE source_auto_build_state (
   wanted_extraction_id TEXT,
   wanted_section_id TEXT,
   wanted_at TEXT,
-  updated_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, wanted_revision INTEGER NOT NULL DEFAULT 0 CHECK (wanted_revision >= 0), wanted_attempts INTEGER NOT NULL DEFAULT 0 CHECK (wanted_attempts >= 0), wanted_retry_at TEXT,
   CHECK ((wanted_section_id IS NULL) = (wanted_extraction_id IS NULL))
 );
 ```

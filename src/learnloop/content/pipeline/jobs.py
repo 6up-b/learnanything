@@ -25,6 +25,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 
@@ -2834,14 +2835,19 @@ class DurableIngestJobs:
         self._reader_synth_client_factory: Any = None
         self._reader_client: Any = None
         self._reader_client_checked = False
-        # UX Phase 1 (re-review F8): the Reader's "keep one chapter ahead" asks
-        # that failed, per extraction (the newest position wins), retried by
-        # the worker off the Reader's progress RPC.
-        self._reading_advances: dict[str, dict[str, Any]] = {}
+        # UX Phase 1 (finishing pass, F8/F9): acting on a book's durable
+        # reading request ("keep one chapter ahead") is serialised: the
+        # Reader's RPC, the worker's retries and the start. The request itself
+        # lives in ``source_auto_build_state``, never in memory.
+        self._reading_lock = threading.RLock()
 
-    #: Seconds before each worker retry of a failed keep-ahead ask; after the
-    #: last one the ask waits for the Reader's next report (re-review F8).
+    #: Seconds before each worker retry of a failed keep-ahead request; after
+    #: the last one it waits for the Reader's next report or the next start.
     READING_RETRY_DELAYS: tuple[float, ...] = (2.0, 10.0, 30.0)
+
+    @property
+    def reading_lock(self) -> threading.RLock:
+        return self._reading_lock
 
     # -- wiring ------------------------------------------------------------
 
@@ -2899,8 +2905,6 @@ class DurableIngestJobs:
             if not same_vault or background is not None:
                 self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
-            if not same_vault:
-                self._reading_advances = {}
         # Recover anything a prior process left mid-flight before draining.
         if not same_vault:
             runner.recover_stale_leases()
@@ -3008,72 +3012,49 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
-    # -- UX Phase 1: the Reader's keep-ahead asks that failed (re-review F8) --
+    # -- UX Phase 1: the book's reading request (finishing pass, F8/F9) -------
 
     def reading_advance_pending(self, extraction_id: str) -> bool:
-        """Whether a keep-ahead ask for this book failed and is not settled."""
+        """Whether the book's reading request failed and is not settled: the
+        Reader's next report asks again instead of being coalesced. Read from
+        the durable request, so it holds across a restart (F8)."""
 
-        with self._lock:
-            return extraction_id in self._reading_advances
+        return self.repository.reading_request_unsettled(extraction_id)
 
-    def defer_reading_advance(self, extraction_id: str, section_id: str) -> None:
-        """A keep-ahead ask failed: the worker retries it, with the newest
-        position, a few times (:attr:`READING_RETRY_DELAYS`)."""
+    def wake_reading_retries(self) -> None:
+        """A reading request waits for the worker: make sure it is running.
+        (A foreground host calls :meth:`retry_reading_advances` itself.)"""
 
-        with self._lock:
-            self._reading_advances[extraction_id] = {
-                "section_id": section_id,
-                "attempts": 0,
-                "due_at": time.monotonic() + self.READING_RETRY_DELAYS[0],
-            }
-        if self._background:
+        if self._background and self._runner is not None:
             self._ensure_worker()
 
-    def settle_reading_advance(self, extraction_id: str) -> None:
-        """A keep-ahead ask for this book was queued or durably deferred."""
-
-        with self._lock:
-            self._reading_advances.pop(extraction_id, None)
-
-    def retry_reading_advances(self, *, now: float | None = None) -> int:
-        """Retry the failed keep-ahead asks that are due (worker side; tests
-        and foreground hosts call it directly). Returns how many settled."""
+    def retry_reading_advances(self, *, now: datetime | None = None) -> int:
+        """Act on the reading requests due at ``now`` (default: the wall
+        clock; worker side, and tests and foreground hosts call it directly):
+        failed ones whose retry time came, and ones that waited while their
+        book's work ran. Returns how many settled (a request still waiting on
+        running work does not count)."""
 
         from learnloop.content.pipeline import add_source
 
-        moment = time.monotonic() if now is None else now
-        delays = self.READING_RETRY_DELAYS
-        with self._lock:
-            due = [
-                (extraction_id, pending)
-                for extraction_id, pending in self._reading_advances.items()
-                if pending["attempts"] < len(delays) and pending["due_at"] <= moment
-            ]
         settled = 0
-        for extraction_id, pending in due:
+        for request in self.repository.due_reading_requests(_iso(now)):
             try:
-                add_source.advance_reading_build(self, extraction_id, pending["section_id"])
+                outcome = add_source.act_on_reading_request(self, request["source_id"])
             except Exception:  # noqa: BLE001 - a retry never kills the worker
                 import logging
 
                 logging.getLogger(__name__).warning("keeping questions a chapter ahead failed again", exc_info=True)
-                with self._lock:
-                    # A newer ask replaced this one meanwhile: it keeps its own count.
-                    if self._reading_advances.get(extraction_id) is pending:
-                        pending["attempts"] += 1
-                        if pending["attempts"] < len(delays):
-                            pending["due_at"] = moment + delays[pending["attempts"]]
                 continue
-            with self._lock:
-                if self._reading_advances.get(extraction_id) is pending:
-                    del self._reading_advances[extraction_id]
-            settled += 1
+            if not (outcome or {}).get("deferred"):
+                settled += 1
         return settled
 
     def _reading_retry_waiting(self) -> bool:
-        with self._lock:
-            limit = len(self.READING_RETRY_DELAYS)
-            return any(pending["attempts"] < limit for pending in self._reading_advances.values())
+        try:
+            return self.repository.reading_retry_waiting(_iso(None))
+        except Exception:  # noqa: BLE001 - never keeps a broken worker spinning
+            return False
 
     # -- sidecar-facing API ------------------------------------------------
 
@@ -3821,10 +3802,18 @@ class DurableIngestJobs:
             except Exception:  # noqa: BLE001 — a keep-ahead retry must never kill the ingest drain
                 pass
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
-            # A failed keep-ahead ask keeps the worker polling until its
-            # retries settle it or run out (re-review F8).
+            # A failed keep-ahead request keeps the worker polling until its
+            # retries settle it or run out (F8).
             if idle_rounds >= 3 and self._active_job_locked(runner) is None and not self._reading_retry_waiting():
-                break
+                with self._lock:
+                    # A wake during this round (an enqueue, a failed request's
+                    # retry) saw this thread alive: run another round for it.
+                    # Otherwise step aside, so the next wake starts a worker.
+                    if not self._work_available.is_set():
+                        if self._worker_thread is threading.current_thread():
+                            self._worker_thread = None
+                        break
+                continue
             if ran == 0:
                 self._work_available.wait(timeout=self._poll_interval)
 
@@ -3948,6 +3937,14 @@ class DurableIngestJobs:
             if job["status"] in _ACTIVE_STATUSES:
                 return job
         return None
+
+
+def _iso(moment: datetime | None) -> str:
+    """``moment`` (default: now) as the ISO UTC text reading requests store."""
+
+    from learnloop.clock import FrozenClock
+
+    return utc_now_iso(FrozenClock(moment) if moment is not None else None)
 
 
 # The rungs each job type can actually reach. Reporting the full ladder for every

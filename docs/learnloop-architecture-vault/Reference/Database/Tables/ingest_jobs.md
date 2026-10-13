@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "004d9ba0232bda1566d95e2b2905fd1e22cd679f"
-source_commit_timestamp: "2026-10-13T12:32:26-04:00"
+source_commit: "3d259303d141a43ddfa543550e5495b984a73989"
+source_commit_timestamp: "2026-10-13T12:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 186
+schema_head: 187
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -130,11 +130,11 @@ None found by exact static reference scan.
 - `tests/test_table_roles.py`
 - `tests/test_ux_phase1_add_source.py`
 - `tests/test_ux_phase1_connect_ai.py`
+- `tests/test_ux_phase1_finish.py`
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_rereview.py`
 - `tests/test_ux_phase1_round2_review.py`
 - `tests/test_ux_phase1_usability_round1.py`
-- `tests/test_ux_phase1_usability_round2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

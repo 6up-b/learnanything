@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-186. Migration 167 adds the learner-field F1 read model
+187. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -45,10 +45,15 @@ built on `ux/phase1-first-run` while main's chain held 181-183, so expect a
 renumber at merge) adds `source_artifacts.keep_local` (the learner's "Keep this
 book on this computer") and the WORKFLOW table `source_auto_build_state` (a
 book's automatic-build generation, advanced by Undo, and the reading position a
-running build could not act on yet).
-Built as a backup-API copy of `migration_head_180` with only 186 applied
+running build could not act on yet); migration 187 (UX Phase 1's finishing
+pass, built on the same branch after its 186, so also renumbered at merge)
+makes that position one durable request per book, adding
+`source_auto_build_state.wanted_revision`, `wanted_attempts` and
+`wanted_retry_at`.
+Built as a backup-API copy of `migration_head_186` with only 187 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
-clean). It pins
+clean); `migration_head_186` was itself a copy of `migration_head_180` with
+only 186 applied. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

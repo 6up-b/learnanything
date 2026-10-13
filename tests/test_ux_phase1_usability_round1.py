@@ -226,7 +226,7 @@ def test_u4_reaching_a_section_keeps_the_questions_a_chapter_ahead(tmp_path, mon
 
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     seen: list[str] = []
-    monkeypatch.setattr(core, "advance_reading_build", lambda jobs, ext, section: seen.append(section))
+    monkeypatch.setattr(core, "plan_reading_advance", lambda jobs, source_id, ext, section: seen.append(section))
 
     call(ctx, "reader.mark_section_progress",
          {"extractionId": extraction_id, "sectionId": "u3", "spansSeen": 1, "spanCount": 4})

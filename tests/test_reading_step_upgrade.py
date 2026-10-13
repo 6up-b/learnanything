@@ -62,7 +62,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.split_live_helpers import split_vault
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_187"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 

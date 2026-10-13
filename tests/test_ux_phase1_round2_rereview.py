@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from datetime import UTC, datetime
 
 import pytest
 
@@ -41,20 +42,26 @@ def _report(ctx, extraction_id, seen, section_id="u3"):
 
 
 def _failing(monkeypatch, failures=1) -> list[str]:
-    """``advance_reading_build`` raises a transient error ``failures`` times
-    (``None``: always), then runs for real. Returns the sections asked for."""
+    """Keeping a chapter ahead (``plan_reading_advance``, the step every path
+    acts through) raises a transient error ``failures`` times (``None``:
+    always), then runs for real. Returns the sections asked for."""
 
     calls: list[str] = []
-    real = core.advance_reading_build
+    real = core.plan_reading_advance
 
-    def flaky(jobs, extraction_id, section_id):
+    def flaky(jobs, source_id, extraction_id, section_id):
         calls.append(section_id)
         if failures is None or len(calls) <= failures:
             raise sqlite3.OperationalError("database is locked")
-        return real(jobs, extraction_id, section_id)
+        return real(jobs, source_id, extraction_id, section_id)
 
-    monkeypatch.setattr(core, "advance_reading_build", flaky)
+    monkeypatch.setattr(core, "plan_reading_advance", flaky)
     return calls
+
+
+# The worker's retries are durable now (finishing pass, F8): due at a wall-clock
+# time, so "every retry is due" is a moment far ahead.
+_LATER = datetime(2100, 1, 1, tzinfo=UTC)
 
 
 def test_f8_a_keep_ahead_that_failed_is_asked_again_by_the_next_report(tmp_path, monkeypatch):
@@ -120,7 +127,7 @@ def test_f8_the_worker_retries_a_bounded_number_of_times_then_the_next_report_as
 
     _report(ctx, extraction_id, 1)
     for _ in range(10):
-        jobs.retry_reading_advances(now=float("inf"))
+        jobs.retry_reading_advances(now=_LATER)
 
     retries = len(jobs.READING_RETRY_DELAYS)
     assert calls == ["u3"] * (1 + retries)
@@ -128,7 +135,7 @@ def test_f8_the_worker_retries_a_bounded_number_of_times_then_the_next_report_as
     # worker's retries), rather than treating the section as handled.
     _report(ctx, extraction_id, 2)
     assert calls == ["u3"] * (2 + retries)
-    jobs.retry_reading_advances(now=float("inf"))
+    jobs.retry_reading_advances(now=_LATER)
     assert calls == ["u3"] * (3 + retries)
 
 
@@ -140,7 +147,7 @@ def test_f8_the_newest_position_wins_a_pending_retry(tmp_path, monkeypatch):
 
     _report(ctx, extraction_id, 1, section_id="u2")  # fails: a retry waits for u2
     _report(ctx, extraction_id, 1, section_id="u3")  # a first reach, fails too: the retry is for u3 now
-    jobs.retry_reading_advances(now=float("inf"))
+    jobs.retry_reading_advances(now=_LATER)
 
     assert calls == ["u2", "u3", "u3"]
     assert _planners(ctx) == planners + 1  # u3 is Ch. 2: Ch. 3 is planned

@@ -92,13 +92,13 @@ def test_f1_progress_within_a_section_already_reached_plans_nothing_again(tmp_pa
 
     _root, ctx, _source_id, extraction_id = _added_book(tmp_path)
     calls: list[str] = []
-    real = core.advance_reading_build
+    real = core.plan_reading_advance
 
-    def counting(jobs, ext, section):
+    def counting(jobs, source_id, ext, section):
         calls.append(section)
-        return real(jobs, ext, section)
+        return real(jobs, source_id, ext, section)
 
-    monkeypatch.setattr(core, "advance_reading_build", counting)
+    monkeypatch.setattr(core, "plan_reading_advance", counting)
     planners = len(ctx.repository.ingest_jobs_by_types((core.AUTO_STUDY_MAP_JOB,)))
 
     for seen in (1, 2, 3):

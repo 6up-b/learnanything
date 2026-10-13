@@ -3,13 +3,13 @@ title: "mobile_pairing_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "004d9ba0232bda1566d95e2b2905fd1e22cd679f"
-source_commit_timestamp: "2026-10-13T12:32:26-04:00"
+source_commit: "3d259303d141a43ddfa543550e5495b984a73989"
+source_commit_timestamp: "2026-10-13T12:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_pairing_attempts"
   - "table mobile_pairing_attempts"
-schema_head: 186
+schema_head: 187
 table_name: "mobile_pairing_attempts"
 table_role: "workflow"
 functionality_status: "active"

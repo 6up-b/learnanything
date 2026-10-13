@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "004d9ba0232bda1566d95e2b2905fd1e22cd679f"
-source_commit_timestamp: "2026-10-13T12:32:26-04:00"
+source_commit: "3d259303d141a43ddfa543550e5495b984a73989"
+source_commit_timestamp: "2026-10-13T12:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 186
+schema_head: 187
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -88,9 +88,11 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._record_reading_request_for_extraction()`
 - `Repository.delete_source_artifact()`
 - `Repository.get_source_revision()`
 - `Repository.insert_source_revision()`
+- `Repository.reading_request_unsettled()`
 - `Repository.source_revision_by_asset_hash()`
 - `Repository.source_revisions_for()`
 
@@ -119,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
@@ -126,7 +129,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
-- `src/learnloop/reader/span_view.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

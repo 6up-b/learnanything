@@ -1450,6 +1450,25 @@ def reader_mark_section_progress(
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
     before = repository.reader_section_progress_row(resolved, params.section_id)
+    # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
+    # chapter ahead. The Reader reports how far into each section the learner
+    # has read (``spans_seen``, usability round 1 U4): reaching a section is
+    # reading progress too, not only a reveal or a finished check. Reading on
+    # inside a section it already reached plans nothing new, so only the first
+    # report for a section asks (round-2 review F1), unless the book's reading
+    # request failed and has not settled: then every report asks again with the
+    # newest position (F8), while the ingest worker retries it off this RPC.
+    # Both are read from the book's durable request, so they hold across a
+    # restart (finishing pass, F8).
+    first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
+    keep_ahead = bool(params.revealed or params.completed or first_reach)
+    if not keep_ahead:
+        try:
+            keep_ahead = ctx.ingest_jobs.reading_advance_pending(resolved)
+        except Exception:  # pragma: no cover - a read failure asks, never fails the Reader
+            keep_ahead = True
+    # The ask is recorded as the book's reading request in the same
+    # transaction as the progress, so a saved report never loses it.
     row = repository.upsert_reader_section_progress(
         extraction_id=resolved,
         section_id=params.section_id,
@@ -1457,6 +1476,7 @@ def reader_mark_section_progress(
         span_count=params.span_count,
         revealed=params.revealed,
         completed=params.completed,
+        keep_ahead_request=keep_ahead,
     )
 
     enqueued = False
@@ -1495,24 +1515,9 @@ def reader_mark_section_progress(
             extraction_id=resolved, section_id=params.section_id
         )
 
-    # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
-    # chapter ahead. Best effort, like the plan receipt below: it never fails
-    # the Reader.
-    # The Reader reports how far into each section the learner has read
-    # (``spans_seen``, usability round 1 U4): reaching a section is reading
-    # progress too, not only a reveal or a finished check. Reading on inside
-    # a section it already reached plans nothing new, so only the first
-    # report for a section asks (round-2 review F1: every report used to),
-    # unless that ask failed and has not settled since: then the next report
-    # asks again with the newest position (re-review F8), and the ingest
-    # worker retries it meanwhile, off this RPC.
-    first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
-    if (
-        params.revealed
-        or params.completed
-        or first_reach
-        or ctx.ingest_jobs.reading_advance_pending(resolved)
-    ):
+    # Act on the recorded request now. Best effort, like the plan receipt
+    # below: it never fails the Reader (a failure is kept and retried).
+    if keep_ahead:
         try:
             from learnloop.content.pipeline import add_source as auto_build
 

@@ -209,7 +209,8 @@ def test_reading_progress_reaches_the_reading_order_build(tmp_path, monkeypatch)
     ctx = _draining_ctx(root)
     source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
     seen = []
-    monkeypatch.setattr(core, "advance_reading_build", lambda jobs, extraction_id, section_id: seen.append(section_id))
+    monkeypatch.setattr(core, "plan_reading_advance",
+                        lambda jobs, source_id, extraction_id, section_id: seen.append(section_id))
     from learnloop.content.sources.source_outline import resolve_extraction_id
 
     extraction_id = resolve_extraction_id(ctx.repository, source_id)
@@ -219,6 +220,6 @@ def test_reading_progress_reaches_the_reading_order_build(tmp_path, monkeypatch)
     def broken(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(core, "advance_reading_build", broken)
+    monkeypatch.setattr(core, "plan_reading_advance", broken)
     out = call(ctx, "reader.mark_section_progress", {"extractionId": extraction_id, "sectionId": "u4", "revealed": True})
     assert out["progress"]["sectionId"] == "u4"
