@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9380a9135d4cc3b80dd6b3c5c57807d5331cee25"
-source_commit_timestamp: "2026-10-13T10:30:13-04:00"
+source_commit: "ee3115d5879761a347e6e0fa2d57e889fd0d46ac"
+source_commit_timestamp: "2026-10-13T10:46:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 191
+schema_head: 192
 table_count: 307
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_191/state.sqlite"
+  - "fixtures/migration_head_192/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-191"
+  - "learnloop/database/schema-head-192"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 307 user tables at migration head 191. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 307 user tables at migration head 192. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -308,7 +308,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/source_render_block_crosswalk|source_render_block_crosswalk]] — `raw_ledger` · `active` · Gives source render block crosswalk a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `render_view_id`, `display_node_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_render_views|source_render_views]] — `workflow` · `active` · Gives source render view a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `revision_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_revisions|source_revisions]] — `raw_ledger` · `active` · Records immutable revisions of canonical sources and their content identity. It supplies replay-stable input rather than a disposable cache. Rows bind `source_id`, `note_id`, `supersedes_revision_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/source_service_spend|source_service_spend]] — `workflow` · `active` · Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that checks the day's total (every row, plus the service's receipts no row covers, such as spend from before the table existed) plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. In flight a row counts its estimate (reconciled upward); once the request finished it counts the reported cost, else the estimate; the request's root receipt names its row (`budget_json.envelope_reservations`), so it is counted once. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit.
+- [[Reference/Database/Tables/source_service_spend|source_service_spend]] — `workflow` · `active` · Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that recovers orphaned rows and checks the day's total plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. One accounting function (service_spend_accounting) gives that total for admission, recovery and reports, counting each request once with the receipts naming its row (`budget_json.envelope_reservations`): while its owner's lease (`lease_expires_at`, renewed while the process lives) holds, a row counts the larger of its charge and its receipts; once reconciled (`settled`), its receipts (its reconciled cost bounding a lost finish); an orphan is reconciled with its receipts or `released` when it has none (`resolved_by` names the owner or recovery), and a receipt naming a released row cannot start, so its request is never sent. A `legacy` row, written before receipts named rows, counts its charge and the unlinked service receipts of its lifetime are not counted again; a receipt naming no row counts by its own cost. Subscription requests reserve nothing. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `envelope`, `day`, `reserved_usd`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_span_reanchors|source_span_reanchors]] — `raw_ledger` · `active` · Gives source span reanchor a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `from_extraction_id`, `from_span_id`, `to_extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_tool_calls|source_tool_calls]] — `receipt` · `active` · Receipts for the typed source tools (canonical sources S4): a request row per validated request from the tutor, the router or an external agent (its stored caller context, derived policy, validated arguments and dropped ids, refused when it leaked the answer or arrived during a cold administration) and a run row per execution naming the request (result refs, keys, source versions, model, latency). Append-only. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `parent_id`, `ledger_id`, `row_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_unit_inventories|source_unit_inventories]] — `raw_ledger` · `active` · Gives source unit inventorie a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_revision_id`, `extraction_id`, `unit_id`, making the operational relationship explicit.

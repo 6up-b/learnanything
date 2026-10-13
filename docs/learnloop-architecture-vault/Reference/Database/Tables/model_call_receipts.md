@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9380a9135d4cc3b80dd6b3c5c57807d5331cee25"
-source_commit_timestamp: "2026-10-13T10:30:13-04:00"
+source_commit: "ee3115d5879761a347e6e0fa2d57e889fd0d46ac"
+source_commit_timestamp: "2026-10-13T10:46:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 191
+schema_head: 192
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `192_source_service_spend_accounting.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -103,6 +103,8 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_model_calls_parent` on `parent_call_id`.
+- `idx_model_calls_started` on `started_at`.
 - `idx_model_calls_owner` on `owner_kind`, `owner_id`, `started_at`.
 - `sqlite_autoindex_model_call_receipts_1` on `id` (unique).
 
