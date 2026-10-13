@@ -337,14 +337,20 @@ _WITHDRAWN_REASONS = {"revealed": "an answer revealed", "source_exposed": "its e
                       "seen_in_proposal": "shown in a suggestion"}
 
 
+def withdrawn_reasons_text(reasons: Any) -> str:
+    """How the learner saw withdrawn exam items, in words ("an answer revealed, ...")."""
+
+    return ", ".join(_WITHDRAWN_REASONS.get(reason, reason) for reason in sorted(set(reasons)))
+
+
 def withdrawn_note(withdrawn: list[dict[str, Any]]) -> str | None:
     """The learner-facing line for withdrawn exam items, or None."""
 
     if not withdrawn:
         return None
-    reasons = sorted({reason for entry in withdrawn for reason in entry["reasons"]})
     return WITHDRAWN_NOTE.format(count=len(withdrawn),
-                                 reasons=", ".join(_WITHDRAWN_REASONS.get(reason, reason) for reason in reasons))
+                                 reasons=withdrawn_reasons_text(reason for entry in withdrawn
+                                                                for reason in entry["reasons"]))
 
 
 def withdraw_exposed_reservations(
@@ -361,9 +367,11 @@ def withdraw_exposed_reservations(
     exam's independent check: a reveal of its answer, its exercise or book
     solution read in a source, its prompt in a proposal. The rows are released
     (``released_at``), never deleted, so the reservation history stays; the
-    item rejoins practice as a finished exam's items do. Nothing is withdrawn
-    while the goal's exam is in progress (its items are frozen), nor with
-    ``goals.held_out_selection`` off.
+    item rejoins practice as a finished exam's items do. Nothing is released
+    while the goal's exam is in progress: its frozen order and reservations
+    stay, and ``exam_session.session_withdrawn_items`` sets aside the
+    sitting's own unanswered items instead (Codex re-review F5). Nothing is
+    withdrawn with ``goals.held_out_selection`` off.
 
     Returns ``[{"practice_item_id", "reasons"}]``, in reservation order.
     """

@@ -19,6 +19,7 @@ provider-agnostic: ``record_exam_answer`` takes an already-resolved
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from datetime import UTC, timedelta
 from typing import Any
 
@@ -32,7 +33,13 @@ from learnloop.attempts.attempts import (
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.goals.exam_pool import release_exam_pool, withdraw_exposed_reservations, withdrawn_note
+from learnloop.content.sources.exam_material import exposed_items
+from learnloop.goals.exam_pool import (
+    release_exam_pool,
+    withdraw_exposed_reservations,
+    withdrawn_note,
+    withdrawn_reasons_text,
+)
 from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
 from learnloop.scheduling.selection_rewards import (
@@ -49,6 +56,108 @@ _WINDOW_DAYS = 7
 
 class ExamSessionError(ValueError):
     pass
+
+
+#: Why an answer to a withdrawn exam item is refused (Codex re-review F5).
+WITHDRAWN_ITEM_REFUSAL = ("This exam item was set aside: you've seen it since it was held out ({reasons}), so it "
+                          "would no longer be a fair test. Your other answers are kept; reopen the exam to continue "
+                          "without it.")
+
+#: Why a sitting with nothing left to serve and nothing answered is closed.
+SITTING_CLOSED = ("Every remaining item of this exam has been shown to you since it was held out ({reasons}), so "
+                  "none is a fair test any more. The sitting is closed and its items rejoin practice; open the "
+                  "exam again to hold out a new pool.")
+
+
+class ExamItemWithdrawnError(ExamSessionError):
+    """An answer to an exam item the learner has been shown since it was held out."""
+
+    def __init__(self, practice_item_id: str, reasons: list[str]) -> None:
+        self.practice_item_id = practice_item_id
+        self.reasons = list(reasons)
+        super().__init__(WITHDRAWN_ITEM_REFUSAL.format(reasons=withdrawn_reasons_text(self.reasons)))
+
+
+def session_withdrawn_items(vault: LoadedVault, repository: Repository,
+                            session: dict[str, Any]) -> list[dict[str, Any]]:
+    """The in-progress sitting's unanswered items the learner has been shown
+    since they were held out (Codex re-review F5), ``[{"practice_item_id",
+    "reasons"}]`` in the frozen order.
+
+    The exam's start withdraws what was shown before it
+    (``withdraw_exposed_reservations``). What the learner sees afterwards (an
+    item's exercise read in the Reader, its answer revealed by the tutor, its
+    prompt in a suggestion) is caught here, at every door the sitting has:
+    resume (``start_exam``), the live progress view, answer acceptance
+    (``queue_exam_answer``, ``record_exam_answer``) and ``finish_exam``. Such an
+    item is no longer served or accepted, and the report names it without
+    scoring it. Its history stays: the frozen order, its frozen prediction and
+    its reservation row (released with the pool when the sitting ends).
+
+    An answered item is never withdrawn: an answer is final once given, and an
+    exposure after it cannot have informed it. Shown material is
+    ``exam_material.exposed_items`` (the reservation's own rule, never
+    forgotten), so the set only grows; it is empty with
+    ``goals.held_out_selection`` off (the predecessor administers every item)."""
+
+    if session.get("status") != "in_progress":
+        return []
+    answered = {row["practice_item_id"] for row in repository.exam_answers(session["id"])}
+    outstanding = [vault.practice_items[item_id] for item_id in session["item_order"]
+                   if item_id not in answered and item_id in vault.practice_items]
+    exposed = exposed_items(vault, repository, outstanding)
+    return [{"practice_item_id": item_id, "reasons": exposed[item_id]}
+            for item_id in session["item_order"] if item_id in exposed]
+
+
+def _refuse_withdrawn(vault: LoadedVault, repository: Repository, session: dict[str, Any],
+                      practice_item_id: str) -> None:
+    """Refuse a new answer to an item the sitting has set aside."""
+
+    for entry in session_withdrawn_items(vault, repository, session):
+        if entry["practice_item_id"] == practice_item_id:
+            raise ExamItemWithdrawnError(practice_item_id, entry["reasons"])
+
+
+def refuse_withdrawn_answer(vault: LoadedVault, repository: Repository, session_id: str,
+                            practice_item_id: str) -> None:
+    """Raise :class:`ExamItemWithdrawnError` before a caller grades a new answer
+    the sitting would refuse (the CLI grades before it records, so a refused
+    answer would otherwise cost a grading call)."""
+
+    session = repository.exam_session(session_id)
+    if session is None or repository.exam_answer(session_id, practice_item_id) is not None:
+        return
+    _refuse_withdrawn(vault, repository, session, practice_item_id)
+
+
+def _close_exhausted_sitting(repository: Repository, session: dict[str, Any],
+                             withdrawn: list[dict[str, Any]], *, clock: Clock) -> None:
+    """Close a sitting none of whose items is left to serve or was answered.
+
+    Without this the learner would resume, forever, an exam with nothing to
+    answer. The session row, its frozen predictions and the reservation rows
+    stay (status ``abandoned``, the withdrawn items on its report); the pool is
+    released, so its items rejoin practice and the next reservation holds out
+    a fresh one (shown items are never reserved)."""
+
+    now_iso = utc_now_iso(clock)
+    repository.update_exam_session(
+        session["id"],
+        status="abandoned",
+        report={
+            "session_id": session["id"],
+            "goal_id": session["goal_id"],
+            "closed_reason": "every_item_withdrawn",
+            "withdrawn_items": withdrawn,
+            "withdrawn_note": withdrawn_note(withdrawn),
+        },
+        completed_at=now_iso,
+        clock=clock,
+    )
+    release_exam_pool(repository, session["goal_id"], clock=clock)
+    raise ExamSessionError(SITTING_CLOSED.format(
+        reasons=withdrawn_reasons_text(reason for entry in withdrawn for reason in entry["reasons"])))
 
 
 def _goal(vault: LoadedVault, goal_id: str) -> Goal:
@@ -107,8 +216,11 @@ def start_exam(
 ) -> dict[str, Any]:
     """Open an exam session for a goal, freezing predictions first.
 
-    Idempotent: an existing ``in_progress`` session for the goal is returned as
-    is (predictions are never re-frozen).
+    Idempotent: an existing ``in_progress`` session for the goal is resumed
+    (predictions are never re-frozen), less the unanswered items the learner
+    has been shown since (``session_withdrawn_items``, reported with the
+    reason). A resumed sitting with nothing left to serve and nothing answered
+    is closed (``_close_exhausted_sitting``).
     """
 
     clock = clock or SystemClock()
@@ -116,7 +228,15 @@ def start_exam(
 
     existing = repository.exam_session_in_progress_for_goal(goal_id)
     if existing is not None:
-        return _session_view(repository, existing["id"], already_started=True)
+        # Exam protection (Codex re-review F5): what the learner saw after the
+        # exam started is caught on resume, not only before the start.
+        withdrawn = session_withdrawn_items(vault, repository, existing)
+        if withdrawn and len(withdrawn) == len(existing["item_order"]):
+            _close_exhausted_sitting(repository, existing, withdrawn, clock=clock)
+        view = _session_view(repository, existing["id"], already_started=True, withdrawn=withdrawn)
+        view["withdrawn_items"] = withdrawn
+        view["withdrawn_note"] = withdrawn_note(withdrawn)
+        return view
 
     # Exam protection (Codex review F5): a reserved item the learner has been
     # shown since it was reserved (an answer revealed, its exercise or
@@ -245,6 +365,9 @@ def queue_exam_answer(
             "already_submitted": True,
             "graded": existing.get("grade") is not None,
         }
+    # Codex re-review F5: an item shown to the learner since it was held out
+    # takes no answer (one already given stands, above).
+    _refuse_withdrawn(vault, repository, session, practice_item_id)
 
     repository.upsert_exam_answer(
         {
@@ -301,6 +424,11 @@ def record_exam_answer(
         raise ExamSessionError(
             f"Exam answer {practice_item_id} was already submitted and cannot be replaced"
         )
+    if existing is None:
+        # Codex re-review F5: a new answer (the CLI's) to an item shown since
+        # it was held out is refused; the grade of an answer accepted before
+        # (``queue_exam_answer``) still lands.
+        _refuse_withdrawn(vault, repository, session, practice_item_id)
     rubric = vault.rubric_for_item(item)
     max_points = rubric.max_points if rubric is not None else 4
     correctness = resolved_grade.rubric_score / max(max_points, 1)
@@ -407,8 +535,13 @@ def finish_exam(
         raise ExamSessionError(f"Unknown exam session {session_id}")
     if session["status"] == "completed" and session.get("report") is not None:
         return session["report"]
+    if session["status"] == "abandoned":
+        raise ExamSessionError(f"Exam session {session_id} was closed: none of its items was left to answer")
 
     goal = _goal(vault, session["goal_id"])
+    # Codex re-review F5: the unanswered items set aside during the sitting,
+    # read before the session completes, are named on the report.
+    withdrawn = session_withdrawn_items(vault, repository, session)
     submitted = repository.exam_answers(session_id)
     submitted_by_item = {
         answer["practice_item_id"]: answer for answer in submitted
@@ -488,7 +621,7 @@ def finish_exam(
             vault, repository, results=applied_results, clock=clock
         )
 
-    report = _compute_report(vault, repository, session, goal)
+    report = _compute_report(vault, repository, session, goal, withdrawn=withdrawn)
     completed_at = utc_now_iso(clock)
     repository.update_exam_session(
         session_id, status="completed", report=report, completed_at=completed_at, clock=clock
@@ -497,8 +630,10 @@ def finish_exam(
     return report
 
 
-def _compute_report(vault: LoadedVault, repository: Repository, session, goal) -> dict[str, Any]:
+def _compute_report(vault: LoadedVault, repository: Repository, session, goal, *,
+                    withdrawn: Sequence[dict[str, Any]] = ()) -> dict[str, Any]:
     predictions = {row["practice_item_id"]: row for row in repository.exam_predictions(session["id"])}
+    withdrawn = [dict(entry) for entry in withdrawn]
     answers = {row["practice_item_id"]: row for row in repository.exam_answers(session["id"])}
 
     items: list[dict[str, Any]] = []
@@ -565,12 +700,15 @@ def _compute_report(vault: LoadedVault, repository: Repository, session, goal) -
         "session_id": session["id"],
         "goal_id": goal.id,
         "target_recall": goal.target_recall,
-        "item_count": len(session["item_order"]),
+        # The items administered: the frozen order less the ones set aside.
+        "item_count": len(session["item_order"]) - len(withdrawn),
         "answered_count": len(correctness_values),
         "overall_score": overall_score,
         "brier": brier,
         "items": items,
         "facets": facets,
+        "withdrawn_items": withdrawn,
+        "withdrawn_note": withdrawn_note(withdrawn),
     }
 
 
@@ -582,7 +720,10 @@ def exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> 
         raise ExamSessionError(f"Unknown exam session {session_id}")
     if session["status"] == "completed" and session.get("report") is not None:
         return session["report"]
-    view = _session_view(repository, session_id, already_started=True)
+    withdrawn = session_withdrawn_items(vault, repository, session)
+    view = _session_view(repository, session_id, already_started=True, withdrawn=withdrawn)
+    view["withdrawn_items"] = withdrawn
+    view["withdrawn_note"] = withdrawn_note(withdrawn)
     answers = repository.exam_answers(session_id)
     view["answered"] = [row["practice_item_id"] for row in answers]
     view["graded"] = [
@@ -641,14 +782,20 @@ def exam_availability(
 # ----------------------------------------------------------------------
 
 
-def _session_view(repository: Repository, session_id: str, *, already_started: bool) -> dict[str, Any]:
+def _session_view(repository: Repository, session_id: str, *, already_started: bool,
+                  withdrawn: Sequence[dict[str, Any]] = ()) -> dict[str, Any]:
+    """The sitting as served: ``item_order`` is the frozen order less the
+    items set aside since (``session_withdrawn_items``); the stored order and
+    every frozen prediction are unchanged."""
+
     session = repository.exam_session(session_id)
     predictions = repository.exam_predictions(session_id)
+    set_aside = {entry["practice_item_id"] for entry in withdrawn}
     return {
         "session_id": session_id,
         "goal_id": session["goal_id"],
         "status": session["status"],
-        "item_order": session["item_order"],
+        "item_order": [item_id for item_id in session["item_order"] if item_id not in set_aside],
         "already_started": already_started,
         "predictions": [
             {

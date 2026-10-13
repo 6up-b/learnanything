@@ -13,11 +13,14 @@
   whether its location is a span id, a namespaced span id or a locator, and
   drops a quote it cannot place inside a partly protected extraction.
 * F5: an exam item the learner was shown after its reservation is withdrawn
-  (its reservation released, its history kept) before the exam starts.
+  (its reservation released, its history kept) before the exam starts; one
+  shown while the exam is in progress is set aside at every door of the
+  sitting (resume, answer acceptance, finish), its history kept (re-review).
 * F6: the serving rules' kill switch, ``goals.held_out_selection``: off, each
   selection is the predecessor's; replay never reads it.
 
-Each F1-F5 test failed on ``883b8da11`` (the stage as reviewed), recorded in
+Each F1-F5 test failed on ``883b8da11`` (the stage as reviewed), and each
+re-review F5 test on ``bfdf35d21`` (the fixes as re-reviewed), recorded in
 ``docs/reviews/exam-protection-codex-review.md``.
 """
 from __future__ import annotations
@@ -602,3 +605,186 @@ def test_replay_never_reads_the_switch(tmp_path):
     _switch_off(root)
     rebuild_all_derived_state(load_vault(root), repository, clock=CLOCK)
     assert snapshot() == switched_on
+
+
+# --- re-review F5: an exam item exposed while its exam is in progress ----------------------------
+
+
+def _started_exam(tmp_path):
+    from learnloop.goals.exam_session import start_exam
+    from tests.test_exam_pool import NOW
+
+    paths, repository = _reserved_pool(tmp_path)
+    vault = load_vault(paths.root)
+    session = start_exam(vault, repository, vault.goals[0].id, clock=FrozenClock(NOW))
+    assert {"pi_pool_apply_mid", "pi_pool_derive_hard"} <= set(session["item_order"])
+    return paths, repository, session
+
+
+def test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_answer_refused(tmp_path):
+    """Codex re-review F5: reserve, start, read an unanswered item's exercise
+    in the Reader, resume. The item is no longer served, its answer is refused
+    at both doors, its history (frozen order, prediction, reservation) is kept,
+    and the report names it without scoring it."""
+
+    from learnloop.goals.exam_session import (
+        ExamItemWithdrawnError,
+        finish_exam,
+        queue_exam_answer,
+        record_exam_answer,
+        start_exam,
+    )
+    from tests.test_exam_pool import NOW
+    from tests.test_exam_session import _grade
+
+    paths, repository, session = _started_exam(tmp_path)
+    session_id = session["session_id"]
+    _expose(repository, "ext_problems", "s2")  # pi_pool_apply_mid's exercise, read mid-exam
+
+    vault = load_vault(paths.root)
+    resumed = start_exam(vault, repository, vault.goals[0].id, clock=FrozenClock(NOW))
+    assert resumed["session_id"] == session_id and resumed["already_started"] is True
+    assert resumed["item_order"] == [item for item in session["item_order"] if item != "pi_pool_apply_mid"]
+    assert resumed["withdrawn_items"] == [{"practice_item_id": "pi_pool_apply_mid", "reasons": ["source_exposed"]}]
+    assert "already seen" in resumed["withdrawn_note"]
+
+    with pytest.raises(ExamItemWithdrawnError, match="set aside"):
+        queue_exam_answer(vault, repository, session_id, "pi_pool_apply_mid", answer_md="42")
+    with pytest.raises(ExamItemWithdrawnError, match="set aside"):
+        record_exam_answer(vault, repository, session_id, "pi_pool_apply_mid", answer_md="42",
+                           resolved_grade=_grade(4))
+    assert repository.exam_answer(session_id, "pi_pool_apply_mid") is None
+
+    # The history stays: the frozen order, the frozen prediction, the reservation row.
+    assert repository.exam_session(session_id)["item_order"] == session["item_order"]
+    assert "pi_pool_apply_mid" in {row["practice_item_id"] for row in repository.exam_predictions(session_id)}
+    assert "pi_pool_apply_mid" in repository.reserved_exam_pool_item_ids()
+
+    for item_id in resumed["item_order"]:
+        record_exam_answer(vault, repository, session_id, item_id, answer_md="A", resolved_grade=_grade(4))
+    report = finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+    assert "pi_pool_apply_mid" not in {entry["practice_item_id"] for entry in report["items"]}
+    assert report["withdrawn_items"] == [{"practice_item_id": "pi_pool_apply_mid", "reasons": ["source_exposed"]}]
+    assert "already seen" in report["withdrawn_note"]
+    assert report["item_count"] == report["answered_count"] == len(resumed["item_order"])
+    assert "pi_pool_apply_mid" not in repository.reserved_exam_pool_item_ids()  # released with the pool
+
+
+def test_an_exam_answer_given_before_its_item_was_exposed_stands(tmp_path):
+    from learnloop.goals.exam_session import finish_exam, queue_exam_answer, record_exam_answer, start_exam
+    from tests.test_exam_pool import NOW
+    from tests.test_exam_session import _grade
+
+    paths, repository, session = _started_exam(tmp_path)
+    session_id = session["session_id"]
+    vault = load_vault(paths.root)
+    queue_exam_answer(vault, repository, session_id, "pi_pool_apply_mid", answer_md="42")
+    _expose(repository, "ext_problems", "s2")
+
+    resumed = start_exam(vault, repository, vault.goals[0].id, clock=FrozenClock(NOW))
+    assert resumed["item_order"] == session["item_order"] and resumed["withdrawn_items"] == []
+    # The grade of an answer accepted before the exposure still lands.
+    for item_id in session["item_order"]:
+        record_exam_answer(vault, repository, session_id, item_id, answer_md="42" if item_id == "pi_pool_apply_mid"
+                           else "A", resolved_grade=_grade(4))
+    report = finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+    assert "pi_pool_apply_mid" in {entry["practice_item_id"] for entry in report["items"]}
+    assert report["withdrawn_items"] == [] and report["withdrawn_note"] is None
+
+
+def test_the_exam_screen_stops_serving_an_item_exposed_mid_exam_and_refuses_its_answer(tmp_path):
+    import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.errors import SidecarError
+
+    paths, repository = _reserved_pool(tmp_path)
+    context = SidecarContext()
+    context.load(paths.root)
+    goal_id = context.require_vault()[0].goals[0].id
+    try:
+        started = _call(context, "start_exam", {"goalId": goal_id})
+        assert "pi_pool_apply_mid" in {item["practiceItemId"] for item in started["items"]}
+        _expose(repository, "ext_problems", "s2")
+
+        resumed = _call(context, "start_exam", {"goalId": goal_id})
+        assert resumed["sessionId"] == started["sessionId"]
+        served = [item["practiceItemId"] for item in resumed["items"]]
+        assert "pi_pool_apply_mid" not in served and served
+        assert [item["total"] for item in resumed["items"]] == [len(served)] * len(served)
+        assert resumed["withdrawnItems"] == [{"practiceItemId": "pi_pool_apply_mid", "reasons": ["source_exposed"]}]
+        assert "already seen" in resumed["withdrawnNote"]
+
+        with pytest.raises(SidecarError) as refused:
+            _call(context, "submit_exam_answer", {"sessionId": started["sessionId"],
+                                                  "practiceItemId": "pi_pool_apply_mid", "answerMd": "42"})
+        assert refused.value.code == "exam_item_withdrawn"
+        assert "set aside" in refused.value.message
+        assert refused.value.details["reasons"] == ["source_exposed"]
+        assert repository.exam_answer(started["sessionId"], "pi_pool_apply_mid") is None
+    finally:
+        context.exam_grading.shutdown()
+        context.ingest_jobs.shutdown()
+
+
+def test_the_cli_refuses_an_answer_to_an_item_exposed_mid_exam_before_grading_it(tmp_path):
+    """The CLI grades before it records: the refusal comes first, so no
+    grading call is spent on an answer the sitting would refuse (with no
+    grader configured, a later refusal would read ``exam_grading_unavailable``)."""
+
+    import json
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, repository, session = _started_exam(tmp_path)
+    _expose(repository, "ext_problems", "s2")
+    result = CliRunner().invoke(app, ["exam", "answer", "pi_pool_apply_mid", "--session", session["session_id"],
+                                      "--answer", "42", "--json", "--vault", str(paths.root)])
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["error"] == "exam_item_withdrawn" and "set aside" in payload["message"]
+    assert repository.exam_answer(session["session_id"], "pi_pool_apply_mid") is None
+
+
+def test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released(tmp_path):
+    """Nothing answered and nothing left to serve: the sitting is closed
+    (abandoned, its rows kept), its items rejoin practice, and the next
+    reservation holds out a fresh pool."""
+
+    from learnloop.goals.exam_pool import reserve_exam_pool
+    from learnloop.goals.exam_session import ExamSessionError, start_exam
+    from tests.test_exam_pool import NOW
+
+    paths, repository, session = _started_exam(tmp_path)
+    session_id = session["session_id"]
+    for item_id in session["item_order"]:
+        _reveal(repository, item_id)
+
+    vault = load_vault(paths.root)
+    goal = vault.goals[0]
+    with pytest.raises(ExamSessionError, match="none is a fair test"):
+        start_exam(vault, repository, goal.id, clock=FrozenClock(NOW))
+    stored = repository.exam_session(session_id)
+    assert stored["status"] == "abandoned" and stored["item_order"] == session["item_order"]
+    assert {entry["practice_item_id"] for entry in stored["report"]["withdrawn_items"]} == set(session["item_order"])
+    assert len(repository.exam_predictions(session_id)) == len(session["item_order"])
+    assert repository.exam_session_in_progress_for_goal(goal.id) is None
+    assert set(session["item_order"]).isdisjoint(repository.reserved_exam_pool_item_ids())
+
+    report = reserve_exam_pool(vault, repository, goal, item_count=3, clock=FrozenClock(NOW))
+    assert not report.already_reserved and set(report.reserved_item_ids).isdisjoint(session["item_order"])
+
+
+def test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before(tmp_path):
+    from learnloop.goals.exam_session import queue_exam_answer, start_exam
+    from tests.test_exam_pool import NOW
+
+    paths, repository, session = _started_exam(tmp_path)
+    _expose(repository, "ext_problems", "s2")
+    _switch_off(paths.root)
+    vault = load_vault(paths.root)
+    resumed = start_exam(vault, repository, vault.goals[0].id, clock=FrozenClock(NOW))
+    assert resumed["item_order"] == session["item_order"] and resumed["withdrawn_items"] == []
+    queue_exam_answer(vault, repository, session["session_id"], "pi_pool_apply_mid", answer_md="42")
+    assert repository.exam_answer(session["session_id"], "pi_pool_apply_mid") is not None

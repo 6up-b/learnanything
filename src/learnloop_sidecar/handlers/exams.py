@@ -15,12 +15,14 @@ from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import resolved_codex_grade
 from learnloop.goals.exam_pool import reserve_exam_pool, withdrawn_note
 from learnloop.goals.exam_session import (
+    ExamItemWithdrawnError,
     ExamSessionError,
     exam_availability,
     exam_report,
     finish_exam,
     queue_exam_answer,
     record_exam_answer,
+    session_withdrawn_items,
     start_exam,
 )
 from learnloop.goals.goal_projection import resolve_goal_scope
@@ -88,6 +90,11 @@ def get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]:
         candidate_count = report.candidate_count
         withdrawn = list(report.withdrawn)
     availability = exam_availability(vault, repository, goal)
+    if availability["existing_session_id"]:
+        # Codex re-review F5: the sitting's own items set aside since it began.
+        sitting = repository.exam_session(availability["existing_session_id"])
+        if sitting is not None:
+            withdrawn += session_withdrawn_items(vault, repository, sitting)
     return versioned(
         {
             "goal_id": goal.id,
@@ -329,6 +336,14 @@ def submit_exam_answer(
             params.practice_item_id,
             answer_md=params.answer_md,
         )
+    except ExamItemWithdrawnError as exc:
+        # Codex re-review F5: the item was shown to the learner mid-exam; the
+        # message says why and that a reopened exam continues without it.
+        raise SidecarError(
+            "exam_item_withdrawn",
+            str(exc),
+            details={"practice_item_id": exc.practice_item_id, "reasons": list(exc.reasons)},
+        ) from exc
     except ExamSessionError as exc:
         raise SidecarError("exam_answer_failed", str(exc)) from exc
     if not result["graded"]:
@@ -498,6 +513,9 @@ def _report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]:
             sum(predicted_values) / len(predicted_values) if predicted_values else None
         ),
         "brier": report.get("brier"),
+        # Codex re-review F5: items set aside during the sitting, unscored.
+        "withdrawn_items": list(report.get("withdrawn_items") or []),
+        "withdrawn_note": report.get("withdrawn_note"),
         "per_facet": [
             {
                 "facet_id": facet["facet_id"],
