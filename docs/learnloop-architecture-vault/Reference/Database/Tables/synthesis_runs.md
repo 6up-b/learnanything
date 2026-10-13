@@ -3,8 +3,8 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
+source_commit_timestamp: "2026-10-13T08:25:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
@@ -27,10 +27,10 @@ source_paths:
   - "src/learnloop/substrate/model_usage.py"
   - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
-  - "src/learnloop/content/sources/provenance.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/proposals/apply_protocol.py`

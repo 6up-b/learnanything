@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
+source_commit_timestamp: "2026-10-13T08:25:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
-  - "src/learnloop/content/synthesis/ai_contracts.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
 tags:
   - "learnloop/database/table"
@@ -140,6 +140,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_apply_write_ahead.py`
+- `tests/test_facet_authority.py`
 - `tests/test_facet_reword_paths.py`
 - `tests/test_migrations.py`
 - `tests/test_source_append.py`

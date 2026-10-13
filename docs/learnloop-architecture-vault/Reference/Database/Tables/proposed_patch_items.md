@@ -3,8 +3,8 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
+source_commit_timestamp: "2026-10-13T08:25:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
@@ -168,6 +168,7 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_diagnostic_generation.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_facet_authority.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_facet_identity_ingest.py`
 - `tests/test_facet_reword_paths.py`
@@ -179,7 +180,6 @@ Indexes and uniqueness:
 - `tests/test_practice_leakage.py`
 - `tests/test_proposal_dependencies.py`
 - `tests/test_proposal_persistence.py`
-- `tests/test_repositories.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

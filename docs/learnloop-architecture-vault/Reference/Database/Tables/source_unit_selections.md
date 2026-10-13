@@ -3,8 +3,8 @@ title: "source_unit_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
-source_commit_timestamp: "2026-10-13T03:41:15-04:00"
+source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
+source_commit_timestamp: "2026-10-13T08:25:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_selections"
@@ -22,9 +22,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/content/synthesis/source_coverage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
