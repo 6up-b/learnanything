@@ -381,8 +381,17 @@ class CitationResolver:
     def for_vault(cls, repository: Any, vault: Any) -> CitationResolver:
         return cls.for_source_sets(repository, vault.source_sets)
 
-    def with_span_support(self, vault: Any, repository: Any) -> CitationResolver:
-        """Attach the span-support check (switch ``decider_routes.facet_span_support``)."""
+    def with_span_support(
+        self, vault: Any, repository: Any, *, asked: Mapping[str, Mapping[str, Any]] | None = None,
+        record: dict[str, dict[str, Any]] | None = None,
+    ) -> CitationResolver:
+        """Attach the span-support check (switch ``decider_routes.facet_span_support``).
+
+        ``record`` collects each verdict it asks, by input hash (a proposal's
+        staging before the vault lock); ``asked`` makes it a lookup of those
+        verdicts that never sends a request (the apply under the lock, review
+        F1). Without either it asks directly.
+        """
 
         from learnloop.decider_judgments import enabled
 
@@ -391,7 +400,7 @@ class CitationResolver:
 
             def checker(facet_id: str, after: Mapping[str, Any],
                         citations: Sequence[ResolvedCitation]) -> Mapping[str, Any]:
-                return check(vault, repository, self, facet_id, after, citations)
+                return check(vault, repository, self, facet_id, after, citations, asked=asked, record=record)
 
             self.span_checker = checker
         return self
@@ -1266,14 +1275,19 @@ class ProposalAuthority:
         self.checked[facet_id] = copy.deepcopy(dict(entry))
 
     @classmethod
-    def for_proposal(cls, vault: Any, repository: Any, patch_id: str) -> ProposalAuthority:
+    def for_proposal(
+        cls, vault: Any, repository: Any, patch_id: str, *,
+        asked: Mapping[str, Mapping[str, Any]] | None = None, record: dict[str, dict[str, Any]] | None = None,
+    ) -> ProposalAuthority:
+        """``record`` / ``asked``: the span-support verdicts asked before the vault lock (review F1)."""
+
         def factory() -> CitationResolver:
             source_set = _proposal_source_set(vault, repository, patch_id)
             resolver = (CitationResolver.for_source_set(repository, source_set) if source_set is not None
                         else CitationResolver.for_vault(repository, vault))
             # A proposal's facet item is the model-proposed write the
             # span-support check judges (owner, 2026-10-13).
-            return resolver.with_span_support(vault, repository)
+            return resolver.with_span_support(vault, repository, asked=asked, record=record)
 
         return cls(factory)
 

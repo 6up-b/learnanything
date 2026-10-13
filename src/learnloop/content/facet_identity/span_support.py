@@ -15,6 +15,14 @@ support (``ResolvedCitation.supports``): exam material and held-out units
 resolve to the ``exam`` role and never reach it (their exam-only refusal runs
 first and is unchanged). The owner's own Library edits never come here.
 
+The question goes out before the vault mutation lock is taken (review F1): a
+proposal's acceptance first stages its items without the lock, asking each
+check and keeping its verdict by input hash (``record``); under the lock the
+compile only looks the verdicts up (``asked``), and a check whose input
+changed meanwhile, or that was never asked, finds none and the reword waits
+for the owner's confirm (:func:`unchecked`). No Decider request ever holds
+the lock other writers wait for.
+
 Each check is a ``judgment_ledger`` row (task :data:`TASK`, judge ``decider``,
 the option probabilities in its rationale, the input hash). The owner's
 confirm, keep or undo on the card appends a label for that row (judge
@@ -26,11 +34,12 @@ not support``. These are the owner's actions, not adjudicated entailment.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 import json
 from typing import Any
 
 from learnloop.ai.decisions import ChoiceQuestion
+from learnloop.ai.execution import content_key
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.decider_judgments import decide
 
@@ -50,9 +59,22 @@ QUESTION = ChoiceQuestion(
 OWNER_LABELS = {"confirm": "supports", "keep": "does not support", "undo": "does not support"}
 
 
+def unchecked(input_hash: str) -> dict[str, Any]:
+    """No verdict was asked for this input before the vault lock: the reword waits for the confirm."""
+
+    return {"status": "unchecked", "verdict": None, "probabilities": {}, "judgment_id": None,
+            "input_hash": input_hash, "judge": "decider"}
+
+
 def check(vault: Any, repository: Any, resolver: Any, facet_id: str, after: Mapping[str, Any],
-          citations: Sequence[Any]) -> dict[str, Any]:
-    """Ask the Decider; the result's ``verdict`` is its top option, or None without an answer."""
+          citations: Sequence[Any], *, asked: Mapping[str, Mapping[str, Any]] | None = None,
+          record: MutableMapping[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Ask the Decider; the result's ``verdict`` is its top option, or None without an answer.
+
+    ``asked``: the verdicts asked before the vault lock, by input hash; the
+    check only looks its own up (never a request). ``record``: collects each
+    verdict asked here by input hash (one input is asked once).
+    """
 
     from learnloop.content.facet_identity.authority import authority_meaning
 
@@ -68,13 +90,22 @@ def check(vault: Any, repository: Any, resolver: Any, facet_id: str, after: Mapp
                       "text": resolver.excerpt(citation, limit=10**9)})
     state = {"spans": spans, "new_wording": authority_meaning(after)}
     readable = bool(spans) and all(span["text"] for span in spans)
+    digest = content_key({"state": state, "question": QUESTION.wire(), "task": TASK})
+    if asked is not None:
+        found = asked.get(digest)
+        return dict(found) if found is not None else unchecked(digest)
+    if record is not None and digest in record:
+        return dict(record[digest])
     decision = decide(
         root=vault.root, config=vault.config, repository=repository, task=TASK, state=state,
-        question=QUESTION, left_kind="facet", left_id=facet_id,
+        question=QUESTION, left_kind="facet", left_id=facet_id, input_hash=digest,
         # A span whose text cannot be read is never judged: the reword waits.
         client_factory=None if readable else (lambda: None),
     )
-    return decision.detail()
+    detail = decision.detail()
+    if record is not None:
+        record[digest] = detail
+    return detail
 
 
 def label(connection: Any, record: Mapping[str, Any], *, action: str) -> str | None:
@@ -98,4 +129,4 @@ def label(connection: Any, record: Mapping[str, Any], *, action: str) -> str | N
     )
 
 
-__all__ = ["OWNER_LABELS", "QUESTION", "TASK", "check", "label"]
+__all__ = ["OWNER_LABELS", "QUESTION", "TASK", "check", "label", "unchecked"]

@@ -325,3 +325,71 @@ def test_a_tie_between_supports_and_another_option_holds_the_reword(tmp_path, mo
     (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
     assert card["span_support"]["status"] == "tied" and card["span_support"]["verdict"] is None
     assert "could not tell" in card["message"]
+
+
+class LockProbe(SpanDecider):
+    """Records whether the vault mutation lock was held when the Decider was asked."""
+
+    def __init__(self, choice, root):
+        super().__init__(choice)
+        self.root = root
+        self.holders = []
+
+    def decide(self, state, questions, *, purpose):
+        from learnloop.vault_lock import read_lock_holder
+
+        self.holders.append(read_lock_holder(self.root))
+        return super().decide(state, questions, purpose=purpose)
+
+
+@pytest.mark.parametrize("choice", ["supports", "does not support"])
+def test_the_span_check_is_asked_before_the_vault_lock_is_taken(tmp_path, monkeypatch, choice):
+    """Review F1: the Decider's network call never holds the vault mutation lock (others wait 10 s on it)."""
+
+    from learnloop.content.facet_identity import actions
+    from learnloop.vault.loader import load_vault
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, None)
+    client = LockProbe(choice, paths.root)
+    from learnloop import decider_judgments as tier1
+
+    monkeypatch.setattr(tier1, "client_for", lambda *a: client)
+    _apply_cited_reword(paths, repo, citation)
+    assert client.holders == [None]  # asked once, with no lock held
+    (check,) = _rows(repo, "facet_span_support")
+    if choice == "supports":
+        assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
+        return
+    (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
+    assert card["span_support"]["verdict"] == choice and card["span_support"]["judgment_id"] == check["id"]
+
+
+def test_a_check_whose_input_changed_under_the_lock_waits_for_the_confirm(tmp_path, monkeypatch):
+    """Review F1: inside the lock no Decider is asked; a verdict for other text holds the reword."""
+
+    from learnloop.content.facet_identity import authority, span_support
+    from learnloop.vault.loader import load_vault
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+
+    client = SpanDecider("supports")
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
+    vault = load_vault(paths.root, load_environment=False)
+    before = _entry(paths, SHARED)
+    support = authority.contributions([citation])
+    asked: dict = {}
+    recorder = authority.CitationResolver.for_vault(repo, vault).with_span_support(vault, repo, record=asked)
+    first = authority.check_meaning_write(SHARED, before=before, after={**before, "claim": NEW_CLAIM},
+                                          registered=True, contributions=support, resolver=recorder)
+    assert first.allowed and len(client.calls) == 1 and len(asked) == 1
+    locked = authority.CitationResolver.for_vault(repo, vault).with_span_support(vault, repo, asked=asked)
+    same = authority.check_meaning_write(SHARED, before=before, after={**before, "claim": NEW_CLAIM},
+                                         registered=True, contributions=support, resolver=locked)
+    assert same.allowed and same.span_support["judgment_id"] == first.span_support["judgment_id"]
+    other = authority.check_meaning_write(SHARED, before=before, after={**before, "claim": NEW_CLAIM + " Also."},
+                                          registered=True, contributions=support, resolver=locked)
+    assert other.confirmable and other.span_support["verdict"] is None
+    assert len(client.calls) == 1  # never asked under the lock
+    assert span_support.TASK == "facet_span_support"
