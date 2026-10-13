@@ -3357,6 +3357,9 @@ export interface QuickAddConsentDto {
   stage: string;
   reason?: string;
   provider?: string;
+  /** UX Phase 1: the learner already said OK to this provider once (with its date). */
+  granted?: boolean;
+  grantedAt?: string | null;
   [key: string]: unknown;
 }
 

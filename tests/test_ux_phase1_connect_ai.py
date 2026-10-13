@@ -156,3 +156,34 @@ def test_openrouter_needs_its_key(tmp_path, monkeypatch):
     with pytest.raises(SidecarError) as caught:
         call(ctx, "connect_ai", {"provider": "openrouter"})
     assert caught.value.code == "openrouter_key_missing"
+
+
+def test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build(tmp_path):
+    """The deliberate Quick add path (kept reachable) no longer asks for a
+    checkbox the learner already answered once: the synthesis consent entry
+    carries the recorded OK (spec §10 item 1.7)."""
+
+    from learnloop.content.pipeline.quick_add import plan_quick_add
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.add_source import AddSourceOptions, add_source
+    from tests.ux_phase1_support import grant_consent, repository, set_config
+
+    root = fresh_library(tmp_path)
+    set_config(root, {("ingest", "auto_build"): False})
+    repo = repository(root)
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, root, background=False, clock=CLOCK, services=fake_services())
+    book = write_book(tmp_path)
+    add_source(load_vault(root), jobs, str(book), AddSourceOptions(), clock=CLOCK)
+
+    def synthesis_consent():
+        vault = load_vault(root)
+        plan = plan_quick_add(repo, vault.config, vault, str(book), subject_id=None)
+        return next(entry for entry in plan.external_ai_consent if entry["stage"] == "synthesis")
+
+    before = synthesis_consent()
+    assert before["granted"] is False
+    grant_consent(root, "codex")
+    after = synthesis_consent()
+    assert after["granted"] is True
+    assert after["granted_at"] == "2026-10-13T09:00:00Z"
