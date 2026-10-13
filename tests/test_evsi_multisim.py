@@ -8,7 +8,9 @@ learning family.
 
 from __future__ import annotations
 
+import csv
 import json
+import os
 from dataclasses import replace
 
 import numpy as np
@@ -40,7 +42,7 @@ from learnloop.evsi_calibration.family_fit import (
 from learnloop.evsi_calibration.response_fit import FitSettings, fit_response_model
 from learnloop.evsi_calibration.simulate import SimulationSettings, loss_table_for, run_simulation
 from learnloop.evsi_calibration.world import HYP_KNOWS, HYP_OTHER, build_scenarios, hand_set_row
-from tests.test_evsi_calibration_sim import write_eedi_2020, write_eedi_2024
+from tests.test_evsi_calibration_sim import SUBJECT, write_eedi_2020, write_eedi_2024
 
 FAST = FamilyFitSettings(lca_iterations=300, cdm_iterations=150, nrm_iterations=40, lta_iterations=80,
                          bootstrap=30, workers=1)
@@ -321,6 +323,9 @@ def test_the_successor_arms_lift_the_episode_maximum_onto_value(eedi):
     lifted = at_maximum()
     lifted.observations = settings.safety_bound
     assert P.decide("voi_successor", lifted, settings).reason == "safety_bound"
+    unbounded = replace(settings, safety_bound=None)
+    lifted.observations = 10_000
+    assert P.decide("eig_no_gate", lifted, replace(unbounded, value_per_nat_minutes=1.0e6)).action == "measure"
 
 
 def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
@@ -347,22 +352,201 @@ def test_each_ablation_puts_back_exactly_one_piece_of_the_successor(eedi):
 
             proposed = P.decide("voi_proposed", state(), settings)
             if P._cap_stop(state(), config, budget=False) is None:
-                assert proposed == P.decide_lookahead(state(), settings)
-                assert P.decide("voi_p_one_step", state(), settings) == \
-                    P.decide_evsi(state(), settings, obey_abstention=False)
+                # The top-value variant is the lookahead rule inside the stops;
+                # the package measures exactly when it does (serving aside).
+                top = P.decide("voi_p_top_value", state(), settings)
+                look = P.decide_lookahead(state(), settings)
+                assert (top.action, top.question_id) == (look.action, look.question_id)
+                assert proposed.action == top.action
+                one_step = P.decide("voi_p_one_step", state(), settings)
+                assert one_step.action == P.decide_evsi(state(), settings, obey_abstention=False).action
                 single = P.decide_evsi(state(), settings)
                 fallback = P.decide("voi_p_with_fallback", state(), settings)
-                if single.action == "measure":
-                    assert fallback == single
-                elif single.verdict == "abstain":
-                    assert ":eig_value:evsi_" in fallback.reason
+                if single.verdict == "abstain":
+                    assert "eig_value:evsi_" in fallback.reason
                 else:
-                    assert fallback == proposed
+                    assert (fallback.action, fallback.question_id) == (proposed.action, proposed.question_id)
             gated = P.decide("voi_p_with_gate", state(), settings)
             if P._incumbent_stop(state(), settings, config, budget=False) is None:
                 assert gated == proposed
             else:
                 assert gated.action == "stop"
+
+
+def _random_beliefs(hypotheses, n, seed):
+    rng = np.random.default_rng(seed)
+    return [{h: float(v) for h, v in zip(hypotheses, rng.dirichlet(np.full(len(hypotheses), 0.7)))}
+            for _ in range(n)]
+
+
+def test_the_package_with_every_piece_put_back_is_the_successor(eedi):
+    # Codex review F1: the package once served rank_feasible's top-ranked check
+    # while the successor serves the incumbent's highest-EIG one when it pays,
+    # an undocumented fourth change. Now the package shares the successor's
+    # gate and serving rule: with the gate, the fallback and no lookahead put
+    # back it IS the successor, decision for decision, and the top-value
+    # serving is its own arm.
+    scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
+    hypotheses = scenario.hypotheses
+    beliefs = _random_beliefs(hypotheses, 25, 0) + [
+        {h: 1.0 / len(hypotheses) for h in hypotheses},
+        {h: (0.95 if h == HYP_KNOWS else 0.05 / (len(hypotheses) - 1)) for h in hypotheses},
+    ]
+    served_apart = 0
+    for belief in beliefs:
+        for repair in (3.0, 10.0, 30.0):
+            settings = P.PolicySettings(repair_minutes=repair)
+            for observations in (0, 1, 2, 5):
+                def state():
+                    st = _state(scenario, belief, settings)
+                    st.observations = observations
+                    return st
+
+                assert P.decide_package(state(), settings, gate=True, fallback=True, lookahead=False) == \
+                    P.decide_successor(state(), settings)
+                proposed = P.decide("voi_proposed", state(), settings)
+                top = P.decide("voi_p_top_value", state(), settings)
+                assert proposed.action == top.action
+                served_apart += proposed.question_id != top.question_id
+    assert served_apart > 0
+
+    # The review's counterexample shape, without abstention: two checks pay,
+    # the highest-EIG one is not rank_feasible's top-ranked one.
+    found = None
+    for belief in _random_beliefs(hypotheses, 200, 1):
+        settings = P.PolicySettings(repair_minutes=10.0)
+        st = _state(scenario, belief, settings)
+        gate = P._lcb_value_gate(st, settings)
+        highest = P._highest_eig(st)
+        verdict = P._rank(st, settings, P._prefilter(st, settings)).verdict
+        if len(gate.paying) >= 2 and highest in gate.paying and gate.top != highest and verdict == "measure":
+            found = (belief, settings, highest, gate.top)
+            break
+    assert found is not None
+    belief, settings, highest, top_ref = found
+    assert P.decide("voi_successor", _state(scenario, belief, settings), settings).question_id == highest
+    assert P.decide("voi_proposed", _state(scenario, belief, settings), settings).question_id == highest
+    assert P.decide("voi_p_top_value", _state(scenario, belief, settings), settings).question_id == top_ref
+    assert P.decide("evsi_lookahead", _state(scenario, belief, settings), settings).question_id == top_ref
+
+
+def _write_long_bank(directory, questions: int):
+    """The synthetic 2024 bank's label patterns repeated: one subject with
+    ``questions`` questions (more than the old 25-check bound)."""
+
+    write_eedi_2024(directory)
+    labels = [
+        ("A", {"B": 10, "C": 11}), ("B", {"A": 10, "D": 12}), ("C", {"A": 11, "B": 12}),
+        ("D", {"A": 10}), ("A", {"C": 11, "D": 12}), ("B", {"C": 10}), ("C", {"D": 11}), ("D", {"B": 12}),
+    ]
+    with (directory / "train.csv").open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["QuestionId", "ConstructId", "ConstructName", "SubjectId", "SubjectName", "CorrectAnswer",
+                         "QuestionText", "AnswerAText", "AnswerBText", "AnswerCText", "AnswerDText",
+                         "MisconceptionAId", "MisconceptionBId", "MisconceptionCId", "MisconceptionDId"])
+        for index in range(questions):
+            correct, mis = labels[index % len(labels)]
+            writer.writerow([index, 100 + index, "Order of operations", SUBJECT, "BIDMAS", correct, f"Q{index}",
+                             "a", "b", "c", "d"] + [f"{float(mis[o]):.1f}" if o in mis else "" for o in "ABCD"])
+    return directory
+
+
+def test_the_multi_family_study_runs_every_episode_without_a_count_bound(eedi, tmp_path):
+    # Codex review F4: the study inherited PolicySettings.safety_bound = 25, and
+    # it bound (an NRM learner's eig_no_gate episode: 25 checks with it, 37
+    # without). The bank is finite, so the study runs with no bound: an episode
+    # ends by its own rule or when the subject's questions run out.
+    base = MF.study_base(MF.MultiFamilySettings())
+    assert base.policy.safety_bound is None
+    assert MS.MultiSimSettings().policy.safety_bound is None
+    assert P.PolicySettings().safety_bound == 25  # the single-family study keeps its own
+    bank = load_eedi_2024(_write_long_bank(tmp_path / "long-bank", 40))
+    scenarios = tuple(build_scenarios(bank, eedi["fits"].lca))
+    assert len(scenarios[0].questions) == 40
+    families = F.build_families(bank, eedi["fits"])
+    world = MS.World(families["lca"], scenarios)
+    # A check costs nothing, so the EIG rule continues while any information is
+    # left: the episode is bounded by the bank alone.
+    generous = replace(base, learners=3, policies=("eig_no_gate",),
+                       policy=replace(base.policy, lambda_time=0.0, burden_cost=0.0, draw_count=4))
+    run = MS.run_family_simulation(world, generous)
+    assert run.episodes and all(e.checks > 25 for e in run.episodes)
+    for e, spec in zip(run.episodes, run.learners):
+        assert e.checks == 40 - len(spec.history) and e.stop_reason == "no_question_left"
+    # The old bound censored exactly these episodes.
+    bounded = MS.run_family_simulation(world, replace(generous, policy=replace(generous.policy, safety_bound=25)))
+    assert all(e.checks == 25 and e.stop_reason == "safety_bound" for e in bounded.episodes)
+    # The cell's table counts the episodes the bank, not the rule, ended.
+    table = MF._policy_table(run, seed=1, draws=20)["eig_no_gate"]
+    assert table["ran_out_of_questions"] == len(run.episodes) and table["count_bound_stops"] == 0
+    assert table["max_checks"] == max(e.checks for e in run.episodes)
+
+
+def _population_oracle(model, question, single_item_model):
+    """``P(option | hypothesis)`` marginalized over the item pool and the
+    learner population, from the TRUTH's answer rows: each item answers as a
+    one-item pool, each population state's needs split its weight."""
+
+    sums = {h: np.zeros(4) for h in model.hypotheses}
+    singles = [single_item_model(i) for i in range(model.pool.shape[0])]
+    for state in model.population:
+        needs = model.needs(tuple(state))
+        mean = np.mean([[single.row(tuple(state), question)[o] for o in "ABCD"] for single in singles], axis=0)
+        for h in needs:
+            sums[h] += mean / len(needs)
+    return {h: (v / v.sum() if v.sum() > 0 else np.full(4, 0.25)) for h, v in sums.items()}
+
+
+def test_the_calibrated_systems_average_responses_over_the_item_pool(eedi):
+    # Codex review F3: the nrm system applied the softmax to the MEAN item
+    # parameters, which is not the mean response the truth draws from. The
+    # system rows must equal an explicit item-mixture oracle built from the
+    # truth's own answer rows over the identical learner population.
+    families = F.build_families(eedi["bank"], eedi["fits"])
+    scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
+    for family in (families["nrm"], families["nrm"].with_strength(0.9)):
+        model = family.scenario_model(scenario)
+        assert model.pool.shape[0] >= 2
+        mean_params = F.NrmScenario(scenario, model.pool.mean(axis=0, keepdims=True), model.typical,
+                                    holder_shift=model.holder_shift)
+        largest_gap = 0.0
+        for question in scenario.questions[:3]:
+            rows = model.system_rows(question)
+            oracle = _population_oracle(
+                model, question,
+                lambda i: F.NrmScenario(scenario, model.pool[i:i + 1], model.typical, holder_shift=model.holder_shift))
+            for h in scenario.hypotheses:
+                assert [rows[h][o] for o in "ABCD"] == pytest.approx(list(oracle[h]), abs=1e-9), h
+                old = mean_params.system_rows(question)[h]
+                largest_gap = max(largest_gap, max(abs(old[o] - rows[h][o]) for o in "ABCD"))
+        # The parameter average is measurably not the response average.
+        assert largest_gap > 1e-3
+        # The bisection's holder-only path reads the same rows.
+        fresh = family.scenario_model(scenario)
+        assert fresh.targeted_consistencies() == pytest.approx(F.ScenarioModel.targeted_consistencies(model), abs=1e-12)
+
+    cdm = families["cdm"].scenario_model(scenario)
+    assert cdm.pool.shape[0] >= 2
+    for question in scenario.questions[:3]:
+        rows = cdm.system_rows(question)
+        singles = [F.CdmScenario(scenario, cdm.pool[i:i + 1], families["cdm"].priors.get(
+            scenario.subject_id, families["cdm"].pooled_prior)) for i in range(cdm.pool.shape[0])]
+        sums = {h: np.zeros(4) for h in scenario.hypotheses}
+        for profile, weight in cdm.profiles:
+            mean = np.mean([[single.row(profile, question)[o] for o in "ABCD"] for single in singles], axis=0)
+            for h, share in cdm._primary_weights(profile).items():
+                sums[h] += weight * share * mean
+        for h in scenario.hypotheses:
+            assert [rows[h][o] for o in "ABCD"] == pytest.approx(list(sums[h] / sums[h].sum()), abs=1e-9), h
+
+
+def test_the_implied_consistency_carries_a_subject_clustered_ci(eedi):
+    families = F.build_families(eedi["bank"], eedi["fits"])
+    scenarios = build_scenarios(eedi["bank"], eedi["fits"].lca)
+    for name in ("lca", "cdm", "nrm", "lta"):
+        implied = F.implied_quantities(families[name], scenarios)
+        low, high = implied["consistency_ci95"]
+        assert low <= implied["consistency"] <= high, name
 
 
 def test_the_counted_card_row_starts_at_the_vocabulary_and_follows_the_counts(eedi):
@@ -394,7 +578,8 @@ def test_cli_multisim_quick_fits_every_family_and_reports_claims(eedi, tmp_path)
     assert payload["families"] == ["lca", "cdm", "nrm", "lta"]
     report = json.loads((tmp_path / "out" / "multisim_report.json").read_text())
     analysis = report["analysis"]
-    verdicts = {"supported", "directional", "family-dependent", "contradicted", "no difference", "not tested"}
+    verdicts = {"supported", "directional", "family-dependent", "contradicted", "no difference", "not tested",
+                "insufficient evidence"}
     assert {claim["verdict"] for claim in analysis["claims"]} <= verdicts
     assert analysis["winners"] and all(w["per_family"] for w in analysis["winners"])
     for name in ("lca", "cdm", "nrm", "lta"):
@@ -477,7 +662,10 @@ def test_a_zero_effect_everywhere_is_no_difference_not_a_contradiction():
     assert MF._verdict([zero, against]) == "contradicted"
     assert MF._verdict([zero, {"value": -0.3, "ci95": [-0.5, -0.1], "holds": True, "certified": True}]) == \
         "family-dependent"
-    assert MF._verdict([{"value": "8/8", "ci95": None, "holds": True, "certified": True}]) == "supported"
+    # A value certifies only through a CI (Codex review: C1a was certified by a
+    # fixed margin with no CI): without one it holds at most directionally.
+    assert MF._verdict([{"value": "8/8", "ci95": None, "holds": True, "certified": True}]) == "directional"
+    assert MF._verdict([{"value": 0.3, "ci95": [0.2, 0.4], "holds": True, "certified": True}]) == "supported"
 
 
 def test_the_pseudo_count_log_loss_is_per_check_of_each_arm():
@@ -501,3 +689,140 @@ def test_cli_multisim_without_fits_needs_the_2020_answers(eedi, tmp_path):
     assert json.loads(result.output)["status"] == "invalid"
     no_bank = CliRunner().invoke(app, ["evsi", "multisim", "--output", str(tmp_path / "out"), "--json"])
     assert no_bank.exit_code == 1 and "--eedi-2024" in json.loads(no_bank.output)["reason"]
+
+
+def _synthetic_report(families=("a", "b", "c"), *, learners: int = 30) -> dict:
+    """A stored multisim report reduced to what the analyzer reads: per family,
+    the fitted consistency and one regime (fitted strength, 30-minute repairs)
+    in which ``evsi`` beats ``incumbent`` by a minute per learner."""
+
+    rng = np.random.default_rng(3)
+
+    def cell():
+        base = rng.uniform(10.0, 20.0, size=learners)
+        totals = {"incumbent": base, "evsi": base - 1.0 + rng.normal(0, 0.1, size=learners),
+                  "evsi_lcb_only": base - 1.2}
+        return {"consistency": "fitted", "repair_minutes": 30.0, "policies": {},
+                "episodes": {"learners": list(range(learners)),
+                             "policies": {p: {"total": [round(float(x), 4) for x in v]} for p, v in totals.items()}}}
+
+    return {
+        "settings": {"seed": 1, "bootstrap": 100, "families": list(families), "stress_families": [],
+                     "strengths": [None], "repairs": [30.0], "pseudo_count_regimes": []},
+        "hand_set_implied": {"consistency": {"contrast_card_dominant_normalized": 0.8333}},
+        "fits": {"validation": {"families": {name: {"adequate": True} for name in families}}},
+        "families": {name: {"fitted": True,
+                            "implied": {"fitted": {"consistency": 0.4, "consistency_ci95": [0.38, 0.42]}},
+                            "regimes": [cell()]} for name in families},
+    }
+
+
+def test_certification_needs_adequate_families_and_every_cell():
+    # Codex review F2: the analyzer counted every family whatever its adequacy,
+    # and a family missing a cell simply did not vote ("every family" became
+    # "every available result").
+    def claim(analysis, claim_id):
+        return next(c for c in analysis["claims"] if c["id"] == claim_id)
+
+    report = _synthetic_report()
+    complete = MF.analyze(report)
+    assert complete["families"] == ["a", "b", "c"] and complete["excluded_families"] == []
+    assert claim(complete, "C7:30")["verdict"] == "supported"
+    assert claim(complete, "C1a")["verdict"] == "supported"
+    assert all(row["complete"] for row in complete["winners"])
+
+    # Every fit fails the adequacy gate: nothing votes, nothing is certified.
+    failed = json.loads(json.dumps(report))
+    for block in failed["fits"]["validation"]["families"].values():
+        block["adequate"] = False
+    analysis = MF.analyze(failed)
+    assert analysis["families"] == [] and not analysis["enough_families"]
+    assert {e["family"] for e in analysis["excluded_families"]} == {"a", "b", "c"}
+    assert {c["verdict"] for c in analysis["claims"]} == {"insufficient evidence"}
+    assert analysis["policy_regret"] == [] and analysis["winners"] == []
+
+    # One inadequate family is excluded (and reported), not silently counted.
+    one = json.loads(json.dumps(report))
+    one["fits"]["validation"]["families"]["c"]["adequate"] = False
+    analysis = MF.analyze(one)
+    assert analysis["families"] == ["a", "b"]
+    assert analysis["excluded_families"] == [{"family": "c", "reason": "failed the adequacy gate on held-out students"}]
+    assert {v["family"] for v in claim(analysis, "C7:30")["values"]} == {"a", "b"}
+    # A fit with no held-out validation is not adequate either.
+    del one["fits"]["validation"]["families"]["b"]
+    assert MF.analyze(one)["families"] == ["a"]
+    assert claim(MF.analyze(one), "C7:30")["verdict"] == "insufficient evidence"  # one family is not RankCert
+
+    # A voting family missing the claim's cell: insufficient evidence, named.
+    gap = json.loads(json.dumps(report))
+    gap["families"]["c"]["regimes"] = []
+    analysis = MF.analyze(gap)
+    assert claim(analysis, "C7:30")["verdict"] == "insufficient evidence"
+    assert claim(analysis, "C7:30")["missing"] == ["c"]
+    assert [row["complete"] for row in analysis["winners"]] == [False]
+    assert all(not row["complete"] for row in analysis["policy_regret"])
+    # A required family absent from the report is an exclusion, never a quiet 2/2.
+    absent = json.loads(json.dumps(report))
+    del absent["families"]["c"]
+    analysis = MF.analyze(absent)
+    assert {"family": "c", "reason": "required by the study but absent from the report"} in analysis["excluded_families"]
+
+
+def test_c1a_certifies_through_the_consistency_ci_not_a_fixed_margin():
+    report = _synthetic_report()
+    straddles = json.loads(json.dumps(report))
+    straddles["families"]["b"]["implied"]["fitted"]["consistency_ci95"] = [0.38, 0.85]
+    claim = next(c for c in MF.analyze(straddles)["claims"] if c["id"] == "C1a")
+    assert claim["verdict"] == "directional" and claim["families_certified"] == "2/3"
+    # A stored report from before the CI: it holds, never certified.
+    old = json.loads(json.dumps(report))
+    for block in old["families"].values():
+        del block["implied"]["fitted"]["consistency_ci95"]
+    claim = next(c for c in MF.analyze(old)["claims"] if c["id"] == "C1a")
+    assert claim["verdict"] == "directional" and claim["families_certified"] == "0/3"
+
+
+def test_reanalysis_never_destroys_the_stored_report(tmp_path, monkeypatch):
+    # Codex review F5: --reanalyze rewrote the report with Path.write_text,
+    # which truncates first; an interruption (here: the disk fills while the
+    # new report is flushed) lost the stored episodes.
+    stored = tmp_path / "multisim_report.json"
+    report = _synthetic_report()
+    report.update({"elapsed_seconds": 1.0, "analysis": {}})
+    original = json.dumps(report)
+    stored.write_text(original)
+
+    def truncate_then_fail(path, data, *args, **kwargs):
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(data[: len(data) // 3])
+        raise OSError(28, "No space left on device")
+
+    def no_space(fd):
+        raise OSError(28, "No space left on device")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(type(stored), "write_text", truncate_then_fail)
+        patched.setattr(os, "fsync", no_space)
+        result = CliRunner().invoke(app, ["evsi", "multisim", "--reanalyze", str(stored), "--json"])
+    assert result.exit_code == 1
+    assert stored.read_text() == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["multisim_report.json"]  # no temporary left
+    # The same rewrite succeeds once the disk has room, atomically.
+    result = CliRunner().invoke(app, ["evsi", "multisim", "--reanalyze", str(stored), "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(stored.read_text())["analysis"]["families"] == ["a", "b", "c"]
+
+
+def test_the_atomic_writer_keeps_the_old_file_on_any_failure(tmp_path, monkeypatch):
+    from learnloop.evsi_calibration import artifacts
+
+    target = tmp_path / "family_fits.json"
+    target.write_text("old")
+    with monkeypatch.context() as patched:
+        patched.setattr(artifacts.os, "replace", lambda source, destination: (_ for _ in ()).throw(OSError("busy")))
+        with pytest.raises(OSError):
+            artifacts.write_text_atomic(target, "new")
+    assert target.read_text() == "old" and sorted(p.name for p in tmp_path.iterdir()) == ["family_fits.json"]
+    artifacts.write_text_atomic(target, "new")
+    artifacts.write_text_atomic(tmp_path / "fresh" / "report.json", "{}")
+    assert target.read_text() == "new" and (tmp_path / "fresh" / "report.json").read_text() == "{}"

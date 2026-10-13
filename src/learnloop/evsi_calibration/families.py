@@ -7,8 +7,11 @@ for the learning family, moves the state after each answer. Every family also
 provides its own **calibrated single-cause system model**: the population
 average ``P(option | hypothesis, question)`` and the prior over the
 simulation's hypotheses (``knows``, ``mis:<id>``, ``other``) implied by the
-family, computed from the family's mean item parameters (the system never
-knows a question's own parameters, exactly as in the single-family study).
+family. The average is over the learners holding each hypothesis AND over the
+item pool a question's parameters are drawn from: the response probabilities
+of every item are averaged, never the parameters (review F3: a softmax of
+mean parameters is not the mean response). The system never knows a
+question's own parameters, exactly as in the single-family study.
 
 Transfer from 2020 to 2024 follows the single-family study: a subject with
 at least two fitted triples uses its own parameters, the rest the pooled ones.
@@ -85,6 +88,17 @@ from learnloop.evsi_calibration.world import (
 FAMILY_NAMES = ("lca", "cdm", "nrm", "lta")
 STRESS_FAMILIES = ("lta_reveal",)
 POPULATION_SAMPLE = 2000
+#: Items per vectorized block when a system row averages over an item pool.
+ITEM_BLOCK = 64
+#: Bootstrap draws (subjects resampled) for the implied consistency's CI.
+IMPLIED_BOOTSTRAP = 400
+#: Per process: the continuous family's finished system rows, keyed by the
+#: model's fingerprint (item pool, typical item, holder shift, subject,
+#: hypotheses) and the question. An episode chunk builds fresh scenario models,
+#: and averaging over a pooled item pool is the study's costliest step, so a
+#: worker computes each row once per study, not once per chunk.
+_NRM_ROW_CACHE: dict[tuple[str, str], dict[str, dict[str, float]]] = {}
+_NRM_ROW_CACHE_LIMIT = 50_000
 #: Items and learners the strength calibration of the continuous family averages over.
 STRENGTH_ITEMS = 64
 STRENGTH_POPULATION = 4000
@@ -362,11 +376,48 @@ def _cdm_row(phi: np.ndarray, skill: int, triggered: Sequence[str], question: Ee
     return _row(row)
 
 
+def _cdm_rows(phi: np.ndarray, skill: int, triggered: Sequence[str], question: EediQuestion) -> np.ndarray:
+    """:func:`_cdm_row` for every item of ``phi`` (items x 4 groups x 4 roles) at
+    once: (items, 4 options) in ``OPTIONS`` order."""
+
+    index = {o: k for k, o in enumerate(OPTIONS)}
+    rows = np.zeros((phi.shape[0], len(OPTIONS)))
+    distractors = question.distractors
+    if triggered:
+        g = phi[:, 2 + skill]
+        correct, designated = g[:, 0], g[:, 1]
+        signature: list[str] = []
+        per = designated / len(triggered)
+        for misconception in triggered:
+            options = question.options_for(misconception)
+            for option in options:
+                rows[:, index[option]] += per / len(options)
+                signature.append(option)
+        rest = [d for d in distractors if d not in signature]
+        rows[:, index[question.correct]] = correct
+        for option in rest:
+            rows[:, index[option]] += np.maximum(1.0 - correct - designated, 0.0) / len(rest)
+    else:
+        g = phi[:, skill]
+        correct, designated, other = g[:, 0], g[:, 1], (g[:, 2] + g[:, 3]) / 2.0
+        rows[:, index[question.correct]] = correct
+        labelled = set(question.misconception_by_option)
+        weights = {d: (designated if d in labelled else other) for d in distractors}
+        total = sum(weights.values()) if weights else np.zeros(phi.shape[0])
+        total = np.where(total == 0, 1.0, total)
+        for option, weight in weights.items():
+            rows[:, index[option]] = (1.0 - correct) * weight / total
+    rows = np.maximum(rows, 0.0)
+    return rows / rows.sum(axis=1, keepdims=True)
+
+
 class CdmScenario(ScenarioModel):
     def __init__(self, scenario: Scenario, pool: np.ndarray, prior: CdmProfilePrior) -> None:
         super().__init__(scenario)
         self.pool = pool
-        self.mean_phi = pool.mean(axis=0)
+        #: The item pool the system's rows average over (the strength
+        #: calibration shifts it while it bisects).
+        self.system_pool = pool
         self.misconceptions = [h[len(MIS_PREFIX):] for h in self.hypotheses if h.startswith(MIS_PREFIX)]
         self.profiles = prior.weights(len(self.misconceptions))
         self._prior: dict[str, float] | None = None
@@ -395,14 +446,18 @@ class CdmScenario(ScenarioModel):
         return _cdm_row(phi, profile[0], triggered, question)
 
     def _compute_system_rows(self, question: EediQuestion) -> dict[str, dict[str, float]]:
+        """Per hypothesis, the profiles' item-pool-average rows weighted by the
+        profile prior: ``sum_p w_p share_h(p) mean_i P_i(option | p)``."""
+
         sums = {h: {o: 0.0 for o in OPTIONS} for h in self.hypotheses}
         mass = {h: 0.0 for h in self.hypotheses}
         for profile, weight in self.profiles:
-            row = self._profile_row(profile, question, self.mean_phi)
+            triggered = [m for m in self._held(profile) if question.options_for(m)]
+            mean = _cdm_rows(self.system_pool, profile[0], triggered, question).mean(axis=0)
             for h, share in self._primary_weights(profile).items():
                 mass[h] += weight * share
-                for o in OPTIONS:
-                    sums[h][o] += weight * share * row[o]
+                for k, o in enumerate(OPTIONS):
+                    sums[h][o] += weight * share * float(mean[k])
         return {h: _row(sums[h]) if mass[h] > 0 else _row({o: 1.0 for o in OPTIONS}) for h in self.hypotheses}
 
     def draw_state(self, rng: np.random.Generator) -> tuple[int, tuple[int, ...]]:
@@ -485,7 +540,7 @@ class CdmFamily(FamilyModel):
             values: list[float] = []
             for model in models:
                 assert isinstance(model, CdmScenario)
-                model.mean_phi = _shift_designated(model.pool, delta).mean(axis=0) if delta else model.pool.mean(axis=0)
+                model.system_pool = _shift_designated(model.pool, delta) if delta else model.pool
                 model._system_rows.clear()
                 values.extend(model.targeted_consistencies())
             return float(np.mean(values))
@@ -517,12 +572,15 @@ class NrmScenario(ScenarioModel):
                  holder_shift: float = 0.0) -> None:
         super().__init__(scenario)
         self.pool = pool
-        self.mean_params = pool.mean(axis=0)
         self.typical = typical
         self.holder_shift = holder_shift
         self.misconceptions = [h[len(MIS_PREFIX):] for h in self.hypotheses if h.startswith(MIS_PREFIX)]
         rng = np.random.default_rng(_hash_int("nrm-population", scenario.subject_id))
         K = len(self.misconceptions)
+        digest = hashlib.sha256(np.ascontiguousarray(pool, dtype=float).tobytes())
+        digest.update(np.ascontiguousarray(typical, dtype=float).tobytes())
+        digest.update(repr((scenario.subject_id, self.hypotheses, POPULATION_SAMPLE)).encode("utf-8"))
+        self._fingerprint = digest.hexdigest()
         self.population = rng.standard_normal((POPULATION_SAMPLE, 1 + K))
         self._population_needs = self._needs_batch(self.population)
         index = {h: i for i, h in enumerate(self.hypotheses)}
@@ -550,38 +608,50 @@ class NrmScenario(ScenarioModel):
         return out
 
     def _logits(self, params: np.ndarray, theta: np.ndarray, eta: np.ndarray, question: EediQuestion) -> np.ndarray:
-        """(S, 4 options) logits for states (theta, eta per misconception) on ``question``.
+        """(S, 4 options) logits for states (theta, eta per misconception) on
+        ``question`` for one item (``params`` (7,)); (B, S, 4) for a block of
+        items (``params`` (B, 1, 7)).
 
         ``eta`` is (S, K); labelled distractors of a hypothesis misconception
         read that trait, other labelled ones the trait's mean (0)."""
 
-        roles = nrm_logits(params, theta, np.zeros_like(theta))  # (S, 4): correct, designated@eta0, other_a, ref
-        lam = float(params[4])
+        roles = nrm_logits(params, theta, np.zeros_like(theta))  # (..., S, 4): correct, designated@eta0, other_a, ref
+        lam = params[..., 4]
         threshold = nrm_threshold(self.typical, theta) if self.holder_shift else None
-        out = np.zeros((theta.shape[0], 4))
+        out = np.zeros(roles.shape)
         unlabelled_slot = 0
         for index, option in enumerate(OPTIONS):
             if option == question.correct:
-                out[:, index] = roles[:, 0]
+                out[..., index] = roles[..., 0]
                 continue
             misconception = question.misconception_by_option.get(option)
             if misconception is not None:
-                out[:, index] = roles[:, 1]
+                out[..., index] = roles[..., 1]
                 if misconception in self.misconceptions:
                     trait = eta[:, self.misconceptions.index(misconception)]
-                    out[:, index] += lam * trait
+                    out[..., index] += lam * trait
                     if threshold is not None:
-                        out[:, index] += self.holder_shift * (trait > threshold)
+                        out[..., index] += self.holder_shift * (trait > threshold)
                 continue
-            out[:, index] = roles[:, 2] if unlabelled_slot == 0 else roles[:, 3]
+            out[..., index] = roles[..., 2] if unlabelled_slot == 0 else roles[..., 3]
             unlabelled_slot += 1
         return out
 
     def _probabilities(self, params: np.ndarray, states: np.ndarray, question: EediQuestion) -> np.ndarray:
         z = self._logits(params, states[:, 0], states[:, 1:], question)
-        z = z - z.max(axis=1, keepdims=True)
+        z = z - z.max(axis=-1, keepdims=True)
         e = np.exp(z)
-        return e / e.sum(axis=1, keepdims=True)
+        return e / e.sum(axis=-1, keepdims=True)
+
+    def pool_probabilities(self, states: np.ndarray, question: EediQuestion) -> np.ndarray:
+        """(S, 4): each state's response probabilities averaged over the item
+        pool (the item a question takes is unknown to the system)."""
+
+        total = np.zeros((states.shape[0], 4))
+        for start in range(0, self.pool.shape[0], ITEM_BLOCK):
+            block = self.pool[start:start + ITEM_BLOCK][:, None, :]
+            total += self._probabilities(block, states, question).sum(axis=0)
+        return total / self.pool.shape[0]
 
     def system_prior(self) -> dict[str, float]:
         if self._prior is None:
@@ -591,13 +661,50 @@ class NrmScenario(ScenarioModel):
         return dict(self._prior)
 
     def _compute_system_rows(self, question: EediQuestion) -> dict[str, dict[str, float]]:
-        probabilities = self._probabilities(self.mean_params, self.population, question)  # (S, 4)
-        sums = self._weights.T @ probabilities  # (H, 4)
+        key = (f"{self._fingerprint}:{float(self.holder_shift)!r}", question.question_id)
+        cached = _NRM_ROW_CACHE.get(key)
+        if cached is None:
+            cached = self._rows_for(question, self.hypotheses)
+            if len(_NRM_ROW_CACHE) >= _NRM_ROW_CACHE_LIMIT:
+                _NRM_ROW_CACHE.clear()
+            _NRM_ROW_CACHE[key] = cached
+        return {h: dict(row) for h, row in cached.items()}
+
+    def _rows_for(self, question: EediQuestion, hypotheses: Sequence[str]) -> dict[str, dict[str, float]]:
+        """The system rows of ``hypotheses``: the population states weighted by
+        their share of each hypothesis, each state's response averaged over the
+        item pool. Only states with weight on ``hypotheses`` are evaluated."""
+
+        columns = [self.hypotheses.index(h) for h in hypotheses]
+        weights = self._weights[:, columns]  # (S, H')
+        rows = np.flatnonzero(weights.sum(axis=1) > 0)
+        sums = np.zeros((len(columns), 4))
+        if rows.size:
+            probabilities = self.pool_probabilities(self.population[rows], question)  # (S', 4)
+            sums = weights[rows].T @ probabilities  # (H', 4)
         out: dict[str, dict[str, float]] = {}
-        for i, h in enumerate(self.hypotheses):
+        for i, h in enumerate(hypotheses):
             total = float(sums[i].sum())
             vector = sums[i] / total if total > 0 else np.full(4, 0.25)
             out[h] = _row({o: float(vector[k]) for k, o in enumerate(OPTIONS)})
+        return out
+
+    def targeted_consistencies(self) -> list[float]:
+        """As :meth:`ScenarioModel.targeted_consistencies`, from the holders'
+        rows alone (the strength bisection's inner loop): the same rows, without
+        evaluating the population states that hold nothing."""
+
+        out: list[float] = []
+        for question in self.scenario.questions:
+            targeted = [h for h in self.hypotheses
+                        if h.startswith(MIS_PREFIX) and question.options_for(h[len(MIS_PREFIX):])]
+            if not targeted:
+                continue
+            cached = self._system_rows.get(question.question_id)
+            rows = cached if cached is not None else self._rows_for(question, targeted)
+            for h in self.hypotheses:
+                if h in targeted:
+                    out.append(sum(rows[h][o] for o in question.options_for(h[len(MIS_PREFIX):])))
         return out
 
     def draw_state(self, rng: np.random.Generator) -> tuple[float, ...]:
@@ -775,8 +882,11 @@ def implied_quantities(family: FamilyModel, scenarios: Sequence[Scenario]) -> di
     false alarm, knower slip, unsure success and the hypothesis prevalences."""
 
     consistency, holder_correct, false_alarm, slip, unsure_correct = [], [], [], [], []
+    #: Per subject: (sum, count) of its targeted consistencies (the CI resamples subjects).
+    by_subject: list[tuple[float, int]] = []
     prevalence = {"knows": [], "holds": [], "other": [], "multi_need_share": []}
     for scenario in scenarios:
+        before = len(consistency)
         model = family.scenario_model(scenario)
         prior = model.system_prior()
         prevalence["knows"].append(prior.get(HYP_KNOWS, 0.0))
@@ -798,12 +908,24 @@ def implied_quantities(family: FamilyModel, scenarios: Sequence[Scenario]) -> di
                     if options:
                         consistency.append(sum(rows[h][o] for o in options))
                         holder_correct.append(rows[h][question.correct])
+        if len(consistency) > before:
+            by_subject.append((float(sum(consistency[before:])), len(consistency) - before))
 
     def summary(values: Sequence[float]) -> float | None:
         return round(float(np.mean(values)), 4) if values else None
 
+    consistency_ci95 = None
+    if by_subject:
+        sums = np.asarray([v for v, _ in by_subject])
+        counts = np.asarray([n for _, n in by_subject], dtype=float)
+        rng = np.random.default_rng(_hash_int("implied-ci", family.key))
+        picks = rng.integers(0, len(by_subject), size=(IMPLIED_BOOTSTRAP, len(by_subject)))
+        boots = sums[picks].sum(axis=1) / counts[picks].sum(axis=1)
+        consistency_ci95 = [round(float(np.quantile(boots, 0.025)), 4), round(float(np.quantile(boots, 0.975)), 4)]
     return {
         "consistency": summary(consistency),
+        #: 95% CI of the bank mean, subjects resampled (the claims' certification).
+        "consistency_ci95": consistency_ci95,
         "holder_correct": summary(holder_correct),
         "false_alarm": summary(false_alarm),
         "knower_slip": summary(slip),

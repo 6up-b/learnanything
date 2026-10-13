@@ -92,7 +92,12 @@ from learnloop.evsi_calibration.world import (
 
 #: v2: rotation claims per regime, S4, the A ablations, ``no difference``, and
 #: C6c's log loss bootstrapped per arm.
-MULTIFAMILY_VERSION = "evsi_multifamily_v2"
+#: v3 (Codex review): only families that pass the adequacy gate vote, and a
+#: claim missing a voting family's cell is ``insufficient evidence`` (F2); a
+#: value certifies only through a CI (C1a's from the subjects); A4 (the
+#: package's serving rule) and S4 on the top-value variant (F1); episodes that
+#: ran out of questions are counted (F4).
+MULTIFAMILY_VERSION = "evsi_multifamily_v3"
 
 #: Paired comparisons recorded in every cell: (left, right) -> mean(right - left).
 PAIRS: tuple[tuple[str, str], ...] = (
@@ -117,6 +122,8 @@ PAIRS: tuple[tuple[str, str], ...] = (
     ("voi_proposed", "voi_p_with_gate"),
     ("voi_proposed", "voi_p_with_fallback"),
     ("voi_p_one_step", "voi_proposed"),
+    ("voi_proposed", "voi_p_top_value"),
+    ("evsi_lookahead", "voi_p_top_value"),
 )
 
 
@@ -196,8 +203,15 @@ def _policy_table(run: MultiSimRun, *, seed: int, draws: int) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for policy, blocks in summary.items():
         e = blocks["episodes"]
+        episodes = [x for x in run.episodes if x.policy == policy]
         out[policy] = {
             "mean_checks": e.get("mean_checks"),
+            "max_checks": max((x.checks for x in episodes), default=0),
+            #: Episodes that ended because the subject's questions ran out (the
+            #: bank, not the policy's rule, stopped them), and any a count bound
+            #: stopped (none since review F4).
+            "ran_out_of_questions": sum(1 for x in episodes if x.stop_reason == "no_question_left"),
+            "count_bound_stops": sum(1 for x in episodes if x.stop_reason == "safety_bound"),
             "mean_total_minutes": e.get("mean_total_minutes"),
             "total_minutes_ci95": e.get("total_minutes_ci95"),
             "correct_action_rate": e.get("correct_action_rate"),
@@ -406,6 +420,16 @@ def _stream_job(payload: tuple[World, Sequence[FamilyLearner], str, float, float
 # -- the study ------------------------------------------------------------------------------------------------
 
 
+def study_base(settings: MultiFamilySettings) -> MultiSimSettings:
+    """Every cell's starting settings. No count bound on any episode (review F4):
+    the bank is finite, so an episode ends by its rule or when its subject's
+    questions run out, and a bound would censor exactly the episodes whose
+    cost a value rule is judged on."""
+
+    return MultiSimSettings(learners=settings.learners, seed=settings.seed, workers=settings.workers,
+                            policy=P.PolicySettings(draw_count=settings.draw_count, safety_bound=None))
+
+
 def run_multifamily(
     bank: EediBank,
     fits: FamilyFits,
@@ -421,8 +445,7 @@ def run_multifamily(
         raise ValueError("no simulation scenario: the 2024 bank and the fits share no usable subject")
     names = tuple(n for n in settings.families if n in families)
     stress = tuple(n for n in settings.stress_families if n in families)
-    base = MultiSimSettings(learners=settings.learners, seed=settings.seed, workers=settings.workers,
-                            policy=P.PolicySettings(draw_count=settings.draw_count))
+    base = study_base(settings)
     strength_cache: dict[tuple[str, float | None], FamilyModel] = {}
 
     def family_at(name: str, strength: float | None) -> FamilyModel:
@@ -447,7 +470,7 @@ def run_multifamily(
         "version": MULTIFAMILY_VERSION,
         "simulation_version": MULTISIM_VERSION,
         "settings": settings.as_dict(),
-        "policy_defaults": P.PolicySettings().as_dict(),
+        "policy_defaults": base.policy.as_dict(),
         "fits": {
             "version": fits.version,
             "source": fits.source,
@@ -634,15 +657,59 @@ def _part_c(name: str, fits: FamilyFits, settings: MultiFamilySettings, base: Mu
 
 # -- analysis: claims across families (RankCert) -------------------------------------------------------------
 
+#: RankCert's uncertainty set needs at least two structurally different
+#: families that pass the adequacy gate; with fewer, nothing is certified.
+MIN_VOTING_FAMILIES = 2
+INSUFFICIENT = "insufficient evidence"
+
+
+def _has_ci(value: Mapping[str, Any]) -> bool:
+    ci = value.get("ci95")
+    return isinstance(ci, (list, tuple)) and len(ci) == 2 and all(isinstance(x, (int, float)) for x in ci)
+
+
+def _ci_only(values: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """A value certifies only through its 95% CI: one without a CI can hold
+    (its point estimate agrees) but is never certified."""
+
+    return [{**v, "certified": bool(v.get("certified")) and _has_ci(v)} for v in values]
+
+
+def _voting_families(report: Mapping[str, Any], fitted: Sequence[str]) -> tuple[list[str], list[dict[str, str]]]:
+    """The families that vote, and the exclusions with their reason. A family
+    votes when it is in the report, was fitted, and passed the adequacy gate
+    on held-out students (RankCert: predictive adequacy is a prerequisite of
+    the uncertainty set). The study's required families come from its
+    settings; one absent from the report is an exclusion too."""
+
+    validation = ((report.get("fits") or {}).get("validation") or {}).get("families") or {}
+    required = list((report.get("settings") or {}).get("families") or [])
+    voting: list[str] = []
+    excluded: list[dict[str, str]] = []
+    for name in required:
+        if name not in report.get("families", {}):
+            excluded.append({"family": name, "reason": "required by the study but absent from the report"})
+    for name in fitted:
+        block = validation.get(name)
+        if block is None:
+            excluded.append({"family": name, "reason": "no held-out validation (adequacy unknown)"})
+        elif block.get("adequate") is not True:
+            excluded.append({"family": name, "reason": "failed the adequacy gate on held-out students"})
+        else:
+            voting.append(name)
+    return voting, excluded
+
 
 def _verdict(values: Sequence[Mapping[str, Any]]) -> str:
     """``supported`` when every family's CI agrees with the claim, ``directional``
     when every family's point estimate agrees, ``family-dependent`` otherwise;
     ``no difference`` when the two arms took identical episodes everywhere
-    (a zero effect with a zero-width CI in every family)."""
+    (a zero effect with a zero-width CI in every family). A value without a CI
+    is never certified (:func:`_ci_only`)."""
 
     if not values:
         return "not tested"
+    values = _ci_only(values)
     if all(v.get("value") == 0 and list(v.get("ci95") or [None, None]) == [0, 0] for v in values):
         return "no difference"
     if all(v.get("certified") for v in values):
@@ -701,9 +768,10 @@ def _rotation_claim(report: Mapping[str, Any], families: Sequence[str], key: str
         block = report["families"][name]
         main = block.get("main", {})
         # In the study's family order, not the stored dict's (a stored report's keys come back sorted).
-        cells = [(f"fitted/3 system={system}", main[system]) for system in families if system in main]
+        cells = [(f"fitted/3 system={system}", main[system]) for system in families
+                 if system in main and system != name]
         cells += [(f"{c['consistency']}/{float(c['repair_minutes']):g} system={c['system']}", c)
-                  for c in block.get("rotation", [])]
+                  for c in block.get("rotation", []) if c.get("system") in families and c.get("system") != name]
         for where, cell in cells:
             pair = _paired(cell["episodes"], left, right, seed=seed, draws=draws)
             if pair is not None:
@@ -739,9 +807,15 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
     best), top-1 agreement and the regret of acting on another family's winner."""
 
     rows = []
-    first = report["families"][families[0]]
-    for cell0 in first["regimes"]:
-        consistency, repair = cell0["consistency"], float(cell0["repair_minutes"])
+    # Every regime any voting family ran, in the order they were run (a family
+    # missing one is reported, never silently left out of the row).
+    regimes: list[tuple[str, float]] = []
+    for name in families:
+        for cell0 in report["families"][name].get("regimes", []):
+            regime = (cell0["consistency"], float(cell0["repair_minutes"]))
+            if regime not in regimes:
+                regimes.append(regime)
+    for consistency, repair in regimes:
         per_family = {}
         for name in families:
             cell = _regime(report["families"][name], consistency, repair)
@@ -764,6 +838,7 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
             per_family[name] = {"winner": best, "mean": round(means[best], 4), "co_winners": co,
                                 "runner_up": runner, "margin_over_runner_up": margin,
                                 "means": {p: round(v, 4) for p, v in sorted(means.items())}}
+        missing = [name for name in families if name not in per_family]
         winners = [v["winner"] for v in per_family.values()]
         top = max((winners.count(w) for w in winners), default=0)
         # Ties are listed, and the first in name order is the reported mode, so
@@ -785,6 +860,9 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
         taus = [t for t in taus if t is not None]
         rows.append({
             "regime": f"{consistency}/{repair:g}",
+            #: Every voting family has this regime; else the row is not evidence.
+            "complete": not missing,
+            "missing": missing,
             "per_family": per_family,
             "modal_winner": modal,
             "modal_tied": modal_tied,
@@ -805,11 +883,14 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
 NEAR_BEST_MINUTES = 0.10
 
 
-def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: Sequence[str]) -> list[dict[str, Any]]:
+def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: Sequence[str],
+                   expected_regimes: Sequence[str] | None = None) -> list[dict[str, Any]]:
     """RankCert's robust choice: each policy's regret (its mean minutes minus the
     best policy's) in every family x regime cell, worst case first. A policy
     that is never far from the best whichever family is true is the one to
-    ship when the families disagree about the winner."""
+    ship when the families disagree about the winner. A policy missing from
+    any voting family x expected regime cell is ``complete: false`` and ranks
+    after every complete one (its worst case is unknown)."""
 
     regrets: dict[str, dict[str, list[tuple[float, str]]]] = {}
     for name in list(families) + list(stress):
@@ -828,8 +909,13 @@ def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: S
             continue
         worst = max(fitted)
         stressed = [(value, f"{name} {where}") for name in stress for value, where in by_family.get(name, [])]
+        covered = {(name, where) for name in families for _value, where in by_family.get(name, [])}
+        regimes = expected_regimes if expected_regimes is not None else sorted({w for _n, w in covered})
+        missing_cells = [f"{name} {where}" for name in families for where in regimes if (name, where) not in covered]
         rows.append({
             "policy": policy,
+            "complete": not missing_cells,
+            "missing_cells": missing_cells,
             "max_regret": round(worst[0], 4),
             "max_regret_cell": worst[1],
             "mean_regret": round(float(np.mean([v for v, _ in fitted])), 4),
@@ -839,7 +925,7 @@ def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: S
             "stress_max_regret": round(max(stressed)[0], 4) if stressed else None,
             "stress_max_regret_cell": max(stressed)[1] if stressed else None,
         })
-    rows.sort(key=lambda row: (row["max_regret"], row["mean_regret"], row["policy"]))
+    rows.sort(key=lambda row: (not row["complete"], row["max_regret"], row["mean_regret"], row["policy"]))
     return rows
 
 
@@ -861,37 +947,63 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
     # The study's own family order (a stored report's keys come back sorted).
     order = list(settings.get("families") or []) + list(settings.get("stress_families") or [])
     names = [n for n in order if n in report["families"]] + sorted(n for n in report["families"] if n not in order)
-    families = [n for n in names if report["families"][n].get("fitted")]
+    fitted = [n for n in names if report["families"][n].get("fitted")]
     stress = [n for n in names if not report["families"][n].get("fitted")]
+    # Review F2: only families that pass the adequacy gate vote; a claim must
+    # cover every voting family (and cell), else it is insufficient evidence.
+    families, excluded = _voting_families(report, fitted)
+    enough = len(families) >= MIN_VOTING_FAMILIES
     claims: list[dict[str, Any]] = []
 
-    def add(claim_id: str, statement: str, values: list[dict[str, Any]], *, stress_values=None, note: str = "") -> None:
+    def finish(claim_id: str, statement: str, values: list[dict[str, Any]], *, expected: Sequence[Any],
+               key: Callable[[Mapping[str, Any]], Any], stress_values=None, note: str = "") -> None:
+        values = _ci_only(values)
+        present = {key(v) for v in values}
+        missing = [k for k in expected if k not in present]
+        verdict = _verdict(values)
+        if not enough or (values and missing):
+            # Fewer voting families than RankCert needs, or a voting family
+            # without the claim's cell ("not tested": no family ran it).
+            verdict = INSUFFICIENT
         claims.append({
             "id": claim_id,
             "statement": statement,
-            "verdict": _verdict(values),
+            "verdict": verdict,
             "families_holding": f"{sum(1 for v in values if v['holds'])}/{len(values)}",
             "families_certified": f"{sum(1 for v in values if v['certified'])}/{len(values)}",
+            "missing": [k if isinstance(k, str) else " ".join(str(x) for x in k) for k in missing],
             "values": values,
-            "stress": stress_values or [],
+            "stress": _ci_only(stress_values or []),
             "note": note,
         })
+
+    def add(claim_id: str, statement: str, values: list[dict[str, Any]], *, stress_values=None, note: str = "") -> None:
+        finish(claim_id, statement, values, expected=families, key=lambda v: v["family"],
+               stress_values=stress_values, note=note)
 
     # C1: the vocabulary is overconfident relative to every family's consistency.
     hand = report["hand_set_implied"]["consistency"]["contrast_card_dominant_normalized"]
     values = []
     for name in families:
-        c = report["families"][name]["implied"]["fitted"]["consistency"]
-        values.append({"family": name, "value": c, "ci95": None, "holds": c < hand, "certified": c < hand - 0.2})
-    add("C1a", f"the hand-set card implies consistency {hand}; every family's fitted consistency is far lower",
-        values, note="certified when at least 0.2 below the card")
+        implied = (report["families"][name].get("implied") or {}).get("fitted") or {}
+        c = implied.get("consistency")
+        if c is None:
+            continue
+        ci = implied.get("consistency_ci95")
+        values.append({"family": name, "value": c, "ci95": ci, "holds": c < hand,
+                       "certified": _has_ci({"ci95": ci}) and ci[1] < hand})
+    add("C1a", f"the hand-set card implies consistency {hand}; every family's fitted consistency is lower",
+        values, note="certified when the 95% CI of the family's bank-mean consistency (subjects resampled) is below "
+                     "the card's; a report without that CI holds at most directionally")
 
     # C1b: hand-set checks realize no information about the truth; calibrated ones do.
     for policy in ("incumbent", "caps_only"):
         values, calibrated = [], []
         for name in families + stress:
-            main = report["families"][name]["main"]
-            info = main[SYSTEM_HAND_SET]["policies"][policy]["information"]
+            main = report["families"][name].get("main") or {}
+            info = (((main.get(SYSTEM_HAND_SET) or {}).get("policies") or {}).get(policy) or {}).get("information")
+            if info is None:
+                continue
             gain, ci = info.get("mean_truth_log_gain"), info.get("truth_log_gain_ci95") or [None, None]
             entry = {"family": name, "value": gain, "ci95": ci,
                      "holds": gain is not None and gain <= 0.0,
@@ -901,7 +1013,10 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
             "about the truth (mean log gain <= 0; certified when the CI is below 0)", values, stress_values=calibrated)
     values = []
     for name in families:
-        info = report["families"][name]["main"][SYSTEM_FAMILY]["policies"]["incumbent"]["information"]
+        main = report["families"][name].get("main") or {}
+        info = (((main.get(SYSTEM_FAMILY) or {}).get("policies") or {}).get("incumbent") or {}).get("information")
+        if info is None:
+            continue
         gain, ci = info.get("mean_truth_log_gain"), info.get("truth_log_gain_ci95") or [None, None]
         values.append({"family": name, "value": gain, "ci95": ci, "holds": gain is not None and gain > 0,
                        "certified": ci[0] is not None and ci[0] > 0})
@@ -955,9 +1070,11 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                      "voi_proposed-voi_successor", -1)
         paired_claim(f"S3:{regime}", f"{regime}: the proposed package costs fewer minutes than the incumbent",
                      consistency, repair, "voi_proposed-incumbent", -1)
+        # S4 isolates the stability stops: voi_p_top_value and evsi_lookahead
+        # differ only by them (both serve rank_feasible's top-ranked check).
         paired_claim(f"S4:{regime}", f"{regime}: keeping the stability stops (decision stable, action "
-                     "equivalent) on top of the lookahead saves minutes (voi_proposed - evsi_lookahead < 0)",
-                     consistency, repair, "voi_proposed-evsi_lookahead", -1)
+                     "equivalent) on top of the lookahead saves minutes (voi_p_top_value - evsi_lookahead < 0)",
+                     consistency, repair, "voi_p_top_value-evsi_lookahead", -1)
         # Leave-one-out: each piece of the successor as built, put back into the package.
         paired_claim(f"A1:{regime}", f"{regime}: inside the package, today's robust completion gate costs minutes "
                      "(voi_p_with_gate - voi_proposed > 0)", consistency, repair, "voi_p_with_gate-voi_proposed", +1)
@@ -966,6 +1083,10 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                      "voi_p_with_fallback-voi_proposed", +1)
         paired_claim(f"A3:{regime}", f"{regime}: inside the package, the 2-3 check lookahead saves minutes "
                      "(voi_proposed - voi_p_one_step < 0)", consistency, repair, "voi_proposed-voi_p_one_step", -1)
+        # Review F1: the serving rule, ablated on its own.
+        paired_claim(f"A4:{regime}", f"{regime}: inside the package, serving rank_feasible's top-ranked paying "
+                     "check instead of the successor's choice (the highest-EIG check when it pays) saves minutes "
+                     "(voi_p_top_value - voi_proposed < 0)", consistency, repair, "voi_p_top_value-voi_proposed", -1)
 
     # C4b: loss-derived EVSI (no nat scale) against the nat-scaled EIG rule, both without abstention.
     for consistency, repair in (("fitted", 3.0), ("fitted", 30.0), ("0.9", 10.0), ("0.9", 30.0)):
@@ -988,22 +1109,19 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         for value in _rotation_claim(report, families, key, sign, seed=seed, draws=draws):
             regime, _, system = value["regime"].partition(" system=")
             by_regime.setdefault(regime, []).append({**value, "regime": regime, "system": system})
+        rotation_cells = [(truth, system) for truth in families for system in families if system != truth]
         for regime, values in by_regime.items():
-            claims.append({
-                "id": f"R:{key}@{regime}",
-                "statement": f"{regime}, system calibrated to another family: {statement} ({key}, sign {sign:+d})",
-                "verdict": _verdict(values),
-                "families_holding": f"{sum(1 for v in values if v['holds'])}/{len(values)}",
-                "families_certified": f"{sum(1 for v in values if v['certified'])}/{len(values)}",
-                "values": values,
-                "stress": [],
-                "note": "counts are cells: every truth family x every other family's calibrated system",
-            })
+            finish(f"R:{key}@{regime}",
+                   f"{regime}, system calibrated to another family: {statement} ({key}, sign {sign:+d})",
+                   values, expected=rotation_cells, key=lambda v: (v["family"], v["system"]),
+                   note="counts are cells: every truth family x every other family's calibrated system")
 
     # C4: VALUE_PER_NAT_MINUTES = 60 is far too high (measured minutes per nat, calibrated model).
     values = []
     for name in families:
         measured = []
+        if not report["families"][name].get("regimes"):
+            continue
         for cell in report["families"][name]["regimes"]:
             for policy in ("incumbent", "caps_only"):
                 v = cell["policies"].get(policy, {}).get("value_of_checks", {})
@@ -1026,6 +1144,8 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
     # C5: Part C pays off once the unresolved cost is large; costs nothing measurable below.
     values = []
     for name in families:
+        if not (report["families"][name].get("part_c") or {}).get("rows"):
+            continue
         rows = [r for r in report["families"][name]["part_c"]["rows"] if r["consistency"] == str(0.9)]
         pays = sorted({r["true_unresolved_minutes"] for r in rows if r["difference"].get("ci95")
                        and r["difference"]["ci95"][1] < 0})
@@ -1047,6 +1167,8 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
     values = []
     for name in families:
         q10 = []
+        if not report["families"][name].get("regimes"):
+            continue
         for cell in report["families"][name]["regimes"]:
             v = cell["policies"].get("caps_only", {}).get("value_of_checks", {})
             bias = v.get("member_quantile_minus_realized") or {}
@@ -1115,12 +1237,18 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
                 and two["log_loss"] <= eight["log_loss"],
                 "certified": float(np.quantile(boots_ll, 0.975)) < 0.0,
             })
-    add("C6c", "DEFAULT_CONDITIONAL_PSEUDO_COUNT 2 forecasts answers better than 8 over a stream that starts from "
-        "the hand-set vocabulary (value: minutes per episode, 2 - 8; certified on log loss)", values)
+    finish("C6c", "DEFAULT_CONDITIONAL_PSEUDO_COUNT 2 forecasts answers better than 8 over a stream that starts "
+           "from the hand-set vocabulary (value: minutes per episode, 2 - 8; certified on log loss)", values,
+           expected=[(name, regime) for name in families for regime in regime_order],
+           key=lambda v: (v["family"], v["regime"]))
 
-    winners = _winners(report, families, seed=seed, draws=draws)
-    return {"families": families, "stress_families": stress, "claims": claims, "winners": winners,
-            "policy_regret": _policy_regret(report, families, stress)}
+    winners = _winners(report, families, seed=seed, draws=draws) if families else []
+    expected_regimes = [f"{_label(c)}/{float(r):g}" for c in settings.get("strengths") or []
+                        for r in settings.get("repairs") or []] or None
+    return {"families": families, "stress_families": stress, "excluded_families": excluded,
+            "minimum_voting_families": MIN_VOTING_FAMILIES, "enough_families": enough,
+            "claims": claims, "winners": winners,
+            "policy_regret": _policy_regret(report, families, stress, expected_regimes) if families else []}
 
 
 __all__ = ["MultiFamilySettings", "analyze", "counted_row", "run_count_stream", "run_multifamily"]

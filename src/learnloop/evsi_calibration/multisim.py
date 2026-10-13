@@ -59,7 +59,10 @@ from learnloop.scheduling import evsi as EV
 
 #: v2: the successor arms follow serving/voi-stopping at 086c24c0 (the episode
 #: maximum lifted onto value; a decision at stake over the posterior support).
-MULTISIM_VERSION = "evsi_multisim_v2"
+#: v3 (Codex review): no count bound on any episode (F4); the package serves
+#: the successor's choice, with the top-value serving its own arm (F1); the
+#: ``nrm``/``cdm`` systems average response probabilities over the item pool (F3).
+MULTISIM_VERSION = "evsi_multisim_v3"
 SYSTEM_FAMILY = "family"
 SYSTEM_HAND_SET = "hand_set"
 
@@ -75,7 +78,9 @@ class MultiSimSettings:
     policies: tuple[str, ...] = P.ALL_POLICIES + P.SUCCESSOR_POLICIES
     #: ``family`` | ``hand_set`` | another family's name (a cross system).
     system: str = SYSTEM_FAMILY
-    policy: P.PolicySettings = field(default_factory=P.PolicySettings)
+    #: No count bound (review F4): the bank is finite, so every episode ends by
+    #: its own rule or when the subject's questions run out.
+    policy: P.PolicySettings = field(default_factory=lambda: P.PolicySettings(safety_bound=None))
     truth_unresolved_minutes: float = 0.0
     truth_repair_minutes: float | None = None
     truth_check_minutes: float | None = None

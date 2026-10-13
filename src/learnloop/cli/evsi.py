@@ -45,6 +45,7 @@ def evsi_simulate_command(
 ) -> None:
     """Fit the response model to Eedi, simulate, and score EIG/EVSI against baselines."""
 
+    from learnloop.evsi_calibration.artifacts import write_text_atomic
     from learnloop.evsi_calibration.eedi import load_eedi_2024, load_neurips_2020
     from learnloop.evsi_calibration.experiments import SWEEPS, ExperimentSettings, run_experiments
     from learnloop.evsi_calibration.response_fit import FitSettings, ResponseFit, fit_response_model
@@ -66,7 +67,7 @@ def evsi_simulate_command(
             responses = load_neurips_2020(eedi_2020, task=task, cache_dir=output / "cache", with_dates=True)
             say(f"fitting the response model on {responses.rows} answers")
             fit = fit_response_model(responses, settings=FitSettings(seed=seed))
-            (output / "response_fit.json").write_text(json.dumps(fit.as_dict(), sort_keys=True, indent=1), encoding="utf-8")
+            write_text_atomic(output / "response_fit.json", json.dumps(fit.as_dict(), sort_keys=True, indent=1))
         settings = ExperimentSettings(
             learners=learners, sensitivity_learners=min(sensitivity_learners, learners), seed=seed, workers=workers
         )
@@ -79,7 +80,7 @@ def evsi_simulate_command(
         report = run_experiments(bank, fit, settings, progress=say)
         report["sweeps"] = {name: {"field": f, "current": c, "grid": list(g)} for name, (f, c, g) in SWEEPS.items()}
         report_path = output / "simulation_report.json"
-        report_path.write_text(json.dumps(report, sort_keys=True, indent=1, default=str), encoding="utf-8")
+        write_text_atomic(report_path, json.dumps(report, sort_keys=True, indent=1, default=str))
         headline = {
             "status": "ok",
             "report": str(report_path),
@@ -123,6 +124,7 @@ def evsi_multisim_command(
 ) -> None:
     """Fit several simulator families to Eedi and rerun the EVSI study in each (RankCert)."""
 
+    from learnloop.evsi_calibration.artifacts import write_text_atomic
     from learnloop.evsi_calibration.eedi import load_eedi_2024, load_neurips_2020
     from learnloop.evsi_calibration.experiments import SWEEPS
     from learnloop.evsi_calibration.family_data import build_subject_data, build_triple_data
@@ -141,6 +143,7 @@ def evsi_multisim_command(
             "report": str(report_path),
             "families": analysis["families"],
             "stress_families": analysis["stress_families"],
+            "excluded_families": analysis.get("excluded_families", []),
             "adequacy": {
                 name: block.get("adequate")
                 for name, block in (report["fits"]["validation"].get("families") or {}).items()
@@ -155,7 +158,8 @@ def evsi_multisim_command(
         if reanalyze is not None:
             report = json.loads(reanalyze.read_text(encoding="utf-8"))
             report["analysis"] = analyze(report)
-            reanalyze.write_text(json.dumps(report, sort_keys=True, default=str), encoding="utf-8")
+            # Atomic: the stored episodes are the expensive part (review F5).
+            write_text_atomic(reanalyze, json.dumps(report, sort_keys=True, default=str))
             say(f"analysis recomputed from the stored episodes in {reanalyze}")
             _emit(headline(report, reanalyze), json_output)
             return
@@ -188,7 +192,7 @@ def evsi_multisim_command(
                 source={"dataset": "Eedi NeurIPS 2020 Education Challenge (public archive)", "task": task,
                         "source_hash": responses.source_hash, "triples_from": str(fit_path) if fit_path else "search"},
             )
-            (output / "family_fits.json").write_text(json.dumps(fits.as_dict(), sort_keys=True), encoding="utf-8")
+            write_text_atomic(output / "family_fits.json", json.dumps(fits.as_dict(), sort_keys=True))
         settings = MultiFamilySettings(
             learners=learners, sensitivity_learners=min(sensitivity_learners, learners), seed=seed, workers=workers,
         )
@@ -201,7 +205,7 @@ def evsi_multisim_command(
             )
         report = run_multifamily(bank, fits, settings, progress=say)
         report_path = output / "multisim_report.json"
-        report_path.write_text(json.dumps(report, sort_keys=True, default=str), encoding="utf-8")
+        write_text_atomic(report_path, json.dumps(report, sort_keys=True, default=str))
         _emit(headline(report, report_path), json_output)
     except (ValueError, OSError, KeyError) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
