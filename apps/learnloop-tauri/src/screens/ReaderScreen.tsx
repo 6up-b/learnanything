@@ -14,7 +14,7 @@
 // reviewed TaskBlueprint placements appear as optional real-source quick checks;
 // the hard-coded demo question remains confined to the offline fixture.
 
-import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
@@ -25,6 +25,9 @@ import type {
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
   ReaderPdfViewDto,
+  InquiryResolution,
+  InquirySelfCheck,
+  ReaderInquiryQuestionDto,
   ReaderPromptContractDto,
   ReaderRenderBlockDto,
   ReaderRenderViewDto,
@@ -32,77 +35,66 @@ import type {
   ReaderWatchPlanDto,
   ReaderArcDto,
   ReaderCoachLintDto,
-  ReaderExerciseImportResult,
   SourceLibraryCard,
 } from "../api/dto";
-import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader, TermSelect } from "../components/term";
+import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
-import { AffectTap, DispositionPicker, PrimaryButton, SecondaryButton } from "../components/goldenpath/shared";
+import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
-import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
+import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan, useGuideDiagnosisRefresh } from "./reader/guidePlan";
 import { cachedSourceRead } from "./reader/readerCache";
-import {
-  parseRequestError,
-  parseRequestResult,
-  useReaderRequests,
-} from "./reader/useReaderRequests";
+import { useBareAltClear } from "./reader/bareAlt";
+import { useReaderRequests } from "./reader/useReaderRequests";
 
-const ANSWER_MODE_OPTIONS = [
-  { value: "answer_directly", label: "answer directly" },
-  { value: "help_me_reason", label: "help me reason" },
-  { value: "ask_me_first", label: "ask me first" },
-];
+import { type InquiryCommitment, type ReaderExchange } from "./reader/ReaderAskBranches";
+import { DetourStrip } from "./reader/DetourStrip";
+import { InquiryQuickCheck } from "./reader/InquiryQuickCheck";
+import { phaseForError, type ModelActionPhase } from "./reader/ModelActionState";
+import { ReconnectLine } from "./reader/ReconnectLine";
+import {
+  activitySince,
+  flushReaderActivity,
+  learnerActivitySnapshot,
+  logReaderAction,
+  logReaderActivity,
+  newActivityId,
+  noteLearnerActivity,
+  setReaderActivityEnabled,
+} from "./reader/activity";
+import {
+  back as stackBack,
+  EMPTY_STACK,
+  forward as stackForward,
+  goTo as stackGoTo,
+  hasDetour,
+  markReturned,
+  pushDetour,
+  stackInquiryExchange,
+  unreturnedDetours,
+  type ReturnEntry,
+  type ReturnStack,
+} from "./reader/returnStack";
+import { AskRail } from "./reader/AskRail";
+import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import {
+  clip,
+  selectionNodes,
+  type AnnotationSegment,
+  type MarginAnnotation,
+  type ReaderSelection,
+} from "./reader/readerShared";
 
 const READER_MODE_OPTIONS = [
   { value: "skim", label: "skim quickly" },
   { value: "anchor", label: "read closely" },
   { value: "incremental", label: "mark for later" },
-];
-
-// The three visible primitives / nine presets (§5.2). Only the three commit presets
-// are P1 commit-class; Ask and Mark never create commitments (§15.2).
-// Naming: the "request" group runs in the BACKGROUND (demand-paged synthesis,
-// results land in this rail) — deliberately distinct from the ask tab, which
-// answers immediately about the selected span.
-const PALETTE: Array<{ group: string; presets: Array<{ preset: string; label: string }> }> = [
-  {
-    group: "Request · answered in background",
-    presets: [
-      { preset: "ask", label: "research this" },
-      { preset: "worked_example", label: "worked example" },
-      { preset: "alt_explanation", label: "explain differently" },
-      { preset: "why_matters", label: "why this matters" },
-    ],
-  },
-  {
-    group: "Remember later",
-    presets: [
-      { preset: "test_me_later", label: "test me later" },
-      { preset: "help_me_remember", label: "help me remember" },
-      { preset: "connect_it", label: "connect it" },
-    ],
-  },
-  {
-    group: "Mark",
-    presets: [
-      { preset: "mark_confusing", label: "mark confusing" },
-      { preset: "not_worth_remembering", label: "not worth remembering" },
-    ],
-  },
-];
-
-const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
-  { value: "too_easy", label: "too easy" },
-  { value: "too_intrusive", label: "bad moment" },
-  { value: "ask_me_differently", label: "ask differently" },
-  { value: "dont_bring_this_back", label: "don’t ask this again" },
-  { value: "i_dont_understand", label: "I don’t understand" },
 ];
 
 // Right-click tag menu: the five plain capture actions. Each is a pure local
@@ -118,40 +110,6 @@ const TAG_ACTIONS: Array<{ action: string; label: string }> = [
 ];
 
 const WHOLE_BLOCK_QUOTE = "(whole block)";
-
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-// The wire nodes for a selection: one per covered block (atomic-unit captures
-// also carry glyph context for backend disambiguation), falling back to the
-// single primary block for selections made outside the DOM capture path.
-export interface SelectionNode {
-  spanId: string;
-  quote: string;
-  prefix?: string;
-  suffix?: string;
-  /** Learner edited this quote (OCR fix) — the backend prefers it over the
-   *  extraction slice as the exercise surface. */
-  edited?: boolean;
-}
-
-function selectionNodes(sel: {
-  spanId: string;
-  quote: string;
-  nodes?: SelectionNode[];
-}): SelectionNode[] {
-  return sel.nodes && sel.nodes.length ? sel.nodes : [{ spanId: sel.spanId, quote: sel.quote }];
-}
-
-interface ReaderExchange {
-  id: string;
-  spanId: string;
-  question: string;
-  answerMd: string;
-  answerMode: ReaderAnswerMode;
-  createdAt: string | null;
-}
 
 type ReaderRailTab = "guide" | "ask" | "notes";
 
@@ -170,21 +128,6 @@ const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfConte
 // it on every block reads as an error state; only suspect/failed warrant a pill.
 const BADGED_HEALTH = new Set(["suspect", "failed"]);
 
-interface AnnotationSegment {
-  spanId: string;
-  page: number | null;
-  bbox: number[] | null;
-}
-
-interface MarginAnnotation {
-  annotationId: string | null;
-  quote: string;
-  status: string | null;
-  learnerText: string;
-  kind: string;
-  segments: AnnotationSegment[];
-}
-
 /** A durably painted annotation region in the PDF surface (one per anchored
  *  segment with geometry). needs_reanchor annotations are never painted. */
 export interface AnnotationTrail {
@@ -201,6 +144,19 @@ function newKey(): string {
   } catch {
     return `cap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
+}
+
+// The passage quick check's poll (F4): every 3 s for at most 10 minutes (the
+// Codex turn timeout is 8), then it fails as timed out.
+const INQUIRY_CHECK_POLL_MS = 3000;
+const INQUIRY_CHECK_MAX_POLLS = 200;
+
+/** The failed line for a spend refusal, by which limit stopped it (re-review
+ *  F15): no price set for a metered model, or over the per-check limit. */
+function spendRefusalLine(refusal: string | null | undefined): string {
+  if (refusal === "no_price") return "Couldn't write a quick check: no price is set for this model, so LearnLoop won't spend on it.";
+  if (refusal === "over_cap") return "Couldn't write a quick check: it would cost more than the spending limit for one quick check, so LearnLoop didn't send it.";
+  return "Couldn't write a quick check: a spending limit stopped it before it was sent.";
 }
 
 function readingPositionKey(sourceId: string): string {
@@ -248,14 +204,7 @@ export function ReaderScreen({
   // fragments, so in watch mode it almost always does). `nodes` carries one
   // per-block sub-quote per covered block, whether it came from a native
   // selection, a ctrl-marquee union, or a block sweep.
-  const [selection, setSelection] = useState<{
-    spanId: string;
-    quote: string;
-    nodes?: SelectionNode[];
-    /** Learner-edited combined passage (capture editor). The nodes keep
-     *  anchoring the original blocks; this overrides the exercise surface. */
-    editedText?: string;
-  } | null>(null);
+  const [selection, setSelection] = useState<ReaderSelection | null>(null);
   const [selectionActions, setSelectionActions] = useState<string[]>([]);
   // Capture editor: the learner can fix OCR mishaps in the captured text
   // before acting on it; edited nodes are flagged so the backend prefers the
@@ -278,6 +227,11 @@ export function ReaderScreen({
   const [question, setQuestion] = useState("");
   const [askComposerVersion, setAskComposerVersion] = useState(0);
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
+  // RW1a branches: the exchange a follow-up continues (null starts a new root).
+  const [parentExchange, setParentExchange] = useState<ReaderExchange | null>(null);
+  const askEpoch = useRef(0);
+  const askPending = useRef(false);
+  useEffect(() => () => { askEpoch.current += 1; }, []);
   const [history, setHistory] = useState<ReaderExchange[]>([]);
   const [collapsedAskIds, setCollapsedAskIds] = useState<Set<string>>(new Set());
   const [askFindOpen, setAskFindOpen] = useState(false);
@@ -314,13 +268,7 @@ export function ReaderScreen({
   // Exact-exercise slice: one background import job per "add exercise to
   // practice" click; the panel survives clearing the selection so the learner
   // can keep reading while it authors.
-  const [exerciseImport, setExerciseImport] = useState<{
-    batchId: string;
-    status: string;
-    quote: string;
-    result: ReaderExerciseImportResult | null;
-    error: string | null;
-  } | null>(null);
+  const [exerciseImport, setExerciseImport] = useState<ExerciseImportState | null>(null);
   // Across-source search on the library screen ("where did I read that?").
   const [librarySearch, setLibrarySearch] = useState("");
   // Enter asks for a deep search (meaning + rewritten question); typing resets it.
@@ -339,6 +287,67 @@ export function ReaderScreen({
   // plan polls until the question lands), and a per-source once-only guard.
   const [authoringSections, setAuthoringSections] = useState<string[]>([]);
   const authorRequestedRef = useRef<Set<string>>(new Set());
+  // RW1a (reader_inquiry): the return stack and its detour strip; the
+  // reconnect line; each inquiry's passage-scoped quick check; the root
+  // commitments made from the status chips; a static "•" on the Ask tab
+  // when something lands there while the learner is elsewhere.
+  const [returnStack, setReturnStack] = useState<ReturnStack>(EMPTY_STACK);
+  const returnStackRef = useRef<ReturnStack>(EMPTY_STACK);
+  returnStackRef.current = returnStack;
+  const lastSourceRef = useRef<ReturnEntry | null>(null);
+  // RW1a's switch, readable from callbacks declared before it is (openSource).
+  const inquiryRef = useRef(false);
+  const settleScrollRef = useRef<number | null>(null);
+  const [reconnect, setReconnect] = useState<{
+    rootId: string;
+    question: string;
+    spanId: string;
+    inline: boolean;
+  } | null>(null);
+  // Scroll baselines for "a screen of scrolling" (the reconnect line goes, a
+  // walked-back detour settles). An explicit jump moves the page itself, so
+  // for a moment after one the baselines follow the page instead of counting.
+  const reconnectBaseRef = useRef(0);
+  const jumpGuardRef = useRef(0);
+  const [inquiryChecks, setInquiryChecks] = useState<Record<string, {
+    phase: ModelActionPhase;
+    question: ReaderInquiryQuestionDto | null;
+    escalated?: boolean;
+    /** The durable job writing it (reader.reconnect_answer's batch). */
+    batchId?: string | null;
+    /** This client wait's generation: a retry can get the same live batch
+     *  back, so a poll settles or updates only its own wait (F14). */
+    waitId?: string | null;
+    /** Polls so far, and rejected polls in a row (the sidecar unreachable). */
+    attempts?: number;
+    pollErrors?: number;
+    /** A failure said in the learner's terms (the failed state's line). */
+    failure?: string | null;
+  }>>({});
+  // The funnel record of each queued quick check (F8): its batch, the visit
+  // that asked, when, and the learner's activity snapshot for the wait; and
+  // the client wait now watching it (only that wait may settle it).
+  const inquiryJobsRef = useRef<Record<string, {
+    batchId: string;
+    waitId: string;
+    startedAt: number;
+    activity: ReturnType<typeof learnerActivitySnapshot>;
+    visit: { visit_id: string | null; extraction_id: string | null };
+  }>>({});
+  const [inquiryCommitments, setInquiryCommitments] = useState<Record<string, InquiryCommitment[]>>({});
+  const [askTabMarked, setAskTabMarked] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem("learnloop.reader.rail-collapsed") === "on";
+    } catch {
+      return false;
+    }
+  });
+  // The funnel's visit, the pending "back to reading" after a usable result,
+  // and the LearnLoop-started elements already counted this visit.
+  const visitRef = useRef<{ id: string; extractionId: string; openedAt: number; lastActive: number; active: number; idle: number } | null>(null);
+  const backToReadingRef = useRef<{ jobId: string; actionKind: string; at: number } | null>(null);
+  const proactiveSeenRef = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
@@ -456,6 +465,10 @@ export function ReaderScreen({
 
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
+    askEpoch.current += 1;
+    askPending.current = false;
+    setBusy(false);
+    setParentExchange(null);
     setGuidePlan(null);
     setGuideLoading(false);
     setActiveSpan(null);
@@ -500,10 +513,22 @@ export function ReaderScreen({
     setStickyQuestionSections([]);
     setEditingAnnotationId(null);
     setEditingAnnotationText("");
+    // RW1a per-source state. The return stack itself survives a detour into
+    // another source; openSource decides whether it continues or resets.
+    setReconnect(null);
+    setInquiryChecks({});
+    // A check still being written goes on in the background; its wait ends
+    // with the source (no outcome is recorded for a wait nobody watched).
+    inquiryJobsRef.current = {};
+    setInquiryCommitments({});
+    setAskTabMarked(false);
+    backToReadingRef.current = null;
+    proactiveSeenRef.current = new Set();
+    settleScrollRef.current = null;
   }, []);
 
   const openSource = useCallback(
-    async (card: SourceLibraryCard, jumpSpan?: string) => {
+    async (card: SourceLibraryCard, jumpSpan?: string, options: { via?: "search" | "restore" } = {}) => {
       setOpening(card.sourceId);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
@@ -511,6 +536,31 @@ export function ReaderScreen({
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
+        // RW1a (reader_inquiry on): opening another source after leaving one
+        // -- a search hit or its library card -- is a detour from the passage
+        // left a moment ago (Alt+← goes back to it); a restore walks the stack.
+        // Reopening the same source, or the first open of a visit, is reading.
+        // Switched off there is no return stack at all (F5).
+        const left = lastSourceRef.current;
+        if (inquiryRef.current && options.via !== "restore" && left && left.sourceId !== card.sourceId) {
+          const entry: ReturnEntry = {
+            id: newActivityId(), kind: "source", sourceId: card.sourceId, sourceTitle: card.title,
+            extractionId: view.extractionId, spanId: jumpSpan ?? null, selection: null, railTab: "guide",
+            exchangeId: null, label: card.title, openedAt: Date.now(),
+          };
+          const next = pushDetour(returnStackRef.current, left, entry);
+          returnStackRef.current = next;
+          setReturnStack(next);
+          logReaderAction("detour_opened", {
+            detour_id: entry.id, detour_kind: "source", origin_span_id: left.spanId,
+            target_span_id: entry.spanId, depth: next.entries.length - 1,
+            via: options.via === "search" ? "search" : "library",
+          });
+        } else if (options.via !== "restore") {
+          returnStackRef.current = EMPTY_STACK;
+          setReturnStack(EMPTY_STACK);
+        }
+        lastSourceRef.current = null;
         setRender(view);
         setOffline(false);
         setSourceTitle(card.title);
@@ -586,12 +636,24 @@ export function ReaderScreen({
   }, [onSourceChange, resetSourceState]);
 
   const backToLibrary = useCallback(() => {
+    // RW1a: remember where the learner was, so a search hit opened from the
+    // library is a detour with a way back (Alt+← reopens this passage).
+    if (render && !offline) {
+      const spanId = readingSpan ?? activeSpan;
+      const section = guidePlan?.sections.find((candidate) => spanId && candidate.spanIds.includes(spanId));
+      lastSourceRef.current = {
+        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+        label: [sourceTitle, section?.label].filter(Boolean).join(" · ") || "where I was",
+        openedAt: Date.now(),
+      };
+    }
     resetSourceState();
     setRender(null);
     setOffline(false);
     setSourceTitle(null);
     onSourceChange?.(null);
-  }, [onSourceChange, resetSourceState]);
+  }, [onSourceChange, resetSourceState, render, offline, readingSpan, activeSpan, guidePlan, sourceTitle, selection, railTab]);
 
   // Resume the source that was open when this tab was last left: the shell
   // keeps the card, the cache keeps the reads, so the return is instant.
@@ -604,6 +666,81 @@ export function ReaderScreen({
   }, []);
 
   const enabled = contract?.readerEnabled ?? false;
+  // RW1a's kill switch (reader_inquiry.enabled): the sidecar names it only when
+  // on, so an absent flag (switched off, or an older sidecar) is today's rail.
+  const inquiry = contract?.inquiryEnabled === true;
+  inquiryRef.current = inquiry;
+  // Skim is the mute button (UX §3.1): with inquiry on, nothing LearnLoop
+  // starts shows while skimming -- no reconnect line, no section offer.
+  const muted = inquiry && mode === "skim";
+
+  // The funnel's activity is recorded only while reader_inquiry is on.
+  useEffect(() => {
+    setReaderActivityEnabled(inquiry && !offline);
+  }, [inquiry, offline]);
+
+  // One visit per opened source: opened, then closed with its active and idle
+  // seconds (a gap of two minutes or more without scrolling, selecting or
+  // typing counts as idle).
+  useEffect(() => {
+    if (!render || offline || !inquiry) return;
+    const now = Date.now();
+    const visit = { id: newActivityId(), extractionId: render.extractionId, openedAt: now, lastActive: now, active: 0, idle: 0 };
+    visitRef.current = visit;
+    logReaderActivity({
+      kind: "reader_view_opened",
+      payload: { visit_id: visit.id, extraction_id: render.extractionId, source_id: render.sourceId, surface: pdfView ? "pdf" : "text" },
+    });
+    return () => {
+      const at = Date.now();
+      const gap = at - visit.lastActive;
+      if (gap < 120_000) visit.active += gap;
+      else visit.idle += gap;
+      logReaderActivity({
+        kind: "reader_view_closed",
+        payload: {
+          visit_id: visit.id, extraction_id: visit.extractionId,
+          active_seconds: Math.round(visit.active / 1000), idle_seconds: Math.round(visit.idle / 1000),
+        },
+      });
+      flushReaderActivity();
+      if (visitRef.current === visit) visitRef.current = null;
+    };
+    // pdfView only labels the surface; a new visit starts per opened source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [render?.renderViewId, offline, inquiry]);
+
+  /** The learner did something (scroll, select, type): active time accrues. */
+  const touchVisit = useCallback(() => {
+    const visit = visitRef.current;
+    if (!visit) return;
+    const now = Date.now();
+    const gap = now - visit.lastActive;
+    if (gap < 120_000) visit.active += gap;
+    else visit.idle += gap;
+    visit.lastActive = now;
+  }, []);
+  const visitPayload = useCallback(
+    () => ({ visit_id: visitRef.current?.id ?? null, extraction_id: render?.extractionId ?? null }),
+    [render],
+  );
+  /** First touch of the source after a usable model result ("back to reading"). */
+  const noteBackToReading = useCallback(() => {
+    const pending = backToReadingRef.current;
+    if (!pending) return;
+    backToReadingRef.current = null;
+    logReaderAction("back_to_reading", {
+      ...visitPayload(), job_id: pending.jobId, action_kind: pending.actionKind,
+      seconds_after: Math.round((Date.now() - pending.at) / 1000),
+    });
+  }, [visitPayload]);
+  /** A selection was committed (span ids only; never the quoted text). */
+  const noteSelection = useCallback((spanCount: number, surface: string) => {
+    touchVisit();
+    noteLearnerActivity("selected");
+    logReaderActivity({ kind: "reader_selection", payload: { ...visitPayload(), span_count: spanCount, surface } });
+    noteBackToReading();
+  }, [touchVisit, visitPayload, noteBackToReading]);
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
 
   // Reader Ask answers already live durably in interaction_events. Rehydrate
@@ -619,6 +756,14 @@ export function ReaderScreen({
         if (cancelled) return;
         const restored: ReaderExchange[] = result.exchanges.map((exchange) => ({
           id: exchange.eventId,
+          parentExchangeId: exchange.parentExchangeId ?? null,
+          extractionId: exchange.extractionId,
+          selectionSpanIds: exchange.selectionSpanIds ?? [],
+          selectionQuoteMd: exchange.selectionQuoteMd ?? null,
+          selectionSourceQuoteMd: exchange.selectionSourceQuoteMd ?? null,
+          citations: exchange.citations ?? [],
+          questionEventId: exchange.questionEventId ?? null,
+          resolution: exchange.resolution ?? null,
           spanId: exchange.spanId,
           question: exchange.questionMd,
           answerMd: exchange.answerMd,
@@ -731,6 +876,29 @@ export function ReaderScreen({
     );
   }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections]);
   const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.length : 0;
+
+  // Proactive load (UX §9.2): each LearnLoop-started element counts once per
+  // visit -- a quick check waiting on the Guide tab, a section-boundary offer
+  // the learner reached.
+  useEffect(() => {
+    if (!inquiry || !boundaryChecksAvailable) return;
+    for (const section of openQuestionSections) {
+      const key = `quick_check_waiting:${section.id}`;
+      if (proactiveSeenRef.current.has(key)) continue;
+      proactiveSeenRef.current.add(key);
+      logReaderAction("proactive_shown", { ...visitPayload(), element: "quick_check_waiting" });
+    }
+  }, [inquiry, boundaryChecksAvailable, openQuestionSections, visitPayload]);
+  useEffect(() => {
+    if (!inquiry || muted || !currentGuideSection || currentSectionProgress < 0.7) return;
+    const section = currentGuideSection;
+    if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
+    const offered = (boundaryChecksAvailable && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0;
+    const key = `section_offer:${section.id}`;
+    if (!offered || proactiveSeenRef.current.has(key)) return;
+    proactiveSeenRef.current.add(key);
+    logReaderAction("proactive_shown", { ...visitPayload(), element: "section_offer" });
+  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, boundaryChecksAvailable, visitPayload]);
   const currentQuestionOpen = useMemo(
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
@@ -742,12 +910,17 @@ export function ReaderScreen({
 
   useEffect(() => {
     if (!render || offline || !readingSpan) return;
+    // RW1a: while a detour is open, the saved position stays at its root --
+    // "where I was" -- so a restart restores the root and nothing else (the
+    // return stack is visit state, P3 §12).
+    const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null;
+    const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan;
     try {
-      window.localStorage.setItem(readingPositionKey(render.sourceId), readingSpan);
+      window.localStorage.setItem(readingPositionKey(render.sourceId), saved);
     } catch {
       /* Reading-position persistence is best-effort. */
     }
-  }, [render, offline, readingSpan]);
+  }, [inquiry, render, offline, readingSpan, returnStack]);
 
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
@@ -1088,11 +1261,12 @@ export function ReaderScreen({
     setSelectionActions([]);
     setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
+    noteSelection(nodes.length, "text");
     // A selection updates Ask's grounding too. Do not unexpectedly hide an Ask
     // conversation; Guide still yields to Capture so a first-time selection
     // exposes the annotation actions.
     setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [collectSelectionNodes]);
+  }, [collectSelectionNodes, noteSelection]);
 
   // ---- ctrl-marquee union capture (markdown + transcript surfaces) --------
   // Hold ctrl (or cmd) and drag any number of boxes over the reading column;
@@ -1234,8 +1408,9 @@ export function ReaderScreen({
     setSelectionActions([]);
     setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
+    noteSelection(nodes.length, "text_boxes");
     setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [resolveDomBoxes]);
+  }, [resolveDomBoxes, noteSelection]);
   const commitDomBoxesRef = useRef(commitDomBoxes);
   useEffect(() => {
     commitDomBoxesRef.current = commitDomBoxes;
@@ -1405,9 +1580,10 @@ export function ReaderScreen({
     return () => window.removeEventListener("keydown", handler, true);
   }, [tagMenu]);
 
-  // A single Alt press is the quick "clear capture" gesture. It also composes
-  // with Alt+drag block sweeping: the key press clears the old capture first,
-  // then the drag commits its replacement on mouse-up.
+  // A single bare Alt press is the quick "clear capture" gesture (K7: it
+  // completes on release, and never when Alt was part of a chord, so Alt+←,
+  // Alt+drag sweeps and Alt+Tab keep the capture). An Alt+drag sweep replaces
+  // the capture itself on mouse-up.
   const clearSelection = useCallback(() => {
     setSelection(null);
     setSelectionActions([]);
@@ -1415,19 +1591,7 @@ export function ReaderScreen({
     setTagMenu(null);
     window.getSelection()?.removeAllRanges();
   }, []);
-  useEffect(() => {
-    const onAltClear = (event: KeyboardEvent) => {
-      if (event.key !== "Alt" || event.repeat) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest("input, textarea, select"))
-      ) return;
-      clearSelection();
-    };
-    window.addEventListener("keydown", onAltClear, true);
-    return () => window.removeEventListener("keydown", onAltClear, true);
-  }, [clearSelection]);
+  useBareAltClear(clearSelection);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.
@@ -1448,6 +1612,7 @@ export function ReaderScreen({
 
   const jumpToSpan = useCallback(
     (spanId: string) => {
+      jumpGuardRef.current = Date.now() + 1200;
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -1461,10 +1626,209 @@ export function ReaderScreen({
         }
       }
       const el = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
-      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // An explicit jump; instant under reduced motion (UX §7.3).
+      const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (el instanceof HTMLElement) el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
     },
     [pdfView, surface, offline],
   );
+
+  // ── RW1a: the return stack, detours and the reconnect line ─────────────────
+
+  /** "Mixtures ¶3": the passage's guide section and its place in it. */
+  const passageLabel = useCallback((spanId: string | null): string => {
+    const section = spanId ? guideSectionBySpan.get(spanId) : undefined;
+    if (section && spanId) return `${section.label} ¶${section.spanIds.indexOf(spanId) + 1}`;
+    return sourceTitle ?? "where I was";
+  }, [guideSectionBySpan, sourceTitle]);
+
+  /** The current position as a stack entry (the origin of a first detour). */
+  const positionEntry = useCallback((): ReturnEntry | null => {
+    if (!render) return null;
+    const spanId = readingSpan ?? activeSpan;
+    return {
+      id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+      extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+      label: passageLabel(spanId), openedAt: Date.now(),
+    };
+  }, [render, readingSpan, activeSpan, sourceTitle, selection, railTab, passageLabel]);
+
+  /** Push detour entries (in order) from the current position and log each. */
+  const pushDetours = useCallback((entries: ReturnEntry[]) => {
+    if (!inquiry || offline) return;
+    const origin = positionEntry();
+    if (!origin) return;
+    let next = returnStackRef.current;
+    for (const entry of entries) {
+      const before = next;
+      next = pushDetour(next, origin, entry);
+      if (next === before) continue;
+      logReaderAction("detour_opened", {
+        ...visitPayload(), detour_id: entry.id, detour_kind: entry.kind,
+        origin_span_id: next.entries[0]?.spanId ?? null, target_span_id: entry.spanId,
+        depth: next.entries.length - 1,
+      });
+    }
+    returnStackRef.current = next;
+    setReturnStack(next);
+    settleScrollRef.current = null;
+  }, [inquiry, offline, positionEntry, visitPayload]);
+
+  /** A peek at a passage the Ask rail points to (show passage, a citation). */
+  const peekPassage = useCallback((spanId: string) => {
+    const here = readingSpan ?? activeSpan;
+    if (inquiry && render && spanId !== here) {
+      pushDetours([{
+        id: newActivityId(), kind: "peek", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection: null, railTab, exchangeId: null,
+        label: passageLabel(spanId), openedAt: Date.now(),
+      }]);
+    }
+    jumpToSpan(spanId);
+  }, [inquiry, render, readingSpan, activeSpan, sourceTitle, railTab, passageLabel, pushDetours, jumpToSpan]);
+
+  /** The root of the inquiry an exchange belongs to (walking saved parents). */
+  const inquiryRoot = useCallback((exchangeId: string): ReaderExchange | null => {
+    const byId = new Map(history.map((exchange) => [exchange.id, exchange]));
+    let current = byId.get(exchangeId) ?? null;
+    const seen = new Set<string>();
+    while (current?.parentExchangeId && byId.has(current.parentExchangeId) && !seen.has(current.id)) {
+      seen.add(current.id);
+      current = byId.get(current.parentExchangeId) ?? current;
+    }
+    return current;
+  }, [history]);
+
+  /** Ask "does this make sense now?" about an open inquiry. Inline only on a
+   *  return the learner started; never while skimming. */
+  const showReconnect = useCallback((exchangeId: string, inline: boolean) => {
+    if (!inquiry || muted) return;
+    const root = inquiryRoot(exchangeId);
+    if (!root || (root.resolution ?? "open") !== "open") return;
+    reconnectBaseRef.current = bodyRef.current?.scrollTop ?? 0;
+    setReconnect({ rootId: root.id, question: root.question, spanId: root.spanId, inline });
+    logReaderAction("reconnect_shown", { ...visitPayload(), root_exchange_id: root.id, placement: inline ? "inline" : "rail" });
+  }, [inquiry, muted, inquiryRoot, visitPayload]);
+
+  /** Walk the stack to an entry: restore its passage, selection and tab. */
+  const restoreEntry = useCallback(async (next: ReturnStack, target: ReturnEntry, via: string) => {
+    // The walk moves the page (and may reopen a source): not the learner scrolling.
+    jumpGuardRef.current = Date.now() + 1500;
+    const previous = returnStackRef.current;
+    // Back at the origin, every detour not yet returned completes (once: a
+    // walk forward and back again returns nothing new, F7).
+    const returning = next.cursor === 0 ? unreturnedDetours(previous) : [];
+    const settled = markReturned(next, returning.map((detour) => detour.id));
+    returnStackRef.current = settled;
+    setReturnStack(settled);
+    if (target.sourceId !== render?.sourceId) {
+      const card = (library ?? []).find((candidate) => candidate.sourceId === target.sourceId);
+      if (card) await openSource(card, target.spanId ?? undefined, { via: "restore" });
+    } else if (target.spanId) {
+      jumpToSpan(target.spanId);
+    }
+    setSelection(target.selection);
+    setSelectionActions([]);
+    setRailTab(target.railTab);
+    if (target.exchangeId) {
+      setCollapsedAskIds((ids) => {
+        const nextIds = new Set(ids);
+        nextIds.delete(target.exchangeId as string);
+        return nextIds;
+      });
+    }
+    if (next.cursor === 0) {
+      // Back where the detour began: each open detour ended at its origin.
+      const now = Date.now();
+      for (const detour of returning) {
+        logReaderAction("detour_returned", {
+          ...visitPayload(), detour_id: detour.id, detour_kind: detour.kind, returned_to_origin: true,
+          seconds_away: Math.round((now - detour.openedAt) / 1000), via,
+        });
+      }
+      if (target.spanId && render && target.sourceId === render.sourceId && !offline) {
+        void Promise.resolve()
+          .then(() => api.readerRestoreSource({ extractionId: target.extractionId, spanId: target.spanId as string }))
+          .catch(() => undefined);
+      }
+      const inquiryExchange = stackInquiryExchange(previous);
+      if (inquiryExchange) showReconnect(inquiryExchange, true);
+      settleScrollRef.current = bodyRef.current?.scrollTop ?? 0;
+    }
+  }, [render, library, openSource, jumpToSpan, visitPayload, offline, showReconnect]);
+
+  // Scrolling the source: reading position, active time, "back to reading",
+  // and the two RW1a things a screen of scrolling ends -- the reconnect line
+  // (ignored, nothing recorded) and a detour already walked back to its root.
+  const onBodyScroll = useCallback(() => {
+    onReadingScroll();
+    touchVisit();
+    noteLearnerActivity("scrolled");
+    noteBackToReading();
+    const body = bodyRef.current;
+    if (!body) return;
+    if (Date.now() < jumpGuardRef.current) {
+      // The page is still moving to an explicit jump's target: not the learner.
+      reconnectBaseRef.current = body.scrollTop;
+      if (settleScrollRef.current !== null) settleScrollRef.current = body.scrollTop;
+      return;
+    }
+    const screen = Math.max(1, body.clientHeight);
+    if (reconnect && Math.abs(body.scrollTop - reconnectBaseRef.current) > screen) setReconnect(null);
+    const settleFrom = settleScrollRef.current;
+    if (settleFrom !== null && returnStackRef.current.cursor === 0 && Math.abs(body.scrollTop - settleFrom) > screen) {
+      settleScrollRef.current = null;
+      returnStackRef.current = EMPTY_STACK;
+      setReturnStack(EMPTY_STACK);
+    }
+  }, [onReadingScroll, touchVisit, noteBackToReading, reconnect]);
+
+  // Reader-wide keys (UX §3.5), outside text fields: [ and ] move between rail
+  // tabs; \ collapses or expands the rail (remembered on this device).
+  useEffect(() => {
+    if (!inquiry || !render) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      const tabs: ReaderRailTab[] = ["guide", "ask", "notes"];
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        setRailTab((tab) => tabs[(tabs.indexOf(tab) + (event.key === "]" ? 1 : tabs.length - 1)) % tabs.length]);
+      } else if (event.key === "\\") {
+        event.preventDefault();
+        setRailCollapsed((collapsed) => !collapsed);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inquiry, render]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("learnloop.reader.rail-collapsed", railCollapsed ? "on" : "off");
+    } catch {
+      /* A per-device preference; reading works without it. */
+    }
+  }, [railCollapsed]);
+  useEffect(() => {
+    if (railTab === "ask") setAskTabMarked(false);
+  }, [railTab]);
+
+  // Alt+← / Alt+→ walk the return stack (UX §3.5; K7 keeps the capture).
+  useEffect(() => {
+    if (!inquiry || !render) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const stack = returnStackRef.current;
+      const moved = event.key === "ArrowLeft" ? stackBack(stack) : stackForward(stack);
+      if (!moved.target) return;
+      event.preventDefault();
+      void restoreEntry(moved.stack, moved.target, event.key === "ArrowLeft" ? "alt_back" : "alt_forward");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [inquiry, render, restoreEntry]);
 
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.
@@ -1522,6 +1886,7 @@ export function ReaderScreen({
         // §10.2 / Journey 2: a commit shows a durable, immediately visible arc.
         if (receipt.arc) setArc(receipt.arc);
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: `preset:${preset}` });
         setNote("");
         // Drain the local outbox so the demand-paged request is enqueued + visible.
         // The capture is already durable at this point, so a drain failure is a
@@ -1577,6 +1942,7 @@ export function ReaderScreen({
         { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodeSpanIds) },
         ...a,
       ]);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight" });
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
       setNote("");
       void refreshAnnotations();
@@ -1616,6 +1982,7 @@ export function ReaderScreen({
   // Exact-exercise slice: send the ordered per-block selection segments to one
   // background authoring job. The exercise text stays verbatim (source-owned);
   // AI completes the answer, rubric, facets, hints, and depth-rung metadata.
+  const importJobRef = useRef<{ jobId: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
   const importExercise = useCallback(async () => {
     if (!render || !selection || offline) return;
     const nodes = selectionNodes(selection);
@@ -1638,6 +2005,9 @@ export function ReaderScreen({
         error: null,
       });
       setSelectionActions((prev) => [...prev, "exercise_import"]);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "import_exercise" });
+      importJobRef.current = { jobId: receipt.batchId, startedAt: Date.now(), activity: learnerActivitySnapshot() };
+      logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: receipt.batchId, job_kind: "import_exercise" } });
     } catch (error) {
       onError(errorMessage(error));
     } finally {
@@ -1655,6 +2025,19 @@ export function ReaderScreen({
     const timer = setInterval(async () => {
       try {
         const status = await api.readerExerciseImportStatus({ batchId: exerciseImportBatchId });
+        const job = importJobRef.current;
+        if (job && job.jobId === exerciseImportBatchId && (status.status === "completed" || status.status === "failed" || status.status === "cancelled")) {
+          importJobRef.current = null;
+          const waited = Date.now() - job.startedAt;
+          logReaderActivity({
+            kind: "reader_job_completed",
+            payload: {
+              job_id: job.jobId, job_kind: "import_exercise", status: status.status, latency_ms: waited,
+              model_wait_ms: waited, failure_reason: status.status === "failed" ? "job_failed" : null,
+              activity_during_wait: activitySince(job.activity),
+            },
+          });
+        }
         setExerciseImport((prev) =>
           prev && prev.batchId === exerciseImportBatchId
             ? {
@@ -1765,50 +2148,510 @@ export function ReaderScreen({
     [render, offline, enabled, boundaryBlock, onError],
   );
 
-  const ask = useCallback(async () => {
-    // Grounding span = the capture selection's primary block (the same
-    // selection Notes>Capture acts on); activeSpan is the jump/resume fallback.
-    const groundingSpan = selection?.spanId ?? activeSpan;
-    if (!groundingSpan || !question.trim() || !render) return;
-    const asked = question.trim();
+  // Ask (and, with reader_inquiry on, a follow-up in a branch). The learner's
+  // words stay in the composer until the answer lands; a failure keeps them.
+  const [askPhase, setAskPhase] = useState<ModelActionPhase>("idle");
+  const askJobRef = useRef<{ jobId: string; kind: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
+  const submitAsk = useCallback(async (asked: string, parent: ReaderExchange | null) => {
+    // A follow-up keeps its saved anchor even when the current selection moves.
+    // New roots use the capture selection (the same selection Notes>Capture
+    // acts on), then the jump/resume fallback.
+    const groundingSpan = parent?.spanId ?? selection?.spanId ?? activeSpan;
+    if (!groundingSpan || !asked || !render || askPending.current) return;
+    if (inquiry && offline) return;
+    const epoch = askEpoch.current;
+    askPending.current = true;
+    // The full capture selection widens the tutor's citable context to every
+    // selected block, not just the primary one; a follow-up inherits its
+    // parent's saved selection instead.
+    const selectionSpanIds = parent
+      ? parent.selectionSpanIds
+      : selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [];
+    const selectionQuote = parent
+      ? parent.selectionQuoteMd
+      : selection ? (selection.editedText ?? selection.quote).trim() || null : null;
+    // An edited capture is the learner's wording: the source's own is sent
+    // beside it (reader_inquiry on), so history never shows it as the book's.
+    const edited = !parent && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim();
+    const selectionSourceQuote = parent
+      ? parent.selectionSourceQuoteMd ?? null
+      : edited && selection ? selection.quote.trim() || null : null;
+    const jobKind = parent ? "follow_up" : "ask";
+    const job = { jobId: newActivityId(), kind: jobKind, startedAt: Date.now(), activity: learnerActivitySnapshot() };
+    askJobRef.current = job;
+    logReaderAction("action_invoked", { ...visitPayload(), action_kind: jobKind });
+    logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: job.jobId, job_kind: jobKind } });
     setBusy(true);
+    if (inquiry) setAskPhase("pending");
     try {
       const answer = await api.readerAsk({
         extractionId: render.extractionId,
         spanId: groundingSpan,
         question: asked,
+        ...(inquiry ? { parentExchangeId: parent?.id ?? null } : {}),
         answerMode,
-        // The full capture selection widens the tutor's citable context to
-        // every selected block, not just the primary one.
-        selectionSpanIds: selection ? [...new Set(selectionNodes(selection).map((n) => n.spanId))] : [],
-        selectionQuote: selection ? (selection.editedText ?? selection.quote).trim() || null : null,
+        selectionSpanIds,
+        selectionQuote,
+        ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),
       });
+      if (epoch !== askEpoch.current) return;
+      const waited = Date.now() - job.startedAt;
+      logReaderActivity({
+        kind: "reader_job_completed",
+        payload: {
+          ...visitPayload(), job_id: job.jobId, job_kind: jobKind, status: "completed",
+          latency_ms: waited, model_wait_ms: waited, model: answer.model ?? null,
+          prompt_version: String((answer.manifest as { version?: unknown } | undefined)?.version ?? "") || null,
+          activity_during_wait: activitySince(job.activity),
+        },
+      });
+      backToReadingRef.current = { jobId: job.jobId, actionKind: jobKind, at: Date.now() };
       const exchange: ReaderExchange = {
         id: answer.readerAnswerEventId,
+        parentExchangeId: answer.parentExchangeId ?? null,
+        extractionId: render.extractionId,
+        selectionSpanIds,
+        selectionQuoteMd: selectionQuote,
+        selectionSourceQuoteMd: inquiry ? selectionSourceQuote : null,
+        citations: answer.citations ?? [],
+        questionEventId: answer.eventId ?? null,
+        resolution: "open",
         spanId: groundingSpan,
         question: asked,
         answerMd: answer.answerMd,
         answerMode: answer.answerMode,
         createdAt: new Date().toISOString(),
       };
+      if (inquiry) {
+        setParentExchange(exchange);
+        setAskPhase("idle");
+        if (railTab !== "ask") setAskTabMarked(true);
+        if (parent) {
+          // A branch is a detour: the strip shows the inquiry's path.
+          const branchEntry = (target: ReaderExchange, label: string): ReturnEntry => ({
+            id: newActivityId(), kind: "branch", sourceId: render.sourceId, sourceTitle,
+            extractionId: render.extractionId, spanId: target.spanId, selection: null, railTab: "ask",
+            exchangeId: target.id, label: clip(label, 48), openedAt: Date.now(),
+          });
+          const pushes: ReturnEntry[] = [];
+          if (!returnStackRef.current.entries.some((entry) => entry.exchangeId === parent.id)) {
+            pushes.push(branchEntry(parent, parent.question));
+          }
+          pushes.push(branchEntry(exchange, asked));
+          pushDetours(pushes);
+        }
+      }
       setHistory((items) => [exchange, ...items.filter((item) => item.id !== exchange.id)]);
       setCollapsedAskIds((ids) => {
         const next = new Set(ids);
         next.delete(exchange.id);
+        if (parent) next.delete(parent.id);
         return next;
       });
       setQuestion("");
       // WebKit can retain the submitted textarea's stale compositing layer when
       // the completed exchange mounts below it. Remounting gives the next Ask a
-      // fresh input surface; focus restoration makes repeated questions fluid.
+      // fresh input surface. A landed answer never moves focus (W12): focus
+      // returns to the composer only if the learner was still in it.
+      const composerHadFocus = document.activeElement === askComposerRef.current;
       setAskComposerVersion((version) => version + 1);
-      window.requestAnimationFrame(() => askComposerRef.current?.focus());
+      if (composerHadFocus) window.requestAnimationFrame(() => askComposerRef.current?.focus());
+    } catch (error) {
+      if (epoch === askEpoch.current) {
+        const phase = phaseForError(error);
+        logReaderActivity({
+          kind: "reader_job_completed",
+          payload: {
+            ...visitPayload(), job_id: job.jobId, job_kind: jobKind, status: "failed",
+            failure_reason: phase === "failed" ? "error" : phase, latency_ms: Date.now() - job.startedAt,
+            model_wait_ms: Date.now() - job.startedAt, activity_during_wait: activitySince(job.activity),
+          },
+        });
+        // Model unreachable, capped and sidecar-down render in place (W14). An
+        // unexpected failure still reaches the app's error line too: that is
+        // the ported branch's contract (its retry test, G1).
+        if (inquiry) setAskPhase(phase);
+        if (!inquiry || phase === "failed") onError(errorMessage(error));
+        // The learner's words stay in the composer for "try again".
+        if (inquiry && asked !== question.trim()) setQuestion(asked);
+      }
+    } finally {
+      if (epoch === askEpoch.current) {
+        askPending.current = false;
+        setBusy(false);
+      }
+      if (askJobRef.current === job) askJobRef.current = null;
+    }
+  }, [inquiry, selection, activeSpan, answerMode, render, offline, onError, visitPayload, railTab, sourceTitle, pushDetours, question]);
+
+  const ask = useCallback(() => {
+    void submitAsk(question.trim(), inquiry ? parentExchange : null);
+  }, [submitAsk, question, inquiry, parentExchange]);
+
+  /** Cancel a pending Ask: its late answer is ignored (it stays in the history
+   *  the sidecar keeps), and the learner's words stay in the composer. */
+  const cancelAsk = useCallback(() => {
+    const job = askJobRef.current;
+    askEpoch.current += 1;
+    askPending.current = false;
+    setBusy(false);
+    setAskPhase("idle");
+    if (job) {
+      logReaderActivity({
+        kind: "reader_job_completed",
+        payload: {
+          ...visitPayload(), job_id: job.jobId, job_kind: job.kind, status: "cancelled",
+          latency_ms: Date.now() - job.startedAt, model_wait_ms: Date.now() - job.startedAt,
+          activity_during_wait: activitySince(job.activity),
+        },
+      });
+      askJobRef.current = null;
+    }
+  }, [visitPayload]);
+
+  // ── RW1a: inquiry status, reconnect answers and the passage quick check ───
+
+  const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>) => {
+    setHistory((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }, []);
+
+  const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip") => {
+    if (!render || offline) return;
+    try {
+      const result = await api.readerSetInquiryStatus({ extractionId: render.extractionId, exchangeId: root.id, resolution, trigger });
+      updateExchange(result.rootExchangeId, { resolution: result.resolution });
+      if (result.resolution !== "open" && reconnect?.rootId === result.rootExchangeId) setReconnect(null);
     } catch (error) {
       onError(errorMessage(error));
-    } finally {
-      setBusy(false);
     }
-  }, [selection, activeSpan, question, answerMode, render, onError]);
+  }, [render, offline, updateExchange, reconnect, onError]);
+
+  /** A branch marked done (its own question resolved) asks the reconnect line. */
+  const markBranchDone = useCallback(async (branch: ReaderExchange) => {
+    if (!branch.questionEventId || offline) return;
+    try {
+      await api.resolveQuestionEvent(branch.questionEventId, "resolved");
+      updateExchange(branch.id, { resolution: "resolved" });
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "branch_done" });
+      showReconnect(branch.id, false);
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [offline, updateExchange, visitPayload, showReconnect, onError]);
+
+  /** "revisit once" / "make it something I can do": the existing test_me_later
+   *  and help_me_remember presets on the root's anchor (no new status words). */
+  const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment) => {
+    if (!render || offline) return;
+    const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId];
+    try {
+      const receipt = await api.readerInvokePreset({
+        preset,
+        sourceId: render.sourceId,
+        revisionId: render.revisionId,
+        extractionId: render.extractionId,
+        clientIdempotencyKey: newKey(),
+        renderViewId: render.renderViewId,
+        rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
+        learnerText: "",
+        subjectId: root.spanId,
+      });
+      setInquiryCommitments((done) => ({ ...done, [root.id]: [...new Set([...(done[root.id] ?? []), preset])] }));
+      if (receipt.arc) setArc(receipt.arc);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: `inquiry:${preset}` });
+      void refreshAnnotations();
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [render, offline, visitPayload, refreshAnnotations, onError]);
+
+  const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment> => {
+    const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? []);
+    for (const annotation of annotations) {
+      if ((annotation.kind === "test_me_later" || annotation.kind === "help_me_remember")
+        && annotation.segments.some((segment) => segment.spanId === root.spanId)) {
+        done.add(annotation.kind);
+      }
+    }
+    return done;
+  }, [inquiryCommitments, annotations]);
+
+  /** End a quick check's wait in the funnel, once (F8): its status, the
+   *  route it came from, and what the learner did while it was written.
+   *  Only the wait for ``batchId`` *and* ``waitId`` is settled: a late answer
+   *  for an earlier batch, or for an earlier wait on the same live batch (a
+   *  retry the enqueue handed the same batch), never records or ends the
+   *  retry's wait (F14). */
+  const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra: {
+    failureReason?: string | null; model?: string | null; promptVersion?: string | null;
+  } = {}) => {
+    const job = inquiryJobsRef.current[rootId];
+    if (!job || !batchId || !waitId || job.batchId !== batchId || job.waitId !== waitId) return;
+    delete inquiryJobsRef.current[rootId];
+    const waited = Date.now() - job.startedAt;
+    logReaderActivity({
+      kind: "reader_job_completed",
+      payload: {
+        ...job.visit, job_id: job.batchId, job_kind: "quick_check", status,
+        failure_reason: status === "failed" ? extra.failureReason ?? "error" : null,
+        latency_ms: waited, model_wait_ms: waited, model: extra.model ?? null,
+        prompt_version: extra.promptVersion ?? null, activity_during_wait: activitySince(job.activity),
+      },
+    });
+  }, []);
+
+  /** A model-backed request that never reached the queue still counts. */
+  const recordUnqueuedCheck = useCallback((failureReason: string) => {
+    const jobId = newActivityId();
+    logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: jobId, job_kind: "quick_check" } });
+    logReaderActivity({
+      kind: "reader_job_completed",
+      payload: {
+        ...visitPayload(), job_id: jobId, job_kind: "quick_check", status: "failed", failure_reason: failureReason,
+        latency_ms: 0, model_wait_ms: 0, activity_during_wait: {},
+      },
+    });
+  }, [visitPayload]);
+
+  const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail") => {
+    if (!render || offline) return;
+    setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId: null } }));
+    // This wait's own generation (F14): the enqueue may hand a retry the same
+    // live batch, so polls are told apart by the wait, not only the batch.
+    const waitId = newKey();
+    const visit = visitPayload();
+    const startedAt = Date.now();
+    const activity = learnerActivitySnapshot();
+    try {
+      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: rootId, answer: "quick_check", via });
+      if (result.question) {
+        // Written earlier: it lands at once, with no wait and no model call.
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "landed", question: result.question } }));
+      } else if (result.status === "queued" && result.batchId) {
+        const batchId = result.batchId;
+        const tracked = inquiryJobsRef.current[rootId];
+        if (!tracked || tracked.batchId !== batchId) {
+          inquiryJobsRef.current[rootId] = { batchId, waitId, startedAt, activity, visit };
+          logReaderActivity({ kind: "reader_job_queued", payload: { ...visit, job_id: batchId, job_kind: "quick_check" } });
+        } else {
+          // The batch already being waited on: its funnel record carries on,
+          // now settled only by this wait (an older wait's polls go stale).
+          tracked.waitId = waitId;
+        }
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId, waitId } }));
+      } else if (result.status === "provider_unavailable") {
+        recordUnqueuedCheck("unreachable");
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "unreachable", question: null } }));
+      } else {
+        recordUnqueuedCheck("error");
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "failed", question: null } }));
+      }
+    } catch (error) {
+      const phase = phaseForError(error);
+      recordUnqueuedCheck(phase === "failed" ? "error" : phase);
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase, question: null } }));
+    }
+  }, [render, offline, visitPayload, recordUnqueuedCheck]);
+
+  /** Cancel a pending quick check: its job is cancelled (best effort) and the
+   *  wait ends, recorded as cancelled. */
+  const cancelQuickCheck = useCallback((rootId: string) => {
+    const current = inquiryChecks[rootId];
+    const wait = current?.batchId
+      ? { batchId: current.batchId, waitId: current.waitId ?? null }
+      : inquiryJobsRef.current[rootId] ?? null;
+    const batchId = wait?.batchId ?? null;
+    settleInquiryJob(rootId, batchId, wait?.waitId ?? null, "cancelled");
+    setInquiryChecks((checks) => {
+      const { [rootId]: _dropped, ...rest } = checks;
+      return rest;
+    });
+    if (batchId) void Promise.resolve().then(() => api.cancelIngestBatch(batchId)).catch(() => undefined);
+  }, [inquiryChecks, settleInquiryJob]);
+
+  const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "") => {
+    const line = reconnect;
+    if (!line || !render || offline) return;
+    const via = line.inline ? "inline" : "rail";
+    setReconnect(null);
+    if (answer === "quick_check") {
+      if (railTab !== "ask") setAskTabMarked(true);
+      await startQuickCheck(line.rootId, via);
+      return;
+    }
+    try {
+      const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: line.rootId, answer, via });
+      updateExchange(result.rootExchangeId, { resolution: result.resolution });
+    } catch (error) {
+      onError(errorMessage(error));
+      return;
+    }
+    if (answer === "still_unclear") {
+      // "What's still unclear?" starts a branch from the root (W5): with text
+      // it is asked now; without, the composer opens on the root.
+      const root = history.find((item) => item.id === line.rootId) ?? null;
+      if (!root) return;
+      setParentExchange(root);
+      setRailTab("ask");
+      if (text) void submitAsk(text, root);
+    }
+  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk]);
+
+  // The passage check is written by a durable job: poll its cheap read and
+  // the job's own state until it lands, fails (said in place: capped, the
+  // model unreachable, refused), is cancelled or times out. A sidecar that
+  // stops answering shows as offline and the poll carries on, so the check
+  // still lands when it comes back (F4).
+  useEffect(() => {
+    if (!render || offline) return;
+    const watching = Object.entries(inquiryChecks).filter(
+      ([, check]) => check.batchId && check.waitId && (check.phase === "pending" || check.phase === "offline"),
+    );
+    if (watching.length === 0) return;
+    const extractionId = render.extractionId;
+    const timer = window.setInterval(() => {
+      for (const [rootId, check] of watching) {
+        const batchId = check.batchId as string;
+        const waitId = check.waitId as string;
+        const attempts = (check.attempts ?? 0) + 1;
+        // Settle or update only this wait: the same batch *and* the same
+        // client wait (a retry may be handed the same live batch; F14).
+        const same = (checks: typeof inquiryChecks) => checks[rootId]?.batchId === batchId && checks[rootId]?.waitId === waitId;
+        const timedOut = () => {
+          settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: "timeout" });
+          setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "failed", question: null, batchId: null } } : checks));
+        };
+        void api.readerInquiryQuestion({ extractionId, exchangeId: rootId, batchId })
+          .then((result) => {
+            const job = result.job ?? null;
+            if (result.question) {
+              const question = result.question;
+              settleInquiryJob(rootId, batchId, waitId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "landed", question } } : checks));
+            } else if (job?.status === "cancelled") {
+              settleInquiryJob(rootId, batchId, waitId, "cancelled");
+              setInquiryChecks((checks) => {
+                if (!same(checks)) return checks;
+                const { [rootId]: _dropped, ...rest } = checks;
+                return rest;
+              });
+            } else if (job?.status === "failed") {
+              const code = job.errorCode ?? "error";
+              settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: code });
+              const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed";
+              const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null;
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null, failure } } : checks));
+            } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
+              timedOut();
+            } else {
+              setInquiryChecks((checks) => (same(checks)
+                ? { ...checks, [rootId]: { ...checks[rootId], phase: "pending", attempts, pollErrors: 0 } }
+                : checks));
+            }
+          })
+          .catch((error) => {
+            const phase = phaseForError(error);
+            if (phase !== "offline") {
+              // The read itself was refused (switched off, an unknown inquiry).
+              settleInquiryJob(rootId, batchId, waitId, "failed", { failureReason: phase === "failed" ? "error" : phase });
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null } } : checks));
+            } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
+              timedOut();
+            } else {
+              const pollErrors = (check.pollErrors ?? 0) + 1;
+              setInquiryChecks((checks) => (same(checks)
+                ? { ...checks, [rootId]: { ...checks[rootId], attempts, pollErrors, phase: pollErrors >= 2 ? "offline" : checks[rootId].phase } }
+                : checks));
+            }
+          });
+      }
+    }, INQUIRY_CHECK_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [render, offline, inquiryChecks, settleInquiryJob]);
+
+  const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string) => {
+    const check = inquiryChecks[rootId];
+    if (!check?.question) return;
+    try {
+      const result = await api.readerInquiryQuestionAction({
+        questionId: check.question.id,
+        action,
+        response: action === "answered" ? value ?? null : null,
+        selfCheck: action === "self_checked" ? (value as InquirySelfCheck) : null,
+      });
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { ...checks[rootId], phase: "landed", question: result.question } }));
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [inquiryChecks, onError]);
+
+  const escalateInquiryCheck = useCallback(async (rootId: string) => {
+    const check = inquiryChecks[rootId];
+    if (!check?.question?.escalationLearningObjectId) return;
+    try {
+      await api.readerEscalateAuthoredQuestion({ questionId: check.question.id, learningObjectId: check.question.escalationLearningObjectId });
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { ...checks[rootId], escalated: true } }));
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [inquiryChecks, onError]);
+
+  /** What sits at the top of an inquiry in the rail: the reconnect line and
+   *  the quick check (each only when there is one). */
+  const renderInquiryTop = useCallback((root: ReaderExchange) => {
+    // Skim mutes the reconnect line at render time, in both places, so one
+    // already shown goes when the learner switches to skim (F10).
+    const line = reconnect && reconnect.rootId === root.id && !muted ? (
+      <ReconnectLine
+        placement="rail"
+        question={reconnect.question}
+        busy={busy}
+        onYes={() => void answerReconnect("yes")}
+        onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
+        onQuickCheck={() => void answerReconnect("quick_check")}
+      />
+    ) : null;
+    const check = inquiryChecks[root.id];
+    return line || check ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {line}
+        {check ? (
+          <InquiryQuickCheck
+            phase={check.phase}
+            question={check.question}
+            busy={busy}
+            escalated={check.escalated}
+            failure={check.failure ?? undefined}
+            onCancel={check.batchId ? () => cancelQuickCheck(root.id) : undefined}
+            onAnswer={(response) => void inquiryCheckAction(root.id, "answered", response)}
+            onSelfCheck={(value) => void inquiryCheckAction(root.id, "self_checked", value)}
+            onDismiss={() => {
+              if (check.question) void inquiryCheckAction(root.id, "dismissed");
+              else setInquiryChecks((checks) => {
+                const { [root.id]: _dropped, ...rest } = checks;
+                return rest;
+              });
+            }}
+            onEscalate={() => void escalateInquiryCheck(root.id)}
+            onRetry={() => void startQuickCheck(root.id, "rail")}
+            onShowPassage={peekPassage}
+          />
+        ) : null}
+      </div>
+    ) : null;
+  }, [reconnect, muted, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
+
+  /** The reconnect line drawn under the root passage (a return the learner started). */
+  const inlineReconnect = reconnect && reconnect.inline && !muted ? (
+    <ReconnectLine
+      placement="inline"
+      question={reconnect.question}
+      busy={busy}
+      onYes={() => void answerReconnect("yes")}
+      onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
+      onQuickCheck={() => void answerReconnect("quick_check")}
+    />
+  ) : null;
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -1907,7 +2750,7 @@ export function ReaderScreen({
                       <Card
                         key={`${hit.extractionId}/${hit.spanId}`}
                         onClick={() => {
-                          if (card && opening === null) void openSource(card, hit.spanId);
+                          if (card && opening === null) void openSource(card, hit.spanId, { via: "search" });
                         }}
                         style={{ display: "flex", flexDirection: "column", gap: 4, cursor: card ? "pointer" : "default" }}
                       >
@@ -2037,12 +2880,23 @@ export function ReaderScreen({
         ) : null}
       </div>
 
+      {inquiry ? (
+        <DetourStrip
+          stack={returnStack}
+          onGoTo={(index) => {
+            const { stack, target } = stackGoTo(returnStackRef.current, index);
+            if (target) void restoreEntry(stack, target, index === 0 ? "crumb_origin" : "crumb");
+          }}
+        />
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
         <div
           ref={bodyRef}
+          role={inquiry ? "main" : undefined}
+          aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
           onMouseDown={onBodyMouseDown}
           onMouseUp={onMouseUp}
-          onScroll={onReadingScroll}
+          onScroll={onBodyScroll}
           className="ll-scroll"
           style={{
             flex: 1,
@@ -2106,6 +2960,7 @@ export function ReaderScreen({
                 if (spanId) setActiveSpan(spanId);
               }}
               onTagMenu={openDomTagMenu}
+              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
             />
           ) : watchLoading ? (
             <Card style={{ padding: 18 }}><Faint style={{ fontSize: 12 }}>◐ preparing video and synchronized transcript…</Faint></Card>
@@ -2124,10 +2979,12 @@ export function ReaderScreen({
                 setSelectionActions([]);
                 setEditingCapture(false);
                 setActiveSpan(sel.spanId);
+                noteSelection(sel.nodes?.length ?? 1, "pdf");
                 setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
               }}
               onTagMenu={setTagMenu}
               onError={onError}
+              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
             />
           ) : null}
           {(pdfView && surface === "pdf" && !offline) || watch || watchLoading ? null : blocks.map((block, i) => {
@@ -2138,6 +2995,7 @@ export function ReaderScreen({
             const endQuestionAvailable = boundaryChecksAvailable
               && endSection?.question?.readingPhase === "after_section";
             const offerSection = endSection
+              && !muted
               && !dismissedSections.includes(endSection.id)
               && !completedSections.includes(endSection.id)
               && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0);
@@ -2192,6 +3050,7 @@ export function ReaderScreen({
                   )
                 ) : null}
               </div>
+              {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
               {offerSection ? (
                 <SectionBoundaryOffer
                   section={endSection}
@@ -2210,8 +3069,21 @@ export function ReaderScreen({
         </div>
 
         {/* Right rail: annotation margin + capture + Ask */}
+        {inquiry && railCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setRailCollapsed(false)}
+            aria-label={"expand the rail (\\)"}
+            title={"expand the rail (\\)"}
+            style={{ width: 28, flexShrink: 0, border: 0, borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg, color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+          >
+            ◂
+          </button>
+        ) : null}
         <div
           ref={railRef}
+          role="complementary"
+          aria-label={railTab === "guide" ? "Reading guide" : railTab === "ask" ? "Ask" : "Notes"}
           style={{
             width: 360,
             height: "100%",
@@ -2223,6 +3095,7 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
+            display: inquiry && railCollapsed ? "none" : undefined,
           }}
           className="ll-scroll"
         >
@@ -2230,856 +3103,176 @@ export function ReaderScreen({
             <div style={{ display: "flex", gap: 4 }}>
               {(["guide", "ask", "notes"] as ReaderRailTab[]).map((tab) => {
                 const active = railTab === tab;
-                const guideAlert = tab === "guide" && pendingQuickCheckCount > 0;
+                // The static quick-check marker (UX S12, spec §3.4 item 19): a
+                // plain "◆ n" on the Guide tab for every learner. No pulse, no
+                // blink and no pinned strip -- nothing in the rail animates.
+                const waiting = tab === "guide" && pendingQuickCheckCount > 0;
+                const marked = tab === "ask" && askTabMarked && !active;
                 return (
                   <button
                     key={tab}
                     type="button"
-                    className={guideAlert && !active ? "ll-reader-guide-alert" : undefined}
                     onClick={() => setRailTab(tab)}
                     aria-pressed={active}
-                    aria-label={guideAlert ? `Guide, ${pendingQuickCheckCount} quick check${pendingQuickCheckCount === 1 ? "" : "s"} ready` : tab}
-                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${guideAlert ? COLOR.pink : active ? COLOR.borderFocus : COLOR.border}`, background: guideAlert ? (active ? COLOR.washPurple : undefined) : active ? COLOR.washAmber : "transparent", color: guideAlert ? COLOR.purpleText : active ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
+                    aria-label={waiting ? `Guide, ${pendingQuickCheckCount} quick check${pendingQuickCheckCount === 1 ? "" : "s"} waiting` : marked ? "ask, something new" : tab}
+                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${active ? COLOR.borderFocus : COLOR.border}`, background: active ? COLOR.washAmber : "transparent", color: active ? COLOR.amberLink : COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, padding: "6px 8px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}
                   >
                     {tab}
-                    {guideAlert ? (
-                      <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span className="ll-qc-blink">◆</span>
-                        {pendingQuickCheckCount}
+                    {waiting ? (
+                      <span aria-hidden="true" data-quick-check-marker="" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: COLOR.purpleText }}>
+                        ◆ {pendingQuickCheckCount}
                       </span>
                     ) : null}
+                    {marked ? <span aria-hidden="true" style={{ color: COLOR.amber }}>•</span> : null}
                     {tab === "notes" && annotations.length > 0 ? <span>{annotations.length}</span> : null}
                   </button>
                 );
               })}
             </div>
-            {pendingQuickCheckCount > 0 && railTab !== "guide" ? (
-              <button
-                type="button"
-                className="ll-reader-qc-strip"
-                onClick={() => setRailTab("guide")}
-                style={{ fontFamily: FONT_MONO }}
-              >
-                <span className="ll-qc-blink" aria-hidden="true">◆</span>
-                <span>{pendingQuickCheckCount === 1 ? "quick check ready" : `${pendingQuickCheckCount} quick checks ready`}</span>
-                <span className="ll-qc-strip-go" aria-hidden="true">guide →</span>
-              </button>
-            ) : null}
           </div>
 
-          <div style={{ display: railTab === "guide" ? "block" : "none" }}>
-            <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
-            {guidePlan?.goalContext ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10, background: COLOR.washCyan }}>
-                <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>YOUR PATH</Faint>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{guidePlan.goalContext.title}</span>
-                <Faint style={{ fontSize: 10 }}>
-                  Reading toward your active goal
-                </Faint>
-              </Card>
-            ) : null}
-            {currentGuideSection ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Pill color="slate">section</Pill>
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{currentGuideSection.label}</span>
-                </div>
-                <div style={{ height: 3, background: COLOR.border }}>
-                  <div style={{ height: "100%", width: `${currentSectionProgress * 100}%`, background: COLOR.cyan }} />
-                </div>
-                <Faint style={{ fontSize: 10 }}>
-                  {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
-                    ? currentGuideSection.question.placement === "auto_authored"
-                      ? "A quick check from this section is waiting below."
-                      : currentGuideSection.question.readingPhase === "before_section"
-                        ? "There’s an optional question before you begin this section."
-                        : currentGuideSection.question.readingPhase === "during_section"
-                          ? "There’s an optional question at this point in the section."
-                          : "You’re near the section break. Take a quick check or keep reading."
-                    : authoringSections.includes(currentGuideSection.id)
-                      ? "◐ writing a quick check for this section…"
-                      : currentSectionProgress >= 0.7
-                        ? "You’re near the section break. Keep going, or revisit a useful passage."
-                        : "Keep reading at your own pace."}
-                </Faint>
-              </Card>
-            ) : guideLoading ? (
-              <Faint style={{ fontSize: 12 }}>◐ connecting this source to your learning path…</Faint>
-            ) : guidePlan === null ? (
-              <Faint style={{ fontSize: 12 }}>No personalized guide is available for this source yet.</Faint>
-            ) : null}
+          <GuideRail
+            visible={railTab === "guide"}
+            extractionId={render.extractionId}
+            offline={offline}
+            guidePlan={guidePlan}
+            guideLoading={guideLoading}
+            currentGuideSection={currentGuideSection}
+            currentSectionProgress={currentSectionProgress}
+            currentQuestionOpen={currentQuestionOpen}
+            boundaryChecksAvailable={boundaryChecksAvailable}
+            authoringSections={authoringSections}
+            revealedSections={revealedSections}
+            completedSections={completedSections}
+            annotatedSpans={annotatedSpans}
+            openQuestionSections={openQuestionSections}
+            setDismissedSections={setDismissedSections}
+            jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
+            revealSection={revealSection}
+            completeSection={completeSection}
+            onError={onError}
+            boundaryBlock={boundaryBlock}
+            boundarySkipped={boundarySkipped}
+            setBoundarySkipped={setBoundarySkipped}
+            boundaryAnswered={boundaryAnswered}
+            setBoundaryAnswered={setBoundaryAnswered}
+            boundaryResponse={boundaryResponse}
+            setBoundaryResponse={setBoundaryResponse}
+            boundarySubmitted={boundarySubmitted}
+            setBoundarySubmitted={setBoundarySubmitted}
+            questionControl={questionControl}
+            sendQuestionControl={sendQuestionControl}
+            disposition={disposition}
+            chooseDisposition={chooseDisposition}
+          />
 
-            {(guidePlan?.sections.length ?? 0) > 1 ? (
-              <>
-                <SectionHeader>Contents</SectionHeader>
-                {/* The rail owns vertical scrolling. A nested Contents scroller
-                    traps wheel events at its edges in WebKitGTK/Tauri. */}
-                <div style={{ display: "flex", flexDirection: "column", marginBottom: 4 }}>
-                  {guidePlan!.sections.map((section, index) => {
-                    const currentIndex = guidePlan!.sections.findIndex((s) => s.id === currentGuideSection?.id);
-                    const state = index < currentIndex ? "read" : index === currentIndex ? "current" : "upcoming";
-                    const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·";
-                    return (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => jumpToSpan(section.startSpanId)}
-                        title={section.question ? `${section.label} · quick check available` : section.label}
-                        style={{
-                          display: "flex", alignItems: "baseline", gap: 8, textAlign: "left",
-                          border: 0, borderLeft: `3px solid ${state === "current" ? COLOR.amber : "transparent"}`,
-                          background: state === "current" ? COLOR.washAmber : "transparent",
-                          padding: "3px 8px", cursor: "pointer", fontFamily: FONT_MONO,
-                        }}
-                      >
-                        <span style={{ flexShrink: 0, fontSize: 10, color: state === "read" ? COLOR.green : state === "current" ? COLOR.amber : COLOR.textFaint }}>
-                          {glyph}
-                        </span>
-                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: state === "current" ? COLOR.text : COLOR.textDim }}>
-                          {section.label}
-                        </span>
-                        {section.question ? (
-                          <span style={{ flexShrink: 0, fontSize: 10, color: COLOR.purpleText }} aria-label="quick check available">?</span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null}
+          <NotesRail
+            visible={railTab === "notes"}
+            offline={offline}
+            busy={busy}
+            pdfSurfaceActive={pdfSurfaceActive}
+            activeSpan={activeSpan}
+            activeBlock={activeBlock}
+            selection={selection}
+            selectionActions={selectionActions}
+            editingCapture={editingCapture}
+            setEditingCapture={setEditingCapture}
+            clearSelection={clearSelection}
+            editCaptureText={editCaptureText}
+            resetCaptureText={resetCaptureText}
+            note={note}
+            setNote={setNote}
+            captureHighlight={captureHighlight}
+            invokePreset={invokePreset}
+            importExercise={importExercise}
+            exerciseImport={exerciseImport}
+            setExerciseImport={setExerciseImport}
+            exerciseImportActive={exerciseImportActive}
+            authoringOpen={authoringOpen}
+            setAuthoringOpen={setAuthoringOpen}
+            setAuthoringSpanId={setAuthoringSpanId}
+            authoringQuote={authoringQuote}
+            setAuthoringQuote={setAuthoringQuote}
+            authoredQuestion={authoredQuestion}
+            setAuthoredQuestion={setAuthoredQuestion}
+            authoredAnswer={authoredAnswer}
+            setAuthoredAnswer={setAuthoredAnswer}
+            authoredCardId={authoredCardId}
+            setAuthoredCardId={setAuthoredCardId}
+            authoredStatus={authoredStatus}
+            authoringBusy={authoringBusy}
+            saveOwnQuestion={saveOwnQuestion}
+            coach={coach}
+            setCoach={setCoach}
+            runCoach={runCoach}
+            requests={requests}
+            requestLoadError={requestLoadError}
+            refreshRequests={refreshRequests}
+            synthesizedObjects={synthesizedObjects}
+            openProposalIds={openProposalIds}
+            proposalCount={proposalCount}
+            expandedRequests={expandedRequests}
+            setExpandedRequests={setExpandedRequests}
+            retryRequest={retryRequest}
+            decideProposal={decideProposal}
+            jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
+            arc={arc}
+            pauseArc={pauseArc}
+            setArcPolicy={setArcPolicy}
+            annotations={annotations}
+            jumpToAnnotation={jumpToAnnotation}
+            reanchorAnnotation={reanchorAnnotation}
+            manualAnchorToSelection={manualAnchorToSelection}
+            reanchorNotes={reanchorNotes}
+            editingAnnotationId={editingAnnotationId}
+            setEditingAnnotationId={setEditingAnnotationId}
+            editingAnnotationText={editingAnnotationText}
+            setEditingAnnotationText={setEditingAnnotationText}
+            saveAnnotationEdit={saveAnnotationEdit}
+            deleteAnnotation={deleteAnnotation}
+          />
 
-            {currentGuideSection && revealedSections.includes(currentGuideSection.id) ? (
-              <>
-                <SectionHeader>Worth a second look</SectionHeader>
-                {currentGuideSection.suggestedPassages.length === 0 ? (
-                  <Faint style={{ fontSize: 11 }}>No missed passages were identified in this section.</Faint>
-                ) : currentGuideSection.suggestedPassages
-                    .filter((passage) => !annotatedSpans.has(passage.spanId))
-                    .map((passage) => (
-                      <Card key={passage.spanId} onClick={() => jumpToSpan(passage.spanId)} style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7, cursor: "pointer", background: COLOR.washPurple }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <Pill color={passage.learnerSignal === "recent_misunderstanding" ? "pink" : "purple"}>
-                            {passage.learnerSignal === "recent_misunderstanding" ? "repair" : "important"}
-                          </Pill>
-                          <Faint style={{ fontSize: 10 }}>{passage.learningObjectTitle}</Faint>
-                        </div>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>“{clip(passage.quote, 150)}”</span>
-                        <Faint style={{ fontSize: 10, lineHeight: 1.45 }}>{passage.reason}</Faint>
-                      </Card>
-                    ))}
-              </>
-            ) : null}
-
-            {boundaryChecksAvailable
-              ? openQuestionSections.map((section) =>
-                  section.question?.placement === "auto_authored" ? (
-                    <AuthoredQuestionCard
-                      key={section.id}
-                      section={section}
-                      onJump={jumpToSpan}
-                      onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                      onComplete={() => completeSection(section.id)}
-                      onError={onError}
-                    />
-                  ) : (
-                    <SectionQuestionCard
-                      key={section.id}
-                      section={section}
-                      extractionId={render.extractionId}
-                      onReveal={() => revealSection(section.id)}
-                      onJump={jumpToSpan}
-                      onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                      onComplete={() => completeSection(section.id)}
-                      onError={onError}
-                    />
-                  ),
-                )
-              : null}
-            {currentGuideSection && completedSections.includes(currentGuideSection.id) ? (
-              <Card style={{ marginTop: 10, background: COLOR.washGreen }}>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>✓ quick check complete — keep going.</span>
-              </Card>
-            ) : null}
-          </div>
-
-          <div style={{ display: railTab === "notes" ? "block" : "none" }}>
-          <SectionHeader style={{ marginTop: 0 }}>Capture</SectionHeader>
-          {selection ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Faint style={{ fontSize: 11 }}>
-                    selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : selection.spanId}
-                  </Faint>
-                  <button
-                    type="button"
-                    onClick={() => setEditingCapture((v) => !v)}
-                    style={{ marginLeft: "auto", border: 0, background: "transparent", color: editingCapture ? COLOR.amberLink : COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}
-                  >
-                    {editingCapture ? "done" : "edit"}
-                  </button>
-                  <button type="button" onClick={clearSelection} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer" }}>clear</button>
-                </div>
-                {editingCapture ? (
-                  // OCR-mishap repair: the whole selection edits as ONE
-                  // combined passage (block fragments joined in reading
-                  // order); the edited text becomes the practice surface while
-                  // the anchors stay on the source blocks.
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <textarea
-                      value={selection.editedText ?? selectionNodes(selection).map((n) => n.quote).join("\n\n")}
-                      onChange={(e) => editCaptureText(e.target.value)}
-                      autoFocus
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${selection.editedText != null ? COLOR.amberLink : COLOR.border}`, color: COLOR.text, padding: 6, minHeight: 110, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Faint style={{ fontSize: 10 }}>
-                        fix any OCR mishaps — the edited passage becomes the practice surface; anchors stay on the source blocks.
-                      </Faint>
-                      {selection.editedText != null ? (
-                        <button
-                          type="button"
-                          onClick={resetCaptureText}
-                          style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          reset
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : selection.editedText != null ? (
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                    “{clip(selection.editedText.replace(/\s+/g, " ").trim(), 360)}”
-                    <Faint style={{ fontSize: 10, color: COLOR.amberLink }}> (edited)</Faint>
-                  </span>
-                ) : selection.nodes && selection.nodes.length > 1 ? (
-                  // Per-block anchor preview: exactly what each capture will
-                  // ground to, so an over-wide sweep is visible before acting.
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    {selection.nodes.map((node, index) => (
-                      <span key={`${node.spanId}-${index}`} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
-                        <Faint style={{ fontSize: 10 }}>[{index + 1}]</Faint> “{clip(node.quote, 110)}”
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>“{clip(selection.quote, 360)}”</span>
-                )}
-                {selectionActions.length > 0 ? (
-                  <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ saved · choose another action or select another passage</Faint>
-                ) : null}
-              </Card>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="your note (optional)…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-              />
-              <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
-                {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
-              </PrimaryButton>
-              {!offline ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>EXERCISES</Faint>
-                  <PrimaryButton
-                    onClick={() => void importExercise()}
-                    disabled={busy || exerciseImportActive || selectionActions.includes("exercise_import")}
-                  >
-                    {selectionActions.includes("exercise_import") ? "exercise queued ✓" : "add exercise to practice"}
-                  </PrimaryButton>
-                  <Faint style={{ fontSize: 10 }}>
-                    the exercise text stays verbatim — AI completes the answer, rubric, hints, and depth.
-                  </Faint>
-                </div>
-              ) : null}
-              {PALETTE.map((grp) => (
-                <div key={grp.group} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>{grp.group.toUpperCase()}</Faint>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {grp.presets.map((p) => (
-                      <SecondaryButton key={p.preset} onClick={() => invokePreset(p.preset)} disabled={busy || selectionActions.includes(p.preset)}>
-                        {p.label}{selectionActions.includes(p.preset) ? " ✓" : ""}
-                      </SecondaryButton>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Faint style={{ fontSize: 12 }}>
-              {pdfSurfaceActive
-                ? "drag to select text like a browser · hold ctrl and drag one or more boxes, release ctrl to capture their union (best for exercises) · alt+drag to sweep whole blocks · right-click to tag."
-                : "select text to capture it · hold ctrl and drag one or more boxes, release ctrl to capture their union."}
-            </Faint>
-          )}
-
-          {exerciseImport ? (
-            <>
-              <SectionHeader>Exercise import</SectionHeader>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {exerciseImportActive ? (
-                  <Faint style={{ fontSize: 11 }}>
-                    ◐ authoring practice from “{clip(exerciseImport.quote, 90)}” — keep reading, the cards land here.
-                  </Faint>
-                ) : exerciseImport.status === "completed" && exerciseImport.result ? (
-                  <>
-                    {exerciseImport.result.items.map((item) => (
-                      <div key={item.practiceItemId} style={{ display: "flex", flexDirection: "column", gap: 3, borderBottom: `1px solid ${COLOR.border}`, paddingBottom: 6 }}>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
-                          ✓ {item.title || clip(item.prompt, 80)}
-                        </span>
-                        <Faint style={{ fontSize: 10 }}>→ {item.learningObjectTitle}</Faint>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {item.capability ? (
-                            <Pill color="purple">{item.capability.replace(/_/g, " ")}</Pill>
-                          ) : (
-                            <Pill color="slate">depth unclassified</Pill>
-                          )}
-                          {typeof item.taskFeatures.span === "string" ? (
-                            <Pill color="cyan">{String(item.taskFeatures.span).replace(/_/g, " ")}</Pill>
-                          ) : null}
-                          {item.difficulty != null ? (
-                            <Pill color="amber">difficulty {Math.round(item.difficulty * 100) / 100}</Pill>
-                          ) : null}
-                        </div>
-                        <Faint style={{ fontSize: 10 }}>
-                          verbatim from the source · {item.evidenceFacets.length} facet{item.evidenceFacets.length === 1 ? "" : "s"} · {item.hintCount} hint{item.hintCount === 1 ? "" : "s"} · scheduled as practice
-                        </Faint>
-                        {item.classificationReason ? (
-                          <Faint style={{ fontSize: 10 }}>{item.classificationReason}</Faint>
-                        ) : null}
-                      </div>
-                    ))}
-                    {exerciseImport.result.skipped.map((skip, index) => (
-                      <Faint key={index} style={{ fontSize: 10 }}>
-                        skipped{skip.title ? ` ${skip.title}` : ""}: {skip.reason}
-                      </Faint>
-                    ))}
-                    {exerciseImport.result.warnings.slice(0, 4).map((warning, index) => (
-                      <Faint key={index} style={{ fontSize: 10, color: COLOR.amberLink }}>⚠ {warning}</Faint>
-                    ))}
-                  </>
-                ) : (
-                  <Faint style={{ fontSize: 11, color: COLOR.red }}>
-                    ✗ {exerciseImport.error || "the exercise import did not complete."}
-                  </Faint>
-                )}
-                {!exerciseImportActive ? (
-                  <button
-                    type="button"
-                    onClick={() => setExerciseImport(null)}
-                    style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    dismiss
-                  </button>
-                ) : null}
-              </Card>
-            </>
-          ) : null}
-
-          {(selection || activeSpan || authoringOpen) ? (
-            <>
-              <SectionHeader>Make your own practice</SectionHeader>
-              {!authoringOpen ? (
-                <SecondaryButton onClick={() => {
-                  const spanId = selection?.spanId ?? activeSpan;
-                  setAuthoringSpanId(spanId);
-                  setAuthoringQuote(selection?.quote ?? activeBlock?.markdown.replace(/\s+/g, " ") ?? "");
-                  setAuthoringOpen(true);
-                  setAuthoredCardId(null);
-                  setCoach(null);
-                }}>
-                  write my own question
-                </SecondaryButton>
-              ) : (
-                <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
-                  {authoringQuote ? (
-                    <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
-                  ) : null}
-                  <textarea
-                    value={authoredQuestion}
-                    disabled={authoredCardId !== null}
-                    onChange={(event) => setAuthoredQuestion(event.target.value)}
-                    placeholder="Write a question future-you should answer…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
-                  />
-                  <textarea
-                    value={authoredAnswer}
-                    disabled={authoredCardId !== null}
-                    onChange={(event) => setAuthoredAnswer(event.target.value)}
-                    placeholder="Write the answer in your own words…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
-                  />
-                  {authoredQuestion.trim() || authoredAnswer.trim() ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
-                      <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
-                      {authoredQuestion.trim() ? (
-                        <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                          <MarkdownMath value={authoredQuestion} />
-                        </div>
-                      ) : null}
-                      {authoredAnswer.trim() ? (
-                        <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
-                          <MarkdownMath value={authoredAnswer} />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {authoredCardId ? (
-                    <>
-                      <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
-                        {authoredQuestionMessage(authoredStatus).text}
-                      </Faint>
-                      {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
-                      {coach ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {coach.suggestions.length === 0 ? (
-                            <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
-                          ) : coach.suggestions.map((suggestion, index) => (
-                            <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
-                          ))}
-                          {coach.suggestions.length > 0 ? (
-                            <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthoredQuestion("");
-                          setAuthoredAnswer("");
-                          setAuthoredCardId(null);
-                          setCoach(null);
-                        }}
-                        style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                      >
-                        write another
-                      </button>
-                    </>
-                  ) : (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
-                        save for practice
-                      </PrimaryButton>
-                      <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
-                    </div>
-                  )}
-                </Card>
-              )}
-            </>
-          ) : null}
-
-          {requestLoadError ? (
-            <Card status="error" style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
-                Some Reader request data is unavailable.
-              </div>
-              <Faint style={{ fontSize: 10 }}>{requestLoadError}</Faint>
-              <button
-                type="button"
-                onClick={() => void refreshRequests()}
-                style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-              >
-                retry request data
-              </button>
-            </Card>
-          ) : null}
-
-          {requests.length > 0 ? (
-            <>
-              <SectionHeader>Your requests</SectionHeader>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {requests.map((request) => {
-                  const { sourceObjectId, proposalId } = parseRequestResult(request.resultJson);
-                  const requestError = parseRequestError(request.errorJson);
-                  const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined;
-                  const expanded = expandedRequests.has(request.id);
-                  const proposalOpen = proposalId !== null && openProposalIds.has(proposalId);
-                  return (
-                    <Card
-                      key={request.id}
-                      status={request.status === "complete" ? "done" : request.status === "failed" ? "error" : "running"}
-                      style={{ display: "flex", flexDirection: "column", gap: 6 }}
-                    >
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <Pill color={request.status === "complete" ? "green" : request.status === "failed" ? "pink" : request.status === "partial" ? "amber" : "slate"}>
-                          {request.status === "complete" ? "ready" : request.status === "failed" ? "needs retry" : "working"}
-                        </Pill>
-                        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                          {request.preset.replace(/_/g, " ")}
-                        </span>
-                        {request.status === "complete" && result ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedRequests((ids) => {
-                                const next = new Set(ids);
-                                if (next.has(request.id)) next.delete(request.id);
-                                else next.add(request.id);
-                                return next;
-                              })
-                            }
-                            style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                          >
-                            {expanded ? "▾ hide" : "▸ view result"}
-                          </button>
-                        ) : request.status === "failed" ? (
-                          <button
-                            type="button"
-                            onClick={() => void retryRequest(request.id)}
-                            style={{ marginLeft: "auto", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                          >
-                            retry
-                          </button>
-                        ) : null}
-                      </div>
-                      {request.status === "failed" && requestError ? (
-                        <Faint style={{ fontSize: 10, color: COLOR.red }}>{requestError}</Faint>
-                      ) : null}
-                      {expanded && result ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {result.contentMd ? (
-                            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-                              <MarkdownMath value={result.contentMd} />
-                            </div>
-                          ) : (
-                            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(result.exactText, 260)}”</span>
-                          )}
-                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                            {result.spanId ? (
-                              <button
-                                type="button"
-                                onClick={() => jumpToSpan(result.spanId!)}
-                                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                              >
-                                show the passage
-                              </button>
-                            ) : null}
-                            {proposalOpen && proposalId ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => void decideProposal(proposalId, "accept")}
-                                  disabled={busy}
-                                  style={{ border: 0, background: "transparent", color: COLOR.green, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                                >
-                                  keep it
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void decideProposal(proposalId, "reject")}
-                                  disabled={busy}
-                                  style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                                >
-                                  dismiss
-                                </button>
-                              </>
-                            ) : proposalId ? (
-                              <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ reviewed</Faint>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
-                    </Card>
-                  );
-                })}
-                {proposalCount > 0 ? <Faint style={{ fontSize: 10 }}>{proposalCount} idea{proposalCount === 1 ? " is" : "s are"} awaiting your review above.</Faint> : null}
-              </div>
-            </>
-          ) : null}
-
-          {arc ? (
-            <>
-              <SectionHeader>You’ll see this again</SectionHeader>
-              <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                  {arc.paused
-                    ? "Paused. This passage will stay saved until you resume."
-                    : "Saved. LearnLoop will bring this idea back as short practice and adjust only from your answers."}
-                </span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <SecondaryButton onClick={pauseArc} disabled={arc.paused}>pause reminders</SecondaryButton>
-                  <SecondaryButton onClick={() => setArcPolicy("hold_at_target")}>keep it at this level</SecondaryButton>
-                  <SecondaryButton onClick={() => setArcPolicy("suggest_next")}>deepen when I’m ready</SecondaryButton>
-                </div>
-              </Card>
-            </>
-          ) : null}
-
-          <SectionHeader>Annotations</SectionHeader>
-          {annotations.length === 0 ? (
-            <Faint style={{ fontSize: 12 }}>no annotations yet.</Faint>
-          ) : (
-            annotations.map((a, i) => (
-              <Card
-                key={a.annotationId ?? i}
-                onClick={() => jumpToAnnotation(a)}
-                style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
-              >
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <Pill color="cyan">{a.kind}</Pill>
-                  {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
-                </div>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span>
-                {a.status === "needs_reanchor" && a.annotationId && !offline ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => void reanchorAnnotation(a.annotationId!)}
-                        disabled={busy}
-                        style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                      >
-                        re-anchor to this version
-                      </button>
-                      {selection ? (
-                        <button
-                          type="button"
-                          onClick={() => void manualAnchorToSelection(a.annotationId!)}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          anchor to selection
-                        </button>
-                      ) : null}
-                    </div>
-                    {reanchorNotes[a.annotationId] ? (
-                      <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
-                    ) : null}
-                  </div>
-                ) : null}
-                {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                    <textarea
-                      autoFocus
-                      value={editingAnnotationText}
-                      onChange={(e) => setEditingAnnotationText(e.target.value)}
-                      placeholder="your note…"
-                      onKeyDown={(e) => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
-                        if (e.key === "Escape") setEditingAnnotationId(null);
-                      }}
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
-                    {a.annotationId && !offline ? (
-                      <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAnnotationId(a.annotationId);
-                            setEditingAnnotationText(a.learnerText);
-                          }}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          {a.learnerText ? "edit note" : "add note"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteAnnotation(a.annotationId!)}
-                          disabled={busy}
-                          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                        >
-                          delete
-                        </button>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </Card>
-            ))
-          )}
-          </div>
-
-          {/* The boundary question below is fixture content (its text is authored for
-              the demo chapter) — it renders only in the offline demo, never over a
-              real source it does not belong to. */}
-          <div style={{ display: railTab === "guide" ? "block" : "none" }}>
-          {offline && boundaryBlock ? (
-            <>
-              <SectionHeader>Quick check</SectionHeader>
-              <Card status="probe" style={{ background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
-                <Faint style={{ fontSize: 11 }}>optional · not a test</Faint>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                  Before executing: which decomposition reads off the variance here, and why?
-                </span>
-                {boundarySkipped ? (
-                  <Faint style={{ fontSize: 11 }}>Skipped. Keep reading.</Faint>
-                ) : !boundaryAnswered ? (
-                  <>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => setBoundaryAnswered(true)}>respond ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => { setBoundarySkipped(true); void sendQuestionControl("skip"); }}>skip</SecondaryButton>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {QUESTION_CONTROLS.map((option) => (
-                        <SecondaryButton key={option.value} onClick={() => sendQuestionControl(option.value)}>{option.label}</SecondaryButton>
-                      ))}
-                    </div>
-                    {questionControl === "i_dont_understand" ? (
-                      <Faint style={{ fontSize: 11 }}>Let’s return to the passage that supports this question.</Faint>
-                    ) : questionControl ? (
-                      <Faint style={{ fontSize: 11 }}>Got it. This changes how quick checks appear for you.</Faint>
-                    ) : null}
-                  </>
-                ) : !boundarySubmitted ? (
-                  <>
-                    <textarea
-                      autoFocus
-                      value={boundaryResponse}
-                      onChange={(event) => setBoundaryResponse(event.target.value)}
-                      placeholder="Answer in your own words…"
-                      style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 76, resize: "vertical" }}
-                    />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <PrimaryButton onClick={() => setBoundarySubmitted(true)} disabled={!boundaryResponse.trim()}>record answer ↵</PrimaryButton>
-                      <SecondaryButton onClick={() => setBoundaryAnswered(false)}>back</SecondaryButton>
-                    </div>
-                  </>
-                ) : (
-                  <DispositionPicker value={disposition} onChoose={chooseDisposition} />
-                )}
-              </Card>
-            </>
-          ) : null}
-          </div>
-
-          <div style={{ display: railTab === "ask" ? "block" : "none" }}>
-          <SectionHeader style={{ marginTop: 0 }}>Ask</SectionHeader>
-          <Faint style={{ fontSize: 10, display: "block", margin: "2px 0 8px" }}>
-            answers now, grounded in the selected passage · background requests live under notes
-          </Faint>
-          {!enabled ? (
-            <Card style={{ borderStyle: "dashed", display: "flex", flexDirection: "column", gap: 6 }}>
-              <Faint style={{ fontSize: 12, lineHeight: 1.6 }}>
-                the reader Ask is disabled in this vault's config (on by default for new vaults). Set <Dim>tutor_qa.reader_enabled = true</Dim> to ask span-grounded questions.
-              </Faint>
-            </Card>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {activeSpan ? (
-                <>
-                  {/* The Ask grounding is the SAME selection Capture uses —
-                      the learner never targets extraction blocks directly. */}
-                  {selection ? (
-                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
-                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT YOUR SELECTION</Faint>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                        <MarkdownMath value={clip((selection.editedText ?? selection.quote).replace(/\s+/g, " ").trim(), 300)} />
-                      </div>
-                    </Card>
-                  ) : activeBlock ? (
-                    <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
-                      <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
-                      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                        <MarkdownMath value={clip(activeBlock.markdown.replace(/\s+/g, " "), 150)} />
-                      </div>
-                    </Card>
-                  ) : null}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Faint style={{ fontSize: 11 }}>mode</Faint>
-                    <TermSelect
-                      value={answerMode}
-                      options={ANSWER_MODE_OPTIONS}
-                      onChange={changeAnswerMode}
-                      width={160}
-                    />
-                  </div>
-                  <textarea
-                    key={`${activeSpan}:${askComposerVersion}`}
-                    ref={askComposerRef}
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="ask about this passage…"
-                    style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 70, resize: "vertical" }}
-                  />
-                  <PrimaryButton onClick={ask} disabled={busy || !question.trim()}>ask ↵</PrimaryButton>
-                </>
-              ) : (
-                <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
-              )}
-
-              <SectionHeader>Previous asks</SectionHeader>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Faint style={{ fontSize: 10 }}>{history.length} saved</Faint>
-                {!askFindOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => { setAskFindOpen(true); window.setTimeout(() => askFindInputRef.current?.focus(), 0); }}
-                    title="find in previous asks (ctrl+f)"
-                    aria-label="find in previous asks"
-                    style={{ marginLeft: "auto", width: 20, height: 18, border: `1px solid ${COLOR.border}`, background: "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
-                  >
-                    ⌕
-                  </button>
-                ) : (
-                  <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      ref={askFindInputRef}
-                      value={askFindQuery}
-                      onChange={(event) => setAskFindQuery(event.target.value)}
-                      placeholder="find in asks…"
-                      style={{ width: 170, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, fontFamily: FONT_MONO, fontSize: 11, padding: "4px 6px" }}
-                    />
-                    <Faint style={{ fontSize: 10 }}>{visibleAskHistory.length}/{history.length}</Faint>
-                    <button type="button" onClick={() => { setAskFindOpen(false); setAskFindQuery(""); }} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, cursor: "pointer", padding: 0 }}>×</button>
-                  </div>
-                )}
-              </div>
-              {history.length === 0 ? (
-                <Faint style={{ fontSize: 11 }}>No saved asks for this source yet.</Faint>
-              ) : visibleAskHistory.length === 0 ? (
-                <Faint style={{ fontSize: 11 }}>No questions or answers match “{askFindQuery}”.</Faint>
-              ) : visibleAskHistory.map((exchange) => {
-                const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
-                return (
-                  <Card key={exchange.id} status="running" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => setCollapsedAskIds((ids) => {
-                        const next = new Set(ids);
-                        if (next.has(exchange.id)) next.delete(exchange.id); else next.add(exchange.id);
-                        return next;
-                      })}
-                      aria-expanded={expanded}
-                      style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", border: 0, background: "transparent", color: COLOR.text, fontFamily: FONT_MONO, padding: 0, textAlign: "left", cursor: "pointer" }}
-                    >
-                      <span style={{ color: COLOR.purpleText, flexShrink: 0 }}>{expanded ? "▼" : "▶"}</span>
-                      <span style={{ fontSize: 11, flex: 1 }}>{clip(exchange.question, 130)}</span>
-                    </button>
-                    {expanded ? (
-                      <>
-                        {/* Expanded question renders its LaTeX (the collapsed
-                            header stays plain text — clipping mid-$ would
-                            break KaTeX). */}
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                          <MarkdownMath value={exchange.question} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                          <Pill color="cyan">{exchange.answerMode}</Pill>
-                          <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
-                          {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
-                        </div>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                          <MarkdownMath value={exchange.answerMd} />
-                        </div>
-                      </>
-                    ) : null}
-                  </Card>
-                );
-              })}
-              <AffectTap />
-            </div>
-          )}
-          </div>
+          <AskRail
+            visible={railTab === "ask"}
+            enabled={enabled}
+            inquiry={inquiry}
+            offline={offline}
+            busy={busy}
+            blocks={blocks}
+            activeSpan={activeSpan}
+            activeBlock={activeBlock}
+            selection={selection}
+            parentExchange={parentExchange}
+            setParentExchange={setParentExchange}
+            answerMode={answerMode}
+            changeAnswerMode={changeAnswerMode}
+            question={question}
+            setQuestion={setQuestion}
+            askComposerVersion={askComposerVersion}
+            askComposerRef={askComposerRef}
+            ask={ask}
+            history={history}
+            visibleAskHistory={visibleAskHistory}
+            normalizedAskFind={normalizedAskFind}
+            collapsedAskIds={collapsedAskIds}
+            setCollapsedAskIds={setCollapsedAskIds}
+            askFindOpen={askFindOpen}
+            setAskFindOpen={setAskFindOpen}
+            askFindQuery={askFindQuery}
+            setAskFindQuery={setAskFindQuery}
+            askFindInputRef={askFindInputRef}
+            jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
+            askPhase={askPhase}
+            cancelAsk={cancelAsk}
+            onSetStatus={(root, resolution) => void setInquiryStatus(root, resolution)}
+            onBranchDone={(branch) => void markBranchDone(branch)}
+            onCommit={(root, preset) => void commitInquiry(root, preset)}
+            committed={committedFor}
+            renderInquiryTop={renderInquiryTop}
+          />
         </div>
       </div>
 
@@ -3139,8 +3332,8 @@ export function ReaderScreen({
       ) : null}
 
       <KeyBar
-        keys={
-          pdfSurfaceActive
+        keys={[
+          ...(pdfSurfaceActive
             ? [
                 { key: "drag", label: "select text" },
                 { key: "ctrl+drag", label: "draw capture boxes" },
@@ -3155,402 +3348,19 @@ export function ReaderScreen({
                 { key: "release ctrl", label: "capture box union" },
                 { key: "alt", label: "clear selection" },
                 { key: "right-click", label: "tag" },
+              ]),
+          // RW1a's Reader-wide keys (UX §3.5).
+          ...(inquiry
+            ? [
+                { key: "alt+←", label: "back" },
+                { key: "[ ]", label: "tabs" },
+                { key: "\\", label: "rail" },
               ]
-        }
+            : []),
+        ]}
         right={{ key: "^p", label: "palette" }}
       />
     </div>
-  );
-}
-
-function SectionBoundaryOffer({
-  section,
-  allowQuestion,
-  onOpen,
-  onReveal,
-  onDismiss,
-}: {
-  section: ReaderGuideSectionDto;
-  allowQuestion: boolean;
-  onOpen: () => void;
-  onReveal: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <Card status="probe" style={{ margin: "8px 0 18px", padding: 14, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill color="purple">section break</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · usually under a minute</Faint>
-      </div>
-      <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-        {allowQuestion && section.question
-          ? `Before moving on, would you like to check what landed from “${section.label}”?`
-          : `A few passages from “${section.label}” may be worth another look.`}
-      </span>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {allowQuestion && section.question ? <PrimaryButton onClick={onOpen}>quick check →</PrimaryButton> : null}
-        {section.suggestedPassages.length > 0 ? (
-          <SecondaryButton onClick={onReveal}>
-            show {section.suggestedPassages.length} passage{section.suggestedPassages.length === 1 ? "" : "s"} I may have missed
-          </SecondaryButton>
-        ) : null}
-        <SecondaryButton onClick={onDismiss}>keep reading</SecondaryButton>
-      </div>
-    </Card>
-  );
-}
-
-function AuthoredQuestionCard({
-  section,
-  onJump,
-  onDismiss,
-  onComplete,
-  onError,
-}: {
-  section: ReaderGuideSectionDto;
-  onJump: (spanId: string) => void;
-  onDismiss: () => void;
-  onComplete: () => void;
-  onError: (message: string) => void;
-}) {
-  const question = section.question;
-  const [started, setStarted] = useState(false);
-  const [response, setResponse] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [escalatedItemId, setEscalatedItemId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const questionId = question?.authoredQuestionId ?? null;
-  const sourceSpan = question?.spanIds?.[0] ?? null;
-
-  const submit = useCallback(async () => {
-    if (!questionId || !response.trim()) return;
-    setBusy(true);
-    try {
-      await api.readerAuthoredQuestionAction({ questionId, action: "answered", response: response.trim() });
-      setSubmitted(true);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, response, onError]);
-
-  const dismissForever = useCallback(async () => {
-    if (!questionId) return;
-    setBusy(true);
-    try {
-      await api.readerAuthoredQuestionAction({ questionId, action: "dismissed" });
-      onDismiss();
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, onDismiss, onError]);
-
-  const escalate = useCallback(async () => {
-    if (!questionId || !question?.escalationLearningObjectId) return;
-    setBusy(true);
-    try {
-      const result = await api.readerEscalateAuthoredQuestion({
-        questionId,
-        learningObjectId: question.escalationLearningObjectId,
-      });
-      setEscalatedItemId(result.practiceItemId);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [questionId, question, onError]);
-
-  if (!question) return null;
-
-  return (
-    <Card status="probe" style={{ marginTop: 10, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <Pill color="purple">quick check</Pill>
-        <Pill color="slate">AI-written</Pill>
-        <Faint style={{ fontSize: 10 }}>optional · self-check, never a grade</Faint>
-      </div>
-      <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-        <MarkdownMath value={question.prompt} />
-      </div>
-      {!started ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <PrimaryButton onClick={() => setStarted(true)}>think it through →</PrimaryButton>
-          <SecondaryButton onClick={onDismiss}>keep reading</SecondaryButton>
-        </div>
-      ) : !submitted ? (
-        <>
-          <textarea
-            autoFocus
-            value={response}
-            onChange={(event) => setResponse(event.target.value)}
-            placeholder="Answer in your own words…"
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void submit();
-            }}
-            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
-          />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>compare with the source ↵</PrimaryButton>
-            <SecondaryButton onClick={onDismiss} disabled={busy}>skip</SecondaryButton>
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ borderLeft: `3px solid ${COLOR.green}`, paddingLeft: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-            <Faint style={{ fontSize: 10, letterSpacing: "0.1em" }}>INTENDED ANSWER — COMPARE, DON’T GRADE</Faint>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-              <MarkdownMath value={question.expectedAnswer ?? ""} />
-            </div>
-          </div>
-          {escalatedItemId ? (
-            <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Added to your practice collection.</Faint>
-          ) : null}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {!escalatedItemId && question.escalationLearningObjectId ? (
-              <PrimaryButton onClick={() => void escalate()} disabled={busy}>add to practice →</PrimaryButton>
-            ) : null}
-            <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
-          </div>
-        </>
-      )}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 2 }}>
-        {sourceSpan ? (
-          <button
-            type="button"
-            onClick={() => onJump(sourceSpan)}
-            disabled={busy}
-            style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-          >
-            show me the passage
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => void dismissForever()}
-          disabled={busy}
-          style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-        >
-          don’t bring this back
-        </button>
-      </div>
-    </Card>
-  );
-}
-
-function SectionQuestionCard({
-  section,
-  extractionId,
-  onReveal,
-  onJump,
-  onDismiss,
-  onComplete,
-  onError,
-}: {
-  section: ReaderGuideSectionDto;
-  extractionId: string;
-  onReveal: () => void;
-  onJump: (spanId: string) => void;
-  onDismiss: () => void;
-  onComplete: () => void;
-  onError: (message: string) => void;
-}) {
-  const question = section.question;
-  const [administrationId, setAdministrationId] = useState<string | null>(null);
-  const [response, setResponse] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [disposition, setDisposition] = useState<ReaderDisposition | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [controlMessage, setControlMessage] = useState<string | null>(null);
-
-  const begin = useCallback(async () => {
-    if (!question?.practiceItemId || administrationId) return;
-    setBusy(true);
-    try {
-      const opened = await api.readerPresentQuestion({
-        practiceItemId: question.practiceItemId,
-        readingPhase: question.readingPhase,
-        goalId: question.goalId,
-        targetContractVersionId: question.targetContractVersionId,
-      });
-      setAdministrationId(String(opened.administrationId ?? ""));
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [question, administrationId, onError]);
-
-  const submit = useCallback(async () => {
-    if (!administrationId || !response.trim()) return;
-    setBusy(true);
-    try {
-      await api.readerSubmitQuestion({
-        administrationId,
-        response: response.trim(),
-        targetKey: question?.targetContractVersionId ?? undefined,
-        outcomeClass: "unknown",
-      });
-      setSubmitted(true);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [administrationId, response, question, onError]);
-
-  const skip = useCallback(async () => {
-    try {
-      if (administrationId) {
-        await api.readerSkipQuestion(administrationId);
-      } else if (question?.placementEventId) {
-        await api.readerQuestionControl({
-          control: "skip",
-          subjectId: question.placementEventId,
-          subjectType: "reader_question_placement",
-        });
-      }
-    } catch (error) {
-      onError(errorMessage(error));
-      return;
-    }
-    onDismiss();
-  }, [administrationId, question, onDismiss, onError]);
-
-  const control = useCallback(async (value: string) => {
-    if (!question?.placementEventId) return;
-    setBusy(true);
-    try {
-      await api.readerQuestionControl({
-        control: value,
-        administrationId,
-        subjectId: question.placementEventId,
-        subjectType: "reader_question_placement",
-      });
-      if (value === "i_dont_understand") {
-        setControlMessage("Let’s return to the passage that best supports this question.");
-        if (section.suggestedPassages[0]) {
-          await api.readerRestoreSource({
-            extractionId,
-            spanId: section.suggestedPassages[0].spanId,
-          });
-          onReveal();
-          onJump(section.suggestedPassages[0].spanId);
-        }
-      } else if (value === "ask_me_differently") {
-        setControlMessage("Got it. We’ll vary the wording next time; you can keep reading now.");
-      } else {
-        setControlMessage("Got it. This only changes how checks appear for you.");
-      }
-      if (["too_easy", "too_intrusive", "dont_bring_this_back"].includes(value)) onDismiss();
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [question, administrationId, section.suggestedPassages, extractionId, onReveal, onJump, onDismiss, onError]);
-
-  const choose = useCallback(async (next: ReaderDisposition) => {
-    if (!question?.learningObjectId) return;
-    setDisposition(next);
-    try {
-      await api.readerChooseDisposition({
-        disposition: next,
-        subjectId: question.learningObjectId,
-        subjectType: "learning_object",
-        goalId: question.goalId,
-      });
-      onComplete();
-    } catch (error) {
-      onError(errorMessage(error));
-    }
-  }, [question, onComplete, onError]);
-
-  if (!question) {
-    return section.suggestedPassages.length > 0 ? (
-      <Card status="probe" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, background: COLOR.washPurple }}>
-        <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>Take a quick second pass before moving on?</span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <PrimaryButton onClick={onReveal}>show important passages</PrimaryButton>
-          <SecondaryButton onClick={onDismiss}>not now</SecondaryButton>
-        </div>
-      </Card>
-    ) : null;
-  }
-
-  return (
-    <Card status="probe" style={{ marginTop: 10, background: COLOR.washPurple, display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <Pill color="purple">quick check</Pill>
-        {question.goalTitle ? <Pill color="cyan">for {question.goalTitle}</Pill> : null}
-        <Faint style={{ fontSize: 10 }}>optional · not a test</Faint>
-      </div>
-      <Faint style={{ fontSize: 10, lineHeight: 1.5 }}>{question.reason}</Faint>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, lineHeight: 1.6 }}>
-        <MarkdownMath value={question.prompt} />
-      </div>
-      {!administrationId ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void begin()} disabled={busy}>think it through →</PrimaryButton>
-            <SecondaryButton onClick={() => void skip()} disabled={busy}>keep reading</SecondaryButton>
-          </div>
-          {section.suggestedPassages.length > 0 ? (
-            <SecondaryButton onClick={() => {
-              onReveal();
-              onJump(section.suggestedPassages[0].spanId);
-            }}>
-              show the most relevant passage first
-            </SecondaryButton>
-          ) : null}
-        </div>
-      ) : !submitted ? (
-        <>
-          <textarea
-            autoFocus
-            value={response}
-            onChange={(event) => setResponse(event.target.value)}
-            placeholder="Answer in your own words…"
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") void submit();
-            }}
-            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
-          />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>record answer ↵</PrimaryButton>
-            <SecondaryButton onClick={() => void skip()} disabled={busy}>skip</SecondaryButton>
-          </div>
-        </>
-      ) : (
-        <>
-          <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Answer recorded. This was for understanding, not a grade.</Faint>
-          <Faint style={{ fontSize: 10 }}>What should LearnLoop do with this idea?</Faint>
-          <DispositionPicker value={disposition} onChoose={(next) => void choose(next)} />
-          <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
-        </>
-      )}
-      {!submitted ? (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 2 }}>
-          {QUESTION_CONTROLS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => void control(option.value)}
-              disabled={busy}
-              style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {controlMessage ? <Faint style={{ fontSize: 10 }}>{controlMessage}</Faint> : null}
-    </Card>
   );
 }
 
@@ -3639,6 +3449,8 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onPlaybackSpan: (spanId: string | null) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
+  /** RW1a: the reconnect line under the transcript passage holding this cue. */
+  inlineNote?: { spanId: string; node: ReactNode } | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -3649,6 +3461,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onPlaybackSpan,
   onAskSpan,
   onTagMenu,
+  inlineNote = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -3976,6 +3789,9 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                     );
                   })}
                 </span>
+                {inlineNote && section.cues.some((cue) => cue.block.spanId === inlineNote.spanId) ? (
+                  <div style={{ gridColumn: "2 / span 1" }}>{inlineNote.node}</div>
+                ) : null}
               </div>
             );
           })}

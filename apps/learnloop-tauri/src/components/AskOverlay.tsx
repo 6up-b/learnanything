@@ -21,6 +21,30 @@ import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
 
+/**
+ * The Reader exchange a continued dialogue attaches to, when the sidecar
+ * reports branches (reader_inquiry on: its history carries question ids):
+ * the exchange of the question the learner chose (``questionEventId``), so the
+ * follow-up inherits that inquiry's saved selection and ancestors and never a
+ * sibling's; without a chosen question, the span's newest exchange. Null when
+ * branches are off (the Ask goes out exactly as before) or the chosen
+ * question has no exchange on this source (a new thread on the span).
+ */
+async function readerThreadParent(extractionId: string, spanId: string, questionEventId?: string): Promise<string | null> {
+  try {
+    const history = (api as { readerAskHistory?: (id: string) => Promise<{ exchanges: Array<{ eventId: string; spanId: string; questionEventId?: string | null }> }> }).readerAskHistory;
+    if (typeof history !== "function") return null;
+    const { exchanges } = await history(extractionId);
+    if (!exchanges.some((exchange) => exchange.questionEventId !== undefined)) return null;
+    if (questionEventId) {
+      return exchanges.find((exchange) => exchange.questionEventId === questionEventId)?.eventId ?? null;
+    }
+    return exchanges.find((exchange) => exchange.spanId === spanId)?.eventId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface AskTarget {
   initialQuestion?: string;
   captureId?: string;
@@ -33,6 +57,9 @@ export interface AskTarget {
   /** Reader threads stay anchored to the exact canonical source span. */
   extractionId?: string;
   spanId?: string;
+  /** The reader question the learner chose to continue (its question event
+   *  id): its own exchange is the follow-up's parent (RW1a). */
+  readerQuestionEventId?: string;
   /** Date.now() when the practice item was opened (practice context only). */
   openedAtMs?: number;
   /** Practice context only: whether the learner had started an answer when
@@ -149,6 +176,11 @@ export function AskOverlay({
   const promoteNoticeTimerRef = useRef<number | null>(null);
   const routedCaptureRef = useRef<string | null>(null);
   const captureNoteRef = useRef<string | null>(null);
+  // Reader workbench RW1a: with reader_inquiry on, an Ask with no parent starts
+  // a new thread that sees no earlier exchange. Continuing a reader question
+  // from here continues its span's newest exchange instead (the overlay shows
+  // that span's conversation), then each answer this overlay receives.
+  const readerParentRef = useRef<string | null | undefined>(undefined);
   const gapTimersRef = useRef<number[]>([]);
 
   useEffect(
@@ -250,6 +282,7 @@ export function AskOverlay({
     setQuestion(target.initialQuestion ?? "");
     routedCaptureRef.current = null;
     captureNoteRef.current = null;
+    readerParentRef.current = undefined;
     // A new capture has no library note yet. Do not request an unscoped
     // library transcript; the server anchors it on the first successful send.
     if (target.captureId && !target.noteId) return;
@@ -392,11 +425,19 @@ export function AskOverlay({
         if (!target.extractionId || !target.spanId) {
           throw new Error("This reader question is no longer linked to its source span.");
         }
+        if (readerParentRef.current === undefined) {
+          readerParentRef.current = await readerThreadParent(target.extractionId, target.spanId, target.readerQuestionEventId);
+        }
         const readerAnswer = await api.readerAsk({
           extractionId: target.extractionId,
           spanId: target.spanId,
-          question: text
+          question: text,
+          // Present only while reader_inquiry is on (absent: today's request).
+          ...(readerParentRef.current !== null ? { parentExchangeId: readerParentRef.current } : {})
         });
+        if (readerParentRef.current !== null && readerAnswer.parentExchangeId !== undefined) {
+          readerParentRef.current = readerAnswer.readerAnswerEventId;
+        }
         answer = {
           eventId: readerAnswer.eventId,
           answerMd: readerAnswer.answerMd,

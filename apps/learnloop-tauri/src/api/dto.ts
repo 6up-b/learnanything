@@ -5968,6 +5968,8 @@ export interface ReaderPromptContractDto {
   manifestNeverIncludes: string[];
   citations: string;
   exposureOnCommit: string;
+  /** RW1a: reader_inquiry.enabled (present only when on; absent means off). */
+  inquiryEnabled?: boolean;
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -5976,6 +5978,8 @@ export interface ReaderAskInput {
   extractionId: string;
   spanId: string;
   question: string;
+  /** Completed reader-answer event ID; omitted/null starts a new root. */
+  parentExchangeId?: string | null;
   answerMode?: ReaderAnswerMode;
   targetKey?: string | null;
   revealedSurfaceIds?: string[];
@@ -5983,11 +5987,18 @@ export interface ReaderAskInput {
    *  widen the tutor's citable context to every selected block + exact quote. */
   selectionSpanIds?: string[];
   selectionQuote?: string | null;
+  /** RW1a (reader_inquiry on): the source's own wording when the learner
+   *  edited the capture; selectionQuote is then the learner's wording. */
+  selectionSourceQuote?: string | null;
   coldActive?: boolean;
 }
 export interface ReaderAnswerDto {
   eventId: string;
   readerAnswerEventId: string;
+  /** RW1a branches (absent while reader_inquiry is off). */
+  parentExchangeId?: string | null;
+  /** RW1a: the answering model, for the reader report's per-route funnel. */
+  model?: string | null;
   answerMd: string;
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
@@ -6007,13 +6018,125 @@ export interface ReaderAnswerDto {
 /** A completed Reader Ask restored from the durable interaction-event log. */
 export interface ReaderAskHistoryExchangeDto {
   eventId: string;
+  /** Older saved exchanges have no parent and remain readable as roots. */
+  parentExchangeId?: string | null;
+  selectionSpanIds?: string[];
+  selectionQuoteMd?: string | null;
+  /** Non-null only when the learner edited the capture: then selectionQuoteMd
+   *  is their wording and this is the source's own. */
+  selectionSourceQuoteMd?: string | null;
+  /** RW1a: the exchange's tutor question and its learner-owned resolution
+   *  (a root's resolution is its inquiry's status). */
+  questionEventId?: string | null;
+  resolution?: InquiryResolution | null;
   extractionId: string;
   spanId: string;
   questionMd: string;
   answerMd: string;
   answerMode: ReaderAnswerMode;
-  citations: unknown[];
+  citations: TutorCitationDto[];
   createdAt: string | null;
+}
+export type InquiryResolution = "open" | "resolved" | "dismissed";
+
+/** reader.set_inquiry_status — any exchange names its inquiry; the status
+ *  lands on the root question (RW1a). */
+export interface ReaderSetInquiryStatusInput {
+  extractionId: string;
+  exchangeId: string;
+  resolution: InquiryResolution;
+  trigger?: "chip" | "reconnect" | "undo" | "key";
+}
+export interface ReaderInquiryStatusDto {
+  rootExchangeId: string;
+  questionEventId: string;
+  resolution: InquiryResolution;
+  previousResolution: InquiryResolution;
+  openCount: number;
+}
+
+export type ReconnectAnswer = "yes" | "still_unclear" | "quick_check";
+export interface ReaderReconnectAnswerInput {
+  extractionId: string;
+  exchangeId: string;
+  answer: ReconnectAnswer;
+  via: "inline" | "rail";
+}
+export interface ReaderReconnectAnswerDto {
+  rootExchangeId: string;
+  questionEventId: string;
+  answer: ReconnectAnswer;
+  resolution: InquiryResolution;
+  /** quick_check only: exists | queued | provider_unavailable. */
+  status: "exists" | "queued" | "provider_unavailable" | null;
+  batchId: string | null;
+  message: string | null;
+  question: ReaderInquiryQuestionDto | null;
+}
+
+export type InquirySelfCheck = "matches" | "partly" | "no";
+/** A passage-scoped quick check (reader_authored_questions, scope inquiry). */
+export interface ReaderInquiryQuestionDto {
+  id: string;
+  extractionId: string;
+  sectionId: string;
+  status: "proposed" | "answered" | "dismissed" | "escalated";
+  questionMd: string;
+  expectedAnswerMd: string;
+  spanIds: string[];
+  practiceItemId: string | null;
+  answeredAt: string | null;
+  scopeKind: "inquiry";
+  questionStyle: string;
+  anchorSpanIds: string[];
+  inquiryRootEventId: string | null;
+  responseMd: string | null;
+  selfCheck: InquirySelfCheck | null;
+  escalationLearningObjectId: string | null;
+  /** The route the check came from (the Reader's funnel). */
+  model?: string | null;
+  promptVersion?: string | null;
+}
+/** The durable job writing an inquiry's quick check (reader.inquiry_question
+ *  with a batchId): its state, and why it failed. */
+export interface ReaderInquiryCheckJobDto {
+  status: "queued" | "running" | "waiting_for_input" | "blocked" | "completed" | "failed" | "cancelled" | string;
+  /** capped · spend_refused · provider_unavailable · held · … (failed or cancelled only). */
+  errorCode: string | null;
+  message: string | null;
+  /** spend_refused only: which limit stopped it (no_price · over_cap). */
+  refusal?: "no_price" | "over_cap" | string | null;
+}
+export interface ReaderInquiryQuestionReadDto {
+  question: ReaderInquiryQuestionDto | null;
+  /** Present when the read named a batch; null when it is not this inquiry's. */
+  job?: ReaderInquiryCheckJobDto | null;
+}
+export interface ReaderInquiryQuestionActionInput {
+  questionId: string;
+  action: "answered" | "self_checked" | "dismissed";
+  response?: string | null;
+  selfCheck?: InquirySelfCheck | null;
+}
+
+/** One funnel event for reader.log_activity (ids, kinds, counts and timings
+ *  only; the sidecar drops anything else, learner text above all). */
+export interface ReaderActivityEvent {
+  kind:
+    | "reader_view_opened"
+    | "reader_view_closed"
+    | "reader_selection"
+    | "reader_job_queued"
+    | "reader_job_completed"
+    | "reader_action_invoked";
+  event?:
+    | "action_invoked"
+    | "detour_opened"
+    | "detour_returned"
+    | "reconnect_shown"
+    | "proactive_shown"
+    | "back_to_reading";
+  payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
   version?: number;

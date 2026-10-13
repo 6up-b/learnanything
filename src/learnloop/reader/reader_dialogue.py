@@ -112,6 +112,13 @@ READER_EVENT_KINDS = (
 READING_PHASES = ("before_section", "during_section", "after_section")
 
 READER_PROMPT_CONTRACT_VERSION = "p2-reader-v1"
+# RW1a (spec_reader_workbench_v1 §4.1): branching Ask. A follow-up names its
+# parent exchange and only its ancestors enter the prompt. Used only while
+# ``reader_inquiry.enabled`` (the kill switch restores the flat contract above).
+READER_BRANCHES_CONTRACT_VERSION = "p3-reader-branches-v1"
+# The most recent ancestors that enter a follow-up's prompt; every link stays
+# durable on the event log, the manifest records the omitted count.
+READER_BRANCH_PROMPT_ANCESTORS = 12
 
 # Coarse reading-answer outcome class -> triage-reason weight seed (design A.1).
 # Lowercase so the parameter-registry AST scan (UPPERCASE only) does not require
@@ -130,6 +137,16 @@ class ReaderDialogueError(ValueError):
     pass
 
 
+def inquiry_enabled(vault: LoadedVault) -> bool:
+    """RW1a's kill switch (``reader_inquiry.enabled``, default on).
+
+    Off: the flat Ask history and per-span tutor thread of before, and every
+    reader RPC RW1a touches answers exactly as it did."""
+
+    section = getattr(vault.config, "reader_inquiry", None)
+    return bool(getattr(section, "enabled", True))
+
+
 def reader_enabled(vault: LoadedVault) -> bool:
     """Launch default OFF (§12.3.2): the golden path completes without the reader.
 
@@ -143,16 +160,19 @@ def reader_enabled(vault: LoadedVault) -> bool:
 # Owner-reviewable prompt contract (U-034 artifact; deterministic).
 # ---------------------------------------------------------------------------
 
-def reader_prompt_contract() -> dict[str, Any]:
+def reader_prompt_contract(*, branches: bool = False) -> dict[str, Any]:
     """The owner-reviewable ``reader`` prompt/manifest contract (design A.2).
 
     Deterministic (no live AI) so it can be diffed + reviewed like any other
     U-034 artifact and asserted in tests. Declares exactly what the reader answer
     MAY reveal, what the context manifest carries, and -- load-bearing for
-    invariant 10 -- what it must NEVER receive."""
+    invariant 10 -- what it must NEVER receive.
+
+    ``branches`` (RW1a, ``reader_inquiry.enabled``): a follow-up carries only
+    its branch's ancestors instead of every earlier exchange on the span."""
 
     return {
-        "version": READER_PROMPT_CONTRACT_VERSION,
+        "version": READER_BRANCHES_CONTRACT_VERSION if branches else READER_PROMPT_CONTRACT_VERSION,
         "context": "reader",
         "not_socratic_by_default": True,
         "answer_modes": list(READER_ANSWER_MODES),
@@ -167,7 +187,11 @@ def reader_prompt_contract() -> dict[str, Any]:
             "the exact source span(s) in view (block-level span_view text + citation ids)",
             "the learner question text",
             "the goal-contract task invariants + required capabilities (read-only head)",
-            "prior reader exchanges on the same span only",
+            (
+                f"the selected branch's reader ancestors only (most recent {READER_BRANCH_PROMPT_ANCESTORS})"
+                if branches
+                else "prior reader exchanges on the same span only"
+            ),
             "the chosen answer mode for this ask",
         ],
         "manifest_never_includes": [
@@ -194,13 +218,17 @@ def build_reader_manifest(
     goal_invariants: Mapping[str, Any] | None = None,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    prior_exchanges: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The exact bounded context handed to the reader tutor (design A.2).
 
     Carries the learner's selection (exact quote + every covered block) with the
     primary span's surrounding blocks, the question, the chosen mode, the
     read-only goal-contract invariants, and the prior same-span exchanges. It
-    deliberately carries NO ability estimate and NO assessment-reserved content."""
+    deliberately carries NO ability estimate and NO assessment-reserved content.
+
+    ``prior_exchanges`` (RW1a branches) replaces the same-span history with a
+    follow-up's resolved ancestors; an empty sequence is a new root."""
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
     source_spans = tutor_qa._reader_source_spans(
@@ -210,11 +238,14 @@ def build_reader_manifest(
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
     )
-    prior = repository.question_events(
+    prior = prior_exchanges if prior_exchanges is not None else repository.question_events(
         context="reader", note_id=span_key, answer_status="answered"
     )
     return {
-        "version": READER_PROMPT_CONTRACT_VERSION,
+        "version": (
+            READER_BRANCHES_CONTRACT_VERSION if prior_exchanges is not None
+            else READER_PROMPT_CONTRACT_VERSION
+        ),
         "span": {"extraction_id": extraction_id, "span_id": span_id, "key": span_key},
         "selection": (
             {"span_ids": list(dict.fromkeys(selection_span_ids)), "quote_md": selection_quote_md}
@@ -240,6 +271,40 @@ def build_reader_manifest(
 # ---------------------------------------------------------------------------
 # Learner -> AI (Ask).
 # ---------------------------------------------------------------------------
+
+def _branch_ancestors(
+    repository: Repository, *, extraction_id: str, span_id: str,
+    parent_exchange_id: str | None,
+) -> list[dict[str, Any]]:
+    """Resolve completed exchange IDs in this vault; never trust caller history.
+
+    An immutable exchange can only point to an already completed parent. Legacy
+    exchanges without a parent remain roots. Fail closed for damaged links,
+    cycles, other extractions, and changed anchors before logging or generation.
+    """
+    if parent_exchange_id is None:
+        return []
+    exchanges = {
+        e["event_id"]: e
+        for e in ask_history(repository, extraction_id=extraction_id, branches=True)
+    }
+    ancestors: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    current: str | None = parent_exchange_id
+    while current is not None:
+        if current in seen:
+            raise ReaderDialogueError("Reader branch contains a cycle.")
+        seen.add(current)
+        exchange = exchanges.get(current)
+        if exchange is None or exchange["span_id"] != span_id:
+            raise ReaderDialogueError(
+                "Reader parent must be a completed exchange on the same source span."
+            )
+        ancestors.append(exchange)
+        current = exchange["parent_exchange_id"]
+    ancestors.reverse()
+    return ancestors
+
 
 def set_answer_mode(
     repository: Repository,
@@ -423,12 +488,22 @@ def ask(
     revealed_surface_ids: Sequence[str] = (),
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    parent_exchange_id: str | None = None,
+    selection_source_quote_md: str | None = None,
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
     learning_object_suggester: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    RW1a branches (``reader_inquiry.enabled``): ``parent_exchange_id`` names a
+    completed reader-answer event in this vault on this extraction and span.
+    A follow-up inherits its parent's saved selection, and only its latest
+    ``READER_BRANCH_PROMPT_ANCESTORS`` ancestors enter the tutor context; no
+    parent starts a new root with no prior conversation. All links stay
+    durable even when the prompt history is bounded. With the switch off the
+    flat same-span thread of before is used and a parent is refused.
 
     ``learning_object_suggester`` (Slice 2 T6, injected by the adapter) records
     a labelled nearest-LO suggestion when the span has no provenance-linked LO.
@@ -437,6 +512,12 @@ def ask(
     multi-block capture selection: ``span_id`` stays the primary grounding
     block, the extra spans and the exact quote widen the tutor's citable
     context to everything that was actually selected.
+
+    ``selection_source_quote_md`` (RW1a, branches only): when the learner
+    edited the captured text, ``selection_quote_md`` is their wording and this
+    is the source's own; both are kept on the exchange (and inherited by its
+    follow-ups) so history never presents the learner's words as the book's.
+    The tutor still reads ``selection_quote_md``, as before.
 
     The learner question is elicitation about the source, never ability evidence
     (the reader context attaches no facets). On answer commit the revealed cues
@@ -456,6 +537,29 @@ def ask(
     if answer_mode not in READER_ANSWER_MODES:
         raise ReaderDialogueError(f"unknown reader answer mode: {answer_mode!r}")
 
+    branches = inquiry_enabled(vault)
+    if not branches and parent_exchange_id is not None:
+        raise ReaderDialogueError(
+            "Follow-up threads are switched off (reader_inquiry.enabled = false)."
+        )
+    thread: list[dict[str, Any]] | None = None
+    ancestors: list[dict[str, Any]] = []
+    if branches:
+        ancestors = _branch_ancestors(
+            repository, extraction_id=extraction_id, span_id=span_id,
+            parent_exchange_id=parent_exchange_id,
+        )
+        if ancestors:
+            # The saved passage wins over an unrelated current UI selection.
+            parent = ancestors[-1]
+            selection_span_ids = parent["selection_span_ids"]
+            selection_quote_md = parent["selection_quote_md"]
+            selection_source_quote_md = parent.get("selection_source_quote_md")
+        thread = [
+            {"question_md": e["question_md"], "answer_md": e["answer_md"], "question_type": "other"}
+            for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
+        ]
+
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
     manifest = build_reader_manifest(
         repository,
@@ -466,23 +570,38 @@ def ask(
         goal_invariants=goal_invariants,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        prior_exchanges=thread,
     )
+    if branches:
+        if ancestors and not manifest["source_spans"]:
+            raise ReaderDialogueError(
+                "The branch's source passage is no longer available. "
+                "Reopen the source and start a new thread."
+            )
+        manifest["parent_exchange_id"] = parent_exchange_id
+        manifest["ancestor_exchange_ids"] = [
+            e["event_id"] for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
+        ]
+        manifest["omitted_ancestor_count"] = max(0, len(ancestors) - len(thread or []))
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.
     set_answer_mode(repository, extraction_id=extraction_id, span_id=span_id,
                     answer_mode=answer_mode, clock=clock)
+    asked_payload: dict[str, Any] = {
+        "question_md": question_md,
+        "extraction_id": extraction_id,
+        "span_id": span_id,
+        "selection_span_ids": list(dict.fromkeys(selection_span_ids)),
+    }
+    if branches:
+        asked_payload["parent_exchange_id"] = parent_exchange_id
     log_interaction_event(
         repository,
         kind="learner_question_asked",
         origin="learner",
         subject_type="reader_span",
         subject_id=span_key,
-        payload={
-            "question_md": question_md,
-            "extraction_id": extraction_id,
-            "span_id": span_id,
-            "selection_span_ids": list(dict.fromkeys(selection_span_ids)),
-        },
+        payload=asked_payload,
         clock=clock,
     )
 
@@ -497,6 +616,7 @@ def ask(
         answer_mode=answer_mode,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        reader_thread=thread,
         learning_object_suggester=learning_object_suggester,
         clock=clock,
     )
@@ -546,6 +666,13 @@ def ask(
         )
         burned.append(surface_id)
 
+    submitted_payload: dict[str, Any] = {"question_event_id": result["event_id"]}
+    if branches:
+        submitted_payload["parent_exchange_id"] = parent_exchange_id
+        if selection_source_quote_md:
+            # The capture was edited: the source's own wording, kept apart
+            # from the learner's (which is the manifest's selection quote).
+            submitted_payload["selection_source_quote_md"] = selection_source_quote_md
     submitted_event_id = log_interaction_event(
         repository,
         kind="reader_answer_submitted",
@@ -553,7 +680,7 @@ def ask(
         subject_type="reader_span",
         subject_id=span_key,
         payload={
-            "question_event_id": result["event_id"],
+            **submitted_payload,
             "extraction_id": extraction_id,
             "span_id": span_id,
             "answer_mode": answer_mode,
@@ -588,9 +715,15 @@ def ask(
             clock=clock,
         )
 
-    response = {
+    response: dict[str, Any] = {
         "event_id": result["event_id"],
         "reader_answer_event_id": submitted_event_id,
+    }
+    if branches:
+        response["parent_exchange_id"] = parent_exchange_id
+        # The reader report reads the funnel per route (model, prompt version).
+        response["model"] = getattr(client, "model", None)
+    response.update({
         "answer_md": result["answer_md"],
         "answer_mode": answer_mode,
         "citations": result["citations"],
@@ -600,24 +733,39 @@ def ask(
         "hint_equivalent": bool(cold_active),
         "cold_hint_event_id": cold_hint_event_id,
         "remaining": result["remaining"],
-    }
+    })
     if result.get("suggested_learning_objects"):
         # Slice 2 T6: labelled nearest-LO suggestions (absent when there are none).
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
     return response
 
 
-def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str, Any]]:
+def ask_history(
+    repository: Repository, *, extraction_id: str, branches: bool = True,
+) -> list[dict[str, Any]]:
     """Return every completed Reader Ask for one extraction, newest first.
 
     Reader exchanges are already durable ``reader_answer_submitted`` interaction
     events.  This projection makes that existing history available to the Reader
     UI without creating a second persistence path.  Failed/pending provider calls
     are intentionally absent because they have no answer to reopen.
+
+    ``branches`` (RW1a): each exchange also carries its parent (pre-branching
+    events project a null parent and so read as roots), its saved selection,
+    and its tutor question's id and learner-owned ``resolution`` -- a root's
+    resolution is its inquiry's status. The RPC passes False while
+    ``reader_inquiry.enabled`` is off, which returns the flat projection of
+    before.
     """
 
     prefix = f"span:{extraction_id}/"
     exchanges: list[dict[str, Any]] = []
+    resolutions: dict[str, str] = {}
+    if branches:
+        resolutions = {
+            str(row["id"]): str(row.get("resolution") or "open")
+            for row in repository.question_events(context="reader")
+        }
     for event in repository.reader_interaction_events(kind="reader_answer_submitted"):
         subject_id = str(event.get("subject_id") or "")
         if not subject_id.startswith(prefix):
@@ -626,18 +774,30 @@ def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str,
         if str(payload.get("extraction_id") or "") != extraction_id:
             continue
         manifest = payload.get("manifest") or {}
-        exchanges.append(
-            {
-                "event_id": str(event["id"]),
-                "extraction_id": extraction_id,
-                "span_id": str(payload.get("span_id") or subject_id[len(prefix):]),
-                "question_md": str(manifest.get("question_md") or ""),
-                "answer_md": str(payload.get("answer_md") or ""),
-                "answer_mode": str(payload.get("answer_mode") or READER_ANSWER_MODE_DEFAULT),
-                "citations": list(payload.get("citations") or []),
-                "created_at": event.get("created_at"),
-            }
-        )
+        exchange: dict[str, Any] = {
+            "event_id": str(event["id"]),
+            "extraction_id": extraction_id,
+            "span_id": str(payload.get("span_id") or subject_id[len(prefix):]),
+            "question_md": str(manifest.get("question_md") or ""),
+            "answer_md": str(payload.get("answer_md") or ""),
+            "answer_mode": str(payload.get("answer_mode") or READER_ANSWER_MODE_DEFAULT),
+            "citations": list(payload.get("citations") or []),
+            "created_at": event.get("created_at"),
+        }
+        if branches:
+            selection = manifest.get("selection") or {}
+            question_event_id = payload.get("question_event_id")
+            exchange.update({
+                "parent_exchange_id": payload.get("parent_exchange_id"),
+                "selection_span_ids": list(selection.get("span_ids") or []),
+                "selection_quote_md": selection.get("quote_md"),
+                # Non-null only when the learner edited the capture: then
+                # selection_quote_md is their wording and this the source's.
+                "selection_source_quote_md": payload.get("selection_source_quote_md") or None,
+                "question_event_id": str(question_event_id) if question_event_id else None,
+                "resolution": resolutions.get(str(question_event_id)) if question_event_id else None,
+            })
+        exchanges.append(exchange)
     exchanges.reverse()
     return exchanges
 

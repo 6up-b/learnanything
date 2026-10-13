@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
@@ -2195,6 +2196,8 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     call, so a duplicate enqueue or a retry never double-authors."""
 
     payload = ctx.payload
+    if payload.get("scope_kind") == "inquiry":
+        return _handle_reader_inquiry_check(ctx)
     extraction_id = str(payload.get("extraction_id") or "")
     section_id = str(payload.get("section_id") or "")
     if not extraction_id or not section_id:
@@ -2210,6 +2213,113 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
         ctx.repo, client, extraction_id=extraction_id, section_id=section_id, clock=ctx.clock
     )
     return {"question_id": row["id"], "deduplicated": False}
+
+
+def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
+    """The vault's admission settings for one passage check ([reader_inquiry])."""
+
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    return RQC.passage_check_spend(vault.config, cancelled=getattr(ctx, "cancelled", None))
+
+
+# A claim another live job holds (re-review F13) is waited on, polled this
+# often, for at most as long as the Reader itself waits (200 polls of 3 s):
+# the job stays running, and ends with the holder's question, its own (when
+# the holder gave the key back or ended), or a retryable "held" failure.
+INQUIRY_HELD_POLL_SECONDS = 5.0
+INQUIRY_HELD_MAX_POLLS = 120
+# A job in one of these states will never land or release a claim it holds.
+_ENDED_JOB_STATUSES = frozenset({"completed", "failed", "cancelled", "blocked"})
+
+
+def _pause_while_inquiry_held(ctx: JobContext, seconds: float) -> None:
+    """Wait between polls of a held inquiry claim (a seam for tests)."""
+
+    threading.Event().wait(seconds)
+
+
+def _inquiry_owner_ended(repo: Repository, owner: str) -> bool:
+    """True when the claim's owner is an ingest job that has finished: it was
+    expired, failed or cancelled after claiming, so its claim is abandoned.
+    An owner that is not a job is left to its lease."""
+
+    job = repo.get_ingest_job(owner)
+    return job is not None and job.get("status") in _ENDED_JOB_STATUSES
+
+
+def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
+    """RW1a: author the reconnect line's quick check for one inquiry's root
+    passage. Same job type, lane and client as the section check, but a paid
+    call admitted through the spend framework before it is sent (W10), as an
+    isolated turn, under a durable claim on (root exchange, prompt version)
+    owned by this job (a re-run of the job after a crash takes it back at
+    once, and so does any job once the claiming job has ended). A refusal
+    fails the job with its reason as the error code (``capped``,
+    ``spend_refused`` with its ``refusal``, ``provider_unavailable``), which
+    the Reader shows in place. A claim another live job holds makes no call:
+    this job waits for it (still running), so it never completes without a
+    question; past the wait it fails with the retryable code ``held``."""
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    root_event_id = str(payload.get("inquiry_root_event_id") or "")
+    anchors = [str(span_id) for span_id in payload.get("anchor_span_ids") or [] if span_id]
+    if not extraction_id or not root_event_id or not anchors:
+        raise IngestRunnerError(
+            "an inquiry quick check needs extraction_id, inquiry_root_event_id and anchor_span_ids."
+        )
+    existing = ctx.repo.inquiry_reader_authored_question(
+        inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
+    )
+    if existing is not None:
+        return {"question_id": existing["id"], "deduplicated": True}
+    ctx.report("authoring", message="Authoring a quick check for this passage")
+    try:
+        client = ctx.services.quick_check_client(ctx)
+    except IngestRunnerError as exc:
+        raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+    bind = getattr(ctx, "bind_interruptible", None)
+    if callable(bind):
+        bind(client)
+    spend = _passage_check_spend(ctx)
+    owner = str((getattr(ctx, "job", None) or {}).get("id") or "") or None
+    polls = 0
+    while True:
+        if polls:
+            ctx.report("authoring", message="Authoring a quick check for this passage")
+        try:
+            row = RQC.author_inquiry_quick_check(
+                ctx.repo, client, extraction_id=extraction_id, inquiry_root_event_id=root_event_id,
+                anchor_span_ids=anchors, clock=ctx.clock, spend=spend, owner=owner,
+                owner_ended=lambda holder: _inquiry_owner_ended(ctx.repo, holder),
+            )
+        except RQC.PassageCheckRefused as exc:
+            raise IngestRunnerError(str(exc), code=exc.reason, details={
+                "refusal": exc.refusal,
+                "max_checks_per_day": spend.max_checks_per_day,
+                "max_usd_per_check": spend.max_usd_per_check,
+                "price_per_million": spend.price_per_million,
+            }) from exc
+        except RQC.InquiryCheckHeld:
+            landed = ctx.repo.inquiry_reader_authored_question(
+                inquiry_root_event_id=root_event_id, prompt_version=RQC.INQUIRY_PROMPT_VERSION
+            )
+            if landed is not None:
+                return {"question_id": landed["id"], "deduplicated": True}
+            if polls >= INQUIRY_HELD_MAX_POLLS:
+                raise IngestRunnerError(
+                    "Another job is still writing this quick check.", code="held", retryable=True,
+                ) from None
+            polls += 1
+            # Heartbeats the lease and stops here if the learner cancelled.
+            ctx.report("waiting", message="Waiting for the job already writing this quick check")
+            _pause_while_inquiry_held(ctx, INQUIRY_HELD_POLL_SECONDS)
+            continue
+        except AIProviderUnavailable as exc:
+            raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+        return {"question_id": row["id"], "deduplicated": False}
 
 
 def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
@@ -2924,6 +3034,39 @@ class DurableIngestJobs:
             [JobSpec("reader_quick_check", {"extraction_id": extraction_id, "section_id": section_id})],
             priority=QUICK_ADD_PRIORITY,
         )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_reader_inquiry_check(
+        self, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str]
+    ) -> str:
+        """Enqueue the reconnect line's passage-scoped quick check (RW1a).
+
+        The section check's job type, priority and parallel lane. One live job
+        per inquiry: while a batch for this root is queued or running, a second
+        request joins it (checked and inserted in one write transaction), and
+        the handler claims (root exchange, prompt version) before its call."""
+
+        runner = self._require_runner()
+        subject = f"reader_inquiry_check:{inquiry_root_event_id}"
+        with runner.repo.atomic():
+            live = runner.repo.live_ingest_batch_for_subject(
+                workflow_type="reader_quick_check", subject_id=subject
+            )
+            if live is not None:
+                batch_id = str(live["id"])
+            else:
+                batch_id = runner.enqueue_batch(
+                    "reader_quick_check",
+                    [JobSpec("reader_quick_check", {
+                        "scope_kind": "inquiry",
+                        "extraction_id": extraction_id,
+                        "inquiry_root_event_id": inquiry_root_event_id,
+                        "anchor_span_ids": list(anchor_span_ids),
+                    })],
+                    subject_id=subject,
+                    priority=QUICK_ADD_PRIORITY,
+                )
         self._ensure_worker()
         return batch_id
 

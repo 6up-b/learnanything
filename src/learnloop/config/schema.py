@@ -1675,6 +1675,34 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class ReaderInquiryConfig(BaseModel):
+    """Reader workbench RW1a: inquiry (spec_reader_workbench_v1 §4.1).
+
+    Branching Ask (a follow-up names its parent exchange and sees only its
+    ancestors), inquiry status on the root question with reopen, the return
+    stack and detour strip, the reconnect line with its passage-scoped quick
+    check, and the reader activity the funnel report reads. Content and
+    display only: no scoring, scheduling, projection or serving change, so no
+    algorithm successor. ``enabled`` is the kill switch: off restores today's
+    flat rail, and every RPC RW1a touches answers exactly as before.
+
+    The reconnect line's passage check is a paid call admitted through the
+    Phase 1 spend framework (W10) before it is sent: at most
+    ``max_checks_per_day`` checks a UTC day (counted from their receipts,
+    failed calls included); on a metered route (OpenRouter, an API key) one
+    admitted request per physical request at ``metered_price_per_million``
+    (unset: a metered route is refused before sending), held to
+    ``max_usd_per_check``. Codex on the ChatGPT subscription needs no price:
+    its cost is estimated_only and it has no token, dollar or physical-request
+    bound (Slice A §5 rule 6).
+    """
+
+    enabled: bool = True
+    max_checks_per_day: int = Field(default=100, ge=0)
+    max_usd_per_check: float = Field(default=0.25, ge=0.0, le=5.0)
+    metered_price_per_million: float | None = Field(default=None, gt=0)
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -2194,6 +2222,7 @@ class LearnLoopConfig(BaseModel):
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
     learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
+    reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
 
     @model_validator(mode="before")
     @classmethod

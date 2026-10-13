@@ -146,12 +146,28 @@ LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "as
 # (a facets.yaml rewrite and owner verdicts). Desktop only.
 FACET_IDENTITY_RPCS = ("list_facet_identity_actions", "undo_facet_identity_action")
 
+# Reader workbench RW1a (inquiry) adds five RPCs -- inquiry status with reopen,
+# the reconnect answer, the passage-scoped quick check's read and actions, and
+# the Reader's funnel activity -- and extends three: reader.ask (a parent
+# exchange), reader.ask_history (parents, saved selections, status) and
+# reader.prompt_contract (inquiryEnabled). Desktop only (spec D20).
+READER_RW1A_RPCS = (
+    "reader.set_inquiry_status",
+    "reader.reconnect_answer",
+    "reader.inquiry_question",
+    "reader.inquiry_question_action",
+    "reader.log_activity",
+    "reader.ask",
+    "reader.ask_history",
+    "reader.prompt_contract",
+)
+
 
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
-    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS,
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

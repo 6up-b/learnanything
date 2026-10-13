@@ -311,6 +311,7 @@ def ask_question(
     question_event_id: str | None = None,
     source_span_provider: SourceSpanProvider | None = None,
     learning_object_suggester: LearningObjectSuggester | None = None,
+    reader_thread: Sequence[Mapping[str, Any]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -385,13 +386,20 @@ def ask_question(
         raise QuestionLimitReached(context=context, limit=limit, used=used)
 
     candidates = _candidate_facets(vault, repository, context, item=item, note=note)
-    thread = _thread(
-        repository,
-        context=context,
-        practice_item_id=practice_item_id,
-        attempt_id=attempt_id,
-        note_id=note_id,
-        session_id=session_id,
+    # Reader branches (RW1a) resolve a follow-up's durable ancestors server-side
+    # in the reader dialogue: an explicit empty sequence starts a new root, and
+    # None (the kill switch off, or a direct caller) keeps the same-span thread.
+    thread = (
+        [dict(turn) for turn in reader_thread]
+        if context == "reader" and reader_thread is not None
+        else _thread(
+            repository,
+            context=context,
+            practice_item_id=practice_item_id,
+            attempt_id=attempt_id,
+            note_id=note_id,
+            session_id=session_id,
+        )
     )
     # Two-phase write: the question row lands BEFORE the provider call. The
     # learner asking is elicitation evidence about their knowledge state

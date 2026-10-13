@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24012,
-    "sha256": "325862f3b5e0b8696606038e47c531fb667d5e4d5ccce86b0aebf413f5fbfe70"
+    "bytes": 24182,
+    "sha256": "121dbfabba9d7b4f104e68517fffb1a0f4e76ec5ac48f70849c5b50b4226a77e"
   },
   "accept": {
     "bytes": 1593,
@@ -818,6 +818,14 @@
   "quick-add": {
     "bytes": 2333,
     "sha256": "e37e8b720c83ffb155441afc3156a9b7694735bb1402082555c9492821da0934"
+  },
+  "reader": {
+    "bytes": 1757,
+    "sha256": "7d394662dde4e183e5fdacabdd3eb9e4c3ef8959f89fe7956746fa6746209b78"
+  },
+  "reader report": {
+    "bytes": 1457,
+    "sha256": "b51af3bcf2d8860bc4bc63974105cc2a34406aa4dbe3c3576c9fe039f373ffac"
   },
   "rebuild": {
     "bytes": 1465,

@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eeccd4384a3ed48bdbccccf26389d7f3ec91f8a7"
-source_commit_timestamp: "2026-10-13T03:38:58-04:00"
+source_commit: "3192d0c9a5f7a5782fbfa83abccff708e28e0533"
+source_commit_timestamp: "2026-10-13T03:41:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 184
+schema_head: 185
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/field/probability_states.py`
+- `src/learnloop/reader/reader_report.py`
 - `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
@@ -142,6 +143,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
+- `src/learnloop/reader/reader_inquiry.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/tutor/promotions.py`
@@ -166,7 +168,9 @@ Indexes and uniqueness:
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
 - `tests/test_question_signal.py`
+- `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_reader_inquiry_status.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_source_retrieval_tutor.py`
 - `tests/test_tutor_qa.py`
@@ -175,8 +179,6 @@ Indexes and uniqueness:
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_placement_signals.py`
-- `tests/test_question_context.py`
-- `tests/test_question_promotion_jobs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -2,6 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
+  ReaderActivityEvent,
+  ReaderInquiryQuestionActionInput,
+  ReaderInquiryQuestionDto,
+  ReaderInquiryQuestionReadDto,
+  ReaderInquiryStatusDto,
+  ReaderReconnectAnswerDto,
+  ReaderReconnectAnswerInput,
+  ReaderSetInquiryStatusInput,
   AppSnapshot,
   AnswerCalibrationReportDto,
   CreateVaultInput,
@@ -1259,6 +1267,18 @@ export const api = {
     call<ReaderSpanLearningObjectsDto>("reader_span_learning_objects", { input }),
   readerManualAnchor: (input: { annotationId: string; extractionId: string; rawSelection: Record<string, unknown>; renderViewId?: string | null }) =>
     mutatingReader(call<{ annotationId: string; status: string }>("reader_manual_anchor", { input })),
+  // Reader workbench RW1a: inquiry status (reopen included), the reconnect
+  // line's answer and its passage-scoped quick check, and the funnel activity.
+  readerSetInquiryStatus: (input: ReaderSetInquiryStatusInput) =>
+    mutating([TAG.queue], mutatingReader(call<ReaderInquiryStatusDto>("reader_set_inquiry_status", { input }))),
+  readerReconnectAnswer: (input: ReaderReconnectAnswerInput) =>
+    mutating([TAG.queue], mutatingReader(call<ReaderReconnectAnswerDto>("reader_reconnect_answer", { input }))),
+  readerInquiryQuestion: (input: { extractionId: string; exchangeId: string; batchId?: string | null }) =>
+    call<ReaderInquiryQuestionReadDto>("reader_inquiry_question", { input }),
+  readerInquiryQuestionAction: (input: ReaderInquiryQuestionActionInput) =>
+    mutatingReader(call<{ question: ReaderInquiryQuestionDto }>("reader_inquiry_question_action", { input })),
+  readerLogActivity: (input: { events: ReaderActivityEvent[] }) =>
+    call<{ recorded: number }>("reader_log_activity", { input }),
   readerAcceptProposal: (proposalId: string) =>
     mutatingReader(call<{ proposal: Record<string, unknown> }>("reader_accept_proposal", { input: { proposalId } }), [TAG.proposals, TAG.graph, TAG.library]),
   readerRejectProposal: (proposalId: string) =>

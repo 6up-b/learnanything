@@ -968,7 +968,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change and no successor. Every snapshot moves only because the effective
     # config gains the section; all eight were recomputed
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "7c54958de0749771c53b489def2967f59de0d0af7cf9300ad80e66f7ac8b2671",
+    # Reader workbench RW1a (docs/reviews/rw1a-inquiry.md; merged after EVSI
+    # calibration) adds [reader_inquiry] enabled = true (modelled
+    # default, left out of the decision-only template): the kill switch of
+    # branching Ask, inquiry status, the detour strip, the reconnect line and
+    # its passage-scoped quick check, and the Reader's funnel activity, plus
+    # the passage check's spend caps (max_checks_per_day 100,
+    # max_usd_per_check 0.25, no metered price; Codex review F2). Content
+    # and display only: no scoring, scheduling, projection or serving change,
+    # so no successor; it acts at every version. Every snapshot was recomputed
+    # with defaults_fingerprint_for_version (each moves only because the
+    # effective config gains the section).
+    "mvp-0.9": "1a0269f5b91a1f65cc54ad3c481763a4aed2199074c8b91605dd346b5e930bc1",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -988,7 +999,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "9525cb495a0cae1427dafecc7d596a1090ce700207d5391be88d0aecbd9833f5",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.10": "9bff9231a903286df7fab0ef013fec2e759356ec1e95639974e89db26c0bd456",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1016,7 +1028,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "96f868c53e72ccbfa1ae4eaa8b75f793431196a54a74271842fbdca17cfc9f4d",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.11": "e46bcae5c7f4b0d9fba3ffd366edebacd4fccb385dd5be1b1bebed8176fbaebf",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1038,7 +1051,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "7f02a2cf99719a3e723132dc9bc1fd0e8e3b775282e240a962dca159c1cea05e",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.12": "fb9f4a7bd332221dc023f4b80c063e73f9fdbae85367a9183646b01c971a9f1c",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1055,7 +1069,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "3706c9a4e280b68159dfd51d9e4483c7a0075297ce81081c371d0eff1edeedaa",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.13": "020122b358ea123e9395aead69df8551d09b4e81a1217ab3077da1e2401efc80",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1071,7 +1086,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "879f0103f138b537f4e7f3ba4f458412aa2bb93121ef91034af1252419416e5c",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.14": "0dcfe5636dfa062ab72d68c8af9e3d4b39294908df5ff0c548c5b60a726a43b2",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1085,7 +1101,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "40ce994137088d5a5d46dc1a48a34d613869fe2da3424ec2c089d98e7abf3848",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.15": "b532511f142e5c586b3c133c0d80f162581628667a9d305dcf172a9331379e65",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1105,7 +1122,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "96cc56eecfacd308043fa25f91a638a7e0000eb76e3a20e7526899d469f9bf52",
+    # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
+    "mvp-0.16": "e17955c935ca09751434facdacca83450d47fd6f55a8fc17a57b4fe723d9d4f4",
 }
 
 

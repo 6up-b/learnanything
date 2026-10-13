@@ -546,6 +546,11 @@ _reg_const("reader_dialogue:READER_REVEAL_OVERLAP_THRESHOLD", "threshold", owner
            "quoting (and burn) that reserve; cheap verbatim overlap, no LLM. Dormant with the "
            "dark reader (reader_enabled=False default).",
            bind_site="reader_dialogue._detect_revealed_reserves (verbatim-overlap reveal gate)")
+_reg_const("reader_dialogue:READER_BRANCH_PROMPT_ANCESTORS", "operational", kind="structural",
+           owner="reader_dialogue", rationale="Reader workbench RW1a (the ported clarification-"
+           "branches contract, cf2cbe77): at most this many of a follow-up's ancestors enter the "
+           "tutor prompt, newest first; every parent link stays durable and the manifest records "
+           "the omitted count. A prompt-size bound (money and latency), never a learning decision.")
 _reg_const("reader_dialogue:READER_QUESTION_DENSITY_TARGET", "operational", kind="structural",
            owner="reader_dialogue", rationale="§13 owner-tuning guideline (~1 owner-placed "
            "reading question per major section); NEVER auto-inserted (no ask_now planner / "
@@ -889,6 +894,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learner-text gap judge pairs per text / turn deadline / per-text call and dollar caps / the live "
         "path's daily call cap / owner price for metered routes; spend and latency bounds, no measurement "
         "authority."),
+    # Reader workbench RW1a: the reconnect line's passage check (formative
+    # questions only; the learner's self-checks go to judgment_ledger, never
+    # evidence).
+    _ConfigRule(_exact(
+        "reader_inquiry.max_checks_per_day",
+        "reader_inquiry.max_usd_per_check",
+        "reader_inquiry.metered_price_per_million",
+    ), "structural", "operational",
+        "passage quick checks per UTC day / per-check dollar cap on a metered route / owner price for "
+        "metered routes; spend bounds, no measurement authority."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "

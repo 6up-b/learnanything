@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_184/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_185/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_184" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_185" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 184
+SCHEMA_HEAD = 185
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -860,6 +860,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
+    "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
 }
 
 
@@ -1113,6 +1114,13 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Kill switch for tool isolation: when true, an agentic transport (Codex) runs project calls in "
         "a bubblewrap sandbox with no home, vault or repo visible, and a transport that can be neither "
         "sandboxed nor is tool-free is refused; false runs unconfined and receipts record none."
+    ),
+    "reader_inquiry.enabled": (
+        "Kill switch for reader workbench RW1a (content and display, no successor): branching Ask "
+        "(a follow-up names its parent and sees only its ancestors), inquiry status on the root "
+        "question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and "
+        "its passage-scoped quick check, and the Reader activity the reader report reads. Off: "
+        "today's flat Ask rail, and every RPC RW1a extends answers byte-identically."
     ),
     "stuck_prompt.enabled": (
         "Kill switch for mvp-0.13's \"I'm stuck\" control (write what you can, or what's confusing "
@@ -1810,7 +1818,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_184/state.sqlite",
+                "fixtures/migration_head_185/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

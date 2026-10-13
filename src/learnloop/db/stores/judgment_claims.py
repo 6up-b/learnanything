@@ -107,6 +107,42 @@ def complete_claim(
     return cursor.rowcount == 1
 
 
+def lease_holder(connection: sqlite3.Connection, *, claim_key: str) -> str | None:
+    """The owner of the claim's live or lapsed lease (None unless it is leased)."""
+
+    row = _row(connection, claim_key)
+    if row is None or row["state"] != "leased":
+        return None
+    return str(row["lease_owner"]) if row["lease_owner"] is not None else None
+
+
+def take_over_claim(
+    connection: sqlite3.Connection,
+    *,
+    claim_key: str,
+    from_owner: str,
+    owner: str,
+    now: str,
+    lease_seconds: int,
+) -> int | None:
+    """Take a lease from ``from_owner`` before it expires, when the caller
+    knows that owner has ended (its job finished without completing or
+    releasing the claim). Returns the new epoch, which fences the old owner
+    out, or None when the lease is no longer ``from_owner``'s."""
+
+    expires = (parse_utc(now) + timedelta(seconds=max(1, int(lease_seconds)))).isoformat()
+    row = _row(connection, claim_key)
+    if row is None or row["state"] != "leased" or row["lease_owner"] != from_owner:
+        return None
+    epoch = int(row["lease_epoch"] or 0) + 1
+    cursor = connection.execute(
+        "UPDATE judgment_work_claims SET lease_owner = ?, lease_expires_at = ?, lease_epoch = ?, updated_at = ? "
+        "WHERE claim_key = ? AND state = 'leased' AND lease_owner = ? AND lease_epoch = ?",
+        (owner, expires, epoch, now, claim_key, from_owner, int(row["lease_epoch"] or 0)),
+    )
+    return epoch if cursor.rowcount == 1 else None
+
+
 def release_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int, now: str) -> bool:
     """Give an unanswered claim back (a failed or refused call) so another run may take it."""
 
@@ -118,4 +154,7 @@ def release_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str,
     return cursor.rowcount == 1
 
 
-__all__ = ["CLAIMED", "DONE", "HELD", "claim_work", "complete_claim", "holds_claim", "release_claim"]
+__all__ = [
+    "CLAIMED", "DONE", "HELD", "claim_work", "complete_claim", "holds_claim", "lease_holder", "release_claim",
+    "take_over_claim",
+]
