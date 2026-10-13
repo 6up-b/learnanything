@@ -168,3 +168,64 @@ documentation only), in the worktree, `TMPDIR` under its `fixtures-local/tmp`:
 The new tests are 8 of the full suite's count (8668 at `e6cac56e`, the
 reviewed stage's gate). No frontend, `src-tauri`, schema or migration
 change: the npm, cargo and DB reference steps do not apply. No paid call.
+
+## Re-review
+
+Codex re-review job `20261013-124855-mfsjE3` of `b3092af9..2ccd0078`
+(read-only; no gate run). It confirmed F1, F3, F4 and F5 fixed, reopened F2,
+and raised F6. Both were reproduced first (a test that fails on `2ccd0078`,
+then Codex's scenario replayed in memory on the stored report and fits) and
+fixed in `8df6e15b`; none was rejected. No paid call, no network, no vault
+database read, no tracked working vault touched. The stored study needs no
+rerun: re-analyzing the stored report with the fix reproduces its analysis
+exactly (only the new `coverage_families` key is added), and one study run
+reads one bank, so F6 could not have changed a stored row.
+
+| ID | Severity | Title | Verdict | Commit | Test (fails on `2ccd0078`) and reproduction |
+|---|---|---|---|---|---|
+| F1 | High | The proposed package silently changes question selection | confirmed fixed by Codex (360 states matched) | `04af4cf8` | `::test_the_package_with_every_piece_put_back_is_the_successor` |
+| F2 | Medium | Certification ignores a required family absent from the report (reopened) | fixed | `8df6e15b` | `tests/test_evsi_multisim.py::test_a_required_adequate_family_absent_from_the_report_blocks_certification` (four synthetic families, `d`'s results deleted, its adequate validation and settings entry kept: on `2ccd0078` `C7:30` and `C1a` **supported 3/3**, the winner row and all 3 regret rows `complete: true`; fixed: every claim `insufficient evidence` missing `d`, every row incomplete, the CLI headline names no robust policy). Replayed on the stored report (`fixtures-local/evsi-multisim-v4/`, in memory) with `nrm` deleted: `C2b:0.9/30` **insufficient evidence**, missing `nrm` (Codex: supported 3/3); 0/15 regret rows and 0/9 winner rows complete |
+| F3 | Medium | The NRM "calibrated" system averages the wrong quantity | confirmed fixed by Codex (option B 0.508998) | `04af4cf8` | `::test_the_calibrated_systems_average_responses_over_the_item_pool` |
+| F4 | Medium | The safety cap changes the reported value-only results | confirmed fixed by Codex (learner 357: 40 checks, 46 min) | `04af4cf8` | `::test_the_multi_family_study_runs_every_episode_without_a_count_bound` |
+| F5 | Medium | Reanalysis can destroy the expensive simulation artifact | confirmed fixed by Codex | `04af4cf8` | `::test_reanalysis_never_destroys_the_stored_report` |
+| F6 | Medium | NRM's process-wide cache reuses probabilities across revised question banks | fixed | `8df6e15b` | `::test_the_nrm_row_cache_never_serves_a_revised_bank` (one process, two bank versions with the same ids, subjects, hypotheses and fits: labels swapped, and the key moved; on `2ccd0078` the revised bank was served the first bank's rows, `knows` B/C 0.0587/0.0599 swapped). Replayed on the real fits: subject 239, question 1260, B and C swapped (key and label): `mis:61` option B **0.192342** served from the shared cache, equal to a fresh cache (Codex: 0.508998 served on `2ccd0078`, 0.192342 fresh) |
+
+**F2.** `multifamily._voting_families` now returns the voting families, the
+*coverage* families and the exclusions. A family the study's settings
+require that is absent from the report but validated adequate would have
+voted, so it stays in the coverage: every claim's expected families (and
+`C6c`'s family × regime cells, and the rotation claims' truth × system
+cells) come from the coverage, and the winner rows' `missing` and the regret
+rows' `missing_cells` list it, so an absent required family can never leave
+the others to certify alone. A required family absent whose validation
+failed or is missing could never vote, so its absence blocks nothing; it is
+listed in `excluded_families` either way, with the reason. Two neighbours of
+the same hole are closed with it: a required family whose block is flagged
+not fitted still votes (it was silently treated as a stress world), and the
+CLI's headline `most_robust_policy` is `null` when the top regret row is
+incomplete (it named the first row whatever its completeness); the headline
+also reports `coverage_families`.
+
+**F6.** `NrmScenario._compute_system_rows` keys the per-process cache on the
+model fingerprint and holder shift, the question id, its correct option and
+its sorted distractor labels: everything a row reads from the question
+(`_logits` reads `correct` and `misconception_by_option`). The per-model
+cache (`ScenarioModel._system_rows`, by question id) is unchanged: a model
+holds one scenario's questions.
+
+### Gate (re-review)
+
+Run at `8df6e15b` (the fix commit; this section is documentation only), in
+the worktree, `TMPDIR` under its `fixtures-local/tmp`:
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 14 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8678 passed**, 0 failed, 0 skipped (5 min 13 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **94 passed**, 8584 deselected (1 min 27 s) |
+| targeted: `tests/test_evsi_multisim.py`, `tests/test_evsi_calibration_sim.py`, `tests/test_evsi.py` | 50 passed |
+
+The two new tests are the full suite's 2 more (8676 at `e3df1f50`). No
+frontend, `src-tauri`, schema or migration change: the npm, cargo and DB
+reference steps do not apply. No paid call.
