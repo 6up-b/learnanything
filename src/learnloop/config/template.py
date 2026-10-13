@@ -908,7 +908,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # recomputed (defaults_fingerprint_for_version); they move only because
     # the effective config gains the section, so mvp-0.9 to mvp-0.14 serving
     # is unchanged.
-    "mvp-0.9": "7a41cd1e360503dc3cfc7a13157cd3d2eba37834e124da3b78ba6d8a9127cc98",
+    # Learner-text gaps add [learner_text_gaps] (modelled defaults only, left
+    # out of the decision-only template) and three unset routes
+    # (learner_gap_judge, learner_gap_reader, learner_gap_decider): live at
+    # every version behind learner_text_gaps.enabled and their own switches;
+    # only the sooner check is version-gated (mvp-0.16, dormant below it).
+    # Built as mvp-0.13 and relabelled mvp-0.16 at its merge after router R1,
+    # where every snapshot was recomputed (defaults_fingerprint_for_version);
+    # they move only because the effective config gains the section and
+    # routes, so mvp-0.9 to mvp-0.15 serving is unchanged.
+    "mvp-0.9": "323def84a17b0c9d18bf680f584d114321379e1bbb2485a52d5cf1eac3dd3cd3",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -924,7 +933,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
     # Router R1's [router] section moves it too (see mvp-0.9).
-    "mvp-0.10": "b5cd25af44562a4e78ffa41c552e2d9ff4c13d3cdec71db566276e8ff31c86f3",
+    # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
+    "mvp-0.10": "ca771864bb786caad7e7a5e23d65de714a6cfd314718e467f99b9b33501bbff6",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -948,7 +958,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
     # Router R1's [router] section moves it too (see mvp-0.9).
-    "mvp-0.11": "74dffa4c9c0a4b5c37af0fdb6c0138e4173688786d546196604fafa5900147c1",
+    # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
+    "mvp-0.11": "1c591c39f40d66c100e3c975c91ffd681f5847696603b21fce53f5dcd7d96334",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -966,7 +977,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
     # Router R1's [router] section moves it too (see mvp-0.9).
-    "mvp-0.12": "982e38d2a52d4edb0cb9b3600a5a75966469c9747aa57d1fe3c1481924224b3d",
+    # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
+    "mvp-0.12": "18bdbde5fc28a49e64f785b0f91fff6c578b1e5c361dd5448ce60d5e0e306efa",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -979,8 +991,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
     # change). Router R1's [router] section moves it too (see mvp-0.9).
-    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "718c929717120c4aaddc21989287d9d5297c691d03720c122f745b23982bde07",
+    # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
+    "mvp-0.13": "4a4d4b2dbf084c092315e6c528f1d4b22a0927ed590fafad20d303481b7cdf61",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -991,8 +1003,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults
     # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12) until mvp-0.15 merged. Router R1's [router] section moves it
-    # too (see mvp-0.9).
-    "mvp-0.14": "d7ede6e4057f7af07847679994fa2dde29a16ab0ad7c87ce3c7bcffc009a57f0",
+    # too (see mvp-0.9). Learner-text gaps' [learner_text_gaps] moves it too
+    # (see mvp-0.9).
+    "mvp-0.14": "5276c892ef3dd117a67d957a23031ec8bae874bae4cdd66371ced531170fdf8a",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1000,9 +1013,27 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (default on). Built as mvp-0.12 and relabelled at its merge. Existing
     # vaults reach it by `learnloop upgrade` (default target) from mvp-0.14, or
     # from mvp-0.9 to mvp-0.13 through the chain (under mvp-0.12's advisory
-    # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
-    # owner decision 2026-10-12).
-    "mvp-0.15": "5a1ebf081ccf4bf181d7e0ab57d14c8e47a43671ef14da12f100590b07aad786",
+    # guard). New vaults started here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12) until mvp-0.16 merged. Learner-text gaps'
+    # [learner_text_gaps] moves it too (see mvp-0.9).
+    "mvp-0.15": "774f9d35b814f3f1778b6550be897a6a6bac8eb6dfcfa169361d63b2db7e1e11",
+    # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
+    # split, placement, recurrence groups, stuck prompt, plan and probe ties
+    # plus the sooner check: a matched prerequisite gap on an LO assumed known
+    # or in maintenance brings its next check forward (no sooner than
+    # learner_text_gaps.sooner_check_delay_hours after the gap). Kill switch
+    # learner_text_gaps.sooner_check_enabled. Built as mvp-0.13 and relabelled
+    # at its merge. Existing vaults reach it by `learnloop upgrade` (default
+    # target) from mvp-0.15, or from mvp-0.9 to mvp-0.14 through the chain
+    # (under mvp-0.12's advisory guard). New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12). The rest of
+    # [learner_text_gaps] (modelled defaults only, left out of the
+    # decision-only template) and the unset learner_gap_judge /
+    # learner_gap_reader / learner_gap_decider routes are live at every
+    # version behind learner_text_gaps.enabled and their own switches (named
+    # gaps, matches, "needed"-gated edges, created prerequisites as content,
+    # holding-pen sightings, the gap targets the field loader reads).
+    "mvp-0.16": "046b1551adfed0fc425e0aeb8c10adc6c917e80d57a11d462619bedbcb8f318d",
 }
 
 

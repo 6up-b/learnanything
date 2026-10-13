@@ -75,6 +75,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/daily_plans.py",
         # Router R1: append-only decision rows and the DERIVED outcome cache.
         "src/learnloop/db/stores/router.py",
+        # Learner-text gaps: the gap ledger, reversals, queue and receipts.
+        "src/learnloop/db/stores/learner_gaps.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

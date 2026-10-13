@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
-source_commit_timestamp: "2026-10-12T23:24:30-04:00"
+source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
+source_commit_timestamp: "2026-10-13T00:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 181
+schema_head: 182
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,12 +23,13 @@ source_paths:
   - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/attempts/completion_lock.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/cli/gaps.py"
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
-  - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/authoring/persona_gate.py"
+  - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
 tags:
@@ -119,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/diagnosis/text_gaps/candidates.py`
 
 ### Direct SQL writers
 
@@ -163,6 +165,7 @@ Indexes and uniqueness:
 - `tests/test_hypothesis_sets.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_km4_taxonomy.py`
+- `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
 - `tests/test_migrations.py`
 - `tests/test_misconception_registry.py`
@@ -171,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_probability_prep.py`
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_recurrence_live.py`
-- `tests/test_scoreboard.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

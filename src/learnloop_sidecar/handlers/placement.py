@@ -10,7 +10,7 @@ from typing import Any, Literal
 from learnloop.clock import utc_now_iso
 from learnloop.diagnosis.quick_check import QuickCheckError, start_quick_check
 from learnloop.placement.decisions import PlacementInactive, record_self_report
-from learnloop.placement.state import load_placement_state, placement_active
+from learnloop.placement.state import LEARNER_TEXT_GAP_SOURCE, load_placement_state, placement_active
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -37,6 +37,11 @@ class StartQuickCheckInput(ParamsModel):
     request_id: str | None = None
 
 
+#: The label of a prerequisite created from the learner's own text while its
+#: one delayed check is pending (learner-text gaps).
+ADDED_FROM_QUESTION_LABEL = "added from your question (one check pending)"
+
+
 def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -> dict[str, Any]:
     """One LO's placement label. ``assumed`` is an open assumption; nothing
     here claims demonstrated or untested, which the map derives from evidence."""
@@ -57,8 +62,17 @@ def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -
         "outcome_reason": intent.outcome_reason if intent is not None else None,
         # A miss whose diagnosis has not landed: the decision waits on it.
         "awaiting_diagnosis": bool(intent is not None and intent.awaiting_diagnosis_attempt_id),
-        "assumed": open_ is not None,
-        "label": "assumed (not tested)" if open_ is not None else None,
+        # A prerequisite created from the learner's own text has an open
+        # check too (its seed item), but it was never assumed known: it gets
+        # its own honest label (learner-text gaps).
+        "assumed": open_ is not None and open_.source != LEARNER_TEXT_GAP_SOURCE,
+        "added_from_question": open_ is not None and open_.source == LEARNER_TEXT_GAP_SOURCE,
+        "label": (
+            None if open_ is None
+            else ADDED_FROM_QUESTION_LABEL if open_.source == LEARNER_TEXT_GAP_SOURCE
+            else "assumed (not tested)"
+        ),
+        "first_review_brought_forward_from": open_.advanced_from if open_ is not None else None,
         "source": open_.source if open_ is not None else None,
         "first_review_due": open_.first_review_due if open_ is not None else None,
         "first_review_is_due": bool(open_ is not None and open_.first_review_due <= now_iso),

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-181. Migration 167 adds the learner-field F1 read model
+182. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -43,8 +43,11 @@ columns, key and index) so its `serving_origin` CHECK also accepts
 `daily_plan` (owner decision 2026-10-12); migration 181 adds router R1's
 decision ledger (`router_decisions`, RAW_LEDGER, append-only) and its outcome
 cache (`router_outcomes`, DERIVED; built as R1's 176 and renumbered at its
-merge).
-Built as a backup-API copy of `migration_head_180` with only 181 applied
+merge); migration 182 adds learner-text gaps (`learner_text_gaps` and
+`learner_text_gap_reversals`, RAW_LEDGER, append-only; `learner_text_gap_jobs`,
+WORKFLOW; `learner_gap_check_advances` and `learner_gap_commitments`,
+RECEIPT; built as the branch's 177 and renumbered at its merge).
+Built as a backup-API copy of `migration_head_181` with only 182 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

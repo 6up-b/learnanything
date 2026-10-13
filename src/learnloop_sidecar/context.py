@@ -116,6 +116,12 @@ class SidecarContext:
             return
         if self.repository.post_attempt_jobs(states=("queued", "leased")):
             self.post_attempt_worker.notify()
+            return
+        from learnloop.diagnosis.text_gaps.jobs import pending_jobs
+
+        if pending_jobs(self.repository):
+            # Learner-text gap readings left by a previous process.
+            self.post_attempt_worker.notify()
 
     def reload(self, *, maintenance: bool = True) -> None:
         if self.vault_root is None:

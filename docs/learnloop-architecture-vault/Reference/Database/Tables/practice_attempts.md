@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
-source_commit_timestamp: "2026-10-12T23:24:30-04:00"
+source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
+source_commit_timestamp: "2026-10-13T00:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 181
+schema_head: 182
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`, `181_router_decisions.sql`.
+- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`, `181_router_decisions.sql`, `182_learner_text_gaps.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -190,6 +190,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/field/signals.py`

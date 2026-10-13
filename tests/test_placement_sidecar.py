@@ -73,7 +73,7 @@ def test_map_labels_assumed_points_without_changing_depth_or_beads(tmp_path):
     set_algorithm_version(SimpleNamespace(root=ctx.vault.root), "mvp-0.11")
     ctx.reload()
     before = _call(ctx, "get_knowledge_map", {})
-    assert before["placement"] == {"active": True, "assumed": []}
+    assert before["placement"] == {"active": True, "assumed": [], "addedFromQuestion": []}
     _call(ctx, "placement_self_report", {"report": "know_this", "learningObjectIds": [LO_ID]})
     after = _call(ctx, "get_knowledge_map", {})
     assert after["placement"]["assumed"][0]["learningObjectId"] == LO_ID

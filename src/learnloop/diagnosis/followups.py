@@ -825,6 +825,31 @@ def enqueue_post_attempt_diagnosis(
     return enqueue_diagnosis(vault, repository, attempt_id=attempt_id, clock=clock)
 
 
+def enqueue_post_attempt_learner_text(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    clock: Clock | None = None,
+) -> str | None:
+    """Learner-text gaps: queue a non-empty stuck answer when it is recorded.
+
+    Every stuck answer with text is read for a named gap, graded right or
+    wrong, diagnosed or not (Codex review F8). Read through the stuck marker
+    (``diagnosis.text_gaps.sources.StuckTextSource``); never fails the attempt.
+    """
+
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_stuck_answer
+
+        return enqueue_stuck_answer(vault, repository, attempt_id=attempt_id, clock=clock)
+    except Exception:  # noqa: BLE001 - queueing a gap reading never fails the attempt
+        logging.getLogger(__name__).warning(
+            "learner-text gap enqueue failed for attempt %s", attempt_id, exc_info=True
+        )
+        return None
+
+
 def run_post_diagnosis_hooks(
     vault: LoadedVault,
     repository: Repository,

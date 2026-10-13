@@ -233,6 +233,15 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
+    # Learner-text gaps (implementation_handoffs §4, mvp-0.16): what each
+    # learner text was read as and what was done (append-only, paid input
+    # never re-asked), the learner's undo taps, the job queue, and the two
+    # placement receipts (a sooner check, a created LO's light commitment).
+    ("learner_gap_check_advances", TableRole.RECEIPT),
+    ("learner_gap_commitments", TableRole.RECEIPT),
+    ("learner_text_gap_jobs", TableRole.WORKFLOW),
+    ("learner_text_gap_reversals", TableRole.RAW_LEDGER),
+    ("learner_text_gaps", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),
     ("learner_theta", TableRole.COMPAT),
     ("learning_object_mastery", TableRole.DERIVED),

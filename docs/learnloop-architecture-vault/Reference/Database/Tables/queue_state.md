@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
-source_commit_timestamp: "2026-10-12T23:24:30-04:00"
+source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
+source_commit_timestamp: "2026-10-13T00:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 181
+schema_head: 182
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/diagnosis/probe_remint.py"
-  - "src/learnloop/ops/pf_publish.py"
+  - "src/learnloop/diagnosis/text_gaps/actions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -93,11 +93,14 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/diagnosis/probe_remint.py`
+- `src/learnloop/diagnosis/text_gaps/actions.py`
+- `src/learnloop/diagnosis/text_gaps/pipeline.py`
 - `src/learnloop/ops/pf_publish.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
+- `src/learnloop_sidecar/handlers/learner_gaps.py`
 - `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/handlers/tutor_qa.py`
 
@@ -111,6 +114,7 @@ Indexes and uniqueness:
 - `tests/test_question_promotions.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_daily_plan_build.py`
+- `tests/test_learner_text_gaps_review.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_vault_watcher_refresh.py`
 

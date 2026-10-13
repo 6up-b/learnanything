@@ -112,6 +112,9 @@ import type {
   SubmitAttemptInput,
   AskTutorQuestionInput,
   TutorAnswerDto,
+  LearnerTextGapReversal,
+  LearnerTextGapReversalDto,
+  LearnerTextGapStatusDto,
   TutorOpeningDto,
   TutorTranscriptInput,
   TutorTranscriptSnapshot,
@@ -842,6 +845,10 @@ export const api = {
     call<{ animations: ConceptAnimationDto[] }>("list_concept_animations", { conceptId }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
+  getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>
+    call<LearnerTextGapStatusDto>("get_learner_text_gap", { input }),
+  reverseLearnerTextGap: (input: { gapId: string; reversal: LearnerTextGapReversal }) =>
+    call<LearnerTextGapReversalDto>("reverse_learner_text_gap", { input }),
   previewTutorOpening: (input: { practiceItemId: string; sessionId?: string }) =>
     call<TutorOpeningDto>("preview_tutor_opening", { input }),
   rateTutorAnswer: (eventId: string, useful: boolean) =>

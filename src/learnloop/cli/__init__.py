@@ -34,6 +34,7 @@ from learnloop.cli.recurrence import recurrence_app
 from learnloop.cli.sources import sources_app
 from learnloop.cli.plan import plan_app
 from learnloop.cli.router import router_app
+from learnloop.cli.gaps import gaps_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(inbox_app, name="inbox")
@@ -69,6 +70,7 @@ app.add_typer(recurrence_app, name="recurrence")
 app.add_typer(sources_app, name="sources")
 app.add_typer(plan_app, name="plan")
 app.add_typer(router_app, name="router")
+app.add_typer(gaps_app, name="gaps")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

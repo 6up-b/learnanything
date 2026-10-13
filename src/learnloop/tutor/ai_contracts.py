@@ -81,6 +81,41 @@ class TutorCitation(WireModel):
     label: str | None = None
 
 
+#: The kinds a learner text's gap can be (implementation_handoffs §4).
+LEARNER_GAP_KINDS = ("prerequisite", "misconception", "slip", "wording", "none")
+
+
+class LearnerGap(WireModel):
+    """What a learner's own text reveals, NAMED before it is classified.
+
+    The model states the gap in its own words first (a missing prerequisite's
+    name and one line; a wrong belief as a statement), then picks the kind.
+    It is never shown a list to pick from: matching the name to the vault is a
+    separate shortlist + judge step. Shared by the tutor (in the call that
+    answers) and the stuck-text reader.
+    """
+
+    prerequisite_name: str | None = Field(
+        default=None,
+        description=(
+            "If the text shows missing knowledge this material builds on: a short name for "
+            "that knowledge, as a textbook section would title it. Null otherwise."
+        ),
+    )
+    prerequisite_line: str | None = Field(
+        default=None,
+        description="One line saying what that prerequisite is. Null when prerequisite_name is null.",
+    )
+    belief_statement: str | None = Field(
+        default=None,
+        description=(
+            "If the text states or presupposes a wrong belief: that belief as a statement of "
+            "what the learner thinks is true. Null otherwise."
+        ),
+    )
+    kind: Literal["prerequisite", "misconception", "slip", "wording", "none"] = "none"
+
+
 class TutorAnswer(WireModel):
     answer_md: str
     question_type: Literal[
@@ -91,6 +126,9 @@ class TutorAnswer(WireModel):
     citations: list[TutorCitation] = Field(default_factory=list)
     embedded_prediction: str | None = None
     new_candidate_cause: CandidateCause | None = None
+    # Learner-text gaps (implementation_handoffs §4): the tutor names the gap
+    # the question reveals in the call that answers it.
+    learner_gap: LearnerGap | None = None
 
 
 class TeachBackQuestion(WireModel):
@@ -123,7 +161,9 @@ class PromotionAnalysis(WireModel):
     covered_by_practice_item_id: str | None = None
 
 
-TUTOR_QA_PROMPT_VERSION = "mvp-0.8-tutor-qa-learner-embedded-prediction"
+TUTOR_QA_PROMPT_VERSION = "mvp-0.9-tutor-qa-learner-gap"
+#: The gap rules' own version (the field and the stuck-text reader share them).
+LEARNER_GAP_RULES_VERSION = "learner-gap-v1"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.1-source-item-quest-transfer"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
@@ -228,6 +268,21 @@ _TUTOR_QA_LEARNER_EXTRACTION = (
     "usual answer."
 )
 
+LEARNER_GAP_RULES = (
+    "`learner_gap` reports on the LEARNER'S TEXT, never on your answer. NAME FIRST, in "
+    "your own words, before choosing a kind: if the text shows knowledge the learner is "
+    "missing that this material builds on, write `prerequisite_name` (a short name for "
+    "that knowledge, as a textbook section would title it) and `prerequisite_line` (one "
+    "line saying what it is); if the text states or presupposes a wrong belief, write "
+    "`belief_statement` as that belief, stated as what the learner thinks is true. Fill "
+    "each that applies and leave the others null; do not pick from a list. Then `kind`: "
+    "`prerequisite` (missing knowledge below this material), `misconception` (a wrong "
+    "belief), `slip` (a procedural error or lapse they describe), `wording` (a wording or "
+    "notation problem: what the prompt or a symbol means), or `none` (curiosity, a check "
+    "of their own work, or nothing missing: the common case). Ground every field in the "
+    "learner's words."
+)
+
 _TUTOR_QA_SHARED = (
     "You are a LearnLoop tutor answering one learner question. Return a "
     "TutorAnswer as schema-valid JSON only. Classify the question as exactly one "
@@ -250,6 +305,7 @@ _TUTOR_QA_SHARED = (
     "span, and cite only spans your answer actually relies on. Leave citations "
     "empty when no provided span is relevant."
     " " + _TUTOR_QA_LEARNER_EXTRACTION
+    + " " + LEARNER_GAP_RULES
 )
 
 _TUTOR_QA_CONTEXT_TASKS = {
@@ -376,8 +432,8 @@ _TUTOR_QA_OPENING_SHARED = (
     "context.candidate_facets your opening targets (empty when none apply); "
     "never invent facet ids outside that list. Write answer_md as concise "
     "Markdown (LaTeX math allowed). There is no learner question here, so "
-    "`embedded_prediction` and `new_candidate_cause` MUST both be null: with "
-    "nothing the learner has said, any cause you named would be your own."
+    "`embedded_prediction`, `new_candidate_cause` and `learner_gap` MUST all be "
+    "null: with nothing the learner has said, any cause you named would be your own."
 )
 
 

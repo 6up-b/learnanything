@@ -1027,6 +1027,14 @@ def apply_diagnosis(
         )
     except Exception:  # noqa: BLE001 - the escalation display never fails the diagnosis
         LOG.warning("escalation receipt failed for attempt %s", attempt_id, exc_info=True)
+    # Learner-text gaps: the diagnosis (and the attempt's stuck text, if it is
+    # one) is read for a named gap off this job, in the gaps queue.
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_after_diagnosis
+
+        enqueue_after_diagnosis(vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, clock=clock)
+    except Exception:  # noqa: BLE001 - queueing a gap reading never fails the diagnosis
+        LOG.warning("learner-text gap enqueue failed for attempt %s", attempt_id, exc_info=True)
 
 
 def record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, Any], attempt_id: str) -> int:

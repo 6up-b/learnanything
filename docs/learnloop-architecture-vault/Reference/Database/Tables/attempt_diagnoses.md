@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "29395b1e26e3742305c8be105b987686e6bce281"
-source_commit_timestamp: "2026-10-12T23:24:30-04:00"
+source_commit: "fa2946345e341b8556b811c6b9c921bee523b9fe"
+source_commit_timestamp: "2026-10-13T00:05:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 181
+schema_head: 182
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,6 +23,8 @@ source_paths:
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/diagnoser.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/placement/state.py"
 tags:
   - "learnloop/database/table"
@@ -50,7 +52,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/170_blind_grading_diagnosis_split.sql`.
-- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `176_recurrence_groups.sql`.
+- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -106,6 +108,8 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
+- `src/learnloop/diagnosis/text_gaps/jobs.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
@@ -121,7 +125,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_learner_text_gaps_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

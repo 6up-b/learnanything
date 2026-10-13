@@ -125,11 +125,18 @@ ROUTER_R1_LOGGING_RPCS = (
     "start_teach_back",
 )
 
+# Learner-text gaps (mvp-0.16) add get_learner_text_gap and
+# reverse_learner_text_gap (the overlay's gap reading and its one-tap
+# reversals) and extend the two ask RPCs (pinned for T6 above), which now
+# queue a reading and return learnerGap. Desktop only.
+LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "ask_tutor_question", "reader.ask")
+
 
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
-    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS,
+    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
+    + LEARNER_TEXT_GAP_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

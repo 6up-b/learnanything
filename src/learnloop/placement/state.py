@@ -82,7 +82,7 @@ from datetime import timedelta
 import json
 from typing import Any
 
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS, PLACEMENT_VERSIONS
+from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS, LEARNER_TEXT_GAP_VERSIONS, PLACEMENT_VERSIONS
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -160,6 +160,34 @@ def initial_probes_enabled(vault: LoadedVault) -> bool:
     """Whether state sync opens an opening diagnostic episode per new LO."""
 
     return not placement_active(vault) or bool(vault.config.placement.initial_probes)
+
+
+#: The source of a created prerequisite's light commitment (learner-text gaps):
+#: read as a decision whose delayed check is the created LO's seed item.
+LEARNER_TEXT_GAP_SOURCE = "learner_text_gap"
+
+
+def gap_commitments_active(vault: LoadedVault) -> bool:
+    """Created prerequisites' light commitments are read (their creation switch on).
+
+    A live change behind ``learner_text_gaps.create_prerequisites_enabled``,
+    not version-gated: the commitments exist only for LOs the pipeline
+    created, so off restores the predecessor's routing exactly.
+    """
+
+    section = getattr(vault.config, "learner_text_gaps", None)
+    return bool(section is not None and section.enabled and section.create_prerequisites_enabled)
+
+
+def gap_sooner_checks_active(vault: LoadedVault) -> bool:
+    """``mvp-0.16``: sooner checks are read (kill switch ``sooner_check_enabled``)."""
+
+    section = getattr(vault.config, "learner_text_gaps", None)
+    return bool(
+        section is not None
+        and vault.config.algorithms.algorithm_version in LEARNER_TEXT_GAP_VERSIONS
+        and section.enabled and section.sooner_check_enabled
+    )
 
 
 #: ``probe_episodes.trigger`` of the opening episode earlier versions opened per new LO.
@@ -300,6 +328,10 @@ class Assumption:
     kept_answers: tuple[tuple[str, str], ...] = ()
     #: A miss whose diagnosis has not landed: the decision waits on it.
     awaiting_diagnosis_attempt_id: str | None = None
+    #: mvp-0.16: the first review was brought forward by a learner-text gap
+    #: (``learner_gap_check_advances``); the due date it replaced.
+    advanced_from: str | None = None
+    advance_id: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -343,6 +375,32 @@ class PlacementState:
     returned_learning_object_ids: frozenset[str] = frozenset()
     answers_by_lo: Mapping[str, tuple[AnswerFacts, ...]] = field(default_factory=dict)
     intent_by_lo: Mapping[str, LearningObjectIntent] = field(default_factory=dict)
+    #: mvp-0.16: maintenance LOs whose next check a learner-text gap brought
+    #: forward and that no answer has taken since it fell due (the advance row).
+    gap_check_due_by_lo: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+
+    def due_gap_check_learning_object_ids(self, now_iso: str) -> frozenset[str]:
+        """Maintenance LOs whose brought-forward check is due now."""
+
+        return frozenset(
+            lo for lo, advance in self.gap_check_due_by_lo.items()
+            if str(advance["advanced_due"]) <= now_iso
+            and lo in self.intent_by_lo and self.intent_by_lo[lo].intent == INTENT_MAINTENANCE
+        )
+
+    @property
+    def advanced_learning_object_ids(self) -> frozenset[str]:
+        """Open assumptions whose first review a learner-text gap brought forward."""
+
+        return frozenset(a.learning_object_id for a in self.assumptions if a.is_open and a.advanced_from)
+
+    @property
+    def committed_learning_object_ids(self) -> frozenset[str]:
+        """Open light commitments: prerequisites created from a learner's text."""
+
+        return frozenset(
+            a.learning_object_id for a in self.assumptions if a.is_open and a.source == LEARNER_TEXT_GAP_SOURCE
+        )
 
     @property
     def open_by_lo(self) -> dict[str, Assumption]:
@@ -1019,9 +1077,23 @@ def _resolve(
         quick_check_session_id=decision.get("quick_check_session_id"),
         algorithm_version=str(decision["algorithm_version"]),
         created_at=str(decision["created_at"]),
+        advanced_from=decision.get("advanced_from"),
+        advance_id=decision.get("advance_id"),
     )
+    decided = _order(base.created_at, base.id)
     returned = min(
-        (r for r in returns if r.get("assumption_id") == base.id),
+        (
+            r for r in returns
+            if r.get("assumption_id") == base.id
+            # A light commitment (learner-text gaps) is not an
+            # assumption_decisions row, so "I don't know this" records no
+            # assumption id for it: a later return on its LO closes it.
+            or (
+                base.source == LEARNER_TEXT_GAP_SOURCE and not r.get("assumption_id")
+                and str(r.get("learning_object_id")) == base.learning_object_id
+                and _order(r["created_at"], r["id"]) > decided
+            )
+        ),
         key=lambda r: _order(r["created_at"], r["id"]),
         default=None,
     )
@@ -1179,12 +1251,82 @@ def _intent(
     )
 
 
+def _commitment_decisions(connection: Any) -> list[dict[str, Any]]:
+    """Created prerequisites' light commitments as decision rows (source
+    ``learner_text_gap``): one delayed check, no predictor."""
+
+    from learnloop.db.stores.learner_gaps import commitments
+
+    return [
+        {
+            "id": str(row["id"]), "learning_object_id": str(row["learning_object_id"]),
+            "source": LEARNER_TEXT_GAP_SOURCE, "trigger_kind": "learner_text_gap", "trigger_ref": row["gap_id"],
+            "p": None, "q_used": None, "predictor": "none", "predictor_version": "none",
+            "first_review_due": str(row["first_review_due"]), "quick_check_session_id": None,
+            "algorithm_version": str(row["algorithm_version"]), "created_at": str(row["created_at"]),
+        }
+        for row in commitments(connection)
+    ]
+
+
+def _advance_decisions(connection: Any, decisions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """mvp-0.16: bring each assumption's first review forward to its earliest
+    learner-text-gap advance; returns (decisions, maintenance advances)."""
+
+    from learnloop.db.stores.learner_gaps import check_advances
+
+    advances = check_advances(connection)
+    by_assumption: dict[str, dict[str, Any]] = {}
+    maintenance: list[dict[str, Any]] = []
+    for advance in advances:
+        if advance["intent"] == INTENT_MAINTENANCE:
+            maintenance.append(advance)
+            continue
+        key = str(advance.get("assumption_id") or "")
+        current = by_assumption.get(key)
+        if current is None or str(advance["advanced_due"]) < str(current["advanced_due"]):
+            by_assumption[key] = advance
+    out = []
+    for decision in decisions:
+        advance = by_assumption.get(str(decision["id"]))
+        if advance is not None and str(advance["advanced_due"]) < str(decision["first_review_due"]):
+            decision = {**decision, "first_review_due": str(advance["advanced_due"]),
+                        "advanced_from": str(decision["first_review_due"]), "advance_id": str(advance["id"])}
+        out.append(decision)
+    return out, maintenance
+
+
+def _pending_maintenance_checks(
+    advances: Sequence[Mapping[str, Any]],
+    intents: Mapping[str, LearningObjectIntent],
+    answers: Mapping[str, Sequence[AnswerFacts]],
+) -> dict[str, Mapping[str, Any]]:
+    """Per maintenance LO, its earliest advance written in this maintenance
+    spell that no answer has taken since it fell due."""
+
+    pending: dict[str, Mapping[str, Any]] = {}
+    for advance in advances:
+        lo = str(advance["learning_object_id"])
+        intent = intents.get(lo)
+        if intent is None or intent.intent != INTENT_MAINTENANCE or str(advance["created_at"]) < str(intent.since):
+            continue
+        due = str(advance["advanced_due"])
+        if any(answer.created_at >= due for answer in answers.get(lo, ())):
+            continue
+        current = pending.get(lo)
+        if current is None or due < str(current["advanced_due"]):
+            pending[lo] = advance
+    return pending
+
+
 def load_placement_state_from_connection(
     connection: Any,
     *,
     active: bool,
     diagnosis_live: bool,
     now_iso: str,
+    gap_commitments: bool = False,
+    gap_checks: bool = False,
 ) -> PlacementState:
     """Placement state over one connection.
 
@@ -1194,11 +1336,24 @@ def load_placement_state_from_connection(
     (``rules.DIAGNOSIS_WAIT_DAYS``). Both are required (Codex review F9): a
     caller that forgot one would silently wait on held jobs, or forever.
     :func:`load_placement_state` reads both from the vault.
+
+    Learner-text gaps: ``gap_commitments`` adds created prerequisites' light
+    commitments (:func:`gap_commitments_active`); ``gap_checks`` applies
+    mvp-0.16's sooner checks (:func:`gap_sooner_checks_active`). Both default
+    off, so every other caller reads exactly the predecessor's state.
     """
 
     if not placement_tables_present(connection):
         return PlacementState(active=active)
     decisions = _rows(connection, "SELECT * FROM assumption_decisions ORDER BY created_at, id")
+    if gap_commitments:
+        decisions = sorted(
+            [*decisions, *_commitment_decisions(connection)],
+            key=lambda row: _order(row["created_at"], row["id"]),
+        )
+    maintenance_advances: list[dict[str, Any]] = []
+    if gap_checks:
+        decisions, maintenance_advances = _advance_decisions(connection, decisions)
     returns = _rows(connection, "SELECT * FROM assumption_returns ORDER BY created_at, id")
     los = {str(row["learning_object_id"]) for row in decisions} | {
         str(row["learning_object_id"]) for row in returns
@@ -1235,6 +1390,7 @@ def load_placement_state_from_connection(
         returned_learning_object_ids=frozenset(str(r["learning_object_id"]) for r in returns),
         answers_by_lo=answers,
         intent_by_lo=intents,
+        gap_check_due_by_lo=_pending_maintenance_checks(maintenance_advances, intents, answers),
     )
 
 
@@ -1246,7 +1402,8 @@ def load_placement_state(
     with repository.connection() as connection:
         return load_placement_state_from_connection(
             connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
-            now_iso=now_iso or utc_now_iso(),
+            now_iso=now_iso or utc_now_iso(), gap_commitments=gap_commitments_active(vault),
+            gap_checks=gap_sooner_checks_active(vault),
         )
 
 

@@ -61,14 +61,15 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_181"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_182"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
-def test_probe_tie_successor_is_the_latest_and_keeps_every_predecessor():
+def test_probe_tie_successor_keeps_every_predecessor():
     assert PROBE_TIE_ALGORITHM_VERSION == "mvp-0.15"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == PROBE_TIE_ALGORITHM_VERSION
-    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15"})
+    # Learner-text gaps' sooner check (mvp-0.16) followed it and keeps it.
+    assert SUCCESSOR_CHAIN[-2] == PROBE_TIE_ALGORITHM_VERSION
+    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16"})
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.
     for versions in (
@@ -88,6 +89,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.13": (True, True, False, False),
         "mvp-0.14": (True, True, True, False),
         "mvp-0.15": (True, True, True, True),
+        "mvp-0.16": (True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -96,6 +98,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
             split_grading_active(vault), placement_active(vault), plan_active(vault),
             probe_ties_admitted(vault.config),
         ) == flags, version
+    set_algorithm_version(paths, "mvp-0.15")
     vault = load_vault(paths.root)
     assert recurrence_active(vault) and stuck_prompt_active(vault)
     append_config_toml(paths.root, "[router]\nprobe_tie_admission = false\n")
@@ -194,14 +197,16 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     assert result.exit_code == 0, result.output
 
 
-def test_new_vaults_start_at_the_probe_tie_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
+def test_new_vaults_start_at_a_successor_that_admits_probe_ties(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
+    (mvp-0.16 since learner-text gaps merged), which keeps probe ties."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.15"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION in PROBE_TIE_VERSIONS
     assert probe_ties_admitted(fresh.config) and plan_active(fresh)
 
 

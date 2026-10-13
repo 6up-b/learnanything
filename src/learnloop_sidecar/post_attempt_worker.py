@@ -1,8 +1,9 @@
 """The sidecar's post-attempt worker (Slice 1 §11).
 
-Two daemon slots - ``diagnose`` (concurrency 1, strict attempt order) and
-``embed`` (concurrency 1, unordered) - drain ``post_attempt_jobs`` on their own
-SQLite connection, in short transactions. The queue is durable and lease-fenced,
+Three daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
+``embed`` (concurrency 1, unordered) and ``gaps`` (learner-text gaps,
+concurrency 1, oldest first: ``learner_text_gap_jobs``) - drain their queues
+on their own SQLite connection, in short transactions. The queue is durable and lease-fenced,
 so a process exit loses at most the in-flight model call; the next start (or the
 next notify) reclaims expired leases. Built on the ``ExamGradingManager``
 pattern: threads run in a copy of the starting context, so ``model_call``
@@ -33,6 +34,7 @@ IDLE_POLL_SECONDS = 30.0
 #: retries them itself with a bounded backoff (§11).
 BUSY_RETRIES = 5
 BUSY_BACKOFF_SECONDS = 0.5
+KINDS = ("diagnose", "embed", "gaps")
 
 VaultSupplier = Callable[[], tuple[Any, Any] | None]
 
@@ -47,7 +49,7 @@ class PostAttemptWorker:
     def __init__(self, *, autostart: bool = True) -> None:
         self.autostart = autostart
         self._lock = threading.RLock()
-        self._wake = {"diagnose": threading.Event(), "embed": threading.Event()}
+        self._wake = {kind: threading.Event() for kind in KINDS}
         self._threads: dict[str, threading.Thread] = {}
         self._stop = threading.Event()
         self._changed = threading.Condition(self._lock)
@@ -56,6 +58,8 @@ class PostAttemptWorker:
         #: Test seams; None means the configured routes.
         self.client_factory: Callable[[Any], Any] | None = None
         self.embedding_factory: Callable[[Any], Any] | None = None
+        #: vault -> learner-text gap PipelineClients (test seam; None: the routes).
+        self.gap_clients: Callable[[Any], Any] | None = None
         self.last_errors: list[str] = []
         #: session id -> seconds the last next-item wait took, until the
         #: serve that follows it records it (E7).
@@ -84,7 +88,7 @@ class PostAttemptWorker:
             return
         with self._lock:
             self._stop.clear()
-            for kind in ("diagnose", "embed"):
+            for kind in KINDS:
                 thread = self._threads.get(kind)
                 if thread is None or not thread.is_alive():
                     context = contextvars.copy_context()
@@ -130,6 +134,8 @@ class PostAttemptWorker:
             return []
         vault, sqlite_path = supplied
         repository = self._repository(sqlite_path)
+        if kind == "gaps":
+            return self._run_gaps(vault, repository, max_jobs=max_jobs, clock=clock)
         outcomes: list[Any] = []
         while len(outcomes) < max_jobs:
             result = self._with_busy_retry(
@@ -155,7 +161,30 @@ class PostAttemptWorker:
             outcomes.append(result)
             with self._changed:
                 self._changed.notify_all()
+            if kind == "diagnose":
+                # An applied diagnosis may have queued a learner-text gap job.
+                self._wake["gaps"].set()
             if result.state in ("released", "lease_lost"):
+                break
+        return outcomes
+
+    def _run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]:
+        from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
+
+        outcomes: list[Any] = []
+        clients = self.gap_clients(vault) if self.gap_clients is not None else None
+        while len(outcomes) < max_jobs and not self._stop.is_set():
+            result = self._with_busy_retry(
+                lambda: process_next_gap_job(vault.root, repository, owner=self.owner, clients=clients, clock=clock)
+            )
+            if result is None:
+                break
+            outcomes.append(result)
+            with self._changed:
+                self._changed.notify_all()
+            # ``deferred``: the daily cap or a spend stop; the rest waits.
+            # One text backing off (``retry_later``) does not stop the drain.
+            if result.state in ("deferred", "lease_lost"):
                 break
         return outcomes
 

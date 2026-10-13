@@ -115,8 +115,25 @@ DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 # branch built it as mvp-0.12 and it was relabelled mvp-0.15 when it merged
 # after the daily plan (mvp-0.14). Kill switch: ``router.probe_tie_admission``.
 # Decision logging (``router.log_decisions``) is not a serving change and runs
-# at every version.
+# at every version. New vaults started here until mvp-0.16 merged.
 PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"
+
+# mvp-0.16 (learner-text gaps, implementation_handoffs §4, owner-directed
+# 2026-10-12): on top of mvp-0.15 (the chain stays linear: mvp-0.16 means the
+# split PLUS placement PLUS recurrence groups PLUS the stuck prompt PLUS the
+# plan PLUS probe ties PLUS this). A prerequisite gap a learner's own text
+# names (a tutor question, a stuck answer, a diagnosis) and that matches an LO
+# assumed known or in maintenance brings that LO's next check forward, no
+# sooner than a bound after the gap and never later than it was
+# (``learner_gap_check_advances`` receipts; placement reads them only at this
+# tag or later). It changes what is SERVED, not the projection, so it is
+# another successor tag on the mvp-0.8 namespace. The branch built it as
+# mvp-0.13 and it was relabelled mvp-0.16 when it merged after the stuck
+# prompt (mvp-0.13), the daily plan (mvp-0.14) and probe ties (mvp-0.15). Kill
+# switch: ``learner_text_gaps.sooner_check_enabled``. The rest of the pipeline
+# (names, matches, edges, created prerequisites, holding-pen sightings) is a
+# live change behind its own switches, not version-gated.
+LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -133,6 +150,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     STUCK_PROMPT_ALGORITHM_VERSION,
     DAILY_PLAN_ALGORITHM_VERSION,
     PROBE_TIE_ALGORITHM_VERSION,
+    LEARNER_TEXT_GAP_ALGORITHM_VERSION,
 )
 
 
@@ -189,6 +207,12 @@ DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSI
 # (behind ``router.probe_tie_admission``). Every later successor keeps it;
 # gates must use this set, never equality against PROBE_TIE_ALGORITHM_VERSION.
 PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION)
+
+# Versions whose placement reads the learner-text gap's sooner checks (behind
+# ``learner_text_gaps.sooner_check_enabled``). Every later successor keeps it;
+# gates must use this set, never equality against
+# LEARNER_TEXT_GAP_ALGORITHM_VERSION.
+LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

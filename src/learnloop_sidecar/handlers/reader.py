@@ -34,6 +34,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import provider_label, ready_tutor_qa_provider
+from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 from learnloop_sidecar.registry import method
 
 
@@ -149,6 +150,10 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         "burned_surface_ids": result["burned_surface_ids"],
         "hint_equivalent": result["hint_equivalent"],
         "remaining": result["remaining"],
+        # Learner-text gaps: a reader question is read for a named gap too.
+        "learner_gap": queue_tutor_question_gap(
+            ctx, vault, repository, result["event_id"], result.get("learner_gap")
+        ),
     }
     if result.get("suggested_learning_objects"):
         # Slice 2 T6: labelled nearest-LO suggestions, shown in the Ask overlay

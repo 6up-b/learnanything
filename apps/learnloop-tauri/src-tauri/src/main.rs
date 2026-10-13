@@ -388,6 +388,8 @@ fn main() {
             get_concept_animation_status,
             list_concept_animations,
             ask_tutor_question,
+            get_learner_text_gap,
+            reverse_learner_text_gap,
             preview_tutor_opening,
             rate_tutor_answer,
             save_tutor_answer_note,

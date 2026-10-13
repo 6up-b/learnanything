@@ -1066,6 +1066,14 @@ class AIRoutingConfig(BaseModel):
     # Slice 2 T1: the same-cause judge (live, backlog and the guard suite).
     # Empty = the resolved diagnosis route (itself the grading route when unset).
     same_cause_judge: str | None = None
+    # Learner-text gaps (implementation_handoffs §4): the same/different and
+    # "needed for this item?" judge, and the reader of stuck text. Empty = the
+    # resolved diagnosis route. The Decider's second opinion is a decider task:
+    # empty = the code-default openrouter_decider profile, never a chat
+    # fallback and never LEARNLOOP_AI_PROVIDER.
+    learner_gap_judge: str | None = None
+    learner_gap_reader: str | None = None
+    learner_gap_decider: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
     authoring: str | None = None
@@ -1537,6 +1545,62 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class LearnerTextGapsConfig(BaseModel):
+    """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
+
+    One pipeline turns a learner's own text (a tutor question, a non-empty
+    stuck answer, a diagnosis) into a named gap and acts on it. Live behind
+    kill switches (frictionless defaults); only the sooner check is an
+    algorithm successor (``mvp-0.16``), with ``sooner_check_enabled`` as its
+    switch. Nothing here writes evidence, mastery or certification (G13).
+
+    ``chooser`` decides whose kind is authoritative: ``context_model`` (the
+    tutor, the diagnoser or the stuck-text reader: the model with the whole
+    exchange) or ``decider``; the other is a logged second opinion. For
+    prerequisite matches it also picks the authoritative judge; belief matches
+    are always the LLM judge's (the Decider's verdict is logged, never joins).
+    """
+
+    # The pipeline's kill switch: off, no learner text is read or acted on, and
+    # the field loader ignores gap targets (the F11 grounded rule applies).
+    enabled: bool = True
+    chooser: Literal["context_model", "decider"] = "context_model"
+    # The Decider's second opinion on the kind and on every judged pair.
+    decider_enabled: bool = True
+    # Vault-wide LO and registry shortlist breadth (stored vectors; R4).
+    top_k: int = Field(default=4, ge=1, le=20)
+    # Candidate pairs judged per learner text (each by both judges).
+    judge_max_pairs: int = Field(default=8, ge=1, le=20)
+    judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
+    # A matched prerequisite that is not declared: ask "needed for this item?"
+    # and add the edge on yes (refused on a cycle; one-tap undo).
+    add_edges_enabled: bool = True
+    # A missing prerequisite is drafted, written and seeded live. Off: nothing
+    # new is created and earlier creations are not served.
+    create_prerequisites_enabled: bool = True
+    max_creations_per_day: int = Field(default=3, ge=0, le=50)
+    # The created LO's seed item is one delayed check after this many days.
+    seed_check_delay_days: int = Field(default=1, ge=0, le=60)
+    # A stated belief is a holding-pen sighting (or a new candidate).
+    sightings_enabled: bool = True
+    # mvp-0.16's kill switch: a matched prerequisite gap brings an assumed or
+    # maintenance LO's next check forward to no sooner than this delay.
+    sooner_check_enabled: bool = True
+    sooner_check_delay_hours: int = Field(default=24, ge=1, le=24 * 60)
+    # Per learner text: paid requests (all routes) and metered dollars.
+    max_calls_per_text: int = Field(default=30, ge=1, le=200)
+    max_usd_per_text: float = Field(default=0.25, ge=0.0, le=5.0)
+    # The live path (sidecar worker) across texts: logical calls per UTC day,
+    # counted from the live path's receipts before each text; at the cap the
+    # queue waits for the next day (`learnloop gaps run` has its own caps,
+    # and its calls are receipted apart and never counted here).
+    max_calls_per_day: int = Field(default=500, ge=0)
+    # Owner price estimate (USD per million tokens) for METERED chat routes
+    # (judge, reader, draft, seed). Unset: a metered route with no published
+    # price is refused before sending (spend rule); Codex needs none.
+    metered_price_per_million: float | None = Field(default=None, gt=0)
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1910,6 +1974,7 @@ class LearnLoopConfig(BaseModel):
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
+    learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
 
     @model_validator(mode="before")
     @classmethod

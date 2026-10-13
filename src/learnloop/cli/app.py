@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14 or mvp-0.15); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15 or mvp-0.16); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -104,13 +104,18 @@ def upgrade(
     vault through the chain; kill switch: ``stuck_prompt.enabled = false``);
     ``--to mvp-0.14`` adds the finite daily plan over an mvp-0.13 vault (or an
     mvp-0.9 to mvp-0.12 vault through the chain; kill switch:
-    ``plan.enabled = false``); ``--to mvp-0.15`` (default, the latest
-    successor) admits probe near-ties, teach-back items included, to the Today
-    queue's seeded exploration with a logged propensity (router R1), over an
+    ``plan.enabled = false``); ``--to mvp-0.15`` admits probe near-ties,
+    teach-back items included, to the Today queue's seeded exploration with a
+    logged propensity (router R1), over an
     mvp-0.14 vault (or an mvp-0.9 to mvp-0.13 vault through the chain; kill
     switch: ``router.probe_tie_admission = false``). Router decision logging
     (``router.log_decisions``) is not a serving change and runs at every
-    version."""
+    version. ``--to mvp-0.16`` (default, the latest successor) adds
+    learner-text gaps' sooner checks (a prerequisite gap named in the
+    learner's own text brings an assumed or maintenance LO's next check
+    forward) over an mvp-0.15 vault (or an mvp-0.9 to mvp-0.14 vault through
+    the chain; kill switch: ``learner_text_gaps.sooner_check_enabled =
+    false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -146,11 +151,15 @@ def upgrade(
         from learnloop.probe_tie_upgrade import upgrade_to_mvp015
 
         result = upgrade_to_mvp015(_root(vault))
+    elif to == "mvp-0.16":
+        from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
+
+        result = upgrade_to_mvp016(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14 or mvp-0.15."
+            "mvp-0.14, mvp-0.15 or mvp-0.16."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
