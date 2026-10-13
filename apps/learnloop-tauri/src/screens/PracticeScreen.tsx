@@ -22,7 +22,7 @@ import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui"
 import { CardControls } from "../components/CardControls";
 import { ItemPresentation } from "../components/ItemPresentation";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
-import { masteryTone } from "../app/algoConfig";
+import { algoConfig, masteryTone, STUCK_PROMPT_TEXT } from "../app/algoConfig";
 import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
@@ -99,6 +99,7 @@ export function PracticeScreen({
   restoredAnswer,
   restoredHints,
   restoredSubmissionId,
+  restoredStuck = false,
   restoredTeachBack,
   onFeedback,
   onBlockEnd,
@@ -128,6 +129,9 @@ export function PracticeScreen({
   restoredAnswer?: string;
   restoredHints?: number;
   restoredSubmissionId?: string | null;
+  /** mvp-0.13 (review F2): the restored draft was being written after "I'm
+   *  stuck", so it reopens in stuck mode and submits as a stuck answer. */
+  restoredStuck?: boolean;
   restoredTeachBack?: TeachBackStateDto | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
@@ -140,7 +144,13 @@ export function PracticeScreen({
   onCheckpointCleared: (identity?: PracticeCheckpointIdentity) => void;
   /** Mirror of the last flushed draft, so App can restore it if this item is
    *  re-opened before the backend checkpoint is reloaded. */
-  onDraftSaved: (draft: { practiceItemId: string; answerMd: string; hintsUsed: number; submissionId: string }) => void;
+  onDraftSaved: (draft: {
+    practiceItemId: string;
+    answerMd: string;
+    hintsUsed: number;
+    submissionId: string;
+    declaredStuck: boolean;
+  }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
   onAskAvailabilityChange: (allowed: boolean) => void;
@@ -164,6 +174,13 @@ export function PracticeScreen({
   const [whyLine, setWhyLine] = useState("");
   const [hintsUsed, setHintsUsed] = useState(restoredHints ?? 0);
   const [submitting, setSubmitting] = useState(false);
+  // mvp-0.13: "I'm stuck" replaces "I don't know". One tap turns the answer
+  // box into "write what you can, or what's confusing you"; the same Submit
+  // sends it, empty or not. The sidecar decides whether this vault offers it.
+  const stuckPrompt = algoConfig().stuckPrompt;
+  // Restored with the draft (review F2): a navigation or restart before the
+  // grade commits must not turn a stuck answer into an ordinary one.
+  const [stuck, setStuck] = useState(Boolean(restoredStuck) && stuckPrompt);
   // Probe redesign §12: when the LO has an in-progress diagnostic episode, the
   // sidecar commits a presentation and this contract enforces measurement
   // conditions — forced diagnostic_probe, no hints, no ask-tutor, deferred
@@ -197,7 +214,8 @@ export function PracticeScreen({
     answerMd: answer,
     hintsUsed,
     submissionId: submissionId.current,
-    schedulerCandidateId
+    schedulerCandidateId,
+    declaredStuck: stuck
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -279,10 +297,11 @@ export function PracticeScreen({
       answerMd: answer,
       hintsUsed,
       submissionId: submissionId.current,
-      schedulerCandidateId
+      schedulerCandidateId,
+      declaredStuck: stuck
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId]);
+  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -339,7 +358,8 @@ export function PracticeScreen({
     setFieldErrors({});
     setSubmitting(false);
     setWhyLine("");
-  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints]);
+    setStuck(Boolean(restoredStuck) && stuckPrompt);
+  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -440,7 +460,7 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
     }, 350);
     return () => clearTimeout(timer);
-  }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId]);
+  }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId, stuck]);
 
   useEffect(() => {
     return () => {
@@ -451,8 +471,8 @@ export function PracticeScreen({
       // switch then fails, App restores this item from the mirror; if it
       // succeeds, App drops the mirror with the rest of the old vault's state.
       if (!draftSavingDisabled()) {
-        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey } = latestDraft.current;
-        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey });
+        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -498,7 +518,10 @@ export function PracticeScreen({
         if (!isTeachBack) revealHint();
       } else if (ctrl && event.key.toLowerCase() === "d") {
         event.preventDefault();
-        if (!isTeachBack) void dontKnow();
+        if (!isTeachBack) {
+          if (stuckPrompt) pressStuck();
+          else void dontKnow();
+        }
       } else if (ctrl && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void skip();
@@ -611,17 +634,29 @@ export function PracticeScreen({
     return true;
   }
 
+  /** "I'm stuck": one tap opens the answer box with the stuck prompt. Nothing
+   *  is recorded until Submit. */
+  function pressStuck() {
+    if (!practiceReady || isTeachBack) return;
+    setStuck(true);
+    const editor = editorSlotRef.current?.querySelector<HTMLElement>("[role=textbox]");
+    editor?.focus();
+  }
+
   async function submit() {
     if (!item || !interactionReady || submitting) return;
     const submittedItemId = item.id;
     const submittedKey = submissionId.current;
+    // An empty stuck answer has nothing to grade: it is scored 0 at once, so
+    // it never asks for a self-grade either.
+    const emptyStuck = stuck && !answer.trim() && !whyLine.trim() && !redo;
     // First Submit click when a self-grade is required only reveals the panel;
     // the actual attempt is submitted on the next click once it's been graded.
-    if (fallbackRequired && !selfGradeVisible) {
+    if (fallbackRequired && !selfGradeVisible && !emptyStuck) {
       setSelfGradeVisible(true);
       return;
     }
-    const validation = validateSelfGrade(item, selfGrade, fallbackRequired);
+    const validation = emptyStuck ? {} : validateSelfGrade(item, selfGrade, fallbackRequired);
     setFieldErrors(validation);
     if (Object.keys(validation).length) return;
     setSubmitting(true);
@@ -659,7 +694,12 @@ export function PracticeScreen({
         schedulerCandidateId,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
-        selfGrade: fallbackRequired ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) } : null
+        selfGrade:
+          fallbackRequired && !emptyStuck
+            ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) }
+            : null,
+        // mvp-0.13: written after "I'm stuck" (it may be empty).
+        ...(stuck ? { declaredStuck: true } : {})
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;
@@ -1043,12 +1083,37 @@ export function PracticeScreen({
               value={answer}
               onChange={setAnswer}
               disabled={submitting}
-              placeholder={redo ? "continue from your kept work — rewrite only the failed part" : "type your answer — $math$ renders as you type"}
+              placeholder={
+                stuck
+                  ? STUCK_PROMPT_TEXT
+                  : redo
+                    ? "continue from your kept work — rewrite only the failed part"
+                    : "type your answer — $math$ renders as you type"
+              }
               maxHeight={editorMaxHeight}
               ariaLabel={redo ? "redo the failed part" : "answer"}
             />
           </div>
           <div ref={belowRef}>
+            {stuck ? (
+              <div className="hint-banner" role="status" aria-label="stuck prompt" style={{ borderColor: COLOR.amber }}>
+                <Pill tone="amber">I'm stuck</Pill> {STUCK_PROMPT_TEXT}.{" "}
+                <Faint>
+                  {probeActive
+                    ? "An empty answer is fine."
+                    : "An empty answer is fine: Submit takes you to the feedback."}
+                </Faint>{" "}
+                <button
+                  type="button"
+                  className="queue-row"
+                  style={{ padding: "0 7px", opacity: 0.7 }}
+                  onClick={() => setStuck(false)}
+                  disabled={submitting}
+                >
+                  never mind
+                </button>
+              </div>
+            ) : null}
             <div className="queue-meta">{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
             {/* §4.6 calibration duel — predicting the correctness of the answer
                 they just composed (not the prompt). Shown only once the draft is
@@ -1144,6 +1209,12 @@ export function PracticeScreen({
                   {selfGradeVisible ? `${scorePreview}/${item.rubric?.maxPoints ?? 4}` : ""}
                 </span>
               </button>
+              {stuckPrompt && !stuck ? (
+                <button className="queue-row" type="button" onClick={pressStuck} disabled={submitting}>
+                  <span className="queue-hotkey">^d</span>
+                  <span className="queue-title">I'm stuck</span>
+                </button>
+              ) : null}
             </div>
           </div>
           </>
@@ -1156,13 +1227,13 @@ export function PracticeScreen({
         { key: "esc", label: "today" }
       ] : probeActive ? [
         { key: "^enter", label: "submit" },
-        { key: "^d", label: "don't know" },
+        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         { key: "esc", label: "today" }
       ] : [
         { key: "^enter", label: "submit" },
         { key: "^h", label: "hint" },
-        { key: "^d", label: "don't know" },
+        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         { key: "?", label: "ask tutor" },
         { key: "esc", label: "today" }

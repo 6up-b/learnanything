@@ -113,6 +113,17 @@ def command_receipts(fallback_label: str) -> Iterator[CommandReceipts]:
         _current.reset(token)
 
 
+def current_command_recorder():
+    """The running command's receipt recorder, or None outside a command.
+
+    An inner model-call observer (a spend collector) replaces this one for its
+    block; it forwards here so the command still owns its receipts.
+    """
+
+    receipts = _current.get()
+    return receipts.record if receipts is not None else None
+
+
 def bind_command_vault(vault_root: Path) -> None:
     receipts = _current.get()
     if receipts is not None:

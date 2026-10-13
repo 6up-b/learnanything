@@ -3,8 +3,8 @@ title: "Config - ai"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "9c65556d0416de254556729a74434c386c55903c"
+source_commit_timestamp: "2026-10-12T21:17:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ai"
@@ -63,7 +63,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `ai.active_provider` | `"codex"` | string | explicit template decision | Controls active provider in typed provider profiles and task-to-provider routing, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1120`; `src/learnloop/ai/client.py:24`; `src/learnloop/ai/routing.py:232` |
-| `ai.fallback_provider` | `""` | string | explicit template decision | Controls fallback provider in typed provider profiles and task-to-provider routing, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1121`; `src/learnloop/ai/routing.py:297`; `src/learnloop_sidecar/context.py:391` |
+| `ai.fallback_provider` | `""` | string | explicit template decision | Controls fallback provider in typed provider profiles and task-to-provider routing, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1121`; `src/learnloop/ai/routing.py:297`; `src/learnloop_sidecar/context.py:395` |
 | `ai.timeout_seconds` | `180` | integer | modeled default or validator seed | Sets the timeout duration in seconds for typed provider profiles and task-to-provider routing. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1122`; `src/learnloop/ai/client.py:36` |
 | `ai.providers.codex.type` | `"codex_sdk"` | string | explicit template decision | Chooses the validated transport adapter used by the codex provider profile. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:936`; `src/learnloop/ai/client.py:28`; `src/learnloop/ai/disclosures.py:46` |
 | `ai.providers.codex.model` | `"gpt-5.6-sol"` | string | explicit template decision | Pins the model identifier sent by the codex provider profile. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:877`; `src/learnloop/ai/providers/codex.py:1141`; `src/learnloop/ai/providers/codex_http.py:231` |

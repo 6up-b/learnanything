@@ -649,6 +649,9 @@ export interface SessionCheckpoint {
   /** Stable retry key for the in-progress attempt. Reused after app restart so
    *  an outcome-unknown submission cannot be graded twice. */
   submissionId: string | null;
+  /** mvp-0.13: the draft was being written after "I'm stuck" (absent from an
+   *  older sidecar, which never stored one). */
+  declaredStuck?: boolean;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -1073,6 +1076,10 @@ export interface SubmitAttemptInput {
   /** Stable identity reused when a network submission is retried. */
   submissionId?: string | null;
   schedulerCandidateId?: string | null;
+  /** mvp-0.13: written after "I'm stuck" ("Write what you can, or what's
+   *  confusing you"). May be empty. Still an ordinary attempt of
+   *  `attemptType`: graded when it has text, scored 0 at once when empty. */
+  declaredStuck?: boolean;
 }
 
 /** §5.7 block-end hook payload: withheld feedback released at the boundary,

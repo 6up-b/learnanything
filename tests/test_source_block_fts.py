@@ -178,8 +178,9 @@ def test_a_fresh_vault_has_the_identity_delete_paths_through_177(tmp_path):
 
 
 def test_migration_177_indexes_a_176_vaults_existing_blocks(tmp_path):
-    """Upgrading a vault at 176 (main's head before T6) applies 177 alone and
-    indexes the blocks it already holds, page furniture excepted."""
+    """Upgrading a vault at 176 (main's head before T6) applies 177 (and only
+    the migrations after it) and indexes the blocks it already holds, page
+    furniture excepted."""
 
     from learnloop.db.migrate import apply_migrations, discover_migrations
 
@@ -197,7 +198,9 @@ def test_migration_177_indexes_a_176_vaults_existing_blocks(tmp_path):
         assert connection.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE name = 'source_block_fts'").fetchone()[0] == 0
     applied = apply_migrations(path)
-    assert [migration.version for migration in applied] == [177]
+    assert [migration.version for migration in applied] == [
+        migration.version for migration in discover_migrations() if migration.version >= 177
+    ]
     with closing(connect(path, read_only=True)) as connection:
         blocks = connection.execute(
             "SELECT rowid, text, extraction_id, span_id, block_type FROM source_document_blocks").fetchall()

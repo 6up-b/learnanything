@@ -49,7 +49,7 @@ The prompts for each stage are in `implementation_handoffs.md`. This file says w
 >
 > Also merged: Phase 6 with the owner's decisions, router R0, mobile M1, project understanding M1 and daily-loop DL0.
 >
-> Built and waiting to merge: "I'm stuck", DL1, router R1 and facet identity. Learner-text gaps is building.
+> Merged after Slice 2: "I'm stuck" (mvp-0.13). Built and waiting to merge: DL1, router R1 and facet identity. Building: learner-text gaps, the ChatGPT-plan provider and the owner batch (T1 guard advisory, B1 fixes).
 >
 > Owner items: see each stage's review file. In short: vault upgrades, paid runs, the guard before mvp-0.12 on existing vaults, phone acceptance A1–A3, and the Rust toolchain.
 

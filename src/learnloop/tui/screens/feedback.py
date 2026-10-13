@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -53,11 +54,22 @@ class FeedbackScreen(Screen):
     graded: reactive[bool] = reactive(False)
     has_errors: reactive[bool] = reactive(False)
 
-    def __init__(self, state: TuiState, item: ScheduledItem, draft: AttemptDraft):
+    def __init__(
+        self,
+        state: TuiState,
+        item: ScheduledItem,
+        draft: AttemptDraft,
+        *,
+        committed: AttemptResult | None = None,
+    ):
         super().__init__()
         self.state = state
         self.item = item
         self.draft = draft
+        # mvp-0.13 (review F4): an attempt already recorded with nothing to
+        # grade (an empty "I'm stuck" answer, scored 0). The screen shows it
+        # with the worked answer at once: no grader, no self-grade form.
+        self.committed = committed
         self.practice_item = state.vault.practice_items[item.practice_item_id]
         self.learning_object = state.vault.learning_objects[item.learning_object_id]
         self.rubric = state.vault.rubric_for_item(self.practice_item)
@@ -87,6 +99,7 @@ class FeedbackScreen(Screen):
             with Vertical(id="results"):
                 yield TextStatic("", id="result-head")
                 yield TextStatic("", id="score-block")
+                yield TextStatic(self._worked_answer_content(), id="worked-answer")
                 yield TextStatic("Rubric · criterion evidence", classes="section-header")
                 yield TextStatic("", id="rubric-evidence")
                 yield TextStatic("", id="tutor-note")
@@ -130,6 +143,11 @@ class FeedbackScreen(Screen):
         yield KeyBar(keys=[("n / enter", "Next item"), ("esc", "Back to queue")])
 
     def on_mount(self) -> None:
+        if self.committed is not None:
+            self.set_class(True, "-reveal-answer")
+            self._record_worked_answer_reveal(self.committed)
+            self._complete_result(self.committed, model=False)
+            return
         if self._ai_ready():
             self.query_one("#grading-status", TextStatic).update(
                 Content(f"Sending answer to {self._provider_label()} for evaluation...")
@@ -336,11 +354,15 @@ class FeedbackScreen(Screen):
         except Exception:  # noqa: BLE001 - the widget may be gone
             pass
 
-    def _complete_result(self, result: AttemptResult) -> None:
+    def _complete_result(self, result: AttemptResult, *, model: bool = True) -> None:
         # Recorded before completion runs: if completion fails, the next
         # submit resumes this attempt instead of grading the answer again.
         self.result = result
-        _provider_name, runtime, client = self._grading_provider()
+        if model:
+            _provider_name, runtime, client = self._grading_provider()
+        else:
+            # Nothing was graded by a model and nothing after it may call one.
+            runtime, client = SimpleNamespace(ready=False), None
         outcome = run_post_attempt_pipeline(
             self.state.vault,
             self.state.repository,
@@ -351,7 +373,12 @@ class FeedbackScreen(Screen):
         self.followup_decision = outcome.followup
         self.app.last_attempt_result = result
         self.surprise_direction = result.surprise_direction
-        source = "Codex" if result.grading_source == "codex" else "AI" if result.grading_source == "ai" else "Self-grade"
+        source = (
+            "Codex" if result.grading_source == "codex"
+            else "AI" if result.grading_source == "ai"
+            else "Deterministic" if result.grading_source == "deterministic"
+            else "Self-grade"
+        )
         self.query_one("#grading-status", TextStatic).update(Content(f"{source} evaluation complete."))
         self.query_one("#feedback-summary", TextStatic).update(
             Content(
@@ -391,6 +418,35 @@ class FeedbackScreen(Screen):
         self.query_one("#belief-update", TextStatic).update(self._belief_content(result))
         self.query_one("#next-followup", TextStatic).update(self._followup_content())
         self.query_one("#next-schedule", TextStatic).update(self._schedule_content(result))
+
+    def _record_worked_answer_reveal(self, result: AttemptResult) -> None:
+        """The worked answer is now visible: debit the reveal ledger (re-review F8).
+
+        The full expected answer (amount 1.0), linked to this item and the
+        committed attempt, so a retry taken with it in view is recorded as
+        primed. Once per attempt; best effort (the ledger never costs the
+        learner the screen).
+        """
+
+        from learnloop.attempts.reveal_ledger import record_answer_display_reveal
+
+        record_answer_display_reveal(
+            self.state.repository,
+            attempt_id=result.attempt_id,
+            practice_item_id=self.practice_item.id,
+            learning_object_id=self.learning_object.id,
+            basis="worked_answer:stuck_empty:tui",
+        )
+
+    def _worked_answer_content(self) -> Content:
+        """The item's worked answer, shown after an empty stuck answer."""
+
+        return Content.assemble(
+            ("Worked answer  ", "$accent bold"),
+            ("you were stuck and sent nothing, so this counts as an answer scored 0", "$text-muted italic"),
+            "\n",
+            (str(self.practice_item.expected_answer or ""), "$foreground"),
+        )
 
     def _result_head_content(self, result: AttemptResult) -> Content:
         return Content.assemble(

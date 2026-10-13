@@ -12,7 +12,17 @@ from textual.widgets import Button, Rule, TextArea
 
 from learnloop.attempt_types import default_attempt_type
 from learnloop.ids import new_ulid
-from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.attempts import (
+    AttemptDraft,
+    SelfGradeInput,
+    complete_empty_stuck_attempt,
+    complete_self_graded_attempt,
+)
+from learnloop.attempts.stuck import (
+    STUCK_CONTROL_LABEL,
+    STUCK_PROMPT_TEXT,
+    stuck_prompt_active,
+)
 from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
     episode_contract,
@@ -54,13 +64,17 @@ class PracticeScreen(Screen):
         Binding("ctrl+j", "submit", "Submit", priority=True),
         Binding("f10", "submit", "Submit", priority=True),
         Binding("ctrl+h", "hint", "Hint", priority=True),
-        Binding("ctrl+d", "dont_know", "Don't know", priority=True),
+        # "I'm stuck" in an mvp-0.13 vault (stuck_prompt), "Don't know" otherwise.
+        Binding("ctrl+d", "dont_know", "Stuck / don't know", priority=True),
         Binding("ctrl+t", "stop_diagnosing", "Stop diagnosing", priority=True),
         Binding("ctrl+s", "skip", "Skip", priority=True),
         Binding("escape", "back", "Back", priority=True),
     ]
 
     probe: var[bool] = var(False, toggle_class="-probe")
+    # mvp-0.13: the learner pressed "I'm stuck"; the answer box now asks them
+    # to write what they can (an empty answer may be sent).
+    stuck: var[bool] = var(False, toggle_class="-stuck")
     submitting: var[bool] = var(False, toggle_class="-submitting")
     hints_used: reactive[int] = reactive(0)
 
@@ -71,6 +85,9 @@ class PracticeScreen(Screen):
         self.practice_item = state.vault.practice_items[item.practice_item_id]
         self.learning_object = state.vault.learning_objects[item.learning_object_id]
         self.attempt_type = default_attempt_type(self.practice_item.attempt_types_allowed)
+        # mvp-0.13 replaces "I don't know" with "I'm stuck" (kill switch:
+        # stuck_prompt.enabled). Decided once per screen, like the probe.
+        self.stuck_prompt = stuck_prompt_active(state.vault)
         # The retry key of the one attempt this screen composes: every draft
         # built from the screen (feedback grading, retries, "I don't know")
         # carries it, so the unique submission index records at most one
@@ -140,6 +157,7 @@ class PracticeScreen(Screen):
                 yield Rule()
                 yield TextStatic(self.practice_item.prompt, id="practice-prompt")
                 yield TextStatic(self._probe_content(), id="probe-panel")
+                yield TextStatic(self._stuck_content(), id="stuck-prompt")
                 with Horizontal(id="answer-row"):
                     yield TextStatic("❯", id="answer-prompt-char")
                 yield TextArea(id="answer-input")
@@ -160,7 +178,7 @@ class PracticeScreen(Screen):
             keys=[
                 ("^enter/^j/F10", "Submit"),
                 ("^h", "Hint"),
-                ("^d", "Don't know"),
+                ("^d", STUCK_CONTROL_LABEL if self.stuck_prompt else "Don't know"),
                 ("^s", "Skip"),
                 ("esc", "Back"),
             ],
@@ -201,12 +219,53 @@ class PracticeScreen(Screen):
         if self.hints_used < len(self.practice_item.hints):
             self.hints_used += 1
 
-    async def open_feedback(self):
+    async def open_feedback(self, committed=None):
         from learnloop.tui.screens.feedback import FeedbackScreen
 
-        feedback = FeedbackScreen(self.state, self.item, self._draft())
+        feedback = FeedbackScreen(self.state, self.item, self._draft(), committed=committed)
         await self.app.push_screen(feedback)
         return feedback
+
+    def press_stuck(self) -> None:
+        """"I'm stuck": one key turns the answer box into "write what you can".
+
+        Nothing is recorded yet. The same submit sends what was written: text
+        is graded as an ordinary answer; an empty box is scored 0 at once.
+        """
+
+        self.stuck = True
+        if self.is_mounted:
+            self.query_one("#answer-input", TextArea).focus()
+
+    async def submit_stuck_empty(self):
+        """Record an empty stuck answer: an ordinary attempt scored 0, no model.
+
+        Then show it (review F4): the feedback screen opens on the committed
+        result with the worked answer, and asks for no grade. Inside a
+        diagnostic check, feedback stays deferred as it was for "I don't
+        know": the screen returns to Today without revealing the answer.
+        """
+
+        from learnloop.attempts.post_attempt import (
+            committed_submission_result,
+            run_post_attempt_pipeline,
+        )
+
+        result = committed_submission_result(self.state.repository, self.submission_id)
+        if result is None:
+            result = complete_empty_stuck_attempt(
+                self.state.vault, self.state.repository, self._draft()
+            )
+        if self.probe_presentation_id is None:
+            self.submitting = True
+            # The feedback screen runs the post-attempt pipeline (no model).
+            await self.open_feedback(committed=result)
+            return result
+        run_post_attempt_pipeline(self.state.vault, self.state.repository, result=result)
+        self.app.last_attempt_result = result
+        self.state.refresh()
+        self.app.pop_screen()
+        return result
 
     def dont_know(self):
         from learnloop.attempts.post_attempt import (
@@ -238,6 +297,7 @@ class PracticeScreen(Screen):
         # §12: an active diagnostic block forces the recording attempt type
         # while declared_dont_know preserves the outcome separately (§5.4).
         declared_dont_know = attempt_type == "dont_know"
+        declared_stuck = self.stuck and not declared_dont_know
         resolved_type = attempt_type or self.attempt_type
         if self.probe_presentation_id is not None:
             resolved_type = "diagnostic_probe"
@@ -251,10 +311,14 @@ class PracticeScreen(Screen):
             hints_used=self.hints_used,
             probe_presentation_id=self.probe_presentation_id,
             declared_dont_know=declared_dont_know,
+            declared_stuck=declared_stuck,
         )
 
     # ── actions ──────────────────────────────────────────────────────────
     async def action_submit(self) -> None:
+        if self.stuck and not self.answer.strip():
+            await self.submit_stuck_empty()
+            return
         self.submitting = True
         await self.open_feedback()
 
@@ -275,6 +339,9 @@ class PracticeScreen(Screen):
         self.notify("Diagnostic ended — this item now runs as ordinary tutoring/practice.")
 
     def action_dont_know(self) -> None:
+        if self.stuck_prompt:
+            self.press_stuck()
+            return
         self.dont_know()
 
     def action_skip(self) -> None:
@@ -350,6 +417,19 @@ class PracticeScreen(Screen):
             "\n",
             (
                 f"item selected by probe-EIG · information gain {eig:.2f}",
+                "$text-muted italic",
+            ),
+        )
+
+    def _stuck_content(self) -> Content:
+        return Content.assemble(
+            (STUCK_CONTROL_LABEL, "$warning bold"),
+            (" · ", "$text-disabled"),
+            (STUCK_PROMPT_TEXT, "$text"),
+            "\n",
+            (
+                "an empty answer is fine: submit records it as an answer scored 0"
+                + ("" if self.probe_presentation_id is not None else " and shows the worked answer"),
                 "$text-muted italic",
             ),
         )

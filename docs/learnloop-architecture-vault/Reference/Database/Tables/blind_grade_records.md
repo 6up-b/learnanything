@@ -3,13 +3,13 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "9c65556d0416de254556729a74434c386c55903c"
+source_commit_timestamp: "2026-10-12T21:17:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
   - "table blind_grade_records"
-schema_head: 177
+schema_head: 179
 table_name: "blind_grade_records"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/split/reports.py"
@@ -94,6 +95,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/stuck.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/split/reports.py`

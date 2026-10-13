@@ -458,6 +458,8 @@ export const api = {
     hintsUsed: number;
     submissionId: string;
     schedulerCandidateId?: string | null;
+    /** mvp-0.13: the draft is being written after "I'm stuck". */
+    declaredStuck?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   recoverPracticeSubmission: (input: {
     sessionId: string;

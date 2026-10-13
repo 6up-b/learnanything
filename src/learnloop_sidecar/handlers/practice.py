@@ -16,8 +16,10 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_ai_required,
     complete_attempt_with_codex_fallback,
     complete_attempt_with_codex_required,
+    complete_empty_stuck_attempt,
     complete_self_graded_attempt,
 )
+from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
 from learnloop.attempts.post_attempt import (
     CompletionRouteUnknown,
     probe_route,
@@ -64,6 +66,10 @@ class PracticeDraftCheckpoint(ParamsModel):
     # client that does not persist one gets no recovery.
     submission_id: str | None = None
     scheduler_candidate_id: str | None = None
+    #: mvp-0.13 (review F2): the draft is being written after "I'm stuck".
+    #: Kept with the draft so a navigation or restart before the grade
+    #: commits restores the stuck answer it was, not an ordinary one.
+    declared_stuck: bool = False
 
 
 class PracticeSubmissionRecoveryInput(ParamsModel):
@@ -113,6 +119,11 @@ class SubmitAttemptInput(ParamsModel):
     assessment_contract_version_id: str | None = None
     submission_id: str | None = None
     scheduler_candidate_id: str | None = None
+    #: mvp-0.13: the answer was written after "I'm stuck" ("Write what you
+    #: can, or what's confusing you"). It may be empty. Still an ordinary
+    #: attempt of ``attempt_type``: graded when it has text, a deterministic
+    #: zero when empty.
+    declared_stuck: bool = False
 
 
 class DontKnowInput(ParamsModel):
@@ -429,6 +440,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             current_answer=params.answer_md,
             hints_used=params.hints_used,
             submission_id=params.submission_id,
+            declared_stuck=params.declared_stuck,
         ),
     )
     return {"ok": True}
@@ -515,6 +527,27 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
+    declared_stuck = params.declared_stuck and stuck_prompt_active(vault)
+    if params.declared_stuck and not declared_stuck and not params.answer_md.strip() and not (
+        params.explanation_md or ""
+    ).strip():
+        # A stuck answer from a surface drawn before stuck_prompt was turned
+        # off is recorded exactly as that switch says today: an empty one is
+        # "I don't know" (and a non-empty one the ordinary attempt below).
+        return submit_dont_know(
+            ctx,
+            DontKnowInput(
+                session_id=params.session_id,
+                practice_item_id=params.practice_item_id,
+                hints_used=params.hints_used,
+                latency_seconds=params.latency_seconds,
+                probe_presentation_id=params.probe_presentation_id,
+                answer_confidence=params.answer_confidence,
+                assessment_contract_version_id=params.assessment_contract_version_id,
+                submission_id=params.submission_id,
+                scheduler_candidate_id=params.scheduler_candidate_id,
+            ),
+        )
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
@@ -549,7 +582,12 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         scheduler_candidate_id=scheduler_candidate_id,
         entry_surface="desktop_practice",
         evidence_origin="human",
+        declared_stuck=declared_stuck,
     )
+    if declared_stuck and not learner_answer_md.strip():
+        # An empty stuck answer: nothing to grade, so no provider and no
+        # self-grade; recorded at once as an ordinary attempt scored 0.
+        return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
     self_grade = _self_grade(params.self_grade)
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
     unavailable_label = "AI grading"
@@ -643,8 +681,33 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
-    _require_active_item(vault, params.practice_item_id)
+    item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
+    if stuck_prompt_active(vault):
+        # mvp-0.13: "I don't know" no longer records `dont_know`. A client
+        # still sending it gets what "I'm stuck" with an empty box records:
+        # an ordinary attempt scored 0 at the standard mass.
+        draft = AttemptDraft(
+            practice_item_id=params.practice_item_id,
+            learner_answer_md="",
+            attempt_type=stuck_attempt_type(
+                item.attempt_types_allowed,
+                hints_used=params.hints_used,
+                probe=params.probe_presentation_id is not None,
+            ),
+            hints_used=params.hints_used,
+            latency_seconds=params.latency_seconds,
+            session_id=params.session_id,
+            probe_presentation_id=params.probe_presentation_id,
+            answer_confidence=params.answer_confidence,
+            assessment_contract_version_id=params.assessment_contract_version_id,
+            submission_id=submission_id,
+            scheduler_candidate_id=_bind_offer(repository, params, submission_id),
+            entry_surface="desktop_practice",
+            evidence_origin="human",
+            declared_stuck=True,
+        )
+        return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
     scheduler_candidate_id = _bind_offer(repository, params, submission_id)
     draft = AttemptDraft(
@@ -686,6 +749,43 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    return payload
+
+
+def _record_empty_stuck(
+    ctx: SidecarContext,
+    vault,
+    repository,
+    draft: AttemptDraft,
+    session_id: str,
+    before,
+) -> dict[str, Any]:
+    """Commit an empty "I'm stuck" answer and answer like any submission.
+
+    No model call: the deterministic zero is instant (frictionless P7). The
+    learner is routed to feedback exactly as after "I don't know".
+    """
+
+    try:
+        result = complete_empty_stuck_attempt(vault, repository, draft)
+    except (AttemptValidationError, ValueError) as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    except sqlite3.IntegrityError:
+        winner = _cached_submission(ctx, vault, repository, draft.submission_id, draft.practice_item_id)
+        if winner is None:
+            raise
+        return winner
+    run_post_attempt_pipeline(
+        vault,
+        repository,
+        result=result,
+        session_id=session_id,
+    )
+    ctx.resume_post_attempt_jobs()
+    _log_attempt_recorded(repository, session_id, "", result)
+    _log_state_update(vault, repository, "submit_stuck_empty", session_id, before, result)
+    payload = _attempt_result(result, repository)
+    _store_submission_receipt(repository, draft.submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
 
 

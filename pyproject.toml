@@ -273,8 +273,11 @@ ignore_imports = [
     # Learner field F2: placement consumes the field's two pure leaf modules,
     # the LearnerPredictor contract (field.types) and the shared fast-track
     # blocking rule (field.signals). Both import only the standard library and
-    # field.types, and field/__init__ imports only field.types, so these edges
-    # cannot form a runtime cycle with the scheduling/substrate consumers.
+    # field.types, except that field.signals also imports the stuck prompt's
+    # leaf attempts.stuck (pydantic, ai.schemas, algorithm_versions and
+    # attempt_types at module level; its judgment-ledger store import is
+    # function-local), and field/__init__ imports only field.types, so these
+    # edges cannot form a runtime cycle with the scheduling/substrate consumers.
     "learnloop.placement.* -> learnloop.field.types",
     "learnloop.placement.signals -> learnloop.field.signals",
     # Learner field F2 review fix (F3): placement reads the existing

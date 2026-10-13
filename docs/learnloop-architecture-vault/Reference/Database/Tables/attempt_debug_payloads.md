@@ -3,13 +3,13 @@ title: "attempt_debug_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1acf79b2bd5f2014aca94a7b07cee2fa66175b02"
-source_commit_timestamp: "2026-10-12T20:11:14-04:00"
+source_commit: "9c65556d0416de254556729a74434c386c55903c"
+source_commit_timestamp: "2026-10-12T21:17:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_debug_payloads"
   - "table attempt_debug_payloads"
-schema_head: 177
+schema_head: 179
 table_name: "attempt_debug_payloads"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_stuck_prompt_replay.py`
 - `tests/test_table_roles.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
@@ -143,7 +144,6 @@ Indexes and uniqueness:
 - `tests/test_minimal_repair_selection_a1.py`
 - `tests/test_pfc_unassessed_readers.py`
 - `tests/test_pfc_unverified_unassessed.py`
-- `tests/test_recall_coverage_interventions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

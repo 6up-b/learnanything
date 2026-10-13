@@ -64,14 +64,17 @@ from learnloop.attempts.ai_contracts import (
     ExercisedFacetObservation,
 )
 from learnloop.attempts.blind_grading import (
-    BLIND_GRADING_PROMPT_VERSION,
     BlindErrorAttribution,
     BlindGradingContext,
     BlindGradingProposal,
     BlindRepairedTrace,
+    StuckBlindGradingProposal,
     blind_grading_prompt,
+    blind_prompt_version,
     validate_blind_grading_proposal,
 )
+from learnloop.attempts.grading_admission import admit_grading_call
+from learnloop.attempts.stuck import StuckReading
 from learnloop.attempts.answer_check import final_answer_check
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
@@ -153,9 +156,32 @@ class ReferencePolicyBlindGradingProposal(WireModel):
     def as_blind_proposal(self) -> BlindGradingProposal:
         payload = self.model_dump(
             mode="json",
-            exclude={"solve_first_answer_md", "route_check", "unverified_criterion_ids"},
+            exclude={
+                "solve_first_answer_md",
+                "route_check",
+                "unverified_criterion_ids",
+                "stuck_reading",
+            },
         )
         return BlindGradingProposal.model_validate(payload)
+
+
+class StuckReferencePolicyBlindGradingProposal(ReferencePolicyBlindGradingProposal):
+    """mvp-2.1 for a stuck answer (``mvp-0.13``): the reading comes LAST."""
+
+    stuck_reading: StuckReading
+
+
+def blind_result_model(context: BlindGradingContext) -> type[WireModel]:
+    """The wire model one blind grading call returns for this context."""
+
+    if context.reference_policy is not None:
+        if context.answer_prompt is not None:
+            return StuckReferencePolicyBlindGradingProposal
+        return ReferencePolicyBlindGradingProposal
+    if context.answer_prompt is not None:
+        return StuckBlindGradingProposal
+    return BlindGradingProposal
 
 
 def reference_policy(item: PracticeItem, learner_answer_md: str) -> dict[str, Any]:
@@ -401,6 +427,9 @@ class BlindGradingRun:
     #: The modal proposal as the grader returned it, before the PF-c gate
     #: forced its review flag and rescoped its attributions (review F7).
     ungated_proposal: BlindGradingProposal | None = None
+    #: ``mvp-0.13``: the winning sample's reading of a stuck answer (None for
+    #: an ordinary answer). The caller verifies and records it.
+    stuck_reading: StuckReading | None = None
 
 
 def gated_review_reason(
@@ -454,18 +483,24 @@ def request_blind_grading_run(
         raise ValueError("sample_count must be at least 1")
     policy = context.reference_policy
     prompt = blind_grading_prompt(context)
+    result_model = blind_result_model(context)
     raw: list[BlindGradingProposal] = []
     declared: list[list[str]] = []
     extras: list[dict[str, Any]] = []
+    readings: list[StuckReading | None] = []
     for _ in range(sample_count):
-        if policy is not None:
+        # Each sample is one logical call: admitted against a command's caps
+        # when one installed a guard (review F5); a no-op otherwise.
+        with admit_grading_call("blind_grading", prompt):
             result = execute_structured_operation(
                 client,
                 purpose="blind_grading",
                 prompt=prompt,
-                result_model=ReferencePolicyBlindGradingProposal,
+                result_model=result_model,
                 isolated=True,
             )
+        readings.append(getattr(result, "stuck_reading", None))
+        if policy is not None:
             raw.append(result.as_blind_proposal())
             declared.append(list(result.unverified_criterion_ids))
             extras.append(
@@ -476,13 +511,9 @@ def request_blind_grading_run(
             )
         else:
             raw.append(
-                execute_structured_operation(
-                    client,
-                    purpose="blind_grading",
-                    prompt=prompt,
-                    result_model=BlindGradingProposal,
-                    isolated=True,
-                )
+                result.as_blind_proposal()
+                if isinstance(result, StuckBlindGradingProposal)
+                else result
             )
             declared.append([])
             extras.append({})
@@ -513,12 +544,11 @@ def request_blind_grading_run(
             support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
     return BlindGradingRun(
         proposal=proposal,
-        prompt_version=(
-            REFERENCE_POLICY_PROMPT_VERSION if policy is not None else BLIND_GRADING_PROMPT_VERSION
-        ),
+        prompt_version=blind_prompt_version(context),
         grading_support=support,
         samples=len(raw),
         ungated_proposal=ungated,
+        stuck_reading=readings[winner],
     )
 
 
@@ -531,9 +561,11 @@ __all__ = [
     "REFERENCE_POLICY_RULES",
     "ReferencePolicyBlindGradingProposal",
     "RouteCheck",
+    "StuckReferencePolicyBlindGradingProposal",
     "UNASSESSED_CRITERION_LABEL",
     "UNVERIFIED_REVIEW_REASON",
     "apply_valid_alternative_gate",
+    "blind_result_model",
     "criterion_outcomes",
     "family_key",
     "gated_review_reason",

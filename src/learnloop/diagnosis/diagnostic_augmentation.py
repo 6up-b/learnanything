@@ -23,6 +23,7 @@ from learnloop.attempts.ai_contracts import (
     GRADING_PROMPT_VERSION,
     GradingContext,
     GradingProposal,
+    grading_prompt_version,
 )
 from learnloop.ai.schemas import CandidateCause
 from learnloop.ai.transport import STRUCTURED_COMPLETION
@@ -1177,7 +1178,8 @@ def record_phase_c_receipt(
     return repository.insert_diagnostic_augmentation_receipt(
         {
             "attempt_id": attempt_id,
-            "grading_prompt_version": GRADING_PROMPT_VERSION,
+            # The joint prompt that ran (``+stuck-v1`` for a stuck answer).
+            "grading_prompt_version": grading_prompt_version(context),
             "grader_provider": grader_provider,
             "grader_model": grader_model,
             "c1_repair_before_structure": True,

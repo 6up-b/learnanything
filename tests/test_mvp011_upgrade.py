@@ -2,7 +2,8 @@
 
 mvp-0.9 -> mvp-0.10 (Slice 1 M2, the blind-grading/diagnosis split) ->
 mvp-0.11 (Slice A Phase 6: the split plus placement) -> mvp-0.12 (Slice 2
-T1: plus recurrence groups; tests/test_recurrence_commands.py). The upgrade
+T1: plus recurrence groups; tests/test_recurrence_commands.py) -> mvp-0.13
+(the stuck prompt; tests/test_mvp013_upgrade.py). The upgrade
 accepts mvp-0.10, or mvp-0.9 by running the mvp-0.10 upgrade first.
 """
 
@@ -40,27 +41,28 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_177"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_179"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
 def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     assert PLACEMENT_ALGORITHM_VERSION == "mvp-0.11"
-    # T1 (mvp-0.12) is the latest successor; it keeps placement.
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.12"
+    # The stuck prompt (mvp-0.13) is the latest successor; it keeps placement.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.13"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
     # A linear chain: the split is live at mvp-0.10 and later, placement at
     # mvp-0.11 and later; mvp-0.9 has neither.
-    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11", "mvp-0.12"})
-    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11", "mvp-0.12"})
+    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13"})
+    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11", "mvp-0.12", "mvp-0.13"})
 
 
 def test_split_and_placement_activate_at_the_right_versions(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.9")
     expected = {
         "mvp-0.9": (False, False), "mvp-0.10": (True, False), "mvp-0.11": (True, True), "mvp-0.12": (True, True),
+        "mvp-0.13": (True, True),
     }
     for version, (split, placement) in expected.items():
         set_algorithm_version(paths, version)
@@ -154,16 +156,19 @@ def test_upgrade_command_still_reaches_mvp010_explicitly(tmp_path):
 
 def test_new_vaults_start_at_the_latest_version(tmp_path):
     """Owner decision 2026-10-12 (Slice 1 M2 open question 1): a new vault
-    starts at LATEST_ALGORITHM_VERSION, mvp-0.12 since Slice 2 T1 merged: the
-    split, placement and recurrence groups are all live."""
+    starts at LATEST_ALGORITHM_VERSION, mvp-0.13 since the stuck prompt
+    merged: the split, placement, recurrence groups and "I'm stuck" are all
+    live."""
 
+    from learnloop.attempts.stuck import stuck_prompt_active
     from learnloop.substrate.recurrence_groups import recurrence_active
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.12"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.13"
     assert placement_active(fresh) and split_grading_active(fresh) and recurrence_active(fresh)
+    assert stuck_prompt_active(fresh)
 
 
 def test_existing_vaults_keep_their_version_until_the_owner_upgrades(tmp_path):
