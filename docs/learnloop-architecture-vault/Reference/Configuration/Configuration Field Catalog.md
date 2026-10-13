@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
@@ -13,7 +13,7 @@ config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 43
 field_count: 749
-field_status_counts: {"ACTIVE": 726, "COMPAT": 4, "DORMANT": 15, "LEGACY": 4}
+field_status_counts: {"ACTIVE": 723, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -38,9 +38,9 @@ Every one of the 749 effective leaves has a semantic Function, a runtime/refacto
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 726 | Canonical typed input to current behavior. |
+| `ACTIVE` | 723 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
-| `COMPAT` | 4 | Effective compatibility seam retained while canonical behavior uses another field or route. |
+| `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves

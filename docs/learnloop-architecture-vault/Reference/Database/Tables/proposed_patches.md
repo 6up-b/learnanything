@@ -3,13 +3,13 @@ title: "proposed_patches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patches"
   - "table proposed_patches"
-schema_head: 183
+schema_head: 188
 table_name: "proposed_patches"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
+  - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/proposals/proposals.py"
-  - "src/learnloop/content/synthesis/source_append.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -99,12 +99,12 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
+- `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/curriculum/subject_registry.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_exam_seeding.py`
+- `tests/test_facet_rewords.py`
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`
@@ -139,7 +140,6 @@ Indexes and uniqueness:
 - `tests/test_self_attributed_misconceptions.py`
 - `tests/test_show.py`
 - `tests/test_sidecar_contract.py`
-- `tests/test_source_ingestion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

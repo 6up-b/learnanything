@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 183
+schema_head: 188
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
