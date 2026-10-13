@@ -12,6 +12,13 @@ The multi-family study already ran without a bound.
 Offline only: no serving code, default or schema changed, no paid call, no
 vault read.
 
+Revised after the Codex review
+([`evsi-single-family-unbounded-codex-review.md`](evsi-single-family-unbounded-codex-review.md)):
+the comparison now covers every recorded value (F1), attributes differences to
+a bound only when the unbounded run counted that same bound (F2), and checks
+each headline claim as separate assertions, its conclusions and its stated
+figures (F3). The comparison below was regenerated with it.
+
 ## Summary
 
 * **The bound stopped 2 of 400 episodes, in one arm and one world.** Both
@@ -27,9 +34,14 @@ vault read.
   the largest episode anywhere else is 19 checks (`eig_no_gate`); the value
   rules reach at most 8 and the capped arms 4.
 * **Everything else reproduces exactly.** The rerun used the same seeds and
-  the stored fit. 217 of the 221 (cell, arm) rows match the stored report
-  number for number, CIs included, and every one of them is a row the bound
-  never touched. Only the four `eig_no_gate` rows above moved. So every
+  the stored fit. Every recorded value was compared, leaf by leaf: each arm's
+  block in every cell (calibration bins, member quantiles, stop reasons,
+  counts included), each cell's own values, and every report-level section
+  (the fit, the bank, the misfit, the starting beliefs, Part C's measured
+  rates, the recommendations); only the run's metadata (version, settings,
+  timing, the bound counts) is left out. 299 of the 303 rows match the stored
+  report number for number, CIs included, and every one of them is a row the
+  bound never reached. Only the four `eig_no_gate` rows above moved. So every
   difference between the two reports is the bound's.
 * **What moved, and by how much.** In the fitted world, `eig_no_gate` costs
   **8.46** minutes per episode instead of 8.44 at repair 3 (95% CI [7.89,
@@ -37,11 +49,21 @@ vault read.
   10, and 23.71 instead of 23.69 at 30. Its checks rise from 6.74 to 6.77 per
   episode and its value stops from 317 to 319. In the forecast table its log
   loss goes from 1.212 to 1.213, its predicted EIG from 0.069 to 0.068 and the
-  upper end of its realized-gain CI from 0.085 to 0.084. **No number moved
-  outside its CI.**
-* **No conclusion changes, and no rank.** All 17 headline claims of the
-  calibration review were checked, and each conclusion holds in both reports.
-  16 claims are identical to the last stored digit:
+  upper end of its realized-gain CI from 0.085 to 0.084. Its other forecast
+  and value numbers move in the fourth decimal: Brier 0.1620 → 0.1622,
+  action-change ECE 0.0038 → 0.0041, the member quantiles' bias against
+  realized value by at most 0.0004 (q10 −0.0038 → −0.0037 at repair 3,
+  −0.0378 → −0.0374 at 30), minutes per nat 0.5164 → 0.5163 and 1.5492 →
+  1.5490 at repairs 10 and 30, and the calibration bins by a few checks each.
+  **No number moved outside its CI.**
+* **No conclusion changes, and no rank.** Each of the 17 headline claims of
+  the calibration review is checked as separate assertions: 31 conclusions
+  (directions, rankings, CIs clear of or spanning 0, stated bounds such as
+  "|Δ| ≤ 0.03" and "60 is at least 4×") and 42 figures it states, each at its
+  stated precision. Every conclusion holds in both reports. Every stated
+  figure holds in the stored report, and all but one in the rerun: `S3g`'s
+  "8.44 min at Eedi/3" is now 8.46 (superseded in place in the calibration
+  review). The quantities of 16 claims are identical to the last stored digit:
   * EVSI as built against today's serving where checks are strong (17.9 vs
     13.3 minutes per episode);
   * the flip abstention (12.5) and the 2–3 check lookahead (10.8);
@@ -51,9 +73,10 @@ vault read.
   * the `ROBUST_QUANTILE`, `PERTURBATION_DELTA`, concentration, draw,
     burden, repair-minute and check-minute sensitivities.
 
-  The 17th claim is the `eig_no_gate` arm itself, which moved within its
-  CI: it is still the worst rule at Eedi's strength and the best at 0.7/30
-  and 0.9/30. All 11 cells rank the nine arms in the same order. Nothing in
+  The 17th claim is the `eig_no_gate` arm itself, whose minutes moved within
+  their CI (and its checks, which carry none): it is still the worst rule at
+  Eedi's strength and the best at 0.7/30 and 0.9/30. All 11 cells rank the
+  nine arms in the same order. Nothing in
   [`evsi-multisim.md`](evsi-multisim.md) §6 changes. Its ranks rest on the
   multi-family evidence, which ran unbounded, and the single-family values it
   quotes are among the identical numbers.
@@ -85,13 +108,24 @@ All inside `src/learnloop/evsi_calibration/`, its CLI, tests and docs.
   `evsi_calibration_experiments_v3`.
 * `learnloop evsi compare --old <report> --new <report>` (`compare.py`)
   lines up two `simulate` reports. It shows:
-  * every metric of every cell, old against new, flagged when a point
-    estimate leaves the other report's 95% CI;
+  * every recorded value, old against new, flagged when a point estimate
+    leaves the other report's 95% CI or a value is present in one report
+    only. Each arm's block in every cell and every report-level section is
+    flattened leaf by leaf; only the metadata keys (`version`,
+    `simulation_version`, `elapsed_seconds`, `settings`, `policy_defaults`,
+    `sweeps`, `count_bound`) are left out, and the header shows them;
   * the bound's stops per arm and cell, cross-checked against the stop
-    reasons the stored report kept;
-  * the attribution check (every arm the bound left untouched must be
-    identical);
-  * the review's 17 headline claims with their conclusions under each
+    reasons the stored report kept. They count only when the unbounded
+    report's `count_bound` counted the very bound the other report applied;
+    otherwise the comparison says the attribution is unavailable, and why.
+    `learnloop evsi simulate --reference-bound N` (default 25) makes an
+    unbounded run count a bound of N;
+  * the attribution check: every arm where the bound stopped no episode must
+    be identical, and an arm where it stopped episodes only at a check their
+    own rule would have stopped at anyway may differ only in its stop
+    reasons;
+  * the review's 17 headline claims, each as separate assertions (its
+    conclusions, and the figures it states at their precision), under each
     report;
   * each cell's ranking of the arms.
 
@@ -187,7 +221,7 @@ numbers are identical to the last stored digit.
 | `S3d` 1.1–1.2 remain against caps-only and `eig_no_gate` (0.9/30) | caps_only 9.63 [8.14, 11.28], `eig_no_gate` 9.58 [7.77, 11.17] | ✓ | no | **holds, unchanged** |
 | `S3e` The lookahead is the best rule at 0.9/10 | 4.99 [4.43, 5.61] vs incumbent 5.82, caps-only 5.13 | ✓ | no | **holds, unchanged** |
 | `S3f` Today's robust completion gate costs 3.7 at 0.9/30 | 13.32 − 9.63 = 3.69; gate stops 190/400 at 0.9, 296/400 at Eedi's strength | ✓ | no | **holds, unchanged** |
-| `S3g` The `eig_no_gate` arm in every regime | fitted: 8.44 [7.88, 9.02] / 12.39 [11.48, 13.34] / 23.69 [21.58, 25.79], 6.74 checks; 0.7: 6.54 / 8.85 / 15.45; 0.9: 4.99 / 6.18 / 9.58 | fitted: **8.46 [7.89, 9.07] / 12.41 [11.50, 13.35] / 23.71 [21.60, 25.79], 6.77 checks**; 0.7 and 0.9 ✓ | no | **holds**: worst rule at Eedi/3, best at 0.7/30 and 0.9/30 |
+| `S3g` The `eig_no_gate` arm in every regime | fitted: 8.44 [7.88, 9.02] / 12.39 [11.48, 13.34] / 23.69 [21.58, 25.79], 6.74 checks; 0.7: 6.54 / 8.85 / 15.45; 0.9: 4.99 / 6.18 / 9.58 | fitted: **8.46 [7.89, 9.07] / 12.41 [11.50, 13.35] / 23.71 [21.60, 25.79], 6.77 checks**; 0.7 and 0.9 ✓ | no | **holds**: worst rule at Eedi/3, best at 0.7/30 and 0.9/30; the stated figure 8.44 is now 8.46 |
 | `S4a` `VALUE_PER_NAT_MINUTES` on the gate-free EIG rule (0.9/10) | 6.17 / 5.90 / 5.10 / **4.75** / 5.52 / 6.28 / 6.64 / 7.32 at 1 … 120; at 10: Δ −1.89 [−2.26, −1.52] vs 60; with the gate \|Δ\| ≤ 0.19 | ✓ (this sweep's longest episode: 18 checks) | no | **holds, unchanged** |
 | `S4b` 60 is 4–500× the measured minutes per nat; the agreement gate abstains in 89% | 4.06 [2.88, 5.20] / 5.10 at 0.9/10, 12.19 [8.95, 15.72] / 15.31 at 0.9/30 (incumbent / caps-only); abstentions 354/400 | ✓ | no | **holds, unchanged** |
 | `S5a` `ROBUST_QUANTILE` 0.10 → 0.25 within noise | Δ −0.10 [−0.30, 0.12] (lcb-only), −0.15 [−0.38, 0.08] (lookahead); at 0.5: −0.24, −0.30 | ✓ | no | **holds, unchanged** |
@@ -199,19 +233,32 @@ numbers are identical to the last stored digit.
 | `S6` The measured loss pays off from about 3.6 minutes (Part C) | at 0.9, U = 3.63: −0.54 [−0.89, −0.26] (lcb-only), −0.56 [−0.93, −0.26] (lookahead); U = 7.25: −1.53, −1.47; no CI below 0 at Eedi's strength or below U = 3.63 | ✓ | no | **holds, unchanged** |
 | `DEFAULT_CONDITIONAL_PSEUDO_COUNT` 8 → 2 | not simulated in the single-family study (§5 there) | — | — | **out of scope**: the multi-family §4.9 streams cap at 4 checks and never read the bound |
 
-Every other metric of every cell is identical too: forecast quality (§4.1),
-checks, identification and waste (§4.2), minutes per nat, member quantiles,
-and Kendall τ in the sweeps. In all, 1,353 of the 1,377 compared metrics are
-identical, 24 moved within their CIs or carry none, and 70 are absent from
-both reports (forecast metrics of arms that never check). The complete list
-is in `comparison_vs_v2.md` beside the report; every moved metric belongs to
-the fitted-world `eig_no_gate` arm.
+Every recorded value outside the four fitted-world `eig_no_gate` rows is
+identical: forecast quality and its calibration bins (§4.1), checks,
+identification and waste (§4.2), minutes per nat, member quantiles, Kendall τ
+in the sweeps, Part C, the recommendations, the fit and every other
+report-level section. In all, 4,104 of the 4,208 compared values are
+identical and 104 moved (9 within their CIs, 95 carry none; none beyond a CI),
+all of them in those four rows: the 71 of the main comparison's row (its
+episode summary, outcome and action-change calibration with their bins,
+information by predicted-EIG quintile, value of checks and member quantiles)
+and 9 to 12 in each regime row (minutes, checks, waste, stop reasons, realized
+value, member quantiles, minutes per nat). 71 values are absent from both
+reports: the forecast and value metrics of arms that never check, and τ where
+a sweep records none. The complete list is in `comparison_vs_v2.md` beside
+the report.
 
 One imprecision predates the bound and is unchanged by it. The calibration
 review's Summary 5 says the concentration and draw-count sweeps' "paired 95%
 CIs include 0". For EVSI as built at a concentration of 4 or 10, the
 difference is −0.013 minutes per episode with a CI just clear of 0, [−0.027,
-−0.003]. That is no decision effect, and the conclusion stands.
+−0.003]. That is no decision effect, and the conclusion stands. The same
+−0.013 [−0.027, −0.003] appears for EVSI as built at a `BURDEN_COST` of 2, so
+"a positive burden only adds minutes" (`S5d`) holds for `evsi_lcb_only` and
+`evsi_lookahead`, the arms the calibration review's §4.4 reports differences
+for (EVSI as built is "≈ 6.18" there), and those are the arms its assertion
+checks. The assertion labels in `comparison_vs_v2.md` say exactly what each
+checks.
 
 ## 5. Ranks, and `evsi-multisim.md` §6
 
@@ -242,13 +289,14 @@ there, with an addendum pointing here):
 
 | Where | Stored | Unbounded |
 |---|---|---|
-| §4.1, `eedi_fitted` `eig_no_gate` row | log loss 1.212; predicted EIG 0.069; realized gain 0.073 [0.063, 0.085] | 1.213; 0.068; 0.073 [0.063, 0.084] (ECE, entropy drop, P(action change), EVSI per check unchanged at the table's precision) |
+| §4.1, `eedi_fitted` `eig_no_gate` row | log loss 1.212; predicted EIG 0.069; realized gain 0.073 [0.063, 0.085] | 1.213; 0.068; 0.073 [0.063, 0.084]. The table's other columns round as before: ECE 0.0029 (identical); entropy drop 0.0733 → 0.0731; P(action change) 0.0665 → 0.0666 predicted, 0.0668 → 0.0665 realized; EVSI per check 0.0233 (identical) / 0.0167 → 0.0166 |
 | §4.2, `eedi_fitted` `eig_no_gate` row | 6.74 checks; 8.44 [7.88, 9.02]; wasted 6.96; value stop 317 | 6.77; 8.46 [7.89, 9.07]; 6.99; 319 |
 | §4.3, Eedi 0.41 rows, `eig_no_gate` column | 8.44 (6.7; .53) / 12.39 / 23.69 | 8.46 (6.8; .53) / 12.41 / 23.71 |
 
 ## 7. Tests
 
-`tests/test_evsi_single_family_unbounded.py` (5 tests):
+`tests/test_evsi_single_family_unbounded.py` (5 tests at the stage, 41 after
+the Codex review; the review's additions are listed below these):
 
 * **The single-family path defaults to no bound.** `PolicySettings`,
   `SimulationSettings` and `ExperimentSettings` default to `None`. Every
@@ -261,8 +309,9 @@ there, with an addendum pointing here):
   `bound_counts` on the unbounded run equals the bounded run's stops, and an
   episode that its own rule stops at exactly 25, or that the bank ends there,
   is counted correctly.
-* **The CLI passes `--safety-bound` through:** the report's settings, the
-  `count_bound` block and every cell's `max_checks` ≤ the bound.
+* **The CLI passes `--safety-bound` and `--reference-bound` through:** the
+  report's settings, the `count_bound` block and every cell's `max_checks` ≤
+  the bound.
 * **The comparison's ordering is stable.** Comparing reports whose dict keys
   and record lists are reversed, or that were round-tripped through JSON with
   sorted keys, gives byte-identical output and Markdown. Sections, regimes,
@@ -271,6 +320,25 @@ there, with an addendum pointing here):
 * **The stored report's own stop reasons are read only where complete**
   (main always; regimes and sweeps when fewer than the kept count, or when
   they sum to the episodes).
+* After the Codex review:
+  * **every recorded value is compared** (F1): an untouched arm's member
+    quantile set to 999 is flagged, and so is a change to one representative
+    leaf of every kind in a report (each arm block's fields, bins and stop
+    reasons, each cell's own values, every report-level section). A change to
+    a metadata key is not;
+  * **the bound's counts are the bound's only for the bound applied** (F2): a
+    3-check run against an unbounded run that counted the 25-check bound is
+    unsupported; against one that counted the 3-check bound, the stops agree
+    with the stored stop reasons and every differing row is one the bound
+    reached, in both directions; two bounded reports, or one without
+    `count_bound`, are unsupported; the same bound in both explains nothing;
+  * **each claim is its assertions** (F3): on the stored run's numbers
+    (`tests/evsi_calibration_claims_v2.json`) all 31 conclusions and 42
+    figures hold; each conclusion has a change that falsifies it while the
+    claim's other conclusions still hold (31 parametrized cases, one of them
+    with the conclusion it logically implies); each figure fails just outside
+    its stated precision; the Codex case (minutes per nat at 50 [49, 51], no
+    abstentions) no longer certifies `S4b`.
 
 Also updated: `tests/test_evsi_multisim.py` (the default is `None`; an
 explicit bound still stops the successor) and
@@ -279,7 +347,8 @@ explicit bound still stops the successor) and
 ## 8. Gate
 
 In the worktree, with `TMPDIR` set to its `fixtures-local/tmp`, at the code
-commit `e2794743` (the commits after it change documentation only):
+commit `e2794743` (the commits after it change documentation only). The gate
+after the Codex review's fixes is in its review file.
 
 | Step | Result |
 |---|---|

@@ -381,7 +381,7 @@
   },
   "evsi": {
     "bytes": 2012,
-    "sha256": "5a9d6f9c34d64e4f81a6e881cadc0e3eaac4afc25bd8f2b714ffacbf68c70dc9"
+    "sha256": "9fd701ef9fe46575502c53c0a14e3b048e4c594679e855cf7a519c1dfdf6764c"
   },
   "evsi calibration": {
     "bytes": 1210,
@@ -389,15 +389,15 @@
   },
   "evsi compare": {
     "bytes": 1801,
-    "sha256": "c540dbe7fa7b1715720f48458d1202cf2b4497b8f047cd2442f8d90aafc74e3d"
+    "sha256": "05f65c03ec3931b4c5355d679ba69f19c456216ac7c09be83c304063c214d651"
   },
   "evsi multisim": {
     "bytes": 5630,
     "sha256": "ff3f5f5db49dfa727a4a496343c88c1b078f18ff6507c8cb23de9831653d018b"
   },
   "evsi simulate": {
-    "bytes": 4784,
-    "sha256": "b0de9ee32faae2b4cc2e1159033889f3dd6675402476cd27083e463d447c1fbe"
+    "bytes": 5889,
+    "sha256": "3a4f5d4d7ae4d4ad224fa3be5710c3c3cb463cf392f8950bbab29c01e0a6d8b9"
   },
   "exam": {
     "bytes": 1842,

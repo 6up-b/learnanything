@@ -11,8 +11,8 @@ conclusion counts only when every family agrees (RankCert). Offline, no paid
 call.
 
 ``compare`` lines two ``simulate`` reports up (stage
-``evsi-single-family-unbounded``): every cell and headline claim, old against
-new, and the episodes a count bound stopped. Read-only.
+``evsi-single-family-unbounded``): every recorded value and headline claim, old
+against new, and the episodes a count bound stopped. Read-only.
 
 ``calibration`` is the live Part B report: read-only over a vault's
 ``voi_forecasts`` receipts, joined to realized outcomes and later truth.
@@ -46,6 +46,7 @@ def evsi_simulate_command(
     seed: Annotated[int, typer.Option("--seed")] = 20261012,
     quick: Annotated[bool, typer.Option("--quick", help="A small smoke run (few learners, one regime row, short sweeps).")] = False,
     safety_bound: Annotated[int | None, typer.Option("--safety-bound", min=1, help="Stop every episode after this many checks (default: no bound; runs before 2026-10-13 used 25).")] = None,
+    reference_bound: Annotated[int, typer.Option("--reference-bound", min=1, help="Count, in every cell, the episodes a bound of this many checks stops (default 25, the bound of runs before 2026-10-13); `evsi compare` attributes differences to a bounded run's bound only when it equals this.")] = 25,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Fit the response model to Eedi, simulate, and score EIG/EVSI against baselines."""
@@ -75,13 +76,14 @@ def evsi_simulate_command(
             write_text_atomic(output / "response_fit.json", json.dumps(fit.as_dict(), sort_keys=True, indent=1))
         settings = ExperimentSettings(
             learners=learners, sensitivity_learners=min(sensitivity_learners, learners), seed=seed, workers=workers,
-            safety_bound=safety_bound,
+            safety_bound=safety_bound, reference_bound=reference_bound,
         )
         if quick:
             settings = ExperimentSettings(
                 learners=min(learners, 60), sensitivity_learners=min(sensitivity_learners, 40), seed=seed,
                 workers=workers, regime_consistencies=(None,), regime_repairs=(3.0,), unresolved_encounters=(6.0,),
                 bootstrap=50, sweeps=tuple(list(SWEEPS)[:2]), draw_count=8, safety_bound=safety_bound,
+                reference_bound=reference_bound,
             )
         report = run_experiments(bank, fit, settings, progress=say)
         report["sweeps"] = {name: {"field": f, "current": c, "grid": list(g)} for name, (f, c, g) in SWEEPS.items()}
@@ -104,7 +106,8 @@ def evsi_simulate_command(
                 for model, rows in report["main"].items()
             },
             "safety_bound": report["count_bound"]["applied_bound"],
-            # Episodes the old 25-check bound would have stopped, summed over every cell.
+            "reference_bound": report["count_bound"]["reference_bound"],
+            # Episodes a bound of reference_bound checks stops, summed over every cell.
             "reference_bound_stops": sum(cell["reference_bound_stops"] for cell in report["count_bound"]["cells"]),
             "elapsed_seconds": report["elapsed_seconds"],
         }
@@ -122,7 +125,7 @@ def evsi_compare_command(
     markdown: Annotated[Path | None, typer.Option("--markdown", help="Write the comparison's tables (Markdown) here, atomically.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Compare two `evsi simulate` reports: every cell, every headline claim, the count bound's stops (read-only)."""
+    """Compare two `evsi simulate` reports: every recorded value, every headline claim, the count bound's stops (read-only)."""
 
     from learnloop.evsi_calibration.artifacts import write_text_atomic
     from learnloop.evsi_calibration.compare import compare_reports, render_markdown
@@ -143,10 +146,12 @@ def evsi_compare_command(
             "status": "ok",
             "old": {"report": str(old), "applied_bound": comparison["old"]["applied_bound"]},
             "new": {"report": str(new), "applied_bound": comparison["new"]["applied_bound"]},
-            "bound": {k: bound[k] for k in ("reference_bound", "total_stops", "total_censored", "checks")},
+            "bound": {k: bound[k] for k in ("relation", "available", "reason", "reference_bound", "total_stops",
+                                             "total_censored", "checks")},
             "attribution": comparison["attribution"],
             "summary": comparison["summary"],
-            "claims": {c["id"]: {"status": c["status"], "holds_old": c["holds_old"], "holds_new": c["holds_new"]}
+            "claims": {c["id"]: {"status": c["status"], "holds_old": c["holds_old"], "holds_new": c["holds_new"],
+                                 "figures_old": c["figures_old"], "figures_new": c["figures_new"]}
                        for c in comparison["claims"]},
             "output": str(output) if output is not None else None,
             "markdown": str(markdown) if markdown is not None else None,
