@@ -297,14 +297,16 @@ export function QuestionQueuePanel({
   );
 }
 
-function targetForDialogue(row: QuestionQueueRowDto): AskTarget | null {
+export function targetForDialogue(row: QuestionQueueRowDto): AskTarget | null {
   if (row.context === "reader") {
     if (!row.noteId || !row.sourceCitation) return null;
     return {
       context: "reader",
       noteId: row.noteId,
       extractionId: row.sourceCitation.extractionId,
-      spanId: row.sourceCitation.spanId
+      spanId: row.sourceCitation.spanId,
+      // The chosen question: its own inquiry continues, never a sibling's (RW1a).
+      readerQuestionEventId: row.id
     };
   }
   if (row.context === "feedback") {

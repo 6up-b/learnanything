@@ -22,18 +22,24 @@ import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
 
 /**
- * The span's newest completed Reader exchange, when the sidecar reports
- * branches (reader_inquiry on: its history carries question ids); otherwise
- * null, and the Ask goes out exactly as before.
+ * The Reader exchange a continued dialogue attaches to, when the sidecar
+ * reports branches (reader_inquiry on: its history carries question ids):
+ * the exchange of the question the learner chose (``questionEventId``), so the
+ * follow-up inherits that inquiry's saved selection and ancestors and never a
+ * sibling's; without a chosen question, the span's newest exchange. Null when
+ * branches are off (the Ask goes out exactly as before) or the chosen
+ * question has no exchange on this source (a new thread on the span).
  */
-async function readerThreadParent(extractionId: string, spanId: string): Promise<string | null> {
+async function readerThreadParent(extractionId: string, spanId: string, questionEventId?: string): Promise<string | null> {
   try {
     const history = (api as { readerAskHistory?: (id: string) => Promise<{ exchanges: Array<{ eventId: string; spanId: string; questionEventId?: string | null }> }> }).readerAskHistory;
     if (typeof history !== "function") return null;
     const { exchanges } = await history(extractionId);
-    const onSpan = exchanges.filter((exchange) => exchange.spanId === spanId);
-    if (!onSpan.some((exchange) => exchange.questionEventId !== undefined)) return null;
-    return onSpan[0]?.eventId ?? null;
+    if (!exchanges.some((exchange) => exchange.questionEventId !== undefined)) return null;
+    if (questionEventId) {
+      return exchanges.find((exchange) => exchange.questionEventId === questionEventId)?.eventId ?? null;
+    }
+    return exchanges.find((exchange) => exchange.spanId === spanId)?.eventId ?? null;
   } catch {
     return null;
   }
@@ -51,6 +57,9 @@ export interface AskTarget {
   /** Reader threads stay anchored to the exact canonical source span. */
   extractionId?: string;
   spanId?: string;
+  /** The reader question the learner chose to continue (its question event
+   *  id): its own exchange is the follow-up's parent (RW1a). */
+  readerQuestionEventId?: string;
   /** Date.now() when the practice item was opened (practice context only). */
   openedAtMs?: number;
   /** Practice context only: whether the learner had started an answer when
@@ -416,7 +425,9 @@ export function AskOverlay({
         if (!target.extractionId || !target.spanId) {
           throw new Error("This reader question is no longer linked to its source span.");
         }
-        if (readerParentRef.current === undefined) readerParentRef.current = await readerThreadParent(target.extractionId, target.spanId);
+        if (readerParentRef.current === undefined) {
+          readerParentRef.current = await readerThreadParent(target.extractionId, target.spanId, target.readerQuestionEventId);
+        }
         const readerAnswer = await api.readerAsk({
           extractionId: target.extractionId,
           spanId: target.spanId,

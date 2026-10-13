@@ -73,9 +73,10 @@ import {
   forward as stackForward,
   goTo as stackGoTo,
   hasDetour,
-  openDetours,
+  markReturned,
   pushDetour,
   stackInquiryExchange,
+  unreturnedDetours,
   type ReturnEntry,
   type ReturnStack,
 } from "./reader/returnStack";
@@ -144,6 +145,11 @@ function newKey(): string {
     return `cap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 }
+
+// The passage quick check's poll (F4): every 3 s for at most 10 minutes (the
+// Codex turn timeout is 8), then it fails as timed out.
+const INQUIRY_CHECK_POLL_MS = 3000;
+const INQUIRY_CHECK_MAX_POLLS = 200;
 
 function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
@@ -281,6 +287,8 @@ export function ReaderScreen({
   const returnStackRef = useRef<ReturnStack>(EMPTY_STACK);
   returnStackRef.current = returnStack;
   const lastSourceRef = useRef<ReturnEntry | null>(null);
+  // RW1a's switch, readable from callbacks declared before it is (openSource).
+  const inquiryRef = useRef(false);
   const settleScrollRef = useRef<number | null>(null);
   const [reconnect, setReconnect] = useState<{
     rootId: string;
@@ -297,7 +305,21 @@ export function ReaderScreen({
     phase: ModelActionPhase;
     question: ReaderInquiryQuestionDto | null;
     escalated?: boolean;
+    /** The durable job writing it (reader.reconnect_answer's batch). */
+    batchId?: string | null;
+    /** Polls so far, and rejected polls in a row (the sidecar unreachable). */
     attempts?: number;
+    pollErrors?: number;
+    /** A failure said in the learner's terms (the failed state's line). */
+    failure?: string | null;
+  }>>({});
+  // The funnel record of each queued quick check (F8): its batch, the visit
+  // that asked, when, and the learner's activity snapshot for the wait.
+  const inquiryJobsRef = useRef<Record<string, {
+    batchId: string;
+    startedAt: number;
+    activity: ReturnType<typeof learnerActivitySnapshot>;
+    visit: { visit_id: string | null; extraction_id: string | null };
   }>>({});
   const [inquiryCommitments, setInquiryCommitments] = useState<Record<string, InquiryCommitment[]>>({});
   const [askTabMarked, setAskTabMarked] = useState(false);
@@ -482,6 +504,9 @@ export function ReaderScreen({
     // another source; openSource decides whether it continues or resets.
     setReconnect(null);
     setInquiryChecks({});
+    // A check still being written goes on in the background; its wait ends
+    // with the source (no outcome is recorded for a wait nobody watched).
+    inquiryJobsRef.current = {};
     setInquiryCommitments({});
     setAskTabMarked(false);
     backToReadingRef.current = null;
@@ -498,11 +523,13 @@ export function ReaderScreen({
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
-        // RW1a: opening another source from a search hit is a detour from the
-        // source left a moment ago; a restore walks the stack; any other open
-        // starts fresh reading with no detour.
+        // RW1a (reader_inquiry on): opening another source after leaving one
+        // -- a search hit or its library card -- is a detour from the passage
+        // left a moment ago (Alt+← goes back to it); a restore walks the stack.
+        // Reopening the same source, or the first open of a visit, is reading.
+        // Switched off there is no return stack at all (F5).
         const left = lastSourceRef.current;
-        if (options.via === "search" && left && left.sourceId !== card.sourceId) {
+        if (inquiryRef.current && options.via !== "restore" && left && left.sourceId !== card.sourceId) {
           const entry: ReturnEntry = {
             id: newActivityId(), kind: "source", sourceId: card.sourceId, sourceTitle: card.title,
             extractionId: view.extractionId, spanId: jumpSpan ?? null, selection: null, railTab: "guide",
@@ -514,6 +541,7 @@ export function ReaderScreen({
           logReaderAction("detour_opened", {
             detour_id: entry.id, detour_kind: "source", origin_span_id: left.spanId,
             target_span_id: entry.spanId, depth: next.entries.length - 1,
+            via: options.via === "search" ? "search" : "library",
           });
         } else if (options.via !== "restore") {
           returnStackRef.current = EMPTY_STACK;
@@ -628,6 +656,7 @@ export function ReaderScreen({
   // RW1a's kill switch (reader_inquiry.enabled): the sidecar names it only when
   // on, so an absent flag (switched off, or an older sidecar) is today's rail.
   const inquiry = contract?.inquiryEnabled === true;
+  inquiryRef.current = inquiry;
   // Skim is the mute button (UX §3.1): with inquiry on, nothing LearnLoop
   // starts shows while skimming -- no reconnect line, no section offer.
   const muted = inquiry && mode === "skim";
@@ -718,6 +747,7 @@ export function ReaderScreen({
           extractionId: exchange.extractionId,
           selectionSpanIds: exchange.selectionSpanIds ?? [],
           selectionQuoteMd: exchange.selectionQuoteMd ?? null,
+          selectionSourceQuoteMd: exchange.selectionSourceQuoteMd ?? null,
           citations: exchange.citations ?? [],
           questionEventId: exchange.questionEventId ?? null,
           resolution: exchange.resolution ?? null,
@@ -870,14 +900,14 @@ export function ReaderScreen({
     // RW1a: while a detour is open, the saved position stays at its root --
     // "where I was" -- so a restart restores the root and nothing else (the
     // return stack is visit state, P3 §12).
-    const root = hasDetour(returnStack) ? returnStack.entries[0] : null;
+    const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null;
     const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan;
     try {
       window.localStorage.setItem(readingPositionKey(render.sourceId), saved);
     } catch {
       /* Reading-position persistence is best-effort. */
     }
-  }, [render, offline, readingSpan, returnStack]);
+  }, [inquiry, render, offline, readingSpan, returnStack]);
 
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
@@ -1672,8 +1702,12 @@ export function ReaderScreen({
     // The walk moves the page (and may reopen a source): not the learner scrolling.
     jumpGuardRef.current = Date.now() + 1500;
     const previous = returnStackRef.current;
-    returnStackRef.current = next;
-    setReturnStack(next);
+    // Back at the origin, every detour not yet returned completes (once: a
+    // walk forward and back again returns nothing new, F7).
+    const returning = next.cursor === 0 ? unreturnedDetours(previous) : [];
+    const settled = markReturned(next, returning.map((detour) => detour.id));
+    returnStackRef.current = settled;
+    setReturnStack(settled);
     if (target.sourceId !== render?.sourceId) {
       const card = (library ?? []).find((candidate) => candidate.sourceId === target.sourceId);
       if (card) await openSource(card, target.spanId ?? undefined, { via: "restore" });
@@ -1691,9 +1725,9 @@ export function ReaderScreen({
       });
     }
     if (next.cursor === 0) {
-      // Back where the detour began: every open detour ended at its origin.
+      // Back where the detour began: each open detour ended at its origin.
       const now = Date.now();
-      for (const detour of openDetours(previous)) {
+      for (const detour of returning) {
         logReaderAction("detour_returned", {
           ...visitPayload(), detour_id: detour.id, detour_kind: detour.kind, returned_to_origin: true,
           seconds_away: Math.round((now - detour.openedAt) / 1000), via,
@@ -2123,6 +2157,12 @@ export function ReaderScreen({
     const selectionQuote = parent
       ? parent.selectionQuoteMd
       : selection ? (selection.editedText ?? selection.quote).trim() || null : null;
+    // An edited capture is the learner's wording: the source's own is sent
+    // beside it (reader_inquiry on), so history never shows it as the book's.
+    const edited = !parent && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim();
+    const selectionSourceQuote = parent
+      ? parent.selectionSourceQuoteMd ?? null
+      : edited && selection ? selection.quote.trim() || null : null;
     const jobKind = parent ? "follow_up" : "ask";
     const job = { jobId: newActivityId(), kind: jobKind, startedAt: Date.now(), activity: learnerActivitySnapshot() };
     askJobRef.current = job;
@@ -2139,6 +2179,7 @@ export function ReaderScreen({
         answerMode,
         selectionSpanIds,
         selectionQuote,
+        ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),
       });
       if (epoch !== askEpoch.current) return;
       const waited = Date.now() - job.startedAt;
@@ -2158,6 +2199,7 @@ export function ReaderScreen({
         extractionId: render.extractionId,
         selectionSpanIds,
         selectionQuoteMd: selectionQuote,
+        selectionSourceQuoteMd: inquiry ? selectionSourceQuote : null,
         citations: answer.citations ?? [],
         questionEventId: answer.eventId ?? null,
         resolution: "open",
@@ -2321,20 +2363,82 @@ export function ReaderScreen({
     return done;
   }, [inquiryCommitments, annotations]);
 
+  /** End a quick check's wait in the funnel, once (F8): its status, the
+   *  route it came from, and what the learner did while it was written. */
+  const settleInquiryJob = useCallback((rootId: string, status: "completed" | "failed" | "cancelled", extra: {
+    failureReason?: string | null; model?: string | null; promptVersion?: string | null;
+  } = {}) => {
+    const job = inquiryJobsRef.current[rootId];
+    if (!job) return;
+    delete inquiryJobsRef.current[rootId];
+    const waited = Date.now() - job.startedAt;
+    logReaderActivity({
+      kind: "reader_job_completed",
+      payload: {
+        ...job.visit, job_id: job.batchId, job_kind: "quick_check", status,
+        failure_reason: status === "failed" ? extra.failureReason ?? "error" : null,
+        latency_ms: waited, model_wait_ms: waited, model: extra.model ?? null,
+        prompt_version: extra.promptVersion ?? null, activity_during_wait: activitySince(job.activity),
+      },
+    });
+  }, []);
+
+  /** A model-backed request that never reached the queue still counts. */
+  const recordUnqueuedCheck = useCallback((failureReason: string) => {
+    const jobId = newActivityId();
+    logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: jobId, job_kind: "quick_check" } });
+    logReaderActivity({
+      kind: "reader_job_completed",
+      payload: {
+        ...visitPayload(), job_id: jobId, job_kind: "quick_check", status: "failed", failure_reason: failureReason,
+        latency_ms: 0, model_wait_ms: 0, activity_during_wait: {},
+      },
+    });
+  }, [visitPayload]);
+
   const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail") => {
     if (!render || offline) return;
-    setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0 } }));
+    setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId: null } }));
+    const visit = visitPayload();
+    const startedAt = Date.now();
+    const activity = learnerActivitySnapshot();
     try {
       const result = await api.readerReconnectAnswer({ extractionId: render.extractionId, exchangeId: rootId, answer: "quick_check", via });
       if (result.question) {
+        // Written earlier: it lands at once, with no wait and no model call.
         setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "landed", question: result.question } }));
+      } else if (result.status === "queued" && result.batchId) {
+        const batchId = result.batchId;
+        if (!inquiryJobsRef.current[rootId] || inquiryJobsRef.current[rootId].batchId !== batchId) {
+          inquiryJobsRef.current[rootId] = { batchId, startedAt, activity, visit };
+          logReaderActivity({ kind: "reader_job_queued", payload: { ...visit, job_id: batchId, job_kind: "quick_check" } });
+        }
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "pending", question: null, attempts: 0, pollErrors: 0, batchId } }));
       } else if (result.status === "provider_unavailable") {
+        recordUnqueuedCheck("unreachable");
         setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "unreachable", question: null } }));
+      } else {
+        recordUnqueuedCheck("error");
+        setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: "failed", question: null } }));
       }
     } catch (error) {
-      setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase: phaseForError(error), question: null } }));
+      const phase = phaseForError(error);
+      recordUnqueuedCheck(phase === "failed" ? "error" : phase);
+      setInquiryChecks((checks) => ({ ...checks, [rootId]: { phase, question: null } }));
     }
-  }, [render, offline]);
+  }, [render, offline, visitPayload, recordUnqueuedCheck]);
+
+  /** Cancel a pending quick check: its job is cancelled (best effort) and the
+   *  wait ends, recorded as cancelled. */
+  const cancelQuickCheck = useCallback((rootId: string) => {
+    const batchId = inquiryChecks[rootId]?.batchId ?? inquiryJobsRef.current[rootId]?.batchId ?? null;
+    settleInquiryJob(rootId, "cancelled");
+    setInquiryChecks((checks) => {
+      const { [rootId]: _dropped, ...rest } = checks;
+      return rest;
+    });
+    if (batchId) void Promise.resolve().then(() => api.cancelIngestBatch(batchId)).catch(() => undefined);
+  }, [inquiryChecks, settleInquiryJob]);
 
   const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "") => {
     const line = reconnect;
@@ -2364,30 +2468,76 @@ export function ReaderScreen({
     }
   }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk]);
 
-  // The passage check is written by a durable job: poll its cheap read until
-  // it lands (about two minutes at most), then show it in place.
+  // The passage check is written by a durable job: poll its cheap read and
+  // the job's own state until it lands, fails (said in place: capped, the
+  // model unreachable, refused), is cancelled or times out. A sidecar that
+  // stops answering shows as offline and the poll carries on, so the check
+  // still lands when it comes back (F4).
   useEffect(() => {
     if (!render || offline) return;
-    const pending = Object.entries(inquiryChecks).filter(([, check]) => check.phase === "pending");
-    if (pending.length === 0) return;
+    const watching = Object.entries(inquiryChecks).filter(
+      ([, check]) => check.batchId && (check.phase === "pending" || check.phase === "offline"),
+    );
+    if (watching.length === 0) return;
     const extractionId = render.extractionId;
     const timer = window.setInterval(() => {
-      for (const [rootId] of pending) {
-        void api.readerInquiryQuestion({ extractionId, exchangeId: rootId })
+      for (const [rootId, check] of watching) {
+        const batchId = check.batchId as string;
+        const attempts = (check.attempts ?? 0) + 1;
+        const same = (checks: typeof inquiryChecks) => checks[rootId]?.batchId === batchId;
+        const timedOut = () => {
+          settleInquiryJob(rootId, "failed", { failureReason: "timeout" });
+          setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "failed", question: null, batchId: null } } : checks));
+        };
+        void api.readerInquiryQuestion({ extractionId, exchangeId: rootId, batchId })
           .then((result) => {
-            setInquiryChecks((checks) => {
-              const current = checks[rootId];
-              if (!current || current.phase !== "pending") return checks;
-              if (result.question) return { ...checks, [rootId]: { phase: "landed", question: result.question } };
-              const attempts = (current.attempts ?? 0) + 1;
-              return { ...checks, [rootId]: attempts > 40 ? { phase: "failed", question: null } : { ...current, attempts } };
-            });
+            const job = result.job ?? null;
+            if (result.question) {
+              const question = result.question;
+              settleInquiryJob(rootId, "completed", { model: question.model ?? null, promptVersion: question.promptVersion ?? null });
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase: "landed", question } } : checks));
+            } else if (job?.status === "cancelled") {
+              settleInquiryJob(rootId, "cancelled");
+              setInquiryChecks((checks) => {
+                if (!same(checks)) return checks;
+                const { [rootId]: _dropped, ...rest } = checks;
+                return rest;
+              });
+            } else if (job?.status === "failed") {
+              const code = job.errorCode ?? "error";
+              settleInquiryJob(rootId, "failed", { failureReason: code });
+              const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed";
+              const failure = code === "spend_refused"
+                ? "Couldn't write a quick check: no price is set for this model, so LearnLoop won't spend on it."
+                : null;
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null, failure } } : checks));
+            } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
+              timedOut();
+            } else {
+              setInquiryChecks((checks) => (same(checks)
+                ? { ...checks, [rootId]: { ...checks[rootId], phase: "pending", attempts, pollErrors: 0 } }
+                : checks));
+            }
           })
-          .catch(() => undefined);
+          .catch((error) => {
+            const phase = phaseForError(error);
+            if (phase !== "offline") {
+              // The read itself was refused (switched off, an unknown inquiry).
+              settleInquiryJob(rootId, "failed", { failureReason: phase === "failed" ? "error" : phase });
+              setInquiryChecks((checks) => (same(checks) ? { ...checks, [rootId]: { phase, question: null } } : checks));
+            } else if (attempts > INQUIRY_CHECK_MAX_POLLS) {
+              timedOut();
+            } else {
+              const pollErrors = (check.pollErrors ?? 0) + 1;
+              setInquiryChecks((checks) => (same(checks)
+                ? { ...checks, [rootId]: { ...checks[rootId], attempts, pollErrors, phase: pollErrors >= 2 ? "offline" : checks[rootId].phase } }
+                : checks));
+            }
+          });
       }
-    }, 3000);
+    }, INQUIRY_CHECK_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [render, offline, inquiryChecks]);
+  }, [render, offline, inquiryChecks, settleInquiryJob]);
 
   const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string) => {
     const check = inquiryChecks[rootId];
@@ -2419,7 +2569,9 @@ export function ReaderScreen({
   /** What sits at the top of an inquiry in the rail: the reconnect line and
    *  the quick check (each only when there is one). */
   const renderInquiryTop = useCallback((root: ReaderExchange) => {
-    const line = reconnect && reconnect.rootId === root.id ? (
+    // Skim mutes the reconnect line at render time, in both places, so one
+    // already shown goes when the learner switches to skim (F10).
+    const line = reconnect && reconnect.rootId === root.id && !muted ? (
       <ReconnectLine
         placement="rail"
         question={reconnect.question}
@@ -2439,6 +2591,8 @@ export function ReaderScreen({
             question={check.question}
             busy={busy}
             escalated={check.escalated}
+            failure={check.failure ?? undefined}
+            onCancel={check.batchId ? () => cancelQuickCheck(root.id) : undefined}
             onAnswer={(response) => void inquiryCheckAction(root.id, "answered", response)}
             onSelfCheck={(value) => void inquiryCheckAction(root.id, "self_checked", value)}
             onDismiss={() => {
@@ -2455,7 +2609,7 @@ export function ReaderScreen({
         ) : null}
       </div>
     ) : null;
-  }, [reconnect, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, peekPassage]);
+  }, [reconnect, muted, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
 
   /** The reconnect line drawn under the root passage (a return the learner started). */
   const inlineReconnect = reconnect && reconnect.inline && !muted ? (
@@ -2964,6 +3118,7 @@ export function ReaderScreen({
             openQuestionSections={openQuestionSections}
             setDismissedSections={setDismissedSections}
             jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
             revealSection={revealSection}
             completeSection={completeSection}
             onError={onError}
@@ -3032,6 +3187,7 @@ export function ReaderScreen({
             retryRequest={retryRequest}
             decideProposal={decideProposal}
             jumpToSpan={jumpToSpan}
+            peekPassage={peekPassage}
             arc={arc}
             pauseArc={pauseArc}
             setArcPolicy={setArcPolicy}

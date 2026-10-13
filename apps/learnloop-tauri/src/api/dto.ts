@@ -5987,6 +5987,9 @@ export interface ReaderAskInput {
    *  widen the tutor's citable context to every selected block + exact quote. */
   selectionSpanIds?: string[];
   selectionQuote?: string | null;
+  /** RW1a (reader_inquiry on): the source's own wording when the learner
+   *  edited the capture; selectionQuote is then the learner's wording. */
+  selectionSourceQuote?: string | null;
   coldActive?: boolean;
 }
 export interface ReaderAnswerDto {
@@ -6019,6 +6022,9 @@ export interface ReaderAskHistoryExchangeDto {
   parentExchangeId?: string | null;
   selectionSpanIds?: string[];
   selectionQuoteMd?: string | null;
+  /** Non-null only when the learner edited the capture: then selectionQuoteMd
+   *  is their wording and this is the source's own. */
+  selectionSourceQuoteMd?: string | null;
   /** RW1a: the exchange's tutor question and its learner-owned resolution
    *  (a root's resolution is its inquiry's status). */
   questionEventId?: string | null;
@@ -6087,6 +6093,22 @@ export interface ReaderInquiryQuestionDto {
   responseMd: string | null;
   selfCheck: InquirySelfCheck | null;
   escalationLearningObjectId: string | null;
+  /** The route the check came from (the Reader's funnel). */
+  model?: string | null;
+  promptVersion?: string | null;
+}
+/** The durable job writing an inquiry's quick check (reader.inquiry_question
+ *  with a batchId): its state, and why it failed. */
+export interface ReaderInquiryCheckJobDto {
+  status: "queued" | "running" | "waiting_for_input" | "blocked" | "completed" | "failed" | "cancelled" | string;
+  /** capped · spend_refused · provider_unavailable · … (failed or cancelled only). */
+  errorCode: string | null;
+  message: string | null;
+}
+export interface ReaderInquiryQuestionReadDto {
+  question: ReaderInquiryQuestionDto | null;
+  /** Present when the read named a batch; null when it is not this inquiry's. */
+  job?: ReaderInquiryCheckJobDto | null;
 }
 export interface ReaderInquiryQuestionActionInput {
   questionId: string;

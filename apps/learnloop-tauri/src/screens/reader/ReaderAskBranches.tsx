@@ -22,6 +22,9 @@ export interface ReaderExchange {
   spanId: string;
   selectionSpanIds: string[];
   selectionQuoteMd: string | null;
+  /** Set only when the learner edited the capture: the source's own wording
+   *  (selectionQuoteMd is then the learner's). */
+  selectionSourceQuoteMd?: string | null;
   question: string;
   answerMd: string;
   answerMode: ReaderAnswerMode;
@@ -188,7 +191,18 @@ export function ReaderAskBranches({
               <Pill color="cyan">{exchange.answerMode}</Pill>
               {exchange.createdAt ? <Faint style={{ fontSize: 9 }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
             </div>
-            {exchange.selectionQuoteMd ? (
+            {exchange.selectionSourceQuoteMd ? (
+              <>
+                <SourceVoice>
+                  <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionSourceQuoteMd}</blockquote>
+                </SourceVoice>
+                {exchange.selectionQuoteMd ? (
+                  <LearnerVoice label="your edited capture">
+                    <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionQuoteMd}</blockquote>
+                  </LearnerVoice>
+                ) : null}
+              </>
+            ) : exchange.selectionQuoteMd ? (
               <SourceVoice>
                 <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionQuoteMd}</blockquote>
               </SourceVoice>

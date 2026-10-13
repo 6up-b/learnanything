@@ -36,6 +36,10 @@ export interface InquiryQuickCheckProps {
   onEscalate?: () => void;
   escalated?: boolean;
   onRetry?: () => void;
+  /** Pending only: cancel the job writing it. */
+  onCancel?: () => void;
+  /** The failed state's line, when the reason is known ("no price is set…"). */
+  failure?: string;
   onShowPassage?: (spanId: string) => void;
 }
 
@@ -49,6 +53,8 @@ export function InquiryQuickCheck({
   onEscalate,
   escalated = false,
   onRetry,
+  onCancel,
+  failure,
   onShowPassage,
 }: InquiryQuickCheckProps) {
   const [response, setResponse] = useState("");
@@ -57,10 +63,11 @@ export function InquiryQuickCheck({
       <ModelActionState
         phase={phase}
         verb="writing a quick check on this passage"
-        failure="Couldn't write a quick check."
+        failure={failure ?? "Couldn't write a quick check."}
         kept="Your inquiry is unchanged."
         capRoute="quick check"
         fallback="Your threads and the passage"
+        onCancel={onCancel}
         onRetry={onRetry}
       />
     );

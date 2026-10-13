@@ -5,6 +5,7 @@ import type {
   ReaderActivityEvent,
   ReaderInquiryQuestionActionInput,
   ReaderInquiryQuestionDto,
+  ReaderInquiryQuestionReadDto,
   ReaderInquiryStatusDto,
   ReaderReconnectAnswerDto,
   ReaderReconnectAnswerInput,
@@ -1272,8 +1273,8 @@ export const api = {
     mutating([TAG.queue], mutatingReader(call<ReaderInquiryStatusDto>("reader_set_inquiry_status", { input }))),
   readerReconnectAnswer: (input: ReaderReconnectAnswerInput) =>
     mutating([TAG.queue], mutatingReader(call<ReaderReconnectAnswerDto>("reader_reconnect_answer", { input }))),
-  readerInquiryQuestion: (input: { extractionId: string; exchangeId: string }) =>
-    call<{ question: ReaderInquiryQuestionDto | null }>("reader_inquiry_question", { input }),
+  readerInquiryQuestion: (input: { extractionId: string; exchangeId: string; batchId?: string | null }) =>
+    call<ReaderInquiryQuestionReadDto>("reader_inquiry_question", { input }),
   readerInquiryQuestionAction: (input: ReaderInquiryQuestionActionInput) =>
     mutatingReader(call<{ question: ReaderInquiryQuestionDto }>("reader_inquiry_question_action", { input })),
   readerLogActivity: (input: { events: ReaderActivityEvent[] }) =>

@@ -105,6 +105,9 @@ export interface NotesRailProps {
   retryRequest: (requestId: string) => void | Promise<void>;
   decideProposal: (proposalId: string, decision: "accept" | "reject") => void | Promise<void>;
   jumpToSpan: (spanId: string) => void;
+  /** A request result's passage is an investigative jump (a detour while
+   *  reader_inquiry is on). */
+  peekPassage?: (spanId: string) => void;
   // commitment arc
   arc: ReaderArcDto | null;
   pauseArc: () => void | Promise<void>;
@@ -134,7 +137,7 @@ export function NotesRail(props: NotesRailProps) {
     authoredCardId, setAuthoredCardId, authoredStatus, authoringBusy, saveOwnQuestion,
     coach, setCoach, runCoach,
     requests, requestLoadError, refreshRequests, synthesizedObjects, openProposalIds,
-    proposalCount, expandedRequests, setExpandedRequests, retryRequest, decideProposal, jumpToSpan,
+    proposalCount, expandedRequests, setExpandedRequests, retryRequest, decideProposal, jumpToSpan, peekPassage,
     arc, pauseArc, setArcPolicy,
     annotations, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
     editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText,
@@ -488,7 +491,7 @@ export function NotesRail(props: NotesRailProps) {
                         {result.spanId ? (
                           <button
                             type="button"
-                            onClick={() => jumpToSpan(result.spanId!)}
+                            onClick={() => (peekPassage ?? jumpToSpan)(result.spanId!)}
                             style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
                           >
                             show the passage

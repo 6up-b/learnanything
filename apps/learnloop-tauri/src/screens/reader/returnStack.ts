@@ -31,6 +31,9 @@ export interface ReturnStack {
   entries: ReturnEntry[];
   /** Index of the current position; -1 when empty. */
   cursor: number;
+  /** Detours already walked back to their origin (each is returned once, however
+   *  often the learner walks forward and back again). */
+  returned?: readonly string[];
 }
 
 export const EMPTY_STACK: ReturnStack = { entries: [], cursor: -1 };
@@ -68,7 +71,7 @@ export function pushDetour(stack: ReturnStack, origin: ReturnEntry, entry: Retur
     return stack;
   }
   const entries = [...stack.entries.slice(0, stack.cursor + 1), entry];
-  return { entries, cursor: entries.length - 1 };
+  return { ...stack, entries, cursor: entries.length - 1 };
 }
 
 /** Move to ``index`` (a crumb press); returns the new stack and its target. */
@@ -90,7 +93,20 @@ export function stackInquiryExchange(stack: ReturnStack): string | null {
   return stack.entries.find((entry) => entry.kind === "branch" && entry.exchangeId)?.exchangeId ?? null;
 }
 
-/** The detours opened since the origin, for the funnel's detour_returned rows. */
+/** The detours opened since the origin. */
 export function openDetours(stack: ReturnStack): ReturnEntry[] {
   return stack.entries.slice(1);
+}
+
+/** The detours not yet walked back to their origin: the funnel's
+ *  detour_returned rows on a return (a detour completes once). */
+export function unreturnedDetours(stack: ReturnStack): ReturnEntry[] {
+  const returned = new Set(stack.returned ?? []);
+  return openDetours(stack).filter((entry) => !returned.has(entry.id));
+}
+
+/** Mark detours as returned to their origin. */
+export function markReturned(stack: ReturnStack, ids: readonly string[]): ReturnStack {
+  if (ids.length === 0) return stack;
+  return { ...stack, returned: [...new Set([...(stack.returned ?? []), ...ids])] };
 }

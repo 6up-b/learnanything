@@ -40,7 +40,11 @@ export interface GuideRailProps {
   annotatedSpans: Set<string>;
   openQuestionSections: ReaderGuideSectionDto[];
   setDismissedSections: Dispatch<SetStateAction<string[]>>;
+  /** Ordinary reading navigation (Contents): moves the page, no detour. */
   jumpToSpan: (spanId: string) => void;
+  /** An investigative jump (a passage worth a second look, a question's
+   *  passage): a detour with a way back while reader_inquiry is on. */
+  peekPassage?: (spanId: string) => void;
   revealSection: (sectionId: string) => void;
   completeSection: (sectionId: string) => void;
   onError: (message: string) => void;
@@ -77,6 +81,7 @@ export function GuideRail({
   openQuestionSections,
   setDismissedSections,
   jumpToSpan,
+  peekPassage,
   revealSection,
   completeSection,
   onError,
@@ -94,6 +99,7 @@ export function GuideRail({
   disposition,
   chooseDisposition,
 }: GuideRailProps) {
+  const peek = peekPassage ?? jumpToSpan;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
       <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
@@ -184,7 +190,7 @@ export function GuideRail({
           ) : currentGuideSection.suggestedPassages
               .filter((passage) => !annotatedSpans.has(passage.spanId))
               .map((passage) => (
-                <Card key={passage.spanId} onClick={() => jumpToSpan(passage.spanId)} style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7, cursor: "pointer", background: COLOR.washPurple }}>
+                <Card key={passage.spanId} onClick={() => peek(passage.spanId)} style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7, cursor: "pointer", background: COLOR.washPurple }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     <Pill color={passage.learnerSignal === "recent_misunderstanding" ? "pink" : "purple"}>
                       {passage.learnerSignal === "recent_misunderstanding" ? "repair" : "important"}
@@ -204,7 +210,7 @@ export function GuideRail({
               <AuthoredQuestionCard
                 key={section.id}
                 section={section}
-                onJump={jumpToSpan}
+                onJump={peek}
                 onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
                 onComplete={() => completeSection(section.id)}
                 onError={onError}
@@ -215,7 +221,7 @@ export function GuideRail({
                 section={section}
                 extractionId={extractionId}
                 onReveal={() => revealSection(section.id)}
-                onJump={jumpToSpan}
+                onJump={peek}
                 onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
                 onComplete={() => completeSection(section.id)}
                 onError={onError}

@@ -55,3 +55,29 @@ it("switched off (no question ids in the history), the request is today's", asyn
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
   expect("parentExchangeId" in api.readerAsk.mock.calls[0][0]).toBe(false);
 });
+
+it("continuing a chosen question attaches to that inquiry, not the span's newest one (two roots on one span)", async () => {
+  // Root A (older, its own saved selection) and root B (newer, another
+  // selection) share span s12; the learner chose A in Today.
+  api.readerAskHistory.mockResolvedValue({ exchanges: [
+    { eventId: "B", spanId: "s12", questionEventId: "q-B", selectionSpanIds: ["s12", "s13"] },
+    { eventId: "A", spanId: "s12", questionEventId: "q-A", selectionSpanIds: ["s12"] },
+  ] });
+  api.readerAsk.mockResolvedValueOnce(answer("A-follow", "A")).mockResolvedValueOnce(answer("A-follow-2", "A-follow"));
+  render(<AskOverlay target={{ context: "reader", extractionId: "ext_book", spanId: "s12", readerQuestionEventId: "q-A" }} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalledOnce());
+  await send("Why?");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
+  expect(api.readerAsk.mock.calls[0][0].parentExchangeId).toBe("A");
+  await send("And then?");
+  await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
+  expect(api.readerAsk.mock.calls[1][0].parentExchangeId).toBe("A-follow");
+});
+
+it("Today's 'continue the dialogue' names the chosen reader question", async () => {
+  const { targetForDialogue } = await import("./QuestionQueue");
+  const target = targetForDialogue({
+    id: "q-A", context: "reader", noteId: "note_span", sourceCitation: { extractionId: "ext_book", spanId: "s12", label: "" },
+  } as Parameters<typeof targetForDialogue>[0]);
+  expect(target).toMatchObject({ context: "reader", extractionId: "ext_book", spanId: "s12", readerQuestionEventId: "q-A" });
+});

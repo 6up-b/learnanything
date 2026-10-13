@@ -66,3 +66,13 @@ it("restores the hierarchy from saved exchanges after remounting", () => {
   render(<Harness exchanges={saved} />);
   expect(within(screen.getByRole("list", { name: "Follow-ups to Question root" })).getByText("Answer child")).toBeTruthy();
 });
+
+it("an edited capture shows the book's wording as the source and the learner's edit as theirs", () => {
+  const edited = { ...exchange("root"), selectionQuoteMd: "My corrected wording", selectionSourceQuoteMd: "The book's own words" };
+  const { container } = render(<Harness exchanges={[edited]} />);
+  const source = container.querySelector('[data-voice="source"]');
+  expect(source?.textContent).toContain("The book's own words");
+  expect(source?.textContent).not.toContain("My corrected wording");
+  const learner = Array.from(container.querySelectorAll('[data-voice="learner"]')).find((node) => node.textContent?.includes("edited capture"));
+  expect(learner?.textContent).toContain("My corrected wording");
+});

@@ -9,9 +9,11 @@ import {
   forward,
   goTo,
   hasDetour,
+  markReturned,
   openDetours,
   pushDetour,
   stackInquiryExchange,
+  unreturnedDetours,
   type ReturnEntry,
 } from "./returnStack";
 
@@ -70,4 +72,16 @@ it("names its inquiry by the first branch entry and lists the open detours", () 
   stack = pushDetour(stack, origin, entry("child", { kind: "branch", exchangeId: "child" }));
   expect(stackInquiryExchange(stack)).toBe("root");
   expect(openDetours(stack).map((e) => e.id)).toEqual(["peek", "root", "child"]);
+});
+
+it("a detour is returned once: walking forward and back again finds nothing new to return", () => {
+  let stack = pushDetour(pushDetour(EMPTY_STACK, origin, entry("a")), origin, entry("b"));
+  expect(unreturnedDetours(stack).map((e) => e.id)).toEqual(["a", "b"]);
+  stack = markReturned(goTo(stack, 0).stack, unreturnedDetours(stack).map((e) => e.id));
+  stack = forward(stack).stack;
+  expect(unreturnedDetours(back(stack).stack)).toEqual([]);
+  // A new detour pushed later is the only one left to return.
+  stack = pushDetour(stack, origin, entry("c"));
+  expect(stack.entries.map((e) => e.id)).toEqual(["origin", "a", "c"]);
+  expect(unreturnedDetours(stack).map((e) => e.id)).toEqual(["c"]);
 });
