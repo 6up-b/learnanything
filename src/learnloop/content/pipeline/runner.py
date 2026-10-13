@@ -200,6 +200,9 @@ class RunnerServices:
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
     video_client_factory: Callable[["JobContext"], Any] | None = None
+    #: Canonical sources S1: the Reader import's answer-key check runs in a
+    #: background thread after the import (tests turn it off for determinism).
+    background_key_checks: bool = True
     _inventory_identity_cache: tuple[str, str] | None = field(
         default=None, init=False, repr=False
     )

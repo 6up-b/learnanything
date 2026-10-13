@@ -97,3 +97,332 @@ def learning_state_tables(repository: Repository) -> list[str]:
     with repository.connection() as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     return [table for table in LEARNING_STATE_TABLES if table in names]
+
+
+# -- a textbook with exercises, solutions and worked examples ------------------
+
+import re as _re
+
+from learnloop.ai.execution import report_call_usage as _report_usage
+from learnloop.ingest.block_roles import classify_block_role as _classify
+from learnloop.ingest.ir import DocumentBlock as _Block, DocumentIR as _IR, DocumentUnit as _Unit, ExtractionHealth as _Health
+from learnloop.vault.writer import upsert_source_set as _upsert_source_set
+from tests.pf_fakes import SYMPY_CHECK, prompt_context, solve_linear
+from tests.test_source_inventory import _persist as _persist_ir
+
+TEXTBOOK = {
+    "ch5": ("Chapter 5 Eigenvalues", [
+        ("Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix.", 7),
+        ("Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign.", 7),
+    ]),
+    "worked": ("Worked examples", [
+        ("Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3.", 8),
+    ]),
+    "exercises": ("Exercises", [
+        ("1. An eigenvalue t satisfies 3t + 5 = 20; solve 3x + 5 = 20 for x to find the eigenvalue.", 9),
+        ("2. The characteristic polynomial gives 2x + 4 = 10; solve 2x + 4 = 10 for x, the eigenvalue.", 9),
+        ("3. Explain why the determinant changes sign when two rows of a matrix are swapped.", 9),
+        ("4. Compute the eigenvalues of the diagonal matrix [[2,0],[0,3]].", 9),
+    ]),
+    "solutions": ("Solutions", [
+        ("1. Subtracting 5 gives 3x = 15, so the eigenvalue is x = 5.", 30),
+        ("2. Subtracting 4 gives 2x = 6, so the eigenvalue is x = 3.", 30),
+        ("4. The eigenvalues of a diagonal matrix are its diagonal entries 2 and 3.", 30),
+    ]),
+}
+
+
+def seed_textbook(repository: Repository, *, source_id: str = "src_text", revision_id: str = "rev_text",
+                  extraction_id: str = "ext_text", title: str = "Matrix Theory",
+                  units: dict | None = None) -> dict[str, list[str]]:
+    """A textbook whose blocks carry real role hints (classify_block_role),
+    so effective hints, exercise regions and solution regions behave as in a
+    Marker import. Returns each unit's span ids."""
+
+    units = units or TEXTBOOK
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, display_title, current_revision_id, "
+            "reader_enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+            (source_id, "pdf", f"file:///{source_id}.pdf", title, revision_id, 1,
+             "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"))
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
+            (revision_id, source_id, f"sha256:{source_id}", None, "2026-01-01T00:00:00Z"))
+        connection.commit()
+    blocks, document_units, spans_by_unit = [], [], {}
+    ordinal = 1
+    for unit_ordinal, (unit_id, (header, rows)) in enumerate(units.items()):
+        header_ref = f"/page/{rows[0][1]}/SectionHeader/{ordinal}"
+        span_ids = []
+        blocks.append(_Block.build(span_id=f"t{ordinal}", block_type="SectionHeader", text=header, ordinal=ordinal,
+                                   page=rows[0][1], section_path=[header_ref], extractor_block_id=header_ref,
+                                   role_hint=_classify("SectionHeader", [header], header)))
+        span_ids.append(f"t{ordinal}")
+        ordinal += 1
+        for text, page in rows:
+            blocks.append(_Block.build(span_id=f"t{ordinal}", block_type="Text", text=text, ordinal=ordinal, page=page,
+                                       section_path=[header_ref], role_hint=_classify("Text", [header], text)))
+            span_ids.append(f"t{ordinal}")
+            ordinal += 1
+        spans_by_unit[unit_id] = span_ids
+        document_units.append(_Unit(unit_id=unit_id, label=header, ordinal=unit_ordinal,
+                                    semantic_hash=f"sha256:{unit_id}", page_start=rows[0][1], page_end=rows[-1][1],
+                                    span_ids=span_ids))
+    ir = _IR(extractor="marker", extractor_version="1", units=document_units, blocks=blocks, assets=[],
+             health=_Health())
+    _persist_ir(repository, ir, revision_id=revision_id, extraction_id=extraction_id)
+    return spans_by_unit
+
+
+def build_textbook_vault(root: Path, *, embeddings: bool = False) -> tuple[VaultPaths, Repository, dict[str, list[str]]]:
+    """T6's retrieval vault plus a primary textbook with exercises and solutions."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths, repository = build_retrieval_vault(root, embeddings=embeddings)
+    lo_path = paths.learning_object_path("linear-algebra", "lo_matrices")
+    lo = read_yaml(lo_path)
+    lo["blueprints"] = [{"id": "bp_matrices", "recipes": [{"id": "r_matrices", "any_of": [
+        {"facet": facet, "capability": "procedure_execution"}
+        for facet in ("facet_eigen", "facet_determinant", "facet_matmul")]}]}]
+    write_yaml(lo_path, lo)
+    spans = seed_textbook(repository)
+    _upsert_source_set(paths.root, {
+        "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
+        "members": [
+            {"source_id": "src_book", "revision_id": "rev_book", "default_role": "primary_textbook"},
+            {"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"},
+            {"source_id": "src_text", "revision_id": "rev_text", "default_role": "primary_textbook"},
+        ],
+    })
+    return paths, repository, spans
+
+
+def _words(text: str) -> set[str]:
+    return {word for word in _re.findall(r"[a-z]+", (text or "").casefold()) if len(word) > 2}
+
+
+def _number(text: str) -> str | None:
+    match = _re.match(r"\s*(?:exercise\s+)?(\d+)", (text or "").casefold())
+    return match.group(1) if match else None
+
+
+class FakeServiceLLM:
+    """One deterministic client for every role the canonical-sources service calls.
+
+    It answers from the prompt's own JSON, by result model, using lexical
+    overlap where a real model would judge, ``solve_linear`` for numeric
+    solves and sympy for equivalence. Knobs:
+
+    * ``panel_answers``: substring of the stem -> the panel's answer;
+    * ``key_override``: the authored key for every exercise;
+    * ``family_verdict``: ``same`` | ``different`` (+ ``family_relation``);
+    * ``drop_cited_quote``: author no quote even with the book's solution.
+    """
+
+    provider_name = "fake_service_llm"
+    provider_type = "codex_sdk"
+    model = "fake-service-model"
+
+    def __init__(self, *, panel_answers: dict[str, str] | None = None, key_override: str | None = None,
+                 family_verdict: str = "different", family_relation: str = "isomorph",
+                 drop_cited_quote: bool = False, sympy_check: str | None = None,
+                 learning_object_id: str = "lo_matrices", fail_purposes: set[str] | None = None) -> None:
+        self.panel_answers = dict(panel_answers or {})
+        self.key_override = key_override
+        self.family_verdict = family_verdict
+        self.family_relation = family_relation
+        self.drop_cited_quote = drop_cited_quote
+        self.sympy_check = sympy_check or SYMPY_CHECK
+        self.learning_object_id = learning_object_id
+        self.fail_purposes = set(fail_purposes or ())
+        self.calls: list[tuple[str, str]] = []
+
+    def supports(self, capability: str) -> bool:
+        return capability in {"structured_completion", "bounded_structured_completion", "isolated_turn"}
+
+    def complete(self, request):
+        from learnloop.ai.errors import AIProviderUnavailable
+
+        name = request.result_model.__name__
+        self.calls.append((request.purpose, name))
+        _report_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 60, "resolved_model": self.model})
+        if request.purpose in self.fail_purposes or name in self.fail_purposes:
+            raise AIProviderUnavailable("fake failure")
+        handler = getattr(self, "_" + name, None)
+        if handler is None:
+            raise AssertionError(f"unexpected result model {name}")
+        return handler(request, prompt_context(request.prompt))
+
+    # practice_rerank (items) and the mixed pool
+    @staticmethod
+    def _grade(request_text: str, text: str) -> str:
+        hits = len(_words(request_text) & _words(text))
+        return "relevant" if hits >= 2 else "partial" if hits == 1 else "not_relevant"
+
+    def _PracticeRerank(self, request, context):
+        from learnloop.practice_index.contracts import CandidateJudgment, PracticeRerank
+
+        judged = [(c["ref"], self._grade(context["request"], c.get("prompt", ""))) for c in context["candidates"]]
+        order = {"relevant": 0, "partial": 1}
+        picks = [ref for ref, grade in sorted(judged, key=lambda pair: (order.get(pair[1], 9), pair[0]))
+                 if grade != "not_relevant"][: context["pick_at_most"]]
+        return PracticeRerank(judgments=[CandidateJudgment(ref=ref, relevance=grade, rationale=f"{grade} by overlap")
+                                         for ref, grade in judged], picks=picks)
+
+    def _MixedPracticeRerank(self, request, context):
+        from learnloop.practice_index.contracts import (
+            CandidateJudgment, ExerciseMetadata, FacetQuote, MixedPracticeRerank,
+        )
+
+        def text(candidate):
+            return candidate.get("statement") or candidate.get("prompt") or ""
+
+        judged = [(c["ref"], self._grade(context["request"], text(c)), c) for c in context["candidates"]]
+        order = {"relevant": 0, "partial": 1}
+        picks = [ref for ref, grade, _c in sorted(judged, key=lambda entry: (order.get(entry[1], 9), entry[0]))
+                 if grade != "not_relevant"][: context["pick_at_most"]]
+        metadata = []
+        modes = context.get("practice_modes") or ["short_answer"]
+        for ref, _grade, candidate in judged:
+            if candidate.get("kind") != "textbook_exercise":
+                continue
+            statement = candidate.get("statement") or ""
+            facets = []
+            for facet in context.get("facet_vocabulary") or []:
+                stems = {word[:6] for word in _words(facet["title"])}
+                shared = sorted(word for word in _words(statement) if word[:6] in stems)
+                if shared:
+                    match = _re.search(r"\S+\s+" + _re.escape(shared[0]), statement, _re.IGNORECASE)
+                    quote = match.group(0) if match else statement[:30]
+                    facets.append(FacetQuote(facet_id=facet["id"], quote=quote))
+            metadata.append(ExerciseMetadata(ref=ref, facets=facets, practice_mode=modes[0]))
+        return MixedPracticeRerank(
+            judgments=[CandidateJudgment(ref=ref, relevance=grade, rationale=f"{grade} by overlap")
+                       for ref, grade, _c in judged],
+            picks=picks, exercise_metadata=metadata)
+
+    # T6 verification
+    def _SpanVerification(self, request, context):
+        from learnloop.source_retrieval.contracts import SpanJudgment, SpanVerification
+
+        question = " ".join([context["question"], context.get("practice_question") or ""])
+        judged = []
+        for c in context["candidates"]:
+            hits = len(_words(question) & _words(c["passage"]))
+            judged.append((c["ref"], "answers" if hits >= 2 else "related" if hits == 1 else "unrelated"))
+        order = {"answers": 0, "related": 1}
+        picks = [ref for ref, verdict in sorted(judged, key=lambda pair: (order.get(pair[1], 9), pair[0]))
+                 if verdict != "unrelated"][: context["pick_at_most"]]
+        return SpanVerification(judgments=[SpanJudgment(ref=ref, verdict=verdict, rationale="overlap")
+                                           for ref, verdict in judged], picks=picks)
+
+    # S1: the book's solution
+    def _SolutionMatch(self, request, context):
+        from learnloop.content.authoring.source_exercise_import import SolutionJudgment, SolutionMatch
+
+        number = _number(context["exercise"]["statement"]) or _number(context["exercise"].get("label") or "")
+        judged = []
+        for c in context["candidates"]:
+            other = _number(c["passage"])
+            verdict = ("solves_this_exercise" if number and other == number
+                       else "other_exercise" if other else "unrelated")
+            judged.append((c["ref"], verdict))
+        picks = [ref for ref, verdict in judged if verdict == "solves_this_exercise"][:1]
+        return SolutionMatch(judgments=[SolutionJudgment(ref=ref, verdict=verdict, rationale="numbers")
+                                        for ref, verdict in judged], picks=picks)
+
+    # S1: authoring
+    def _ExerciseAuthoring(self, request, context):
+        from learnloop.content.authoring.ai_contracts import (
+            ExerciseAuthoredItem, ExerciseAuthoring, FacetWeightPayload, RubricCriterionPayload, RubricPatchPayload,
+        )
+
+        text = context["exercise_text"]
+        solution = (context.get("book_solution") or {}).get("text") or ""
+        cited = ""
+        if self.key_override is not None:
+            key = self.key_override
+        elif solution:
+            numbers = _re.findall(r"-?\d+", solution.split(".", 1)[1] if "." in solution else solution)
+            key = numbers[-1] if numbers and "eigenvalues of a diagonal" not in solution else (
+                "2 and 3" if "diagonal" in solution else solution)
+            cited = "" if self.drop_cited_quote else solution.split(". ", 1)[1] if ". " in solution else solution
+        else:
+            key = solve_linear(text) or ("the determinant is multiplied by -1" if "determinant" in text
+                                         else "2 and 3")
+        catalog = context.get("learning_objects") or []
+        lo = next((entry for entry in catalog if entry["id"] == self.learning_object_id), catalog[0] if catalog else {})
+        facets = [facet["id"] for facet in lo.get("facets", [])
+                  if {word[:6] for word in _words(facet["title"])} & {word[:6] for word in _words(text)}]
+        return ExerciseAuthoring(items=[ExerciseAuthoredItem(
+            statement_md=text, title=f"Exercise {_number(text) or 1}", learning_object_id=lo.get("id", ""),
+            practice_mode="short_answer", expected_answer_md=key,
+            grading_rubric=RubricPatchPayload(max_points=2, criteria=[
+                RubricCriterionPayload(id="answer", points=2.0, description="Gives the correct answer.")]),
+            evidence_facets=facets, evidence_weights=[FacetWeightPayload(facet_id=f, weight=1.0) for f in facets],
+            hints=["Start from the definition.", "Isolate the unknown."], capability="",
+            classification_reason="fake", cited_quote=cited,
+        )], warnings=[])
+
+    # PF verification roles
+    def _PanelSolve(self, request, context):
+        from learnloop.content.authoring import pf_contracts as C
+
+        stem = context.get("problem") or context.get("question") or ""
+        for fragment, answer in self.panel_answers.items():
+            if fragment in stem:
+                kind = "numeric" if _re.fullmatch(r"-?\d+(?:/\d+)?", answer) else "text"
+                return C.PanelSolve(final_answer=answer, answer_kind=kind, work_summary="configured")
+        answer = solve_linear(stem)
+        if answer is not None:
+            return C.PanelSolve(final_answer=answer, answer_kind="numeric", work_summary="solved")
+        return C.PanelSolve(final_answer="UNSOLVABLE", answer_kind="text", work_summary="cannot")
+
+    def _EquivalenceResult(self, request, context):
+        from sympy import simplify, sympify
+
+        from learnloop.content.authoring import pf_contracts as C
+
+        reference = context["reference_final_answer"]
+        try:
+            sympify(reference)
+            kind = "numeric"
+        except Exception:
+            kind = "text"
+        agreements = []
+        for entry in context["answers"]:
+            try:
+                agreements.append(bool(simplify(sympify(reference) - sympify(entry["answer"])) == 0))
+            except Exception:
+                agreements.append(" ".join(entry["answer"].split()).casefold()
+                                  == " ".join(reference.split()).casefold())
+        return C.EquivalenceResult(answer_kind=kind, agreements=agreements,
+                                   sympy_check=self.sympy_check if kind == "numeric" else None)
+
+    def _SpanSupportVerdict(self, request, context):
+        from learnloop.content.authoring import pf_contracts as C
+
+        span = set(_re.findall(r"\w+", context["cited_span"].casefold()))
+        words = set(_re.findall(r"\w+", context["reference_answer"].casefold()))
+        supported = bool(words) and words <= span
+        return C.SpanSupportVerdict(span_answer=context["cited_span"][:200], answer_supported=supported,
+                                    rationale_supported=supported, executable_consequence=False,
+                                    rationale="word check")
+
+    def _FamilyVerdict(self, request, context):
+        from learnloop.ops.family_proposals import FamilyVerdict
+
+        if self.family_verdict == "same":
+            return FamilyVerdict(verdict="same", variant_relation=self.family_relation, rationale="same target",
+                                 idea_statement="find an eigenvalue", retrieval_target="solve for the eigenvalue")
+        return FamilyVerdict(verdict="different", variant_relation=None, rationale="different",
+                             idea_statement="", retrieval_target="")
+
+
+def service_clients(llm: FakeServiceLLM) -> dict[str, Any]:
+    """The injected clients the import pipeline resolves by role."""
+
+    return {name: llm for name in ("authoring", "panel", "equivalence", "span_support", "solution_match",
+                                   "family_judge")}

@@ -672,6 +672,7 @@ def _observation_events_by_facet(
             hints_used=int(attempt.get("hints_used") or 0),
             primed=bool(attempt.get("primed")),
             recorded=snapshot.activity_by_attempt.get(str(attempt["id"])),
+            reference_status=attempt.get("reference_status"),
         )
         assisted = activity.counts_as_assisted
         # A correction replaces this attempt's contribution; it must keep the

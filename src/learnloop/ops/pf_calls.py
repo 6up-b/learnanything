@@ -80,6 +80,8 @@ ROLE_TASKS: dict[str, str] = {
     "selection": "pf_selection_judge",
     "pairwise": "pf_selection_judge",
     "grading": "grading",
+    # Canonical sources S1: the family judge for attaching an imported exercise.
+    "family_judge": "pf_family_judge",
 }
 LIST_ROLES = frozenset({"proposer", "panel"})
 # Roles the scaling check moves between tiers (Slice 2 §5.6): the generators

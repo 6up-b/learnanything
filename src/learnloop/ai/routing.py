@@ -41,6 +41,13 @@ AITask = Literal[
     "source_rerank",
     "source_query_writer",
     "source_relevance_judge",
+    # Canonical sources (spec_source_practice_and_probes_v1 §13): the book's
+    # solution match (S1), the syntopic comparison (S3), the exercise
+    # discrimination screen and the worked-example equivalence judge (S2a).
+    "source_solution_match",
+    "source_compare",
+    "exercise_discrimination",
+    "worked_example_equivalence",
     # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
     "contamination_judge",
     "grading",
@@ -138,6 +145,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "source_rerank": "source_rerank",
     "source_query_writer": "source_query_writer",
     "source_relevance_judge": "source_relevance_judge",
+    "source_solution_match": "source_solution_match",
+    "source_compare": "source_compare",
+    "exercise_discrimination": "exercise_discrimination",
+    "worked_example_equivalence": "worked_example_equivalence",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

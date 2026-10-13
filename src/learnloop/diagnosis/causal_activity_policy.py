@@ -199,7 +199,54 @@ def attempt_counts_as_assisted(
     ).counts_as_assisted
 
 
+#: ``practice_attempts.reference_status`` values (canonical sources S1, DL3
+#: §4.4): whether the served item's answer key was verified when the attempt
+#: was made. Recorded once by the attempt transaction, never updated.
+REFERENCE_STATUSES = ("not_applicable", "verified", "unverified")
+
+
+def gate_unverified_reference(policy: CausalActivityPolicy, reference_status: str | None) -> CausalActivityPolicy:
+    """C3: an attempt graded against an unverified answer key certifies nothing.
+
+    It still schedules (FSRS eligibility unchanged) and keeps its assistance
+    classification; only certification eligibility is forced off. ``None`` and
+    ``not_applicable`` / ``verified`` leave the policy exactly as it was.
+    """
+
+    if reference_status != "unverified" or not policy.eligible_for_certification:
+        return policy
+    return CausalActivityPolicy(
+        contamination_class=policy.contamination_class,
+        near_clone=policy.near_clone,
+        closes_pre_intervention_segment=policy.closes_pre_intervention_segment,
+        eligible_for_fsrs=policy.eligible_for_fsrs,
+        eligible_for_certification=False,
+        counts_as_assisted=policy.counts_as_assisted,
+        policy_version=policy.policy_version,
+    )
+
+
 def resolve_attempt_activity_policy(
+    *,
+    attempt_type: str,
+    primed: bool = False,
+    hints_used: int = 0,
+    recorded: Mapping[str, Any] | None = None,
+    reference_status: str | None = None,
+) -> CausalActivityPolicy:
+    """See :func:`_resolve_attempt_activity_policy`; ``reference_status`` is the
+    attempt's immutable answer-key signal (C3): ``unverified`` forces
+    ``eligible_for_certification`` off and changes nothing else."""
+
+    return gate_unverified_reference(
+        _resolve_attempt_activity_policy(
+            attempt_type=attempt_type, primed=primed, hints_used=hints_used, recorded=recorded,
+        ),
+        reference_status,
+    )
+
+
+def _resolve_attempt_activity_policy(
     *,
     attempt_type: str,
     primed: bool = False,

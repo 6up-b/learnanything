@@ -224,6 +224,130 @@ def apply_family(vault: LoadedVault, repository: Repository, family: ActivityFam
     return proposal_id
 
 
+def _validate_attach_judgments(connection: Any, vault: LoadedVault, family: ActivityFamily, item_id: str,
+                               relation: str, judgment_ids: Sequence[str]) -> None:
+    """Complete-link: the new item judged ``same`` by both passes with every member.
+
+    The passes must agree on the relation, and the relation with the family's
+    ``same_target`` anchor is the one the item joins with (the rule
+    :func:`_validate_judgments` enforces for automatic families).
+    """
+    members = sorted(other.id for other in vault.practice_items.values()
+                     if other.family_id == family.id and other.status != "retired")
+    if not members:
+        raise ValueError("Attach requires a family with current members")
+    rows = []
+    for judgment_id in judgment_ids:
+        row = connection.execute(
+            "SELECT j.* FROM judgment_ledger j WHERE j.id=? "
+            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger n WHERE n.supersedes_id=j.id)",
+            (judgment_id,),
+        ).fetchone()
+        if row is not None:
+            rows.append(row)
+    anchors = [member for member in members
+               if vault.practice_items[member].variant_relation == "same_target"] or members
+    anchor = anchors[0]
+    new_hash = family_item_input_hash(vault, vault.practice_items[item_id])
+    for member in members:
+        expected = {item_id: new_hash, member: family_item_input_hash(vault, vault.practice_items[member])}
+        bound: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            try:
+                rationale = json.loads(row["rationale"])
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(rationale, dict) or rationale.get("item_hashes") != expected:
+                continue
+            result = rationale.get("result")
+            if (isinstance(result, dict) and result.get("verdict") == "same"
+                    and result.get("variant_relation") in {"same_target", "isomorph"}
+                    and {row["left_id"], row["right_id"]} == {item_id, member}
+                    and row["left_kind"] == row["right_kind"] == "practice_item"
+                    and row["task"] == "same_target" and row["verdict"] == "same"
+                    and row["judge"] == "llm" and row["judge_model"] and row["input_hash"]
+                    and row["prompt_version"] in FAMILY_JUDGE_PROMPTS):
+                if row["prompt_version"] in bound:
+                    raise ValueError("Attach has duplicate judge passes for a pair")
+                bound[row["prompt_version"]] = result
+        if set(bound) != set(FAMILY_JUDGE_PROMPTS):
+            raise ValueError(f"Attach requires two agreeing judge passes for {item_id}, {member}")
+        direct, counter = (bound[version] for version in FAMILY_JUDGE_PROMPTS)
+        if direct["variant_relation"] != counter["variant_relation"]:
+            raise ValueError("Attach judge passes disagree on variant relation")
+        if member == anchor and direct["variant_relation"] != relation:
+            raise ValueError("Attached relation differs from the judged anchor relation")
+
+
+def attach_to_family(vault: LoadedVault, repository: Repository, family_id: str, item_id: str,
+                     relation: str, *, proposal_id: str, judgment_ids: Sequence[str],
+                     rationale: str = "", clock: Clock | None = None) -> str:
+    """Add one unfamilied item to an EXISTING family (canonical sources S1, §7.4).
+
+    ``apply_family`` only creates families; this is PF publication's pattern
+    (``append_membership`` with the decision's ledger id) under
+    ``apply_family``'s recover and undo discipline: the plan is recorded in the
+    ledger and ``family_proposals`` before the YAML patch to ``family_id`` and
+    ``variant_relation``, recovery rolls it forward, and ``undo_family``
+    removes the membership. Only ``same_target`` or ``isomorph`` members join
+    this way, on a complete-link two-pass judgment with every member.
+    """
+    if relation not in {"same_target", "isomorph"}:
+        raise ValueError("Only same_target or isomorph members attach without generation")
+    with family_operation_lock(vault.root):
+        with repository.connection() as connection:
+            _restore_proposals(connection)
+            existing = connection.execute("SELECT * FROM family_proposals WHERE id=?", (proposal_id,)).fetchone()
+        if existing:
+            _recover(vault, repository, clock)
+            return proposal_id
+        _recover(vault, repository, clock)
+        current = load_vault(vault.root)
+        family = current.activity_families.get(family_id)
+        if family is None:
+            raise ValueError(f"Unknown activity family {family_id}")
+        item = current.practice_items.get(item_id)
+        if item is None:
+            raise ValueError(f"Unknown practice item {item_id}")
+        if item.learning_object_id != family.learning_object_id:
+            raise ValueError("The item's learning object differs from the family's")
+        if item.family_id is not None:
+            raise ValueError("The item already belongs to a family")
+        PracticeItem.model_validate({**item.model_dump(), "family_id": family.id, "variant_relation": relation})
+        matches = list((current.root / "subjects").glob(f"*/practice-items/{item_id}.yaml"))
+        if len(matches) != 1:
+            raise ValueError(f"Expected one authored item file: {item_id}")
+        path = matches[0]
+        data = read_yaml(path)
+        resolved = resolve_legacy_item(current, repository, item, purpose="practice", clock=clock)
+        plan: dict[str, Any] = {
+            "mode": "attach",
+            "family": family.model_dump(mode="json"), "family_hash": activity_family_hash(family),
+            "members": [{"item_id": item_id, "card_id": resolved.card_id, "variant_relation": relation,
+                         "input_hash": family_item_input_hash(current, item)}],
+            "judgment_ids": list(judgment_ids),
+            "patches": [{
+                "path": str(path.relative_to(current.root)),
+                "before": {k: data[k] for k in ("family_id", "variant_relation") if k in data},
+                "after": {"family_id": family.id, "variant_relation": relation},
+            }],
+        }
+        now = utc_now_iso(clock)
+        with repository.connection() as connection:
+            _validate_attach_judgments(connection, current, family, item_id, relation, judgment_ids)
+            decision = append_judgment(
+                connection, task="family_decision", left_kind="family_proposal", left_id=proposal_id,
+                judge="verifier", input_hash=canonical_hash(plan), verdict="accept",
+                rationale=canonical_json({"version": 1, "reason": rationale, "plan": plan}),
+                prompt_version=GROUPING_POLICY_VERSION, created_at=now,
+            )
+            plan["decision_id"] = decision
+            create_proposal(connection, proposal_id=proposal_id, family_id=family.id,
+                            plan_json=canonical_json(plan), created_at=now)
+        _recover(vault, repository, clock)
+    return proposal_id
+
+
 def undo_family(vault: LoadedVault, repository: Repository, proposal_id: str, *,
                 clock: Clock | None = None) -> None:
     with family_operation_lock(vault.root):

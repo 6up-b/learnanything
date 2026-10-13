@@ -307,7 +307,7 @@ def _heading(row: HintRow, titles: Mapping[str, str]) -> str:
     return ""
 
 
-def _effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
+def effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
     """The block's role hint, unless only a heading substring gave it.
 
     Heading cues tag every block under a heading such as "Solutions of linear
@@ -324,6 +324,32 @@ def _effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
     return hint
 
 
+#: Kept for callers written before the hint was public (canonical sources S1).
+_effective_hint = effective_hint
+
+
+def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -> set[tuple[str, str]]:
+    """Blocks whose EFFECTIVE role hint is one of ``roles`` (a positive filter).
+
+    The effective hint discounts heading-only cues (:func:`effective_hint`), so
+    a block under "Solutions of linear systems" is not a solution.
+    """
+
+    wanted = {str(role) for role in roles if role}
+    found: set[tuple[str, str]] = set()
+    if not wanted:
+        return found
+    cued = wanted & _CUED_ROLES
+    for extraction_id in sorted({str(value) for value in extraction_ids if value}):
+        titles = section_header_titles(connection, extraction_id) if cued else {}
+        for row in extraction_hint_rows(connection, extraction_id):
+            if row.role_hint not in wanted:
+                continue
+            if effective_hint(row, titles) in wanted:
+                found.add(row.key)
+    return found
+
+
 def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]:
     """Exercise and solution blocks (a solution with the body after its lead)."""
 
@@ -332,7 +358,7 @@ def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tupl
         titles = section_header_titles(connection, extraction_id)
 
         def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
-            hint = _effective_hint(row, titles)
+            hint = effective_hint(row, titles)
             if hint in ITEM_BOUND_EXCLUDED_ROLE_HINTS:
                 return "region" if hint in _REGION_ROLE_HINTS else "block"
             return "body" if hint in REGION_BODY_HINTS else "stop"
@@ -418,7 +444,7 @@ def item_exclusions(repository: Repository, item: PracticeItem) -> Exclusions:
             titles = section_header_titles(connection, extraction_id)
 
             def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
-                hint = _effective_hint(row, titles)
+                hint = effective_hint(row, titles)
                 if row.key in linked:
                     return "region" if hint in _ITEM_LEAD_REGION_HINTS else "block"
                 return "body" if hint in REGION_BODY_HINTS else "stop"
@@ -523,9 +549,11 @@ __all__ = [
     "SourceExtraction",
     "assessment_spans",
     "current_extractions",
+    "effective_hint",
     "extraction_scope",
     "item_exclusions",
     "library_scope",
+    "role_keys",
     "teaching_exclusions",
     "teaching_scope",
 ]

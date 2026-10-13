@@ -19,6 +19,7 @@ from __future__ import annotations
 import concurrent.futures
 from contextvars import copy_context
 import json
+import logging
 import os
 import queue
 import re
@@ -2231,21 +2232,100 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("reader_exercise_import needs extraction_id and raw_selection nodes.")
     ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
     client = ctx.services.exercise_import_client(ctx)
+    source_id = str(payload.get("source_id") or "") or None
+    revision_id = str(payload.get("revision_id") or "") or None
     try:
-        return EX.import_exercises(
+        result = EX.import_exercises(
             ctx.vault_root,
             ctx.repo,
             client,
             extraction_id=extraction_id,
             raw_selection=raw_selection,
             render_view_id=str(payload.get("render_view_id") or "") or None,
-            source_id=str(payload.get("source_id") or "") or None,
-            revision_id=str(payload.get("revision_id") or "") or None,
+            source_id=source_id,
+            revision_id=revision_id,
             learning_object_hint=str(payload.get("learning_object_hint") or "") or None,
             clock=ctx.clock,
         )
     except EX.ExerciseAuthoringError as exc:
         raise IngestRunnerError(str(exc)) from exc
+    _record_reader_import_keys(ctx, result, extraction_id=extraction_id, raw_selection=raw_selection,
+                               source_id=source_id, revision_id=revision_id)
+    return result
+
+
+def _record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extraction_id: str,
+                               raw_selection: dict[str, Any], source_id: str | None,
+                               revision_id: str | None) -> None:
+    """Canonical sources S1 (§7.3a): the Reader's import records its key status.
+
+    One ``source_exercise_imports`` row per written item (``caller = reader``,
+    ``key_status = model_answer``), and, when ``exercise_verification`` is on,
+    the verifier ladder runs in the background. The item written is unchanged
+    (G5). Best-effort: a failure here never fails the learner's import.
+    """
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from learnloop.vault.loader import load_vault
+
+    try:
+        vault = load_vault(ctx.vault_root)
+        service = vault.config.source_service
+        if not service.enabled:
+            return
+        span_ids = [str(node.get("span_id") or node.get("spanId") or "") for node in raw_selection.get("nodes") or []]
+        rows = SEI.record_reader_import(ctx.vault_root, ctx.repo, result, extraction_id=extraction_id,
+                                        span_ids=[span for span in span_ids if span], source_id=source_id,
+                                        revision_id=revision_id, clock=ctx.clock)
+        if service.exercise_verification and rows and ctx.services.background_key_checks:
+            item_ids = [row["practice_item_id"] for row in rows]
+            threading.Thread(
+                target=_verify_quietly, args=(ctx.vault_root, ctx.repo, item_ids, "background"),
+                name="reader-import-key-check", daemon=True,
+            ).start()
+    except Exception:  # noqa: BLE001 - the import itself already succeeded
+        logging.getLogger(__name__).warning("recording the Reader import's key status failed", exc_info=True)
+
+
+def _verify_quietly(root: Path, repository: Repository, item_ids: list[str], trigger: str) -> None:
+    from learnloop.content.authoring import source_exercise_import as SEI
+
+    for item_id in item_ids:
+        try:
+            SEI.verify_item_key(root, repository, item_id, trigger=trigger)
+        except Exception:  # noqa: BLE001 - recorded as unchecked; `sources exercises verify` covers it
+            logging.getLogger(__name__).warning("background key check failed for %s", item_id, exc_info=True)
+
+
+def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
+    """source_exercise_import: a learner picked a textbook exercise proposal
+    (canonical sources S1, §7.2). Author, check within the time box, write with
+    ``canonical_exercise`` and the key's status, attach to a family. Main
+    single-writer lane: it writes vault YAML."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from learnloop.vault.loader import load_vault
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    span_ids = [str(span) for span in payload.get("span_ids") or [] if str(span)]
+    if not extraction_id or not span_ids:
+        raise IngestRunnerError("source_exercise_import needs extraction_id and span_ids.")
+    vault = load_vault(ctx.vault_root)
+    ctx.report("authoring", message="Importing the textbook exercise and checking its answer key")
+    result = SEI.import_source_exercise(
+        ctx.vault_root, ctx.repo, extraction_id=extraction_id, span_ids=span_ids,
+        caller=str(payload.get("caller") or "learner"), proposal_id=payload.get("proposal_id"),
+        clients={"authoring": ctx.services.exercise_import_client(ctx)},
+        time_box_seconds=float(vault.config.source_service.verify_timeout_seconds),
+        import_id=payload.get("import_id"), label=payload.get("label"),
+        learning_object_hint=payload.get("learning_object_hint"), clock=ctx.clock,
+    )
+    if result.get("status") != "written":
+        raise IngestRunnerError(str(result.get("reason") or "the exercise could not be imported"),
+                                code="source_exercise_import_" + str(result.get("status")),
+                                details={"import_id": result.get("import_id")})
+    return result
 
 
 def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
@@ -2604,6 +2684,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "extraction_repair": handle_extraction_repair,
     "reader_quick_check": handle_reader_quick_check,
     "reader_exercise_import": handle_reader_exercise_import,
+    "source_exercise_import": handle_source_exercise_import,
     "practice_expansion": handle_practice_expansion,
     "goal_population": handle_goal_population,
     "question_promotion": handle_question_promotion,
@@ -2631,6 +2712,8 @@ APPLYING_JOB_TYPES = (
     "question_promotion",
     # Reader-selected textbook exercises become vault practice items directly.
     "reader_exercise_import",
+    # Picked textbook exercise proposals too (canonical sources S1).
+    "source_exercise_import",
     # Goal-wizard population applies generated practice directly.
     "goal_population",
 )
@@ -2959,6 +3042,34 @@ class DurableIngestJobs:
                     },
                 )
             ],
+            priority=QUICK_ADD_PRIORITY,
+        )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_source_exercise_import(
+        self,
+        *,
+        import_id: str,
+        extraction_id: str,
+        span_ids: list[str],
+        proposal_id: str | None = None,
+        label: str | None = None,
+        learning_object_hint: str | None = None,
+    ) -> str:
+        """Enqueue the import of a picked textbook exercise (canonical sources S1).
+
+        Interactive priority on the main single-writer lane, like the Reader's
+        exercise import: the handler writes vault YAML."""
+
+        runner = self._require_runner()
+        batch_id = runner.enqueue_batch(
+            "source_exercise_import",
+            [JobSpec("source_exercise_import", {
+                "import_id": import_id, "extraction_id": extraction_id, "span_ids": list(span_ids),
+                "proposal_id": proposal_id, "label": label, "learning_object_hint": learning_object_hint,
+                "caller": "learner",
+            })],
             priority=QUICK_ADD_PRIORITY,
         )
         self._ensure_worker()

@@ -658,6 +658,23 @@ class ActivityFamily(VaultModel):
     updated_at: str
 
 
+class CanonicalExercise(VaultModel):
+    """The textbook exercise a practice item presents (canonical sources S1, §7.4).
+
+    "Don't eliminate cards; change what they represent": the item (and its
+    family) is the capability, and this names the source-authored surface it
+    is, or was varied from. ``verbatim`` for an imported exercise; ``variant_of``
+    for a PF-b variant published from such a parent.
+    """
+
+    source_id: str
+    revision_id: str | None = None
+    extraction_id: str
+    span_ids: list[str] = Field(min_length=1)
+    label: str | None = None
+    relation: Literal["verbatim", "variant_of"] = "verbatim"
+
+
 class PracticeItem(VaultModel):
     schema_version: int = 1
     id: str
@@ -742,6 +759,12 @@ class PracticeItem(VaultModel):
 
     family_id: str | None = None
     variant_relation: VariantRelation | None = None
+    # Canonical sources S1 (§7.4): the textbook exercise this item presents.
+    # Outside ``practice_item_hash`` and omitted when null, so items without it
+    # serialize byte-identically.
+    canonical_exercise: CanonicalExercise | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def _family_relationship(self) -> PracticeItem:

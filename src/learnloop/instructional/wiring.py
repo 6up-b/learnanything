@@ -14,10 +14,14 @@ from learnloop.vault.models import LoadedVault
 def find_practice_injections(vault: LoadedVault) -> dict[str, Any]:
     """Keyword arguments for ``find_practice`` under the service's switches."""
 
+    from learnloop.instructional.exercises import exercise_candidates
+
     config = vault.config.source_service
     injected: dict[str, Any] = {}
     if not config.enabled:
         return injected
+    if config.exercise_arm:
+        injected["exercise_arm"] = exercise_candidates
     return injected
 
 

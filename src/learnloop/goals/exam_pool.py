@@ -291,6 +291,20 @@ def reserve_exam_pool(
     )
 
 
+def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
+    from contextlib import closing
+
+    from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import unverified_import_ids
+
+    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
+    if not gated:
+        return set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
+
+
 def _candidates(
     vault: LoadedVault,
     repository: Repository,
@@ -314,6 +328,9 @@ def _candidates(
     from learnloop.scheduling import controller_ownership as _ownership
 
     staged_owned = _ownership.staged_owned_practice_item_ids(vault, repository)
+    # Canonical sources S1 (C3): an imported exercise whose answer key is not
+    # verified never enters a held-out exam.
+    unverified = _unverified_imports(vault, repository)
 
     candidates: list[_Candidate] = []
     for item in vault.practice_items.values():
@@ -324,7 +341,7 @@ def _candidates(
             continue
         if item.id in attempted or item.id in reserved_elsewhere:
             continue
-        if item.id in staged_owned:
+        if item.id in staged_owned or item.id in unverified:
             continue
         state = item_states.get(item.id)
         if state is not None and not state.active:

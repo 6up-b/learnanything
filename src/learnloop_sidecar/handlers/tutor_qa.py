@@ -150,7 +150,8 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "note_id", "answer_md", "question_type", "facets", "hint_equivalent", "leak_suspected",
             )}
             response.update(event_id=event_id, remaining=max(0, limit - used),
-                            citations=(event.get("source_context") or {}).get("citations", []))
+                            citations=(event.get("source_context") or {}).get("citations", []),
+                            practice_request=tutor_practice_request(vault, repository, event_id))
         if response is not None:
             return finish_route(ctx, repository, params.capture_id, "ask_tutor",
                                 {"question_event_id": event_id, "note_id": response["note_id"]}, response)

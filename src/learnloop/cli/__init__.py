@@ -27,6 +27,7 @@ from learnloop.cli.families import families_app
 from learnloop.cli.contamination import contamination_app
 from learnloop.cli.evaluation import eval_app
 from learnloop.cli.practice_index import practice_index_app
+from learnloop.cli.sources import sources_app
 from learnloop.cli.inbox import inbox_app
 from learnloop.cli.placement import placement_app
 from learnloop.cli.pf import pf_app
@@ -63,6 +64,7 @@ app.add_typer(families_app, name="families")
 app.add_typer(contamination_app, name="contamination")
 app.add_typer(eval_app, name="eval")
 app.add_typer(practice_index_app, name="practice-index")
+app.add_typer(sources_app, name="sources")
 app.add_typer(placement_app, name="placement")
 app.add_typer(pf_app, name="pf")
 app.add_typer(recurrence_app, name="recurrence")

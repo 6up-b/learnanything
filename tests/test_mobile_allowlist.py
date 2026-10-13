@@ -131,12 +131,17 @@ CHATGPT_PLAN_RPCS = (
 # import row). Desktop only.
 SOURCE_SERVICE_RPCS = (
     "record_proposal_impressions",
+    "import_source_exercise",
+    "get_source_exercise_import",
 )
 SOURCE_SERVICE_EXTENDED_RPCS = (
     "find_practice",
     "record_practice_usage",
     "plan_learner_pick",
     "ask_tutor_question",
+    "reader.ask",
+    "reader.import_exercise",
+    "edit_practice_item",
 )
 
 

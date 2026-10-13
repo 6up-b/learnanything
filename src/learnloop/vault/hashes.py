@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from learnloop.db.stores.source_service import reference_content_hash as _reference_hash
 from learnloop.vault.models import ActivityFamily, Concept, ConceptEdge, LearningObject, PracticeItem, Rubric
 
 
@@ -58,6 +59,14 @@ def practice_item_hash(practice_item: PracticeItem) -> str:
             "grading_rubric": practice_item.grading_rubric,
         }
     )
+
+
+def reference_content_hash(practice_item: PracticeItem) -> str:
+    """What an answer-key check verified (canonical sources S1, §7.3a): the
+    prompt, the expected answer and the grading rubric. One definition, in the
+    store that binds checks to it; separate from :func:`practice_item_hash`,
+    which is unchanged."""
+    return _reference_hash(practice_item)
 
 
 def skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) -> str:

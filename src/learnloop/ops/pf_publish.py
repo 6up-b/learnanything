@@ -130,6 +130,9 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
         "variant_relation": relation,
         "created_at": now_iso,
         "updated_at": now_iso,
+        # Canonical sources S1 (§7.4): a variant of a textbook exercise points at it.
+        **({"canonical_exercise": {**parent.canonical_exercise.model_dump(mode="json"), "relation": "variant_of"}}
+           if getattr(parent, "canonical_exercise", None) is not None else {}),
     }
 
 

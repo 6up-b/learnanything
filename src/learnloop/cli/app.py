@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13 or mvp-0.14); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15 or mvp-0.16); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -136,10 +136,19 @@ def upgrade(
         from learnloop.daily_plan_upgrade import upgrade_to_mvp014
 
         result = upgrade_to_mvp014(_root(vault))
+    elif to == "mvp-0.15":
+        from learnloop.sources_upgrade import upgrade_to_mvp015
+
+        result = upgrade_to_mvp015(_root(vault))
+    elif to == "mvp-0.16":
+        from learnloop.sources_upgrade import upgrade_to_mvp016
+
+        result = upgrade_to_mvp016(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
-            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13 or mvp-0.14."
+            f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, mvp-0.14, "
+            "mvp-0.15 or mvp-0.16."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

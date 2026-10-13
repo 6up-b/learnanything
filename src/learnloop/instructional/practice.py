@@ -23,14 +23,17 @@ from collections.abc import Mapping, Sequence
 from contextlib import closing
 from typing import Any
 
+from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.judgments import append_judgment
+from learnloop.db.stores.practice_index import judgments_by_ids
 from learnloop.db.stores.practice_index import proposal as stored_proposal
 from learnloop.db.stores.source_service import IMPRESSION_SURFACES, insert_impression
 from learnloop.ids import new_ulid
 from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
-from learnloop.practice_index.usage import record_practice_usage
+from learnloop.practice_index.usage import USAGE_TASK, record_practice_usage
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.vault.models import LoadedVault
 
@@ -163,11 +166,48 @@ def record_proposal_pick(repository: Repository, *, proposal_id: str, practice_i
                                  signal="practised", clock=clock)
 
 
+def proposed_exercise(repository: Repository, proposal_id: str, extraction_id: str,
+                      span_ids: Sequence[str]) -> dict[str, Any]:
+    """The source-exercise entry a proposal proposed, or ValueError."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = stored_proposal(connection, proposal_id)
+    if found is None:
+        raise ValueError("Unknown proposal")
+    wanted = ("source_exercise", extraction_id, *sorted(str(span) for span in span_ids))
+    for entry in found["proposed"]:
+        if _proposed_key(entry) == wanted:
+            return dict(entry)
+    raise ValueError("That exercise was not proposed by this proposal")
+
+
+def record_exercise_pick(repository: Repository, *, proposal_id: str, entry: Mapping[str, Any],
+                         clock: Clock | None = None) -> str:
+    """The ``practised`` usage verdict for a picked textbook exercise (idempotent).
+
+    The exercise is not an item until imported, so the verdict names its stable
+    exercise key (``right_kind = source_exercise``)."""
+
+    key = str(entry.get("key") or "")
+    judgment_id = "pus_" + content_key([proposal_id, key, "practised"])[:40]
+    with repository.connection() as connection:
+        if not judgments_by_ids(connection, [judgment_id]):
+            append_judgment(
+                connection, id=judgment_id, task=USAGE_TASK, left_kind="practice_proposal", left_id=proposal_id,
+                right_kind="source_exercise", right_id=key, judge="learner_card",
+                input_hash=content_key([proposal_id, key]), verdict="practised",
+                rationale="learner pick of a textbook exercise proposal", created_at=utc_now_iso(clock),
+            )
+    return judgment_id
+
+
 __all__ = [
     "SHOWN_PROMPT_CHARS",
     "constrain_for_caller",
     "propose_practice",
     "record_proposal_impressions",
+    "proposed_exercise",
+    "record_exercise_pick",
     "record_proposal_pick",
     "service_enabled",
 ]

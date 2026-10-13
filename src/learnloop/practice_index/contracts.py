@@ -43,6 +43,31 @@ class PracticeRerank(WireModel):
     picks: list[str]
 
 
+class FacetQuote(WireModel):
+    """A facet the exercise exercises, with a verbatim quote from its statement
+    that shows it (checked in code; a facet whose quote fails is dropped)."""
+
+    facet_id: str
+    quote: str
+
+
+class ExerciseMetadata(WireModel):
+    """Provisional metadata for one unimported textbook exercise (§8.1)."""
+
+    ref: str
+    facets: list[FacetQuote]
+    practice_mode: str
+
+
+class MixedPracticeRerank(WireModel):
+    """Judge every candidate (practice items and textbook exercises), pick the
+    best few, and give each textbook exercise its provisional metadata."""
+
+    judgments: list[CandidateJudgment]
+    picks: list[str]
+    exercise_metadata: list[ExerciseMetadata]
+
+
 class RelevanceLabels(WireModel):
     labels: list[CandidateJudgment]
 
@@ -60,7 +85,10 @@ __all__ = [
     "RELEVANCE_SCORE",
     "CandidateJudgment",
     "DossierContrast",
+    "ExerciseMetadata",
     "FacetDossierDraft",
+    "FacetQuote",
+    "MixedPracticeRerank",
     "PracticeRerank",
     "Relevance",
     "RelevanceLabels",

@@ -1101,6 +1101,14 @@ class AIRoutingConfig(BaseModel):
     source_rerank: str | None = None
     source_query_writer: str | None = None
     source_relevance_judge: str | None = None
+    # Canonical sources: the book's-solution match (S1), compare_sources (S3),
+    # the exercise discrimination screen and the worked-example equivalence
+    # judge (S2a). Empty = ai.active_provider; a metered route needs
+    # source_service.llm_price_per_million or the step is skipped and labelled.
+    source_solution_match: str | None = None
+    source_compare: str | None = None
+    exercise_discrimination: str | None = None
+    worked_example_equivalence: str | None = None
 
     # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.

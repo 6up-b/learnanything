@@ -103,6 +103,28 @@ STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 # ``plan.reading_blocks``); off, Today is mvp-0.13's.
 DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 
+# mvp-0.15 (canonical sources S1, spec_source_practice_and_probes_v1 §7.3a):
+# certification follows the answer key, on top of mvp-0.14 (the chain stays
+# linear). An attempt on an imported textbook exercise records
+# ``practice_attempts.reference_status`` from the served item's effective key
+# status (the latest check of its CURRENT prompt, key and rubric), and an
+# ``unverified`` attempt schedules and teaches but earns no certification
+# credit (owner decision C3: an unverified solution never certifies anything).
+# DL3's attempt-time gate (spec_daily_loop_v1 §4.4), built here first. Never
+# retroactive: attempts before the tag keep ``not_applicable`` and replay reads
+# the stored column, so a shadow rebuild shows zero deltas. No kill switch
+# re-enables certification; vaults below the tag never run the gate. Expect
+# relabelling at merge (the next free mvp-0.N).
+SOURCE_REFERENCE_GATE_ALGORITHM_VERSION = "mvp-0.15"
+
+# mvp-0.16 (canonical sources S2b, §8.5): intervention needs are fulfilled from
+# the learner's sources before generating, on top of mvp-0.15. It changes which
+# item a follow-up serves (a verified, validated textbook exercise that passes
+# the follow-up chooser's own gate). Kill switch
+# ``source_service.source_first_needs``: off, the generation lane is
+# byte-identical. Expect relabelling at merge.
+SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.16"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -117,6 +139,8 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     STUCK_PROMPT_ALGORITHM_VERSION,
     DAILY_PLAN_ALGORITHM_VERSION,
+    SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
+    SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
 )
 
 
@@ -168,6 +192,14 @@ PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION
 # Every later successor keeps the plan; gates must use this set, never
 # equality against DAILY_PLAN_ALGORITHM_VERSION.
 DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
+
+# Versions whose attempts record the answer-key gate (canonical sources S1).
+# Every later successor keeps it; gates must use this set, never equality.
+SOURCE_REFERENCE_GATE_VERSIONS: frozenset[str] = successors_from(SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
+
+# Versions whose intervention needs try the learner's sources before
+# generating (canonical sources S2b, behind source_service.source_first_needs).
+SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

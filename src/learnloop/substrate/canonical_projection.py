@@ -777,6 +777,7 @@ def project_canonical_facet_state(
             hints_used=int(attempt["hints_used"]),
             primed=bool(attempt.get("primed")),
             recorded=snapshot.activity_by_attempt.get(str(attempt["attempt_id"])),
+            reference_status=attempt.get("reference_status"),
         )
         assisted = activity.counts_as_assisted
         certification_eligible = activity.eligible_for_certification

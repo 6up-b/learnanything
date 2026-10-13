@@ -1403,16 +1403,23 @@ class Repository(
                        a.primed AS primed,
                        a.created_at AS created_at,
                        s.posterior_delta_json AS posterior_delta_json
+                       {reference}
                 FROM practice_attempts a
                 LEFT JOIN attempt_surprise s ON s.attempt_id = a.id
                 ORDER BY a.created_at ASC, a.id ASC
-                """
+                """.format(reference=(
+                    ", a.reference_status AS reference_status"
+                    if _has_column(connection, "practice_attempts", "reference_status") else ""
+                ))
             ).fetchall()
         history: list[dict[str, Any]] = []
         for row in rows:
             payload = dict(row)
             payload["posterior_delta"] = _loads(payload.pop("posterior_delta_json"), None)
             payload["primed"] = bool(payload["primed"])
+            # Canonical sources S1: carried only when it says something.
+            if payload.get("reference_status") in (None, "not_applicable"):
+                payload.pop("reference_status", None)
             history.append(payload)
         return history
 
@@ -17305,6 +17312,12 @@ class Repository(
             # column defaults to 0); a stuck answer there fails loudly.
             columns.append("declared_stuck")
             values.append(1)
+        if attempt.get("reference_status") not in (None, "not_applicable"):
+            # Canonical sources S1 (migration 185): the served item's answer-key
+            # status, recorded once at attempt time (C3). Written only when it
+            # says something, like declared_stuck.
+            columns.append("reference_status")
+            values.append(attempt["reference_status"])
         connection.execute(
             f"INSERT INTO practice_attempts({', '.join(columns)}) "
             f"VALUES ({', '.join('?' for _ in columns)})",
@@ -25499,6 +25512,10 @@ def _grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord:
         attribution_json=row["attribution_json"] if "attribution_json" in row.keys() else None,
         correlation_group=row["correlation_group"] if "correlation_group" in row.keys() else None,
     )
+
+
+def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(row[1] == column for row in connection.execute(f'PRAGMA table_info("{table}")'))
 
 
 def _decode_attempt(row: sqlite3.Row) -> dict[str, Any]:

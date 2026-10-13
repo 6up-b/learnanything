@@ -329,6 +329,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # The guard's registered planted cases (an M1 run's); required inputs of
     # the mvp-0.12 switch, append-only (Slice 2 T1 §3.6).
     ("recurrence_guard_cases", TableRole.RAW_LEDGER),
+    # Canonical sources S1: captured answer-key verifier output, bound to the
+    # content it checked (append-only).
+    ("reference_key_checks", TableRole.RAW_LEDGER),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
     ("reveal_events", TableRole.RAW_LEDGER),
@@ -363,6 +366,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_document_blocks", TableRole.RAW_LEDGER),
     ("source_document_units", TableRole.RAW_LEDGER),
     ("source_exam_profiles", TableRole.COMPAT),
+    # Canonical sources S1: imports of textbook exercises (paid outputs and
+    # their import lifecycle; never re-run on rebuild).
+    ("source_exercise_imports", TableRole.WORKFLOW),
     ("source_exposure_events", TableRole.RAW_LEDGER),
     ("source_extraction_runs", TableRole.WORKFLOW),
     ("source_locator_schemes", TableRole.COMPAT),

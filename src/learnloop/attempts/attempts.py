@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from contextlib import nullcontext
+from contextlib import closing, nullcontext
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
@@ -73,7 +73,9 @@ from learnloop.learner.mastery import (
     update_item_difficulty,
     update_mastery_traced,
 )
-from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
+from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS, SOURCE_REFERENCE_GATE_VERSIONS
+from learnloop.db.connection import connect
+from learnloop.db.stores.source_service import reference_status_for_item
 from learnloop.attempts.blind_grading import (
     BLIND_CALIBRATION_PROMPT_VERSION,
     BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
@@ -205,6 +207,11 @@ class AttemptDraft:
     # primed because we caught a reveal?" is answerable from the attempt's debug
     # payload alone.
     auto_primed_reveal_total: float | None = None
+    # Canonical sources S1 (mvp-0.15, C3): the served item's answer-key status
+    # when the attempt was made (``practice_attempts.reference_status``). None
+    # derives it at attempt time from the item's effective key status; replay
+    # passes the stored value and never re-derives it.
+    reference_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1285,6 +1292,10 @@ def replay_existing_attempt(
         # mvp-0.13: what the learner sent was a stuck answer (persisted, never
         # read from today's stuck_prompt switch).
         declared_stuck=bool(attempt.get("declared_stuck")),
+        # mvp-0.15: the answer-key status recorded at attempt time, never
+        # re-derived from today's checks (a later verification is not
+        # retroactive).
+        reference_status=attempt.get("reference_status") or "not_applicable",
         # Replay must reproduce the recorded assistance state, not re-derive it.
         # `primed` drives the IRT easiness shift, the EB-difficulty exclusion and
         # the repair-activity classification, so a replay that dropped it would
@@ -3144,6 +3155,23 @@ def load_attempt_prior_state(
     )
 
 
+def _attempt_reference_status(vault: LoadedVault, repository: Repository, item: PracticeItem,
+                              draft: AttemptDraft, *, replay: bool) -> str:
+    """The attempt-time answer-key signal (canonical sources S1, C3).
+
+    Read from the served item's effective key status at or above the gate's
+    tag; ``not_applicable`` below it, for items that are not exercise imports,
+    and on replay unless the stored row says otherwise.
+    """
+
+    if draft.reference_status is not None:
+        return draft.reference_status
+    if replay or vault.config.algorithms.algorithm_version not in SOURCE_REFERENCE_GATE_VERSIONS:
+        return "not_applicable"
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return reference_status_for_item(connection, item)
+
+
 def _compute_resolved_grade_application(
     vault: LoadedVault,
     repository: Repository,
@@ -3564,6 +3592,7 @@ def _compute_resolved_grade_application(
         "evidence_origin": draft.evidence_origin,
         "declared_dont_know": draft.declared_dont_know,
         "declared_stuck": draft.declared_stuck,
+        "reference_status": _attempt_reference_status(vault, repository, item, draft, replay=replay),
     }
     error_event_ids = [
         error_event_ids_override[index]

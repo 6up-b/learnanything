@@ -49,7 +49,7 @@ from learnloop.db.stores.practice_index import (
 )
 from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_label, item_facets, registered_facets
-from learnloop.practice_index.contracts import RELEVANCE_SCORE, PracticeRerank
+from learnloop.practice_index.contracts import RELEVANCE_SCORE, MixedPracticeRerank, PracticeRerank
 from learnloop.practice_index.dossiers import select_current_dossiers
 from learnloop.practice_index.listwise import (
     ListwiseTask,
@@ -783,6 +783,202 @@ def _proposed_entry(entry: Mapping[str, Any], *, with_rationale: bool) -> dict[s
     return value
 
 
+#: The mixed pool's rerank: practice items and textbook exercises judged in one
+#: listwise call (canonical sources S1, §7.1). Items-only requests keep v1.
+MIXED_RERANK_PROMPT_VERSION = "practice_rerank.v2"
+MIXED_RERANK_OUTPUT_TOKENS = 5000
+EXERCISE_STATEMENT_PROMPT_CHARS = 1200
+_MIXED_INSTRUCTIONS = (
+    _RERANK_INSTRUCTIONS
+    + " Candidates are of two kinds: practice_item (already in the learner's practice) and "
+    "textbook_exercise (an exercise from the learner's own sources, not yet in their practice). "
+    "Judge both the same way. Prefer a question already in the learner's practice when it serves "
+    "the request equally well. For EVERY textbook_exercise candidate also give exercise_metadata: "
+    "its ref; the facets it exercises, chosen only from facet_vocabulary by id, each with a short "
+    "quote copied verbatim from the exercise's statement that shows the facet (leave out any facet "
+    "you cannot quote); and its practice_mode, one of practice_modes."
+)
+
+MIXED_RERANK_TASK = ListwiseTask(
+    route_task="practice_rerank", ledger_task="practice_relevance", left_kind="practice_query",
+    right_kind="practice_candidate", id_prefix="prm_", prompt_version=MIXED_RERANK_PROMPT_VERSION,
+    output_tokens=MIXED_RERANK_OUTPUT_TOKENS, result_model=MixedPracticeRerank, verdict_field="relevance",
+    scores=RELEVANCE_SCORE, price_setting="practice_index.rerank_price_per_million",
+    route_label="rerank ",
+)
+
+
+def _mixed_context(vault: LoadedVault, items: Sequence[str],
+                   exercises: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Prompt context for one judged pool; refs map to item ids or exercise keys."""
+    context: list[dict[str, Any]] = []
+    refs: dict[str, str] = {}
+    for entry, item_id in zip(_candidate_context(vault, items), items, strict=True):
+        context.append({**entry, "kind": "practice_item"})
+        refs[entry["ref"]] = item_id
+    offset = len(context)
+    for index, exercise in enumerate(exercises, start=offset + 1):
+        statement = " ".join(str(exercise.get("statement") or "").split())
+        if len(statement) > EXERCISE_STATEMENT_PROMPT_CHARS:
+            statement = statement[:EXERCISE_STATEMENT_PROMPT_CHARS - 1] + "…"
+        ref = f"c{index}"
+        context.append({"ref": ref, "kind": "textbook_exercise",
+                        "source": str(exercise.get("source_title") or "")[:120],
+                        "label": exercise.get("label"), "page": exercise.get("page"),
+                        "statement": statement})
+        refs[ref] = str(exercise["key"])
+    return context, refs
+
+
+def _facet_vocabulary(vault: LoadedVault, constraints: PracticeConstraints) -> list[dict[str, str]]:
+    """The registry ids a raw exercise's provisional facets may be chosen from:
+    the constraint facets and the constraint LOs' facet union (canonical ids),
+    including the facets the LOs' own practice items declare."""
+    from learnloop.vault.models import learning_object_facet_union
+
+    wanted: list[str] = [vault.canonical_facet_id(f) for f in constraints.facet_ids]
+    for lo_id in constraints.learning_object_ids:
+        learning_object = vault.learning_objects.get(lo_id)
+        if learning_object is not None:
+            wanted.extend(vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(learning_object))
+            for item in vault.practice_items.values():
+                if item.learning_object_id == lo_id and item.status != "retired":
+                    wanted.extend(sorted(item_facets(vault, item)))
+    facets = vault.evidence_facets
+    return [{"id": facet_id, "title": facet_label(facets[facet_id])}
+            for facet_id in dict.fromkeys(wanted) if facet_id in facets]
+
+
+def practice_modes(vault: LoadedVault) -> list[str]:
+    """The closed practice-mode vocabulary: modes in use plus default rubrics'."""
+    modes = {item.practice_mode for item in vault.practice_items.values() if item.practice_mode}
+    modes |= set(vault.default_rubrics)
+    return sorted(modes)
+
+
+def _validate_mixed(result: MixedPracticeRerank, refs: Mapping[str, str],
+                    exercise_refs: set[str]) -> MixedPracticeRerank:
+    if not {judgment.ref for judgment in result.judgments} >= set(refs):
+        raise AIInvalidOutput("The rerank did not judge every candidate")
+    if not {entry.ref for entry in result.exercise_metadata} >= exercise_refs:
+        raise AIInvalidOutput("The rerank did not describe every textbook exercise")
+    return result
+
+
+def _quote_in(quote: str, text: str) -> bool:
+    def normalized(value: str) -> str:
+        return " ".join(value.casefold().split())
+
+    words = quote.split()
+    return len(words) >= 2 and normalized(quote) in normalized(text)
+
+
+def provisional_metadata(entry: Any, exercise: Mapping[str, Any], vocabulary: Sequence[Mapping[str, str]],
+                         modes: Sequence[str]) -> dict[str, Any]:
+    """The model's provisional facets and mode, checked in code (§8.1).
+
+    A facet survives only when it is in the shown vocabulary and its quote is
+    verbatim in the exercise's statement; an unknown mode is dropped.
+    """
+    allowed = {row["id"] for row in vocabulary}
+    statement = str(exercise.get("statement") or "")
+    facets, rejected = [], []
+    for quoted in getattr(entry, "facets", None) or ():
+        facet_id = str(quoted.facet_id)
+        if facet_id in allowed and _quote_in(str(quoted.quote), statement) and facet_id not in facets:
+            facets.append(facet_id)
+        else:
+            rejected.append({"facet_id": facet_id, "reason": "not shown" if facet_id not in allowed
+                             else "quote not in the statement"})
+    mode = str(getattr(entry, "practice_mode", "") or "")
+    return {"facets": facets, "rejected_facets": rejected,
+            "practice_mode": mode if mode in modes else None,
+            "basis": "matched on the exercise's text (provisional)"}
+
+
+@dataclass
+class MixedOutcome:
+    status: str
+    picks: list[str] = field(default_factory=list)
+    judgments: dict[str, dict[str, Any]] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    model: str | None = None
+    usage: dict[str, Any] = field(default_factory=dict)
+
+
+def rerank_mixed_pool(vault: LoadedVault, repository: Repository, *, query_text: str, items: Sequence[str],
+                      exercises: Sequence[Mapping[str, Any]], pick_at_most: int, owner_id: str,
+                      constraints: PracticeConstraints, client: Any | None = None) -> MixedOutcome:
+    """One listwise call over items and textbook exercises (canonical sources S1)."""
+    if not items and not exercises:
+        return MixedOutcome("empty_pool")
+    route = plan_route(vault, "practice_rerank", client)
+    context, refs = _mixed_context(vault, items, exercises)
+    exercise_refs = {ref for ref, key in refs.items() if key.startswith("srcex:")}
+    vocabulary = _facet_vocabulary(vault, constraints)
+    modes = practice_modes(vault)
+    prompt = render_structured_prompt(
+        "Practice-index rerank", MIXED_RERANK_PROMPT_VERSION,
+        {"instructions": _MIXED_INSTRUCTIONS,
+         "context": {"request": query_text, "pick_at_most": pick_at_most, "candidates": context,
+                     "facet_vocabulary": vocabulary, "practice_modes": modes}},
+    )
+    captured: dict[str, Any] = {}
+
+    def validate(value: MixedPracticeRerank) -> MixedPracticeRerank:
+        checked = _validate_mixed(value, refs, exercise_refs)
+        captured["metadata"] = {entry.ref: entry for entry in checked.exercise_metadata}
+        return checked
+
+    outcome = judge_listwise(
+        vault, repository, MIXED_RERANK_TASK, prompt=prompt, refs=refs, left_id=query_id(query_text),
+        right_id=lambda key: key, id_parts=lambda key: [key], pick_at_most=pick_at_most,
+        caps=rerank_caps(vault, len(refs)), price=vault.config.practice_index.rerank_price_per_million,
+        owner_id=owner_id, client=client, route=route, validate=validate,
+    )
+    if outcome.status in {"cached", "judged"}:
+        judgments = {
+            key: {"relevance": row["verdict"],
+                  "rationale": json.loads(row["rationale"] or "{}").get("text", ""),
+                  "judgment_id": row["id"]}
+            for key, row in outcome.rows.items()
+        }
+        by_key = {exercise["key"]: exercise for exercise in exercises}
+        metadata: dict[str, Any] = {}
+        raw = captured.get("metadata") or {}
+        for ref, key in refs.items():
+            if key in by_key:
+                entry = raw.get(ref)
+                metadata[key] = (provisional_metadata(entry, by_key[key], vocabulary, modes) if entry is not None
+                                 else {"facets": [], "rejected_facets": [], "practice_mode": None,
+                                       "basis": "served from the ledger; provisional metadata not recorded"})
+                metadata[key]["judgment_id"] = judgments.get(key, {}).get("judgment_id")
+                metadata[key]["prompt_version"] = MIXED_RERANK_PROMPT_VERSION
+        status = "reranked" if outcome.status == "judged" else "cached"
+        return MixedOutcome(status, list(outcome.picks), judgments, metadata, outcome.model, outcome.usage)
+    if outcome.status == "unavailable":
+        return MixedOutcome(f"unavailable: {outcome.reason}")
+    if outcome.status in {"over_budget", "failed"}:
+        return MixedOutcome(f"{outcome.status}: {outcome.reason}", usage=outcome.usage)
+    return MixedOutcome(outcome.status, usage=outcome.usage)
+
+
+def _exercise_entry(exercise: Mapping[str, Any], judgment: Mapping[str, Any],
+                    metadata: Mapping[str, Any] | None) -> dict[str, Any]:
+    return {
+        "kind": "source_exercise", "key": exercise["key"],
+        "extraction_id": exercise["extraction_id"], "span_ids": list(exercise["span_ids"]),
+        "source_id": exercise.get("source_id"), "revision_id": exercise.get("revision_id"),
+        "source_title": exercise.get("source_title"), "label": exercise.get("label"),
+        "page": exercise.get("page"), "statement": exercise.get("statement"),
+        "relevance": judgment.get("relevance"), "rationale": judgment.get("rationale"),
+        "provisional": dict(metadata or {}),
+        "label_line": (f"From {exercise.get('source_title')}"
+                       + (f", p. {exercise.get('page')}" if exercise.get("page") is not None else "")
+                       + " · not yet in your practice"),
+    }
+
+
 def find_practice(
     vault: LoadedVault,
     repository: Repository,
@@ -794,12 +990,18 @@ def find_practice(
     rerank_client: Any | None = None,
     clock: Clock | None = None,
     caller: Mapping[str, Any] | None = None,
+    exercise_arm: Any | None = None,
 ) -> dict[str, Any]:
     """Propose practice items for a natural-language request. Never serves.
 
     ``caller`` (``{"kind", "ref"}``) is the server-derived caller context of
     the canonical-sources service (its S0): it is recorded on the receipt so
     usage signals, impressions and later outcomes can be joined to who asked.
+
+    ``exercise_arm`` (injected by the service's adapters, never imported here)
+    adds textbook exercises from the learner's own sources: judged in the same
+    listwise call as items and proposed as ``source_exercise`` entries, never
+    as item ids until imported. ``constraints.kinds`` chooses the arms.
     """
     config = vault.config.practice_index
     if not config.enabled:
@@ -817,9 +1019,14 @@ def find_practice(
             f"intent {constraints.intent!r} is valued by value of information and needs the "
             "valuation, which this call was not given",
         )
+    kinds = constraints.kinds or ("both" if exercise_arm is not None else "items")
+    want_items = kinds in ("items", "both")
+    want_exercises = kinds in ("source_exercises", "both")
     limit = constraints.limit or config.proposals
     proposal_id = "pp_" + new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock)
+    if not want_items:
+        corpus = []
     snapshot = load_snapshot(vault, repository, embedder=embedder)
     path, path_reason = choose_path(vault, repository, snapshot)
     needs_vectors = snapshot.uses_vectors and (
@@ -840,19 +1047,41 @@ def find_practice(
         snapshot, repository, text, query_vector, corpus,
     )
     pool = ranking.order[: config.candidate_pool]
+    exercise_pool = None
+    exercises: list[dict[str, Any]] = []
+    if want_exercises and exercise_arm is not None:
+        exercise_pool = exercise_arm(vault, repository, text, constraints, pool_size=config.candidate_pool,
+                                     embedder=embedder, owner_id=proposal_id)
+        exercises = list(exercise_pool.candidates)
     use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
-    if use_rerank:
+    mixed: MixedOutcome | None = None
+    if exercises and use_rerank:
+        mixed = rerank_mixed_pool(vault, repository, query_text=text, items=pool, exercises=exercises,
+                                  pick_at_most=limit, owner_id=proposal_id, constraints=constraints,
+                                  client=rerank_client)
+        outcome = RerankOutcome(mixed.status, mixed.picks, mixed.judgments, mixed.model, mixed.usage)
+    elif use_rerank:
         outcome = rerank_pool(vault, repository, query_text=text, pool=pool,
                               pick_at_most=limit, owner_id=proposal_id, client=rerank_client)
     else:
         outcome = RerankOutcome("disabled")
     reranked = outcome.status in {"reranked", "cached"}
+    # Unjudged textbook exercises are never proposed: every learner-visible
+    # pick passes a judge (SC7). Items keep Phase 5b's unreranked fallback.
     chosen = outcome.picks if reranked else pool[:limit]
+    by_key = {exercise["key"]: exercise for exercise in exercises}
     items = []
-    for rank, item_id in enumerate(chosen, start=1):
+    proposed_exercises = []
+    for rank, key in enumerate(chosen, start=1):
+        judgment = outcome.judgments.get(key, {})
+        if key in by_key:
+            entry = _exercise_entry(by_key[key], judgment, (mixed.metadata if mixed else {}).get(key))
+            entry["rank"] = rank
+            proposed_exercises.append(entry)
+            continue
+        item_id = key
         item = vault.practice_items[item_id]
         learning_object = vault.learning_objects.get(item.learning_object_id)
-        judgment = outcome.judgments.get(item_id, {})
         items.append({
             "rank": rank, "practice_item_id": item_id,
             "learning_object_id": item.learning_object_id,
@@ -864,22 +1093,32 @@ def find_practice(
         })
     signals = {"item": ranking.signals, "facet": ranking.facet_signals,
                "query_embedding": vector_status}
+    if exercise_pool is not None:
+        signals["exercises"] = exercise_pool.describe()
     manifest = {**snapshot.manifest(), "manifest_hash": snapshot.manifest_hash(),
                 "algorithm_version": vault.config.algorithms.algorithm_version}
+    if mixed is not None:
+        manifest["rerank_prompt_version"] = MIXED_RERANK_PROMPT_VERSION
+    proposed = [_proposed_entry(entry, with_rationale=caller is not None) for entry in items]
+    proposed += [{key: entry[key] for key in (
+        "kind", "key", "extraction_id", "span_ids", "source_id", "revision_id", "source_title", "label",
+        "page", "statement", "rank", "relevance", "rationale", "provisional")} for entry in proposed_exercises]
+    proposed.sort(key=lambda entry: entry["rank"])
     with repository.connection() as connection:
         insert_proposal(
             connection, id=proposal_id, created_at=utc_now_iso(clock), origin=origin,
             query_id=query_id(text), query_text=text, constraints=constraints.as_dict(),
             path=path, path_reason=path_reason, signals=signals, reranked=reranked,
             rerank_status=outcome.status, rerank_model=outcome.model,
-            proposed=[_proposed_entry(entry, with_rationale=caller is not None) for entry in items],
+            proposed=proposed,
             exclusions={"admitted": len(corpus), "excluded": exclusions,
-                        "pool": len(pool), "facets": ranking.facets},
+                        "pool": len(pool), "facets": ranking.facets,
+                        **({"exercise_pool": len(exercises)} if exercise_pool is not None else {})},
             manifest=manifest, algorithm_version=vault.config.algorithms.algorithm_version,
             caller=(caller or {}).get("kind"), caller_ref=(caller or {}).get("ref"),
             intent=constraints.intent if caller is not None else None,
         )
-    return {
+    result = {
         "status": "ok", "proposal_id": proposal_id, "query_id": query_id(text),
         "intent": constraints.intent,
         "path": path, "path_reason": path_reason, "signals": signals,
@@ -890,6 +1129,14 @@ def find_practice(
         "serves": False,
         "note": "Proposals only. The scheduler serves; nothing here records practice or evidence.",
     }
+    if exercise_pool is not None:
+        result["source_exercises"] = proposed_exercises
+        result["kinds"] = kinds
+        if exercises and not reranked:
+            result["source_exercises_status"] = (
+                f"not proposed: textbook exercises are proposed only after a judge reads them "
+                f"({outcome.status})")
+    return result
 
 
 __all__ = [
@@ -899,6 +1146,11 @@ __all__ = [
     "IndexSnapshot",
     "IntentUnavailable",
     "KINDS",
+    "MIXED_RERANK_PROMPT_VERSION",
+    "MIXED_RERANK_TASK",
+    "practice_modes",
+    "provisional_metadata",
+    "rerank_mixed_pool",
     "PracticeConstraints",
     "VALUE_INTENTS",
     "canonical_intent",

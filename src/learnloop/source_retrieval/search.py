@@ -37,7 +37,7 @@ from learnloop.db.stores.source_block_fts import (
 )
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.practice_index.text import reciprocal_rank_fusion
-from learnloop.source_retrieval.corpus import Scope
+from learnloop.source_retrieval.corpus import Scope, role_keys
 from learnloop.source_retrieval.dense import DenseIndex, load_dense_index
 from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
@@ -91,6 +91,14 @@ class SpanSearch:
     query_embedding: dict[str, Any] = field(default_factory=dict)
     rewrite: dict[str, Any] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    #: Per list, whether it reached its source's end at the depth asked
+    #: (canonical sources §8.3.4: paging ends only on exhaustion).
+    list_ends: dict[str, bool] = field(default_factory=dict)
+    #: The whole fused order (every key any list ranked), not just the hits.
+    fused_keys: list[SpanKey] = field(default_factory=list)
+    #: The depth each list was asked for.
+    list_depths: dict[str, int] = field(default_factory=dict)
+    roles: list[str] = field(default_factory=list)
 
     @property
     def basis(self) -> str:
@@ -108,9 +116,12 @@ class SpanSearch:
         return "+".join(kinds + extra) or "none"
 
     def describe(self) -> dict[str, Any]:
-        return {"basis": self.basis, "lists": list(self.lists), "scope": self.scope,
-                "dense": self.dense, "query_embedding": self.query_embedding,
-                "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits)}
+        value = {"basis": self.basis, "lists": list(self.lists), "scope": self.scope,
+                 "dense": self.dense, "query_embedding": self.query_embedding,
+                 "rewrite": self.rewrite, "notes": list(self.notes), "hits": len(self.hits)}
+        if self.roles:
+            value["roles"] = list(self.roles)
+        return value
 
 
 def _hit(block: BlockRow, scope: Scope, ranks: Mapping[str, int], titles: Mapping[str, str]) -> SpanHit:
@@ -143,6 +154,8 @@ def search_spans(
     owner_id: str = "",
     deadline: float | None = None,
     budget: SpendBudget | None = None,
+    roles: Sequence[str] = (),
+    list_depth: int | Mapping[str, int] = LIST_DEPTH,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
@@ -153,28 +166,55 @@ def search_spans(
     query embedding's requests carry the remaining time as their timeout, and
     neither starts after it.
     ``budget`` puts both paid steps under one caller's caps.
+
+    Canonical sources S1: ``roles`` is a positive filter (every list keeps only
+    blocks whose effective role hint is one of them); ``list_depth`` (one depth,
+    or one per list name) deepens recall, which ``limit`` never does, and the
+    result says per list whether it reached its source's end (``list_ends``)
+    and gives the whole fused order (``fused_keys``). The defaults keep every
+    existing caller byte-identical.
     """
 
     config = vault.config.source_retrieval
     text = normalize_query(query)[:MAX_QUERY_CHARS]
-    result = SpanSearch(query=text, scope=scope.describe())
+    result = SpanSearch(query=text, scope=scope.describe(), roles=list(roles))
     if len(text) < 2 or not scope.extractions:
         return result
     retrieval_text = text if not context_text else f"{text} {normalize_query(context_text)}"
     extraction_ids = sorted(scope.extractions)
     lists: dict[str, list[SpanKey]] = {}
 
+    def depth(name: str) -> int:
+        if isinstance(list_depth, Mapping):
+            return int(list_depth.get(name, LIST_DEPTH))
+        return int(list_depth)
+
+    permitted_roles: set[SpanKey] | None = None
+    if roles:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            permitted_roles = role_keys(connection, extraction_ids, roles)
+
+    def keep(key: SpanKey) -> bool:
+        return scope.allows(*key) and (permitted_roles is None or key in permitted_roles)
+
     def allowed(keys: Sequence[SpanKey]) -> list[SpanKey]:
-        return [key for key in dict.fromkeys(keys) if scope.allows(*key)]
+        return [key for key in dict.fromkeys(keys) if keep(key)]
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        keyword = allowed([(m.extraction_id, m.span_id) for m in search_blocks(
-            connection, retrieval_text, extraction_ids=extraction_ids, limit=LIST_DEPTH,
-            prefix_last=prefix_last)])
+        raw = search_blocks(connection, retrieval_text, extraction_ids=extraction_ids, limit=depth("keyword"),
+                            prefix_last=prefix_last)
+        result.list_depths["keyword"] = depth("keyword")
+        # Counted before the scope filter: fewer rows than asked means the
+        # keyword source itself has no more matches.
+        result.list_ends["keyword"] = len(raw) < depth("keyword")
+        keyword = allowed([(m.extraction_id, m.span_id) for m in raw])
         if keyword:
             lists["keyword"] = keyword
     if include_substring:
-        rows = repository.search_source_blocks(query=text, extraction_ids=extraction_ids, limit=LIST_DEPTH)
+        rows = repository.search_source_blocks(query=text, extraction_ids=extraction_ids,
+                                               limit=depth("substring"))
+        result.list_depths["substring"] = depth("substring")
+        result.list_ends["substring"] = len(rows) < depth("substring")
         substring = allowed([(str(row["extraction_id"]), str(row["span_id"])) for row in rows])
         if substring:
             lists["substring"] = substring
@@ -194,9 +234,11 @@ def search_spans(
             result.rewrite = {"status": "not_needed"}
         if rewrite_result is not None and rewrite_result.ok:
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-                rewritten_keyword = allowed([(m.extraction_id, m.span_id) for m in search_blocks(
-                    connection, rewritten_text(rewrite_result), extraction_ids=extraction_ids,
-                    limit=LIST_DEPTH)])
+                raw_rewrite = search_blocks(connection, rewritten_text(rewrite_result),
+                                            extraction_ids=extraction_ids, limit=depth("rewrite_keyword"))
+            result.list_depths["rewrite_keyword"] = depth("rewrite_keyword")
+            result.list_ends["rewrite_keyword"] = len(raw_rewrite) < depth("rewrite_keyword")
+            rewritten_keyword = allowed([(m.extraction_id, m.span_id) for m in raw_rewrite])
             if rewritten_keyword:
                 lists["rewrite_keyword"] = rewritten_keyword
         if query_vectors is None and embedder is None and not vault.config.embedding.enabled:
@@ -223,7 +265,7 @@ def search_spans(
                     deadline=deadline)
 
             def permit(record_id: str) -> bool:
-                return scope.allows(*split_record_id(record_id))
+                return keep(split_record_id(record_id))
 
             for name, key in (("meaning", "query"), ("rewrite_meaning", "rewrite")):
                 vector = vectors.get(key)
@@ -231,16 +273,20 @@ def search_spans(
                     continue
                 try:
                     ranked = [split_record_id(record_id) for record_id, _score in
-                              index.rank(vector, limit=LIST_DEPTH, allow=permit)]
+                              index.rank(vector, limit=depth(name), allow=permit)]
                 except ValueError:  # a query vector of another width: never ranked
                     result.notes.append(f"{name}: the query vector does not match the index width")
                     continue
+                # The dense rank applies the scope filter before counting.
+                result.list_depths[name] = depth(name)
+                result.list_ends[name] = len(ranked) < depth(name)
                 if ranked:
                     lists[name] = ranked
         elif index.reason:
             result.notes.append(index.reason)
     for name, keys in (extra_lists or {}).items():
         extra = allowed(list(keys))
+        result.list_ends[name] = True  # complete as passed
         if extra:
             lists[name] = extra
 
@@ -249,6 +295,7 @@ def search_spans(
         k=config.rrf_k,
     )
     result.lists = sorted(lists)
+    result.fused_keys = [split_record_id(record_id) for record_id in order]
     wanted = [split_record_id(record_id) for record_id in order[: max(limit * 2, limit + 20)]]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, wanted)
