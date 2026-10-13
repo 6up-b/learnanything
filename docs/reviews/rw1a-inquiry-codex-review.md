@@ -271,3 +271,125 @@ Targeted run first: `tests/test_reader_passage_check.py`,
 No paid call was made in this fix step (no model, Decider or embedding
 request; $0). No vault database was opened; `fixtures/linear_algebra`,
 `fixtures/probability` and `fixtures/arxiv_v2` were not touched.
+
+## Re-review (Codex job `20261013-080554-9rpWH0`)
+
+The re-review of the fixes above confirmed F1 fixed, reopened F2, and found
+three defects the fix commits introduced (F13-F15). All four open findings
+reproduce. All four are fixed: two commits on top of `ddc44b21`, none
+rejected. No model, Decider or embedding call was made and no money was
+spent: every test uses fakes.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Passage checks expose ambient Codex tools to untrusted source text | Confirmed fixed by the re-review (no change) | `842fd375` | The three F1 tests above, unchanged and passing |
+| F2 | High | Daily admission is not atomic (reopened) | Fixed | `b3fdecce` | `tests/test_reader_passage_check.py::test_concurrent_checks_on_different_inquiries_never_overrun_the_daily_count` |
+| F13 | Medium | Crashed inquiry claims make Reader retries complete without a question | Fixed | `b3fdecce` | `test_reader_passage_check.py::test_a_claim_left_by_a_crashed_job_is_taken_over_by_the_next_job_at_once`, `::test_a_check_held_by_a_live_job_waits_for_it_and_returns_its_question`, `::test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_a_question` |
+| F14 | Medium | Late poll results settle the replacement job's funnel record | Fixed | `a10fcdc6` | `ReaderScreen.review.test.tsx`: "a late poll for an earlier batch never settles the retry's wait" |
+| F15 | Low | Dollar-cap refusals claim that no model price is configured | Fixed | `b3fdecce` (refusal reason), `a10fcdc6` (Reader) | `test_reader_passage_check.py::test_a_spend_refusal_says_whether_the_price_is_missing_or_the_check_is_over_its_cap` (2 cases); `tests/test_reader_reconnect.py::test_the_quick_check_read_reports_its_durable_jobs_state` (now also reads `refusal`); `ReaderScreen.review.test.tsx`: "a check over its per-check spending limit says so, and a missing price says that" |
+
+### Reproductions on `ddc44b21` (before the re-review fixes)
+
+| ID | What the code did |
+|---|---|
+| F2 | The new test makes both workers read the day's count before either sends (a barrier on the first two count reads), with `max_checks_per_day = 1` and two different inquiry roots: **2 metered requests** (`assert 2 == 1`), as Codex's probe found. |
+| F13 | Through the real runner: job A claims the inquiry and its process dies; three minutes on, `recover_stale_leases` fails A as `interrupted`; the learner's retry queues job B, which **completed with `question_id: None`** and made no request (A's 30-minute claim was "held"). Nothing would ever have landed for the Reader to find. |
+| F14 | Batch A's first poll held outstanding, its second poll failed, the learner retried into batch B, then A's late answer arrived: B's funnel record was **settled as `failed`** while B was still visibly pending, and B's own completion could no longer be recorded. |
+| F15 | A job failed with `spend_refused` over the per-check dollar cap showed **"no price is set for this model"**. The backend refusal carried no way to tell the two apart (`PassageCheckRefused` had no `refusal`). |
+
+## What changed (re-review)
+
+**F2. The day's slot is reserved in the same transaction as the receipt.**
+When a passage check's root call starts, its receipt callback opens one
+`BEGIN IMMEDIATE` transaction (`Repository.atomic()`), counts the day's
+`reader_inquiry_check` root receipts, and either writes this call's receipt
+or refuses with `capped`. Raising there stops the call before its request is
+sent, with no receipt. SQLite's write lock serialises the count-then-insert
+across threads and processes, so two workers on different inquiries can no
+longer both see the last slot. The count before the request is built stays,
+as a fast path only. Failed calls still count: their receipts are written
+before they are sent, as before.
+
+**F13. An ended job's claim is taken at once; a live one is waited on.**
+- **Takeover.** `author_inquiry_quick_check` takes `owner_ended`. When the
+  claim is held, it reads the holder (`judgment_claims.lease_holder`). If the
+  holder is an ingest job that has ended (`completed`, `failed`,
+  `cancelled` or `blocked`: it will never land or release the claim), it
+  takes the lease over at once with a new epoch
+  (`judgment_claims.take_over_claim`). The new epoch fences the old owner
+  out, so its completion can never land a second row. All of this happens in
+  the claim's own write transaction. An owner that is not an ingest job is
+  left to its lease, as before.
+- **Waiting, never empty success.** A claim held by a live job is waited on
+  in the handler. The job stays `running`, heartbeats and honours cancel
+  through `ctx.report("waiting")`, and polls every 5 s. It ends in one of
+  three ways: with the holder's question, with its own question (when the
+  holder released the key or ended), or, after 120 polls (10 minutes, the
+  Reader's own wait), with the retryable error code `held`. The handler no
+  longer returns `{question_id: null, held: true}`. This supersedes the F3
+  note above ("the job completes with `held: true`").
+
+**F14. Settlement is fenced by batch.** `settleInquiryJob(rootId, batchId,
+…)` records and ends a wait only when `batchId` is the batch being waited
+on. A late answer for an earlier batch (poll, failure, cancel or timeout)
+records nothing and leaves the retry's record in place. The existing
+batch-identity guard already protected the visible state.
+
+**F15. A refusal names its limit.** `PassageCheckRefused.refusal` is
+`no_price` (a metered route with no owner price, now checked before the
+budget) or `over_cap` (the framework's dollar or token cap). The job's error
+`details.refusal` carries it, and `reader.inquiry_question` returns it as
+`job.refusal`. The Reader says "no price is set for this model" only for
+`no_price`. For `over_cap` it says "it would cost more than the spending
+limit for one quick check, so LearnLoop didn't send it". For anything else
+it says "a spending limit stopped it before it was sent". The error code
+stays `spend_refused`, so the funnel's failure reasons are unchanged.
+
+### Where a fix narrows or adapts the suggestion
+
+1. **F13 waits in the handler** instead of re-queueing the job. The runner
+   has no deferred re-queue (`not_before`) for ingest jobs, and a job that
+   stays `running` is what the Reader already reads as pending. The wait is
+   needed only in a race: while a batch for the same inquiry is live, a new
+   request joins it. The parallel lane holds one slot for at most 10 minutes
+   in that case.
+2. **F2 does not add a reservation table.** The receipt itself is the
+   reservation, written under the write lock that guards the count, so no
+   migration was needed and nothing can be left reserved without a receipt.
+3. **Two workers can still both pay when a job is expired while its process
+   lives on** (a stalled heartbeat). The new job takes the claim over and
+   makes its own call. Fencing keeps it to one row, and both calls count
+   toward the day. This is the same trade-off as a lease takeover after
+   expiry. It is recorded here, not changed.
+
+No schema, migration, config field or sidecar method changed. No Tauri
+command changed either: `reader.inquiry_question` gains one response field.
+
+## Re-review gate (exact results)
+
+Run in this worktree at `a10fcdc6` (the two re-review fix commits; only
+this file changed after them) with `TMPDIR=fixtures-local/tmp`. The suite
+and the durability lane ran under `flock /tmp/learnloop-fullsuite.lock`,
+after waiting behind other stages' runs.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok (the sync removes `pypdfium2`; reinstalled) |
+| `uv run lint-imports --no-cache` | **15 kept, 0 broken** |
+| `flock … uv run pytest -n auto` | **9124 passed**, 0 failed, 0 skipped (46 warnings), 5:59 (the previous 9118 plus the 6 new tests) |
+| `flock … uv run pytest -m durability` | **96 passed**, 9028 deselected (1 warning), 1:41 |
+| `npm install`; `npm run typecheck` | exit 0; exit 0 |
+| `npm test` (vitest) | **270 passed** in 51 files (the previous 268 plus the 2 new cases) |
+| `npm run frontend:build` | built (Vite's existing large-chunk warning only) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | **exit 0** (nothing under `src-tauri` changed in this step; run because the branch changes it) |
+| `db_validate_reference.py` | **errors: []**. The schema did not change. `db_generate_reference.py` changed only the `source_commit` stamps, so they were not committed |
+
+Targeted run first: `tests/test_reader_passage_check.py`,
+`test_reader_reconnect.py`, `test_reader_report.py`,
+`test_reader_branches.py`, `test_reader_inquiry_kill_switch.py`,
+`test_mobile_allowlist.py`: **174 passed**. Every test file that touches the
+claim store, the quick-check producer or the ingest runner: **210 passed**.
+
+No paid call was made in this step (no model, Decider or embedding request;
+$0). No vault database was opened. `fixtures/linear_algebra`,
+`fixtures/probability` and `fixtures/arxiv_v2` were not touched.
