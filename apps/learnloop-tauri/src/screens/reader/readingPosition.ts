@@ -19,7 +19,10 @@ export function readingPositionIn(scroller: HTMLElement | null): ReadingPosition
   const pages = Array.from(scroller.querySelectorAll<HTMLElement>("[data-pdf-page]"));
   for (const pageEl of pages) {
     const rect = pageEl.getBoundingClientRect();
-    if (rect.height <= 0 || rect.bottom <= top + 1) continue;
+    // A page not laid out yet before the one at the top: the place is not
+    // known yet, and a later page must not stand in for it (usability round 2).
+    if (rect.height <= 0) return null;
+    if (rect.bottom <= top + 1) continue;
     const page = Number(pageEl.dataset.pdfPage);
     if (!Number.isFinite(page)) continue;
     const widthPoints = Number(pageEl.dataset.widthPoints);

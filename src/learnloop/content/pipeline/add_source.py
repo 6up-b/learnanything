@@ -2013,12 +2013,30 @@ def _built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
         return None
-    from learnloop.content.sources.source_outline import build_source_outline
-
     built = coverage(repo, source_id).built
-    labels = [chapter.label for chapter in outline_chapters(build_source_outline(repo, resolved[1]))
-              if chapter.unit_id in built]
+    if not built:
+        return None
+    labels = [chapter.label for chapter in outline_chapters(_unit_tree(repo, resolved[1])) if chapter.unit_id in built]
     return chapter_phrase(labels, noun=noun) if labels else None
+
+
+def _unit_tree(repo, extraction_id: str) -> Any:
+    """Just the extraction's units (id, parent, label), enough for
+    ``outline_chapters``' chapter list and labels: the card's line is read on
+    every library poll, and the full outline loads the book's text once per
+    unit (usability round 2: 6-8 s per read for a 630-page book)."""
+
+    from types import SimpleNamespace
+
+    with repo.connection() as connection:
+        rows = connection.execute(
+            "SELECT unit_id, parent_unit_id, label FROM source_document_units WHERE extraction_id = ? ORDER BY ordinal",
+            (extraction_id,),
+        ).fetchall()
+    return SimpleNamespace(units=[
+        SimpleNamespace(unit_id=row["unit_id"], parent_unit_id=row["parent_unit_id"], label=row["label"], approx_tokens=0)
+        for row in rows
+    ])
 
 
 def _category_of(source: Any) -> str | None:

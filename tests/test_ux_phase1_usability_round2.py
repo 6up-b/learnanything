@@ -267,3 +267,30 @@ def test_the_as_you_read_line_carries_what_to_say_when_no_ai_is_connected(tmp_pa
         "action": {"kind": "connect_ai", "label": "Connect"},
         "details": None,
     }
+
+
+# ---------------------------------------------------------------------------
+# The shelf stays fast for a long book: the card's line reads the chapter
+# list, never the whole outline (re-walk: with a 630-page book every library
+# read took 6-8 s, polled every 3 s, and the sidecar stalled).
+# ---------------------------------------------------------------------------
+
+
+def test_a_built_books_line_reads_its_text_at_most_once(tmp_path, monkeypatch):
+    from learnloop.content.pipeline.add_source import source_status_line
+
+    root, ctx, source_id = _added_book(tmp_path)
+    repo = ctx.repository
+    loads: list[str] = []
+    real = repo.load_document_ir
+
+    def counting(extraction_id, *args, **kwargs):
+        loads.append(extraction_id)
+        return real(extraction_id, *args, **kwargs)
+
+    monkeypatch.setattr(repo, "load_document_ir", counting)
+
+    line = source_status_line(repo, load_vault(root), source_id)
+
+    assert line["text"] == "Questions for Ch. 1–2 come up as you read"
+    assert len(loads) <= 1, loads

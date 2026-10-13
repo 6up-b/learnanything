@@ -35,6 +35,22 @@ describe("readingPositionIn", () => {
     expect(readingPositionIn(scroller)).toBeNull();
     expect(readingPositionIn(null)).toBeNull();
   });
+
+  // Usability round 2: a hand-over read while the first pages were still
+  // unmeasured named a later page (the Contents), and the Reader opened there.
+  it("is nothing while a page before the view's top is not laid out yet", () => {
+    const scroller = document.createElement("div");
+    scroller.innerHTML = [0, 1, 2]
+      .map((page) => `<div data-pdf-page="${page}" data-width-points="612"></div>`)
+      .join("");
+    document.body.appendChild(scroller);
+    const rects: Record<string, DOMRect> = { "0": rect(0, 0), "1": rect(0, 0), "2": rect(0, 800) };
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const page = (this as HTMLElement).dataset?.pdfPage;
+      return page !== undefined ? rects[page] : rect(0, 700);
+    });
+    expect(readingPositionIn(scroller)).toBeNull();
+  });
 });
 
 describe("spanAtPosition", () => {
