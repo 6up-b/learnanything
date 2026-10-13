@@ -1486,9 +1486,18 @@ class RecurrenceConfig(BaseModel):
     those at or above it. No cutoff is hand-set: an empty map blocks by top-k
     alone, and an entry measured on other vectors is refused. Scores never
     merge or reject anything.
+
+    ``require_guard`` (default false, owner 2026-10-12) decides only whether
+    `learnloop upgrade` to mvp-0.12 refuses while the same-answer/different-
+    cause guard has not passed; it changes nothing a vault serves.
     """
 
     enabled: bool = True
+    # `learnloop upgrade` to mvp-0.12 refuses until the same-answer/
+    # different-cause guard passes for the configured judge. Off (the default,
+    # owner 2026-10-12): the guard is advisory; the upgrade prints its status
+    # and proceeds.
+    require_guard: bool = False
     # The live same-cause judge inside the diagnose job (the backlog command
     # and the guard run regardless; they are explicit owner commands).
     judge_enabled: bool = True

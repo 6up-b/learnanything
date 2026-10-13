@@ -200,8 +200,11 @@ def embeddings_compare(
     max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 2,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 4_000_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 2.0,
-    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Owner price bound for metered LLM roles (USD per million tokens). Codex roles estimate only.")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="One owner price for metered LLM roles' input AND output tokens (USD per million): an upper bound when it is the output price. Prefer --input-price-per-million with --output-price-per-million. Codex roles estimate only.")] = None,
     embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help="Embedding input price for models without a built-in estimate.")] = None,
+    input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0, help="Owner input-token price for metered LLM roles (USD per million); pass with --output-price-per-million instead of --price-per-million.")] = None,
+    output_price_per_million: Annotated[float | None, typer.Option("--output-price-per-million", min=0, help="Owner output-token price for metered LLM roles (USD per million); pass with --input-price-per-million.")] = None,
+    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default 2000; a reasoning model's reasoning tokens count against it). Part of the writer's cache identity.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run one registered benchmark suite on the shared harness (B2 sets PF's blocking cutoffs).
@@ -214,6 +217,8 @@ def embeddings_compare(
 
     Writes aggregate-only JSON and Markdown reports named by content. Every
     verdict appends to judgment_ledger; replay never reads these reports.
+    Spend reports lead with what the providers billed (``usage.billed``);
+    ``usage.charged`` is the reservation-based cap accounting.
     """
     from learnloop.diagnosis.recurrence.benchmarks import register_suites as register_recurrence_suites
     from learnloop.ops.embedding_compare import SUITES, CompareRequest, run_compare
@@ -238,7 +243,7 @@ def embeddings_compare(
             suite=suite, output_dir=output_dir, benchmark_dir=benchmark, models=tuple(model or ()),
             dims=tuple(dims or ()), views=tuple(view or ()), family_ids=tuple(family or ()),
             target_recall=target_recall, max_cases=max_cases, alternatives=alternatives,
-            max_items=max_items, tier=tier, dry_run=dry_run,
+            max_items=max_items, tier=tier, dry_run=dry_run, writer_output_tokens=writer_output_tokens,
         )
         caps = SpendCaps(
             max_candidates=max_candidates, max_pairs=max_pairs, max_retries=max_retries,
@@ -247,6 +252,8 @@ def embeddings_compare(
         with _cancellation() as stop:
             report = run_compare(loaded, request=request, caps=caps, price_per_million=price_per_million,
                                  embedding_price_per_million=embedding_price_per_million,
+                                 input_price_per_million=input_price_per_million,
+                                 output_price_per_million=output_price_per_million,
                                  cancelled=stop.is_set)
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}

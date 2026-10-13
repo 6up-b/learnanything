@@ -95,9 +95,11 @@ def upgrade(
     over an mvp-0.10 vault, or over an mvp-0.9 vault by activating mvp-0.10
     first (kill switch ``placement.enabled``); ``--to mvp-0.12`` (default, the
     latest successor) adds Slice 2 T1 recurrence groups over an mvp-0.11 vault
-    (or an mvp-0.9/mvp-0.10 vault through the chain), refused while the
-    same-answer/different-cause guard has a false merge or has not run (kill
-    switch: ``recurrence.enabled = false``)."""
+    (or an mvp-0.9/mvp-0.10 vault through the chain; kill switch:
+    ``recurrence.enabled = false``). Its same-answer/different-cause guard is
+    advisory (owner, 2026-10-12): the upgrade prints the guard's status and
+    proceeds; ``recurrence.require_guard = true`` makes it refuse until the
+    guard passes."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -128,6 +130,8 @@ def upgrade(
         raise typer.Exit(code=2)
     if result.upgraded:
         typer.echo(f"Upgraded vault: {result.from_version} -> {result.to_version}")
+        for note in result.notes:
+            typer.echo(f"  - {note}")
         return
     typer.echo(f"Vault not upgraded (currently {result.from_version}):")
     for problem in result.problems:

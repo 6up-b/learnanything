@@ -881,7 +881,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (tutor_query_rewrite, retrieval_timeout_seconds, tutor_spans at most 4).
     # At its merge after Slice 2 T1 every snapshot, mvp-0.12's included, was
     # recomputed (defaults_fingerprint_for_version); no serving change.
-    "mvp-0.9": "a12da8c2d2eacdce8aa131740a15f84679374736194a271001135f93382d4388",
+    # Owner batch 2 (2026-10-12) adds recurrence.require_guard = false: the
+    # mvp-0.12 upgrade's same-cause guard becomes advisory (true restores the
+    # refusal). It only decides whether `learnloop upgrade` refuses; no
+    # scoring, scheduling, projection or serving change and no version
+    # semantics change. Every snapshot moves only because the effective config
+    # gains the key; all four were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "b30182f344eed06cb273d05758891834483534e00c205736d86cfb73974a44da",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -893,7 +899,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "4d1e72372a2c214fae0b63c114bc5c3b6fee4908b80b615e5b3f3200e1e05351",
+    # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
+    "mvp-0.10": "658880fdeef71e69ea47bac1665d5e1e924f2f9a9cc34e85f23dd54962ecb417",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -913,20 +920,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # placement.
     # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "1e58dd6709fc82cdb2803910f72faf18be899af87a460412b22607bc6fffaffc",
+    # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
+    "mvp-0.11": "da7ea072c355343b4990be5ab2fcae2055c606703acd0dfd0fa06df9fe3ebe97",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
     # card and its escalated-repair request). T1 was built as mvp-0.11 and
     # relabelled when it merged after Phase 6. Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.11, or from
-    # mvp-0.9/mvp-0.10 through the chain, once the same-answer/different-cause
-    # guard passes for the configured judge. New vaults start here (the
+    # mvp-0.9/mvp-0.10 through the chain (the same-answer/different-cause
+    # guard is advisory since owner batch 2). New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
     # groups are active from the first answer, built only from the judge's and
     # the diagnoser's verdicts on their own history.
     # Slice 2 T6's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "d6c9d70d61dd543c51de6c34c168def87361684e8c2807699ad88e9afab0e68b",
+    # Owner batch 2 (2026-10-12): the upgrade's guard is advisory by default
+    # (recurrence.require_guard = false; see mvp-0.9). The key moves this
+    # snapshot; what mvp-0.12 serves is unchanged.
+    "mvp-0.12": "68d786427255a85289482ac2a92c20b984499443be95069df34debb45371c27b",
 }
 
 

@@ -15,6 +15,13 @@ no physical-request bound, token and dollar caps recorded but not enforced, cost
 estimated from reported tokens and labelled ``estimated_only``. The call,
 candidate, pair and retry caps are shared across both billing classes.
 
+Reports (owner batch 2, 2026-10-12): ``billed`` sums the cost each provider
+reported per physical request (failed and truncated requests included) and is
+the headline; ``charged`` is cap accounting (each request reserves its input
+bound plus its full output budget, reconciled upward, never refunded), which
+overstated the owner's real B1 bill about 17x. Metered tokens are priced by one
+owner rate (an upper bound) or by an input/output pair.
+
 Isolation: every PF role runs as an isolated, tool-free turn
 (``ISOLATED_TURN``). A chat completion is isolated by construction; a Codex
 route starts its turn in an empty directory under LearnLoop's permission
@@ -30,13 +37,15 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 import json
+import math
 from typing import Any
 
 from pydantic import BaseModel
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
-from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
+from learnloop.ai.errors import AIInterrupted, AIOutputTruncated, AIProviderUnavailable
+from learnloop.ai.execution import content_key, generation_limit, model_settings, observe_model_calls, single_request
 from learnloop.ai.routing import provider_for_task, provider_list_for_task, ready_client_for_task
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
@@ -139,8 +148,11 @@ def resolve_role_clients(vault: LoadedVault, role: str, *, injected: Any | None 
             role=role, provider=getattr(client, "provider_name", None) or "injected",
             model=getattr(client, "model", None), profile_type=getattr(client, "provider_type", None),
             subscription=is_subscription_transport(client=client), client=client,
+            # The generation settings too (reasoning effort, thinking, response
+            # format, endpoint): a checkpoint never crosses them.
             settings={"provider": getattr(client, "provider_name", None),
-                      "model": getattr(client, "model", None)},
+                      "model": getattr(client, "model", None),
+                      "generation": _injected_generation_settings(client)},
         ) for client in clients]
     result = []
     task = ROLE_TASKS[role]
@@ -172,6 +184,36 @@ def resolve_role_clients(vault: LoadedVault, role: str, *, injected: Any | None 
     return result
 
 
+def _injected_generation_settings(client: Any) -> dict[str, Any]:
+    settings = model_settings(client)
+    return {key: settings.get(key) for key in ("endpoint", "reasoning_effort", "thinking", "response_format")}
+
+
+def validate_pricing(price_per_million: float | None, input_price_per_million: float | None,
+                     output_price_per_million: float | None) -> None:
+    """One single-rate price, or the input/output pair, or none."""
+    if (input_price_per_million is None) != (output_price_per_million is None):
+        raise ValueError("pass both --input-price-per-million and --output-price-per-million")
+    if price_per_million is not None and input_price_per_million is not None:
+        raise ValueError("pass --price-per-million (one rate for input and output: an upper bound) or the "
+                         "input/output pair, not both")
+    for value in (price_per_million, input_price_per_million, output_price_per_million):
+        if value is not None and (not math.isfinite(value) or value < 0):
+            raise ValueError("prices must be finite and nonnegative")
+
+
+def pricing_basis(price_per_million: float | None, input_price_per_million: float | None,
+                  output_price_per_million: float | None) -> dict[str, Any]:
+    """How metered LLM tokens are priced for admission and cap accounting."""
+    if input_price_per_million is not None:
+        return {"basis": "input_output", "input_per_million": input_price_per_million,
+                "output_per_million": output_price_per_million}
+    if price_per_million is not None:
+        return {"basis": "single_rate_upper_bound", "per_million": price_per_million,
+                "note": "one rate for input and output tokens; an upper bound when it is the output price"}
+    return {"basis": "unpriced"}
+
+
 def distinct_models(clients: list[RoleClient]) -> list[str]:
     return sorted({client.model for client in clients if client.model})
 
@@ -198,11 +240,21 @@ class PFCaller:
 
     def __init__(self, vault: LoadedVault, repository: Repository, *, caps: SpendCaps,
                  price_per_million: float | None, run_id: str, owner_kind: str = "pf_generation",
-                 cancelled: Callable[[], bool] | None = None) -> None:
+                 cancelled: Callable[[], bool] | None = None,
+                 input_price_per_million: float | None = None,
+                 output_price_per_million: float | None = None) -> None:
+        validate_pricing(price_per_million, input_price_per_million, output_price_per_million)
         self.vault = vault
         self.repository = repository
         self.caps = caps
+        # One rate for input and output (an upper bound), or the pair.
         self.price = price_per_million
+        self.input_price = input_price_per_million
+        self.output_price = output_price_per_million
+        # What providers reported they billed, per billing class: the
+        # headline of every spend report (``charged`` is cap accounting).
+        self._billed = {"metered": Decimal(0), "subscription": Decimal(0)}
+        self._billed_requests = {"metered": 0, "subscription": 0}
         self.run_id = run_id
         self.owner_kind = owner_kind
         self.cancelled = cancelled
@@ -213,12 +265,37 @@ class PFCaller:
         self.calls_by_model: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     # -- budget -----------------------------------------------------------------
+    def _upper_rate(self) -> float | None:
+        """Per million tokens when the input/output split is unknown."""
+        if self.input_price is not None:
+            return max(self.input_price, self.output_price or 0.0)
+        return self.price
+
     def _price_per_token(self) -> float | None:
-        return self.price / 1_000_000 if self.price is not None else None
+        rate = self._upper_rate()
+        return rate / 1_000_000 if rate is not None else None
+
+    def usd(self, input_tokens: int, output_tokens: int) -> float | None:
+        """The owner's price for this many input and output tokens (None: unpriced)."""
+        if self.input_price is not None:
+            return (input_tokens * self.input_price + output_tokens * (self.output_price or 0.0)) / 1_000_000
+        if self.price is not None:
+            return (input_tokens + output_tokens) * self.price / 1_000_000
+        return None
+
+    def pricing(self) -> dict[str, Any]:
+        return pricing_basis(self.price, self.input_price, self.output_price)
 
     def estimate(self, tokens: int, *, subscription: bool, calls: int = 1,
-                 candidates: int = 0, pairs: int = 0, retries: int = 0) -> SpendEstimate:
-        usd = tokens * self.price / 1_000_000 if self.price is not None else None
+                 candidates: int = 0, pairs: int = 0, retries: int = 0,
+                 output_tokens: int | None = None) -> SpendEstimate:
+        """``tokens`` is input plus output; ``output_tokens`` its output share
+        when known (priced at the output rate), else all at the higher rate."""
+        if output_tokens is not None:
+            usd = self.usd(max(0, tokens - output_tokens), output_tokens)
+        else:
+            rate = self._upper_rate()
+            usd = tokens * rate / 1_000_000 if rate is not None else None
         if usd is None and calls == 0:
             usd = 0.0
         return SpendEstimate(candidates=candidates, pairs=pairs, retries=retries, calls=calls,
@@ -249,7 +326,36 @@ class PFCaller:
                                               estimated_usd=subscription.estimated_usd))
 
     def charged(self) -> dict[str, Any]:
+        """Cap accounting: reservations (input bound plus the full output
+        budget), raised to reported usage, never refunded."""
         return {"metered": asdict(self.metered.used), "subscription": asdict(self.subscription.used)}
+
+    def _bill(self, billing: str, event: Mapping[str, Any]) -> None:
+        cost = event.get("cost")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and math.isfinite(cost) and cost >= 0:
+            self._billed[billing] += Decimal(str(cost))
+            self._billed_requests[billing] += 1
+
+    def billed(self) -> dict[str, Any]:
+        """What the providers reported billing, per class (``provider_reported``).
+
+        ``usd`` sums every physical request that reported a cost, failed and
+        truncated ones included; it is None when requests ran and none
+        reported one. ``requests`` counts the admitted requests, so
+        ``requests - requests_reporting_cost`` reported no cost (a subscription
+        route has no marginal cost to report).
+        """
+        out: dict[str, Any] = {}
+        for billing, budget in (("metered", self.metered), ("subscription", self.subscription)):
+            requests = budget.used.calls
+            reporting = self._billed_requests[billing]
+            out[billing] = {
+                "usd": float(self._billed[billing]) if reporting else (0.0 if requests == 0 else None),
+                "requests": requests,
+                "requests_reporting_cost": reporting,
+                "basis": "provider_reported",
+            }
+        return out
 
     def declared(self) -> dict[str, Any]:
         return {"metered": self.metered.declared(), "subscription": self.subscription.declared()}
@@ -265,8 +371,12 @@ class PFCaller:
 
     def call(self, entry: RoleClient, *, prompt: str, prompt_version: str,
              result_model: type[BaseModel], output_tokens: int,
-             candidates: int = 0, pairs: int = 0) -> CallResult:
-        """One isolated, tool-free structured turn (never the vault, files or tools)."""
+             candidates: int = 0, pairs: int = 0, retry_truncated: bool = True) -> CallResult:
+        """One isolated, tool-free structured turn (never the vault, files or tools).
+
+        ``retry_truncated=False``: an output that exhausted ``output_tokens``
+        raises at once instead of spending a retry on the same budget.
+        """
         role = entry.role
         input_hash = self.input_hash(entry, prompt, result_model, output_tokens)
         cache_key = CHECKPOINT_PREFIX + input_hash
@@ -304,6 +414,7 @@ class PFCaller:
                 for key in ("resolved_model", "input_tokens", "output_tokens", "cost"):
                     if event.get(key) is not None:
                         usage[key] = event[key]
+                self._bill("subscription" if entry.subscription else "metered", event)
                 event = {**event, "resolved_model": usage.get("resolved_model") or entry.model}
                 if entry.subscription:
                     event["usage_json"] = json.dumps(
@@ -319,7 +430,7 @@ class PFCaller:
             estimate = SpendEstimate(
                 candidates=candidates if attempts == 0 else 0, pairs=pairs if attempts == 0 else 0,
                 retries=int(attempts > 0), calls=1, total_tokens=tokens,
-                estimated_usd=tokens * self.price / 1_000_000 if self.price is not None else None,
+                estimated_usd=self.usd(max(0, tokens - output_tokens), output_tokens),
             )
             self.check_shared(estimate)
             usage.clear()
@@ -333,16 +444,19 @@ class PFCaller:
                                 result_model=result_model, isolated=True,
                             )
                     finally:
-                        spent = (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
-                        if entry.subscription and self.price is None:
+                        used_in, used_out = usage.get("input_tokens") or 0, usage.get("output_tokens") or 0
+                        priced = self.usd(used_in, used_out)
+                        if entry.subscription and priced is None:
                             cost = None
                         else:
-                            cost = max(usage.get("cost") or 0.0, spent * (self.price or 0.0) / 1_000_000)
-                        charge.reconcile(total_tokens=spent, estimated_usd=cost)
+                            cost = max(usage.get("cost") or 0.0, priced or 0.0)
+                        charge.reconcile(total_tokens=used_in + used_out, estimated_usd=cost)
                 result = result_model.model_validate(result)
             except AIInterrupted:
                 raise
-            except AIProviderUnavailable:
+            except AIProviderUnavailable as exc:
+                if isinstance(exc, AIOutputTruncated) and not retry_truncated:
+                    raise
                 if self._shared_used("retries") >= self.caps.max_retries:
                     raise
                 attempts += 1
@@ -389,6 +503,7 @@ class PFCaller:
                 event = {**event, "budget_json": json.dumps(declared, sort_keys=True)}
             else:
                 usage.update({key: event.get(key) for key in ("input_tokens", "cost") if event.get(key) is not None})
+                self._bill("metered", event)
             self.repository.record_model_event(action, event, owner_kind=self.owner_kind, owner_id=self.run_id)
 
         while True:
@@ -454,7 +569,11 @@ class PFCaller:
             "calls_by_role": dict(self.calls_by_role),
             "cached_by_role": dict(self.cached_by_role),
             "calls_by_model": {model: dict(roles) for model, roles in sorted(self.calls_by_model.items())},
+            # The headline: what providers reported billing.
+            "billed": self.billed(),
+            # Cap accounting: reservations raised to usage, never refunded.
             "charged": self.charged(),
+            "pricing": self.pricing(),
             "caps_in_force": self.declared(),
         }
 
@@ -462,5 +581,5 @@ class PFCaller:
 __all__ = [
     "CallResult", "ISOLATION_BOUNDARY", "LIST_ROLES", "METERED_TYPES", "PFCaller", "PFUnavailable", "ROLE_TASKS",
     "RoleClient", "TIERED_ROLES", "distinct_models", "estimate_tokens", "planned_role_clients",
-    "resolve_role_clients", "role_providers",
+    "pricing_basis", "resolve_role_clients", "role_providers", "validate_pricing",
 ]

@@ -103,8 +103,10 @@ def recurrence_guard(
     pairs this model already judged, a route change asks the new model, and
     --rerun asks the same model again (superseding its verdicts). Verdicts go
     to judgment_ledger on planted subjects, which never join the vault's
-    groups. A false merge on any negative pair blocks `learnloop upgrade --to
-    mvp-0.12`, as does any required negative the configured judge has not judged.
+    groups. `learnloop upgrade --to mvp-0.12` reports the result (advisory,
+    owner 2026-10-12); with recurrence.require_guard = true a false merge on
+    any negative pair blocks it, as does any required negative the configured
+    judge has not judged.
     """
 
     from learnloop.diagnosis.recurrence.guard import run_guard
@@ -195,8 +197,11 @@ def recurrence_bench(
     max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 50,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 10_000_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 2.0,
-    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Owner price for a metered hypothesis-writer route (b1).")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="b1: one owner price for a metered hypothesis writer's input AND output tokens (an upper bound when it is the output price); prefer the input/output pair.")] = None,
     embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help="Embedding input price for models without a built-in estimate.")] = None,
+    input_price_per_million: Annotated[float | None, typer.Option("--input-price-per-million", min=0, help="b1: the metered writer's input-token price (USD per million); with --output-price-per-million.")] = None,
+    output_price_per_million: Annotated[float | None, typer.Option("--output-price-per-million", min=0, help="b1: the metered writer's output-token price (USD per million); with --input-price-per-million.")] = None,
+    writer_output_tokens: Annotated[int | None, typer.Option("--writer-output-tokens", min=1, help="b1: the hypothesis writer's output budget per case (default 2000; reasoning tokens count against it).")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run B1 or B3: an alias for `learnloop embeddings compare --suite b1|b3`.
@@ -205,8 +210,11 @@ def recurrence_bench(
     PF caller's receipts). B1's hypothesis writer is the
     recurrence_hypothesis_writer role on the diagnosis route: the dry run
     prices it from that route's configuration (Codex: calls only,
-    estimated_only; metered: input plus output tokens at --price-per-million,
-    unknown fails closed) together with the embeddings. Vectors are cached in
+    estimated_only; metered: input and output tokens at the owner's prices,
+    unknown fails closed) together with the embeddings. Its output budget is
+    --writer-output-tokens (default 2000); the profile's reasoning_effort
+    reaches OpenRouter as reasoning.effort. Hypotheses are cached per writer
+    (model, settings and budget); a truncated case is recorded as failed. Vectors are cached in
     the output directory, never in the vault. Reports are aggregate; B3 prints
     the recommended [recurrence] top_k and cutoff, with the width, recipe and
     prefix it was measured on, only for the serving width.
@@ -223,7 +231,8 @@ def recurrence_bench(
         alternatives=2, tier=None, dry_run=dry_run, max_candidates=max_calls, max_pairs=0,
         max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens, max_cost_usd=max_cost_usd,
         price_per_million=price_per_million, embedding_price_per_million=embedding_price_per_million,
-        json_output=json_output,
+        input_price_per_million=input_price_per_million, output_price_per_million=output_price_per_million,
+        writer_output_tokens=writer_output_tokens, json_output=json_output,
     )
 
 
