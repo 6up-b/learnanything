@@ -3,8 +3,8 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d5d0923829244336088a60fab971519445a11dee"
-source_commit_timestamp: "2026-10-12T21:36:01-04:00"
+source_commit: "c3d703cd008912c13937c0b95a689b69989e76e6"
+source_commit_timestamp: "2026-10-12T22:21:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
@@ -132,6 +132,7 @@ None found by exact static reference scan.
 
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_flow.py`
+- `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

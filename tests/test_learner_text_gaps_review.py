@@ -205,7 +205,7 @@ def test_f3_a_creation_retried_after_a_failed_sync_writes_once_and_is_logged(tmp
     llm = GapLLMFake(decide=always("different"), proposal=seed_proposal())
     _fail_once(monkeypatch, gap_actions, "sync_vault_state")
     first = process_next_gap_job(root, repository, owner="t", clients=_clients(llm, tutor=tutor), clock=_at(1))
-    assert first.state == "released" and _gaps(repository) == []
+    assert first.state == "retry_later" and _gaps(repository) == []
     (written,) = _created_los(root)  # the LO and its edge were written before the sync failed
     progress = _jobs(repository)[0]["payload"]["created"]
     assert progress["learning_object_id"] == written and progress["edge_id"]
@@ -223,7 +223,7 @@ def test_f3_a_matched_edge_retried_after_a_failed_sync_is_recorded_and_undoable(
     enqueue(repository, source_kind="tutor_question", source_id=event_id)
     llm = GapLLMFake(decide=word_match("eigenvalues"), needed="yes")
     _fail_once(monkeypatch, gap_pipeline, "sync_vault_state")
-    assert process_next_gap_job(root, repository, owner="t", clients=_clients(llm), clock=_at(1)).state == "released"
+    assert process_next_gap_job(root, repository, owner="t", clients=_clients(llm), clock=_at(1)).state == "retry_later"
     recorded = _jobs(repository)[0]["payload"]["edge"]
     assert recorded["edge_id"] in {edge.id for edge in load_vault(root).edges}
     done = process_next_gap_job(root, repository, owner="t", clients=_clients(llm), clock=_at(10))
@@ -241,7 +241,7 @@ def test_f3_a_belief_candidate_commits_with_its_ledger_row(tmp_path, monkeypatch
                     question="Since every matrix diagonalizes, why check?")
     enqueue(repository, source_kind="tutor_question", source_id=event_id)
     _fail_once(monkeypatch, store, "insert_gap")
-    assert process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(1)).state == "released"
+    assert process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(1)).state == "retry_later"
     assert repository.misconception_candidates_for_learning_object("lo_diag") == []
     assert process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(10)).state == "done"
     (candidate,) = repository.misconception_candidates_for_learning_object("lo_diag")
@@ -278,7 +278,7 @@ def test_f3_a_job_that_gives_up_after_writing_names_the_creation_and_the_owner_c
     llm = GapLLMFake(decide=always("different"))
     states = [process_next_gap_job(root, repository, owner="t", clients=_clients(llm, tutor=tutor),
                                    clock=_at(1 + attempt * 600)).state for attempt in range(jobs.MAX_ATTEMPTS)]
-    assert states == ["released", "released", "failed"]
+    assert states == ["retry_later", "retry_later", "failed"]
     (row,) = _gaps(repository)
     (created,) = _created_los(root)
     assert (row["action"], row["created_learning_object_id"]) == ("failed", created) and row["edge_id"]
@@ -438,7 +438,9 @@ def test_f8_the_adapter_reads_the_marker_before_scanning(tmp_path, monkeypatch):
     with closing(connect(repository.sqlite_path)) as connection, connection:
         connection.execute("UPDATE practice_attempts SET declared_stuck = 1 WHERE id = ?", (attempt.attempt_id,))
     found = stuck_text_for(repository, attempt.attempt_id, adapter)
-    assert found is not None and found.confusion_quote == "confused" and scans == [1]
+    # Read by its id, never by scanning every stuck answer (re-review F4;
+    # its reading: test_rr_f4_a_stuck_answer_is_read_by_its_id_with_its_current_reading).
+    assert found is not None and found.text == "I don't get what an eigenvalue is" and scans == []
 
 
 def test_f8_a_diagnosis_no_longer_scans_stuck_answers(tmp_path, monkeypatch):

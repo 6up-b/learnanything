@@ -1561,8 +1561,9 @@ class LearnerTextGapsConfig(BaseModel):
     max_calls_per_text: int = Field(default=30, ge=1, le=200)
     max_usd_per_text: float = Field(default=0.25, ge=0.0, le=5.0)
     # The live path (sidecar worker) across texts: logical calls per UTC day,
-    # counted from the pipeline's receipts before each text; at the cap the
-    # queue waits for the next day (`learnloop gaps run` has its own caps).
+    # counted from the live path's receipts before each text; at the cap the
+    # queue waits for the next day (`learnloop gaps run` has its own caps,
+    # and its calls are receipted apart and never counted here).
     max_calls_per_day: int = Field(default=500, ge=0)
     # Owner price estimate (USD per million tokens) for METERED chat routes
     # (judge, reader, draft, seed). Unset: a metered route with no published

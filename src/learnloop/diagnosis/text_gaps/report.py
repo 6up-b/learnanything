@@ -111,16 +111,21 @@ def _first_checks(vault: LoadedVault, repository: Repository, gaps: list[dict[st
 
 
 def _card_taps(connection: Any, attempt_ids: set[str], *, since: str | None) -> int:
-    """T1's diagnosis-card "not the same mistake" taps on these answers."""
+    """T1's diagnosis-card "not the same mistake" taps on these answers.
+
+    A tap's ``left`` is the answer whose card was tapped, ``right`` the
+    earlier answer the card cited: only a tap on one of these answers counts,
+    never a tap on another answer that cites one (re-review F6).
+    """
 
     if not attempt_ids:
         return 0
     taps = connection.execute(
-        "SELECT left_id, right_id FROM judgment_ledger WHERE task = 'same_cause' AND judge = 'learner_card' "
-        "AND verdict = 'different' AND (? IS NULL OR created_at >= ?)",
+        "SELECT left_id FROM judgment_ledger WHERE task = 'same_cause' AND judge = 'learner_card' "
+        "AND left_kind = 'attempt' AND verdict = 'different' AND (? IS NULL OR created_at >= ?)",
         (since, since),
     ).fetchall()
-    return sum(1 for left, right in taps if str(left) in attempt_ids or str(right) in attempt_ids)
+    return sum(1 for (left,) in taps if str(left) in attempt_ids)
 
 
 def build_report(vault: LoadedVault, repository: Repository, *, since: str | None = None) -> dict[str, Any]:

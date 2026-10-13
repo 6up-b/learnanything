@@ -197,6 +197,12 @@ def derive_interaction_signals(
         observed = event.get("received_at") or event["created_at"]
         logged_at = observed
         qtype = event.get("question_type")
+        no_work_yet = _logged_no_work_yet(event)
+        # The question-time assistance row reads logged facts only: the logged
+        # type, never a gap read later (re-review F2) nor a paid classification.
+        logged_before = no_work_yet and (
+            bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
+        )
         gap = question_gaps.get(str(event_id)) if kind == "question_event" else None
         if gap is not None:
             # The tutor named the gap and a judge matched it: the question's
@@ -210,11 +216,7 @@ def derive_interaction_signals(
             # Read (and possibly judged) after the question: available from
             # then, never back-dated (F6).
             observed = max((observed, str(gap["created_at"])), key=instant)
-        no_work_yet = _logged_no_work_yet(event)
-        logged_before = no_work_yet and (
-            bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
-        )
-        facets = _list(event.get("facets_json", event.get("facets")))
+        facets =_list(event.get("facets_json", event.get("facets")))
         los = _list(event.get("lo_ids_json", event.get("lo_ids")))
         if event.get("lo_id"):
             los.append(event["lo_id"])

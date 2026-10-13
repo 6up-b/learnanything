@@ -5,8 +5,9 @@ enqueue a job (idempotent per source); the sidecar's post-attempt worker
 drains them in its ``gaps`` slot and ``learnloop gaps run`` drains them from
 the CLI (with a dry run). Leases are fenced like the post-attempt queue: a
 worker whose lease was re-claimed publishes nothing. A job that fails is
-retried with backoff up to :data:`MAX_ATTEMPTS`; after that its learner text
-is logged as ``failed`` (no target: the grounded rule applies).
+retried with backoff up to :data:`MAX_ATTEMPTS` (``retry_later``: the drain
+goes on to the next text, re-review F3); after that its learner text is
+logged as ``failed`` (no target: the grounded rule applies).
 
 A spend stop never finalizes a text (Codex review F2): under a command's
 shared budget the job is released with its attempt refunded and the run
@@ -29,6 +30,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.diagnosis.text_gaps.contract import LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDeferred, failed_row, process_learner_text
 from learnloop.diagnosis.text_gaps.sources import StuckTextSource, learner_text, stuck_text_for, stuck_texts
@@ -48,7 +50,9 @@ class GapJobOutcome:
     job_id: str
     source_kind: str
     source_id: str
-    state: str  # done | skipped | released | deferred | failed | lease_lost
+    #: done | skipped | retry_later (this text backs off; the run goes on) |
+    #: deferred (a spend stop or the daily cap: the run stops) | failed | lease_lost
+    state: str
     gap_id: str | None = None
     action: str | None = None
     error: str | None = None
@@ -198,6 +202,7 @@ def process_next_gap_job(
     job_id, epoch = str(job["id"]), int(job["lease_epoch"])
     outcome = GapJobOutcome(job_id, str(job["source_kind"]), str(job["source_id"]), "done")
     vault = load_vault(root)
+    progress: dict[str, Any] = dict(job.get("payload") or {})
 
     def finish(state: str, error: str | None = None) -> bool:
         with repository.atomic():
@@ -210,10 +215,12 @@ def process_next_gap_job(
                                      now=utc_now_iso(clock), not_before=not_before, error=error,
                                      refund_attempt=refund)
 
+    def skip(reason: str, text: LearnerText | None) -> GapJobOutcome:
+        return _skip(repository, job, text, vault, progress, owner=owner, epoch=epoch, clock=clock,
+                     outcome=outcome, reason=reason)
+
     if not pipeline_enabled(vault):
-        finish("skipped", "learner_text_gaps.enabled is off")
-        outcome.state = "skipped"
-        return outcome
+        return skip("learner_text_gaps.enabled is off", None)
     if budget_factory is None:
         # The live path: one budget per text, so a daily cap across texts
         # (F12). Checked before any call; the overshoot is at most one text's
@@ -227,10 +234,7 @@ def process_next_gap_job(
             return outcome
     text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
     if text is None:
-        finish("skipped", "nothing to read")
-        outcome.state = "skipped"
-        return outcome
-    progress: dict[str, Any] = dict(job.get("payload") or {})
+        return skip("nothing to read", None)
 
     def save_progress(payload: Mapping[str, Any]) -> None:
         progress.clear()
@@ -260,9 +264,7 @@ def process_next_gap_job(
         return _retry_or_fail(repository, job, text, vault, progress, owner=owner, epoch=epoch, clock=clock,
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])
     if row is None:
-        finish("skipped", "learner_text_gaps.enabled is off")
-        outcome.state = "skipped"
-        return outcome
+        return skip("learner_text_gaps.enabled is off", text)
     if not finish("done"):
         outcome.state = "lease_lost"
     outcome.gap_id, outcome.action = str(row["id"]), str(row["action"])
@@ -294,8 +296,57 @@ def _retry_or_fail(
                                      now=utc_now_iso(clock),
                                      not_before=_later(BACKOFF_SECONDS * int(job["attempt_count"]), clock),
                                      error=error)
-    outcome.state = "released" if released else "lease_lost"
+    outcome.state = "retry_later" if released else "lease_lost"
     outcome.error = error
+    return outcome
+
+
+#: ``context_judge`` of each source (a text gone since it was queued is
+#: logged with an empty text).
+_CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader"}
+
+
+def _skip(
+    repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault,
+    progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome,
+    reason: str,
+) -> GapJobOutcome:
+    """The job reads nothing more: the pipeline is switched off, or the text
+    is gone.
+
+    When an earlier attempt already wrote to the vault (its progress names a
+    created LO or an edge that is on disk), the text is logged ``failed``
+    naming the write (re-review F1): the daily creation cap counts it and
+    ``learnloop gaps undo`` reaches it. No paid call finishes it while the
+    switch is off. Otherwise the job is ``skipped``.
+    """
+
+    job_id, now = str(job["id"]), utc_now_iso(clock)
+    row = None
+    if (progress.get("created") or {}).get("learning_object_id") or (progress.get("edge") or {}).get("edge_id"):
+        logged = text or LearnerText(
+            source_kind=outcome.source_kind, source_id=outcome.source_id, text="",
+            context_judge=_CONTEXT_JUDGE[outcome.source_kind], created_at=now,
+        )
+        row = failed_row(logged, vault=load_vault(vault.root), error=reason, now_iso=now, progress=progress)
+        if not (row["created_learning_object_id"] or row["edge_id"]):
+            row = None  # recorded, never written
+    logged_failed = False
+    with repository.atomic():
+        connection = repository.connection()
+        if row is not None and store.holds_job(connection, job_id, owner=owner, epoch=epoch) and store.gap_for_source(
+            connection, outcome.source_kind, outcome.source_id
+        ) is None:
+            outcome.gap_id, outcome.action = store.insert_gap(connection, row), "failed"
+            logged_failed = True
+        finished = store.finish_job(connection, job_id, state="failed" if logged_failed else "skipped",
+                                    owner=owner, epoch=epoch, now=now, error=reason)
+    if not finished:
+        outcome.state = "lease_lost"
+    elif logged_failed:
+        outcome.state, outcome.error = "failed", f"{reason} after an earlier attempt wrote to the vault"
+    else:
+        outcome.state = "skipped"
     return outcome
 
 
@@ -308,7 +359,9 @@ def run_pending(
         if result is None:
             break
         outcomes.append(result)
-        if result.state in ("released", "deferred", "lease_lost"):
+        # One text backing off (``retry_later``) never stops the drain
+        # (re-review F3); a spend stop or the daily cap does.
+        if result.state in ("deferred", "lease_lost"):
             break
     return outcomes
 

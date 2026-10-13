@@ -349,12 +349,18 @@ def release_job(
     return cursor.rowcount == 1
 
 
-#: ``model_call_receipts.owner_kind`` of this pipeline's calls.
+#: ``model_call_receipts.owner_kind`` of this pipeline's calls on the live
+#: path (one budget per text: the sidecar's worker, a direct reading).
 PIPELINE_RECEIPT_OWNER = "learner_text_gap"
+#: ... and of the calls a command's shared budget admits (``learnloop gaps
+#: run``, with its own caps): never counted by the live daily cap
+#: (re-review F5).
+COMMAND_RECEIPT_OWNER = "learner_text_gap_command"
 
 
 def pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int:
-    """This pipeline's logical model calls (receipt roots) started at or after ``since``."""
+    """This pipeline's logical model calls on the live path (receipt roots)
+    started at or after ``since``; a command's calls are not counted."""
 
     if not _table_present(connection, "model_call_receipts"):
         return 0
@@ -367,6 +373,7 @@ def pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int:
 
 
 __all__ = [
+    "COMMAND_RECEIPT_OWNER",
     "GAP_COLUMNS",
     "PIPELINE_RECEIPT_OWNER",
     "check_advances",

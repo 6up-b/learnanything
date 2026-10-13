@@ -262,23 +262,81 @@ class StuckAnswersAdapter:
     marker, the persisted ``practice_attempts.declared_stuck`` column, is
     read first for one attempt (:meth:`stuck_text`), so recording an
     ordinary answer never scans the stuck answers.
+
+    One stuck attempt is read by its id (re-review F4): the module's
+    per-attempt ``stuck_answer(connection, attempt_id)`` when it offers one,
+    else the same row read here from ``practice_attempts`` with the reading
+    ``stuck_answers`` would return (the current ``stuck_reading`` verdict in
+    ``judgment_ledger``, else the latest blind record's). Never a scan of
+    every stuck answer, so queueing stays O(1) per answer.
     """
 
     module = "learnloop.attempts.stuck"
     marker_column = "declared_stuck"
+    #: The stuck module's ``STUCK_READING_JUDGMENT_TASK`` / ``STUCK_READING_KEY``
+    #: (read from the module when it has them).
+    reading_task = "stuck_reading"
+    reading_key = "stuck_reading"
 
-    def _reader(self) -> Any:
+    def _module(self) -> Any:
         try:
-            stuck = importlib.import_module(self.module)
+            return importlib.import_module(self.module)
         except ImportError:
             return None
-        return getattr(stuck, "stuck_answers", None)
+
+    def _reader(self) -> Any:
+        return getattr(self._module(), "stuck_answers", None)
 
     def stuck_text(self, connection: Any, attempt_id: str) -> StuckText | None:
-        reader = self._reader()
-        if reader is None or not self._marked(connection, attempt_id):
+        module = self._module()
+        if getattr(module, "stuck_answers", None) is None or not self._marked(connection, attempt_id):
             return None
-        return next((row for row in self._rows(reader(connection)) if row.attempt_id == attempt_id), None)
+        one = getattr(module, "stuck_answer", None)
+        row = one(connection, attempt_id) if one is not None else self._one(connection, module, attempt_id)
+        rows = self._rows([row] if row else [])
+        return rows[0] if rows else None
+
+    def _one(self, connection: Any, module: Any, attempt_id: str) -> dict[str, Any] | None:
+        """One stuck attempt as a ``stuck_answers`` row (the fields read here)."""
+
+        row = connection.execute(
+            "SELECT id, practice_item_id, learning_object_id, subject, learner_answer_md, created_at "
+            f"FROM practice_attempts WHERE id = ? AND {self.marker_column} = 1",
+            (attempt_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        text = str(row[4] or "")
+        return {
+            "attempt_id": str(row[0]), "practice_item_id": str(row[1]), "learning_object_id": str(row[2]),
+            "subject_id": str(row[3] or "default"), "learner_answer_md": text, "created_at": str(row[5]),
+            "has_text": bool(text.strip()), "reading": self._reading(connection, module, attempt_id),
+        }
+
+    def _reading(self, connection: Any, module: Any, attempt_id: str) -> Mapping[str, Any] | None:
+        task = str(getattr(module, "STUCK_READING_JUDGMENT_TASK", self.reading_task))
+        tables = {str(r[0]) for r in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if "judgment_ledger" in tables:
+            judged = connection.execute(
+                "SELECT j.verdict FROM judgment_ledger j WHERE j.task = ? AND j.left_kind = 'attempt' "
+                "AND j.left_id = ? AND j.right_kind IS NULL "
+                "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id) "
+                "ORDER BY j.created_at DESC, j.id DESC LIMIT 1",
+                (task, attempt_id),
+            ).fetchone()
+            if judged is not None:
+                return _json_mapping(judged[0])
+        if "blind_grade_records" in tables:
+            record = connection.execute(
+                "SELECT record_json FROM blind_grade_records WHERE attempt_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+            if record is not None:
+                reading = (_json_mapping(record[0]) or {}).get(
+                    str(getattr(module, "STUCK_READING_KEY", self.reading_key)))
+                return reading if isinstance(reading, Mapping) else None
+        return None
 
     def _marked(self, connection: Any, attempt_id: str) -> bool:
         columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(practice_attempts)")}
@@ -310,6 +368,14 @@ class StuckAnswersAdapter:
                 confusion_quote=str(reading.get("confusion_quote") or "") if isinstance(reading, Mapping) else "",
             ))
         return out
+
+
+def _json_mapping(raw: Any) -> Mapping[str, Any] | None:
+    try:
+        value = json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        return None
+    return value if isinstance(value, Mapping) else None
 
 
 DEFAULT_STUCK_SOURCE: StuckTextSource = StuckAnswersAdapter()

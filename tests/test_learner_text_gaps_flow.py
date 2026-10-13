@@ -273,7 +273,7 @@ def test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch(tmp
     failing = GapLLMFake(decide=word_match("eigenvalues"), fail={"learner_gap_same_prerequisite"})
     outcome = process_next_gap_job(root, repository, owner="t", clients=_clients(failing), clock=_at(2))
     # A failed judge call settles nothing (Codex review F1): no row, retried.
-    assert outcome.state == "released" and outcome.gap_id is None
+    assert outcome.state == "retry_later" and outcome.gap_id is None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         assert store.gap_for_source(connection, "tutor_question", event_id) is None
     assert process_next_gap_job(root, repository, owner="t", clients=broken, clock=_at(2.5)) is None  # backoff
@@ -304,7 +304,7 @@ def test_a_job_that_keeps_failing_is_logged_as_failed_without_a_target(tmp_path,
     for attempt in range(jobs.MAX_ATTEMPTS):
         outcome = process_next_gap_job(root, repository, owner="t", clients=_clients(), clock=_at(10 + attempt * 600))
         states.append(outcome.state)
-    assert states == ["released", "released", "failed"]
+    assert states == ["retry_later", "retry_later", "failed"]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.gap_for_source(connection, "tutor_question", event_id)
     assert (row["action"], row["kind"], row["target_id"]) == ("failed", "unread", None)

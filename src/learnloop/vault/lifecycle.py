@@ -21,6 +21,7 @@ history, FSRS state and projections untouched.
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable
 from typing import Any
 
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -52,29 +53,65 @@ def _learner_text_gap_creations_on(vault: LoadedVault) -> bool:
     return section is None or bool(section.enabled and section.create_prerequisites_enabled)
 
 
-def learner_text_gap_edge_in_effect(config: Any, edge: Any) -> bool:
+def learner_text_gap_creations(learning_objects: Iterable[Any]) -> frozenset[tuple[str, str]]:
+    """(concept, learner text) of every LO the learner-text gap pipeline created."""
+
+    out: set[tuple[str, str]] = set()
+    for learning_object in learning_objects:
+        if not created_from_learner_text(learning_object):
+            continue
+        extra: dict[str, Any] = getattr(learning_object.provenance, "model_extra", None) or {}
+        if extra.get("learner_text"):
+            out.add((str(learning_object.concept), str(extra["learner_text"])))
+    return frozenset(out)
+
+
+def learner_text_gap_edge_origin(edge: Any, creations: Collection[tuple[str, str]] = frozenset()) -> str | None:
+    """``match`` or ``creation`` for an edge the learner-text gap pipeline
+    added; None for every other edge.
+
+    An edge written before the origin was recorded has none (re-review F7):
+    it is a creation's edge when its prerequisite concept is the one the
+    same learner text created (``creations``, from the created LO's
+    provenance, which names the text), else a match's.
+    """
+
+    extra: dict[str, Any] = getattr(edge, "model_extra", None) or {}
+    provenance = extra.get("provenance")
+    if not isinstance(provenance, dict) or provenance.get("mechanism") != LEARNER_TEXT_GAP_MECHANISM:
+        return None
+    origin = provenance.get("origin")
+    if origin in ("match", "creation"):
+        return str(origin)
+    learner_text = str(provenance.get("learner_text") or "")
+    return "creation" if (str(getattr(edge, "source", "")), learner_text) in creations else "match"
+
+
+def learner_text_gap_edge_in_effect(
+    config: Any, edge: Any, creations: Collection[tuple[str, str]] = frozenset(),
+) -> bool:
     """Is this relation edge part of the loaded vault (Codex review F10)?
 
     Every edge is, except a ``prerequisite`` edge the learner-text gap
     pipeline added (``provenance.mechanism == learner_text_gap_v1``) while
     its switch is off: a matched prerequisite's edge needs
     ``learner_text_gaps.add_edges_enabled``, a created prerequisite's edge
-    (``provenance.origin == "creation"``) needs ``create_prerequisites_enabled``,
-    both need ``enabled``. Off, the edge stays in ``concepts/relations.yaml``
-    but nothing reads it (placement order, declared prerequisites, the
-    diagnoser's neighbourhood, the map): the predecessor's graph exactly.
+    (:func:`learner_text_gap_edge_origin` ``creation``) needs
+    ``create_prerequisites_enabled``, both need ``enabled``. Off, the edge
+    stays in ``concepts/relations.yaml`` but nothing reads it (placement
+    order, declared prerequisites, the diagnoser's neighbourhood, the map):
+    the predecessor's graph exactly.
     """
 
-    extra: dict[str, Any] = getattr(edge, "model_extra", None) or {}
-    provenance = extra.get("provenance")
-    if not isinstance(provenance, dict) or provenance.get("mechanism") != LEARNER_TEXT_GAP_MECHANISM:
+    origin = learner_text_gap_edge_origin(edge, creations)
+    if origin is None:
         return True
     section = getattr(config, "learner_text_gaps", None)
     if section is None:
         return True
     if not section.enabled:
         return False
-    if provenance.get("origin") == "creation":
+    if origin == "creation":
         return bool(section.create_prerequisites_enabled)
     return bool(section.add_edges_enabled)
 

@@ -30,7 +30,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.db.stores.learner_gaps import PIPELINE_RECEIPT_OWNER
+from learnloop.db.stores.learner_gaps import COMMAND_RECEIPT_OWNER, PIPELINE_RECEIPT_OWNER
 from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
 from learnloop.diagnosis.recurrence.judging import estimate_tokens, producer_label, receipt_sink
 from learnloop.diagnosis.split.retrieval import QUERY_PREFIX
@@ -69,7 +69,9 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.models import LoadedVault
 
 #: model_call receipts of the pipeline's calls are owned by the learner text
-#: (the live daily cap counts them, ``jobs.calls_today``).
+#: (the live daily cap counts them, ``jobs.calls_today``); a command's
+#: shared budget (:meth:`TextBudget.for_command`) owns them as
+#: ``COMMAND_RECEIPT_OWNER``, which the live cap does not count (re-review F5).
 MODEL_CALL_OWNER_KIND = PIPELINE_RECEIPT_OWNER
 ClientFactory = Callable[[], Any]
 
@@ -84,10 +86,22 @@ def caps_for(vault: LoadedVault) -> SpendCaps:
 
 
 class TextBudget:
-    """Route registration and admission over one :class:`ReviewSpend`."""
+    """Route registration and admission over one :class:`ReviewSpend`.
 
-    def __init__(self, spend: ReviewSpend) -> None:
+    ``owner_kind`` tags its calls' receipts: the live path's (the default)
+    count toward ``learner_text_gaps.max_calls_per_day``; a command's
+    (:meth:`for_command`) are capped by the command and do not.
+    """
+
+    def __init__(self, spend: ReviewSpend, *, owner_kind: str = MODEL_CALL_OWNER_KIND) -> None:
         self.spend = spend
+        self.owner_kind = owner_kind
+
+    @classmethod
+    def for_command(cls, spend: ReviewSpend) -> "TextBudget":
+        """A command's budget shared by every text it reads (``learnloop gaps run``)."""
+
+        return cls(spend, owner_kind=COMMAND_RECEIPT_OWNER)
 
     @classmethod
     def for_text(
@@ -127,7 +141,7 @@ class TextBudget:
     @contextmanager
     def receipts(self, repository: Repository, owner_id: str) -> Iterator[None]:
         previous = self.spend.collector.sink
-        self.spend.collector.sink = receipt_sink(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=owner_id)
+        self.spend.collector.sink = receipt_sink(repository, owner_kind=self.owner_kind, owner_id=owner_id)
         try:
             yield
         finally:

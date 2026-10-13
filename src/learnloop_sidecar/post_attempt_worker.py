@@ -183,7 +183,8 @@ class PostAttemptWorker:
             with self._changed:
                 self._changed.notify_all()
             # ``deferred``: the daily cap or a spend stop; the rest waits.
-            if result.state in ("released", "deferred", "lease_lost"):
+            # One text backing off (``retry_later``) does not stop the drain.
+            if result.state in ("deferred", "lease_lost"):
                 break
         return outcomes
 

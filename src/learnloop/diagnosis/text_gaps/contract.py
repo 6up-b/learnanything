@@ -101,6 +101,28 @@ class GapReading:
             "belief_statement": self.belief_statement,
         }
 
+    def as_progress(self) -> dict[str, Any]:
+        """JSON for the job's progress: a retry acts on this reading, never a
+        second one (re-review F1)."""
+
+        return {
+            "kind": self.kind, **self.named(), "judge": self.judge, "judge_model": self.judge_model,
+            "prompt_version": self.prompt_version, "status": self.status,
+            "prerequisite_refs": list(self.prerequisite_refs),
+            "registry_match": dict(self.registry_match) if self.registry_match is not None else None,
+        }
+
+    @classmethod
+    def from_progress(cls, data: Mapping[str, Any]) -> "GapReading":
+        return cls(
+            kind=str(data["kind"]), prerequisite_name=data.get("prerequisite_name"),
+            prerequisite_line=data.get("prerequisite_line"), belief_statement=data.get("belief_statement"),
+            judge=str(data.get("judge") or "llm"), judge_model=str(data.get("judge_model") or "unknown"),
+            prompt_version=str(data.get("prompt_version") or ""), status=str(data.get("status") or "ok"),
+            prerequisite_refs=tuple(str(ref) for ref in data.get("prerequisite_refs") or ()),
+            registry_match=dict(data["registry_match"]) if data.get("registry_match") is not None else None,
+        )
+
     def names(self, kind: str) -> bool:
         """Does this reading name a gap of ``kind`` (so it can be matched)?"""
 

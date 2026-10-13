@@ -33,7 +33,12 @@ instead. A text is never finalized on a partial reading.
 **Crash-safe writes** (F3). Vault writes take ids derived from the learner
 text and are recorded in the job's progress BEFORE they are made, so a retry
 finds and reuses them; database writes (a holding-pen candidate, a sighting)
-commit in the same transaction as the ledger row.
+commit in the same transaction as the ledger row. The reading, the chooser
+and the authoritative kind are recorded too, before anything acts on them
+(re-review F1): a retry reuses them instead of reading a stuck answer again,
+and a recorded creation or edge is finished first, whatever a switch now
+says (:func:`_resume`). A job switched off or gone after it wrote is logged
+``failed`` with what it wrote (``jobs``), never left without a row.
 """
 
 from __future__ import annotations
@@ -311,13 +316,8 @@ def _prerequisite(
         return outcome
     if not reading.prerequisite_name:
         return actions.ActionOutcome("unnamed", detail={"reason": "no prerequisite named"})
-    if (progress.get("created") or {}).get("draft"):
-        # An earlier attempt of this job drafted (and maybe wrote) the
-        # creation: finish it. Judging again could now see the half-written
-        # LO itself and orphan it.
-        return _create(root, vault, repository, text, reading, budget=budget, clients=clients, now_iso=now_iso,
-                       clock=clock, detail=dict((progress["created"].get("detail") or {})), progress=progress,
-                       checkpoint=checkpoint)
+    # A creation or an edge an earlier attempt recorded never reaches here:
+    # :func:`_resume` finishes it first, without judging again.
     query = prerequisite_query(text, reading.prerequisite_name, reading.prerequisite_line)
     vector, model_id = _embed_query(repository, budget, clients, vault, query, PREREQUISITE_FIELD, detail)
     candidates = prerequisite_candidates(
@@ -355,7 +355,7 @@ def _prerequisite(
             match_basis=f"judge:{authority}:{matched.scope.get('basis')}", detail=detail,
         )
         _maybe_edge(root, vault, repository, text, outcome, chooser=chooser, budget=budget, clients=clients,
-                    clock=clock, progress=progress, checkpoint=checkpoint)
+                    clock=clock, checkpoint=checkpoint)
         return outcome
     if any(verdicts.get(subject.id) == "unsure" for subject in candidates.subjects):
         detail["reason"] = "unsure"
@@ -371,8 +371,7 @@ def _prerequisite(
 
 def _maybe_edge(
     root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *,
-    chooser: str, budget: TextBudget, clients: PipelineClients, clock: Clock | None,
-    progress: Mapping[str, Any], checkpoint: Checkpoint,
+    chooser: str, budget: TextBudget, clients: PipelineClients, clock: Clock | None, checkpoint: Checkpoint,
 ) -> None:
     config = vault.config.learner_text_gaps
     anchor, matched = text.anchor, str(outcome.target_id)
@@ -381,38 +380,51 @@ def _maybe_edge(
         outcome.detail["edge"] = "not_applicable"
         return
     authority = "decider" if chooser == "decider" else "llm"
-    recorded = dict(progress.get("edge") or {})
-    if recorded.get("prerequisite") == matched and recorded.get("dependent") == anchor and recorded.get("edge_id"):
-        # An earlier attempt decided this edge and recorded its id before
-        # writing it (F3): finish the write; never ask or add twice.
-        needed = dict(recorded.get("needed") or {})
-        edge_id = str(recorded["edge_id"])
-    else:
-        if actions.declared_prerequisite(vault, matched, anchor):
-            outcome.detail["edge"] = "declared"
-            return
-        if not config.add_edges_enabled:
-            outcome.detail["edge"] = "disabled"
-            return
-        needed = ask_needed(
-            repository, budget, context=needed_context(vault, item, vault.learning_objects[matched]),
-            learning_object_id=matched, practice_item_id=item.id, judge_client=clients.get("judge"),
-            decider_client=clients.get("decider") if config.decider_enabled else None,
-        )
-        refused = [name for name, entry in needed.items() if entry.get("status") == "refused"]
-        if refused:
-            raise ReadingDeferred(f"\"needed?\" refused for {', '.join(refused)}", spend=True)
-        if (needed.get(authority) or {}).get("verdict") != "yes":
-            outcome.detail["needed"] = {"authoritative": authority, **needed}
-            outcome.detail["edge"] = "not_needed"
-            return
-        edge_id = actions.edge_id_for(text, matched, anchor)
-        checkpoint(edge={"prerequisite": matched, "dependent": anchor, "edge_id": edge_id, "needed": needed})
-    outcome.detail["needed"] = {"authoritative": authority, **needed}
-    rationale = (needed.get("llm") or {}).get("rationale") or f"{item.id} builds on {matched}"
+    if actions.declared_prerequisite(vault, matched, anchor):
+        outcome.detail["edge"] = "declared"
+        return
+    if not config.add_edges_enabled:
+        outcome.detail["edge"] = "disabled"
+        return
+    needed = ask_needed(
+        repository, budget, context=needed_context(vault, item, vault.learning_objects[matched]),
+        learning_object_id=matched, practice_item_id=item.id, judge_client=clients.get("judge"),
+        decider_client=clients.get("decider") if config.decider_enabled else None,
+    )
+    refused = [name for name, entry in needed.items() if entry.get("status") == "refused"]
+    if refused:
+        raise ReadingDeferred(f"\"needed?\" refused for {', '.join(refused)}", spend=True)
+    if (needed.get(authority) or {}).get("verdict") != "yes":
+        outcome.detail["needed"] = {"authoritative": authority, **needed}
+        outcome.detail["edge"] = "not_needed"
+        return
+    # Recorded BEFORE it is written, with the match it finishes (F3): a retry
+    # writes this edge and logs this match (:func:`_resume`), never asking,
+    # judging or adding again.
+    edge = {
+        "prerequisite": matched, "dependent": anchor, "edge_id": actions.edge_id_for(text, matched, anchor),
+        "needed": needed, "authority": authority,
+        "outcome": {"target_subject_id": outcome.target_subject_id, "match_basis": outcome.match_basis,
+                    "detail": dict(outcome.detail)},
+    }
+    checkpoint(edge=edge)
+    _write_edge(root, vault, repository, text, outcome, edge=edge, clock=clock)
+
+
+def _write_edge(
+    root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *,
+    edge: Mapping[str, Any], clock: Clock | None,
+) -> None:
+    """Write the recorded edge (idempotent: an edge already on disk is ``added``)."""
+
+    needed = dict(edge.get("needed") or {})
+    prerequisite, dependent = str(edge["prerequisite"]), str(edge["dependent"])
+    outcome.detail["needed"] = {"authoritative": str(edge.get("authority") or "llm"), **needed}
+    asking = text.practice_item_id or text.source_id
+    rationale = (needed.get("llm") or {}).get("rationale") or f"{asking} builds on {prerequisite}"
     written_id, status = actions.add_prerequisite_edge(
-        root, vault, prerequisite_lo=matched, dependent_lo=anchor, text=text, rationale=str(rationale),
-        clock=clock, edge_id=edge_id, origin="match",
+        root, vault, prerequisite_lo=prerequisite, dependent_lo=dependent, text=text, rationale=str(rationale),
+        clock=clock, edge_id=str(edge["edge_id"]), origin="match",
     )
     outcome.edge_id = written_id
     outcome.detail["edge"] = status
@@ -420,14 +432,52 @@ def _maybe_edge(
         sync_vault_state(load_vault(root), repository, clock=clock)
 
 
+def _resume(
+    root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget,
+    clients: PipelineClients, now_iso: str, clock: Clock | None, progress: Mapping[str, Any],
+    checkpoint: Checkpoint,
+) -> actions.ActionOutcome | None:
+    """Finish the vault write an earlier attempt of this job recorded (F3,
+    re-review F1); None when it recorded none.
+
+    Whatever the reading, the chooser or the creation and edge switches now
+    say: a creation whose draft is recorded, or a matched edge whose id is,
+    is finished and logged, never left on disk without a ledger row (the
+    daily cap and ``learnloop gaps undo`` read the row). Judging again could
+    see the half-written LO itself, or a newer candidate, and orphan it.
+    """
+
+    created = dict(progress.get("created") or {})
+    if created.get("draft"):
+        outcome = _create(root, vault, repository, text, None, budget=budget, clients=clients, now_iso=now_iso,
+                          clock=clock, detail=dict(created.get("detail") or {}), progress=progress,
+                          checkpoint=checkpoint)
+        outcome.detail["resumed"] = "creation"
+        return outcome
+    edge = dict(progress.get("edge") or {})
+    if edge.get("edge_id") and edge.get("prerequisite") and edge.get("dependent"):
+        recorded = dict(edge.get("outcome") or {})
+        outcome = actions.ActionOutcome(
+            "matched_prerequisite", target_kind="learning_object", target_id=str(edge["prerequisite"]),
+            target_subject_id=recorded.get("target_subject_id") or text.subject_id,
+            match_basis=recorded.get("match_basis") or "resumed", detail=dict(recorded.get("detail") or {}),
+        )
+        _write_edge(root, vault, repository, text, outcome, edge=edge, clock=clock)
+        outcome.detail["resumed"] = "edge"
+        return outcome
+    return None
+
+
 def _create(
-    root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *,
+    root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading | None, *,
     budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None,
     detail: dict[str, Any], progress: Mapping[str, Any], checkpoint: Checkpoint,
 ) -> actions.ActionOutcome:
     config = vault.config.learner_text_gaps
     created = dict(progress.get("created") or {})
     if not created.get("draft"):
+        if reading is None:
+            raise ValueError("a creation without a recorded draft needs its reading")
         if not config.create_prerequisites_enabled:
             detail["reason"] = "creation_disabled"
             return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
@@ -598,6 +648,56 @@ def _belief(
 # -- one learner text -------------------------------------------------------------------------------
 
 
+def _decide(
+    repository: Repository, text: LearnerText, vault: LoadedVault, *, budget: TextBudget,
+    clients: PipelineClients, progress: Mapping[str, Any], checkpoint: Checkpoint,
+) -> tuple[GapReading | None, DeciderKind, str, str]:
+    """The reading, the Decider's kind, the chooser and the authoritative kind.
+
+    Recorded in the job's progress before anything acts on them, and reused
+    by every retry of the job (re-review F1): a stuck answer is read once (a
+    second reading could differ, or fail, and orphan what the first one
+    wrote), and a chooser switched between attempts does not change a
+    reading already acted on.
+    """
+
+    decided = progress.get("decided")
+    if isinstance(decided, Mapping):
+        recorded = decided.get("reading")
+        return (
+            GapReading.from_progress(recorded) if isinstance(recorded, Mapping) else None,
+            DeciderKind(**dict(decided["decider"])), str(decided["chooser"]), str(decided["kind"]),
+        )
+    config = vault.config.learner_text_gaps
+    reading = text.reading
+    if reading is None and text.context_judge == "gap_reader":
+        if isinstance(progress.get("reading"), Mapping):
+            # Read by an earlier attempt that stopped before the kind (a
+            # refused Decider): never paid for twice.
+            reading = GapReading.from_progress(progress["reading"])
+        else:
+            reader = clients.get("reader")
+            reading = read_text(budget, reader, text) if reader is not None else GapReading(
+                "none", judge="llm", status="unavailable", prompt_version="")
+            if reading.status == "refused":
+                raise ReadingDeferred("the stuck-text reading was refused", spend=True)
+            if reading.status == "ok":
+                checkpoint(reading=reading.as_progress())
+    if reading is not None and reading.status == "ok":
+        log_reading(repository, text, reading)
+    decider = DeciderKind("disabled")
+    if config.decider_enabled:
+        decider_client = clients.get("decider")
+        decider = decider_kind(repository, budget, decider_client, text) if decider_client is not None else DeciderKind("unavailable")
+        if decider.status == "refused":
+            raise ReadingDeferred(f"the Decider's kind was refused: {decider.error}", spend=True)
+    chooser = str(config.chooser)
+    kind = authoritative(chooser, reading, decider)
+    checkpoint(decided={"reading": reading.as_progress() if reading is not None else None,
+                        "decider": decider.as_dict(), "chooser": chooser, "kind": kind})
+    return reading, decider, chooser, kind
+
+
 def process_learner_text(
     root: Path,
     repository: Repository,
@@ -635,24 +735,15 @@ def process_learner_text(
 
     now_iso = utc_now_iso(clock)
     with budget.receipts(repository, text.subject_key):
-        reading = text.reading
-        if reading is None and text.context_judge == "gap_reader":
-            reader = clients.get("reader")
-            reading = read_text(budget, reader, text) if reader is not None else GapReading(
-                "none", judge="llm", status="unavailable", prompt_version="")
-            if reading.status == "refused":
-                raise ReadingDeferred("the stuck-text reading was refused", spend=True)
-        if reading is not None and reading.status == "ok":
-            log_reading(repository, text, reading)
-        decider = DeciderKind("disabled")
-        if config.decider_enabled:
-            decider_client = clients.get("decider")
-            decider = decider_kind(repository, budget, decider_client, text) if decider_client is not None else DeciderKind("unavailable")
-            if decider.status == "refused":
-                raise ReadingDeferred(f"the Decider's kind was refused: {decider.error}", spend=True)
-        chooser = str(config.chooser)
-        kind = authoritative(chooser, reading, decider)
-        if kind == "prerequisite" and reading is not None and reading.status == "ok" and reading.names(kind):
+        reading, decider, chooser, kind = _decide(
+            repository, text, vault, budget=budget, clients=clients, progress=state, checkpoint=checkpoint,
+        )
+        resumed = _resume(root, vault, repository, text, budget=budget, clients=clients, now_iso=now_iso,
+                          clock=clock, progress=state, checkpoint=checkpoint)
+        if resumed is not None:
+            # What was written was a prerequisite; it is logged as one.
+            outcome, kind = resumed, "prerequisite"
+        elif kind == "prerequisite" and reading is not None and reading.status == "ok" and reading.names(kind):
             outcome = _prerequisite(
                 root, vault, repository, text, reading, chooser=chooser, budget=budget, clients=clients,
                 now_iso=now_iso, clock=clock, progress=state, checkpoint=checkpoint,
@@ -685,7 +776,7 @@ def process_learner_text(
         "source_kind": text.source_kind, "source_id": text.source_id, "attempt_id": text.attempt_id,
         "practice_item_id": text.practice_item_id,
         "anchor_learning_object_id": text.anchor or (text.anchor_learning_object_ids[0] if text.anchor_learning_object_ids else None),
-        "subject_id": text.subject_id, "learner_text": text.text[:4000], "chooser": str(config.chooser),
+        "subject_id": text.subject_id, "learner_text": text.text[:4000], "chooser": chooser,
         "context_judge": text.context_judge,
         "context_kind": reading.kind if reading is not None and reading.status == "ok" else None,
         "decider_kind": decider.choice, "decider_json": decider.as_dict(), "kind": kind,

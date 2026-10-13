@@ -29,7 +29,7 @@ from learnloop.vault.models import (
     SubjectMetadata,
 )
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
-from learnloop.vault.lifecycle import learner_text_gap_edge_in_effect
+from learnloop.vault.lifecycle import learner_text_gap_creations, learner_text_gap_edge_in_effect
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.yaml_io import (
     read_markdown_frontmatter_data,
@@ -101,10 +101,6 @@ def load_vault(
         loaded.concepts = concepts_file.concepts
 
     relations_file = _load_yaml_model(paths.relations_path, RelationsFile, issues, read_yaml_file)
-    if relations_file:
-        # A learner-text gap edge whose switch is off stays in the file but
-        # out of the loaded graph (its kill switch, Codex review F10).
-        loaded.edges = [edge for edge in relations_file.edges if learner_text_gap_edge_in_effect(config, edge)]
 
     goals_file = _load_yaml_model(paths.goals_path, GoalsFile, issues, read_yaml_file)
     if goals_file:
@@ -148,6 +144,16 @@ def load_vault(
     if subjects_root.exists():
         for subject_dir in sorted(path for path in subjects_root.iterdir() if path.is_dir()):
             _load_subject_dir(subject_dir, loaded, read_yaml_file)
+
+    if relations_file:
+        # A learner-text gap edge whose switch is off stays in the file but
+        # out of the loaded graph (its kill switch, Codex review F10). Read
+        # once the LOs are: a created LO's provenance names the creation
+        # edges written before their origin was recorded (re-review F7).
+        creations = learner_text_gap_creations(loaded.learning_objects.values())
+        loaded.edges = [
+            edge for edge in relations_file.edges if learner_text_gap_edge_in_effect(config, edge, creations)
+        ]
 
     _validate_loaded_vault(loaded)
     return loaded
