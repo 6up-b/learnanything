@@ -142,6 +142,7 @@ def evsi_multisim_command(
             "status": "ok",
             "report": str(report_path),
             "families": analysis["families"],
+            "coverage_families": analysis.get("coverage_families", analysis["families"]),
             "stress_families": analysis["stress_families"],
             "excluded_families": analysis.get("excluded_families", []),
             "adequacy": {
@@ -150,7 +151,9 @@ def evsi_multisim_command(
                 if name != "marginal"
             },
             "claims": {claim["id"]: claim["verdict"] for claim in analysis["claims"]},
-            "most_robust_policy": (analysis.get("policy_regret") or [{}])[0].get("policy"),
+            # Only a ranking that covers every required family names a policy (re-review F2).
+            "most_robust_policy": next((row["policy"] for row in (analysis.get("policy_regret") or [])[:1]
+                                        if row.get("complete", True)), None),
             "elapsed_seconds": report["elapsed_seconds"],
         }
 

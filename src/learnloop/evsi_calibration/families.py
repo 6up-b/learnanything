@@ -94,10 +94,12 @@ ITEM_BLOCK = 64
 IMPLIED_BOOTSTRAP = 400
 #: Per process: the continuous family's finished system rows, keyed by the
 #: model's fingerprint (item pool, typical item, holder shift, subject,
-#: hypotheses) and the question. An episode chunk builds fresh scenario models,
-#: and averaging over a pooled item pool is the study's costliest step, so a
-#: worker computes each row once per study, not once per chunk.
-_NRM_ROW_CACHE: dict[tuple[str, str], dict[str, dict[str, float]]] = {}
+#: hypotheses) and everything a row reads from the question (its id, key and
+#: distractor labels: a revised bank reuses ids, re-review F6). An episode
+#: chunk builds fresh scenario models, and averaging over a pooled item pool is
+#: the study's costliest step, so a worker computes each row once per study,
+#: not once per chunk.
+_NRM_ROW_CACHE: dict[tuple[str, str, str, tuple[tuple[str, str], ...]], dict[str, dict[str, float]]] = {}
 _NRM_ROW_CACHE_LIMIT = 50_000
 #: Items and learners the strength calibration of the continuous family averages over.
 STRENGTH_ITEMS = 64
@@ -661,7 +663,9 @@ class NrmScenario(ScenarioModel):
         return dict(self._prior)
 
     def _compute_system_rows(self, question: EediQuestion) -> dict[str, dict[str, float]]:
-        key = (f"{self._fingerprint}:{float(self.holder_shift)!r}", question.question_id)
+        # The row reads the question's key and labels, not only its id (re-review F6).
+        key = (f"{self._fingerprint}:{float(self.holder_shift)!r}", question.question_id, question.correct,
+               tuple(sorted((str(o), str(m)) for o, m in question.misconception_by_option.items())))
         cached = _NRM_ROW_CACHE.get(key)
         if cached is None:
             cached = self._rows_for(question, self.hypotheses)

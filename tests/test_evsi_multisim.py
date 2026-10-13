@@ -765,7 +765,99 @@ def test_certification_needs_adequate_families_and_every_cell():
     absent = json.loads(json.dumps(report))
     del absent["families"]["c"]
     analysis = MF.analyze(absent)
-    assert {"family": "c", "reason": "required by the study but absent from the report"} in analysis["excluded_families"]
+    assert {"family": "c", "reason": "required by the study and adequate on held-out students, but absent from the "
+                                     "report: every claim needs its cells"} in analysis["excluded_families"]
+    assert claim(analysis, "C7:30")["verdict"] == "insufficient evidence"
+    assert claim(analysis, "C7:30")["missing"] == ["c"]
+
+
+def test_a_required_adequate_family_absent_from_the_report_blocks_certification(tmp_path):
+    # Codex re-review F2: deleting a required family's results (its passing
+    # validation and its place in the study's settings kept) left the other
+    # families to certify alone (3/3 supported) and every regret row complete.
+    report = _synthetic_report(("a", "b", "c", "d"))
+    absent = json.loads(json.dumps(report))
+    del absent["families"]["d"]
+    analysis = MF.analyze(absent)
+    assert analysis["families"] == ["a", "b", "c"] and analysis["enough_families"]
+    assert analysis["coverage_families"] == ["a", "b", "c", "d"]
+    assert analysis["excluded_families"] == [{
+        "family": "d", "reason": "required by the study and adequate on held-out students, but absent from the "
+                                 "report: every claim needs its cells"}]
+    for claim_id in ("C7:30", "C1a"):
+        claim = next(c for c in analysis["claims"] if c["id"] == claim_id)
+        assert claim["verdict"] == "insufficient evidence", claim_id
+        assert claim["missing"] == ["d"], claim_id
+    assert {c["verdict"] for c in analysis["claims"]} <= {"insufficient evidence", "not tested"}
+    assert [(row["complete"], row["missing"]) for row in analysis["winners"]] == [(False, ["d"])]
+    assert analysis["policy_regret"] and all(
+        not row["complete"] and row["missing_cells"] == ["d fitted/30"] for row in analysis["policy_regret"])
+    # The CLI's headline names no robust policy from an incomplete ranking.
+    stored = tmp_path / "multisim_report.json"
+    stored.write_text(json.dumps({**absent, "elapsed_seconds": 1.0, "analysis": {}}))
+    result = CliRunner().invoke(app, ["evsi", "multisim", "--reanalyze", str(stored), "--json"])
+    assert result.exit_code == 0, result.output
+    headline = json.loads(result.output.strip().splitlines()[-1])
+    assert headline["coverage_families"] == ["a", "b", "c", "d"] and headline["most_robust_policy"] is None
+    stored.write_text(json.dumps({**report, "elapsed_seconds": 1.0, "analysis": {}}))
+    result = CliRunner().invoke(app, ["evsi", "multisim", "--reanalyze", str(stored), "--json"])
+    assert json.loads(result.output.strip().splitlines()[-1])["most_robust_policy"] == "evsi_lcb_only"
+
+    # Its validation failed or is unknown: it could never vote, so its absence
+    # blocks nothing (it is still reported).
+    for validation in ({"adequate": False}, None):
+        variant = json.loads(json.dumps(absent))
+        if validation is None:
+            del variant["fits"]["validation"]["families"]["d"]
+        else:
+            variant["fits"]["validation"]["families"]["d"] = validation
+        analysis = MF.analyze(variant)
+        assert analysis["coverage_families"] == ["a", "b", "c"]
+        assert [e["family"] for e in analysis["excluded_families"]] == ["d"]
+        assert next(c for c in analysis["claims"] if c["id"] == "C7:30")["verdict"] == "supported"
+        assert all(row["complete"] for row in analysis["winners"] + analysis["policy_regret"])
+
+    # A required family's results flagged as not fitted are still required.
+    unflagged = json.loads(json.dumps(report))
+    unflagged["families"]["d"]["fitted"] = False
+    analysis = MF.analyze(unflagged)
+    assert analysis["families"] == ["a", "b", "c", "d"] and analysis["stress_families"] == []
+
+
+def test_the_nrm_row_cache_never_serves_a_revised_bank(eedi, monkeypatch):
+    # Codex re-review F6: the process-wide nrm row cache was keyed by the model
+    # fingerprint and the question id alone, so a revised bank (same ids,
+    # subjects, hypotheses and fits; different option labels or key) read the
+    # earlier bank's rows in the same process.
+    monkeypatch.setattr(F, "_NRM_ROW_CACHE", {})
+    nrm = F.build_families(eedi["bank"], eedi["fits"])["nrm"]
+    scenario = build_scenarios(eedi["bank"], eedi["fits"].lca)[0]
+    question = next(q for q in scenario.questions
+                    if len(set(q.misconception_by_option.values())) == 2
+                    and all(f"mis:{m}" in scenario.hypotheses for m in q.misconception_by_option.values()))
+    first, second = sorted(question.misconception_by_option)
+    unlabelled = next(o for o in "ABCD" if o != question.correct and o not in question.misconception_by_option)
+    revisions = {
+        "labels swapped": replace(question, misconception_by_option={
+            first: question.misconception_by_option[second], second: question.misconception_by_option[first]}),
+        "key moved": replace(question, correct=unlabelled, misconception_by_option={
+            question.correct: question.misconception_by_option[first],
+            second: question.misconception_by_option[second]}),
+    }
+    original = nrm.scenario_model(scenario).system_rows(question)
+    for label, revised in revisions.items():
+        bank = replace(scenario, questions=tuple(revised if q.question_id == question.question_id else q
+                                                 for q in scenario.questions))
+        served = nrm.scenario_model(bank).system_rows(revised)
+        with monkeypatch.context() as fresh_cache:
+            fresh_cache.setattr(F, "_NRM_ROW_CACHE", {})
+            fresh = nrm.scenario_model(bank).system_rows(revised)
+        for h in scenario.hypotheses:
+            assert [served[h][o] for o in "ABCD"] == pytest.approx([fresh[h][o] for o in "ABCD"], abs=1e-12), (label, h)
+        assert any(abs(fresh[h][o] - original[h][o]) > 1e-3 for h in scenario.hypotheses for o in "ABCD"), label
+    # The original bank still reads its own rows from the shared cache.
+    again = nrm.scenario_model(scenario).system_rows(question)
+    assert again == original
 
 
 def test_c1a_certifies_through_the_consistency_ci_not_a_fixed_margin():

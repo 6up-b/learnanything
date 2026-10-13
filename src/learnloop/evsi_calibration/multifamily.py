@@ -677,20 +677,37 @@ def _ci_only(values: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return [{**v, "certified": bool(v.get("certified")) and _has_ci(v)} for v in values]
 
 
-def _voting_families(report: Mapping[str, Any], fitted: Sequence[str]) -> tuple[list[str], list[dict[str, str]]]:
-    """The families that vote, and the exclusions with their reason. A family
-    votes when it is in the report, was fitted, and passed the adequacy gate
-    on held-out students (RankCert: predictive adequacy is a prerequisite of
-    the uncertainty set). The study's required families come from its
-    settings; one absent from the report is an exclusion too."""
+def _voting_families(report: Mapping[str, Any],
+                     fitted: Sequence[str]) -> tuple[list[str], list[str], list[dict[str, str]]]:
+    """The families that vote, the families every claim must cover, and the
+    exclusions with their reason. A family votes when it is in the report, was
+    fitted, and passed the adequacy gate on held-out students (RankCert:
+    predictive adequacy is a prerequisite of the uncertainty set).
+
+    The study's required families come from its settings. One absent from the
+    report but validated adequate would have voted, so it stays in the
+    coverage requirement: every claim lacks its cells and none certifies
+    without it (re-review F2). One absent whose validation failed or is
+    missing could never vote; its absence blocks nothing and is reported."""
 
     validation = ((report.get("fits") or {}).get("validation") or {}).get("families") or {}
     required = list((report.get("settings") or {}).get("families") or [])
+    present = report.get("families", {})
     voting: list[str] = []
+    absent_adequate: list[str] = []
     excluded: list[dict[str, str]] = []
     for name in required:
-        if name not in report.get("families", {}):
-            excluded.append({"family": name, "reason": "required by the study but absent from the report"})
+        if name in present:
+            continue
+        block = validation.get(name)
+        if block is not None and block.get("adequate") is True:
+            absent_adequate.append(name)
+            excluded.append({"family": name, "reason": "required by the study and adequate on held-out students, "
+                                                       "but absent from the report: every claim needs its cells"})
+        else:
+            why = "no held-out validation" if block is None else "failed the adequacy gate"
+            excluded.append({"family": name, "reason": f"required by the study but absent from the report ({why}: "
+                                                       "it could not vote)"})
     for name in fitted:
         block = validation.get(name)
         if block is None:
@@ -699,7 +716,9 @@ def _voting_families(report: Mapping[str, Any], fitted: Sequence[str]) -> tuple[
             excluded.append({"family": name, "reason": "failed the adequacy gate on held-out students"})
         else:
             voting.append(name)
-    return voting, excluded
+    order = required + [name for name in fitted if name not in required]
+    coverage = [name for name in order if name in voting or name in absent_adequate]
+    return voting, coverage, excluded
 
 
 def _verdict(values: Sequence[Mapping[str, Any]]) -> str:
@@ -760,20 +779,23 @@ def _pair_claim(report: Mapping[str, Any], families: Sequence[str], consistency:
 
 
 def _rotation_claim(report: Mapping[str, Any], families: Sequence[str], key: str, sign: int, *, seed: int,
-                    draws: int) -> list[dict[str, Any]]:
+                    draws: int, systems: Sequence[str] | None = None) -> list[dict[str, Any]]:
     """The same paired difference when the system is calibrated to another family
-    (every truth x system pair, every rotation regime, and the main comparison)."""
+    (every truth x system pair, every rotation regime, and the main comparison).
+    ``families`` are the truths read; ``systems`` (default: the same) the
+    calibrated systems counted."""
 
+    systems = families if systems is None else systems
     right, left = key.split("-", 1)
     out = []
     for name in families:
         block = report["families"][name]
         main = block.get("main", {})
         # In the study's family order, not the stored dict's (a stored report's keys come back sorted).
-        cells = [(f"fitted/3 system={system}", main[system]) for system in families
+        cells = [(f"fitted/3 system={system}", main[system]) for system in systems
                  if system in main and system != name]
         cells += [(f"{c['consistency']}/{float(c['repair_minutes']):g} system={c['system']}", c)
-                  for c in block.get("rotation", []) if c.get("system") in families and c.get("system") != name]
+                  for c in block.get("rotation", []) if c.get("system") in systems and c.get("system") != name]
         for where, cell in cells:
             pair = _paired(cell["episodes"], left, right, seed=seed, draws=draws)
             if pair is not None:
@@ -804,10 +826,14 @@ def _kendall_tau(left: Mapping[str, float], right: Mapping[str, float]) -> float
     return None if denominator == 0 else (concordant - discordant) / denominator
 
 
-def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, draws: int) -> list[dict[str, Any]]:
+def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, draws: int,
+             coverage: Sequence[str] | None = None) -> list[dict[str, Any]]:
     """Per regime: each family's winner, co-winners (not distinguishable from the
-    best), top-1 agreement and the regret of acting on another family's winner."""
+    best), top-1 agreement and the regret of acting on another family's winner.
+    A row is complete when every family of ``coverage`` (default: the voting
+    ``families``) has the regime."""
 
+    coverage = families if coverage is None else coverage
     rows = []
     # Every regime any voting family ran, in the order they were run (a family
     # missing one is reported, never silently left out of the row).
@@ -840,7 +866,7 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
             per_family[name] = {"winner": best, "mean": round(means[best], 4), "co_winners": co,
                                 "runner_up": runner, "margin_over_runner_up": margin,
                                 "means": {p: round(v, 4) for p, v in sorted(means.items())}}
-        missing = [name for name in families if name not in per_family]
+        missing = [name for name in coverage if name not in per_family]
         winners = [v["winner"] for v in per_family.values()]
         top = max((winners.count(w) for w in winners), default=0)
         # Ties are listed, and the first in name order is the reported mode, so
@@ -862,7 +888,7 @@ def _winners(report: Mapping[str, Any], families: Sequence[str], *, seed: int, d
         taus = [t for t in taus if t is not None]
         rows.append({
             "regime": f"{consistency}/{repair:g}",
-            #: Every voting family has this regime; else the row is not evidence.
+            #: Every covered family has this regime; else the row is not evidence.
             "complete": not missing,
             "missing": missing,
             "per_family": per_family,
@@ -886,13 +912,17 @@ NEAR_BEST_MINUTES = 0.10
 
 
 def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: Sequence[str],
-                   expected_regimes: Sequence[str] | None = None) -> list[dict[str, Any]]:
+                   expected_regimes: Sequence[str] | None = None,
+                   coverage: Sequence[str] | None = None) -> list[dict[str, Any]]:
     """RankCert's robust choice: each policy's regret (its mean minutes minus the
     best policy's) in every family x regime cell, worst case first. A policy
     that is never far from the best whichever family is true is the one to
     ship when the families disagree about the winner. A policy missing from
-    any voting family x expected regime cell is ``complete: false`` and ranks
-    after every complete one (its worst case is unknown)."""
+    any covered family (``coverage``, default: the voting ``families``) x
+    expected regime cell is ``complete: false`` and ranks after every complete
+    one (its worst case is unknown)."""
+
+    coverage = families if coverage is None else coverage
 
     regrets: dict[str, dict[str, list[tuple[float, str]]]] = {}
     for name in list(families) + list(stress):
@@ -913,7 +943,7 @@ def _policy_regret(report: Mapping[str, Any], families: Sequence[str], stress: S
         stressed = [(value, f"{name} {where}") for name in stress for value, where in by_family.get(name, [])]
         covered = {(name, where) for name in families for _value, where in by_family.get(name, [])}
         regimes = expected_regimes if expected_regimes is not None else sorted({w for _n, w in covered})
-        missing_cells = [f"{name} {where}" for name in families for where in regimes if (name, where) not in covered]
+        missing_cells = [f"{name} {where}" for name in coverage for where in regimes if (name, where) not in covered]
         rows.append({
             "policy": policy,
             "complete": not missing_cells,
@@ -949,11 +979,15 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
     # The study's own family order (a stored report's keys come back sorted).
     order = list(settings.get("families") or []) + list(settings.get("stress_families") or [])
     names = [n for n in order if n in report["families"]] + sorted(n for n in report["families"] if n not in order)
-    fitted = [n for n in names if report["families"][n].get("fitted")]
-    stress = [n for n in names if not report["families"][n].get("fitted")]
+    # A family the study's settings require is fitted whatever its block's flag.
+    required = set(settings.get("families") or [])
+    fitted = [n for n in names if n in required or report["families"][n].get("fitted")]
+    stress = [n for n in names if n not in fitted]
     # Review F2: only families that pass the adequacy gate vote; a claim must
     # cover every voting family (and cell), else it is insufficient evidence.
-    families, excluded = _voting_families(report, fitted)
+    # Re-review F2: a required, adequate family absent from the report stays
+    # in that coverage (``coverage``), so its absence never certifies a claim.
+    families, coverage, excluded = _voting_families(report, fitted)
     enough = len(families) >= MIN_VOTING_FAMILIES
     claims: list[dict[str, Any]] = []
 
@@ -964,7 +998,7 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         missing = [k for k in expected if k not in present]
         verdict = _verdict(values)
         if not enough or (values and missing):
-            # Fewer voting families than RankCert needs, or a voting family
+            # Fewer voting families than RankCert needs, or a covered family
             # without the claim's cell ("not tested": no family ran it).
             verdict = INSUFFICIENT
         claims.append({
@@ -980,7 +1014,7 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         })
 
     def add(claim_id: str, statement: str, values: list[dict[str, Any]], *, stress_values=None, note: str = "") -> None:
-        finish(claim_id, statement, values, expected=families, key=lambda v: v["family"],
+        finish(claim_id, statement, values, expected=coverage, key=lambda v: v["family"],
                stress_values=stress_values, note=note)
 
     # C1: the vocabulary is overconfident relative to every family's consistency.
@@ -1117,10 +1151,10 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
         ("voi_p_with_fallback-voi_successor", -1, "the gate dropped and the lookahead added beat the successor as built"),
     ):
         by_regime: dict[str, list[dict[str, Any]]] = {}
-        for value in _rotation_claim(report, families, key, sign, seed=seed, draws=draws):
+        for value in _rotation_claim(report, families, key, sign, seed=seed, draws=draws, systems=coverage):
             regime, _, system = value["regime"].partition(" system=")
             by_regime.setdefault(regime, []).append({**value, "regime": regime, "system": system})
-        rotation_cells = [(truth, system) for truth in families for system in families if system != truth]
+        rotation_cells = [(truth, system) for truth in coverage for system in coverage if system != truth]
         for regime, values in by_regime.items():
             finish(f"R:{key}@{regime}",
                    f"{regime}, system calibrated to another family: {statement} ({key}, sign {sign:+d})",
@@ -1250,16 +1284,17 @@ def analyze(report: Mapping[str, Any], *, seed: int | None = None, draws: int | 
             })
     finish("C6c", "DEFAULT_CONDITIONAL_PSEUDO_COUNT 2 forecasts answers better than 8 over a stream that starts "
            "from the hand-set vocabulary (value: minutes per episode, 2 - 8; certified on log loss)", values,
-           expected=[(name, regime) for name in families for regime in regime_order],
+           expected=[(name, regime) for name in coverage for regime in regime_order],
            key=lambda v: (v["family"], v["regime"]))
 
-    winners = _winners(report, families, seed=seed, draws=draws) if families else []
+    winners = _winners(report, families, seed=seed, draws=draws, coverage=coverage) if families else []
     expected_regimes = [f"{_label(c)}/{float(r):g}" for c in settings.get("strengths") or []
                         for r in settings.get("repairs") or []] or None
-    return {"families": families, "stress_families": stress, "excluded_families": excluded,
+    return {"families": families, "coverage_families": coverage, "stress_families": stress,
+            "excluded_families": excluded,
             "minimum_voting_families": MIN_VOTING_FAMILIES, "enough_families": enough,
             "claims": claims, "winners": winners,
-            "policy_regret": _policy_regret(report, families, stress, expected_regimes) if families else []}
+            "policy_regret": _policy_regret(report, families, stress, expected_regimes, coverage) if families else []}
 
 
 __all__ = ["MultiFamilySettings", "analyze", "counted_row", "run_count_stream", "run_multifamily"]

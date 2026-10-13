@@ -265,7 +265,10 @@ cell, 400 bootstrap draws). Only families that pass the adequacy gate on
 held-out students vote (all four do; a failing or unvalidated family would be
 excluded and listed), and a claim must cover every voting family's cell; one
 with a cell missing, or with fewer than two voting families, is
-`insufficient evidence` (Codex review F2). `supported`: every family's 95% CI
+`insufficient evidence` (Codex review F2). A family the study requires that
+passed the gate but is absent from the report stays in that coverage, so its
+absence leaves every claim `insufficient evidence` and every winner and regret
+row incomplete (re-review F2). `supported`: every family's 95% CI
 is on the claim's side; a value without a CI is never certified (the first
 run certified `C1a` by a fixed 0.2 margin; it now carries a CI over the
 bank's subjects). `directional`: every family's point estimate is, not every CI.
@@ -1069,6 +1072,20 @@ test that fails on the reviewed code; the study rerun with all five):
    checks, 46 minutes, without it). The study now runs with no bound.
 5. **F5, artifacts.** `--reanalyze` truncated the report before rewriting it;
    every fit and report is now written atomically.
+
+**Fixed after the Codex re-review** (job `20261013-124855-mfsjE3`; each with a
+test that fails on `2ccd0078`; neither changes this report's numbers, see
+[`evsi-multisim-codex-review.md`](evsi-multisim-codex-review.md)):
+
+1. **F2 (reopened), a required family's absence.** Deleting `nrm`'s results
+   while keeping its passing validation and its place in the settings let the
+   other three certify alone (`C2b:0.9/30` supported, 3/3; every regret row
+   complete). A required, adequate family absent from the report now stays in
+   every claim's coverage (`coverage_families`).
+2. **F6, the `nrm` row cache.** The per-process cache of `nrm`'s system rows
+   was keyed by the question id alone, so a revised bank with the same ids
+   read the earlier bank's rows in one process. The key now carries the
+   question's correct option and distractor labels.
 
 **Fixed while finishing the interrupted run** (each with a test):
 
