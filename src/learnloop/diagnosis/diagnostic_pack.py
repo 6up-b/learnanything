@@ -385,6 +385,11 @@ def _baseline_evidence_projection(
       qualifying observation -> ``developing``;
     - clean fails -> ``weak``; mixed pass/fail -> ``developing``.
 
+    The rows are the repository's effective view (held-grade-evidence, review F3):
+    an observation whose grade a later regrade holds for review reads as
+    non-belief-updating, non-qualifying and scoreless while it is held, so its
+    provisional score labels no cell ``weak`` or ``demonstrated`` (``contested``).
+
     Cells with no touching observation are absent here (the caller defaults them
     ``untested``). ``demonstrated`` reuses the P0 ``DEMONSTRATED_CLAIM_CERTAINTY`` floor
     on the coarse rubric fraction -- the same knob the boundary-diff label uses."""

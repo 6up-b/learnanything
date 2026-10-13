@@ -992,3 +992,76 @@ def test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains(tmp_path):
     assert false_certification_rate(repository).denominator == 1
     [label] = cold_outcome_labels(repository)
     assert label["success"] is True and label["cold_attempt_id"] == probe.attempt_id
+
+
+def test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing(tmp_path):
+    """Review F3: a diagnostic probe answer recorded as qualifying,
+    belief-updating evidence keeps those flags as its receipt when a later
+    regrade holds its grade. Every reader of the observations reads the
+    effective view: held now, it updates no belief, qualifies nothing and its
+    provisional score labels no boundary cell (it is contested, as a probe
+    held on submission is)."""
+
+    from learnloop.curriculum import golden_path_run as GPR
+    from learnloop.curriculum.golden_path_fixture import (
+        EXEMPLAR_A,
+        EXEMPLAR_B,
+        LO_ID as GP_LO_ID,
+        build_golden_path_fixture,
+    )
+    from learnloop.diagnosis import diagnostic_pack as DP
+    from learnloop.diagnosis.probe_audit import eig_calibration_report
+    from learnloop.diagnosis.probe_episodes import episode_posterior
+    from learnloop.vault.paths import VaultPaths
+    from tests.test_p2_acceptance import CLOCK as GP_CLOCK
+    from tests.test_p2_acceptance import _admit_probe_card, _drive_probe_item, _reviewed_pack
+
+    fx = build_golden_path_fixture(tmp_path / "vault")
+    vault = load_vault(fx.root)
+    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    run_id = fx.receipt.run_id
+    GPR.advance(repository, run_id, to_state="measuring", reason="baseline",
+                idempotency_key="measuring", clock=GP_CLOCK)
+    _admit_probe_card(repository)
+    pack = _reviewed_pack(repository, fx.blueprint_version_id)
+    baseline = DP.enter_baseline(vault, repository, run_id=run_id, learning_object_id=GP_LO_ID,
+                                 pack_id=pack.pack_id, clock=GP_CLOCK)
+    episode_id = baseline["episode_id"]
+    for item_id in (EXEMPLAR_A, EXEMPLAR_B):
+        if repository.probe_episode(episode_id).status != "in_progress":
+            break
+        _drive_probe_item(vault, repository, episode_id, item_id, score=1)
+
+    def method_cell():
+        [cell] = [cell for cell in DP.boundary_view(repository, run_id=run_id)["cells"]
+                  if "method_selection" in (cell["facet"], cell["capability"])]
+        return cell
+
+    def qualifying():
+        episode = repository.probe_episode(episode_id)
+        rows = repository.probe_observations_for_episode(episode_id)
+        return (
+            sum(1 for row in rows if row["observation"].eligible_for_completion),
+            sum(1 for row in rows if row["observation"].updates_belief),
+            repository.qualifying_probe_observation_count(),
+            episode_posterior(vault, repository, episode).qualifying_observations,
+            eig_calibration_report(repository)["observations"],
+        )
+
+    recorded = repository.probe_observations_for_episode(episode_id)
+    attempt_ids = [row["observation"].attempt_id for row in recorded]
+    assert attempt_ids and all(row["observation"].eligible_for_completion for row in recorded)
+    assert method_cell()["status"] == "weak"
+    assert qualifying()[0] == len(attempt_ids) and qualifying()[2] == len(attempt_ids)
+
+    for attempt_id in attempt_ids:
+        _hold_by_regrade(vault, repository, attempt_id, GP_CLOCK.now() + timedelta(hours=1))
+    # Held now: no reader takes the observations as qualifying, belief-moving
+    # evidence, and the boundary reads no pass or fail from them.
+    assert qualifying() == (0, 0, 0, 0, 0)
+    for row in repository.probe_observations_for_episode(episode_id):
+        assert row[GRADE_HELD_FOR_REVIEW] is True and row["rubric_score"] is None
+    assert method_cell()["status"] == "contested"
+    # The receipt keeps what was recorded.
+    assert [row["observation"] for row in repository.probe_observations_for_episode(
+        episode_id, as_recorded=True)] == [row["observation"] for row in recorded]

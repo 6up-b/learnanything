@@ -7529,29 +7529,46 @@ class Repository(
         return observation_id
 
     def qualifying_probe_observation_count_for_session(self, session_id: str) -> int:
-        """Qualifying diagnostic observations recorded in one session (§5.9 cap)."""
+        """Qualifying diagnostic observations recorded in one session (§5.9 cap).
+
+        held-grade-evidence (review F3): an observation whose grade a later
+        regrade holds for review qualifies nothing while it is held."""
+
+        from learnloop.held_grades import held_for_review_attempts
 
         with self.connection() as connection:
-            row = connection.execute(
-                """
-                SELECT COUNT(*) AS count
-                FROM probe_observations o
-                JOIN practice_attempts a ON a.id = o.attempt_id
-                WHERE a.session_id = ? AND o.eligible_for_completion = 1
-                """,
-                (session_id,),
-            ).fetchone()
-        return int(row["count"])
+            attempt_ids = [
+                str(row["attempt_id"])
+                for row in connection.execute(
+                    """
+                    SELECT o.attempt_id
+                    FROM probe_observations o
+                    JOIN practice_attempts a ON a.id = o.attempt_id
+                    WHERE a.session_id = ? AND o.eligible_for_completion = 1
+                    """,
+                    (session_id,),
+                ).fetchall()
+            ]
+            held = held_for_review_attempts(connection, attempt_ids) if attempt_ids else frozenset()
+        return sum(1 for attempt_id in attempt_ids if attempt_id not in held)
 
     def qualifying_probe_observation_count(self) -> int:
         """Qualifying diagnostic observations across the whole vault (§5.9
-        time-to-first-ordinary-practice ceiling)."""
+        time-to-first-ordinary-practice ceiling), held ones excluded (review F3)."""
+
+        from learnloop.held_grades import held_for_review_attempts
 
         with self.connection() as connection:
-            row = connection.execute(
-                "SELECT COUNT(*) AS count FROM probe_observations WHERE eligible_for_completion = 1"
-            ).fetchone()
-        return int(row["count"])
+            attempt_ids = [
+                str(row["attempt_id"])
+                for row in connection.execute(
+                    "SELECT attempt_id FROM probe_observations WHERE eligible_for_completion = 1"
+                ).fetchall()
+            ]
+            # Every held attempt in one read (the set is small); none when
+            # nothing qualifies.
+            held = held_for_review_attempts(connection) if attempt_ids else frozenset()
+        return sum(1 for attempt_id in attempt_ids if attempt_id not in held)
 
     def ordinary_practice_attempt_count(self) -> int:
         """Attempts recorded outside the diagnostic/exam channels (§5.9): the
@@ -7568,18 +7585,32 @@ class Repository(
         return int(row["count"])
 
     def probe_observation_for_attempt(self, attempt_id: str) -> ProbeObservationRecord | None:
+        """One observation AS RECORDED (its receipt): existence checks and the
+        grader-agreement regrade check read it. Readers of episode evidence read
+        :meth:`probe_observations_for_episode`, the effective view."""
+
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM probe_observations WHERE attempt_id = ?", (attempt_id,)
             ).fetchone()
         return _probe_observation_record(row) if row is not None else None
 
-    def probe_observations_for_episode(self, probe_episode_id: str) -> list[dict[str, Any]]:
+    def probe_observations_for_episode(
+        self, probe_episode_id: str, *, as_recorded: bool = False
+    ) -> list[dict[str, Any]]:
         """Observations joined through attempt → presentation → episode (§5.1).
 
         Episode progress is always derived from this join, never cached. Each row
         is the observation record dict plus its attempt and presentation context.
+
+        held-grade-evidence (review F3): the rows are the EFFECTIVE view
+        (``held_grades.effective_probe_observation_rows``). An observation whose
+        grade a later regrade holds for review reads, while it is held, as one
+        held on submission is written: no belief update, not qualifying, no
+        joined score. ``as_recorded=True`` returns the stored flags (the receipt).
         """
+
+        from learnloop.held_grades import effective_probe_observation_rows
 
         with self.connection() as connection:
             rows = connection.execute(
@@ -7607,7 +7638,10 @@ class Repository(
             payload["selection_components"] = _loads(row["selection_components_json"], {})
             payload["instrument_card_snapshot"] = _loads(row["instrument_card_snapshot_json"], None)
             results.append(payload)
-        return results
+        if as_recorded or not results:
+            return results
+        with self.connection() as connection:
+            return effective_probe_observation_rows(connection, results)
 
     def list_probe_episodes(self, *, statuses: tuple[str, ...] | None = None) -> list[ProbeEpisodeRecord]:
         """All episodes, oldest first, optionally filtered by status."""

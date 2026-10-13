@@ -30,6 +30,7 @@ re-exports it where the merge composed it. The readers are enumerated in
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any, Iterable, Mapping
 
 from learnloop.outcome_contract import (
@@ -144,9 +145,48 @@ def mark_held_attempts(
     return rows
 
 
+def effective_probe_observation_rows(
+    connection: Any, rows: Iterable[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Probe observation rows (``probe_observations_for_episode``'s shape: the
+    observation record under ``"observation"`` plus its attempt's joined
+    columns) as every reader takes them NOW (review F3).
+
+    An observation's ``updates_belief`` and ``eligible_for_completion`` are
+    the receipt of how its answer was recorded. A later regrade can hold that
+    grade for review (THE predicate, on ``connection``); while it is held the
+    observation reads as one held on submission is written: it updates no
+    belief and qualifies nothing, its joined ``rubric_score`` (the grader's
+    provisional score) is ``None``, and the row carries :data:`HELD_ROW_KEY`.
+    The stored row is untouched, and a release restores the recorded flags.
+    """
+
+    rows = list(rows)
+    held = held_for_review_attempts(
+        connection, (row["observation"].attempt_id for row in rows)
+    ) if rows else frozenset()
+    if not held:
+        return rows
+    effective: list[dict[str, Any]] = []
+    for row in rows:
+        observation = row["observation"]
+        if observation.attempt_id in held:
+            row = {
+                **row,
+                # The joined raw columns too, where the row carries them.
+                **{key: 0 for key in ("updates_belief", "eligible_for_completion") if key in row},
+                "observation": replace(observation, updates_belief=False, eligible_for_completion=False),
+                "rubric_score": None,
+                HELD_ROW_KEY: True,
+            }
+        effective.append(row)
+    return effective
+
+
 __all__ = [
     "HELD_ROW_KEY",
     "attempt_grade_held",
+    "effective_probe_observation_rows",
     "held_attempt_ids",
     "held_for_review_attempts",
     "mark_held_attempts",
