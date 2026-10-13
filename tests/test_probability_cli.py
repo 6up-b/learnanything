@@ -146,6 +146,12 @@ def test_judges_reports_routes_disclosures_and_needs_no_network(seeded, monkeypa
     assert routes["llm_probability_llm"]["billing"] == "subscription"
     assert routes["llm_probability_llm"]["consumer_status"] == "on"
     assert routes["router_decider"]["consumer_status"] == "no consumer until router R2"
+    # Review F5: the Tier-1 routes, with whether they send anything now.
+    assert routes["tier1_decider"]["consumer_status"].startswith("on (") or \
+        routes["tier1_decider"]["consumer_status"].startswith("off (")
+    assert "facet_span_support" in routes["tier1_decider"]["consumer_status"]
+    assert routes["learner_gap_decider"]["consumer_status"] in {
+        "on", "off (learner_text_gaps.enabled and learner_text_gaps.decider_enabled)"}
     assert all(entry["disclosure"] for entry in report["routes"])
 
 

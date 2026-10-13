@@ -1742,7 +1742,9 @@ class LearnerTextGapsConfig(BaseModel):
     # the field loader ignores gap targets (the F11 grounded rule applies).
     enabled: bool = True
     chooser: Literal["context_model", "decider"] = "context_model"
-    # The Decider's second opinion on the kind and on every judged pair.
+    # The Decider's second opinion on the kind and on every judged pair (at
+    # mvp-0.20 its deciding verdict). Off, no learner text reaches the Decider
+    # at any version: the Tier-1 text-gap switches then act as off.
     decider_enabled: bool = True
     # Vault-wide LO and registry shortlist breadth (stored vectors; R4).
     top_k: int = Field(default=4, ge=1, le=20)

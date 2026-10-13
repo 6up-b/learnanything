@@ -622,3 +622,35 @@ def test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict(tmp_p
     again = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
                        decider_on=True)
     assert again["selected"]["b"] == "unsure" and len(decider.calls) == 2  # the Tier-1 verdict is reused
+
+
+def test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_decider(tmp_path):
+    """Review F5: ``learner_text_gaps.decider_enabled = false`` holds at mvp-0.20 too."""
+
+    from tests.test_learner_text_gaps import EIGEN_GAP, _ask, _run, _vault
+    from tests.text_gap_fakes import GapLLMFake, GapTutor, word_match
+
+    root, repo = _vault(tmp_path, version="mvp-0.20", toml="[learner_text_gaps]\ndecider_enabled = false\n")
+    answer = _ask(root, repo, GapTutor(EIGEN_GAP))
+    decider = FixedDecider({"learner_gap_kind": "none", "learner_gap_judge": "different"})
+    row = _run(root, repo, answer["event_id"], llm=GapLLMFake(decide=word_match("eigenvalues")), decider=decider)
+    assert not decider.calls
+    assert row["kind"] == "prerequisite" and row["chooser"] == "context_model"
+    with repo.connection() as c:
+        assert not c.execute("SELECT 1 FROM judgment_ledger WHERE judge = 'decider'").fetchall()
+
+
+def test_settings_and_eval_judges_disclose_the_tier1_routes(tmp_path):
+    """Review F5: learner text reaches the Decider on two more routes; each has its disclosure."""
+
+    from learnloop.ai.disclosures import judge_route_disclosures
+
+    config = _config()
+    entries = {entry["route"]: entry for entry in judge_route_disclosures(config)}
+    tier1, gaps = entries["tier1_decider"], entries["learner_gap_decider"]
+    assert tier1["provider"] == gaps["provider"] == "openrouter_decider"
+    for words in ("misconception", "tutor questions", "contamination", "diagnose review", "Perplexity"):
+        assert words in tier1["disclosure"], words
+    for words in ("stuck answers", "tutor questions", "Perplexity"):
+        assert words in gaps["disclosure"], words
+    assert "Nothing is sent yet" in entries["router_decider"]["disclosure"]

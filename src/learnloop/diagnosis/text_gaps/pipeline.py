@@ -224,7 +224,7 @@ def _judge_all(
     (``tier1.judge_all``; the result's ``authority`` is ``selected``).
     """
 
-    if vault is not None and decider_enabled(vault.config, "learner_gap_judge"):
+    if vault is not None and _tier1(vault, "learner_gap_judge"):
         from learnloop.diagnosis.text_gaps import tier1
 
         return tier1.judge_all(repository, kind, pairs, budget=budget, clients=clients)
@@ -248,6 +248,17 @@ def _judge_all(
     return out
 
 
+def _tier1(vault: LoadedVault, switch: str) -> bool:
+    """Tier 1 for a learner-text gap judgment: its ``[decider_routes]`` switch at mvp-0.20.
+
+    ``learner_text_gaps.decider_enabled = false`` keeps learner text from the
+    Decider at every version (review F5): the predecessor path then runs, as
+    it did with that setting before mvp-0.20.
+    """
+
+    return decider_enabled(vault.config, switch) and bool(vault.config.learner_text_gaps.decider_enabled)
+
+
 def _pair_authority(vault: LoadedVault, chooser: str) -> str:
     """The authoritative pair judge before Tier 1: the chooser's (``llm`` for ``context_model``).
 
@@ -256,7 +267,7 @@ def _pair_authority(vault: LoadedVault, chooser: str) -> str:
     ``learner_text_gaps.chooser`` names the pair judge, as it did before.
     """
 
-    if decider_enabled(vault.config, "learner_gap_kind"):
+    if _tier1(vault, "learner_gap_kind"):
         chooser = str(vault.config.learner_text_gaps.chooser)
     return "decider" if chooser == "decider" else "llm"
 
@@ -416,7 +427,7 @@ def _maybe_edge(
         outcome.detail["edge"] = "disabled"
         return
     context = needed_context(vault, item, vault.learning_objects[matched])
-    if decider_enabled(vault.config, "learner_gap_judge"):
+    if _tier1(vault, "learner_gap_judge"):
         # Tier 1: the Decider's "needed?", else the LLM judge's.
         from learnloop.diagnosis.text_gaps import tier1
 
@@ -713,7 +724,7 @@ def _decide(
             GapReading.from_progress(recorded) if isinstance(recorded, Mapping) else None,
             DeciderKind(**dict(decided["decider"])), str(decided["chooser"]), str(decided["kind"]),
         )
-    if decider_enabled(vault.config, "learner_gap_kind"):
+    if _tier1(vault, "learner_gap_kind"):
         # Tier 1: the Decider's kind is authoritative; the context model names the gap.
         from learnloop.diagnosis.text_gaps import tier1
 
