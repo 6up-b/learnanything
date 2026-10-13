@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
-source_commit_timestamp: "2026-10-13T06:18:40-04:00"
+source_commit: "17819ec036799efb2af42eaeed1ea47b1066052b"
+source_commit_timestamp: "2026-10-13T14:05:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -161,6 +161,7 @@ Indexes and uniqueness:
 - `tests/test_reader_capture.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_voi_stopping.py`
+- `tests/voi_restore_scenarios.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`

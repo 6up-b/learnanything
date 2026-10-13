@@ -3,8 +3,8 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "086c24c0fa14ea31d4b96a75a30f7b2edd289efd"
-source_commit_timestamp: "2026-10-13T06:18:40-04:00"
+source_commit: "17819ec036799efb2af42eaeed1ea47b1066052b"
+source_commit_timestamp: "2026-10-13T14:05:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
@@ -133,6 +133,7 @@ Database triggers:
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
 - `tests/test_voi_stopping.py`
+- `tests/test_voi_v2.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
