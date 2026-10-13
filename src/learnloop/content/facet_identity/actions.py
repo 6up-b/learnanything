@@ -1203,9 +1203,17 @@ def keep_current_wording(
         after = ((record.get("after") or {}).get("facets") or {}).get(facet_id)
         wording, key = _reword_wording_key(before, after)
         now = utc_now_iso(clock)
+        # A keep that only closes a card whose facet changed (or went) since
+        # it was held is no verdict on the cited spans (review F10).
+        vault = load_vault(root)
+        document = _facets_document(VaultPaths(vault.root, vault.config))
+        index = _index(document["facets"], facet_id)
+        current = normalized_entry(document["facets"][index]) if index is not None else None
+        stale = current is None or authority.authority_meaning(current) != authority.authority_meaning(before)
         with repository.atomic():
             connection = repository.connection()
-            span_support.label(connection, record, action="keep")
+            if not stale:
+                span_support.label(connection, record, action="keep")
             verdict_id = append_judgment(
                 connection, task=REWORD_TASK, left_kind="facet", left_id=facet_id,
                 right_kind="facet_wording", right_id=key, judge="owner",
@@ -1995,9 +2003,13 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                 with repository.atomic():
                     if is_reword_confirm(record):
                         # The confirm's file write landed: its source links
-                        # were recorded with its intent (Codex review F4).
+                        # were recorded with its intent (Codex review F4),
+                        # and the owner's confirm labels the span-support
+                        # check that held it, as an uninterrupted confirm
+                        # does (review F10).
                         _install_source_links(repository, (record.get("detail") or {}).get("source_links") or [],
                                               created_at=utc_now_iso(clock))
+                        span_support.label(repository.connection(), record, action="confirm")
                     store.set_status(repository.connection(), str(record["id"]), "applied",
                                      applied_at=utc_now_iso(clock))
                 out.append({"id": record["id"], "from": "applying", "to": "applied", "file": state})

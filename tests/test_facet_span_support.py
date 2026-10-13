@@ -252,3 +252,58 @@ def test_reword_confirm_off_applies_a_cited_reword_whatever_the_decider(tmp_path
     _apply_cited_reword(paths, repo, citation)
     assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
     assert not _rows(repo, "facet_span_support")
+
+
+class _Killed(BaseException):
+    """The process stopping mid-confirm (nothing in process catches it)."""
+
+
+def test_a_confirm_finished_by_recovery_labels_the_check(tmp_path, monkeypatch):
+    """Review F10: a confirm interrupted after its registry write is finished by recovery, label included."""
+
+    from learnloop.content.facet_identity import actions
+    from learnloop.vault.loader import load_vault
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("partly supports"))
+    _apply_cited_reword(paths, repo, citation)
+    (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
+
+    def killed(*_args, **_kwargs):
+        raise _Killed()
+
+    with monkeypatch.context() as patched:
+        patched.setattr(actions, "refresh_derived_state", killed)
+        with pytest.raises(_Killed):
+            actions.confirm_reword(paths.root, repo, card["action_id"])
+    assert actions.action_by_id(repo, card["action_id"])["status"] == "applying"
+    actions.recover_interrupted_actions(paths.root, repo)
+    assert actions.action_by_id(repo, card["action_id"])["status"] == "applied"
+    assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
+    (label,) = [row for row in _rows(repo, "facet_span_support") if row["judge"] == "owner"]
+    assert label["verdict"] == "supports"
+    assert json.loads(label["rationale"])["label_for"] == card["span_support"]["judgment_id"]
+
+
+def test_keeping_a_card_that_went_stale_is_no_label(tmp_path, monkeypatch):
+    """Review F10: a keep that only closes a card whose facet changed since says nothing about its spans."""
+
+    from learnloop import decider_judgments as tier1
+    from learnloop.content.facet_identity import actions
+    from learnloop.content.proposals.patches import apply_accepted_items
+    from learnloop.vault.loader import load_vault
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_reword_confirm import THIRD_CLAIM, _proposal, _support
+    from tests.test_facet_rewords import _entry
+
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, SpanDecider("partly supports"))
+    _apply_cited_reword(paths, repo, citation)
+    (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
+    # The facet's wording changes after the card was held: the card is stale.
+    monkeypatch.setattr(tier1, "client_for", lambda *a: SpanDecider("supports"))
+    apply_accepted_items(paths.root, _proposal(repo, {"id": SHARED, "claim": THIRD_CLAIM,
+                                                      "meaning_support": _support(citation)}))
+    assert _entry(paths, SHARED)["claim"] == THIRD_CLAIM
+    assert actions.keep_current_wording(paths.root, repo, card["action_id"])["status"] == "kept"
+    assert not [row for row in _rows(repo, "facet_span_support") if row["judge"] == "owner"]
