@@ -1059,7 +1059,9 @@ class AIRoutingConfig(BaseModel):
     # Facet identity (handoff §4): the cheap judge that partitions candidate
     # facets into same-skill sets at ingest and in `learnloop facets dedupe`.
     # Empty = the code-default `codex_luna` profile when the active provider
-    # is Codex, else ai.active_provider.
+    # is Codex, else ai.active_provider. A decider profile (router R0, e.g.
+    # `openrouter_decider`) is also accepted: one typed choice question per
+    # pair, partitioned with the no-chaining union (owner, 2026-10-12).
     facet_identity_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
@@ -1773,13 +1775,15 @@ class FacetIdentityConfig(BaseModel):
     # within rank 4) and registry nominations per candidate (T5, top-4).
     shortlist_top_k: int = Field(default=4, ge=1, le=20)
     attach_top_k: int = Field(default=4, ge=1, le=20)
-    # Knowledge model §3.4/§12.1 is the single lock policy: a facet whose
-    # identity is locked (independent surface groups, lock mass, an active
-    # goal's certified scope) is never merged by the judge; the dedupe result
-    # lists such a set as a proposal, and attach only adds an alias to a locked
-    # facet (no contract growth). True is the owner's override (open question
-    # 1): judge decisions apply live with undo on locked facets too.
-    merge_locked_facets: bool = False
+    # Owner decision 2026-10-12 (option c): the judge's merges apply live on
+    # identity-locked facets too (independent surface groups, lock mass, an
+    # active goal's certified scope, probes), each action naming the facet's
+    # lock reasons, with the one-tap undo. False restores the knowledge
+    # model's strict policy (§3.4/§12.1): the dedupe result lists such a set
+    # as a proposal and attach only adds an alias to a locked facet. A merge
+    # never adds a precondition to a registered facet, and a retiree that a
+    # graded criterion names with its survivor is held back, under either.
+    merge_locked_facets: bool = True
     # Per ingest run (and the dedupe command's defaults). Codex runs on the
     # subscription: tokens and dollars are estimated only, never enforced.
     max_calls: int = Field(default=24, ge=0)

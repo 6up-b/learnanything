@@ -142,11 +142,15 @@ def _lock_shared(vault, repository):
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, FrozenClock(NOW))
 
 
-def test_the_default_lock_policy_refuses_and_the_owner_override_labels_the_lock(tmp_path):
-    """Review F2: the knowledge model's single lock policy is the default."""
+def test_the_strict_lock_policy_refuses_and_the_default_labels_the_lock(tmp_path):
+    """Review F2's strict policy (merge_locked_facets = false) refuses a locked
+    facet; the default (owner decision 2026-10-12) merges it and names the lock."""
+
+    from tests.helpers import append_config_toml
 
     paths, vault, repository = _vault_with_duplicate(tmp_path)
     _lock_shared(vault, repository)
+    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")
     assert load_vault(paths.root).config.facet_identity.merge_locked_facets is False
     before = paths.facets_path.read_text(encoding="utf-8")
     refused = _merge(paths, repository, merge_locked=None)
@@ -158,7 +162,7 @@ def test_the_default_lock_policy_refuses_and_the_owner_override_labels_the_lock(
     assert list_actions(repository)[0]["detail"]["lock_reasons"][SHARED]
 
 
-def test_dedupe_proposes_a_locked_set_and_applies_it_only_under_the_override(tmp_path):
+def test_dedupe_proposes_a_locked_set_under_the_strict_policy_and_applies_it_by_default(tmp_path):
     from learnloop.content.facet_identity.dedupe import run_dedupe
 
     from tests.facet_identity_fakes import FakeFacetJudge
@@ -170,6 +174,7 @@ def test_dedupe_proposes_a_locked_set_and_applies_it_only_under_the_override(tmp
         entry["concept_id"] = "singular_value_decomposition"
     write_yaml(paths.facets_path, facets)
     _lock_shared(load_vault(paths.root), repository)
+    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = false")
     judge = FakeFacetJudge(clusters=[["SVD factorizes into U, Sigma, V^T.",
                                       "Every matrix A can be written A = U Sigma V^T."]])
     before = paths.facets_path.read_text(encoding="utf-8")
@@ -181,7 +186,9 @@ def test_dedupe_proposes_a_locked_set_and_applies_it_only_under_the_override(tmp
     assert [facet["id"] for facet in proposal["retired"]] == [DUP] and SHARED in proposal["lock_reasons"]
     assert paths.facets_path.read_text(encoding="utf-8") == before and list_actions(repository) == []
 
-    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = true")
+    config = paths.root / "learnloop.toml"
+    config.write_text(config.read_text(encoding="utf-8").replace(
+        "merge_locked_facets = false", "merge_locked_facets = true"), encoding="utf-8")
     calls = len(judge.requests)
     applied = run_dedupe(paths.root, client=judge, clock=_CLOCK)
     assert len(judge.requests) == calls  # the judged group is reused

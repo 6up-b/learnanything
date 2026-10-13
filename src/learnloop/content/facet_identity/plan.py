@@ -234,7 +234,7 @@ def build_plan(
     concept_of = {client: concept for client, _payload, concept in candidates}
     in_run_requests = [
         build_request([member(client, payload_by_client[client], concept_of[client]) for client in group],
-                      mode="consolidate")
+                      mode="consolidate", shortlisted=grouping.shortlisted)
         for group in grouping.groups
     ]
     registered = {
@@ -404,7 +404,10 @@ def _attach_requests(
             else:
                 members.append(member(key, views[key], concept_of.get(key)))
         if any(not m.existing for m in members) and any(m.existing for m in members):
-            requests.append(build_request(members, mode="attach"))
+            # Every candidate-registered pair the attach step put forward (T5's
+            # nominations, the registry concept, lexical near-duplicates) is
+            # shortlisted for the ledger.
+            requests.append(build_request(members, mode="attach", shortlisted=grouping.shortlisted))
     return requests
 
 

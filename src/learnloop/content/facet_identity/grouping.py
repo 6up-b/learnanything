@@ -29,6 +29,7 @@ from typing import Any
 import numpy as np
 
 from learnloop.content.synthesis.synthesis_gates import facet_tokens, jaccard
+from learnloop.matching import shortlist as matching_shortlist
 
 DEFAULT_LEXICAL_THRESHOLD = 0.85
 
@@ -50,6 +51,11 @@ class Grouping:
     links: dict[str, int] = field(default_factory=dict)
     split_components: int = 0
     shortlist: str = "none"  # none | embedding
+    #: Pairs a shortlist put forward: lexical near-duplicates, nominated
+    #: (``extra_pairs``) and each facet's embedding top-k (recorded even when
+    #: the vectors only split). The ledger keeps a kept-apart pair only when it
+    #: is shortlisted (owner decision 2026-10-12).
+    shortlisted: set[frozenset[str]] = field(default_factory=set)
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -59,6 +65,7 @@ class Grouping:
             "links": dict(sorted(self.links.items())),
             "split_components": self.split_components,
             "shortlist": self.shortlist,
+            "shortlisted_pairs": len(self.shortlisted),
         }
 
 
@@ -85,21 +92,18 @@ class _Union:
 def centred_unit(vectors: Mapping[str, np.ndarray]) -> dict[str, np.ndarray]:
     """Mean-centred unit rows over the given set (Slice 1 §9.2 maths).
 
-    Reuse point: Slice 2 T1's ``matching.shortlist.centred_unit`` is the same
-    function; switch to it when T1 merges.
+    Slice 2 T1's ``matching.shortlist.centred_unit`` does the maths. Facet
+    identity keeps its own rule for vectors of mixed widths (two embedding
+    models): no shortlist at all, rather than an error that would fail ingest.
     """
 
     if not vectors:
         return {}
-    keys = sorted(vectors)
-    widths = {np.asarray(vectors[key]).size for key in keys}
-    if len(widths) != 1:
+    rows = {key: np.asarray(vector, dtype=np.float64) for key, vector in vectors.items()}
+    try:
+        return matching_shortlist.centred_unit(rows)
+    except ValueError:
         return {}
-    matrix = np.stack([np.asarray(vectors[key], dtype=np.float64) for key in keys])
-    centred = matrix - matrix.mean(axis=0)
-    norms = np.linalg.norm(centred, axis=1, keepdims=True)
-    unit = np.divide(centred, norms, out=np.zeros_like(centred), where=norms != 0)
-    return {key: unit[index] for index, key in enumerate(keys)}
 
 
 def shortlist_pairs(
@@ -159,28 +163,34 @@ def neighbourhood_groups(
                 links["concept_graph"] += 1
     tokens = {node.key: facet_tokens(dict(node.payload)) for node in nodes}
     ordered = sorted(by_key)
+    shortlisted: set[frozenset[str]] = set()
     for index, left in enumerate(ordered):
         for right in ordered[index + 1:]:
             if jaccard(tokens[left], tokens[right]) >= lexical_threshold:
+                shortlisted.add(frozenset((left, right)))
                 if union.union(left, right):
                     links["lexical"] += 1
     for left, right in extra_pairs:
-        if left in by_key and right in by_key and union.union(left, right):
-            links["nominated"] += 1
+        if left in by_key and right in by_key and left != right:
+            shortlisted.add(frozenset((left, right)))
+            if union.union(left, right):
+                links["nominated"] += 1
     unit: dict[str, np.ndarray] = {}
     shortlist = "none"
     if vectors:
         unit = centred_unit({key: vectors[key] for key in by_key if key in vectors})
-        if unit and shortlist_edges:
-            shortlist = "embedding"
+        if unit:
             for left, right, _score, _rank in shortlist_pairs(unit, top_k=top_k):
-                if union.union(left, right):
+                shortlisted.add(frozenset((left, right)))
+                if shortlist_edges and union.union(left, right):
                     links["embedding"] += 1
+            if shortlist_edges:
+                shortlist = "embedding"
 
     components: dict[str, list[str]] = defaultdict(list)
     for key in ordered:
         components[union.find(key)].append(key)
-    grouping = Grouping(links=dict(links), shortlist=shortlist)
+    grouping = Grouping(links=dict(links), shortlist=shortlist, shortlisted=shortlisted)
     for root in sorted(components):
         members = components[root]
         if len(members) < 2:

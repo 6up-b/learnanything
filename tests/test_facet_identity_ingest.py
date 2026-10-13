@@ -111,10 +111,12 @@ def test_a_duplicate_candidate_is_merged_before_the_gates_and_undo_re_mints_it(t
     assert vault.practice_items["pi_transpose_check"].grading_rubric.criteria[0].targets[0].facet == "facet_symmetry_definition"
     assert set(learning_object_facet_union(vault.learning_objects["lo_diagonalize_symmetric"])) == {
         "facet_symmetry_definition", "facet_spectral_applicability"}
-    # One ledger row per pair of the three c_sym candidates.
+    # The merged pair of the three c_sym candidates is ledgered; the two
+    # kept-apart pairs were never shortlisted (no lexical near-duplicate, no
+    # embeddings), so they write no row (owner decision 2026-10-12).
     rows = _ledger(repo.sqlite_path)
-    assert len(rows) == 3 and {row[0] for row in rows} == {"facet_candidate"}
-    assert sorted(row[1] for row in rows) == ["different", "different", "same"]
+    assert len(rows) == 1 and {row[0] for row in rows} == {"facet_candidate"}
+    assert [row[1] for row in rows] == ["same"]
 
     undone = undo_action(root, repo, action["id"], clock=_CLOCK)
     assert undone["restored_facet_ids"] == [DUP_ID]
@@ -266,8 +268,8 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
 
     root, repo = _bootstrap_and_add(tmp_path)
     # The bootstrap's probe episodes lock the registered facet; growing its
-    # examples is the owner's override (review F2; the default adds the alias only).
-    append_config_toml(root, "[facet_identity]\nmerge_locked_facets = true")
+    # examples is the default (owner decision 2026-10-12; review F2's strict
+    # policy, merge_locked_facets = false, adds the alias only).
     restated = "Symmetry of a real square matrix means it coincides with its transpose."
 
     def builder(context, _n):
@@ -309,16 +311,19 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     assert restated not in vault.evidence_facets["facet_symmetry_definition"].positive_examples
 
 
-# --- review F2: attach never grows a locked contract, never adds a precondition -------
+# --- review F2: attach never adds a precondition; the strict policy keeps locks ----
 
 
-def _attach_absorb(tmp_path, *, absorb_as, monkeypatch=None):
+def _attach_absorb(tmp_path, *, absorb_as, monkeypatch=None, strict=False):
     from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
     from learnloop.content.synthesis.source_append import append_source
 
     from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
 
     root, repo = _bootstrap_and_add(tmp_path)
+    if strict:
+        # Review F2's strict lock policy (the default merges locked facets).
+        append_config_toml(root, "[facet_identity]\nmerge_locked_facets = false")
     if monkeypatch is not None:
         # The registered facet's identity is locked (as by two independent
         # surface groups); can_apply is what the plan consults.
@@ -366,8 +371,9 @@ def test_an_absorbed_precondition_never_grows_a_registered_facet(tmp_path):
     assert "facet_symmetry_restated" in facet_rows[0]["payload"]["aliases"]
 
 
-def test_an_absorb_into_a_locked_facet_adds_only_the_alias(tmp_path, monkeypatch):
-    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", monkeypatch=monkeypatch)
+def test_an_absorb_into_a_locked_facet_adds_only_the_alias_under_the_strict_policy(tmp_path, monkeypatch):
+    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", monkeypatch=monkeypatch,
+                                                  strict=True)
     (action,) = result.facet_identity["actions"]
     assert action["locked"] and "locked" in (action["contract_note"] or "")
     facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]

@@ -923,11 +923,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # code-default codex_luna and openrouter_haiku profiles. It changes which
     # facets ingest mints (a judge merges duplicates, each with an undo), not
     # scoring, scheduling, projection or serving; enabled = false is its kill
-    # switch. Its review (F2) defaults merge_locked_facets to false: the
-    # knowledge model's single lock policy (§3.4) until the owner overrides it.
+    # switch. Its review (F2) defaulted merge_locked_facets to false; the
+    # owner's decision at its merge (2026-10-12, option c) restores true:
+    # locked facets merge live too, each action naming its lock, with an undo.
     # Merged after learner-text gaps (mvp-0.16), where every snapshot was
     # recomputed (defaults_fingerprint_for_version); no successor.
-    "mvp-0.9": "a87117c09100d118de565fe983ab44b01cd1cb673b301fa6462f3fd4758518fe",
+    "mvp-0.9": "05d3efcd76c93ae224bcdb815dce386472f295da04ab59f06e5b6a4131ea1717",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -945,7 +946,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.10": "74927771f4c30f820bd50b8ca547123add06f860b68062a8032774c1aec781d9",
+    "mvp-0.10": "bbf236ea688fc7040694cdf878cc8421a9fa7892dfba9d381f8b1f84fa543cc2",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -971,7 +972,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.11": "260658a7f5404b6d65058059ea006f023cea816c7a85714073d39c9aae3b64ab",
+    "mvp-0.11": "76dd58fa8b3f0e1790598690723991326ac94d9e47528f5a75e5cac74c5993d7",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -991,7 +992,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.12": "9ee62a9829d00092834991ae525b1e6c65ca21bc24197119c69fd668e233dd73",
+    "mvp-0.12": "9d4908f8b028b9b81b45642faa44f148b0aca3aa0b76ccc94e6f18517916645b",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1006,7 +1007,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change). Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.13": "885aa8b825a50da0b021b9fed7b6cd07e6e143ee04eebde1c76747d6693034c3",
+    "mvp-0.13": "2fc70438f48f90567d1107210c2f156660645a618e72999ecd2136c86a16477f",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1020,7 +1021,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # too (see mvp-0.9). Learner-text gaps' [learner_text_gaps] moves it too
     # (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.14": "7537d743606a3bcf6bb0db1183e4466283003621b1da833c629f5beabb4fe5ce",
+    "mvp-0.14": "748e350da1133b6d07183ae2a8b9cead02aec786200182c4eda18d7c032641c6",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1032,7 +1033,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # owner decision 2026-10-12) until mvp-0.16 merged. Learner-text gaps'
     # [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.15": "a5602952fe2da492ce5824c4f95f6e7005330c56b90ae8596bee7ed32f4d3a30",
+    "mvp-0.15": "f96a114fb74aa9dc8a33fab3df4670c9d6ad98c4884465bba0d59f97d9add1b8",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1050,7 +1051,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # gaps, matches, "needed"-gated edges, created prerequisites as content,
     # holding-pen sightings, the gap targets the field loader reads).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.16": "0c14573f41c75490649a3257bf50792a1c05a6510998a09afb2414866064fb76",
+    "mvp-0.16": "2f77e9cd2c54cf95a7b507b0c4920de3df34a0c3e464672be5174c2378feafbd",
 }
 
 

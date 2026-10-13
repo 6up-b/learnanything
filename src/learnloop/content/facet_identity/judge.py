@@ -23,21 +23,28 @@ call: Codex on the subscription, or a metered OpenRouter model such as
 Haiku) and :class:`DeciderGroupJudge` (the Decider, one typed ``choice``
 question per pair, partitioned with a no-chaining union).
 
-Every verdict goes to ``judgment_ledger`` (task ``same_facet``): one row per
-facet pair in the group with the judge's own verdict, ``same`` when the judge
-put the pair in one merge/absorb set (the Decider: answered anything but
-``distinct``) and ``different`` otherwise. The rationale records the raw set
-membership, whether the pair was listed or omitted (an omitted label is kept
-distinct by the prompt's rule), and whether the pair was applied; a pair the
-judge joined that validation or the no-chaining union kept apart is marked
-``repaired`` (review F8). Both judges checkpoint a judged group
-(``model_work_checkpoints``) and find its ledger rows again by input hash, so
-a retried run never pays twice for the same question.
+Verdicts go to ``judgment_ledger`` (task ``same_facet``) with the judge's own
+verdict: ``same`` when the judge put a pair in one merge/absorb set (the
+Decider: answered anything but ``distinct``), ``different`` otherwise. Owner
+decision 2026-10-12: only the merged pairs (every pair the judge joined, and
+any pair the applied sets join) and the SHORTLISTED different pairs are
+recorded, not every pair of a judged neighbourhood. A pair is shortlisted when
+the lexical near-duplicate gate, the embedding top-k shortlist or an attach
+nomination put it forward (``GroupRequest.shortlisted``); pairs that only share
+a concept neighbourhood and were kept apart write no row. The rationale
+records the raw set membership, whether the pair was listed or omitted (an
+omitted label is kept distinct by the prompt's rule), whether it was
+shortlisted and whether it was applied; a pair the judge joined that
+validation or the no-chaining union kept apart is marked ``repaired`` (review
+F8). Both judges checkpoint a judged group (``model_work_checkpoints``) and
+find its ledger rows again by input hash, so a retried run never pays twice
+for the same question. Their model-call receipts carry router R0's judgment
+labels (``judge`` and ``question_set_version``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 import json
@@ -46,8 +53,16 @@ from typing import Any, Literal
 
 from pydantic import Field, ValidationError
 
+from learnloop.ai.decisions import ChoiceQuestion
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable
-from learnloop.ai.execution import content_key, generation_limit, model_settings, observe_model_calls, single_request
+from learnloop.ai.execution import (
+    call_labels,
+    content_key,
+    generation_limit,
+    model_settings,
+    observe_model_calls,
+    single_request,
+)
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
     ESTIMATED_ONLY,
@@ -60,6 +75,7 @@ from learnloop.ai.spend import (
 )
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, execute_structured_operation, render_structured_prompt
 from learnloop.db.stores.judgments import append_judgment
+from learnloop.matching import union as matching_union
 
 TASK = "same_facet"
 PROMPT_VERSION = "facet-identity-partition-v1"
@@ -159,6 +175,10 @@ class GroupRequest:
     members: tuple[Member, ...]
     prompt: str
     input_hash: str
+    #: Member-key pairs a shortlist put forward (lexical near-duplicates, the
+    #: embedding top-k, attach nominations). Not part of the question: a
+    #: kept-apart pair is ledgered only when shortlisted (owner, 2026-10-12).
+    shortlisted: frozenset[frozenset[str]] = field(default=frozenset(), compare=False)
 
     def member(self, label: str) -> Member | None:
         return next((member for member in self.members if member.label == label), None)
@@ -229,8 +249,15 @@ class GroupOutcome:
 # --- requests ---------------------------------------------------------------
 
 
-def build_request(members: Sequence[Member], *, mode: str) -> GroupRequest:
-    """Label members (E*/N* in attach mode, F* otherwise) and render the prompt."""
+def build_request(
+    members: Sequence[Member], *, mode: str, shortlisted: Iterable[Iterable[str]] = (),
+) -> GroupRequest:
+    """Label members (E*/N* in attach mode, F* otherwise) and render the prompt.
+
+    ``shortlisted`` holds the key pairs a shortlist put forward; only those
+    among the members are kept (they decide which different verdicts are
+    ledgered, never what the judge is asked).
+    """
 
     if mode not in ("consolidate", "attach"):
         raise ValueError(f"unknown judge mode {mode!r}")
@@ -261,7 +288,12 @@ def build_request(members: Sequence[Member], *, mode: str) -> GroupRequest:
         "task": TASK, "prompt_version": PROMPT_VERSION, "mode": mode,
         "facets": [[member.subject_kind, member.subject_id, dict(member.view)] for member in labelled],
     })
-    return GroupRequest(group_id=input_hash[:16], mode=mode, members=tuple(labelled), prompt=prompt, input_hash=input_hash)
+    keys = {member.key for member in labelled}
+    kept = frozenset(
+        pair for pair in (frozenset(raw) for raw in shortlisted) if len(pair) == 2 and pair <= keys
+    )
+    return GroupRequest(group_id=input_hash[:16], mode=mode, members=tuple(labelled), prompt=prompt,
+                        input_hash=input_hash, shortlisted=kept)
 
 
 def output_budget(request: GroupRequest) -> int:
@@ -414,13 +446,18 @@ def append_partition_judgments(
     pair_detail: Callable[[Member, Member], Mapping[str, Any]] | None = None,
     pair_score: Callable[[Member, Member], float | None] | None = None,
 ) -> dict[tuple[str, str], str]:
-    """One row per decided pair with the judge's verdict; returns pair keys -> id.
+    """The judge's verdict on its merged and shortlisted pairs; returns pair keys -> id.
 
     ``judged`` gives the judge's own verdict on a pair (the raw partition or
     the Decider's answer); ``sets`` are what was applied. A pair the judge
     joined but the applied sets keep apart is recorded ``same`` with
     ``applied: false`` and ``repaired``, never as a ``different`` the judge
     did not say. Without ``judged`` the applied sets are the verdict.
+
+    Owner decision 2026-10-12: a pair is recorded when the judge joined it,
+    the applied sets join it, or a shortlist put it forward
+    (``request.shortlisted``); any other pair of the neighbourhood was kept
+    apart without being a candidate duplicate and writes no row.
     """
 
     placed = same_set(sets)
@@ -429,11 +466,17 @@ def append_partition_judgments(
         first, second = _ordered_pair(left, right)
         set_index = placed.get(first.key)
         applied = set_index is not None and set_index == placed.get(second.key)
-        detail: dict[str, Any] = {"group_id": request.group_id, "mode": request.mode,
-                                  "labels": [first.label, second.label], "applied": applied}
+        shortlisted = frozenset((first.key, second.key)) in request.shortlisted
         same = applied
+        raw_detail: Mapping[str, Any] = {}
         if judged is not None:
             same, raw_detail = judged(first, second)
+        if not (same or applied or shortlisted):
+            continue
+        detail: dict[str, Any] = {"group_id": request.group_id, "mode": request.mode,
+                                  "labels": [first.label, second.label], "applied": applied,
+                                  "shortlisted": shortlisted}
+        if judged is not None:
             detail.update(raw_detail)
             if same != applied:
                 detail["repaired"] = repair_reason
@@ -692,7 +735,9 @@ class LLMGroupJudge:
                 current.update(input_hash=request.input_hash, tokens=estimate.total_tokens)
                 usage.clear()
                 try:
-                    with observe_model_calls(observer), self.budget.request(estimate) as charge:
+                    with observe_model_calls(observer), call_labels(
+                        judge=self.judge, question_set_version=self.prompt_version,
+                    ), self.budget.request(estimate) as charge:
                         seen_facets |= new_facets
                         bound = nullcontext() if self.subscription else single_request()
                         try:
@@ -765,26 +810,9 @@ class LLMGroupJudge:
 # --- the Decider judge ----------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _LocalChoiceQuestion:
-    """Stand-in for router R0's ``ai.decisions.ChoiceQuestion`` (same wire shape).
+def choice_question(instructions: str, options: Mapping[str, str | None]) -> ChoiceQuestion:
+    """Router R0's typed choice question (the Decider client accepts nothing else)."""
 
-    R0 has not merged on this branch; once it has, :func:`choice_question`
-    returns R0's typed class, which its client requires.
-    """
-
-    instructions: str
-    options: Mapping[str, str | None]
-
-    def wire(self) -> dict[str, Any]:
-        return {"type": "choice", "instructions": self.instructions, "criteria": dict(self.options)}
-
-
-def choice_question(instructions: str, options: Mapping[str, str | None]) -> Any:
-    try:
-        from learnloop.ai.decisions import ChoiceQuestion  # type: ignore[import-not-found]
-    except ImportError:  # router R0 not merged yet
-        return _LocalChoiceQuestion(instructions, dict(options))
     return ChoiceQuestion(instructions, dict(options))
 
 
@@ -794,54 +822,57 @@ def partition_from_pairs(
     """Same-skill sets from per-pair choices, with the no-chaining refusal.
 
     ``choices`` maps (first_key, second_key) in the order the question named
-    them to (choice, probabilities). Non-distinct edges are applied strongest
-    first; a union is refused when any pair across the two sets was answered
-    ``distinct``, so A~B and B~C never fuse A with C against a verdict.
-    Reuse point: Slice 2 T1's ``matching.union.union_with_refusals``.
+    them to (choice, probabilities). The union is Slice 2 T1's
+    ``matching.union.union_with_refusals``: every non-``distinct`` answer is a
+    ``same`` edge, applied strongest first (its adjudication order), and every
+    ``distinct`` answer a ``different`` edge at the same authority, so a union
+    is refused when any pair across the two sets was answered ``distinct`` and
+    A~B, B~C never fuse A with C against a verdict. In attach mode two
+    registered facets are never joined: each registered pair is a
+    ``different`` edge, so no set holds more than one.
     """
 
     keys = [member.key for member in request.members]
-    parent = {key: key for key in keys}
-    members_of = {key: {key} for key in keys}
-
-    def find(key: str) -> str:
-        while parent[key] != key:
-            key = parent[key]
-        return key
-
-    distinct = {frozenset(pair) for pair, (choice, _p) in choices.items() if choice == "distinct"}
-    general_of: dict[str, int] = {}
-    edges = sorted(
-        ((float(probs.get(choice, 0.0)), pair, choice) for pair, (choice, probs) in choices.items() if choice != "distinct"),
+    ranked = sorted(
+        ((float(probs.get(choice, 0.0)), pair, choice) for pair, (choice, probs) in choices.items()
+         if choice != "distinct"),
         key=lambda row: (-row[0], row[1]),
     )
+    edges: list[matching_union.UnionEdge] = []
+    choice_of: dict[frozenset[str], str] = {}
+    for order, (_p, (first, second), choice) in enumerate(ranked):
+        edges.append(matching_union.UnionEdge(
+            left=first, right=second, verdict="same", authority=0, judge="decider", source=TASK,
+            ref=f"{first}|{second}", occurred_at=f"{order:08d}",
+        ))
+        choice_of[frozenset((first, second))] = choice
+    for (first, second), (choice, _probs) in choices.items():
+        if choice == "distinct":
+            edges.append(matching_union.UnionEdge(
+                left=first, right=second, verdict="different", authority=0, judge="decider", source=TASK,
+                ref=f"{first}|{second}",
+            ))
+    if request.mode == "attach":
+        registered = sorted(member.key for member in request.members if member.existing)
+        for index, first in enumerate(registered):
+            for second in registered[index + 1:]:
+                edges.append(matching_union.UnionEdge(
+                    left=first, right=second, verdict="different", authority=0, judge="decider",
+                    source="attach: registered facets are never joined", ref=f"{first}|{second}",
+                ))
+    result = matching_union.union_with_refusals(keys, edges)
+    general_of: dict[str, int] = {}
     special: set[frozenset[str]] = set()
-    for _p, (first, second), choice in edges:
-        if request.mode == "attach":
-            a, b = request.by_key(first), request.by_key(second)
-            if a is not None and b is not None and a.existing and b.existing:
-                continue
-        left, right = find(first), find(second)
-        if left == right:
-            continue
-        if any(frozenset((x, y)) in distinct for x in members_of[left] for y in members_of[right]):
-            continue
-        if request.mode == "attach":
-            existing = [k for k in (*members_of[left], *members_of[right]) if (m := request.by_key(k)) and m.existing]
-            if len(existing) > 1:
-                continue
-        keep, drop = sorted((left, right))
-        parent[drop] = keep
-        members_of[keep] |= members_of.pop(drop)
+    for edge in result.joined_by.values():
+        choice = choice_of.get(frozenset((edge.left, edge.right)))
         if choice == "first_special_case":
-            general_of[second] = general_of.get(second, 0) + 1
-            special.add(frozenset((first, second)))
+            general_of[edge.right] = general_of.get(edge.right, 0) + 1
+            special.add(frozenset((edge.left, edge.right)))
         elif choice == "second_special_case":
-            general_of[first] = general_of.get(first, 0) + 1
-            special.add(frozenset((first, second)))
+            general_of[edge.left] = general_of.get(edge.left, 0) + 1
+            special.add(frozenset((edge.left, edge.right)))
     sets: list[DecidedSet] = []
-    for root in sorted(members_of):
-        component = sorted(members_of[root])
+    for _root, component in sorted(result.components().items()):
         if len(component) < 2:
             continue
         existing = [key for key in component if (m := request.by_key(key)) and m.existing and request.mode == "attach"]
@@ -861,8 +892,10 @@ def partition_from_pairs(
 class DeciderGroupJudge:
     """The Decider: one typed ``choice`` question per pair (router spec §6).
 
-    Its verdicts carry ``judge='decider'``, which needs router R0's
-    ``judgment_ledger`` CHECK (it rebuilds the table to accept it).
+    Served by a ``decider`` profile on ``ai.routing.facet_identity_judge``
+    (owner, 2026-10-12). Its verdicts carry ``judge='decider'`` (router R0's
+    ``judgment_ledger`` CHECK, migration 175) and its receipts the
+    ``decider`` label and question-set version.
     """
 
     judge = "decider"
@@ -908,6 +941,22 @@ class DeciderGroupJudge:
             return None
         return choices, model
 
+    def _observer(self, request: GroupRequest, tokens: int) -> Callable[[str, dict[str, Any]], None]:
+        """Receipts for the Decider's paid calls, owned like the LLM judge's."""
+
+        def observer(action: str, event: dict[str, Any]) -> None:
+            if action == "start":
+                declared = json.loads(event.get("budget_json") or "{}")
+                declared["facet_identity"] = {
+                    "prompt_version": self.prompt_version, "input_hash": request.input_hash,
+                    "model_id": self.model, "price": asdict(self.pricing), "cost_basis": "metered_caps",
+                    "estimated_total_tokens": tokens,
+                }
+                event = {**event, "budget_json": json.dumps(declared, sort_keys=True)}
+            self.repository.record_model_event(action, event, owner_kind=OWNER_KIND, owner_id=self.owner_id)
+
+        return observer
+
     def run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]:
         outcomes: list[GroupOutcome] = []
         stopped: str | None = None
@@ -941,7 +990,9 @@ class DeciderGroupJudge:
                         pairs=len(chunk), calls=1, total_tokens=tokens,
                         estimated_usd=self.pricing.usd(tokens, 0),
                     )
-                    with self.budget.request(estimate) as charge:
+                    with observe_model_calls(self._observer(request, tokens)), call_labels(
+                        judge=self.judge, question_set_version=self.prompt_version,
+                    ), self.budget.request(estimate) as charge:
                         result = self.client.decide(state, questions, purpose=PURPOSE)
                         charge.reconcile(
                             total_tokens=int(getattr(result, "input_tokens", 0) or 0) + int(getattr(result, "output_tokens", 0) or 0) or None,
@@ -1038,8 +1089,7 @@ def resolve_route(
     profile = config.ai.providers.get(provider)
     profile_type = getattr(profile, "type", None) if profile is not None else getattr(client, "provider_type", None)
     model = getattr(client, "model", None) or (getattr(profile, "model", None) if profile is not None else None)
-    is_decider = getattr(routing, "is_decider_profile", None)
-    decider = bool(is_decider(config, provider)) if callable(is_decider) and profile is not None else False
+    decider = routing.is_decider_profile(config, provider) if profile is not None else False
     subscription = (
         is_subscription_transport(client=client) if client is not None else is_subscription_transport(profile=profile)
     )

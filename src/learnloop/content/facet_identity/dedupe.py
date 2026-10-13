@@ -108,7 +108,7 @@ def plan_dedupe(vault: LoadedVault, *, subject_id: str | None = None) -> tuple[l
                 label="", key=facet_id, subject_kind="facet", subject_id=facet_id, existing=True,
                 view=judge_view(facet.model_dump(mode="json"), concept_title=titles.get(facet.concept_id or "")),
             ))
-        requests.append(build_request(members, mode="consolidate"))
+        requests.append(build_request(members, mode="consolidate", shortlisted=grouping.shortlisted))
     summary = {"facets": len(facet_ids), **grouping.summary(), "stored_vectors": bool(vectors)}
     return requests, summary
 
@@ -171,9 +171,9 @@ def run_dedupe(
         "lock_policy": "merge_locked_facets" if settings.merge_locked_facets else "refuse_locked",
         "actions": [],
         # Sets the judge decided that touch a locked facet, under the strict
-        # lock policy (knowledge model §3.4): proposed to the owner, never
-        # applied. A rerun with merge_locked_facets = true applies them from the
-        # reused verdicts (no new call).
+        # lock policy (merge_locked_facets = false; knowledge model §3.4):
+        # proposed to the owner, never applied. A rerun with the default
+        # (true) applies them from the reused verdicts (no new call).
         "locked_proposals": [],
         "refused": [],
         "recovered": recovered,
@@ -265,8 +265,8 @@ def _locked_proposal(vault: LoadedVault, decided: Any, outcome: Any, result: dic
         "judge_model": outcome.judge_model,
         "judgment_ids": outcome.judgments_for([decided.survivor, *decided.retired]),
         "apply": (
-            "not applied: a locked facet's identity changes only with the owner's override "
-            "([facet_identity] merge_locked_facets = true, then rerun dedupe; judged groups are reused)"
+            "not applied: [facet_identity] merge_locked_facets = false keeps locked facets apart "
+            "(set it to true, the default, then rerun dedupe; judged groups are reused)"
         ),
     }
 

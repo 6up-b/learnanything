@@ -55,8 +55,9 @@ def facets_dedupe(
     """Partition each concept neighbourhood's facets with the judge and apply merges.
 
     Route: ai.routing.facet_identity_judge (default: the Codex `codex_luna`
-    profile, on the subscription). Every merge or absorb applies live and is
-    listed with its undo command; locked facets are labelled. Verdicts go to
+    profile, on the subscription; a decider profile is also accepted). Every
+    merge or absorb applies live and is listed with its undo command; locked
+    facets merge too and are labelled. Merged and shortlisted pairs go to
     judgment_ledger (task same_facet); a rerun reuses judged groups.
     """
     from learnloop.content.facet_identity.dedupe import run_dedupe

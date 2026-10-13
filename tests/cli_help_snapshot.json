@@ -396,8 +396,8 @@
     "sha256": "ca3b9e6f3b4ef26a79a055501a69bea337351be88ff94953f31b6d4c8a5dbf41"
   },
   "facets dedupe": {
-    "bytes": 3404,
-    "sha256": "f0e1e91fe56d9cf0e0fd5e52ba0f280cb8f9cab3d5317cc438d3b143e2b216dc"
+    "bytes": 3485,
+    "sha256": "00ed3137d847c439ce474a07e61d962270ab249246ed3a09810adf89eb5bcd76"
   },
   "facets undo": {
     "bytes": 1998,

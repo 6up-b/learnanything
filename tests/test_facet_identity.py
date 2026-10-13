@@ -7,6 +7,8 @@ and labels (tests/facet_identity_regression.json).
 
 from __future__ import annotations
 
+import itertools
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,6 +37,7 @@ from learnloop.content.facet_identity.judge import (
 from learnloop.content.facet_identity.plan import build_plan
 from learnloop.content.facet_identity.views import judge_view, union_payload
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthFacet
+from learnloop.content.synthesis.synthesis_gates import facet_tokens, jaccard
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
@@ -242,7 +245,16 @@ def test_judge_writes_one_ledger_row_per_pair_and_never_pays_twice(vault_repo):
     outcomes = judge.run(requests)
     assert outcomes[0].status == "judged" and len(judge_client.requests) == 1
     rows = _ledger(repository.sqlite_path)
-    assert len(rows) == 741  # every pair of the 39 facets: same or different
+    # Owner decision 2026-10-12: the merged pairs plus the shortlisted (here
+    # lexical near-duplicate) different pairs, not all 741 pairs of the group.
+    merged = {frozenset(pair) for cluster in clusters_from_pairs(data["must_merge"])
+              for pair in itertools.combinations(cluster, 2)}
+    lexical = {frozenset(pair) for pair in itertools.combinations(sorted(f["id"] for f in data["facets"]), 2)
+               if jaccard(facet_tokens(vault.evidence_facets[pair[0]].model_dump(mode="json")),
+                          facet_tokens(vault.evidence_facets[pair[1]].model_dump(mode="json"))) >= 0.85}
+    recorded = {frozenset((row["left_id"], row["right_id"])) for row in rows}
+    assert len(rows) == len(recorded) == len(merged | lexical) < 741
+    assert recorded == merged | lexical
     assert {row["judge"] for row in rows} == {"llm"}
     assert {row["judge_model"] for row in rows} == {"fake-judge-1"}
     assert {row["prompt_version"] for row in rows} == {PROMPT_VERSION}
@@ -257,7 +269,7 @@ def test_judge_writes_one_ledger_row_per_pair_and_never_pays_twice(vault_repo):
                           caps=_caps(), pricing=pricing_for(None), repository=repository, owner_id="run2")
     reused = again.run(plan_dedupe(load_vault(root))[0])
     assert reused[0].status == "reused" and len(judge_client.requests) == 1
-    assert len(_ledger(repository.sqlite_path)) == 741
+    assert len(_ledger(repository.sqlite_path)) == len(rows)
     assert reused[0].judgment_ids == outcomes[0].judgment_ids
 
 
@@ -289,50 +301,8 @@ def test_a_failing_judge_is_retried_within_the_cap_then_gives_up(vault_repo):
     assert len(down.requests) == 2
 
 
-def _ledger_accepts_decider(sqlite_path: Path) -> bool:
-    connection = sqlite3.connect(sqlite_path)
-    try:
-        schema = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='judgment_ledger'"
-        ).fetchone()[0]
-    finally:
-        connection.close()
-    return "'decider'" in schema
-
-
-def _accept_decider(sqlite_path: Path) -> None:
-    """Router R0's judgment_ledger rebuild, simulated: the CHECK accepts 'decider'.
-
-    R0 (migration 174 on its branch) merges before this stage; until then the
-    Decider's ledger rows need this rebuild in the test database.
-    """
-
-    if _ledger_accepts_decider(sqlite_path):
-        return
-    connection = sqlite3.connect(sqlite_path)
-    try:
-        objects = connection.execute(
-            "SELECT type, sql FROM sqlite_master WHERE tbl_name = 'judgment_ledger' AND sql IS NOT NULL"
-        ).fetchall()
-        table = next(sql for kind, sql in objects if kind == "table")
-        rebuilt = table.replace("'exact_key')", "'exact_key', 'decider')")
-        assert rebuilt != table
-        connection.executescript(
-            "PRAGMA foreign_keys = OFF; BEGIN;"
-            "ALTER TABLE judgment_ledger RENAME TO judgment_ledger_before_r0;"
-            f"{rebuilt};"
-            "INSERT INTO judgment_ledger SELECT * FROM judgment_ledger_before_r0;"
-            "DROP TABLE judgment_ledger_before_r0;"
-            + "".join(f"{sql};" for kind, sql in objects if kind in ("index", "trigger"))
-            + "COMMIT;"
-        )
-    finally:
-        connection.close()
-
-
 def test_the_decider_answers_per_pair_choices_and_partitions(vault_repo):
     root, repository, data = vault_repo
-    _accept_decider(repository.sqlite_path)
     facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
     request = build_request(_members(*facets), mode="consolidate")
     decider = FakeDecider(choose=lambda first, second: "same_skill")
@@ -345,7 +315,6 @@ def test_the_decider_answers_per_pair_choices_and_partitions(vault_repo):
 
 def test_the_decider_asks_one_choice_question_per_pair(vault_repo):
     _root, repository, data = vault_repo
-    _accept_decider(repository.sqlite_path)
     facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
     request = build_request(_members(*facets), mode="consolidate")
     decider = FakeDecider(choose=lambda first, second: "distinct")
@@ -362,7 +331,6 @@ def test_the_decider_asks_one_choice_question_per_pair(vault_repo):
 
 def test_a_rerun_of_the_decider_reuses_its_answers_and_ledger_rows(vault_repo):
     _root, repository, data = vault_repo
-    _accept_decider(repository.sqlite_path)
     facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
     request = build_request(_members(*facets), mode="consolidate")
     decider = FakeDecider(choose=lambda first, second: "same_skill")
@@ -381,13 +349,13 @@ def test_a_rerun_of_the_decider_reuses_its_answers_and_ledger_rows(vault_repo):
 
 
 def test_the_ledger_keeps_the_judges_verdict_and_marks_repaired_and_omitted_pairs(vault_repo):
-    import json
-
     _root, repository, _data = vault_repo
     registered = [{"id": "facet_x", "claim": "x"}, {"id": "facet_y", "claim": "y"}]
     candidates = [{"id": "cand", "claim": "x again"}, {"id": "cand_z", "claim": "z"}]
     request = build_request(
         _members(*registered) + _members(*candidates, existing=False, kind="facet_candidate"), mode="attach",
+        # Shortlisted (as an attach nomination would be), so its "different" is ledgered.
+        shortlisted=[("facet_x", "cand_z")],
     )
     # The judge joins one candidate with BOTH registered facets; validation keeps
     # one registered facet, and "z" is never listed (kept distinct by the rule).
@@ -406,6 +374,9 @@ def test_the_ledger_keeps_the_judges_verdict_and_marks_repaired_and_omitted_pair
     assert set(detail["raw_set"]["members"]) == {"E1", "E2", "N1"}
     verdict, detail = rows[frozenset(("facet_x", "cand_z"))]
     assert verdict == "different" and detail["basis"] == "omitted" and detail["applied"] is False
+    assert detail["shortlisted"] is True
+    # A kept-apart pair no shortlist put forward writes no row.
+    assert frozenset(("facet_y", "cand_z")) not in rows
 
 
 # --- dedupe ------------------------------------------------------------------------------
@@ -487,7 +458,9 @@ def test_in_run_consolidation_of_the_regression_set(tmp_path):
     for left, right in data["must_stay_distinct"]:
         assert survivor(left) != survivor(right), (left, right)
     rows = _ledger(repository.sqlite_path)
-    assert len(rows) == 741 and {row["left_kind"] for row in rows} == {"facet_candidate"}
+    # The merged pairs (no vectors, so only lexical pairs could be shortlisted).
+    assert 0 < len(rows) < 741 and {row["left_kind"] for row in rows} == {"facet_candidate"}
+    assert {row["verdict"] for row in rows if not json.loads(row["rationale"])["shortlisted"]} == {"same"}
     # The plan is data: it round-trips through the synthesis run record.
     from learnloop.content.facet_identity.plan import FacetIdentityPlan
 

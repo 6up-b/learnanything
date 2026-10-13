@@ -83,6 +83,12 @@ AITask = Literal[
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
 DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider"})
+#: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
+#: structured question of a chat model, or typed questions of a decision model
+#: (facet identity: one choice question per facet pair, owner 2026-10-12).
+#: Unlike DECIDER_TASKS they keep the ordinary chat-route resolution (an unset
+#: route is the active provider's, and a decider is chosen by naming one).
+DECIDER_ACCEPTING_TASKS: frozenset[str] = frozenset({"facet_identity_judge"})
 
 # Every structured operation explicitly inherits one configured task route.
 # This is documentation as executable data: feature callers no longer invent
@@ -353,7 +359,7 @@ def route_profile_mismatch(
             f"{provider_name!r} is an embedding-only profile; it cannot serve "
             f"{task or 'generation'} work."
         )
-    if task not in DECIDER_TASKS and decider_profile:
+    if task not in DECIDER_TASKS and task not in DECIDER_ACCEPTING_TASKS and decider_profile:
         return (
             f"{provider_name!r} is a decision-model profile; it answers typed questions "
             f"only and cannot serve {task or 'generation'} work."
@@ -566,6 +572,7 @@ def _manual_resolution(
 
 
 __all__ = [
+    "DECIDER_ACCEPTING_TASKS",
     "DECIDER_TASKS",
     "EMBEDDING_PROFILE_TYPE",
     "MANUAL_PROVIDER",
