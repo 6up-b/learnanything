@@ -79,7 +79,7 @@ def _pending(ctx, source_id):
     return ctx.repository.source_auto_build_state(source_id)["wanted_section_id"]
 
 
-def _wait_for(predicate, timeout: float = 60.0) -> bool:
+def _wait_for(predicate, timeout: float = 120.0) -> bool:
     """Polls until ``predicate`` holds (returning at once when it does); the
     bound only matters when the machine is loaded (a parallel full suite)."""
 
@@ -181,16 +181,20 @@ def test_a_a_transient_scan_failure_is_retried_not_taken_for_nothing_due(tmp_pat
     # The old worker read its clock through ``_iso``; the sweep reads ``reading_clock``.
     monkeypatch.setattr(jobs_module, "_iso", lambda moment: real_iso(clock.now() if moment is None else moment))
     scans = {"n": 0}
+    library = ctx.repository.sqlite_path
 
     def flaky(real):
         def scan(self, *args, **kwargs):
+            if self.sqlite_path != library:  # another test's host, still in this process
+                return real(self, *args, **kwargs)
             scans["n"] += 1
             if scans["n"] == 3:
                 raise sqlite3.OperationalError("database is locked")  # one transient failure
-            rows = real(self, *args, **kwargs)
             if scans["n"] == 2:
+                rows = real(self, *args, **kwargs)
                 clock.moment = deadline  # the retry falls due before the next round
-            return rows
+                return rows
+            return real(self, *args, **kwargs)
         return scan
 
     for name in ("due_reading_requests", "pending_reading_requests"):
@@ -534,3 +538,21 @@ def test_no_stored_retry_time_keeps_a_request_from_ever_being_due(tmp_path):
     assert jobs.retry_reading_advances(now=_later()) == 1
     assert _pending(ctx, source_id) is None
     assert _planners(ctx) == planners + 1
+
+
+def test_the_sweep_ends_with_a_host_nobody_uses(tmp_path, fast_sweep):
+    """The sweep thread holds its host only while it works: a host nobody
+    uses any more (a closed library, an earlier test's sidecar) lets it end
+    instead of sweeping for the life of the process."""
+
+    import gc
+
+    root, ctx, _source_id, _extraction_id = _added_book(tmp_path)
+    host = DurableIngestJobs()
+    host.bind(Repository(ctx.repository.sqlite_path), root, background=True, clock=CLOCK, services=fake_services())
+    assert _wait_for(lambda: host._reading_sweep_thread is not None and host._reading_sweep_thread.is_alive())
+    thread = host._reading_sweep_thread
+    del host
+    gc.collect()
+    thread.join(10)
+    assert not thread.is_alive()

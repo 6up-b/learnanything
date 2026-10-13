@@ -24,6 +24,7 @@ import os
 import queue
 import re
 import threading
+import weakref
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -2950,6 +2951,33 @@ class ReadingSweep:
     next_due_at: datetime | None = None
 
 
+def _run_reading_sweep(host: "weakref.ref[DurableIngestJobs]") -> None:
+    """The reading sweep thread. It holds its host only while it works, so a
+    host nobody uses any more (a library closed, a test's sidecar) lets the
+    thread end at its next wake instead of sweeping for the process's life."""
+
+    failures = 0
+    delay: float | None = None
+    while True:
+        jobs = host()
+        if jobs is None:
+            return
+        wake = jobs._reading_sweep_wake
+        if delay is None:
+            delay = float(jobs.READING_SWEEP_SECONDS)
+        del jobs
+        wake.wait(timeout=delay)
+        wake.clear()
+        jobs = host()
+        if jobs is None:
+            return
+        step = jobs._reading_sweep_pass(failures)
+        del jobs
+        if step is None:
+            return
+        failures, delay = step
+
+
 def _reading_due_at(retry_at: str | None) -> datetime | None:
     """When a pending reading request is due: its retry time, or ``None``
     (due now) when it has none or one that does not parse, so no stored
@@ -3273,7 +3301,8 @@ class DurableIngestJobs:
             thread = self._reading_sweep_thread
             if thread is None or not thread.is_alive():
                 self._reading_sweep_thread = threading.Thread(
-                    target=self._reading_sweep_loop, name="learnloop-reading-sweep", daemon=True
+                    target=_run_reading_sweep, args=(weakref.ref(self),), name="learnloop-reading-sweep",
+                    daemon=True,
                 )
                 self._reading_sweep_thread.start()
 
@@ -3287,40 +3316,41 @@ class DurableIngestJobs:
         return delay
 
     def _reading_sweep_loop(self) -> None:
-        """The reading sweep: a pass every :attr:`READING_SWEEP_SECONDS` (or at
-        the next retry time, or when woken) for as long as this host runs in
-        the background. A failed pass is retried with backoff
+        """The reading sweep, run on the calling thread (the sweep thread runs
+        :func:`_run_reading_sweep`): a pass every :attr:`READING_SWEEP_SECONDS`
+        (or at the next retry time, or when woken) for as long as this host
+        runs in the background. A failed pass is retried with backoff
         (:attr:`READING_SWEEP_RETRY_SECONDS`, doubling up to the pace). The
         first pass waits one pace: the start reconciles every request itself."""
 
-        failures = 0
+        _run_reading_sweep(weakref.ref(self))
+
+    def _reading_sweep_pass(self, failures: int) -> tuple[int, float] | None:
+        """One pass of the sweep thread: ``None`` when this host stopped (or
+        runs in the foreground now), else the failures in a row and the wait
+        until the next pass."""
+
+        with self._lock:
+            # Exits under the lock that starts a sweep, so a start racing
+            # this exit either sees the thread gone or keeps it running.
+            if self._stop.is_set() or not self._background:
+                if self._reading_sweep_thread is threading.current_thread():
+                    self._reading_sweep_thread = None
+                return None
         delay = float(self.READING_SWEEP_SECONDS)
-        while True:
-            self._reading_sweep_wake.wait(timeout=delay)
-            self._reading_sweep_wake.clear()
-            with self._lock:
-                # Exits under the lock that starts a sweep, so a start racing
-                # this exit either sees the thread gone or keeps it running.
-                if self._stop.is_set() or not self._background:
-                    if self._reading_sweep_thread is threading.current_thread():
-                        self._reading_sweep_thread = None
-                    return
-            delay = float(self.READING_SWEEP_SECONDS)
-            if self._runner is None:
-                continue
-            try:
-                sweep = self.sweep_reading_requests()
-                if not sweep.failed:
-                    failures = 0
-                    delay = self._reading_sweep_delay(sweep)
-                    continue
-                delay = self._reading_sweep_delay(sweep)
-            except Exception:  # noqa: BLE001 - the sweep outlives any failed pass
-                logging.getLogger(__name__).warning("the reading sweep's pass failed; retrying", exc_info=True)
-            # A failed scan, or an act whose failure may not even be recorded:
-            # try again soon, backing off up to the pace. Never "nothing due".
-            failures += 1
-            delay = min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
+        if self._runner is None:
+            return failures, delay
+        try:
+            sweep = self.sweep_reading_requests()
+            if not sweep.failed:
+                return 0, self._reading_sweep_delay(sweep)
+            delay = self._reading_sweep_delay(sweep)
+        except Exception:  # noqa: BLE001 - the sweep outlives any failed pass
+            logging.getLogger(__name__).warning("the reading sweep's pass failed; retrying", exc_info=True)
+        # A failed scan, or an act whose failure may not even be recorded:
+        # try again soon, backing off up to the pace. Never "nothing due".
+        failures += 1
+        return failures, min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
 
     def _settle_reading_for_cancel(self, batch_id: str) -> None:
         """A cancel answers the reading requests of the books whose work it
