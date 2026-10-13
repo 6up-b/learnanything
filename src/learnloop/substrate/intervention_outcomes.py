@@ -62,9 +62,14 @@ def _attempts(connection: Any) -> list[dict[str, Any]]:
     return attempts
 
 
-def _assisted(attempt: Mapping[str, Any]) -> bool:
+def is_assisted(attempt: Mapping[str, Any]) -> bool:
+    """Not an unaided attempt: another attempt type, a hint used, or primed."""
+
     return (attempt.get("attempt_type") != "independent_attempt" or bool(attempt.get("hints_used"))
             or bool(attempt.get("primed")))
+
+
+_assisted = is_assisted
 
 
 def _targets(intervention: Mapping[str, Any], vault: LoadedVault) -> tuple[set[str], set[str]]:
@@ -182,4 +187,5 @@ def rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) ->
     return {"cleared": cleared, "written": written, "as_of": as_of.isoformat()}
 
 
-__all__ = ["COLD_STATES", "OUTCOME_VERSION", "SUCCESS_CORRECTNESS", "outcome_for", "rebuild_intervention_outcomes"]
+__all__ = ["COLD_STATES", "OUTCOME_VERSION", "SUCCESS_CORRECTNESS", "is_assisted", "outcome_for",
+           "rebuild_intervention_outcomes"]

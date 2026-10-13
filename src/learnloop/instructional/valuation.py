@@ -48,7 +48,6 @@ from learnloop.diagnosis.probes import (
     item_registry_discrimination,
     resolve_item_irt,
 )
-from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling import evsi as EV
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -242,21 +241,83 @@ def causal_problem(vault: LoadedVault, repository: Repository, hypothesis_set_id
         decision=decision, context={"hypothesis_set_id": hypothesis_set_id}), []
 
 
-def retention_problem(vault: LoadedVault, repository: Repository, lo_id: str, facet_id: str | None = None,
-                      ) -> tuple[ValuationProblem | None, list[dict[str, Any]]]:
-    """Does a recently assisted success hold unaided? Two slots; the prior is the
-    active predictor's P(success) (the LO's mastery mean, ``mastery_ekf``)."""
+def recent_assisted_success(vault: LoadedVault, repository: Repository, lo_id: str,
+                            facet_id: str | None = None) -> dict[str, Any] | None:
+    """The LO's (or the facet's) most recent successful attempt, when it was
+    assisted and no unaided success has followed it; None otherwise.
 
-    mastery = repository.mastery_state(lo_id)
-    if mastery is None:
-        return None, [{"ref": {"kind": "retention", "id": facet_id or lo_id}, "reason": "no_prior"}]
-    p = min(max(sigmoid(mastery.logit_mean), 1e-6), 1 - 1e-6)
+    "Assisted" is S5's reading of an attempt (not an independent attempt, a
+    hint used, or primed) and "successful" its report threshold, so the
+    retention question and the outcome that answers it use one definition.
+    The most recent success decides: no window is set by hand."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.substrate.intervention_outcomes import SUCCESS_CORRECTNESS, is_assisted
+
+    item_ids = sorted(item.id for item in vault.practice_items.values() if item.learning_object_id == lo_id)
+    if not item_ids:
+        return None
+    facet = vault.canonical_facet_id(facet_id) if facet_id else None
+    marks = ",".join("?" for _ in item_ids)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = connection.execute(
+            "SELECT id, practice_item_id, created_at, correctness, attempt_type, hints_used, primed, "
+            f"evidence_facets_json FROM practice_attempts WHERE practice_item_id IN ({marks}) "
+            "AND correctness IS NOT NULL ORDER BY created_at DESC, id DESC", item_ids).fetchall()
+    for row in rows:
+        if float(row["correctness"]) < SUCCESS_CORRECTNESS:
+            continue
+        if facet is not None:
+            try:
+                facets = {vault.canonical_facet_id(str(value)) for value in json.loads(row["evidence_facets_json"] or "[]")}
+            except (TypeError, ValueError):
+                facets = set()
+            if facet not in facets:
+                continue
+        attempt = dict(row)
+        return attempt if is_assisted(attempt) else None
+    return None
+
+
+def retention_problem(vault: LoadedVault, repository: Repository, lo_id: str, facet_id: str | None = None,
+                      *, predictor: Any | None = None) -> tuple[ValuationProblem | None, list[dict[str, Any]]]:
+    """Does a recently assisted success hold unaided? Two slots, posed only when
+    the LO's (facet's) most recent success was assisted only (§8.3.2). The
+    prior is the active predictor's P(success) on the item of that success,
+    with the predictor's name and version as its basis."""
+
+    ref = {"kind": "retention", "id": facet_id or lo_id}
+    success = recent_assisted_success(vault, repository, lo_id, facet_id)
+    if success is None:
+        return None, [{"ref": ref, "reason": "no_recent_assisted_success"}]
+    if predictor is None:
+        from learnloop.clock import utc_now_iso
+        from learnloop.placement.predictor import PredictorNotActivatable, active_predictor
+
+        try:
+            predictor = active_predictor(vault, repository, now_iso=utc_now_iso())
+        except PredictorNotActivatable as exc:
+            return None, [{"ref": ref, "reason": "no_prior", "detail": str(exc)}]
+    try:
+        p = float(predictor.predict_item(str(success["practice_item_id"])).p_success)
+    except (KeyError, ValueError) as exc:
+        return None, [{"ref": ref, "reason": "no_prior", "detail": str(exc)}]
+    if not math.isfinite(p):
+        return None, [{"ref": ref, "reason": "no_prior", "detail": "non-finite prediction"}]
+    p = min(max(p, 1e-6), 1 - 1e-6)
+    name = str(getattr(predictor, "name", "predictor"))
+    version = str(getattr(predictor, "version_hash", "") or "")
     prior = {"holds_unaided": p, "not_unaided": 1.0 - p}
     return ValuationProblem(
         key=f"retention:{lo_id}:{facet_id or '*'}", space_kind="retention", slots=("holds_unaided", "not_unaided"),
-        prior=prior, prior_basis="predictor:mastery_ekf", state_hash=_hash({"retention": lo_id, "p": p}),
+        prior=prior, prior_basis=f"predictor:{name}",
+        state_hash=_hash({"retention": lo_id, "p": p, "attempt": success["id"], "predictor": version}),
         refs=[HypothesisRef("retention", facet_id or lo_id)],
-        context={"learning_object_id": lo_id, "facet_id": facet_id}), []
+        context={"learning_object_id": lo_id, "facet_id": facet_id, "assisted_success_attempt_id": success["id"],
+                 "predictor": {"name": name, "version": version,
+                               "practice_item_id": str(success["practice_item_id"])}}), []
 
 
 def named_gaps_available(repository: Repository) -> bool:

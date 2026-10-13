@@ -145,10 +145,45 @@ def test_item_tables_are_normalized_and_labelled(textbook):
     assert candidate.minutes_provenance["prior_source"] == "test"
 
 
-def test_retention_needs_a_prior_and_a_channel(textbook):
+def test_retention_needs_a_recent_assisted_success(textbook):
     paths, repository, _spans, _m = textbook
     problem, missing = retention_problem(loaded(paths), repository, "lo_matrices")
-    assert problem is None and missing[0]["reason"] == "no_prior"
+    assert problem is None and missing[0]["reason"] == "no_recent_assisted_success"
+
+
+def _attempt(paths, repository, item_id, *, points, hints=0):
+    complete_self_graded_attempt(loaded(paths), repository,
+                                 AttemptDraft(practice_item_id=item_id, learner_answer_md="x",
+                                              attempt_type="independent_attempt", hints_used=hints),
+                                 SelfGradeInput(criterion_points={"correct": points}, fatal_errors=[], confidence=3))
+
+
+def test_retention_is_posed_only_after_an_assisted_only_success_with_the_active_predictor(textbook):
+    """F17 (Codex sources-build review): the "holds unaided" question needs a
+    recent success that was assisted only, and its prior is the active
+    predictor's P(success), not the mastery sigmoid relabelled."""
+
+    from learnloop.placement.predictor import active_predictor
+
+    paths, repository, _spans, _m = textbook
+    _attempt(paths, repository, "pi_determinant_1", points=4)  # an unaided success
+    problem, missing = retention_problem(loaded(paths), repository, "lo_matrices")
+    assert problem is None and missing[0]["reason"] == "no_recent_assisted_success"
+    _attempt(paths, repository, "pi_determinant_2", points=4, hints=1)  # now the latest success is assisted
+    vault = loaded(paths)
+    problem, missing = retention_problem(vault, repository, "lo_matrices")
+    assert missing == [] and problem is not None
+    expected = active_predictor(vault, repository).predict_item("pi_determinant_2").p_success
+    assert abs(problem.prior["holds_unaided"] - expected) < 1e-9
+    assert problem.prior_basis == "predictor:mastery_ekf"
+    assert problem.context["predictor"]["version"] and problem.context["assisted_success_attempt_id"]
+    _attempt(paths, repository, "pi_determinant_3", points=4)  # an unaided success after it
+    problem, missing = retention_problem(loaded(paths), repository, "lo_matrices")
+    assert problem is None and missing[0]["reason"] == "no_recent_assisted_success"
+    # A failed unaided attempt after the assisted success leaves the question open.
+    _attempt(paths, repository, "pi_determinant_1", points=4, hints=2)
+    _attempt(paths, repository, "pi_determinant_2", points=0)
+    assert retention_problem(loaded(paths), repository, "lo_matrices")[0] is not None
 
 
 def test_causal_space_excludes_h_other_explicitly(textbook):
