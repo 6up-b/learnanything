@@ -169,3 +169,99 @@ Run on `f97724e29` (the code as committed; this record is the only later change)
 2. **Label projection across revisions (F2).** A mark in one extraction withholds *every* same-labelled unit in the others, unless the other extraction marks the same unit (same occurrence and content). With repeated labels ("Exercises" in every chapter) this withholds more than the owner marked, and with F1 it keeps those units' imported items out of practice too. Recommended default: keep (fail closed); a structural mapping (label path plus content hash) could narrow it later.
 3. **A protection behind a switch (F6).** The serving rules can now be turned off. The model-context protections cannot. Recommended default: keep as built.
 4. **Exam-reserved items as cold probes or cold retries** (seen while fixing, not a review finding, not changed). `select_held_out_probe_item` and the cold retry do not exclude an item reserved for a goal's exam. The routine queue never serves a reserved item, so the likely outcome is a probe task that waits rather than a leak; this was not traced end to end. Recommended default: exclude exam-reserved items from both in a follow-up.
+
+## Re-review
+
+**Reviewed:** the fix commits `883b8da11..bfdf35d21`. Codex job `20261013-183419-6720uC` ran read-only, with no paid calls and in-memory probes only. **Verdict:** REOPENED on F5 alone. F1-F4 were confirmed fixed, F6 was resolved under the owner's exception, and no new defects were found.
+**Fix commits:** `3159eb4a2` (code and tests), `a5b0886b0` (regenerated DB and config references), and this section.
+**Migration:** none (no schema change). **Config:** unchanged. **Algorithm successor:** none, for F6's reason: `exam_sessions`, `exam_answers` and `exam_pool_items` are WORKFLOW, and no replayer reads them. **Paid calls:** none. **Frontend / `src-tauri`:** unchanged.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Already-imported held-out items remain eligible for routine practice | confirmed fixed by the re-review; no change | `1c7b70f25` | Codex: shared serving exclusions remove them, and proposal picks and session serves recheck |
+| F2 | High | Held-out restrictions fail to propagate across revisions | confirmed fixed; no change | `1c7b70f25` | Codex: both reported scenarios passed in memory |
+| F3 | High | Reader protection uses a narrower held-out partition than the leakage gate | confirmed fixed; no change | `1c7b70f25` | Codex: one partition, with signals, across the Reader, imports and screening |
+| F4 | High | PF forwards held-out quotes identified through locators | confirmed fixed; no change | `1c7b70f25` | Codex: the locator-only, namespaced-span and extraction-only probes passed |
+| F5 | High | Exposure during an active exam bypasses protection (reopened) | **fixed** | `3159eb4a2` | `test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_answer_refused`, `test_the_exam_screen_stops_serving_an_item_exposed_mid_exam_and_refuses_its_answer`, `test_the_cli_refuses_an_answer_to_an_item_exposed_mid_exam_before_grading_it`, `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`; guards: `test_an_exam_answer_given_before_its_item_was_exposed_stands`, `test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before` |
+| F6 | Medium | Serving changes are unconditional under existing algorithm versions | resolved under the owner exception; no change | `1c7b70f25` | Codex: the switch is implemented. The shadow rebuilds were not rerun here either: this fix touches no replayer, projection or DERIVED table. `test_replay_never_reads_the_switch` is in the gate below |
+
+### F5 (reopened): exposure during the sitting
+
+**Reproduction on `bfdf35d21`.** A probe script built on the test helpers ran on a temporary vault under `fixtures-local/tmp`:
+1. reserve the pool and start the exam;
+2. insert a `source_exposure_events` row for `pi_pool_apply_mid`'s exercise (`ext_problems`/`s2`): a Reader read;
+3. resume.
+
+What it printed:
+- resume's `item_order` contains the exposed item: `True`;
+- the sidecar `start_exam` snapshot serves it: `True`;
+- `queue_exam_answer` accepted an answer to it: `{'already_submitted': False, 'graded': False}`.
+
+This matches Codex's report. `withdraw_exposed_reservations` returns at once for a goal with an exam in progress, and resume returned the frozen order without revalidating it.
+
+**Fail-first.** The six new tests ran against a `git archive` of `bfdf35d21`'s `src/` and `migrations/` (`-o pythonpath=fixtures-local/tmp/basebfd/src`; a probe confirmed the modules came from the archive). Result: **6 failed**.
+- **The four regressions.**
+  - The exam screen still served the item (`'pi_pool_apply_mid' not in [...]`).
+  - The CLI reached grading: it answered `exam_grading_unavailable` instead of refusing.
+  - The exhausted sitting was not closed (`DID NOT RAISE`).
+  - The core-service test stopped at the new error class's import. The probe above shows its behaviour on the base.
+- **The two guards** (an answer given before the exposure stands; switch off, the item is administered) fail only on the missing `withdrawn_items` key. They pin the fix's boundaries and are not repros.
+
+**Fix** (`goals.exam_session.session_withdrawn_items`).
+- **The rule.** The in-progress sitting's *unanswered* items that the learner has been shown since they were held out are set aside. "Shown" is the reservation's own rule (`exam_material.exposed_items`: a reveal outside the item's own feedback, its exercise or book solution read, its prompt in a suggestion), so the rule is never forgotten and the set only grows.
+- **Answered items stay.** An answered item is never set aside: the answer was final when given, and a later exposure cannot have informed it.
+- **Every door of the sitting checks it.**
+  - **Resume** (`start_exam` on an in-progress session): the view's `item_order` is the frozen order less the set-aside items, with `withdrawn_items` and `withdrawn_note` (the same line as before the start). The sidecar snapshot therefore stops serving the item; `index`/`total` count the served items, and it carries `withdrawnItems`/`withdrawnNote`.
+  - **The live progress view** (`exam_report` before completion) does the same.
+  - **Answer acceptance.**
+    - `queue_exam_answer` refuses a new answer with `ExamItemWithdrawnError`; the sidecar returns code `exam_item_withdrawn`, with `practice_item_id` and `reasons` in its details. The message reads: "This exam item was set aside: you've seen it since it was held out (its exercise or solution read), so it would no longer be a fair test. Your other answers are kept; reopen the exam to continue without it."
+    - `record_exam_answer` refuses a *new* answer (the CLI's path). The grade of an answer already queued still lands.
+    - `learnloop exam answer` checks before it grades (`refuse_withdrawn_answer`), so no grading call is spent on an answer that would be refused.
+  - **`finish_exam`** reads the set before it completes the session. The report names the items (`withdrawn_items`, `withdrawn_note`) and does not score them. `item_count` is the number administered (the frozen order less the set-aside items). The sidecar's finish DTO carries both fields.
+  - **`get_exam_status`** adds the sitting's set-aside items to `withdrawnItems`.
+- **History kept.**
+  - The stored frozen order (`exam_sessions.item_order_json`) and every frozen prediction are unchanged.
+  - The reservation row stays reserved until the sitting ends, then is released with the pool as before. While the exam is open, a set-aside item stays out of practice, like the rest of the pool.
+  - Nothing is released or deleted mid-sitting, so the pool cannot be re-reserved under an open exam.
+- **A sitting with nothing left.** If every item is set aside and none was answered, resume closes the sitting rather than serving an empty exam forever.
+  - Its status becomes `abandoned`, a state migration 024's CHECK already allows. Its report records `closed_reason: every_item_withdrawn` and the items.
+  - Its pool is released, and the learner is told why ("... none is a fair test any more. The sitting is closed and its items rejoin practice; open the exam again to hold out a new pool.").
+  - The next open reserves a fresh pool; shown items are never reserved.
+  - `finish_exam` refuses an abandoned session.
+  - If some items were answered, the screen's "every served item answered" rule finishes the exam as usual.
+- **The switch.** It is read through `exposed_items`, so with `goals.held_out_selection` off the sitting administers every item, as its predecessor did.
+- **Superseded.** This replaces the first round's F5 bullet "Nothing is withdrawn while the goal's exam is in progress (its order is frozen)". The order is still frozen; what the learner is served from it is now revalidated.
+
+**Files touched.**
+- `src/learnloop/goals/exam_session.py`: `session_withdrawn_items`, `ExamItemWithdrawnError`, `refuse_withdrawn_answer`, `_close_exhausted_sitting`, the resume, answer, finish and report changes.
+- `src/learnloop/goals/exam_pool.py`: `withdrawn_reasons_text` and a docstring.
+- `src/learnloop_sidecar/handlers/exams.py`: status, snapshot, the refusal code and the finish DTO.
+- `src/learnloop/cli/exam.py`: the refusal before grading.
+- `tests/test_exam_protection_review.py`: six tests.
+- The regenerated references (source-commit stamps and one cited line).
+
+### Gate (re-review)
+
+The suite ran on the code as committed in `3159eb4a2`. `a5b0886b0` and this section change documentation only. `TMPDIR` was the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 17 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10005 passed**, 0 failed, 0 skipped (8 min 20 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 9906 deselected |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated (no schema or config change; source-commit stamps, plus one cited line that moved in `exam_session.py`); validate: no errors. `validate_vault.py`: passed (1097 notes) |
+| frontend (`npm ...`), `cargo check` | not run: nothing under `apps/learnloop-tauri` changed |
+| `git diff --check` | clean |
+
+**Targeted runs before the gate:**
+- the six new tests alone: 6 passed;
+- with `test_exam_protection_review.py`, `test_exam_session.py`, `test_sidecar_exams.py`, `test_exam_pool.py` and `test_exam_protection.py`: 73 passed;
+- 18 exam, goal, calibration, sidecar, CLI, grade-resolution, cold-probe, cold-retry and architecture files: 243 passed.
+
+### Open questions for the owner (re-review)
+
+5. **An exam screen opened before the exposure.** Resume stops serving a set-aside item. A screen that was already showing it keeps it until the exam is reopened, and submitting gets the `exam_item_withdrawn` message, which says to reopen the exam. Recommended default: in the frontend follow-up of question 1, drop the item and advance on that code, and render `withdrawnNote` on resume and on the report.
+6. **Closing a sitting with nothing left.** When every item is set aside and none was answered, the sitting is closed as `abandoned` and the learner is told to open the exam again, which reserves a fresh pool. Recommended default: keep. The alternative is to reserve and start a fresh sitting in the same call, without the stop.
