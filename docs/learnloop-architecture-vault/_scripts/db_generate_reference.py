@@ -986,7 +986,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.enabled": "Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false.",
     "plan.new_admission_enabled": "Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve).",
     "plan.reading_blocks": "Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane.",
-    "plan.reading_from_furthest": "Sub-switch (UX Phase 1, U4): the reading block continues from the furthest section read and skips front matter while a chapter is left; off restores DL1's first unfinished section in book order.",
+    "plan.reading_from_furthest": "Kill switch for UX Phase 1's reading step (U4) at mvp-0.15 and later: the reading block continues from the furthest section read and skips front matter while a chapter is left; off (and below mvp-0.15) it is DL1's first unfinished section in book order.",
     "plan.default_minutes": "Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward.",
     "plan.minutes_presets": "The one-tap minute chips on Start and Today.",
     "plan.repair_max_share": "Largest share of the budget the repair lane takes before new and push (D2).",

@@ -1894,8 +1894,8 @@ class PlanConfig(BaseModel):
     ``enabled`` is the kill switch: off restores mvp-0.13's Today (the open queue
     with the re-entry cap) exactly. ``new_admission_enabled`` and
     ``reading_blocks`` are narrower sub-switches; ``reading_from_furthest``
-    off restores DL1's reading-block selection; ``headline`` only hides the
-    optional Today headline (display).
+    (acting at mvp-0.15 and later) off restores DL1's reading-block selection;
+    ``headline`` only hides the optional Today headline (display).
     """
 
     enabled: bool = True
@@ -1906,9 +1906,11 @@ class PlanConfig(BaseModel):
     reading_blocks: bool = True
     # UX Phase 1 usability round 1 (U4): the reading block continues from the
     # furthest section the learner read into and is never front or back matter
-    # while a chapter is left. A live change to what the reading block serves,
-    # behind this switch (round-2 review F2): off restores DL1's selection, the
-    # first unfinished section in book order, exactly.
+    # while a chapter is left. A change to what the reading block serves, so
+    # its own successor (``READING_FROM_FURTHEST_VERSIONS``, mvp-0.15 and later;
+    # round-2 re-review F2) with this kill switch: off, or below the
+    # successor, the reading block is DL1's (mvp-0.14's) exactly, the first
+    # unfinished section in book order.
     reading_from_furthest: bool = True
     # D1: minutes on a fresh vault; afterwards the remembered budget.
     default_minutes: int = Field(default=25, ge=1, le=600)

@@ -5,12 +5,19 @@
   progress: the first report of a section saved ``spans_seen`` before asking,
   so when that ask failed (a busy database, a config mid-edit) every later
   report in the section skipped it as already reached, and nothing retried it.
+* F2 (reopened) — the reading step's selection (from the furthest section
+  read, never front matter) had a kill switch but changed what Today serves
+  under the plan's own tag, ``mvp-0.14``. It is now its own successor
+  (``mvp-0.15``, a placeholder tag relabelled at the merge); the upgrade path
+  is tested in ``tests/test_reading_step_upgrade.py``.
 """
 
 from __future__ import annotations
 
 import sqlite3
 import time
+
+import pytest
 
 from learnloop.content.pipeline import add_source as core
 
@@ -138,3 +145,50 @@ def test_f8_the_newest_position_wins_a_pending_retry(tmp_path, monkeypatch):
     assert calls == ["u2", "u3", "u3"]
     assert _planners(ctx) == planners + 1  # u3 is Ch. 2: Ch. 3 is planned
     assert not jobs.reading_advance_pending(extraction_id)
+
+
+# ---------------------------------------------------------------------------
+# F2 (reopened) — the reading step's selection is its own successor tag
+# ---------------------------------------------------------------------------
+
+_DL1 = "[plan]\nreading_from_furthest = false\n"
+
+
+def _todays_reading_step(tmp_path, monkeypatch, *, version, toml=""):
+    """Today's reading step for a book whose reader has read into Ch. 2 with
+    its Contents unread (DL1 serves Contents; the reading step, Ch. 2)."""
+
+    from datetime import UTC, datetime
+
+    import learnloop.clock as clock_module
+    from learnloop.db.repositories import Repository
+    from learnloop_sidecar.context import SidecarContext
+    from tests.helpers import create_daily_plan_vault
+    from tests.test_ux_phase1_round2_review import _section_ids, _seed_book
+
+    paths = create_daily_plan_vault(tmp_path / "vault", version=version, plan_toml=toml or None)
+    extraction_id = _seed_book(paths)
+    repo = Repository(paths.sqlite_path)
+    repo.upsert_reader_section_progress(extraction_id=extraction_id, section_id=_section_ids(repo, extraction_id)["2-matrices"],
+                                        spans_seen=1, span_count=2)
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: datetime(2026, 10, 12, 9, 0, tzinfo=UTC))
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    plan = call(ctx, "set_plan_minutes", {"minutes": 60})["plan"]
+    return [row["readingTitle"] for row in plan["projected"] if row["readingTitle"]]
+
+
+@pytest.mark.parametrize("toml", ["", _DL1])
+def test_f2_the_plans_own_version_serves_dl1s_reading_step_whatever_the_switch(tmp_path, monkeypatch, toml):
+    # mvp-0.14 is daily_plan_v1 as DL1 shipped it: a vault there is not moved
+    # by the new selection until it is upgraded to the reading step's successor.
+    assert _todays_reading_step(tmp_path, monkeypatch, version="mvp-0.14", toml=toml) == ["contents"]
+
+
+@pytest.mark.parametrize(("toml", "expected"), [("", "2-matrices"), (_DL1, "contents")])
+def test_f2_the_successor_serves_the_reading_step_behind_its_kill_switch(tmp_path, monkeypatch, toml, expected):
+    from learnloop.algorithm_versions import READING_FROM_FURTHEST_ALGORITHM_VERSION
+
+    steps = _todays_reading_step(tmp_path, monkeypatch, version=READING_FROM_FURTHEST_ALGORITHM_VERSION, toml=toml)
+    assert steps == [expected]

@@ -100,8 +100,23 @@ STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 # as mvp-0.12 and it was relabelled mvp-0.14 when it merged after recurrence
 # groups (mvp-0.12) and the stuck prompt (mvp-0.13). Kill switch:
 # ``plan.enabled`` (sub-switches ``plan.new_admission_enabled`` and
-# ``plan.reading_blocks``); off, Today is mvp-0.13's.
+# ``plan.reading_blocks``); off, Today is mvp-0.13's. New vaults started here
+# until mvp-0.15 merged.
 DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
+
+# mvp-0.15 (PLACEHOLDER label: the branch ux/phase1-first-run built it over
+# mvp-0.14 while main's chain moved on past mvp-0.15; relabel it to the next
+# free tag at its merge): UX Phase 1's reading step, on top of mvp-0.14 (the
+# chain stays linear: the mvp-0.10 split PLUS placement PLUS recurrence groups
+# PLUS the stuck prompt PLUS the plan PLUS the reading step). The plan's
+# reading block continues from the furthest section the learner read into and
+# is never front or back matter (contents, preface, index) while a chapter is
+# left (usability round 1, U4), where mvp-0.14 serves DL1's first unfinished
+# section in book order. It changes what is SERVED, not the projection, so it
+# is another successor tag on the mvp-0.8 namespace (spec_daily_loop_v1 L6,
+# §11; round-2 re-review F2). Kill switch: ``plan.reading_from_furthest``; off,
+# the reading block is mvp-0.14's exactly.
+READING_FROM_FURTHEST_ALGORITHM_VERSION = "mvp-0.15"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -117,6 +132,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     STUCK_PROMPT_ALGORITHM_VERSION,
     DAILY_PLAN_ALGORITHM_VERSION,
+    READING_FROM_FURTHEST_ALGORITHM_VERSION,
 )
 
 
@@ -168,6 +184,12 @@ PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION
 # Every later successor keeps the plan; gates must use this set, never
 # equality against DAILY_PLAN_ALGORITHM_VERSION.
 DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
+
+# Versions whose plan reading block continues from the furthest section read
+# (behind ``plan.reading_from_furthest``). Every later successor keeps it;
+# gates must use this set, never equality against
+# READING_FROM_FURTHEST_ALGORITHM_VERSION.
+READING_FROM_FURTHEST_VERSIONS: frozenset[str] = successors_from(READING_FROM_FURTHEST_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

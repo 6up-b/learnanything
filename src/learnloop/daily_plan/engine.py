@@ -38,7 +38,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS
+from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, READING_FROM_FURTHEST_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
@@ -108,6 +108,19 @@ def plan_active(vault: Any) -> bool:
     return (
         vault.config.algorithms.algorithm_version in DAILY_PLAN_VERSIONS
         and bool(vault.config.plan.enabled)
+    )
+
+
+def reading_from_furthest_active(vault: Any) -> bool:
+    """The reading block continues from the furthest section read (UX Phase 1,
+    U4) only at its successor (``READING_FROM_FURTHEST_VERSIONS``) with its kill
+    switch on (round-2 re-review F2); otherwise it is mvp-0.14's, DL1's first
+    unfinished section in book order."""
+
+    return (
+        plan_active(vault)
+        and vault.config.algorithms.algorithm_version in READING_FROM_FURTHEST_VERSIONS
+        and bool(vault.config.plan.reading_from_furthest)
     )
 
 
@@ -636,7 +649,7 @@ def _prepare_plan(
     reading: ReadingTarget | None = None
     reading_full: float | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
-        reading = next_reading_target(env.repository, from_furthest=bool(config.reading_from_furthest))
+        reading = next_reading_target(env.repository, from_furthest=reading_from_furthest_active(env.vault))
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -2327,6 +2340,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "reading_from_furthest_active",
     "reading_ended",
     "reconcile",
     "register_plan_decision_logger",

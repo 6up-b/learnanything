@@ -259,7 +259,8 @@ def test_f2_todays_plan_follows_the_switch(tmp_path, monkeypatch, toml, expected
     from learnloop_sidecar.context import SidecarContext
     from tests.helpers import create_daily_plan_vault
 
-    paths = create_daily_plan_vault(tmp_path / "vault", plan_toml=toml or None)
+    # The reading step is its own successor (re-review F2): the switch acts there.
+    paths = create_daily_plan_vault(tmp_path / "vault", version="mvp-0.15", plan_toml=toml or None)
     extraction_id = _seed_book(paths)
     repo = Repository(paths.sqlite_path)
     repo.upsert_reader_section_progress(extraction_id=extraction_id, section_id=_section_ids(repo, extraction_id)["2-matrices"],

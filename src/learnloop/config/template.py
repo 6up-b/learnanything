@@ -927,12 +927,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 1's round-2 review (F2) adds plan.reading_from_furthest = true
     # (modelled default, left out of the decision-only template): the kill
     # switch of usability round 1's reading-step selection (continue from the
-    # furthest section read, never front matter while a chapter is left), a
-    # live change to what mvp-0.14's reading block serves; false restores
-    # DL1's first unfinished section exactly. It is dormant below mvp-0.14
-    # (the plan is), and it changes no scoring, scheduling or projection.
-    # Every snapshot moves only because the effective config gains the key;
-    # all six were recomputed (defaults_fingerprint_for_version).
+    # furthest section read, never front matter while a chapter is left).
+    # Its re-review made that selection its own successor, mvp-0.15 (a
+    # placeholder tag): the key is dormant below mvp-0.15 (the algorithm
+    # version gates it), so mvp-0.14's reading block is DL1's whatever it
+    # says, and it changes no scoring, scheduling or projection. Every
+    # snapshot moves only because the effective config gains the key; all six
+    # were recomputed (defaults_fingerprint_for_version).
     "mvp-0.9": "1ddc856897d47fe351d9fb3064458f343437e5e7460df08f3fb7b104719ac9b8",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
@@ -1009,11 +1010,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # admission, block-by-block choice through the §6.8 source/chooser seam,
     # goal-optional re-entry and reading blocks. Kill switch plan.enabled.
     # Built as mvp-0.12 and relabelled at its merge. Existing vaults reach it
-    # by `learnloop upgrade` (default target) from mvp-0.13, or from mvp-0.9
-    # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
+    # by `learnloop upgrade --to mvp-0.14` from mvp-0.13, or from mvp-0.9 to
+    # mvp-0.12 through the chain (under mvp-0.12's guard). New vaults started
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # 2026-10-12) until mvp-0.15 merged.
     "mvp-0.14": "c144d166f988ce1bf6430021893187ec4af538b10db6691705a5c6ceaefd6d1b",
+    # mvp-0.15 (PLACEHOLDER tag, relabelled at its merge; UX Phase 1's reading
+    # step): mvp-0.14's split, placement, recurrence groups, stuck prompt and
+    # plan plus the reading step (plan.reading_from_furthest = true): the
+    # plan's reading block continues from the furthest section read and is
+    # never front or back matter while a chapter is left. The same effective
+    # defaults as mvp-0.14; only the version gate differs. Existing vaults
+    # reach it by `learnloop upgrade` (default target) from mvp-0.14, or from
+    # mvp-0.9 to mvp-0.13 through the chain (under mvp-0.12's guard). New
+    # vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12).
+    "mvp-0.15": "07a62d06e45e84d3f42c607dab11b6ce5244198de0952c9afda52cd497b4bd48",
 }
 
 

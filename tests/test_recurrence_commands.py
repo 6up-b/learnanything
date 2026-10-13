@@ -105,12 +105,14 @@ def test_successor_vocabulary():
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in DIAGNOSIS_SPLIT_VERSIONS
     assert RECURRENCE_GROUP_ALGORITHM_VERSION in PLACEMENT_VERSIONS
-    # The stuck prompt (mvp-0.13) and daily-loop DL1's plan (mvp-0.14) follow
-    # it and keep recurrence groups.
+    # The stuck prompt (mvp-0.13), daily-loop DL1's plan (mvp-0.14) and UX
+    # Phase 1's reading step (mvp-0.15, a placeholder tag) follow it and keep
+    # recurrence groups.
     assert RECURRENCE_GROUP_VERSIONS == {
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
+        "mvp-0.15",
     }
-    assert LATEST_ALGORITHM_VERSION == DAILY_PLAN_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.15"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
@@ -467,9 +469,9 @@ def test_the_upgrade_command_defaults_to_the_latest(tmp_path):
     _pass_guard(tmp_path, vault, repository)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The latest is mvp-0.14 (daily-loop DL1's plan) since it merged; the
-    # chain still passes through mvp-0.12 and its guard.
-    assert "mvp-0.10 -> mvp-0.14" in result.output
+    # The latest is mvp-0.15 (UX Phase 1's reading step, a placeholder tag);
+    # the chain still passes through mvp-0.12 and its guard.
+    assert "mvp-0.10 -> mvp-0.15" in result.output
 
 
 # -- the advisory guard (owner, 2026-10-12) ---------------------------------------------------

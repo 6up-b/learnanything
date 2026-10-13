@@ -293,7 +293,7 @@ Python: `tests/test_ux_phase1_usability_round1.py`. Vitest: `screens/ReaderScree
 
 **Deviations this round adds:**
 - **D12.** The done line differs from §6.3's "Questions ready for Ch. 1" (U8).
-- **D13.** The daily plan's reading step now means "from where the learner left off" and skips front matter (U4). This is a workflow suggestion, not scoring or scheduling, so it gets no algorithm successor. A plan already composed keeps its row. *Corrected by the round-2 Codex review (F2): it changes what the plan's reading block serves; it is now a live change behind `plan.reading_from_furthest` (off restores DL1's selection), and whether it should also mint a successor tag at merge is open (`ux-phase1-round2-codex-review.md`).*
+- **D13.** The daily plan's reading step now means "from where the learner left off" and skips front matter (U4). This is a workflow suggestion, not scoring or scheduling, so it gets no algorithm successor. A plan already composed keeps its row. *Corrected by the round-2 Codex review (F2): it changes what the plan's reading block serves; it is now a live change behind `plan.reading_from_furthest` (off restores DL1's selection), and whether it should also mint a successor tag at merge is open (`ux-phase1-round2-codex-review.md`). The re-review of that round settled it: the reading step is its own successor (`mvp-0.15` on this branch, a placeholder relabelled at the merge), with `plan.reading_from_furthest` as its kill switch (L6).*
 - **D14.** `snapshot.vault.subjects` changes order: it was alphabetical. `subjectTitles` and `reader.pdf_view.pageSpans` are additive.
 
 No migration. No change under `src-tauri`.

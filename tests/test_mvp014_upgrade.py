@@ -61,10 +61,14 @@ HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
-def test_the_plan_successor_is_the_latest_and_keeps_every_predecessor():
+def test_the_plan_successor_is_a_successor_and_keeps_every_predecessor():
     assert DAILY_PLAN_ALGORITHM_VERSION == "mvp-0.14"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == DAILY_PLAN_ALGORITHM_VERSION
-    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14"})
+    # UX Phase 1's reading step (mvp-0.15, a placeholder tag) followed it and
+    # keeps the plan; it is the latest successor
+    # (tests/test_reading_step_upgrade.py).
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.15"
+    assert SUCCESSOR_CHAIN[-2] == DAILY_PLAN_ALGORITHM_VERSION
+    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15"})
     # The chain is linear: mvp-0.14 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan.
     for versions in (
@@ -167,9 +171,11 @@ def test_upgrade_refuses_older_versions_and_is_idempotent(tmp_path):
     assert already.upgraded is False and already.problems == ["vault is already mvp-0.14"]
 
 
-def test_upgrade_command_defaults_to_mvp014(tmp_path):
+def test_upgrade_command_reaches_mvp014_explicitly(tmp_path):
+    # The default target moved on to mvp-0.15 (the reading step); mvp-0.14 is
+    # still reached explicitly.
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.13")
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.14"])
     assert result.exit_code == 0, result.output
     assert "mvp-0.13 -> mvp-0.14" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.13")
@@ -186,7 +192,8 @@ def test_new_vaults_start_at_the_plan_successor(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.14"
+    # The latest successor (mvp-0.15 since the reading step) keeps the plan.
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.15"
     assert plan_active(fresh)
 
 

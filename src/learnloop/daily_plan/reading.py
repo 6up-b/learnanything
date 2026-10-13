@@ -5,10 +5,10 @@ most one reading block a day in the new lane: the reader guide's next
 unfinished section, carried as a :class:`ReadingTarget`. "Next" counts from
 where the learner left off (the furthest section they read into), and front
 and back matter (contents, preface, index) are never the step while a chapter
-is left (UX Phase 1 usability round 1, U4). ``plan.reading_from_furthest =
-false`` restores DL1's selection, the first unfinished section in book order
-(round-2 review F2). Its estimate is the
-section's words left over ``plan.read_words_per_minute``, where words left =
+is left (UX Phase 1 usability round 1, U4), at the reading step's successor
+(mvp-0.15 and later; round-2 re-review F2). Below it, or with
+``plan.reading_from_furthest = false``, the selection is DL1's, the first
+unfinished section in book order. Its estimate is the section's words left over ``plan.read_words_per_minute``, where words left =
 section words x (1 - spans seen / span count) from ``reader_section_progress``.
 Section completion still triggers item generation as today, and those items
 enter the new lane on later days. Nothing from an unread section reaches the
