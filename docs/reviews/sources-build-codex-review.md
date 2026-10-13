@@ -183,3 +183,84 @@ The gate ran at `a565f617` (the last code and reference commit; this record and 
 | Frontend (`apps/learnloop-tauri`): `npm install`, `npm run typecheck`, `npm test`, `npm run frontend:build` | typecheck clean; vitest 33 files, 172 tests passed (was 169); build ok |
 | `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok (`get_practice_item` forwards the proposal and import ids, F10) |
 | DB references (schema changed: migration 191) | head fixture renamed `migration_head_191` (191 applied in place, rollback journal, `integrity_check` ok, `foreign_key_check` clean; README and every hard-coded path follow); `db_generate_reference.py` at head 191 (`source_service_spend` described), `db_validate_reference.py` 0 errors (`a565f617`) |
+
+## Third pass (Codex re-review of the fixes, 2026-10-13)
+
+**Codex job:** `~/.cache/codex-agent/jobs/20261013-100441-ZodnI7`. A read-only review of the re-review fixes at `b967f3ad`, using source inspection and isolated in-memory reproductions. It opened no vault and made no paid call.
+
+**Verdict:** REOPENED.
+- **Confirmed fixed:** F1, F3 and F4.
+- **Reopened:** F2 and F7.
+- **New defects from the fix commits:** F12 and F13.
+
+Each open finding was reproduced first with a test, which failed on the code before its fix, and then fixed. None was rejected. All tests use fakes.
+
+| ID | Severity | Title | Verdict | Commit | Test (or reason) |
+|---|---|---|---|---|---|
+| F1 | High | Crash recovery can certify an unchecked edit | confirmed fixed (no change) | `8b9bbad1` | Codex confirmed. |
+| F2 | High | The daily cap took `max(ledger, receipts)`: two concurrent reservations over prior spend were both admitted | fixed | `be57a8fe` | `test_source_service_spend_envelopes.py::test_prior_receipts_and_reservations_in_flight_add_up_under_the_cap`. Before the fix, the second $0.15 was admitted over $0.80 of prior receipts. `::test_a_settled_request_is_counted_once_not_by_its_receipt_and_its_reservation`. Before the fix, $0.99 + $0.02 was admitted under the $1 cap. |
+| F3 | High | Source-first diagnostic drafts cannot pass their admission gate | confirmed fixed (no change) | `d2f3f950` | Codex confirmed. |
+| F4 | High | Unknown worked-example equivalence permits independent checks | confirmed fixed (no change) | `58c1b235` | Codex confirmed. |
+| F7 | Medium | The interactive import validated minutes estimated before authoring, ignoring the authored duration | fixed | `5cee8877` | `test_source_exercise_rpcs.py::test_an_interactive_import_bounds_the_authored_drafts_own_duration`. Before the fix, a 20-minute draft passed a 5-minute bound as `minutes=3.5`, while the plan's estimator gives 20.5. `::test_the_carried_duration_response_is_the_plan_estimate_of_the_authored_draft` checks parity with `daily_plan.estimates.Estimator` for 8 authored durations and 2 modes. |
+| F12 | Medium | Continuations restore source exercises that fail current filters | fixed | `47f1d391` | `test_discriminating_search.py::test_a_continuation_with_other_constraints_is_refused`. Before the fix, narrower facets resumed the search. `::test_a_carried_exercise_imported_since_is_not_restored`. Before the fix, the imported exercise was proposed again. `test_tool_dispatch_policy.py::test_a_continuation_with_narrower_filters_is_refused`. Before the fix, `continue_from` with other facets was accepted. |
+| F13 | Medium | Exposure age mixes valuation-time and delivery-time measurements | fixed | `9380a913` | `test_valuation_calibration_fields.py::test_exposure_age_is_measured_at_delivery_not_at_valuation`. Before the fix, 300 s was persisted for an example studied an hour and five minutes before delivery. The correct value is 3,900 s. |
+
+The references were regenerated in `9489e676`. The table description for `source_service_spend` follows F2, and the source stamps and configuration citations follow the moved lines. The validator reports 0 errors. There is no schema change: no migration was added, and the head is still 191.
+
+### What each fix does
+
+- **F2.**
+  - The day's total is now every reservation in `source_service_spend`, **plus** the service's receipts that no reservation covers. Those are spend from before the ledger existed, or spend by a path outside the envelope.
+  - The total is never `max(ledger, receipts)`.
+  - Settled receipts are not double-counted. A request's root receipt names its reservation: `SpendBudget.request` writes `budget_json.envelope_reservations` from `SpendEnvelope.reservation_ref`, which only the shared daily envelope implements. `spend_since(ledgered=...)` leaves a receipt out of `usd` when its reservation is in the ledger for that envelope and day, and counts it in `metered.ledgered_requests`.
+  - The same total drives admission (`reserve_service_spend(unledgered_usd=...)`), the envelope's report and `service_spend_today`. `service_spend_today` reports `reserved_usd` and `unledgered_receipts_usd` separately.
+  - A receipt from another day's reservation still counts on its own day, which is conservative.
+  - This supersedes the re-review's description of F2 ("never less than the service's own receipts").
+- **F7.**
+  - The import RPC no longer computes minutes before authoring.
+  - For each practice mode, it carries the injected plan estimator's response to the authored duration (`instructional.practice.duration_response`):
+    - `minutes = at_zero + per_authored_minute × expected_minutes`;
+    - `fallback_minutes` when the draft authors none.
+  - The response is sampled through the estimator itself and never re-derived. DL1 §6.4's estimate is affine in the authored prior, and a third sample point checks this. A response that is not affine is not carried, so the bound is refused, never passed.
+  - The job evaluates the response on the authored draft's practice mode and `expected_minutes` (`content.authoring.draft_validation.duration_estimator`). The content layer still imports neither the plan nor the service (SC12, and the plan's leaf-consumer rule).
+  - Note on reachability: the import's authoring contract does not author `expected_minutes` today. The defect bites once a draft carries one, as Codex's synthetic draft did. The validator was already reading the field.
+- **F12.**
+  - **Request binding.**
+    - Every cursor now carries `request`, a content key of the normalized query and every normalized constraint (`continuation_binding`, computed after the caller's constraints are applied).
+    - `find_practice` refuses a cursor for another request (`ContinuationMismatch`, a `ValueError`). This covers every entry point: the tool's `continue_from` (answered `continuation_invalid`), the RPC's cursor (`validation_error`) and a need's resume. A changed filter is a new search.
+  - **Readmitting carried exercises.**
+    - Carried exercises are readmitted by the arm's own rules, with no search and no model call (`exercise_candidates(readmit=...)`).
+    - An exercise is dropped, with a count, when:
+      - it is now outside the teaching scope;
+      - it is no longer an exercise region of its extraction;
+      - it was imported since;
+      - an ingest exclusion now covers it;
+      - its region reads differently from the text the judge read (`changed`).
+    - Carried exercises are also rechecked against the exact filters on their carried metadata.
+    - With the arm off, or exercises not requested, nothing carried is restored.
+    - The receipt records `signals.continuation` (carried count and drops).
+    - A carried exercise now keeps the record the arm builds now, not the stored one. Carried items were already re-admitted against the current corpus.
+- **F13.**
+  - The exposure rule now persists when each related exposure happened: `worked_example.related_exposure_at`, and `inputs.impression_at`. The impression stamp is the latest earlier impression. Before, it was the last one listed, which could be an older item impression listed after span impressions.
+  - `record_pick` measures `seconds_since_related_exposure` from the most recent of these, at the delivery instant. The intervention's `created_at` is pinned to that same instant.
+  - A verdict stored before these stamps existed is carried forward as its `checked_at` minus the age it measured then.
+
+### Paid calls
+
+None in this fix step. All tests use fakes. No vault copy was opened.
+
+### Gate (third-pass fixes)
+
+Environment: Python 3.12.14 and SQLite 3.53.1, with `TMPDIR` set to the worktree's `fixtures-local/tmp`.
+
+The gate ran at `9489e676`, the last code and reference commit. Only this record follows it.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | 16 contracts kept, 0 broken |
+| Full suite (`flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`) | 8952 passed, 0 failed. Up from 8944; the 8 new tests are F2 2, F7 2, F12 3 and F13 1. |
+| Durability lane (`flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`) | 94 passed, 8858 deselected, 0 failed |
+| Frontend: `npm install`, `typecheck`, `test`, `frontend:build` | Not required: nothing under `apps/learnloop-tauri` changed. |
+| `cargo check` | Not required: nothing under `src-tauri` changed. |
+| DB references | No schema change; the head is still 191. `db_generate_reference.py` was rerun because the `source_service_spend` description changed, and lines moved. `db_validate_reference.py` reports 0 errors (`9489e676`). |
