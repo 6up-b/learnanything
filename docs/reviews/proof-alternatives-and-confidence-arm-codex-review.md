@@ -293,3 +293,177 @@ commits are docs only), with `TMPDIR` set to the worktree's
    is built in this fix step:
    - R4's family/month decomposition and the reliability-trend report;
    - the duel's within-bin residual for continuous forecasts.
+
+## Re-review
+
+Codex re-reviewed `46bd019f..f3a1da1e` (job `20261013-033912-OWcYsd`). It
+confirmed F2 and F3 fixed, reopened F1 and raised one new High finding, F9.
+Both reproduced and were fixed; none was rejected.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | An unlocated whole-answer attribution keeps a fully unassessed grade a measured failure | fixed | `11087a58` | `test_proof_route_check.py`: `test_p1_an_unlocated_whole_answer_attribution_is_the_graders_interpretation`, `test_p1_live_an_unlocated_whole_answer_attribution_queues_no_diagnosis` |
+| F2 | High | The checker can override a deterministic wrong answer | confirmed fixed (`17c17b44`) | — | (re-review: no change) |
+| F3 | High | Additional paid calls bypass the practice command's spend controls | confirmed fixed (`c7bb7c65`) | — | (re-review: no change) |
+| F9 | High | Unvalidated proofs receive full credit and an EASY review | fixed | `11087a58` | `test_proof_route_check.py`: `test_an_unvalidated_grade_with_nothing_assessed_is_not_credited`, `test_f9_a_held_grade_is_not_credited_and_leaves_the_schedule_as_it_was`, `test_f9_a_regrade_keeps_a_hold_and_releases_it_once_validated`, `test_f9_a_record_from_before_the_hold_replays_as_written`, `test_f9_an_adjudication_releases_a_hold_on_replay` |
+
+`afc5e5de` regenerates the DB and config reference, which cites the moved
+source lines.
+
+### Reproduction first
+
+The new tests ran against `f3a1da1e` before any fix. All seven failed (two
+for F1, five for F9):
+
+- **F1.** Every criterion ended unassessed (`unverified == ("result",
+  "setup")`), but an attribution naming no criterion and quoting nothing kept
+  `validity_scope = valid_measurement`. Through the live door this left the
+  support's `assessed_shortfall = True`, which queues a diagnosis.
+- **F9.** On a proof-like item already scheduled by a validated 4/4 attempt,
+  a held grade (both criteria unlocated, nothing validated) recorded **4/4
+  and FSRS `easy`**. The item's FSRS memory moved from difficulty 5.10 /
+  stability 48.4 to 2.08 / 68.3, and its due date moved by 20 days.
+  `assessed_rubric_score(..., answer_validated=False)` did not exist.
+
+### What changed
+
+**F1: an unlocated whole-answer claim is the grader's interpretation.**
+Once the route-check gate overrides a mark-down (restores it or leaves it
+unassessed), it rescopes an attribution that names no criterion and locates
+no step verbatim to `grader_interpretation`. PF-c already rescopes untargeted
+attributions this way. The claim stays on the record but no longer keeps
+`assessed_shortfall` (and a diagnosis) alive on its own.
+
+- A whole-answer error the grader located verbatim still counts.
+- Where the gate changes nothing, the grader's attributions are untouched.
+- The rescoped attribution still writes its error event with the
+  `grader_interpretation` scope, as PF-c's rescoped attributions do.
+
+**F9: a held grade is the grader's own, and schedules nothing.** "Nothing
+assessed and nothing validated" (`held_for_review`) is now distinct from
+PF-c's verified answer everywhere it matters:
+
+- **The score.** `assessed_rubric_score` takes `answer_validated`. With no
+  criterion assessed and nothing validated, it returns the grader's own grade
+  over every criterion (provisional, held for review) instead of PF-c's full
+  marks. This is the "keep the grader's grade as provisional, pending review"
+  option from the stage record's open question 2.
+- **Scheduling.** `_compute_resolved_grade_application` applies no FSRS
+  review while the grade is held and nothing is assessed. The item's memory
+  and due date stay as they were, through the same branch as an ineligible
+  observation (§3.8).
+- **No prediction error.** The held grade's surprise direction is `none` and
+  its interval factor is 1. Neither the follow-up gate nor the re-probe
+  trigger reads an unlocated mark-down as a failed prediction (P1).
+- **No follow-up.** The post-attempt pipeline withholds queue and need
+  insertion with the typed suppression `grade_held_for_review`. Follow-up
+  work is scheduling too.
+- **Persistence, regrade and replay.** The hold is read from one recorded
+  fact: `grading_support.proof_route_check.held_for_review` on the blind
+  record (`is_held_for_review`, `record_held_for_review`).
+  - The live door and the regrade compute it from the run.
+  - Replay and the post-attempt pipeline read it from the latest blind
+    record.
+  - The attempt's debug payload records `grade_held_for_review`.
+- **Release.** A regrade whose check validates the route writes a new record
+  without the hold, and its replay applies the review. An adjudication
+  (Ruling A's evidence revision) writes assessed rows, so `nothing_assessed`
+  ends and the next replay schedules the grade like any other.
+- **Records as written.** A record from gate v1 or v2 replays as it was
+  written: v2 scheduled a held grade as correct. The gate version is now
+  `proof-route-check-v3`, so a checked grade's calibration identity moves
+  with it.
+
+One test double changed: `test_pfc_unassessed_readers.py` replaces
+`assessed_rubric_score` with the pre-rule scorer, and now accepts the new
+keyword.
+
+### Verification in the closing step
+
+The fix step was interrupted after `afc5e5de`, before the gate ran. The
+closing step checked the fix again before running the gate:
+
+- **Reproduction re-run.** The seven new tests were run against the source
+  tree of `f3a1da1e` (extracted with `git archive` and put ahead of the
+  editable install with `-o pythonpath=`). All seven failed:
+  - F1: `['valid_measurement'] == ['grader_interpretation']`, and the live
+    `assessed_shortfall` was `True`;
+  - F9: the held attempt scored `(4, 1.0)`, not `(0, 0.0)`; the item's FSRS
+    difficulty moved from 5.10 to 2.08; replay scored the attempt 4.
+- **On the branch head**, `test_proof_route_check.py` and
+  `test_pfc_unassessed_readers.py` pass: 67 tests.
+- **Every door reads one fact.** There are four doors: the live grade, the
+  regrade (which also serves both clarification paths), replay
+  (`replay_existing_attempt` is its only entry point) and the post-attempt
+  pipeline. Each reads the hold from `is_held_for_review` or
+  `record_held_for_review`.
+- **F1's rescope matches PF-c's.** An attribution is rescoped when it names
+  no criterion (`not criteria`) and quotes no step verbatim.
+
+### Gate (re-review)
+
+The gate ran on the branch tree at `afc5e5de`, the last code commit (the
+record commit after it is docs only), with `TMPDIR` set to the worktree's
+`fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| Setup: `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **14 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8773 passed**, 0 failed, 46 warnings, in 4 min 37 s. The review's gate had 8766; this step adds 7 tests |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **94 passed**, 8679 deselected |
+| DB reference: `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: 299 table notes, 354 owned notes, 3941 wikilinks checked; schema head 185. The schema did not change. `afc5e5de` regenerated the reference for the moved source lines. Regenerating again only restamped `source_commit`, so that churn was dropped, and the committed reference validated |
+
+- **Not applicable.** No file under `apps/learnloop-tauri` changed, so the
+  npm and cargo steps do not apply.
+- **Mobile allowlist.** No sidecar RPC was added, so
+  `tests/test_mobile_allowlist.py` is unchanged.
+- **Test flags.** Both pytest runs also passed `-q -p no:cacheprovider`.
+- **No model calls.** No paid call was made in the re-review fix step.
+
+### Open questions (re-review)
+
+The review's open question 1 ("held for review, but still scheduled as
+correct") is resolved by F9. The rest stand. New:
+
+1. **Readers of a held grade's score outside the attempt step.** The stored
+   score is the grader's own (often 0). Four readers still take it at face
+   value, as they do for every other attempt that applied no review:
+   - the same-item failure streak (`followups._attempt_is_failure`,
+     correctness at most 0.40) counts it as a failure for later attempts;
+   - the offline FSRS fitter (`scheduling/review_log.py`) and `learnloop
+     eval`'s retention cross-check rebuild FSRS from every attempt's score;
+   - the desktop feedback screen shows a rating derived from the score
+     (`serializers.py`) and the raw reason `proof_route_check_flag`;
+   - the item-quality projection (`build_quality_state_update_from_prior`,
+     in the attempt step) reads its correctness. After an earlier failure on
+     the item, or with a high learning-object state, it raises
+     `bad_item_suspicion`.
+
+   Should held grades be excluded from these too? Should the feedback screen
+   name the held state? That is a frontend change outside this stage.
+2. **The score shown while held.** The alternative to the grader's own grade
+   is PF-c's full marks with the schedule still held. The grader's grade was
+   chosen so that no credit is claimed for an answer nothing validated. Its
+   cost is item 1.
+3. **`last_attempt_at` still moves on a held attempt**, as on any ineligible
+   observation (§3.8). The next applied review's elapsed time therefore
+   counts from the held attempt, not from the last applied review. This
+   keeps the next attempt's elapsed time the same whether or not the hold is
+   later released: replay after a release applies the held review at its own
+   time.
+4. **One validated criterion is enough to lift the hold.** Take a divergent
+   proof with no verified final answer, where one criterion is `disputed`
+   (the check establishes it; the grader quoted an error in it) and the
+   other is `unlocated`. Nothing is assessed, but the hold does not apply,
+   so PF-c's rule gives full marks and an `easy` review. The closing step
+   confirmed this with a pure check: 4/4.
+
+   The first fix chose this deliberately and pinned it in
+   `test_p1_nothing_assessed_and_nothing_validated_is_held_for_review`
+   ("one criterion the check validates is not 'nothing validated'").
+   Codex's re-review did not raise it, so it is unchanged. Should the hold
+   cover any `unlocated` criterion when nothing is assessed and the final
+   answer is not verified, rather than only an all-unlocated grade?

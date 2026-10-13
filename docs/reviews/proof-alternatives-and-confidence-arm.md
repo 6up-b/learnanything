@@ -102,7 +102,7 @@ says model choice is most of the error.
    | below full, no located error | established | **restored**: full points, assessed. The evidence row says so and keeps the grader's note. Attributions on it are withdrawn from the grade and kept on the blind record |
    | below full, located error (verbatim quote) | established | **disputed**: unverified, which PF-c's rule makes unassessed. The grade is provisional. One clarification is asked only when the checker says the dispute turns on what the learner meant (`ambiguous_notation`, `skipped_step`, `method_ambiguity`). A disagreement between two models about a written step is machine-resident and never costs the learner (causal principle 8) |
    | full points | not established, failing step quoted verbatim | **flagged**: the grade stands. The review reason is `proof_route_check_flag` and the criterion carries a note quoting the step. Never silent |
-   | below full on a route the grader reads as divergent, no error located by either judge | `cannot_tell`, or not established without a verbatim quote | **unlocated**: unverified, so unassessed (P1; review F1). If nothing is then left assessed and nothing validated the answer, the grade is also **held for review** (`proof_route_check_flag`) rather than resting on nothing |
+   | below full on a route the grader reads as divergent, no error located by either judge | `cannot_tell`, or not established without a verbatim quote | **unlocated**: unverified, so unassessed (P1; review F1). If nothing is then left assessed and nothing validated the answer, the grade is also **held for review** (`proof_route_check_flag`) rather than resting on nothing: it keeps the grader's own score (never PF-c's verified-answer full marks), applies no FSRS review, records no surprise direction and inserts no follow-up until a regrade or an adjudication assesses a criterion (re-review F9) |
    | agreement, a located error, or `cannot_tell` off a divergent route | — | the grader's grade, recorded |
 
    - **The final-answer check outranks the checker** (review F2). When the
@@ -151,7 +151,7 @@ says model choice is most of the error.
    blind record (where replay reads it) and the raw grade event. A grade the
    grader produced alone (predecessors, the kill switch, a non-proof-like
    item, an unavailable check) keeps the base identity. The gate version is
-   `proof-route-check-v2` after the review.
+   `proof-route-check-v3` after the re-review (v2 after the review).
 
 ### Successor, switch, migration
 
