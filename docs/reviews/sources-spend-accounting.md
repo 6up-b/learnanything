@@ -34,7 +34,7 @@ The new test file was run on `ee3115d5` (unfixed code): 10 failed, 1 passed. The
 
 - **F2, Codex's reproduction.** Reserve $0.15 under a $1 cap, persist a completed $0.90 receipt naming the reservation, leave the reservation unreconciled, then reserve $0.20. The $0.20 was admitted, because the total was $0.15.
 - **F2, in-process variant.** The receipt recorded $0.90, reconciliation never ran, and the request settled at its $0.15 estimate. The $0.20 was admitted.
-- **F2, concurrency.** Eight processes each asked for $0.125 under a $1 cap, while a dead worker's $0.50 receipt was unreconciled ($0.125 reserved). Seven were admitted; four fit. Seven admissions means $1.375 of spend.
+- **F2, concurrency.** Eight threads (each with its own envelope and connections, sharing one process token) each asked for $0.125 under a $1 cap, while a dead worker's $0.50 receipt was unreconciled ($0.125 reserved). Seven were admitted; four fit. Seven admissions means $1.375 of spend.
 - **F14, upgrade.**
   - Setup:
     - a database at migration 191 with $0.30 of pre-ledger service receipts;
@@ -58,7 +58,7 @@ Some tests were added later:
 
 `db.stores.source_service.service_spend_accounting` gives the day's total. Admission, recovery, the envelope's report and `service_spend_today` all read it. `service_spend_today` backs `daily_cap_reason`.
 
-Each request counts exactly once:
+Each request counts exactly once, except where a legacy row's identity is ambiguous: then both count, conservatively, and the report says how much. (Corrected after the stage's Codex review; see `sources-spend-accounting-codex-review.md`.)
 
 - **A reservation whose owner is alive** (lease unexpired) counts max(its charge, what the receipts naming it show). Its charge is the estimate, reconciled upward. This closes F2: a worker that dies between persisting its receipt and `PaidCalls._reconcile` leaves both, and the receipt counts.
 - **A reconciled (`settled`) reservation** counts what its receipts show:
@@ -71,7 +71,7 @@ Each request counts exactly once:
 - **A released reservation** counts what its receipts show. That is $0 unless an owner presumed dead sent anyway; see the fence below.
 - **A receipt naming no reservation of the envelope** counts once by its own cost. This covers spend from before the ledger, another path, or a reservation that no longer exists.
 - **A linked receipt counts on its reservation's day.** A request reserved before midnight is not counted again the next day.
-- **"What the receipts show"** is each linked leaf receipt's reported cost; when a receipt reports none, its tokens are priced at the owner's rate. An unfinished or unpriced receipt is bounded by the admitted estimate, never counted as free.
+- **"What the receipts show"** is each linked leaf receipt's reported cost, exactly, whatever its tokens; when a receipt reports none, its tokens are priced at the rate its request recorded when it was admitted, else at the owner's rate. (Corrected after the stage's Codex review; see `sources-spend-accounting-codex-review.md`.) An unfinished or unpriced receipt is bounded by the admitted estimate, never counted as free.
 - **Linked receipts count whatever their owner kind.** Retrieval requests (query embeddings, reranks) carry the reservation, so they count even though the unlinked rule covers only the service's receipt kinds.
 
 ### Admission and recovery: one transaction
@@ -108,7 +108,7 @@ Recovery's writes are compare-and-set on `state='in_flight'` and a still-expired
   - `lease_expires_at`;
   - `resolved_by` (`owner` or `recovery`);
   - the `released` state.
-- **Legacy rows.** A row is legacy when no root receipt names it. Such a row counts its own charge. The unlinked service receipts that started during its lifetime, from its reservation to the end of the second it settled in, are its own request's and are not counted again.
+- **Legacy rows.** A row is legacy when no root receipt names it. Such a row counts its own charge. An unlinked receipt is taken for its request's, and not counted again, only when the two are correlated beyond doubt: the receipt started during the row's lifetime (to the second), the row settled at exactly what the receipt shows, and neither has another such partner. Ambiguous ones count both. (Corrected after the stage's Codex review; see `sources-spend-accounting-codex-review.md`.)
   - This keeps the retrieval requests of that era counted: query embeddings and reranks are not among the service's receipt kinds.
   - It keeps pre-ledger receipts counted once.
 - **Unmigrated databases.** A database read without migrating gets the same rule, computed in place.
@@ -117,7 +117,7 @@ Recovery's writes are compare-and-set on `state='in_flight'` and a still-expired
 
 ### Reports
 
-`service_spend_today` (and the shared envelope's report) now returns:
+`service_spend_today` (and, under `accounting`, the shared envelope's report since the review) now returns:
 
 - `usd`;
 - `reservations_usd`;
@@ -125,7 +125,8 @@ Recovery's writes are compare-and-set on `state='in_flight'` and a still-expired
 - `metered.linked_requests`, `metered.legacy_covered_requests` and `metered.unpriced_requests`;
 - per-state reservation counts;
 - the pending `recovery` list;
-- `estimated_only` for subscription requests.
+- `estimated_only` for subscription requests;
+- since the review, `legacy` (correlated, uncorrelated, covered and uncertain requests, `uncertain_usd`) and `pricing` (the basis each receipt was priced on).
 
 Superseded helpers were removed:
 
@@ -146,7 +147,7 @@ Unchanged. They reserve nothing, are never refused by money, and are tallied `es
    - If that request had finished above its estimate before the crash, the difference is undercounted, on that row's day only.
    - Only a database that ran this branch between `8ac36a38` and `be57a8fe` (39 minutes on 2026-10-13) can hold legacy rows. That means `fixtures-local` copies at most.
    - The owner's vaults will upgrade from main with an empty ledger.
-2. **Pricing receipts that report no cost.** Such a receipt is priced at the single owner rate, `source_service.llm_price_per_million`, as before. For a linked embedding or rerank receipt that reports tokens but no cost, this can overstate (conservative). A settled request whose receipts all report their cost counts exactly that cost.
+2. **Pricing receipts that report no cost.** Such a receipt is priced at the rate its request recorded, else at the single owner rate, `source_service.llm_price_per_million`. A reported cost is never repriced, so a settled request whose receipts all report their cost counts exactly that cost. (Corrected after the stage's Codex review; see `sources-spend-accounting-codex-review.md`.)
 3. **A crashed process's unsent reservation** holds its estimate for up to `LEASE_SECONDS` (300 s). Then the next admission releases it.
 4. **Orphans of past days** stay `in_flight` in the table. They count only toward their own day, which is over. Recovery runs on the day being admitted.
 5. **"No receipt means never sent"** relies on every request under the envelope writing its receipt before it is sent.
