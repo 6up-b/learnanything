@@ -226,3 +226,155 @@ Run on `4cc90153`, `TMPDIR` in the gitignored `fixtures-local/tmp`.
 | `validate_vault.py` (extra) | passed (1,073 notes) |
 | Frontend | not changed in this fix step (not run) |
 | Targeted before the gate | `test_learner_text_gaps*.py`, `test_config_refactor.py` and 37 related files: 898 passed |
+
+## Re-review (round 2)
+
+The Codex re-review of `c3d703cd` confirmed the only High (round 1 F1: a
+missing prerequisite created when the true match was never judged) as
+**fixed**, and reopened the stage on two new Medium defects the fixes
+introduced, plus five Lows. Their ids below are the re-review's own
+(RR-F1 to RR-F7). Each was reproduced on `c3d703cd` before it was fixed.
+Fix commit: `1f3606cc` (code and tests); `6699a29f` regenerates the
+references (anchors and stamps only); this file is the commit after them.
+
+### Reproduction
+
+- RR-F1 and RR-F2: the reviewer's scratch repros (`test_repro_round2.py`,
+  `test_repro_f6.py`) pass on `c3d703cd`, so the defects are present. The
+  retry's row is `('none', None, None)` while
+  `lo_ltg_define_an_eigenvector_190dd6f6` and its edge stay on disk. A gap
+  read three days later adds `('question_event:q1:assistance',
+  '2026-05-19T12:00:00Z', True)`.
+- RR-F1 (the other paths) and RR-F5, with scratch repros that run on
+  `c3d703cd` (`scratchpad/repro3/test_base_defects.py`):
+  - A matched edge written before a failed sync, then the chooser switched
+    to `decider`: the retry logs `('none', None, None)` and the edge stays
+    on disk with no row. With the chooser unchanged the edge survives,
+    because the ledger's standing verdicts are reused.
+  - `enabled` switched off after a creation was written: the job ends
+    `skipped`, the LO is on disk, and there is no row.
+  - After one `gaps run`-style shared-budget text, `calls_today` is 3.
+- The new `tests/test_learner_text_gaps_rereview.py` (19 cases) run against
+  the `c3d703cd` source (`git archive`, pytest's `pythonpath` pointed at
+  it): **18 failed, 1 passed**. The one that passes on both is a guard: a
+  job switched off before any write is still `skipped`.
+  - RR-F2, RR-F3, RR-F4, RR-F6 and RR-F7 fail on the defect itself.
+  - The RR-F1 and RR-F5 cases fail there on the new names (`retry_later`,
+    `TextBudget.for_command`) before they reach the defect. That is why
+    the scratch repros above were written.
+- After the fix: **19 passed**, and the round-1 file still passes 31/31.
+- RR-F7 was also checked on the round-1 backup copy
+  `fixtures-local/ltg-la` (read-only, no call). Its two pre-fix edges carry
+  no `origin`, and both are now classified `creation`. The copy's ledger
+  agrees: both are `created_prerequisite` rows.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (round 1) | High | Missing prerequisite created when the true match was never judged | confirmed fixed by the re-review | `4cc90153` | no change this round |
+| RR-F1 | Medium | A retry reads a stuck answer again, so a different or failed reading orphans a half-written creation or edge | fixed | `1f3606cc` | `test_rr_f1_a_stuck_retry_finishes_the_recorded_creation_whatever_the_second_reading` (4 cases: second reading `none`/failed, with and without round-1-shaped progress), `test_rr_f1_a_recorded_edge_is_finished_after_the_judges_the_chooser_and_the_switch_change`, `test_rr_f1_a_job_stopped_after_a_write_logs_the_write_as_failed_and_undoable` (switched off, text gone), `test_rr_f1_a_job_switched_off_before_any_write_is_still_skipped` |
+| RR-F2 | Medium | The F6 fix is incomplete: a gap read later still sets question-time "help before work" | fixed | `1f3606cc` | `test_rr_f2_a_gap_read_later_adds_no_question_time_assistance` |
+| RR-F3 | Low | One failed judge pair stops the whole drain | fixed | `1f3606cc` | `test_rr_f3_a_failed_pair_backs_off_one_text_and_the_run_goes_on` (live and command budgets), `test_rr_f3_the_sidecar_drain_goes_on_past_a_text_backing_off`; round-1 tests now expect `retry_later` |
+| RR-F4 | Low | The "no full scan" claim holds only for answers that are not stuck | fixed | `1f3606cc` | `test_rr_f4_a_stuck_answer_is_read_by_its_id_with_its_current_reading`, `test_rr_f4_the_stuck_modules_own_per_attempt_reader_is_preferred`; `test_f8_the_adapter_reads_the_marker_before_scanning` now asserts `scans == []` |
+| RR-F5 | Low | The live daily cap counts CLI spend | fixed | `1f3606cc` | `test_rr_f5_a_commands_calls_do_not_count_toward_the_live_daily_cap`, `test_rr_f5_gaps_run_reads_on_a_command_budget` |
+| RR-F6 | Low | The report overcounts "not the same mistake" taps | fixed | `1f3606cc` | `test_rr_f6_only_a_tap_on_a_belief_answer_is_counted` |
+| RR-F7 | Low | Edges written before the fix are switched by the wrong setting | fixed | `1f3606cc` | `test_rr_f7_an_edge_without_a_recorded_origin_follows_its_own_switch` (both switches); the backup-copy check above |
+
+### What changed, per finding
+
+- **RR-F1.** The job progress now records the decision as well as the
+  writes, and a retry finishes the writes first.
+  - **The decision is recorded once.** `pipeline._decide` checkpoints
+    `decided` (the reading, the Decider's kind, the chooser and the
+    authoritative kind) before anything acts on it, and every retry reuses
+    it. A stuck-text reading is also checkpointed as soon as it is read
+    (`reading`), so a refused Decider does not cause a second paid reading.
+    `GapReading.as_progress()` and `from_progress()` round-trip the reading.
+  - **Recorded writes are finished first.** Before dispatching,
+    `pipeline._resume` finishes a recorded creation (`created.draft`) or a
+    recorded matched edge (`edge.edge_id`). It does this whatever the new
+    reading, the chooser or the creation and edge switches say, and without
+    judging, asking or reading again. The row is logged `kind =
+    prerequisite` with `detail.resumed`.
+  - **The edge checkpoint carries its match.** It now holds the match's
+    target subject, basis and detail, so a resumed edge logs the same match.
+  - **Progress from round 1 is covered.** Progress without `decided` still
+    resumes from its `created` or `edge` entry.
+  - **A stopped job still gets a row.** A job switched off (`enabled =
+    false`), or whose text is gone, after an attempt wrote to the vault is
+    logged `failed` with `failed_row(progress=...)` and the job ends
+    `failed`. No paid call finishes it while the switch is off. The daily
+    creation cap counts it, and `learnloop gaps undo` reaches it. A job
+    that recorded ids but wrote nothing is still `skipped`.
+- **RR-F2.** `field/signals.py` computes `logged_before`, the
+  `practice_assistance` row's `help_before_work`, from the logged
+  `question_type` before the gap override. The gap still retargets the
+  question's own signal, observed when the gap was read (round-1 F6). No
+  new `SIGNAL_VERSION`: `interaction-signals-v2` is this branch's own label
+  and is not on main yet.
+- **RR-F3.** A single text that backs off is now `retry_later` (it was
+  `released`). `run_pending` (`gaps run`) and the sidecar's gap drain keep
+  going past it and stop only on `deferred` (a spend stop or the daily cap)
+  or `lease_lost`. The backoff's `not_before` keeps the same job from being
+  leased again in the same drain.
+- **RR-F4.** `StuckAnswersAdapter.stuck_text` reads one attempt by its id.
+  - It uses the stuck module's per-attempt `stuck_answer(connection,
+    attempt_id)` when the module has one.
+  - Otherwise it reads the `declared_stuck` row from `practice_attempts`
+    with the reading `stuck_answers` would return: the current, unsuperseded
+    `stuck_reading` verdict in `judgment_ledger`, else the latest blind
+    record's `stuck_reading`.
+  - It never scans every stuck answer, so queueing is O(1) per answer.
+  - Main's `stuck_answers` has no per-attempt form, and this branch cannot
+    add one to a module only main has. Merge item below.
+- **RR-F5.** `TextBudget` gains `owner_kind`. `TextBudget.for_command`,
+  which `learnloop gaps run` now uses, receipts its calls as
+  `learner_text_gap_command`. The live daily cap
+  (`store.pipeline_calls_since`) counts only `learner_text_gap`, the live
+  path's receipts. The `max_calls_per_day` schema comment says so.
+- **RR-F6.** `report._card_taps` counts a `same_cause` `learner_card`
+  `different` tap only when its `left` (the tapped answer) is an answer
+  this pipeline read as a belief. T1's `diagnosis/split/card.py` writes
+  `left` = the tapped attempt and `right` = the cited one.
+- **RR-F7.** The edge's origin is inferred, with no backfill or vault write.
+  - `vault.lifecycle.learner_text_gap_edge_origin` gives an edge without a
+    recorded `origin` the origin `creation` when its prerequisite concept
+    is the concept the same learner text created. The created LO's
+    provenance names that text (`learner_text`). Otherwise the origin is
+    `match`.
+  - `load_vault` now filters relation edges after the LOs are loaded,
+    since nothing between the two reads `loaded.edges`.
+
+### Merge notes (in addition to round 1's)
+
+- **Stuck answers.** At merge with `practice/stuck-prompt`, consider adding
+  `stuck_answer(connection, attempt_id)` to `attempts.stuck`. The adapter
+  then uses it with no code change. Until then the adapter's per-attempt
+  query mirrors `stuck_answers`' choice of reading, and the two must stay
+  in step.
+- **Interface changes.** `gaps run --json` outcomes say `retry_later`
+  where they said `released`; no UI reads it. Command receipts have owner
+  kind `learner_text_gap_command`.
+
+### Live run
+
+None this round: every finding is deterministic control flow and is
+covered with fakes. The RR-F7 check on `fixtures-local/ltg-la` made no
+call. **No paid calls, $0.**
+
+### Gate (re-review)
+
+Run on `6699a29f` (the fix `1f3606cc` plus its regenerated references),
+with `TMPDIR` in the gitignored `fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **12 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8257 passed**, 0 failed (46 warnings), 300 s (8238 in round 1 plus the 19 new cases) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **87 passed**, 8170 deselected, 78 s |
+| `db_generate_reference.py` then `db_validate_reference.py` | `errors: []`. The DB schema is unchanged (177); one config schema comment changed, so the references were regenerated (stamps and line anchors only). |
+| Frontend | not changed (not run) |
+| Mobile allowlist | no new sidecar RPC |
+| Targeted before the gate | `test_learner_text_gaps.py`, `_flow.py`, `_review.py` and `_rereview.py`: **92 passed** |
