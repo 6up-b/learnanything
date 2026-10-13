@@ -3,8 +3,8 @@ title: "parameter_registry_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6e0756b224e33f293c87a48c55b0a1ded4fcf7ac"
-source_commit_timestamp: "2026-10-13T11:48:25-04:00"
+source_commit: "004d9ba0232bda1566d95e2b2905fd1e22cd679f"
+source_commit_timestamp: "2026-10-13T12:32:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry_manifests"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 - `tests/test_mvp011_upgrade.py`
 - `tests/test_mvp013_upgrade.py`
 - `tests/test_mvp014_upgrade.py`
+- `tests/test_reading_step_upgrade.py`
 - `tests/test_recurrence_commands.py`
 - `tests/test_p0_cutover_mvp08.py`
 
