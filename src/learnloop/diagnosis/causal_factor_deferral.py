@@ -273,17 +273,20 @@ def _factor_signature(
 ) -> tuple[set[str], str | None]:
     """(recurrence keys, learning_object_id) for a factor's concrete refs.
 
-    The keys come from the Slice 1 §7.6 seam (:func:`recurrence_key`), so the
-    K=3 recurrence count below follows whatever grouping T1 installs.
+    The keys come from the Slice 1 §7.6 seam (:func:`recurrence_key`) with the
+    vault's recurrence-group map (Slice 2 T1; empty unless its successor is
+    active), so the K=3 recurrence count below counts a merged group's
+    reworded recurrences as one signature.
     """
 
+    groups = repository.recurrence_group_map()
     statements: set[str] = set()
     learning_object_id: str | None = None
     for ref in _concrete_refs(factor):
         hypothesis = repository.causal_hypothesis(str(ref["hypothesis_id"]))
         if hypothesis is None:
             continue
-        statements.add(recurrence_key(hypothesis))
+        statements.add(recurrence_key(hypothesis, groups))
         learning_object_id = learning_object_id or str(
             hypothesis["learning_object_id"]
         )

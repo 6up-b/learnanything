@@ -3,13 +3,13 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
-source_commit_timestamp: "2026-10-12T17:19:24-04:00"
+source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
+source_commit_timestamp: "2026-10-12T18:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
   - "table embedding_vectors"
-schema_head: 175
+schema_head: 176
 table_name: "embedding_vectors"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/content/synthesis/graph_nomination.py"
   - "src/learnloop/db/stores/embedding_vectors.py"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/diagnosis/recurrence/backlog.py"
+  - "src/learnloop/diagnosis/recurrence/judging.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/retrieval.py"
-  - "src/learnloop/field/item_content.py"
-  - "src/learnloop/ops/contamination/detectors.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/embedding_vectors.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/matching/shortlist.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/embedding_backfill.py`
 
@@ -122,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_graph_nomination.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_knowledge_map_text_neighbors.py`
+- `tests/test_matching.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_success_head_cli.py`
 

@@ -124,7 +124,7 @@ def start_quick_check(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     if not placement_active(vault):
-        raise QuickCheckError("the quick check needs placement (mvp-0.11 with placement.enabled)")
+        raise QuickCheckError("the quick check needs placement (mvp-0.11 or later with placement.enabled)")
     scope = sorted({
         lo_id for lo_id in learning_object_ids
         if (lo := vault.learning_objects.get(lo_id)) is not None and lo.status == "active"

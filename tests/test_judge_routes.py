@@ -264,9 +264,16 @@ def test_migration_175_preserves_every_judgment_and_its_references(tmp_path):
 
     before = tmp_path / "before"
     before.mkdir()
+    # Migration 175 alone is under test: later migrations (176, Slice 2 T1)
+    # are left out of the second application.
+    through_175 = tmp_path / "through_175"
+    through_175.mkdir()
     for migration in discover_migrations():
         if migration.version < 175:
             shutil.copy2(migration.path, before / migration.path.name)
+        if migration.version <= 175:
+            sql = migration.path.read_text(encoding="utf-8")
+            (through_175 / migration.path.name).write_text(sql, encoding="utf-8")
     path = tmp_path / "state.sqlite"
     apply_migrations(path, migrations_dir=before)
     with closing(connect(path)) as connection:
@@ -308,7 +315,7 @@ def test_migration_175_preserves_every_judgment_and_its_references(tmp_path):
     assert len(rows_before) == 20
     judges_before = {row["judge"] for row in rows_before}
     assert judges_before == {"llm", "verifier", "owner", "diagnoser", "learner_card", "exact_key"}
-    assert [m.version for m in apply_migrations(path)] == [175]
+    assert [m.version for m in apply_migrations(path, migrations_dir=through_175)] == [175]
     with closing(connect(path)) as connection:
         assert [tuple(r) for r in connection.execute("SELECT * FROM judgment_ledger ORDER BY id")] == [
             tuple(r) for r in rows_before]

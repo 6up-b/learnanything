@@ -1056,6 +1056,9 @@ class AIRoutingConfig(BaseModel):
     # planted-case / grader-probe generator. Empty = ai.active_provider.
     diagnosis_judge: str | None = None
     diagnosis_generator: str | None = None
+    # Slice 2 T1: the same-cause judge (live, backlog and the guard suite).
+    # Empty = the resolved diagnosis route (itself the grading route when unset).
+    same_cause_judge: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
     authoring: str | None = None
@@ -1433,6 +1436,77 @@ class DiagnosisConfig(BaseModel):
     rrf_k: int = Field(default=60, ge=1)
 
 
+class RecurrenceBlockingCutoff(BaseModel):
+    """One benchmark-set blocking cutoff and the vectors it was measured on.
+
+    B3 writes the whole entry. The cutoff describes the cosine distribution of
+    exactly this model, width, text recipe and task prefix, so the shortlist
+    applies it only to stored vectors of that identity and refuses it (top-k
+    alone then blocks) for any other.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cutoff: float
+    dims: int = Field(gt=0)
+    recipe: str = Field(min_length=1)
+    task_prefix: str = Field(min_length=1)
+    target_recall: float | None = Field(default=None, gt=0.0, le=1.0)
+    confirmed_matches: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _a_cosine(self) -> "RecurrenceBlockingCutoff":
+        value = float(self.cutoff)
+        if value != value or not -1.0 <= value <= 1.0:
+            raise ValueError("a blocking cutoff must be a cosine in [-1, 1]")
+        return self
+
+
+class RecurrenceConfig(BaseModel):
+    """Slice 2 T1 (M3): recurrence groups with authority (spec_embedding_consumers_v1 §3).
+
+    Dormant below ``mvp-0.12``: the algorithm version, not this section, decides
+    whether grouping sites read recurrence groups. ``enabled`` is the kill
+    switch: off, an ``mvp-0.12`` vault groups by exact statement again (vault
+    open and every normalization re-sync the groups projection; consumers that
+    hold the vault check the switch directly); verdicts already in
+    ``judgment_ledger`` are kept.
+
+    Candidate pairs for the same-cause judge come from hypothesis-embedding
+    kNN: the top ``top_k`` earlier hypotheses in scope, and, for a model with
+    a benchmark-set cutoff in ``blocking_cutoffs`` (model id -> B3's entry:
+    the cutoff and the width, recipe and prefix it was measured on), only
+    those at or above it. No cutoff is hand-set: an empty map blocks by top-k
+    alone, and an entry measured on other vectors is refused. Scores never
+    merge or reject anything.
+    """
+
+    enabled: bool = True
+    # The live same-cause judge inside the diagnose job (the backlog command
+    # and the guard run regardless; they are explicit owner commands).
+    judge_enabled: bool = True
+    top_k: int = Field(default=3, ge=1, le=20)
+    blocking_cutoffs: dict[str, RecurrenceBlockingCutoff] = Field(default_factory=dict)
+    # Live judge calls per diagnose job; pairs beyond it wait for the backlog.
+    judge_max_pairs_per_attempt: int = Field(default=4, ge=0, le=20)
+    # Per-turn deadline for one Codex judge turn.
+    judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
+    # The escalated-repair block on the diagnosis card (UI only).
+    escalation_card_enabled: bool = True
+    # §3.7: when a group reaches K and none of the diagnosis's repairs differs
+    # from the repairs shown before, ask the diagnosis route once for a repair
+    # with a different operator and representation. Off: the card says the
+    # repair is the same kind as before.
+    escalation_repair_enabled: bool = True
+
+    @model_validator(mode="after")
+    def _cutoffs_name_models(self) -> "RecurrenceConfig":
+        for model_id in self.blocking_cutoffs:
+            if not str(model_id).strip():
+                raise ValueError("recurrence.blocking_cutoffs keys must be embedding model ids")
+        return self
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1616,7 +1690,7 @@ class PracticeIndexConfig(BaseModel):
 class PlacementConfig(BaseModel):
     """Learner field F2: starting new material without ceremony (spec §5.2).
 
-    Acts only on a vault at a placement algorithm version (``mvp-0.11``).
+    Acts only on a vault at a placement algorithm version (``mvp-0.11`` or later, ``PLACEMENT_VERSIONS``).
     ``enabled`` is the kill switch: off restores the predecessor's opening
     probes, serving and ordering exactly, and ignores recorded assumptions.
     """
@@ -1678,6 +1752,7 @@ class LearnLoopConfig(BaseModel):
         default_factory=DiagnosticAugmentationConfig
     )
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
+    recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
 
     @model_validator(mode="before")
     @classmethod

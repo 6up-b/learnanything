@@ -55,8 +55,22 @@ DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 # unanswered opening episodes from earlier versions are ignored for serving,
 # feedback and instrument generation until a door adopts one (never rewritten
 # otherwise, so the kill switch stays exact). No projection or default change;
-# new vaults start here.
+# new vaults started here until mvp-0.12 merged.
 PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
+
+# mvp-0.12 (Slice 2 T1 / M3, spec_embedding_consumers_v1 §3.4): recurrence
+# with authority, on top of mvp-0.11 (the chain stays linear: mvp-0.12 means
+# the split PLUS placement PLUS recurrence groups). Holding-pen promotion and
+# the K=3 escalation count group hypotheses by recurrence group (exact
+# statement classes joined by validated diagnoser citations and
+# ``same_cause`` verdicts) instead of by exact statement, and a group's K-th
+# recurrence shows its escalated repair with the earlier answers as evidence.
+# The spec's "mvp-0.11" was a placeholder; T1 was built as mvp-0.11 and
+# relabelled mvp-0.12 when it merged after Phase 6 took mvp-0.11. Kill switch:
+# ``recurrence.enabled`` (off: exact-statement keys again from the next
+# normalization, vault open or rebuild). It keeps the split, placement and the
+# mvp-0.8 projection namespace.
+RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -69,6 +83,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     REVEAL_LEDGER_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     PLACEMENT_ALGORITHM_VERSION,
+    RECURRENCE_GROUP_ALGORITHM_VERSION,
 )
 
 
@@ -84,6 +99,11 @@ def successors_from(version: str) -> frozenset[str]:
 # switch). Every later successor keeps the split, so gates must use this set,
 # never equality against DIAGNOSIS_SPLIT_ALGORITHM_VERSION.
 DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = successors_from(DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+
+# Versions whose grouping sites read the recurrence-group map (behind
+# ``recurrence.enabled``). Every later successor keeps recurrence groups;
+# gates must use this set, never equality.
+RECURRENCE_GROUP_VERSIONS: frozenset[str] = successors_from(RECURRENCE_GROUP_ALGORITHM_VERSION)
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against

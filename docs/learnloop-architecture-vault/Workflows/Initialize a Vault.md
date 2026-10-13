@@ -94,7 +94,7 @@ subjects/linear-algebra/subject.md
 It also creates empty `rubrics/`, `subjects/linear-algebra/learning-objects/`, `notes/`, and `practice-items/` directories. The migration coordinator creates `.learnloop/vault.lock` as the advisory lock target and leaves it unlocked/empty after initialization. `profile/learner.yaml` records the starting-level claim; the same claim is inserted into the SQLite evidence ledger with a deliberately weak prior.
 
 > [!important] Fresh-version invariant
-> A new vault already has the latest `algorithm_version` (`LATEST_ALGORITHM_VERSION`, `mvp-0.11` today). Do not run `upgrade` as a routine initialization step. `upgrade` exists for older vaults and only accepts the immediate successor; see [[Doctor Migrations and Recovery#Algorithm upgrades are separate]].
+> A new vault already has the latest `algorithm_version` (`LATEST_ALGORITHM_VERSION`, `mvp-0.12` today). Do not run `upgrade` as a routine initialization step. `upgrade` exists for older vaults and only accepts the immediate successor; see [[Doctor Migrations and Recovery#Algorithm upgrades are separate]].
 
 ## 4. Verify config and schema health
 

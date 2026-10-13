@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_175/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_176/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_175" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_176" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 175
+SCHEMA_HEAD = 176
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -225,7 +225,7 @@ def table_domain(table: str) -> str:
         return "sources-and-ingest"
     if table.startswith(("reader_", "canonical_mapping")):
         return "reader"
-    if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism")):
+    if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism", "hypothesis_recurrence", "recurrence_")):
         return "diagnosis"
     if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
         return "scheduling"
@@ -854,6 +854,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
+    "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
 }
 
 
@@ -973,7 +974,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "field.legacy_fallback": "Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed.",
     "field.question_classification_enabled": "Additional opt-in for bounded classification of missing question metadata; replay only reads cached output.",
     "field.llm_probability_enabled": "Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model.",
-    "placement.enabled": "Kill switch for F2 placement at mvp-0.11; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
+    "placement.enabled": "Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
     "placement.initial_probes": "Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off).",
     "placement.assumed_first_interval_days": "Days from an assumed-known decision to its first review, which is the check (D6).",
     "placement.fast_track_min_correct": "Clean full-marks first answers fast-track needs before the probability test (D6, at least 2).",
@@ -1138,6 +1139,36 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "practice_index.evaluation_enabled": (
         "Consent for paid `learnloop eval practice-index` runs (query writing and relevance labels); "
         "dry-run estimates work without it."
+    ),
+    "recurrence.enabled": (
+        "Kill switch for recurrence groups at mvp-0.12: off, grouping sites use exact statements again "
+        "from the next normalization, vault open or rebuild; recorded verdicts are kept."
+    ),
+    "recurrence.judge_enabled": (
+        "Runs the live same-cause judge inside each diagnose job (the backlog command and the guard are "
+        "explicit owner commands and run regardless)."
+    ),
+    "recurrence.top_k": (
+        "Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge."
+    ),
+    "recurrence.blocking_cutoffs": (
+        "Embedding model id to B3's entry: the recall-oriented cosine cutoff and the width, text recipe and "
+        "task prefix it was measured on. It applies only to stored vectors of exactly that identity (others "
+        "are refused); a model without one is blocked by top-k alone. Never merges or rejects anything by score."
+    ),
+    "recurrence.judge_max_pairs_per_attempt": (
+        "Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command."
+    ),
+    "recurrence.judge_timeout_seconds": (
+        "Per-turn deadline for one Codex same-cause judge turn."
+    ),
+    "recurrence.escalation_card_enabled": (
+        "Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card."
+    ),
+    "recurrence.escalation_repair_enabled": (
+        "At a recurrence group's K-th answer, when none of the diagnosis's repairs differs from those shown "
+        "before, asks the diagnosis route once for a repair with a different operator and representation; "
+        "off, the card says the repair is the same kind as before."
     ),
 }
 
@@ -1698,7 +1729,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_175/state.sqlite",
+                "fixtures/migration_head_176/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

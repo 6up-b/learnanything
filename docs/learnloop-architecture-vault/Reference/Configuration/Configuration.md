@@ -35,7 +35,7 @@ Configuration is split by responsibility: `schema.py` owns typed canonical model
 ## Map of content
 
 - [[learnloop.toml]] — exact generated template, explicit decisions, and safe examples.
-- [[Configuration Field Catalog]] — all 630 effective leaf values grouped into 36 top-level sections.
+- [[Configuration Field Catalog]] — all 638 effective leaf values grouped into 37 top-level sections.
 - [[Legacy Configuration Compatibility]] — accepted old spellings, retired keys, and canonicalization rules.
 - [[Environment and Machine Settings]] — precedence, secrets, global settings, and AI defaults inheritance.
 - [[Runtime and Vault Data Files]] — files around the TOML that configure or define a vault.
@@ -90,11 +90,11 @@ The second form reparses the raw TOML and therefore does not include compatibili
 
 ## Defaults reproducibility
 
-The current generated mvp-0.9 effective configuration hashes to:
+New vaults are written at `LATEST_ALGORITHM_VERSION` (`mvp-0.12` since Slice 2 T1 merged); that effective configuration hashes to:
 
-`a52240e82b673fcd1b0f935840343fa3ae32bf07f0c66fc15e08fb87aa078bfd`
+`650592b462d9690de8ee81d8f28de0e71efefe8ba49fc3e4faa44cf7645b3d2c`
 
-The successors' snapshots (`mvp-0.10`, `mvp-0.11`) are the same template with only `algorithm_version` changed; all three are recorded in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`).
+Every recorded version's snapshot (`mvp-0.9`, `mvp-0.10`, `mvp-0.11`, `mvp-0.12`) is the same template rendered at its own `algorithm_version` (`config.template.defaults_fingerprint_for_version`); all four are recorded in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`).
 
 `tests/test_config_refactor.py` keys this fingerprint by algorithm version. Changing a behavior-affecting omitted default therefore requires an explicit algorithm-version/snapshot decision rather than silently changing every minimal-config vault.
 

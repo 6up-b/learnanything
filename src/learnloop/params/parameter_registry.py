@@ -847,6 +847,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "diagnosis queue wait / retry / daily call cap / turn deadline / context token budget; no "
         "measurement authority (the diagnoser never writes evidence, S2)."),
+    # Slice 2 T1: live same-cause judge spend and latency bounds. The judge
+    # writes judgment_ledger verdicts, never evidence.
+    _ConfigRule(_exact(
+        "recurrence.judge_max_pairs_per_attempt",
+        "recurrence.judge_timeout_seconds",
+    ), "structural", "operational",
+        "same-cause judge calls per diagnose job / turn deadline; spend and latency bounds, no "
+        "measurement authority (verdicts go to judgment_ledger, never evidence)."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "
@@ -1007,6 +1015,24 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("placement.quick_check_k", "placement.quick_check_budget_minutes"),
                 "structural", "operational",
                 "optional learner-initiated quick-check length and time bound (field D4)."),
+    # Slice 2 T1 (mvp-0.12): which embedding-shortlisted pairs reach the
+    # same-cause judge. Recall-oriented blocking only: the judge decides every
+    # pair it sees and nothing is merged or rejected by score (R4). Set from
+    # B3's recall on confirmed matches; reverted by recurrence.enabled = false.
+    _ConfigRule(
+        _exact("recurrence.top_k"),
+        "decision",
+        "constraint",
+        "Slice 2 T1 same-cause shortlist breadth; set from B3, judges decide (R4), "
+        "kill switch recurrence.enabled.",
+    ),
+    _ConfigRule(
+        _prefix("recurrence.blocking_cutoffs."),
+        "decision",
+        "threshold",
+        "Slice 2 T1 per-model blocking cutoff from B3's recall on confirmed matches; never "
+        "hand-set in code, never merges or rejects by score (R4).",
+    ),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

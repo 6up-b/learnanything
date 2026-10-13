@@ -115,9 +115,18 @@ def _debit_repair_display_reveals(
     from learnloop.attempts.reveal_ledger import record_repair_display_reveals
 
     try:
+        from learnloop.diagnosis.recurrence.display import displayed_repair_suggestions, is_escalation_suggestion
+        from learnloop.diagnosis.split.card import debit_escalated_repairs
+
         practice_item_id = str(attempt.get("practice_item_id") or "") or None
         item = vault.practice_items.get(practice_item_id) if practice_item_id else None
-        suggestions = list(stored_feedback.get("repair_suggestions") or [])
+        shown = displayed_repair_suggestions(vault, repository, str(attempt["id"]), stored_feedback.get("repair_suggestions"))
+        # Slice 2 T1: an escalated repair is charged once on its own basis.
+        debit_escalated_repairs(
+            repository, attempt=attempt, repair_suggestions=[row for row in shown if is_escalation_suggestion(row)],
+            learning_object_id=item.learning_object_id if item is not None else None,
+        )
+        suggestions = [row for row in shown if not is_escalation_suggestion(row)]
         diagnosis_ids = {
             str(value.get("id")).split(":")[1]
             for value in suggestions

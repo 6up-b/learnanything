@@ -464,6 +464,16 @@ def compatibility_projection_delta(
     return CompatibilityDelta(matches=not changed, changed_cells=changed)
 
 
+def rewrite_algorithm_version(config_path: Path, from_version: str, to_version: str) -> None:
+    """Atomically flip the single algorithm_version field (write-temp + rename).
+
+    Public so a domain that owns a successor (Slice 2 T1's ``mvp-0.12``) can
+    finish its own upgrade function the same way.
+    """
+
+    _rewrite_algorithm_version(config_path, from_version, to_version)
+
+
 def _rewrite_algorithm_version(config_path: Path, from_version: str, to_version: str) -> None:
     """Atomically flip the single algorithm_version field (write-temp + rename)."""
 

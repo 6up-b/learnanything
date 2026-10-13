@@ -1,4 +1,4 @@
-"""Slice 1 §7.6: the behaviour-neutral recurrence-key seam Slice 2 T1 swaps."""
+"""Slice 1 §7.6: the recurrence-key seam, and the group map Slice 2 T1 feeds it."""
 
 from __future__ import annotations
 
@@ -10,11 +10,21 @@ from learnloop.recurrence import RECURRENCE_KEY_VERSION, recurrence_key
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
 
 
-def test_the_seam_is_the_exact_statement_key_in_slice_1():
+def test_the_seam_is_the_exact_statement_key_without_groups():
     assert RECURRENCE_KEY_VERSION == "statement-normalized-v1"
     assert recurrence_key({"statement_normalized": "x y"}) == "x y"
     assert recurrence_key({"statement_normalized": None}) == ""
+    assert recurrence_key({"statement_normalized": "x y"}, {}) == "x y"
     assert causal_factor_deferral.recurrence_key is recurrence_key
+
+
+def test_merged_classes_share_the_group_key_and_singletons_keep_theirs():
+    groups = {"x y": "rg:abc", "z": "rg:abc"}
+    assert recurrence_key({"statement_normalized": "x y"}, groups) == "rg:abc"
+    assert recurrence_key({"statement_normalized": "z"}, groups) == "rg:abc"
+    assert recurrence_key({"statement_normalized": "w"}, groups) == "w"
+    # Idempotent on a key the caller already holds.
+    assert recurrence_key({"statement_normalized": "rg:abc"}, groups) == "rg:abc"
 
 
 @pytest.fixture
@@ -31,7 +41,7 @@ def test_candidate_projection_groups_through_the_seam(seeded, monkeypatch):
     # Behaviour-neutral: the same statements, the same groups.
     assert {row["statement_normalized"] for row in exact}
     # Swapping the seam (what T1 will do) regroups every caller at once.
-    monkeypatch.setattr("learnloop.db.repositories.recurrence_key", lambda _row: "one-group")
+    monkeypatch.setattr("learnloop.db.repositories.recurrence_key", lambda _row, _groups=None: "one-group")
     merged = repository._projected_causal_candidates(lo)
     assert len(merged) == 1
     assert merged[0]["occurrence_count"] == sum(row["occurrence_count"] for row in exact)
@@ -44,7 +54,7 @@ def test_factor_signature_counts_through_the_seam(seeded, monkeypatch):
     repository = seeded
     calls: list[str] = []
 
-    def spy(row):
+    def spy(row, groups=None):
         calls.append(str(row.get("id")))
         return "key"
 

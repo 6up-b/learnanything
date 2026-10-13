@@ -4,6 +4,7 @@ import type {
   DiagnosisCardDto,
   DiagnosisCardResponse,
   DiagnosisStatusValue,
+  EscalationResponse,
 } from "../api/dto";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { Pill } from "./ui";
@@ -37,6 +38,15 @@ const link = { color: COLOR.amberLink, textDecoration: "underline", cursor: "poi
  * hypothesis, labelled as unchecked. At most one optional tap, in a fixed
  * neutral order; a per-citation "not the same mistake" tap. Nothing here is
  * evidence: taps are eval-only.
+ *
+ * Slice 2 T1 (mvp-0.12): when the cause has recurred K times the card leads
+ * with the escalated repair, its earlier answers (each openable) and its own
+ * one-tap usefulness rating. The headline says "trying a different approach"
+ * only when the backend found a repair whose operator differs from the ones
+ * shown before; otherwise it says so plainly. The repair is shown whole (its
+ * representation, practice mode and question); it is also the feedback
+ * screen's lead repair suggestion, so an eliciting question is answered in
+ * the "one question, unaided" box right below this card.
  */
 export function DiagnosisCard({
   attemptId,
@@ -104,7 +114,10 @@ export function DiagnosisCard({
   }, [attemptId, initialStatus, onDiagnosisReady]);
 
   const record = useCallback(
-    async (response: DiagnosisCardResponse | "not_same_mistake", citedAttemptId: string | null = null) => {
+    async (
+      response: DiagnosisCardResponse | EscalationResponse | "not_same_mistake",
+      citedAttemptId: string | null = null,
+    ) => {
       if (!card?.diagnosisId || recording) return;
       setRecording(true);
       try {
@@ -115,16 +128,21 @@ export function DiagnosisCard({
           citedAttemptId,
           shownAt: shownAt.current,
         });
-        setCard((current) =>
-          current === null
-            ? current
-            : response === "not_same_mistake"
-              ? {
-                  ...current,
-                  notSameMistakeAttemptIds: [...(current.notSameMistakeAttemptIds ?? []), citedAttemptId ?? ""],
-                }
-              : { ...current, recordedResponse: response },
-        );
+        setCard((current) => {
+          if (current === null) return current;
+          if (response === "not_same_mistake") {
+            return {
+              ...current,
+              notSameMistakeAttemptIds: [...(current.notSameMistakeAttemptIds ?? []), citedAttemptId ?? ""],
+            };
+          }
+          if (response.startsWith("escalation:")) {
+            return current.escalation
+              ? { ...current, escalation: { ...current.escalation, recordedResponse: response as EscalationResponse } }
+              : current;
+          }
+          return { ...current, recordedResponse: response as DiagnosisCardResponse };
+        });
       } catch (error) {
         onError(error instanceof Error ? error.message : "Your answer could not be recorded.");
       } finally {
@@ -150,7 +168,12 @@ export function DiagnosisCard({
     );
   }
   if (!card || card.cardEnabled === false) return null;
-  const repairs = card.repairSuggestions ?? [];
+  const escalation = card.escalation ?? null;
+  const escalatedRepair = escalation?.repair ?? null;
+  // The escalated repair is shown in its own block, not again in the list.
+  const repairs = (card.repairSuggestions ?? []).filter(
+    (repair) => !(escalatedRepair?.id && repair.id === escalatedRepair.id),
+  );
   const madeBefore = card.madeBefore ?? [];
   const disowned = new Set(card.notSameMistakeAttemptIds ?? []);
   return (
@@ -159,6 +182,73 @@ export function DiagnosisCard({
         <Pill tone="cyan">diagnosis</Pill>
         <Faint>why this went wrong, across your answers</Faint>
       </div>
+      {escalation ? (
+        <div
+          style={{ marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${COLOR.border}` }}
+          data-testid="diagnosis-escalation"
+        >
+          <div style={{ color: COLOR.text, fontWeight: 600 }} data-testid="escalation-headline">
+            {escalation.headline}
+          </div>
+          {escalation.earlierAnswers.length > 0 ? (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+              <Faint>earlier answers</Faint>
+              {escalation.earlierAnswers.map((answer) => (
+                <span
+                  key={answer.attemptId}
+                  style={link}
+                  onClick={() => onOpenAttempt?.(answer.attemptId)}
+                  data-testid="escalation-earlier-answer"
+                >
+                  {fmtDay(answer.date)}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {escalatedRepair ? (
+            <div data-testid="escalation-repair">
+              <div style={{ color: COLOR.text }}>· {escalatedRepair.rationale}</div>
+              {escalatedRepair.representation || escalatedRepair.practiceMode ? (
+                <div data-testid="escalation-repair-mode">
+                  <Faint>
+                    {[escalatedRepair.representation, escalatedRepair.practiceMode]
+                      .filter((value) => value && value !== "unspecified")
+                      .join(" · ")}
+                  </Faint>
+                </div>
+              ) : null}
+              {escalatedRepair.elicitingQuestion?.trim() ? (
+                <div style={{ color: COLOR.text }} data-testid="escalation-repair-question">
+                  {escalatedRepair.elicitingQuestion}{" "}
+                  <Faint>(answer it in "one question, unaided" below)</Faint>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {escalation.approachNote ? <Faint>{escalation.approachNote}</Faint> : null}
+          <div style={{ marginTop: 6, display: "flex", gap: 14, flexWrap: "wrap" }} data-testid="escalation-taps">
+            <Faint>was this repair useful?</Faint>
+            {escalation.responses.map((option) => {
+              const chosen = escalation.recordedResponse === option.response;
+              const done = escalation.recordedResponse != null;
+              return (
+                <span
+                  key={option.response}
+                  data-testid={`escalation-tap-${option.response.split(":")[1]}`}
+                  style={
+                    done
+                      ? { color: chosen ? COLOR.text : COLOR.textFaint, fontWeight: chosen ? 600 : 400 }
+                      : { ...link, color: COLOR.textDim }
+                  }
+                  onClick={done ? undefined : () => void record(option.response)}
+                >
+                  {option.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {card.summaryMd ? (
         <div style={{ color: COLOR.text, whiteSpace: "pre-wrap" }} data-testid="diagnosis-summary">
           {card.summaryMd}

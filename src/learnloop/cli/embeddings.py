@@ -161,14 +161,14 @@ def embeddings_nomination_report(
 @embeddings_app.command("compare")
 def embeddings_compare(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root (routes, ledger, checkpoints); use a fixtures-local copy.")],
-    suite: Annotated[str, typer.Option("--suite", help="Registered suite: b2 (isomorph/near-duplicate) or valid_alternative.")],
+    suite: Annotated[str, typer.Option("--suite", help="Registered suite: b2 (isomorph/near-duplicate), valid_alternative, b1 (Eedi 2024 misconception retrieval) or b3 (recurrence vault replay).")],
     output_dir: Annotated[Path, typer.Option("--output", "--output-dir", help="Report and vector-cache directory (outside the vault).")] = Path("fixtures-local/reports/compare"),
-    benchmark: Annotated[Path | None, typer.Option("--benchmark", help="Benchmark directory: manifest.json (source, version, licence) and pairs.jsonl.")] = None,
+    benchmark: Annotated[Path | None, typer.Option("--benchmark", help="Benchmark directory: manifest.json (source, version, licence) and pairs.jsonl (b2), or the Eedi train.csv and misconception_mapping.csv (b1).")] = None,
     model: Annotated[list[str] | None, typer.Option("--model", help="Embedding model id (OpenRouter); repeatable. Default: embedding.model.")] = None,
-    dims: Annotated[list[int] | None, typer.Option("--dims", min=1, help="MRL dimension sweep; repeatable. Default: embedding.dimensions.")] = None,
-    view: Annotated[list[str] | None, typer.Option("--view", help="b2 views: stem, skeleton, fingerprint, judge; repeatable. Default: all.")] = None,
+    dims: Annotated[list[int] | None, typer.Option("--dims", min=1, help="MRL dimension sweep; repeatable. Default: embedding.dimensions (b1: 1024, a width every candidate reaches).")] = None,
+    view: Annotated[list[str] | None, typer.Option("--view", help="b2 views: stem, skeleton, fingerprint, judge; b1 views: raw, hypothesis; repeatable. Default: all.")] = None,
     family: Annotated[list[str] | None, typer.Option("--family", help="valid_alternative: activity family id; repeatable.")] = None,
-    target_recall: Annotated[float, typer.Option("--target-recall", min=0.5, max=1.0, help="Recall on positives that sets each blocking cutoff.")] = 0.95,
+    target_recall: Annotated[float, typer.Option("--target-recall", min=0.5, max=1.0, help="Recall on positives that sets each blocking cutoff (b3: on confirmed matches, also top_k).")] = 0.95,
     max_cases: Annotated[int | None, typer.Option("--max-cases", min=1)] = None,
     max_items: Annotated[int, typer.Option("--max-items", min=1, help="valid_alternative: family items to cover.")] = 20,
     alternatives: Annotated[int, typer.Option("--alternatives", min=1, max=6, help="valid_alternative: alternative traces per item.")] = 2,
@@ -186,16 +186,26 @@ def embeddings_compare(
 ) -> None:
     """Run one registered benchmark suite on the shared harness (B2 sets PF's blocking cutoffs).
 
+    Slice 2 T1's B1 (Eedi 2024; its hypothesis writer is the
+    recurrence_hypothesis_writer role on the diagnosis route) and B3 (the
+    vault's labelled hypothesis pairs; prints the [recurrence] top_k and
+    cutoff it would set) run here too; `learnloop recurrence bench` is an
+    alias for these two suites.
+
     Writes aggregate-only JSON and Markdown reports named by content. Every
     verdict appends to judgment_ledger; replay never reads these reports.
     """
-    from learnloop.ops.embedding_compare import CompareRequest, run_compare
+    from learnloop.diagnosis.recurrence.benchmarks import register_suites as register_recurrence_suites
+    from learnloop.ops.embedding_compare import SUITES, CompareRequest, run_compare
+    from learnloop.ops.pf_calls import ROLE_TASKS
 
     # This command is the shared harness's composition root: every consumer
     # suite (Phase 5a's b2 and valid_alternative; Slice 2 T1's B1/B3 and T6's
     # B4 later) joins `embedding_compare.SUITES`, and any extra LLM role joins
     # `pf_calls.ROLE_TASKS`, here before run_compare, through the consumer's
-    # `register_suites(SUITES, role_tasks=ROLE_TASKS)`.
+    # `register_suites(SUITES, role_tasks=ROLE_TASKS)`. Registration lives here,
+    # not in ops, because ops -> diagnosis would be a new import back-edge.
+    register_recurrence_suites(SUITES, role_tasks=ROLE_TASKS)
     try:
         if not (vault / "learnloop.toml").is_file():
             raise ValueError("--vault must name a vault containing learnloop.toml")
@@ -214,6 +224,73 @@ def embeddings_compare(
             report = run_compare(loaded, request=request, caps=caps, price_per_million=price_per_million,
                                  embedding_price_per_million=embedding_price_per_million,
                                  cancelled=stop.is_set)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    typer.echo(json.dumps(report, sort_keys=True, default=str, indent=None if json_output else 2))
+    if report["status"] == "cancelled":
+        raise typer.Exit(code=130)
+    if report["status"] not in {"dry_run", "complete"}:
+        raise typer.Exit(code=1)
+
+
+@embeddings_app.command("adjudicate")
+def embeddings_adjudicate(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy first.")],
+    task: Annotated[str, typer.Option("--task", help="The judgment_ledger task to adjudicate. Slice 2 T1: same_cause.")] = "same_cause",
+    backlog: Annotated[bool, typer.Option("--backlog", help="Judge the shortlisted pairs of the existing history (required).")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan pairs, vectors to embed and spend; no client, call or write.")] = False,
+    max_pairs_to_judge: Annotated[int | None, typer.Option("--max-pairs-to-judge", min=1, help="Judge at most this many pairs this run (earliest first).")] = None,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 300,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 30,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 3_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
+    price_per_million: Annotated[float | None, typer.Option(
+        "--price-per-million", min=0,
+        help="USD per million tokens for a metered route whose price is unknown (unknown prices fail closed).",
+    )] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Embeddings shortlist, the judge decides: adjudicate a task's candidate pairs.
+
+    `--task same_cause --backlog` (Slice 2 T1 §3.1) embeds any hypothesis
+    without a vector for embedding.model, shortlists each learner-state
+    hypothesis's earlier in-scope neighbours (recurrence.top_k, and the B3
+    cutoff when set), skips settled pairs and sends every other pair to the
+    same-cause judge (ai.routing.same_cause_judge, unset: the diagnosis
+    route). Verdicts go to judgment_ledger; groups are refreshed. Nothing is
+    merged or rejected by score. Run --dry-run first.
+    """
+
+    from learnloop.cli.receipts import bind_command_repository, bind_command_vault
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.recurrence.backlog import run_backlog
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.repository import open_vault_repository
+
+    try:
+        if task != "same_cause":
+            raise ValueError(f"unknown task {task!r}: Slice 2 T1 registers same_cause")
+        if not backlog:
+            raise ValueError("pass --backlog: live pairs are judged inside the diagnosis job")
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must name a vault containing learnloop.toml")
+        loaded = load_vault(vault)
+        bind_command_vault(loaded.root)
+        sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        if dry_run:
+            repository = Repository.attach(sqlite_path, read_only=True)
+        else:
+            repository = open_vault_repository(loaded.root, sqlite_path)
+            bind_command_repository(repository)
+        caps = SpendCaps(
+            max_candidates=max_calls, max_pairs=max_calls, max_retries=max_retries,
+            max_calls=max_calls, max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
+        with _cancellation() as stop:
+            report = run_backlog(
+                loaded, repository, caps=caps, price_per_million=price_per_million,
+                max_pairs=max_pairs_to_judge, dry_run=dry_run, cancelled=stop.is_set,
+            )
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     typer.echo(json.dumps(report, sort_keys=True, default=str, indent=None if json_output else 2))

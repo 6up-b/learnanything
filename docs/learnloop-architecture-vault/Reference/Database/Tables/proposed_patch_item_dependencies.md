@@ -3,13 +3,13 @@ title: "proposed_patch_item_dependencies"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
-source_commit_timestamp: "2026-10-12T17:19:24-04:00"
+source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
+source_commit_timestamp: "2026-10-12T18:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_item_dependencies"
   - "table proposed_patch_item_dependencies"
-schema_head: 175
+schema_head: 176
 table_name: "proposed_patch_item_dependencies"
 table_role: "workflow"
 functionality_status: "active"

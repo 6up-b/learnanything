@@ -470,7 +470,8 @@ def _outcome_rows(outcomes) -> list[dict]:
 
 
 _MAX_CALLS_HELP = (
-    "Calls this command may admit: one per logical diagnosis call and one per retrieval embedding request "
+    "Calls this command may admit: one per logical diagnosis call, one per retrieval embedding request and, "
+    "at mvp-0.12, one per same-cause judge call, hypothesis embedding request and escalated-repair request "
     "(metered retries also count as calls)."
 )
 _MAX_RETRIES_HELP = "Metered routes: physical retries and JSON repairs this command may admit."

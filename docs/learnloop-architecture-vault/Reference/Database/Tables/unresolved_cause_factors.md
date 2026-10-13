@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
-source_commit_timestamp: "2026-10-12T17:19:24-04:00"
+source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
+source_commit_timestamp: "2026-10-12T18:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 175
+schema_head: 176
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
+  - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/attempts/attempts.py"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
@@ -138,6 +140,7 @@ Indexes and uniqueness:
 
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_recurrence_live.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
@@ -155,7 +158,6 @@ Indexes and uniqueness:
 - `tests/test_durable_promotion_arms.py`
 - `tests/test_grading_support.py`
 - `tests/test_km2_write_path.py`
-- `tests/test_km4_taxonomy.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -170,6 +170,14 @@ def sync_vault_state(
 
     retire_expired_telemetry(repository, clock=clock)
 
+    # Slice 2 T1: the recurrence-group projection follows the EFFECTIVE config
+    # from vault open on, so `recurrence.enabled = false` (or a version below
+    # the successor) empties it here, not only at the next normalization. A
+    # no-op when nothing changed (cheap fingerprint) or the vault is inactive.
+    from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
+
+    refresh_recurrence_groups(vault, repository)
+
     return StateSyncResult(
         practice_item_states_created=created_items,
         practice_item_states_updated=updated_items,

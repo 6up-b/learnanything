@@ -3,13 +3,13 @@ title: "diagnosis_feedback"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
-source_commit_timestamp: "2026-10-12T17:19:24-04:00"
+source_commit: "64214a40f63df5bc62b29add79711e0dadd7c276"
+source_commit_timestamp: "2026-10-12T18:26:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_feedback"
   - "table diagnosis_feedback"
-schema_head: 175
+schema_head: 176
 table_name: "diagnosis_feedback"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
+  - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/card.py"
 tags:
   - "learnloop/database/table"
@@ -47,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/170_blind_grading_diagnosis_split.sql`.
-- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`.
+- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `176_recurrence_groups.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +93,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
 
 ### Direct SQL writers
 
@@ -105,7 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_recurrence_live.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -122,12 +126,15 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE diagnosis_feedback (
+CREATE TABLE "diagnosis_feedback" (
   id TEXT PRIMARY KEY,
   diagnosis_id TEXT NOT NULL REFERENCES attempt_diagnoses(id),
   attempt_id TEXT NOT NULL REFERENCES practice_attempts(id),
   response TEXT NOT NULL CHECK (
-    response IN ('believed_candidate', 'partly', 'slipped', 'diagnosis_wrong', 'unsure', 'not_same_mistake')
+    response IN (
+      'believed_candidate', 'partly', 'slipped', 'diagnosis_wrong', 'unsure', 'not_same_mistake',
+      'escalation:helped', 'escalation:didnt_help', 'escalation:not_sure'
+    )
   ),
   cited_attempt_id TEXT,
   forwarded_factor_id TEXT,

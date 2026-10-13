@@ -43,6 +43,8 @@ AITask = Literal[
     "diagnosis",
     "diagnosis_judge",
     "diagnosis_generator",
+    # Slice 2 T1: the same-cause judge (unset -> the resolved diagnosis route).
+    "same_cause_judge",
     "canonical_ingest",
     "canonical_ingest_retry",
     "authoring",
@@ -84,6 +86,13 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "diagnosis_valid_alternative": "diagnosis_generator",
     "diagnosis_synthetic_error": "diagnosis_generator",
     "diagnosis_paraphrase": "diagnosis_generator",
+    # Slice 2 T1: one pairwise same-cause verdict; B1's hypothesis writer is
+    # the diagnoser's own route (production hypotheses are diagnoser text).
+    "same_cause_judgment": "same_cause_judge",
+    "recurrence_b1_hypothesis": "diagnosis",
+    # Slice 2 T1 §3.7: a repair with a different operator and representation
+    # for a recurrence group's K-th answer (the diagnoser's own route).
+    "recurrence_escalation_repair": "diagnosis",
     "tutor_qa": "tutor_qa",
     "teach_back_question": "teach_back",
     "teach_back_authoring": "teach_back",
@@ -206,6 +215,9 @@ def provider_for_task(
         # route, not the active provider, so the diagnoser can be moved to a
         # stronger model by config alone and otherwise matches the grader.
         return provider_for_task(config, "grading", allow_env=allow_env)
+    if task == "same_cause_judge" and not routed:
+        # Slice 2 §3.1: the same-cause judge is "routed like diagnosis".
+        return provider_for_task(config, "diagnosis", allow_env=allow_env)
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
 
 

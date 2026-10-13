@@ -48,9 +48,16 @@ MAIN_SIDECAR_RPCS = (
 # "Decision models" disclosures (judges) and update_ai_settings refuses
 # decision-model profiles. Desktop only.
 ROUTER_R0_SETTINGS_RPCS = ("get_settings", "update_ai_settings")
+# Slice 2 T1 adds no RPC; it extends three desktop ones: diagnosis_status (the
+# card's escalation block), record_diagnosis_feedback (the escalation: tap)
+# and get_feedback (an escalated repair leads the repairs shown). The first
+# two are pinned above; get_feedback is pinned here.
+SLICE2_T1_RPCS = ("get_feedback",)
 
 
-@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS)
+@pytest.mark.parametrize(
+    "method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS
+)
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY

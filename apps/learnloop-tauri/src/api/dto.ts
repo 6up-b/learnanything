@@ -1221,6 +1221,33 @@ export interface DiagnosisPrerequisiteGapDto {
   label: string;
 }
 
+/** Slice 2 T1 §3.7: the escalated repair's one-tap usefulness rating. */
+export type EscalationResponse = "escalation:helped" | "escalation:didnt_help" | "escalation:not_sure";
+
+export interface EscalationAnswerDto {
+  attemptId: string;
+  practiceItemId: string | null;
+  date: IsoTimestamp | null;
+  rubricScore: number | null;
+  correctness: number | null;
+}
+
+/** Shown when the diagnosis's cause has recurred K times (mvp-0.12): the
+ *  repair with the earlier answers as its evidence. The headline claims a
+ *  different approach only when the repair's operator really differs. */
+export interface DiagnosisEscalationDto {
+  escalationId: string;
+  headline: string;
+  recurrenceCount: number;
+  differentApproach: boolean;
+  /** Set when the repair is the same kind as before (honest label). */
+  approachNote: string | null;
+  repair: RepairSuggestionDto | null;
+  earlierAnswers: EscalationAnswerDto[];
+  responses: { response: EscalationResponse; label: string }[];
+  recordedResponse: EscalationResponse | null;
+}
+
 /** `diagnosis_status`: the status, and the card's content once done. */
 export interface DiagnosisCardDto {
   version: number;
@@ -1236,6 +1263,8 @@ export interface DiagnosisCardDto {
   /** Validated citations only (S4); empty when none validated. */
   madeBefore?: DiagnosisCitationDto[];
   prerequisiteGap?: DiagnosisPrerequisiteGapDto | null;
+  /** Slice 2 T1: present only on an escalated recurrence. */
+  escalation?: DiagnosisEscalationDto | null;
   recordedResponse?: DiagnosisCardResponse | null;
   notSameMistakeAttemptIds?: string[];
 }
@@ -2296,9 +2325,16 @@ export interface FollowupGateDiagnosticsDto {
 }
 
 export interface RepairSuggestionDto {
+  /** e.g. `diagnosis:<id>:<n>`; `escalation:<diagnosis id>` for a repair
+   *  written at a recurrence group's K-th answer (Slice 2 T1), which leads. */
+  id?: string | null;
   practiceMode: string;
   learningObjectId: string | null;
   rationale: string;
+  /** An escalated repair's representation (worked contrast, counterexample, ...). */
+  representation?: string | null;
+  /** True for the repair written at escalation time (not the diagnosis's own). */
+  generated?: boolean;
   targetEvidenceFamilies?: string[];
   targetCriterionIds?: string[];
   operator?: string | null;

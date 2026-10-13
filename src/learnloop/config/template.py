@@ -866,7 +866,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # embedding.enabled = false. All three snapshots were recomputed then
     # (mvp-0.10 and mvp-0.11 from DEFAULT_CONFIG_TEXT with only
     # algorithm_version replaced); no serving change.
-    "mvp-0.9": "499d442dcf92b543f7f1f9e4c343b529d41292804319931488b6e40f00ba9cf1",
+    # Slice 2 T1 adds the [recurrence] section (modelled defaults only) and
+    # the unset ai.routing.same_cause_judge route. Both are dormant below
+    # mvp-0.12 (the algorithm version gates the recurrence groups), so
+    # mvp-0.9, mvp-0.10 and mvp-0.11 serving are unchanged. Every snapshot
+    # was recomputed at its merge (defaults_fingerprint_for_version).
+    "mvp-0.9": "fdaf91151e4c5ef9693d6954f35f19e0c952f32123e5cf808fae89e534fcc395",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -876,12 +881,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # too (modelled defaults, nominations only; no serving change).
     # Phase 5a's [pf] section and routes move it too (no serving change).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "cdf9d100616ff76dab8c311f418f768abf83243228f1d76d3d7f0c92f3c604d3",
+    # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "f026cfb3114612a9d05edd85567f7822836e389d6d75a21c3516152fadd4f1fa",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
     # the first review, the optional quick check. Kill switch
-    # placement.enabled. Reached by `learnloop upgrade` (default target) from
+    # placement.enabled. Reached by `learnloop upgrade --to mvp-0.11` from
     # mvp-0.10, or from mvp-0.9 through mvp-0.10. [placement] is dormant below
     # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
     # merge (they move only because the effective config gains the section).
@@ -890,10 +896,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
     # The owner's 2026-10-12 decisions amend mvp-0.11 in place (no vault had
     # reached it) without a default change: new
-    # vaults start here (the template's LATEST_ALGORITHM_VERSION), a first
-    # review or a lapse in maintenance is decided by the diagnosis, and
-    # unanswered opening episodes are ignored under placement.
-    "mvp-0.11": "5054e83db3136b7869fed191723e76843f3cd54785c158d5c6e3da27722eaff7",
+    # vaults started here (the template's LATEST_ALGORITHM_VERSION) until
+    # mvp-0.12 merged, a first review or a lapse in maintenance is decided by
+    # the diagnosis, and unanswered opening episodes are ignored under
+    # placement.
+    # Slice 2 T1's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "952394d5412f9cc88f9ae30e15631b53fe179c0d0218bef4be50b614fdc08e64",
+    # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
+    # recurrence groups live (recurrence.enabled, the live same-cause judge
+    # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
+    # card and its escalated-repair request). T1 was built as mvp-0.11 and
+    # relabelled when it merged after Phase 6. Existing vaults reach it by
+    # `learnloop upgrade` (default target) from mvp-0.11, or from
+    # mvp-0.9/mvp-0.10 through the chain, once the same-answer/different-cause
+    # guard passes for the configured judge. New vaults start here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12): their
+    # groups are active from the first answer, built only from the judge's and
+    # the diagnoser's verdicts on their own history.
+    "mvp-0.12": "650592b462d9690de8ee81d8f28de0e71efefe8ba49fc3e4faa44cf7645b3d2c",
 }
 
 
