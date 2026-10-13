@@ -32,6 +32,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_posterior,
     presentation_commit_payload,
     probe_serving_block_reason,
+    record_presentation_forecast,
 )
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
@@ -769,6 +770,7 @@ def build_due_queue(
             vault, explanations, cold_deferrals, readiness_factor
         )
         probe_presentation = None
+        probe_forecast_context: tuple[str, int] | None = None
         if queue:
             selected = queue[0]
             episode = open_episodes.get(selected.learning_object_id)
@@ -827,6 +829,7 @@ def build_due_queue(
                             extra_selection_components=extra_components,
                             clock=clock,
                         )
+                        probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
         ability_by_lo: dict[str, dict[str, object]] = {}
         for explanation in explanations:
             explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
@@ -859,6 +862,22 @@ def build_due_queue(
         candidates = {row["practice_item_id"]: row["id"] for row in repository.scheduler_slate_candidates(slate_id)}
         queue = [replace(scheduled, scheduler_slate_id=slate_id, scheduler_candidate_id=candidates[scheduled.practice_item_id]) for scheduled in queue]
         committed = repository.active_probe_presentation_for_session(session.session_id)
+        if (
+            committed is not None
+            and probe_presentation is not None
+            and probe_forecast_context is not None
+            and committed.practice_item_id == probe_presentation["practice_item_id"]
+        ):
+            # EVSI calibration Part B: the selection's forecast, logged beside
+            # it (no serving change; idempotent per presentation).
+            record_presentation_forecast(
+                vault,
+                repository,
+                committed,
+                learning_object_id=probe_forecast_context[0],
+                candidate_count=probe_forecast_context[1],
+                clock=clock,
+            )
         if committed is not None:
             for scheduled in queue:
                 scheduled.components["probe_committed"] = (

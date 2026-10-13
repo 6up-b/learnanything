@@ -20,6 +20,14 @@ For a hypothesis (triage reason) ``h`` with effective intervention ``e = route(h
     L(h, a) = 0                              if a == e   (no wasted minutes)
     L(h, a) = minutes(a) + minutes(e)        otherwise   (wasted a + delayed e)
 
+The measured-loss regime (EVSI calibration Part C, behind
+``evsi.measured_loss_enabled``, default off) adds what leaving ``h`` unresolved
+costs later, ``U(h)``, to every off-diagonal cell:
+``L(h, a) = minutes(a) + minutes(e) + U(h)``. ``U`` comes from
+:mod:`learnloop.scheduling.unresolved_cost` with its provenance on the cell.
+Without ``unresolved_minutes`` the table, its derivations and its hash are
+exactly today's.
+
 Every cell carries its expected-minutes derivation so the table is inspectable and so
 the registration lint (:func:`assert_derived`) can reject a free-constant entry that
 lacks a derivation -- "a free-constant entry without a derivation fails registration"
@@ -240,13 +248,20 @@ def build_loss_table(
     duration_overrides: Mapping[str, float] | None = None,
     calibration_label: str = "heuristic",
     scope: str = "global",
+    unresolved_minutes: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> LossTable:
     """Derive L(h, a) from triage-route structure + logged attempt durations (§6.2).
 
     ``routes`` are ``failure_triage_routes`` rows (``reason``, ``first_intervention``,
     ...). ``hypotheses`` restricts the reason set (default: every reason with a route).
     The action space is the distinct ``first_intervention`` values across the reasons.
-    Every cell carries a minutes derivation; :func:`assert_derived` then guards it."""
+    Every cell carries a minutes derivation; :func:`assert_derived` then guards it.
+
+    ``unresolved_minutes`` (measured-loss regime, off by default) maps a
+    hypothesis to ``{"minutes": U, ...provenance}``; its off-diagonal cells
+    then also charge ``U`` minutes, carried on the cell as
+    ``unresolved_minutes`` with its ``unresolved_source``. ``None`` leaves the
+    table byte-identical to the minutes-only regime."""
 
     by_reason = _routes_by_reason(routes)
     reasons = tuple(hypotheses) if hypotheses is not None else tuple(sorted(by_reason.keys()))
@@ -282,18 +297,25 @@ def build_loss_table(
             else:
                 wasted = estimates[a].minutes
                 delay = estimates[e].minutes
-                cells[(h, a)] = LossCell(
-                    h, a, wasted + delay,
-                    {
-                        "kind": "ineffective_then_effective",
-                        "wasted_intervention": a,
-                        "wasted_minutes": round(wasted, 6),
-                        "effective_intervention": e,
-                        "delay_minutes": round(delay, 6),
-                        "wasted_source": estimates[a].as_dict(),
-                        "delay_source": estimates[e].as_dict(),
-                    },
-                )
+                derivation: dict[str, Any] = {
+                    "kind": "ineffective_then_effective",
+                    "wasted_intervention": a,
+                    "wasted_minutes": round(wasted, 6),
+                    "effective_intervention": e,
+                    "delay_minutes": round(delay, 6),
+                    "wasted_source": estimates[a].as_dict(),
+                    "delay_source": estimates[e].as_dict(),
+                }
+                total = wasted + delay
+                unresolved = (unresolved_minutes or {}).get(h)
+                if unresolved is not None:
+                    extra = max(float(unresolved.get("minutes") or 0.0), 0.0)
+                    derivation["unresolved_minutes"] = round(extra, 6)
+                    derivation["unresolved_source"] = {
+                        key: value for key, value in sorted(unresolved.items()) if key != "minutes"
+                    }
+                    total += extra
+                cells[(h, a)] = LossCell(h, a, total, derivation)
 
     body = {
         "version": LOSS_TABLE_VERSION,
@@ -343,7 +365,11 @@ def assert_derived(table: LossTable) -> None:
                 raise LossDerivationError(
                     f"loss cell {key} is a free constant (no wasted/delay minutes derivation)"
                 )
-            derived_total = float(d.get("wasted_minutes", 0.0)) + float(d.get("delay_minutes", 0.0))
+            derived_total = (
+                float(d.get("wasted_minutes", 0.0))
+                + float(d.get("delay_minutes", 0.0))
+                + float(d.get("unresolved_minutes", 0.0))
+            )
             if abs(derived_total - cell.minutes) > 1e-6:
                 raise LossDerivationError(
                     f"loss cell {key} minutes {cell.minutes} != derived {derived_total}"

@@ -960,7 +960,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decision: no successor (Codex review F7 rejected, see
     # docs/reviews/t6-followup-codex-review.md); the kill switches restore T6
     # as merged. Every snapshot was recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "a8755db505e2d3b93436bf6741157a427fcea055170a810933f42f4c96e28fc1",
+    # EVSI calibration (docs/reviews/evsi-calibration.md; merged after the T6
+    # follow-up) adds [evsi] (forecast_logging = true, measured_loss_enabled =
+    # false, the shrinkage pseudo-count; modelled defaults, left out of the
+    # decision-only template): the voi_forecasts log is logging only and the
+    # measured loss is off, so no scoring, scheduling, projection or serving
+    # change and no successor. Every snapshot moves only because the effective
+    # config gains the section; all eight were recomputed
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "7c54958de0749771c53b489def2967f59de0d0af7cf9300ad80e66f7ac8b2671",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -979,7 +987,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.10": "29b61d13086d972ec5b4b009d7c0fbb46acf79c78d80b0e99b7ed2f31371b62e",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "9525cb495a0cae1427dafecc7d596a1090ce700207d5391be88d0aecbd9833f5",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1006,7 +1015,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.11": "e7b014f8d254e6eca5e2f2b8ca27c017cd7d16dc8e597b4481bef2e2f5fe45bd",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "96f868c53e72ccbfa1ae4eaa8b75f793431196a54a74271842fbdca17cfc9f4d",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1027,7 +1037,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.12": "310171d163c6c634e47773e982e56eba75bb9a7c764d5be57f033b3c9768934d",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "7f02a2cf99719a3e723132dc9bc1fd0e8e3b775282e240a962dca159c1cea05e",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1043,7 +1054,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.13": "35f3591f0a5237b01bd03ce64b4b9556a6d973d4644d6bc53c706a6f19ec70ff",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.13": "3706c9a4e280b68159dfd51d9e4483c7a0075297ce81081c371d0eff1edeedaa",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1058,7 +1070,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.14": "36ca576d19a9b82f4b1e91e828898960702f82d4a076a08b9ce85c4f51e5ca93",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.14": "879f0103f138b537f4e7f3ba4f458412aa2bb93121ef91034af1252419416e5c",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1071,7 +1084,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.15": "e1fee963970749d5b1aa98803cf8f42f7d786fbe1077aff28085419091a5216e",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.15": "40ce994137088d5a5d46dc1a48a34d613869fe2da3424ec2c089d98e7abf3848",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1090,7 +1104,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # holding-pen sightings, the gap targets the field loader reads).
     # Facet identity's [facet_identity], route and profiles move it too.
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
-    "mvp-0.16": "dbb0b9b14d476f061276a2abc11b94822e8c8a5bd2933bef1b52d88bbf83ab70",
+    # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.16": "96cc56eecfacd308043fa25f91a638a7e0000eb76e3a20e7526899d469f9bf52",
 }
 
 

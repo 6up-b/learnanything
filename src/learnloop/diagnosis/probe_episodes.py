@@ -17,7 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import log
 import json
-from typing import Any, Mapping
+import logging
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import (
@@ -1197,7 +1198,41 @@ def commit_presentation(
     presentation_id = repository.insert_probe_presentation(**payload, clock=clock)
     record = repository.probe_presentation(presentation_id)
     assert record is not None
+    record_presentation_forecast(
+        vault,
+        repository,
+        record,
+        learning_object_id=episode.learning_object_id,
+        candidate_count=len(candidates) if candidates is not None else None,
+        clock=clock,
+    )
     return record
+
+
+def record_presentation_forecast(
+    vault: LoadedVault,
+    repository: Repository,
+    presentation: ProbePresentationRecord,
+    *,
+    learning_object_id: str | None = None,
+    candidate_count: int | None = None,
+    clock: Clock | None = None,
+) -> None:
+    """EVSI calibration Part B: log the forecast this probe selection ran on.
+
+    Logging only (``voi_forecasts``): it never changes the presentation, and
+    a failure to log is swallowed. Idempotent per presentation."""
+
+    from learnloop.diagnosis.voi_forecasting import record_probe_presentation_forecast
+
+    record_probe_presentation_forecast(
+        vault,
+        repository,
+        presentation,
+        learning_object_id=learning_object_id,
+        candidate_count=candidate_count,
+        clock=clock,
+    )
 
 
 def presentation_commit_payload(
@@ -2607,9 +2642,53 @@ def _robust_completion_override(
     decision = robust_selection(
         channel, robust_candidates, posterior.posterior, episode_id=episode.id
     )
+    _record_robust_selection_forecast(
+        vault, repository, episode, channel, decision, robust_candidates, posterior.posterior, qualifying
+    )
     if decision.abstained:
         return "couldnt_reliably_distinguish"
     return None
+
+
+def _record_robust_selection_forecast(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    channel: Any,
+    decision: Any,
+    robust_candidates: Sequence[Any],
+    posterior: Mapping[str, float],
+    observations: int,
+) -> None:
+    """EVSI calibration Part B: log the robust gate's forecast (logging only).
+
+    The chosen candidate's ensemble is rebuilt from the same pinned channel
+    and decision-context hash ``robust_selection`` used, so it is the same
+    ensemble; a failure here never touches the gate's verdict."""
+
+    try:
+        from learnloop.diagnosis.probe_robust import instrument_ensemble
+        from learnloop.diagnosis.voi_forecasting import record_robust_selection_forecast
+
+        ensembles = {}
+        chosen = next((c for c in robust_candidates if c.identifier == decision.chosen_slot), None)
+        if chosen is not None:
+            ensemble, _dch = instrument_ensemble(
+                channel, chosen.instrument, chosen.slot_map, dict(posterior), episode_id=episode.id
+            )
+            ensembles[chosen.identifier] = ensemble
+        record_robust_selection_forecast(
+            vault,
+            repository,
+            episode=episode,
+            decision=decision,
+            candidates=robust_candidates,
+            ensembles=ensembles,
+            posterior=posterior,
+            observations=observations,
+        )
+    except Exception:  # noqa: BLE001 - logging must never change the gate
+        logging.getLogger(__name__).warning("robust selection forecast not recorded", exc_info=True)
 
 
 def _surface_key(vault: LoadedVault, practice_item_id: str) -> str:

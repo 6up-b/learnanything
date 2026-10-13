@@ -594,6 +594,10 @@ def conditional_distribution(
 # but has no estimated discrimination row yet is treated as a mild discriminator.
 _BRIDGE_SENSITIVITY = 0.6
 _BRIDGE_SPECIFICITY = 0.9
+#: Read-only public names for reports that compare these hand-set values with
+#: measured ones (``learnloop evsi simulate``); the model reads the private pair.
+BRIDGE_SENSITIVITY = _BRIDGE_SENSITIVITY
+BRIDGE_SPECIFICITY = _BRIDGE_SPECIFICITY
 
 
 def _fire_probabilities(

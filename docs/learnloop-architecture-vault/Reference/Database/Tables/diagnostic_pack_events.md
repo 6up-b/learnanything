@@ -3,13 +3,13 @@ title: "diagnostic_pack_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
+source_commit_timestamp: "2026-10-13T02:38:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_pack_events"
   - "table diagnostic_pack_events"
-schema_head: 183
+schema_head: 184
 table_name: "diagnostic_pack_events"
 table_role: "receipt"
 functionality_status: "active"

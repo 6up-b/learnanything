@@ -29,6 +29,7 @@ recommendations, but composes no live Today work. Making it live for P2 runs is 
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Mapping, Sequence
 
@@ -42,6 +43,7 @@ from learnloop.scheduling import controller_store as store
 from learnloop.curriculum import depth_transition as DT
 from learnloop.scheduling import evsi as EV
 from learnloop.scheduling import randomization_layer as RL
+from learnloop.scheduling import voi_forecasts as VF
 from learnloop.vault.models import LoadedVault
 
 STAGED_POLICY_VERSION = 1
@@ -491,6 +493,83 @@ def _tiebreak_seed(snapshot_hash: str, experiment_id: str, refs: Sequence[str]) 
     return "|".join(["evsi_tiebreak", snapshot_hash, experiment_id, *sorted(refs)])
 
 
+def _diagnostic_candidates(
+    report: ce.FeasibilityReport, diagnostic: DiagnosticSelector
+) -> tuple[dict[str, cs.Candidate], list[EV.DiagnosticCandidate]]:
+    """The feasible candidates that carry diagnostic material, as EVSI candidates."""
+
+    by_ref = {c.candidate_ref: c for c in report.feasible}
+    diag_candidates: list[EV.DiagnosticCandidate] = []
+    for ref in by_ref:
+        material = diagnostic.candidates.get(ref)
+        if material is None:
+            continue
+        diag_candidates.append(
+            EV.DiagnosticCandidate(
+                ref=ref,
+                members=tuple(material["members"]),
+                prior=material["prior"],
+                expected_minutes=float(material["expected_minutes"]),
+                burden_minutes=float(material.get("burden_minutes", 0.0)),
+            )
+        )
+    return by_ref, diag_candidates
+
+
+def _record_diagnostic_forecast(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    decision_id: str,
+    mode: str,
+    report: ce.FeasibilityReport,
+    diagnostic: DiagnosticSelector,
+    result: EV.RankResult,
+    chosen: cs.Candidate | None,
+    assignment: Mapping[str, Any] | None,
+    clock: Clock | None,
+) -> None:
+    """EVSI calibration Part B: the committed staged diagnostic decision's forecast.
+
+    Recorded once the decision is persisted (reviews F3/F4), so the receipt
+    names the decision, describes the candidate actually committed after the
+    near-tie randomization (with its assignment and propensity), and keeps the
+    ranking's nominal best identifiable beside it. The ``evsi.forecast_logging``
+    kill switch is read before anything is built. Logging only: it never
+    changes the decision, and a failure is swallowed.
+    """
+
+    if not VF.forecast_enabled(vault):
+        return
+    try:
+        by_ref, diag_candidates = _diagnostic_candidates(report, diagnostic)
+        committed = chosen.candidate_ref if chosen is not None else None
+        described = chosen if chosen is not None else by_ref.get(result.best_ref or "")
+        # Staged candidate refs are practice item ids (controller_snapshot).
+        item_id = committed if committed is not None and committed in vault.practice_items else None
+        VF.record_rank_feasible_forecast(
+            repository,
+            vault=vault,
+            site="staged_diagnostic_selection",
+            receipt_key=f"staged_diagnostic_selection:{decision_id}",
+            result=result,
+            candidates=diag_candidates,
+            loss_table=diagnostic.loss_table,
+            chosen_ref=committed,
+            committed=committed is not None,
+            extra={
+                "decision_mode": mode,
+                "assignment": dict(assignment) if assignment is not None else None,
+            },
+            clock=clock,
+            decision_ref=decision_id,
+            learning_object_id=described.learning_object_id if described is not None else None,
+            chosen_practice_item_id=item_id,
+        )
+    except Exception:  # noqa: BLE001 - logging must never change the decision
+        logging.getLogger(__name__).warning("staged diagnostic forecast not recorded", exc_info=True)
+
+
 def _select_diagnostic(
     report: ce.FeasibilityReport,
     diagnostic: DiagnosticSelector,
@@ -507,21 +586,7 @@ def _select_diagnostic(
     (§9.3) breaks the tie with a logged propensity. Returns
     (chosen, selector, ranked, rank_result, assignment)."""
 
-    by_ref = {c.candidate_ref: c for c in report.feasible}
-    diag_candidates: list[EV.DiagnosticCandidate] = []
-    for ref, c in by_ref.items():
-        material = diagnostic.candidates.get(ref)
-        if material is None:
-            continue
-        diag_candidates.append(
-            EV.DiagnosticCandidate(
-                ref=ref,
-                members=tuple(material["members"]),
-                prior=material["prior"],
-                expected_minutes=float(material["expected_minutes"]),
-                burden_minutes=float(material.get("burden_minutes", 0.0)),
-            )
-        )
+    by_ref, diag_candidates = _diagnostic_candidates(report, diagnostic)
     result = EV.rank_feasible(diag_candidates, diagnostic.loss_table)
     ranked_for_trace = [
         (by_ref[r.ref], r.ordinal) for r in result.ranked if r.ref in by_ref
@@ -948,6 +1013,12 @@ def decide(
         candidates=candidate_rows, clock=clock,
     )
     decision_id = written["decision_id"]
+    if evsi_result is not None and diagnostic is not None and not written["already"]:
+        _record_diagnostic_forecast(
+            vault, repository, decision_id=decision_id, mode=mode, report=report,
+            diagnostic=diagnostic, result=evsi_result, chosen=chosen,
+            assignment=evsi_assignment, clock=clock,
+        )
 
     # Shadow predictions: persisted, joined to the snapshot hash, ZERO authority.
     for pred in _run_shadow_scorers(shadow_scorers, snapshot, chosen):

@@ -3,13 +3,13 @@ title: "controller_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
+source_commit_timestamp: "2026-10-13T02:38:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_decisions"
   - "table controller_decisions"
-schema_head: 183
+schema_head: 184
 table_name: "controller_decisions"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
@@ -98,6 +99,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers

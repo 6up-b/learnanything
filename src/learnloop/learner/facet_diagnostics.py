@@ -823,6 +823,16 @@ def _facet_outcome_bucket(outcome: float) -> str:
     return "high"
 
 
+def facet_outcome_bucket(outcome: float) -> str:
+    """The score bucket the facet updater observes for one facet's outcome.
+
+    Public so read-only reports (``learnloop evsi calibration``) score a
+    facet forecast with the same cut points the updater uses.
+    """
+
+    return _facet_outcome_bucket(outcome)
+
+
 def _raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]:
     posterior = normalize_distribution(distribution)
     if entropy(posterior) >= floor or len(posterior) <= 1:

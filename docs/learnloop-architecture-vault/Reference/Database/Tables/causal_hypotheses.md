@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
+source_commit_timestamp: "2026-10-13T02:38:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 183
+schema_head: 184
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -133,6 +133,8 @@ Database triggers:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/recurrence_groups.py`
 
 ### Direct SQL writers
@@ -160,7 +162,7 @@ Database triggers:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
-- `src/learnloop/tutor/durable_promotion.py`
+- `src/learnloop/scheduling/unresolved_cost.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-183. Migration 167 adds the learner-field F1 read model
+184. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -50,8 +50,11 @@ RECEIPT; built as the branch's 177 and renumbered at its merge); migration
 183 adds facet identity's action ledger (`facet_identity_actions`, WORKFLOW:
 each judge-applied merge or absorb with the facets.yaml entries before and
 after it and its undo; built as the branch's 172 and renumbered at its
-merge).
-Built as a backup-API copy of `migration_head_182` with only 183 applied
+merge); migration 184 adds EVSI calibration Part B's `voi_forecasts`
+(RECEIPT, append-only by trigger: the forecast every live
+value-of-information decision ran on; built as the branch's 184 with 181-183
+reserved, so it kept its number at its merge).
+Built as a backup-API copy of `migration_head_183` with only 184 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

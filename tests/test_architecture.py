@@ -79,6 +79,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/router.py",
         # Learner-text gaps: the gap ledger, reversals, queue and receipts.
         "src/learnloop/db/stores/learner_gaps.py",
+        # EVSI calibration Part B: the append-only voi_forecasts receipts.
+        "src/learnloop/db/stores/voi_forecasts.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

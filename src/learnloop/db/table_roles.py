@@ -407,6 +407,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
     ("vault_epigraphs", TableRole.RAW_LEDGER),
+    # EVSI calibration Part B: the forecast a live value-of-information
+    # decision ran on, recorded beside it. A historical decision artifact,
+    # never recomputed (the inputs it froze are gone by rebuild time).
+    ("voi_forecasts", TableRole.RECEIPT),
 )
 
 

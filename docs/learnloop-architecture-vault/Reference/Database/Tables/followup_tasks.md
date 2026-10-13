@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
+source_commit_timestamp: "2026-10-13T02:38:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 183
+schema_head: 184
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/058_remediation_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop_sidecar/handlers/knowledge_map.py"
@@ -117,6 +118,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers
@@ -146,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_remediation_cold_retry.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`

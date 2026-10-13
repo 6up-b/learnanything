@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "12b1ea122b444bc01cf2157f39f945a1d5bf84b5"
-source_commit_timestamp: "2026-10-13T02:13:17-04:00"
+source_commit: "09c9f8d3375a4750bbdd6be835982527e5f687fd"
+source_commit_timestamp: "2026-10-13T02:38:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 183
+schema_head: 184
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/placement/state.py"
@@ -120,6 +121,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/placement/state.py`
@@ -159,6 +161,7 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
