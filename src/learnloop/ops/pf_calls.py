@@ -393,7 +393,8 @@ class PFCaller:
 
     def call(self, entry: RoleClient, *, prompt: str, prompt_version: str,
              result_model: type[BaseModel], output_tokens: int | None = None,
-             candidates: int = 0, pairs: int = 0, retry_invalid_output: bool = True) -> CallResult:
+             candidates: int = 0, pairs: int = 0, retry_invalid_output: bool = True,
+             retry_truncation: bool | None = None) -> CallResult:
         """One isolated, tool-free structured turn (never the vault, files or tools).
 
         ``output_tokens`` None is the role's policy budget (:meth:`output_tokens`).
@@ -406,6 +407,10 @@ class PFCaller:
         without reserving work the plan did not admit. A truncation is still
         logged (``truncations``), with no retry. Transport failures
         (outages, timeouts) are still retried under ``max_retries``.
+        ``retry_truncation`` overrides that for a truncation alone (None
+        follows ``retry_invalid_output``): the hard-case harness counts an
+        invalid output as a failed case but retries a truncation once at
+        double the budget, as the live door does.
         """
         role = entry.role
         if output_tokens is None:
@@ -498,8 +503,9 @@ class PFCaller:
                 # Never accepted: logged with the role and model, then retried
                 # once at double the budget (admitted as a retry), else failed.
                 # retry_invalid_output=False (B1): logged, never retried.
+                retry_cut = retry_invalid_output if retry_truncation is None else retry_truncation
                 retry = truncation.after_truncation(
-                    allowed=retry_invalid_output and self._shared_used("retries") < self.caps.max_retries)
+                    allowed=retry_cut and self._shared_used("retries") < self.caps.max_retries)
                 self.truncations.append(truncation.events[-1])
                 if not retry:
                     raise

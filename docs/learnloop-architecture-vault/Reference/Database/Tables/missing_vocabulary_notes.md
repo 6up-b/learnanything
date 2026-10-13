@@ -3,13 +3,13 @@ title: "missing_vocabulary_notes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite missing_vocabulary_notes"
   - "table missing_vocabulary_notes"
-schema_head: 185
+schema_head: 186
 table_name: "missing_vocabulary_notes"
 table_role: "raw_ledger"
 functionality_status: "active"

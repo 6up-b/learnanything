@@ -2137,8 +2137,17 @@ def current_same_item_failure_streak(repository: Repository, practice_item_id: s
     *repeated current failure* and must not contribute to the intervention gate.
     """
 
+    from learnloop.outcome_contract import HELD_ROW_KEY
+    from learnloop.held_grades import mark_held_attempts
+
     streak = 0
-    for attempt in repository.list_recent_attempts_by_practice_item(practice_item_id, limit=20):
+    for attempt in mark_held_attempts(
+        repository, repository.list_recent_attempts_by_practice_item(practice_item_id, limit=20)
+    ):
+        if attempt.get(HELD_ROW_KEY):
+            # held-grade-evidence F9: a held grade (THE predicate) is neither
+            # a failure nor the success that ends a streak.
+            continue
         if not _attempt_is_failure(attempt):
             break
         streak += 1

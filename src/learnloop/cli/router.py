@@ -89,7 +89,7 @@ def router_log(
         derive_router_outcomes,
         servable_items_by_learning_object,
     )
-    from learnloop.substrate.canonical_projection import pfc_assessments
+    from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -111,6 +111,7 @@ def router_log(
                     connection,
                     pfc_states=pfc_assessments(connection, attempt_ids),
                     servable_items_by_lo=servable_items_by_learning_object(loaded),
+                    held_attempt_ids=held_for_review_attempts(connection),
                 )
             }
             total = connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0]

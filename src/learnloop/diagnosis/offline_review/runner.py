@@ -264,8 +264,15 @@ def eligible_attempts(
                 "SELECT DISTINCT attempt_id FROM attempt_feedback_metadata WHERE fatal_errors_json NOT IN ('[]', '')"
             )
         )
+        # held-grade-evidence: a grade held for review (THE predicate) is no
+        # graded wrong answer: nothing assessed it.
+        from learnloop.held_grades import held_for_review_attempts
+
+        held = held_for_review_attempts(connection, (row["id"] for row in rows))
     eligible = []
     for row in rows:
+        if str(row["id"]) in held:
+            continue
         item = vault.practice_items.get(str(row["practice_item_id"]))
         if item is None or not str(row.get("learner_answer_md") or "").strip():
             continue

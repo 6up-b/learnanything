@@ -3,13 +3,13 @@ title: "coldness_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite coldness_receipts"
   - "table coldness_receipts"
-schema_head: 185
+schema_head: 186
 table_name: "coldness_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -128,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_assumed_known.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_family_memory_projection.py`
+- `tests/test_held_grade_evidence.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`

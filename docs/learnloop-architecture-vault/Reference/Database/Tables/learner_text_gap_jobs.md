@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 185
+schema_head: 186
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_mvp016_upgrade.py`
+- `tests/test_proof_check_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

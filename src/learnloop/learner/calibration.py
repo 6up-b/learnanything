@@ -53,7 +53,15 @@ def difficulty_miscalibration_flags(
 
     samples: dict[str, list[float]] = {}
     learning_objects: dict[str, str | None] = {}
-    for sample in repository.attempt_innovation_samples():
+    rows = repository.attempt_innovation_samples()
+    # held-grade-evidence: a grade held for review (THE predicate) observed
+    # nothing about the item's difficulty.
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository, (row.get("id") for row in rows))
+    for sample in rows:
+        if sample.get("id") in held:
+            continue
         item_id = sample.get("practice_item_id")
         item = vault.practice_items.get(item_id) if item_id else None
         if item is None:

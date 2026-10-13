@@ -177,9 +177,16 @@ def needs_diagnosis(record: Mapping[str, Any]) -> bool:
     diagnosis; a record without that key reads as before.
     """
 
+    support = record.get("grading_support") or {}
+    from learnloop.outcome_contract import grade_held_for_review
+
+    if grade_held_for_review(support):
+        # held-grade-evidence: a grade held for review (nothing assessed,
+        # nothing validated) is no outcome, so there is nothing to explain;
+        # a regrade that releases it writes a record of its own.
+        return False
     if record.get("fatal_errors"):
         return True
-    support = record.get("grading_support") or {}
     if support.get("valid_alternative_gate_applied") and "assessed_shortfall" in support:
         return bool(support["assessed_shortfall"])
     if record.get("error_attributions"):

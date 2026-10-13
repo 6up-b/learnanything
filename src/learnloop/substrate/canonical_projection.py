@@ -79,45 +79,18 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 #
 # Replay reads the row's own interpretation and never reinterprets history; a
 # regrade writes the attempt again under the current rule (the upgrade path).
-UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
-UNVERIFIED_INTERPRETATION_KEY = "unverified_interpretation"
-UNASSESSED_INTERPRETATION = "unassessed"
-
-
-def _attribution_mapping(attribution: Any) -> Mapping[str, Any] | None:
-    if isinstance(attribution, (str, bytes)):
-        try:
-            attribution = json.loads(attribution)
-        except (TypeError, ValueError):
-            return None
-    return attribution if isinstance(attribution, Mapping) else None
-
-
-def unverified_evidence_row(attribution: Any) -> bool:
-    """Whether a grading-evidence row is a PF-c unverified criterion, under
-    either interpretation. ``attribution`` is the row's persisted
-    ``attribution_json``: the JSON text or its decoded mapping."""
-
-    mapping = _attribution_mapping(attribution)
-    return mapping is not None and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
-
-
-def unassessed_evidence_row(attribution: Any) -> bool:
-    """Whether a grading-evidence row is a PF-c criterion written under the
-    unassessed rule (owner decision 2026-10-12).
-
-    Every reader that turns grading evidence into a grade, a facet outcome, a
-    probe feature, a repair verification or a display uses this one test. A
-    row written before the rule (no interpretation mark) is False here: it is
-    read as it was written.
-    """
-
-    mapping = _attribution_mapping(attribution)
-    return (
-        mapping is not None
-        and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
-        and mapping.get(UNVERIFIED_INTERPRETATION_KEY) == UNASSESSED_INTERPRETATION
-    )
+#
+# The stamp and its two row tests are defined in the dependency-free
+# ``learnloop.outcome_contract`` (held-grade-evidence: the held-grade predicate,
+# ``learnloop.held_grades``, reads them, and learner and placement code read it
+# without an edge into this package); they are re-exported here unchanged.
+from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside their rule
+    UNASSESSED_INTERPRETATION,
+    UNVERIFIED_CRITERION_BLOCK,
+    UNVERIFIED_INTERPRETATION_KEY,
+    unassessed_evidence_row,
+    unverified_evidence_row,
+)
 
 
 def pfc_assessment(attributions: Iterable[Any]) -> str | None:
@@ -153,6 +126,18 @@ def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, st
         for attempt_id, rows in values.items()
         if (state := pfc_assessment(rows)) is not None
     }
+
+# held-grade-evidence: THE held-grade predicate over the ledger, defined in the
+# leaf ``learnloop.held_grades`` (readers in learner and placement code import
+# it there) and re-exported here, where the merge composed it.
+from learnloop.held_grades import (  # noqa: E402 - re-exported beside PF-c's state
+    HELD_ROW_KEY,
+    attempt_grade_held,
+    held_attempt_ids,
+    held_for_review_attempts,
+    mark_held_attempts,
+)
+
 
 # Assistance channels that certify nothing (§5.4/§6).
 #

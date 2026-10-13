@@ -1208,6 +1208,7 @@ def record_certification_cold_probe_attempt(
     *,
     grading_source: str | None = None,
     grading_agent_run_id: str | None = None,
+    grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Consume a due probe and record whether the certificate held.
@@ -1222,6 +1223,12 @@ def record_certification_cold_probe_attempt(
 
     Returns the stored row, or None when this attempt is not a probe. Never
     raises: a bookkeeping failure must not fail an attempt.
+
+    ``grade_held_for_review`` is THE held predicate evaluated in flight by the
+    attempt step (held-grade-evidence F3): the blind record is written after
+    this runs, so the step passes it. A probe whose grade is held abstains
+    (``indeterminate``, ``grade_unavailable``, no correctness): it never
+    enters the certification-validation denominator.
     """
 
     try:
@@ -1231,6 +1238,7 @@ def record_certification_cold_probe_attempt(
             attempt,
             grading_source=grading_source,
             grading_agent_run_id=grading_agent_run_id,
+            grade_held_for_review=grade_held_for_review,
             clock=clock,
         )
     except Exception:  # pragma: no cover - hot path must never fail on bookkeeping
@@ -1249,6 +1257,7 @@ def _record_probe_outcome(
     *,
     grading_source: str | None,
     grading_agent_run_id: str | None,
+    grade_held_for_review: bool = False,
     clock: Clock | None,
 ) -> dict[str, Any] | None:
     from learnloop.substrate.canonical_projection import surface_group_id
@@ -1316,6 +1325,14 @@ def _record_probe_outcome(
         verdict, reason = "indeterminate", "assisted_probe"
     elif certificate_state == "withdrawn":
         verdict, reason = "indeterminate", "certificate_withdrawn"
+    elif grade_held_for_review:
+        # held-grade-evidence F3: nothing validated the grade; its score is
+        # the grader's provisional one, so it is no verdict either way. The
+        # grade is unavailable as evidence (migration 139's CHECK fixes the
+        # reason vocabulary), and its provisional score is not recorded as
+        # the probe's correctness.
+        verdict, reason = "indeterminate", "grade_unavailable"
+        correctness = None
     elif correctness is None:
         verdict, reason = "indeterminate", "grade_unavailable"
     else:
@@ -1575,6 +1592,53 @@ class FalseCertificationRate:
         }
 
 
+def effective_cold_probe_outcomes(repository: Repository) -> list[dict[str, Any]]:
+    """The outcome store as every reader takes it NOW (held-grade-evidence,
+    review F2).
+
+    A probe row is an immutable receipt of the verdict recorded when the probe
+    was answered. A later regrade can hold that grade for review (THE
+    predicate over the ledger, ``learnloop.held_grades``): its score is then
+    the grader's provisional one, so while it is held the probe abstains like
+    one held on submission: ``indeterminate``, reason ``grade_held_for_review``,
+    no success, no correctness, out of the rate's denominator and out of the
+    training labels. The stored row is untouched (its verdict stays under
+    ``recorded_verdict`` here), and a release (a validating regrade or an
+    owner adjudication) restores it. A probe held on submission (recorded
+    ``grade_unavailable``) reads with the same reason while it is held, and as
+    recorded once released (a held probe is written once, decision 4). Any
+    other abstention outranks the hold, as on the ladder.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+    from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+    outcomes = repository.certification_cold_probe_outcomes()
+
+    def _abstains_on_grade(row: Mapping[str, Any]) -> bool:
+        return str(row.get("verdict")) in SCORED_VERDICTS or (
+            row.get("indeterminate_reason") == "grade_unavailable"
+        )
+
+    held = held_attempt_ids(
+        repository,
+        (row.get("probe_attempt_id") for row in outcomes if _abstains_on_grade(row)),
+    )
+    effective: list[dict[str, Any]] = []
+    for row in outcomes:
+        if row.get("probe_attempt_id") in held and _abstains_on_grade(row):
+            row = {
+                **row,
+                "recorded_verdict": row.get("verdict"),
+                "verdict": "indeterminate",
+                "indeterminate_reason": GRADE_HELD_FOR_REVIEW,
+                "success": None,
+                "correctness": None,
+            }
+        effective.append(row)
+    return effective
+
+
 def false_certification_rate(
     repository: Repository, *, clock: Clock | None = None
 ) -> FalseCertificationRate:
@@ -1586,9 +1650,12 @@ def false_certification_rate(
     — "certified, but no held-out surface exists to probe with" — lives in
     :func:`certification_cold_probe_report` instead, because it is an authoring
     finding rather than a measurement.
+
+    The store is read through :func:`effective_cold_probe_outcomes`: a probe
+    whose grade is held for review now abstains (review F2).
     """
 
-    outcomes = repository.certification_cold_probe_outcomes()
+    outcomes = effective_cold_probe_outcomes(repository)
     tasks = repository.followup_tasks_of_kind(COLD_PROBE_TASK_KIND)
 
     held = failed = indeterminate = 0
@@ -1675,11 +1742,13 @@ def cold_outcome_labels(repository: Repository) -> list[dict[str, Any]]:
     causal row tests a *repair*, one of these tests a *certificate*.
 
     Abstained probes are excluded — they carry no label, and a training set that
-    treats "not interpretable" as an outcome is worse than a smaller one.
+    treats "not interpretable" as an outcome is worse than a smaller one. So is
+    a probe whose grade is held for review now (review F2,
+    :func:`effective_cold_probe_outcomes`).
     """
 
     labels: list[dict[str, Any]] = []
-    for row in repository.certification_cold_probe_outcomes():
+    for row in effective_cold_probe_outcomes(repository):
         if str(row.get("verdict")) not in SCORED_VERDICTS:
             continue
         labels.append(
@@ -1726,7 +1795,7 @@ def certification_cold_probe_report(
     parameters = resolve_cold_probe_parameters(repository)
     outcomes_by_certificate = {
         str(row.get("certificate_id")): row
-        for row in repository.certification_cold_probe_outcomes()
+        for row in effective_cold_probe_outcomes(repository)
     }
     certified: list[dict[str, Any]] = []
     for learning_object in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
@@ -1841,6 +1910,7 @@ __all__ = [
     "certification_cold_probe_report",
     "cold_outcome_labels",
     "current_certificate",
+    "effective_cold_probe_outcomes",
     "false_certification_rate",
     "probe_window",
     "record_certification_cold_probe_attempt",

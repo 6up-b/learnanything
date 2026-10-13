@@ -132,8 +132,33 @@ PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"
 # prompt (mvp-0.13), the daily plan (mvp-0.14) and probe ties (mvp-0.15). Kill
 # switch: ``learner_text_gaps.sooner_check_enabled``. The rest of the pipeline
 # (names, matches, edges, created prerequisites, holding-pen sightings) is a
-# live change behind its own switches, not version-gated.
+# live change behind its own switches, not version-gated. New vaults started
+# here until mvp-0.17 merged.
 LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
+
+# mvp-0.17 (the valid-alternative gate extended to proofs and explanations,
+# ITS research sweep 2026-10-13), on top of mvp-0.16 (the chain stays linear:
+# mvp-0.17 means the mvp-0.10 split PLUS placement PLUS recurrence groups PLUS
+# the stuck prompt PLUS the plan PLUS probe ties PLUS learner-text gaps PLUS
+# the route check). On an item an LLM reads as proof-like (cached per item
+# content in judgment_ledger), each new blind grade is followed by one
+# independent re-derivation of the learner's own route on a route that is not
+# the grader's model where one is configured; the deterministic gate restores a
+# criterion the grader marked down without locating an error when the check
+# validates the route, records one it disputes on a located step unverified
+# (PF-c's unassessed type; a clarification only when the dispute turns on what
+# the learner meant), and flags a step the grader accepted that the check
+# refutes with a verbatim quote. A grade left with nothing assessed and
+# nothing validated is held for review: the grader's own grade, no evidence,
+# no FSRS review until a regrade or an adjudication settles it. Persisted
+# meaning changes for NEW grades only (the blind record's
+# grading_support.proof_route_check, the restored points, the route-check
+# verdict in judgment_ledger, migration 186's clarification trigger); replay
+# reads every record as written and the projection namespace is unchanged. The
+# branch built it as mvp-0.15 (a placeholder) and it was relabelled mvp-0.17
+# when it merged after probe ties (mvp-0.15) and learner-text gaps (mvp-0.16).
+# Kill switch: ``proof_check.enabled``.
+PROOF_ROUTE_CHECK_ALGORITHM_VERSION = "mvp-0.17"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -151,6 +176,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     DAILY_PLAN_ALGORITHM_VERSION,
     PROBE_TIE_ALGORITHM_VERSION,
     LEARNER_TEXT_GAP_ALGORITHM_VERSION,
+    PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
 )
 
 
@@ -213,6 +239,11 @@ PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION
 # gates must use this set, never equality against
 # LEARNER_TEXT_GAP_ALGORITHM_VERSION.
 LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
+
+# Versions whose blind grades get the proofs-and-explanations route check
+# (behind ``proof_check.enabled``). Every later successor keeps it; gates must
+# use this set, never equality against PROOF_ROUTE_CHECK_ALGORITHM_VERSION.
+PROOF_ROUTE_CHECK_VERSIONS: frozenset[str] = successors_from(PROOF_ROUTE_CHECK_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

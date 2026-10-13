@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from math import log
 import json
 import logging
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import (
@@ -1614,6 +1614,7 @@ def episode_posterior(
     episode: ProbeEpisodeRecord,
     *,
     hypothesis_set: HypothesisSet | None = None,
+    held_attempt_ids: Iterable[str] = (),
 ) -> EpisodePosterior | None:
     """Replay the episode's evidence into the locked-set posterior.
 
@@ -1627,6 +1628,11 @@ def episode_posterior(
     Attempts recorded after an intervention boundary (tutoring transition or
     feedback reveal) belong to a post-intervention state segment and never
     update the pre-intervention diagnostic posterior.
+
+    held-grade-evidence F11: an attempt whose grade is held for review (THE
+    predicate, ``canonical_projection.held_for_review_attempts``, plus
+    ``held_attempt_ids``: the attempt step's in-flight grade, whose blind
+    record is not written yet) moves no posterior, through either channel.
     """
 
     hypothesis_set = hypothesis_set or episode_hypothesis_set(repository, episode)
@@ -1640,6 +1646,10 @@ def episode_posterior(
     observations_by_attempt = {row["attempt_id"]: row for row in observation_rows}
 
     attempts = repository.list_attempts_by_learning_object(episode.learning_object_id)
+    from learnloop.held_grades import held_attempt_ids as _held_attempt_ids
+
+    held = set(_held_attempt_ids(repository, (attempt.get("id") for attempt in attempts)))
+    held.update(str(value) for value in held_attempt_ids)
     qualifying = 0
     total_observations = 0
     entered = parse_utc(episode.entered_at)
@@ -1653,9 +1663,9 @@ def episode_posterior(
         if observation_row is not None:
             observation = observation_row["observation"]
             total_observations += 1
-            if observation.eligible_for_completion:
+            if observation.eligible_for_completion and attempt_id not in held:
                 qualifying += 1
-            if not observation.updates_belief:
+            if not observation.updates_belief or attempt_id in held:
                 continue
             likelihoods = _observation_likelihoods_from_row(vault, repository, episode, attempt, observation_row)
             if likelihoods is not None:
@@ -1690,6 +1700,8 @@ def episode_posterior(
             # without an observation (for example an unapproved grader) falls
             # through as damped belief-only incidental evidence.
         if intervention_at is not None and created is not None and created >= intervention_at:
+            continue
+        if attempt_id in held:
             continue
         likelihoods = _incidental_likelihoods(vault, repository, attempt, hypothesis_set)
         if likelihoods is None:
@@ -1840,6 +1852,7 @@ def record_episode_evidence(
     grading_source: str,
     tutor_contaminated: bool = False,
     ai_client: object | None = None,
+    grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any] | None:
     """Post-persist accounting for one attempt on an in-episode LO.
@@ -1853,8 +1866,14 @@ def record_episode_evidence(
     completion policy, and routing are BLOCK-boundary semantics (§5.7): they
     run through the block-end hook once the attempt closes the active block,
     never per attempt. Returns the hook payload when the block ended.
+
+    ``grade_held_for_review`` is THE held predicate the attempt step
+    evaluated in flight (held-grade-evidence F11): a held answer consumes its
+    presentation but records an observation that moves no posterior and
+    qualifies nothing, and it is no incidental evidence either.
     """
 
+    held_now = (attempt_id,) if grade_held_for_review else ()
     episode = repository.open_probe_episode(learning_object_id)
     if episode is None:
         return None
@@ -1875,10 +1894,11 @@ def record_episode_evidence(
             probe_presentation_id=probe_presentation_id,
             grading_source=grading_source,
             tutor_contaminated=tutor_contaminated,
+            grade_held_for_review=grade_held_for_review,
             clock=clock,
         )
 
-    posterior = episode_posterior(vault, repository, episode)
+    posterior = episode_posterior(vault, repository, episode, held_attempt_ids=held_now)
     if posterior is not None:
         persist_episode_beliefs(vault, repository, episode, posterior, clock=clock)
 
@@ -2128,6 +2148,7 @@ def _record_presentation_observation(
     probe_presentation_id: str,
     grading_source: str,
     tutor_contaminated: bool,
+    grade_held_for_review: bool = False,
     clock: Clock | None,
 ) -> None:
     if repository.probe_observation_for_attempt(attempt_id) is not None:
@@ -2166,6 +2187,47 @@ def _record_presentation_observation(
     # does not exist yet and presentation-linked attempts are not incidental).
     before = episode_posterior(vault, repository, episode, hypothesis_set=hypothesis_set)
     posterior_before = before.posterior if before is not None else dict(hypothesis_set.prior)
+
+    if grade_held_for_review:
+        # held-grade-evidence F11: the answer consumed its presentation, but
+        # its grade is held for review (nothing assessed, nothing validated):
+        # no outcome is classified from the grader's provisional score, the
+        # posterior does not move, nothing qualifies and no probe grade is
+        # dual-written. The observation row records that it was answered.
+        from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+        contamination = _presentation_contamination(
+            attempt_type=attempt_type, hints_used=hints_used, tutor_contaminated=tutor_contaminated,
+        )
+        entropy = _entropy(posterior_before)
+        repository.insert_probe_observation(
+            attempt_id=attempt_id,
+            posterior_before=posterior_before,
+            posterior_after=dict(posterior_before),
+            entropy_before=entropy,
+            entropy_after=entropy,
+            realized_information_gain=0.0,
+            independent_evidence_discount=0.0,
+            contamination=contamination or None,
+            grader_channel={
+                "grader_policy": instrument.grader_policy,
+                "grading_source": grading_source,
+                "observed_outcome": None,
+                GRADE_HELD_FOR_REVIEW: True,
+            },
+            updates_belief=False,
+            eligible_for_completion=False,
+            features={GRADE_HELD_FOR_REVIEW: True},
+            clock=clock,
+        )
+        _record_presentation_activity_fact(
+            vault, repository, episode, presentation, attempt_id=attempt_id,
+            practice_item_id=practice_item_id, attempt_type=attempt_type, hints_used=hints_used,
+            tutor_contaminated=tutor_contaminated, clock=clock,
+        )
+        if contamination:
+            close_diagnostic_segment(repository, episode.id, clock=clock)
+        return
 
     persisted_attempt = repository.fetch_practice_attempt(attempt_id) or {}
     # "I don't know" is an observation outcome, not an attempt channel.  Keep

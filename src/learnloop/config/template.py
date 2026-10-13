@@ -983,7 +983,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # metered passage check can afford its one truncation retry. A spend cap
     # only: no scoring, scheduling, projection or serving change; every
     # snapshot moves because the effective config changed.
-    "mvp-0.9": "352db977ffdfd53e6ae3a2da5ea5dca15d9e45695d7a62016d4eae71246e26d2",
+    # The proofs-and-explanations route check (grading/proof-alternatives,
+    # built as mvp-0.15, a placeholder tag, and relabelled mvp-0.17 at its
+    # merge after EVSI calibration) adds [proof_check] enabled = true
+    # (modelled default, left out of the decision-only template) and the unset
+    # ai.routing.proof_check route. Both are dormant below mvp-0.17 (the
+    # algorithm version gates the check), so mvp-0.9 to mvp-0.16 grading is
+    # unchanged; every snapshot moves only because the effective config gains
+    # them, and all nine were recomputed (defaults_fingerprint_for_version).
+    # It landed on main after RW1a and the passage-check cap, where all nine
+    # were recomputed again from the composed defaults.
+    "mvp-0.9": "f0aa3d1d42b3f903c2ac3dac3c1ba11a5a81378c1870797c72eb34a779c18e41",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1004,7 +1014,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.10": "19644268b874d59b78d0440bb61e2d251197df5dbf49d234be8b7ffc46184582",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.10": "e123e5234cc90026accec67bdce40fc840aca535dc43d106d7c6c9bc3943b566",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1033,7 +1044,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.11": "ea62521ff741273ca856e324b3406b845021ddebd6be2cdb6457f46402c9ecc1",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.11": "b1a512b8c30613252065d71816909b3602b15ca230b55093ccd6867679634190",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1056,7 +1068,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.12": "10c8b441f507a63867186f7c9abb8de0b505f04bdf8d85d505950592cabb49e0",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.12": "d73ecc6c94ad596e19ed44ec399b8fa83a01e67ae12d36652e271d1998fd4e8c",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1074,7 +1087,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.13": "44902d5ba54ebe044c689e5b289136558f89980fb5ef89ce7cab74a20779559f",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.13": "dbc132c4f6311d0bafaa955701775c9861cfa72a43dedac432b0499c9a56836b",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1091,7 +1105,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.14": "69b169e08e9cb2cea7db8c7495983238e2854038552c041015e360e642c0a3f4",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.14": "ff82321000c4334f09265ac6b64031fd9af851189e76fa2f703bb820047584cc",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1106,7 +1121,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.15": "b1ec21a1ecfabbc0884dd92daf5044323f724b8337f321952b6323d8ac906d0d",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.15": "b7daa95a79fbb56389e3bedeb55f7f4420dc26ce94c83c1497b48f5b88784fbc",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1115,8 +1131,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # learner_text_gaps.sooner_check_enabled. Built as mvp-0.13 and relabelled
     # at its merge. Existing vaults reach it by `learnloop upgrade` (default
     # target) from mvp-0.15, or from mvp-0.9 to mvp-0.14 through the chain
-    # (under mvp-0.12's advisory guard). New vaults start here (the template's
-    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12). The rest of
+    # (under mvp-0.12's advisory guard). New vaults started here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.17 merged. The rest of
     # [learner_text_gaps] (modelled defaults only, left out of the
     # decision-only template) and the unset learner_gap_judge /
     # learner_gap_reader / learner_gap_decider routes are live at every
@@ -1127,7 +1144,23 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The T6 follow-up's output budgets and pool move it too (see mvp-0.9).
     # EVSI calibration's [evsi] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW1a's [reader_inquiry] moves it too (see mvp-0.9).
-    "mvp-0.16": "54c448863ba1e1b7b765de73e0a10a5f7d606d957a0b3c8c59970804919cf15d",
+    # The route check's [proof_check] and route move it too (see mvp-0.9).
+    "mvp-0.16": "961e1a1671c0953729baa095c6e3dbb9cf2c39b805504cf29d62e3df7bef0c0f",
+    # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
+    # placeholder tag, and relabelled at its merge): mvp-0.16's split,
+    # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
+    # check plus the valid-alternative gate for proofs and explanations
+    # (proof_check.enabled = true; ai.routing.proof_check unset = the first
+    # configured route with a model other than the grader's): on an item an
+    # LLM reads as proof-like, an independent re-derivation of the learner's
+    # route restores a criterion marked down without a located error, records
+    # one disputed on a located step unassessed, flags an accepted step it
+    # refutes, and holds for review a grade with nothing assessed and nothing
+    # validated. Existing vaults reach it by `learnloop upgrade` (default
+    # target) from mvp-0.16, or from mvp-0.9 to mvp-0.15 through the chain
+    # (under mvp-0.12's advisory guard). New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.17": "10ace18b62c1d224d5466da927672044906568ff315096f4f4f6d2deb86a4a74",
 }
 
 

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -18,7 +18,12 @@ from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
 from learnloop.db.copies import backup_database
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
-from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
+from learnloop.outcome_contract import (
+    COLLECTION_VERSION,
+    GRADE_HELD_FOR_REVIEW,
+    LABEL_VERSION,
+    retention_exclusions,
+)
 from learnloop.substrate.data_quality import inspect_collection, rows, table_names
 
 # Tables that are neither ledgers nor receipts but record captured workflow
@@ -428,16 +433,21 @@ def _index_by(values: Iterable[dict[str, Any]], key: str) -> dict[Any, list[dict
     return index
 
 
-def _cold_receipt_status(derived: dict[str, Any], observed: dict[str, Any]) -> str:
+def _cold_receipt_status(derived: dict[str, Any], observed: dict[str, Any], *, held: bool = False) -> str:
     """Label status of one final coldness receipt.
 
     A qualified, scored cold attempt is observed. Otherwise the receipt's own
     terminal disposition (`derived["outcome"]`, such as `cold_failure`,
     `indeterminate` or `right_censored_expired`) is the status. A receipt that
     records no disposition falls back to its qualification, so a qualified but
-    unscored receipt reads as unscorable rather than unqualified.
+    unscored receipt reads as unscorable rather than unqualified. A cold
+    attempt whose grade is held for review (``held``, THE predicate:
+    held-grade-evidence F6) is never observed: coldness qualifies the
+    attempt, not its grade, and nothing validated the grade.
     """
     qualified = derived.get("qualifies_as_cold_retrieval")
+    if held:
+        return GRADE_HELD_FOR_REVIEW
     if qualified is True and observed.get("correctness") is not None:
         return "observed"
     outcome = derived.get("outcome")
@@ -454,6 +464,7 @@ def _r_next(
     source: dict[str, Any],
     future: dict[str, Any] | None,
     pfc_states: Mapping[str, str] | None = None,
+    held: Collection[str] = frozenset(),
 ) -> dict[str, Any]:
     if future is None:
         return {"status": "pending", "outcome_attempt_id": None, "value": None, "elapsed_seconds": None, "same_item": None, "retention_exclusions": [], "outcome_origin": None}
@@ -466,6 +477,8 @@ def _r_next(
         "outcome_manual_review": future.get("manual_review"),
         "outcome_manual_review_reason": future.get("manual_review_reason"),
         "outcome_pfc_assessment": (pfc_states or {}).get(future["id"]),
+        # held-grade-evidence F6: THE held predicate, as every label reader.
+        "outcome_grade_held_for_review": future["id"] in held,
         "source_session_id": source.get("session_id"),
         "outcome_session_id": future.get("session_id"),
         "intervening_attempt_count": 0,
@@ -473,6 +486,17 @@ def _r_next(
     exclusions = retention_exclusions(pair)
     if future.get("evidence_origin") != "human":
         exclusions = exclusions + ["non_human_outcome"]
+    if future["id"] in held:
+        # No outcome yet: the grader's provisional score is not a label value.
+        return {
+            "status": GRADE_HELD_FOR_REVIEW,
+            "outcome_attempt_id": future["id"],
+            "value": None,
+            "elapsed_seconds": elapsed,
+            "same_item": source["practice_item_id"] == future["practice_item_id"],
+            "retention_exclusions": exclusions,
+            "outcome_origin": future.get("evidence_origin", "unknown"),
+        }
     return {
         "status": "observed" if future.get("correctness") is not None else "unscorable",
         "outcome_attempt_id": future["id"],
@@ -507,6 +531,7 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     # PF-c: an informational review reason, unless nothing was assessed. The
     # state is read from the evidence of every attempt, whatever its review
     # reason says (review F7).
+    from learnloop.held_grades import held_for_review_attempts
     from learnloop.substrate.canonical_projection import pfc_assessments
 
     pfc_states = (
@@ -514,6 +539,8 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
         if "grading_evidence" in tables
         else {}
     )
+    # held-grade-evidence F6: a held grade is no observed label, R_next or R_cold.
+    held = held_for_review_attempts(connection) if "grading_evidence" in tables else frozenset()
     history_by_learning_object = _index_by(attempts, "learning_object_id")
     final_receipts_by_source = _index_by((row for row in read("coldness_receipts") if row["stage"] == "final"), "source_attempt_id")
     opportunities_by_source = _index_by(read("cold_measurement_opportunities"), "source_attempt_id")
@@ -535,10 +562,11 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
             derived = json.loads(receipt["derived_json"])
             observed = attempt_by_id.get(receipt.get("cold_attempt_id"), {})
             qualified = derived.get("qualifies_as_cold_retrieval") is True
+            cold_held = receipt.get("cold_attempt_id") in held
             records.append({
                 "receipt_id": receipt["id"],
-                "status": _cold_receipt_status(derived, observed),
-                "value": observed.get("correctness") if qualified else None,
+                "status": _cold_receipt_status(derived, observed, held=cold_held),
+                "value": observed.get("correctness") if qualified and not cold_held else None,
                 "qualifications": derived,
             })
         terminals = terminal_by_source.get(source_id, [])
@@ -570,7 +598,7 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
                 "collection_version": source.get("collection_version", "legacy-unversioned"),
                 "label_version": LABEL_VERSION,
                 "evidence_origin": source.get("evidence_origin", "unknown"),
-                "R_next": _r_next(source, future, pfc_states),
+                "R_next": _r_next(source, future, pfc_states, held),
                 "R_cold": cold_records(source_id),
                 "Q": {"value": question_counts.get(source_id), "status": "observed_linked_questions" if source_id in question_counts else "unavailable"},
                 "B": {"attempt_latency_seconds": source.get("latency_seconds"), "total_burden_seconds": None, "status": "partial" if source.get("latency_seconds") is not None else "unavailable"},

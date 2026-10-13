@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-185. Migration 167 adds the learner-field F1 read model
+186. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -59,8 +59,14 @@ workbench RW1a) gives `reader_authored_questions` its quick-check scopes
 `inquiry_root_event_id`, `self_check`, and the unique partial index
 `idx_reader_authored_questions_inquiry`; columns only, no rebuild; built as
 RW1a's 189 with 184-188 held for branches in flight, and renumbered at its
-merge).
-Built as a backup-API copy of `migration_head_184` with only 185 applied
+merge); migration 186 rebuilds the append-only `grading_clarifications` (same
+columns, index and trigger) so its `trigger` CHECK also accepts
+`route_check_disagreement` (mvp-0.17's proofs-and-explanations route check;
+built on grading/proof-alternatives as 185 with the placeholder tag mvp-0.15
+while main's merge chain added 181-184, it kept 185 at its merge after 184,
+where its tag became mvp-0.17, and was renumbered 186 when it landed after
+RW1a's 185).
+Built as a backup-API copy of `migration_head_185` with only 186 applied
 (checkpointed, rollback journal, `integrity_check` ok, `foreign_key_check`
 clean). It pins
 current-head schema coverage while the original populated fixture and the

@@ -57,18 +57,19 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_185"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_186"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
 def test_the_plan_successor_keeps_every_predecessor():
     assert DAILY_PLAN_ALGORITHM_VERSION == "mvp-0.14"
-    # Router R1's probe ties (mvp-0.15, tests/test_mvp015_upgrade.py) and
-    # learner-text gaps' sooner check (mvp-0.16, the latest successor,
-    # tests/test_mvp016_upgrade.py) followed it and keep the plan.
-    assert SUCCESSOR_CHAIN[-3] == DAILY_PLAN_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.16"
-    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15", "mvp-0.16"})
+    # Router R1's probe ties (mvp-0.15, tests/test_mvp015_upgrade.py),
+    # learner-text gaps' sooner check (mvp-0.16, tests/test_mvp016_upgrade.py)
+    # and the proofs-and-explanations route check (mvp-0.17, the latest
+    # successor, tests/test_mvp017_upgrade.py) followed it and keep the plan.
+    assert SUCCESSOR_CHAIN[-4] == DAILY_PLAN_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.17"
+    assert DAILY_PLAN_VERSIONS == frozenset({"mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17"})
     # The chain is linear: mvp-0.14 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan.
     for versions in (

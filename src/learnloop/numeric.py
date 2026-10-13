@@ -187,3 +187,55 @@ def binomial_two_sided_p(successes: int, trials: int, p: float = 0.5) -> float:
     # (the mirror image, under p=0.5) is included rather than dropped.
     tolerance = observed * 1e-9
     return min(1.0, sum(pmf(k) for k in range(trials + 1) if pmf(k) <= observed + tolerance))
+
+
+BRIER_DECOMPOSITION_METHOD = "murphy_10_equal_width_bins"
+
+
+def brier_decomposition(
+    outcomes: Sequence[float], forecasts: Sequence[float], *, bins: int = 10
+) -> dict:
+    """Murphy's split of the Brier score: reliability, resolution, uncertainty.
+
+    Over equal-width forecast bins k (the reliability tables' ten), with n_k
+    pairs, mean forecast p̄_k and mean outcome ȳ_k (ȳ overall):
+
+    * ``reliability`` = Σ n_k (p̄_k − ȳ_k)² / n: miscalibration, lower is better;
+    * ``resolution`` = Σ n_k (ȳ_k − ȳ)² / n: how far the forecasts sort the
+      outcomes away from the base rate, higher is better;
+    * ``uncertainty`` = Σ (y − ȳ)² / n: the outcomes' own variance (ȳ(1 − ȳ)
+      for 0/1 outcomes), the same for every forecaster on the same pairs.
+
+    ``brier = reliability − resolution + uncertainty + within_bin``, where
+    ``within_bin`` is the forecasts' spread inside a bin (zero when every
+    forecast in a bin is equal, as with the five confidence levels); it is
+    reported so the split is exact. Outcomes may be fractional.
+    """
+
+    ys = [float(value) for value in outcomes]
+    ps = [float(value) for value in forecasts]
+    if len(ys) != len(ps):
+        raise ValueError("brier_decomposition needs one forecast per outcome")
+    n = len(ys)
+    if not n:
+        return {"method": BRIER_DECOMPOSITION_METHOD, "n": 0, "brier": None, "reliability": None,
+                "resolution": None, "uncertainty": None, "within_bin": None}
+    mean = sum(ys) / n
+    groups: dict[int, list[tuple[float, float]]] = {}
+    for y, p in zip(ys, ps):
+        groups.setdefault(min(int(p * bins), bins - 1), []).append((p, y))
+    reliability = resolution = 0.0
+    for members in groups.values():
+        count = len(members)
+        forecast = sum(p for p, _ in members) / count
+        observed = sum(y for _, y in members) / count
+        reliability += count * (forecast - observed) ** 2
+        resolution += count * (observed - mean) ** 2
+    brier = sum((p - y) ** 2 for y, p in zip(ys, ps)) / n
+    reliability, resolution = reliability / n, resolution / n
+    uncertainty = sum((y - mean) ** 2 for y in ys) / n
+    return {
+        "method": BRIER_DECOMPOSITION_METHOD, "n": n, "brier": brier,
+        "reliability": reliability, "resolution": resolution, "uncertainty": uncertainty,
+        "within_bin": brier - (reliability - resolution + uncertainty),
+    }

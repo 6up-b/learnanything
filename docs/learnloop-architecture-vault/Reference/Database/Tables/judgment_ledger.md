@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 185
+schema_head: 186
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/proof_check.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/facets.py"
   - "src/learnloop/cli/families.py"
-  - "src/learnloop/cli/practice_index.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/proof_check.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/content/facet_identity/actions.py`
@@ -157,13 +158,13 @@ None found by exact static reference scan.
 - `tests/test_facet_identity_composition.py`
 - `tests/test_facet_identity_ingest.py`
 - `tests/test_family_proposals.py`
+- `tests/test_grading_hardcases.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_flow.py`
-- `tests/test_learner_text_gaps_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

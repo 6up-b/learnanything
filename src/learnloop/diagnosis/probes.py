@@ -1279,9 +1279,16 @@ def _probe_phase_attempts(
     entered_at: str | None,
 ) -> list[dict[str, object]]:
     rows = repository.list_recent_attempts_by_learning_object(learning_object_id, limit=100)
+    # held-grade-evidence: a grade held for review (THE predicate) moves no
+    # probe-phase posterior.
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository, (row.get("id") for row in rows))
     entered = parse_utc(entered_at)
     selected: list[dict[str, object]] = []
     for row in rows:
+        if row.get("id") in held:
+            continue
         created = parse_utc(row.get("created_at"))
         if entered is not None and created is not None and created < entered:
             continue

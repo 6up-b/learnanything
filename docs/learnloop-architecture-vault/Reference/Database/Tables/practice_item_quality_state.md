@@ -3,13 +3,13 @@ title: "practice_item_quality_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_quality_state"
   - "table practice_item_quality_state"
-schema_head: 185
+schema_head: 186
 table_name: "practice_item_quality_state"
 table_role: "derived"
 functionality_status: "active"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_doctor.py`
+- `tests/test_held_grade_evidence.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`

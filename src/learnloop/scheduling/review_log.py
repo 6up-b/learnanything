@@ -10,7 +10,7 @@ successive persisted attempts on the item, matching ``_elapsed_days`` reading
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -32,6 +32,11 @@ class ReviewObservation:
     weight: float  # per-attempt-type evidence mass
     observed_at: datetime
     first_review: bool
+    #: False for a grade the proofs route check holds for review (mvp-0.17,
+    #: THE held predicate): the live schedule applied no review for it, though
+    #: its time is the item's last attempt. The fitter neither scores nor
+    #: applies it (held-grade-evidence F8).
+    applies_review: bool = True
 
 
 @dataclass(frozen=True)
@@ -43,7 +48,18 @@ class ReviewLog:
 
 
 def reconstruct_review_log(vault: LoadedVault, repository: Repository) -> ReviewLog:
-    return review_log_from_attempts(vault, repository.list_all_attempts())
+    """The FSRS fitter's review log (``learnloop fit fsrs``).
+
+    held-grade-evidence F8: a grade held for review (THE predicate over the
+    ledger) applied no review on the live schedule, so its observation is
+    marked ``applies_review = False`` and the fitter leaves it out.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+
+    return review_log_from_attempts(
+        vault, repository.list_all_attempts(), held_attempt_ids=held_attempt_ids(repository)
+    )
 
 
 def review_log_from_attempts(
@@ -51,6 +67,7 @@ def review_log_from_attempts(
     rows: Iterable[Mapping[str, Any]],
     *,
     skip_ungraded: bool = False,
+    held_attempt_ids: Collection[str] = frozenset(),
 ) -> ReviewLog:
     """The review log of ``rows`` (``practice_attempts`` rows ordered by item,
     then time, as ``Repository.list_all_attempts`` returns them).
@@ -58,6 +75,9 @@ def review_log_from_attempts(
     ``skip_ungraded`` leaves out attempts with no rubric score (an answer still
     waiting for its grade), counted as skipped, instead of failing on them:
     the router's outcome replayer reads the log on every rebuild (R1, D12).
+    ``held_attempt_ids`` (mvp-0.17) marks the grades the proofs route check
+    holds for review: their observation applies no review
+    (``applies_review``), as on the live schedule.
     """
 
     sequences: dict[str, list[ReviewObservation]] = {}
@@ -96,6 +116,7 @@ def review_log_from_attempts(
             weight=attempt_evidence_mass(row["attempt_type"], vault.config.evidence),
             observed_at=observed_at,
             first_review=previous is None,
+            applies_review=row["id"] not in held_attempt_ids,
         )
         sequences.setdefault(item.id, []).append(observation)
         last_seen[item.id] = observed_at
@@ -118,7 +139,11 @@ def predicted_retrievability_by_attempt(
     exactly as :func:`learnloop.scheduling.fsrs_fitting.review_log_loss` does:
     an attempt's prediction is the forgetting curve of the memory left by the
     item's earlier reviews, after the elapsed days. An item's first review has
-    no memory yet, so it has no prediction (absent from the map).
+    no memory yet, so it has no prediction (absent from the map). An
+    observation that applies no review (a grade held for review, mvp-0.17) is
+    predicted like any other and leaves the memory as it was; the next one's
+    elapsed days still count from it, as the live schedule's
+    ``last_attempt_at`` does.
     """
 
     predictions: dict[str, float] = {}
@@ -129,6 +154,7 @@ def predicted_retrievability_by_attempt(
                 predictions[observation.attempt_id] = forgetting_curve(
                     state.stability, observation.elapsed_days, weights
                 )
-            state = apply_review(state, observation.rating, observation.elapsed_days, weights)
+            if observation.applies_review:
+                state = apply_review(state, observation.rating, observation.elapsed_days, weights)
     return predictions
 

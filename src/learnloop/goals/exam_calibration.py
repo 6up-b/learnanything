@@ -21,6 +21,7 @@ from math import log
 from typing import Any
 
 from learnloop.db.repositories import Repository
+from learnloop.numeric import brier_decomposition
 from learnloop.vault.models import LoadedVault
 
 _EPS = 1e-6
@@ -75,6 +76,11 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
     """Pooled prediction-outcome calibration across all completed exam sessions."""
 
     predictions = repository.all_exam_predictions()
+    # held-grade-evidence F7: a grade held for review (THE predicate) is no
+    # observed outcome, for the item curve, the facets and the duel alike.
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository)
 
     item_pairs: list[tuple[float, float]] = []
     facet_pairs: list[tuple[float, float]] = []
@@ -94,7 +100,7 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
         if answer is None or not answer.get("attempt_id"):
             continue
         attempt = repository.fetch_practice_attempt(answer["attempt_id"])
-        if attempt is None or attempt.get("correctness") is None:
+        if attempt is None or attempt.get("correctness") is None or attempt["id"] in held:
             continue
         outcome = float(attempt["correctness"])
         item_pairs.append((float(prediction["predicted_correctness"]), outcome))
@@ -119,7 +125,7 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
     items["minimum_n"] = MINIMUM_CURVE_N
     items["curve_available"] = items["n"] >= MINIMUM_CURVE_N
 
-    duel_rows = repository.calibration_duel_pairs()
+    duel_rows = [row for row in repository.calibration_duel_pairs() if row["attempt_id"] not in held]
     learner_brier = None
     model_brier = None
     if duel_rows:
@@ -131,6 +137,18 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
             (float(row["model_predicted_correctness"]) - float(row["correctness"])) ** 2
             for row in duel_rows
         ) / len(duel_rows)
+    # Owner 2026-10-13: reliability and resolution reported separately (Murphy's
+    # split of each Brier), and how often the learner gives a confidence at all.
+    outcomes = [float(row["correctness"]) for row in duel_rows]
+    learner_split = brier_decomposition(
+        outcomes,
+        [_ANSWER_CONFIDENCE_PROBABILITY[int(row["answer_confidence"])] for row in duel_rows],
+    )
+    model_split = brier_decomposition(
+        outcomes, [float(row["model_predicted_correctness"]) for row in duel_rows]
+    )
+    presence = repository.answer_confidence_presence(exclude_attempt_ids=held)
+    graded = presence["graded_attempts"]
 
     return {
         "version": 1,
@@ -143,5 +161,13 @@ def calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, 
             "n": len(duel_rows),
             "learner_brier": learner_brier,
             "model_brier": model_brier,
+            "learner_reliability": learner_split["reliability"],
+            "learner_resolution": learner_split["resolution"],
+            "model_reliability": model_split["reliability"],
+            "model_resolution": model_split["resolution"],
+            "uncertainty": learner_split["uncertainty"],
+            "confidence_present": presence["with_confidence"],
+            "confidence_eligible": graded,
+            "confidence_share": presence["with_confidence"] / graded if graded else None,
         },
     }

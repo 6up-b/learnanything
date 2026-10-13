@@ -3,13 +3,13 @@ title: "grading_clarification_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarification_responses"
   - "table grading_clarification_responses"
-schema_head: 185
+schema_head: 186
 table_name: "grading_clarification_responses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/142_grading_clarifications.sql`.
-- **Schema touched by:** `142_grading_clarifications.sql`.
+- **Schema touched by:** `142_grading_clarifications.sql`, `186_route_check_clarification_trigger.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

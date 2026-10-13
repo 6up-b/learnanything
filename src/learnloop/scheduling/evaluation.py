@@ -17,6 +17,7 @@ from learnloop.numeric import percentiles
 from learnloop.scheduling.fsrs import MemoryState, apply_review, forgetting_curve
 from learnloop.scheduling.scheduler import UNAVAILABLE_PROPENSITY_KIND
 from learnloop.params.fitted_params import resolve_fsrs_weights
+from learnloop.held_grades import held_attempt_ids
 from learnloop.substrate.canonical_projection import pfc_assessments
 from learnloop.vault.models import LoadedVault
 
@@ -138,6 +139,10 @@ def build_eval_report(
 
 def _predictions_section(repository: Repository, *, bins: int) -> dict[str, Any]:
     rows = repository.chosen_candidate_outcomes()
+    # held-grade-evidence: a grade held for review (THE predicate) realizes no
+    # outcome for the scheduler's prediction.
+    held = held_attempt_ids(repository, (row["attempt_id"] for row in rows))
+    rows = [row for row in rows if row["attempt_id"] not in held]
     pairs = [(float(row["predicted_correctness"]), float(row["correctness"])) for row in rows]
     ece, table = ece_equal_width(pairs, bins=bins)
 
@@ -188,7 +193,12 @@ def _coverage_section(repository: Repository) -> dict[str, Any]:
 
     slices: dict[str, list[dict[str, float]]] = {"cold": [], "warm": []}
     seen_per_lo: dict[str, int] = {}
-    for row in repository.prediction_interval_rows():
+    interval_rows = repository.prediction_interval_rows()
+    # held-grade-evidence: a held grade (THE predicate) is no observed score.
+    held = held_attempt_ids(repository, (row["attempt_id"] for row in interval_rows))
+    for row in interval_rows:
+        if row["attempt_id"] in held:
+            continue
         dist = row["predicted_score_dist"]
         if not isinstance(dist, dict):
             continue
@@ -316,6 +326,10 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     state_by_item: dict[str, MemoryState] = {}
     last_seen: dict[str, Any] = {}
     skipped = 0
+    # held-grade-evidence: THE held predicate. A held grade applied no review
+    # on the live schedule (its time is still the item's last attempt), and it
+    # is no retention outcome.
+    held = held_attempt_ids(repository)
     for row in repository.item_attempt_history():
         item = vault.practice_items.get(row["practice_item_id"])
         observed_at = parse_utc(row["created_at"])
@@ -327,9 +341,13 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
         rating = fsrs_rating_for_attempt(item, int(row["rubric_score"]), max_points, int(row["hints_used"] or 0))
         previous_at = last_seen.get(item.id)
         elapsed = max(0.0, (observed_at - previous_at).total_seconds() / 86400) if previous_at else 0.0
+        last_seen[item.id] = observed_at
+        if row["id"] in held:
+            if item.id in state_by_item:
+                stability_after[row["id"]] = state_by_item[item.id].stability
+            continue
         state = apply_review(state_by_item.get(item.id), rating, elapsed, weights)
         state_by_item[item.id] = state
-        last_seen[item.id] = observed_at
         stability_after[row["id"]] = state.stability
 
     # Cross-check: reconstructed final stability vs the stored live state.
@@ -362,6 +380,7 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     excluded: dict[str, int] = {}
     for label_row in label_rows:
         label_row["outcome_pfc_assessment"] = pfc_states.get(label_row["outcome_attempt_id"])
+        label_row["outcome_grade_held_for_review"] = label_row["outcome_attempt_id"] in held
         reasons = retention_exclusions(label_row)
         if reasons:
             for reason in reasons:

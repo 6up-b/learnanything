@@ -599,8 +599,15 @@ def proofreading_signal(
     }
     hunt_stats: dict[str, list[int]] = {}
     other_stats: dict[str, list[int]] = {}
-    for attempt in repository.list_all_attempts():
+    # held-grade-evidence: a grade held for review (THE predicate) is neither
+    # a success nor a failure in either rate.
+    from learnloop.outcome_contract import HELD_ROW_KEY
+    from learnloop.held_grades import mark_held_attempts
+
+    for attempt in mark_held_attempts(repository, repository.list_all_attempts()):
         if since is not None and str(attempt.get("created_at") or "") < since:
+            continue
+        if attempt.get(HELD_ROW_KEY):
             continue
         item_id = str(attempt.get("practice_item_id") or "")
         item = vault.practice_items.get(item_id)

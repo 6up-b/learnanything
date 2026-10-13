@@ -419,6 +419,13 @@ class ApplyAttemptInput:
     # gives them no facet mass and no outcome. Replay reads them back from the
     # stamped rows, so live, regrade and replay apply one rule.
     unverified_criterion_ids: tuple[str, ...] = ()
+    # mvp-0.17 (re-review F9): the route check left nothing assessed and
+    # nothing validated the answer, so the grade is the grader's own,
+    # provisional and held for review. While no criterion is assessed the
+    # attempt applies no FSRS review (the item's memory and due date stay as
+    # they were) and is no prediction error; a regrade or an adjudication that
+    # assesses a criterion releases it. Replay reads it from the blind record.
+    grade_held_for_review: bool = False
 
 
 @dataclass(frozen=True)
@@ -466,11 +473,19 @@ class AttemptApplication:
     mastery_state: MasteryState
     facet_recall_states: list[dict[str, Any]]
     facet_uncertainty_states: list[dict[str, Any]]
-    quality_state: dict[str, Any]
+    #: None when the grade is held (held-grade-evidence F10): no row is written.
+    quality_state: dict[str, Any] | None
     ability_transition: dict[str, Any]
     attempt_debug_payload: dict[str, object]
     result: AttemptResult
     item_parameter_state: ItemParameterState | None = None
+    #: held-grade-evidence: THE held predicate (``outcome_contract.
+    #: grade_is_held``) evaluated in flight for the grade being applied. The
+    #: attempt step's own readers (the certification cold probe, the probe
+    #: episode, error-event auto-resolution) read it here, because the live
+    #: door writes the blind record after this step; every later reader reads
+    #: the ledger (``canonical_projection.held_for_review_attempts``).
+    grade_held: bool = False
 
 
 class AttemptServiceNotReady(RuntimeError):
@@ -808,14 +823,20 @@ class GradingCallPlan:
     calls: int
     prompt_version: str | None = None
     estimated_input_tokens_per_call: int = 0
+    #: ``mvp-0.17``: the proof-like reading and route check a blind grade adds
+    #: on its own spend route (review F3); None when it cannot run.
+    proof_check: Any = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "kind": self.kind,
             "calls": self.calls,
             "prompt_version": self.prompt_version,
             "estimated_input_tokens_per_call": self.estimated_input_tokens_per_call,
         }
+        if self.proof_check is not None:
+            payload["proof_check"] = self.proof_check.as_dict()
+        return payload
 
 
 def plan_grading_calls(
@@ -824,14 +845,16 @@ def plan_grading_calls(
     draft: AttemptDraft,
     *,
     clock: Clock | None = None,
+    grader_model: str | None = None,
 ) -> GradingCallPlan:
     """What the practice door would send to a grader for ``draft`` (read-only).
 
     The same decisions as the completion doors, in the same order: an empty
     stuck answer and an unambiguous option letter make no call; otherwise the
     blind (split) or joint prompt is assembled exactly as it would be sent and
-    its input tokens estimated, once per sample. Raises like the doors on an
-    invalid draft.
+    its input tokens estimated, once per sample. A blind grade at ``mvp-0.17``
+    also plans the route check's calls (``grader_model`` picks its route, as
+    the live door does). Raises like the doors on an invalid draft.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
@@ -857,6 +880,8 @@ def plan_grading_calls(
     if split_grading_active(vault):
         from learnloop.attempts.blind_grading import blind_grading_prompt
 
+        from learnloop.attempts.proof_check import plan_proof_check, proof_check_active
+
         blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
         return GradingCallPlan(
             kind="blind",
@@ -864,6 +889,14 @@ def plan_grading_calls(
             prompt_version=blind.prompt_version,
             estimated_input_tokens_per_call=estimated_prompt_tokens(
                 blind_grading_prompt(blind.context)
+            ),
+            proof_check=(
+                plan_proof_check(
+                    vault, repository, item=item, rubric=rubric,
+                    learner_answer_md=draft.learner_answer_md, grader_model=grader_model,
+                )
+                if proof_check_active(vault)
+                else None
             ),
         )
     from learnloop.attempts.ai_contracts import grading_prompt_version
@@ -1152,6 +1185,8 @@ def complete_codex_graded_attempt(
     grader_identity: tuple[str, str] | None = None,
     manual_review_override: str | None = None,
     unverified_criterion_ids: Iterable[str] = (),
+    clarification_override: dict[str, Any] | None = None,
+    grade_held_for_review: bool = False,
     clock: Clock | None = None,
 ) -> AttemptResult:
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -1187,7 +1222,9 @@ def complete_codex_graded_attempt(
         validated = replace(validated, repair_suggestions=[])
     unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
     if unverified:
-        # PF-c: the attempt's grade is over the assessed criteria only.
+        # PF-c: the attempt's grade is over the assessed criteria only. With
+        # nothing assessed and nothing validated (mvp-0.17, re-review F9) it is
+        # the grader's own, held for review.
         validated = replace(
             validated,
             rubric_score=assessed_rubric_score(
@@ -1195,8 +1232,14 @@ def complete_codex_graded_attempt(
                 {row.criterion_id: row.points_awarded for row in validated.criterion_evidence},
                 validated.fatal_errors,
                 unassessed_criterion_ids=unverified,
+                answer_validated=not grade_held_for_review,
             ),
         )
+    if clarification_override and validated.clarification is None:
+        # mvp-0.17: a question the route check licensed (a dispute that turns
+        # on what the learner meant). The grader's own question, if it asked
+        # one, wins: one question per attempt.
+        validated = replace(validated, clarification=dict(clarification_override))
     manual_review_reason = manual_review_override or validated.manual_review_reason
     result = apply_attempt(
         vault,
@@ -1215,6 +1258,7 @@ def complete_codex_graded_attempt(
             grader_mode=grader_mode,
             grader_identity=grader_identity,
             unverified_criterion_ids=unverified,
+            grade_held_for_review=grade_held_for_review,
         ),
         clock=clock,
     )
@@ -1303,6 +1347,7 @@ def replay_existing_attempt(
     )
     error_type = attempt.get("error_type")
     blind_record = repository.latest_blind_grade_record(attempt["id"])
+    from learnloop.attempts.proof_check import record_held_for_review
     return apply_attempt(
         vault,
         repository,
@@ -1341,6 +1386,9 @@ def replay_existing_attempt(
                 else grader_identity
             ),
             unverified_criterion_ids=unverified,
+            # mvp-0.17 (re-review F9): a grade the route check held for review
+            # replays held, from the record it was written with.
+            grade_held_for_review=record_held_for_review(blind_record),
         ),
         clock=clock,
     )
@@ -1624,6 +1672,22 @@ def _complete_blind_graded_attempt(
     run = request_blind_grading_run(
         ai_client, blind.context, rubric=rubric, sample_count=sample_count
     )
+    from learnloop.attempts.proof_check import (
+        checked_calibration_prompt_version,
+        checked_run,
+        is_held_for_review,
+        record_route_check_judgment,
+    )
+
+    # mvp-0.17: on a proof-like item, the independent route check and its
+    # gate (a no-op below mvp-0.17 or with proof_check.enabled = false).
+    run = checked_run(
+        run, vault, repository, item=item, rubric=rubric,
+        learner_answer_md=draft.learner_answer_md, grader_model=_client_model(ai_client),
+        created_at=utc_now_iso(clock),
+        clarification_exchange=blind.context.clarification_exchange,
+    )
+    proof_result = run.proof_check
     try:
         validated = validate_blind_grading_proposal(
             run.proposal,
@@ -1646,7 +1710,10 @@ def _complete_blind_graded_attempt(
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
     record = validated.as_record()
-    support = dict(run.grading_support)
+    from learnloop.attempts.proof_check import revalidated_support
+
+    # held-grade-evidence F1: the shortfall over the grade validation kept.
+    support = revalidated_support(run.grading_support, record, rubric)
     family = family_key(vault, item)
     prior_fractions: list[float] = []
     for row in repository.latest_blind_grade_records().values():
@@ -1663,10 +1730,15 @@ def _complete_blind_graded_attempt(
         prior_fractions=prior_fractions,
         family=family,
     )
+    # mvp-0.17 (review F4): a route-checked grade is calibrated under its own
+    # identity; a grade the grader produced alone keeps the base one.
+    calibration_prompt_version = checked_calibration_prompt_version(
+        blind.calibration_prompt_version, run.grading_support
+    )
     record.update(
         prompt_version=run.prompt_version,
         practice_item_id=item.id,
-        calibration_prompt_version=blind.calibration_prompt_version,
+        calibration_prompt_version=calibration_prompt_version,
         calibration_output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
         samples=run.samples,
         grading_support=support,
@@ -1677,7 +1749,7 @@ def _complete_blind_graded_attempt(
         record[STUCK_READING_KEY] = verified_stuck_reading(
             run.stuck_reading, draft.learner_answer_md
         )
-    identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
+    identity = (calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
     with repository.atomic():
         result = complete_codex_graded_attempt(
             vault,
@@ -1691,8 +1763,16 @@ def _complete_blind_graded_attempt(
             grader_identity=identity,
             manual_review_override=review_override,
             unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
+            clarification_override=proof_result.clarification if proof_result is not None else None,
+            grade_held_for_review=is_held_for_review(support),
             clock=clock,
         )
+        if proof_result is not None and proof_result.judgment is not None:
+            # The route check's agreement or disagreement, with the grade.
+            record_route_check_judgment(
+                repository.connection(), attempt_id=attempt_id,
+                judgment=proof_result.judgment, created_at=utc_now_iso(clock),
+            )
         repository.insert_blind_grade_record(
             attempt_id=attempt_id,
             agent_run_id=agent_run_id,
@@ -2279,6 +2359,8 @@ def _apply_attempt_in_transaction(
         application.attempt_record,
         grading_source=application.result.grading_source,
         grading_agent_run_id=attempt.grading_agent_run_id,
+        # held-grade-evidence F3: a held grade abstains from the label.
+        grade_held_for_review=application.grade_held,
         clock=clock,
     )
     if attempt.draft.primed:
@@ -2429,6 +2511,8 @@ def _apply_attempt_in_transaction(
             hints_used=attempt.draft.hints_used,
             probe_presentation_id=application.attempt_record.get("probe_presentation_id"),
             grading_source=probe_grading_source,
+            # held-grade-evidence F11: a held probe answer moves no posterior.
+            grade_held_for_review=application.grade_held,
             clock=clock,
         )
         if block_end is not None:
@@ -2557,6 +2641,7 @@ def compute_attempt_application(
         fallback_reason=attempt.fallback_reason,
         grader_identity=attempt.grader_identity,
         unassessed_criterion_ids=attempt.unverified_criterion_ids,
+        grade_held_for_review=attempt.grade_held_for_review,
     )
 
 
@@ -3069,15 +3154,32 @@ def _auto_resolve_clean_error_events(
         return []
     if application.error_events:
         return []
+    if application.grade_held:
+        # held-grade-evidence: a held grade (no error event, maybe a high
+        # provisional score) is not a clean attempt.
+        return []
     if float(record.get("correctness") or 0.0) < config.auto_resolve_min_correctness:
         return []
     resolved: list[str] = []
-    for event in repository.active_errors_by_learning_object(record["learning_object_id"]):
+    active = repository.active_errors_by_learning_object(record["learning_object_id"])
+    held: frozenset[str] = frozenset()
+    if active:
+        # ... nor is an earlier one: THE held predicate, over the candidates.
+        from learnloop.held_grades import held_attempt_ids
+
+        held = held_attempt_ids(repository, repository.clean_attempt_ids_since(
+            record["learning_object_id"],
+            since=min(event.created_at for event in active),
+            until=record["created_at"],
+            min_correctness=config.auto_resolve_min_correctness,
+        ))
+    for event in active:
         clean_count = repository.count_clean_attempts_since(
             record["learning_object_id"],
             since=event.created_at,
             until=record["created_at"],
             min_correctness=config.auto_resolve_min_correctness,
+            exclude_attempt_ids=held,
         )
         if clean_count >= config.auto_resolve_clean_attempts and repository.resolve_error_event(
             event.id, clock=clock
@@ -3118,16 +3220,35 @@ def load_attempt_prior_state(
         def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
             return repository.facet_recall_state(learning_object_id, facet, scope)
 
+    # held-grade-evidence: the recent attempts keep every exposure, and each
+    # one the held predicate holds carries ``HELD_ROW_KEY``, so the readers of
+    # their scores (item quality, error severity, familiarity) never read a
+    # held grade as a failure or a success. One ledger query for both lists.
+    from learnloop.outcome_contract import HELD_ROW_KEY
+    from learnloop.held_grades import held_attempt_ids
+
+    recent_lo_attempts = repository.list_recent_attempts_by_learning_object(
+        learning_object_id,
+        limit=max(vault.config.recall_coverage.familiarity_recent_attempt_window, 20),
+    )
+    recent_item_attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5)
+    held = held_attempt_ids(
+        repository, [row.get("id") for row in (*recent_lo_attempts, *recent_item_attempts)]
+    )
+    if held:
+        recent_lo_attempts = [
+            {**row, HELD_ROW_KEY: True} if row.get("id") in held else row for row in recent_lo_attempts
+        ]
+        recent_item_attempts = [
+            {**row, HELD_ROW_KEY: True} if row.get("id") in held else row for row in recent_item_attempts
+        ]
     return AttemptPriorState(
         mastery=mastery,
         active_errors=repository.active_errors_by_learning_object(learning_object_id),
         practice_item_state=repository.practice_item_state(practice_item_id),
         practice_item_quality_state=repository.practice_item_quality_state(practice_item_id),
-        recent_learning_object_attempts=repository.list_recent_attempts_by_learning_object(
-            learning_object_id,
-            limit=max(vault.config.recall_coverage.familiarity_recent_attempt_window, 20),
-        ),
-        recent_practice_item_attempts=repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5),
+        recent_learning_object_attempts=recent_lo_attempts,
+        recent_practice_item_attempts=recent_item_attempts,
         aggregate_facet_recall={facet: _recall(facet) for facet in facet_ids},
         item_facet_recall={
             facet: _recall(facet, practice_item_id) for facet in facet_ids
@@ -3160,6 +3281,7 @@ def _compute_resolved_grade_application(
     fallback_reason: str | None = None,
     grader_identity: tuple[str, str] | None = None,
     unassessed_criterion_ids: Iterable[str] = (),
+    grade_held_for_review: bool = False,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -3187,6 +3309,16 @@ def _compute_resolved_grade_application(
     # No assessed criterion left in the vector (the learner field's test too):
     # never the legacy "no criterion information" reading of an empty vector.
     nothing_assessed = bool(unassessed) and not criterion_points
+    # mvp-0.17 (re-review F9): nothing assessed AND nothing validated the
+    # answer. The grade is the grader's provisional one, held for review: no
+    # FSRS review and no prediction error until a regrade or an adjudication
+    # assesses a criterion (which ends ``nothing_assessed`` and the hold).
+    # held-grade-evidence: THE predicate, in flight (the ledger evaluates the
+    # same one); nor is it any other evidence: no error event, no item-quality
+    # move, no clean attempt, no probe observation, no certification label.
+    from learnloop.outcome_contract import grade_is_held
+
+    held = grade_is_held(record_held=grade_held_for_review, anything_assessed=bool(criterion_points))
     # Which facets the unassessed criteria alone account for comes from the
     # rubric's observation contract (the projection's map), never the item's
     # lexical inference: on most items that maps nothing and the attempt's
@@ -3255,6 +3387,13 @@ def _compute_resolved_grade_application(
         *grade.attribution_audit_events,
         *write_barrier_events,
     ]
+    if held:
+        # held-grade-evidence: a held grade asserts no learner error. Its
+        # attributions stay on the blind record (the grader's reading, shown
+        # with the grade) but write no error event and no error type: an
+        # active error would steer the scheduler, the probes and the
+        # severity of later answers on a grade nothing validated.
+        grade_attributions = []
     primary_error_type = _primary_error_type(grade_attributions)
     item_a, item_b = resolve_item_irt_params(
         item, learning_object, vault.config.mastery, prior_state.item_parameter_state
@@ -3478,6 +3617,11 @@ def _compute_resolved_grade_application(
         item_a=item_a,
         item_b=item_b,
     )
+    if held:
+        # A held grade rests on mark-downs nobody located (P1): it is no
+        # prediction error, so neither the follow-up gate nor the re-probe
+        # trigger reads it as one, and it stretches no interval.
+        surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
 
     previous_state = prior_state.practice_item_state
     fsrs_rating = fsrs_rating_for_attempt(item, grade.rubric_score, rubric.max_points, draft.hints_used)
@@ -3512,7 +3656,10 @@ def _compute_resolved_grade_application(
         primed=draft.primed,
         hints_used=draft.hints_used,
     )
-    if causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
+    # A grade held for review (re-review F9) leaves the item's scheduling
+    # state exactly as it was, as an ineligible observation does (§3.8),
+    # until a regrade or an adjudication assesses a criterion.
+    if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
         eligible=observation_eligible,
         algorithm_version=vault.config.algorithms.algorithm_version,
@@ -3616,27 +3763,35 @@ def _compute_resolved_grade_application(
         algorithm_version=vault.config.algorithms.algorithm_version,
         now_iso=now_iso,
     )
+    from learnloop.outcome_contract import HELD_ROW_KEY
+
     recent_item_failures = sum(
         1
         for attempt in prior_state.recent_practice_item_attempts
         if attempt.get("id") != attempt_id
+        # held-grade-evidence: a held grade is neither failure nor success.
+        if not attempt.get(HELD_ROW_KEY)
         if attempt.get("attempt_type") == "dont_know" or float(attempt.get("correctness") or 0.0) <= 0.40
     )
-    quality_state = build_quality_state_update_from_prior(
-        prior_state.practice_item_quality_state,
-        recent_failures=recent_item_failures,
-        item_id=item.id,
-        prior_mastery=prior_mastery,
-        correctness=correctness,
-        grader_confidence=grade.grader_confidence,
-        now_iso=now_iso,
-        algorithm_version=vault.config.algorithms.algorithm_version,
-        assessment_side_error=any(
-            (map_legacy_error_type(attribution.error_type) or attribution.error_type)
-            in ASSESSMENT_SIDE_ERROR_TYPES
-            for attribution in resolved_attributions
-        ),
-    )
+    # held-grade-evidence (F10): a held grade is no evidence about the item
+    # either; its quality state stays exactly as it was (no row is written).
+    quality_state: dict[str, Any] | None = None
+    if not held:
+        quality_state = build_quality_state_update_from_prior(
+            prior_state.practice_item_quality_state,
+            recent_failures=recent_item_failures,
+            item_id=item.id,
+            prior_mastery=prior_mastery,
+            correctness=correctness,
+            grader_confidence=grade.grader_confidence,
+            now_iso=now_iso,
+            algorithm_version=vault.config.algorithms.algorithm_version,
+            assessment_side_error=any(
+                (map_legacy_error_type(attribution.error_type) or attribution.error_type)
+                in ASSESSMENT_SIDE_ERROR_TYPES
+                for attribution in resolved_attributions
+            ),
+        )
     ability_transition = estimate_ability_transition(
         item,
         correctness=correctness,
@@ -3751,7 +3906,9 @@ def _compute_resolved_grade_application(
         "max_error_severity": max_event_severity,
         "primary_error_type": primary_error_type,
         "prior_bad_item_suspicion": prior_bad_item_suspicion,
-        "bad_item_suspicion": quality_state["bad_item_suspicion"],
+        "bad_item_suspicion": (
+            quality_state["bad_item_suspicion"] if quality_state is not None else prior_bad_item_suspicion
+        ),
         "severity_traces": severity_traces,
         "predicted_correctness": expected_correctness,
         "prediction_trace": prediction_trace,
@@ -3760,6 +3917,8 @@ def _compute_resolved_grade_application(
         "facet_uncertainty_trace": facet_uncertainty_trace,
         "ability_transition": ability_transition,
         "primed": draft.primed,
+        # mvp-0.17 (re-review F9): a grade held for review applied no review.
+        **({"grade_held_for_review": True} if held else {}),
         # Non-None only when the ledger forced it: the summed reveal amount on
         # this item since its last attempt. This is the audit trail for "why is
         # an attempt the learner submitted as unassisted recorded as primed?".
@@ -3831,6 +3990,7 @@ def _compute_resolved_grade_application(
         attempt_debug_payload=debug_payload,
         result=result,
         item_parameter_state=next_item_parameters,
+        grade_held=held,
     )
 
 
@@ -4243,6 +4403,7 @@ def assessed_rubric_score(
     fatal_errors: Iterable[str],
     *,
     unassessed_criterion_ids: Iterable[str],
+    answer_validated: bool = True,
 ) -> int:
     """The grade over the ASSESSED criteria only (PF-c, owner decision 2026-10-12).
 
@@ -4258,12 +4419,19 @@ def assessed_rubric_score(
     the fraction is 1: correct for scheduling (the attempt writes no facet
     evidence; see ``_compute_resolved_grade_application``).
 
+    ``answer_validated = False`` (mvp-0.17, re-review F9): nothing validated
+    the answer (no verified final answer, no criterion an independent check
+    established), so an empty assessed set is not a verified answer. The
+    grade is then the grader's own over every criterion, provisional and held
+    for review: it earns no credit it was never shown to deserve, and the
+    attempt step applies no review on it (``grade_held_for_review``).
+
     With nothing unassessed this is :func:`calculate_rubric_score` exactly.
     """
 
     unassessed = {str(value) for value in unassessed_criterion_ids}
     assessed = [criterion for criterion in rubric.criteria if criterion.id not in unassessed]
-    if len(assessed) == len(rubric.criteria):
+    if len(assessed) == len(rubric.criteria) or (not assessed and not answer_validated):
         return calculate_rubric_score(rubric, dict(criterion_points), list(fatal_errors))
     assessed_max = sum(max(float(criterion.points), 0.0) for criterion in assessed)
     fraction = 1.0

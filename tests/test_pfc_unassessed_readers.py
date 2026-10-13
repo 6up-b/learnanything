@@ -481,7 +481,7 @@ def _as_the_base_implementation_wrote_it(patch) -> None:
             )
         return original_apply(vault, repository, attempt, clock=clock, **kwargs)
 
-    def base_score(rubric, points, fatal_errors, *, unassessed_criterion_ids):
+    def base_score(rubric, points, fatal_errors, *, unassessed_criterion_ids, answer_validated=True):
         return attempts_module.calculate_rubric_score(rubric, dict(points), list(fatal_errors))
 
     original_run = support_module.request_blind_grading_run

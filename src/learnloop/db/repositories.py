@@ -3013,6 +3013,7 @@ class Repository(
         since: str,
         until: str,
         min_correctness: float,
+        exclude_attempt_ids: Iterable[str] = (),
     ) -> int:
         """Count "clean" attempts on a learning object in ``(since, until]``.
 
@@ -3021,9 +3022,14 @@ class Repository(
         equivalent to "wrote no error events"), and not a ``dont_know``/``skip``
         self-diagnosis. Bounding by ``until`` (the triggering attempt's
         ``created_at``) keeps the count reproducible under replay, where future
-        attempts still exist in ``practice_attempts``.
+        attempts still exist in ``practice_attempts``. ``exclude_attempt_ids``
+        are never counted (the caller's held grades: no outcome at all).
         """
 
+        excluded = sorted({str(value) for value in exclude_attempt_ids if value})
+        exclusion = (
+            f" AND id NOT IN ({','.join('?' for _ in excluded)})" if excluded else ""
+        )
         with self.connection() as connection:
             row = connection.execute(
                 """
@@ -3035,10 +3041,36 @@ class Repository(
                   AND correctness >= ?
                   AND error_type IS NULL
                   AND attempt_type NOT IN ('dont_know', 'skip')
-                """,
-                (learning_object_id, since, until, min_correctness),
+                """
+                + exclusion,
+                (learning_object_id, since, until, min_correctness, *excluded),
             ).fetchone()
         return int(row["clean_count"])
+
+    def clean_attempt_ids_since(
+        self,
+        learning_object_id: str,
+        *,
+        since: str,
+        until: str,
+        min_correctness: float,
+    ) -> list[str]:
+        """The attempts :meth:`count_clean_attempts_since` would count."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id FROM practice_attempts
+                WHERE learning_object_id = ?
+                  AND created_at > ?
+                  AND created_at <= ?
+                  AND correctness >= ?
+                  AND error_type IS NULL
+                  AND attempt_type NOT IN ('dont_know', 'skip')
+                """,
+                (learning_object_id, since, until, min_correctness),
+            ).fetchall()
+        return [str(row["id"]) for row in rows]
 
     def resolve_error_event(self, event_id: str, *, clock: Clock | None = None) -> bool:
         now = utc_now_iso(clock)
@@ -3078,7 +3110,8 @@ class Repository(
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT a.practice_item_id AS practice_item_id,
+                SELECT a.id AS id,
+                       a.practice_item_id AS practice_item_id,
                        a.learning_object_id AS learning_object_id,
                        a.rubric_score AS rubric_score,
                        s.predicted_score_dist_json AS predicted_score_dist_json
@@ -3115,6 +3148,36 @@ class Repository(
                 """
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def answer_confidence_presence(self, *, exclude_attempt_ids: Iterable[str] = ()) -> dict[str, int]:
+        """How often an ordinary graded attempt carries a pre-answer confidence tap.
+
+        The duel's denominator: graded, unprimed, unhinted ordinary attempts
+        (the duel's own exclusions, without its scheduler-candidate match).
+        ``exclude_attempt_ids`` are not graded attempts here (the caller's
+        held grades).
+        """
+
+        excluded = sorted({str(value) for value in exclude_attempt_ids if value})
+        exclusion = f" AND a.id NOT IN ({','.join('?' for _ in excluded)})" if excluded else ""
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS graded,
+                       COALESCE(SUM(a.answer_confidence IS NOT NULL), 0) AS with_confidence
+                FROM practice_attempts a
+                WHERE a.correctness IS NOT NULL
+                  AND COALESCE(a.primed, 0) = 0
+                  AND COALESCE(a.hints_used, 0) = 0
+                  AND a.attempt_type NOT IN (
+                    'hinted_attempt', 'guided_walkthrough', 'self_report',
+                    'dont_know', 'skip'
+                  )
+                """
+                + exclusion,
+                excluded,
+            ).fetchone()
+        return {"graded_attempts": int(row["graded"]), "with_confidence": int(row["with_confidence"])}
 
     def pending_followup_practice_item_ids(self, *, clock: Clock | None = None) -> list[str]:
         """Return queued follow-up item ids that have not yet been attempted."""
@@ -7466,29 +7529,46 @@ class Repository(
         return observation_id
 
     def qualifying_probe_observation_count_for_session(self, session_id: str) -> int:
-        """Qualifying diagnostic observations recorded in one session (§5.9 cap)."""
+        """Qualifying diagnostic observations recorded in one session (§5.9 cap).
+
+        held-grade-evidence (review F3): an observation whose grade a later
+        regrade holds for review qualifies nothing while it is held."""
+
+        from learnloop.held_grades import held_for_review_attempts
 
         with self.connection() as connection:
-            row = connection.execute(
-                """
-                SELECT COUNT(*) AS count
-                FROM probe_observations o
-                JOIN practice_attempts a ON a.id = o.attempt_id
-                WHERE a.session_id = ? AND o.eligible_for_completion = 1
-                """,
-                (session_id,),
-            ).fetchone()
-        return int(row["count"])
+            attempt_ids = [
+                str(row["attempt_id"])
+                for row in connection.execute(
+                    """
+                    SELECT o.attempt_id
+                    FROM probe_observations o
+                    JOIN practice_attempts a ON a.id = o.attempt_id
+                    WHERE a.session_id = ? AND o.eligible_for_completion = 1
+                    """,
+                    (session_id,),
+                ).fetchall()
+            ]
+            held = held_for_review_attempts(connection, attempt_ids) if attempt_ids else frozenset()
+        return sum(1 for attempt_id in attempt_ids if attempt_id not in held)
 
     def qualifying_probe_observation_count(self) -> int:
         """Qualifying diagnostic observations across the whole vault (§5.9
-        time-to-first-ordinary-practice ceiling)."""
+        time-to-first-ordinary-practice ceiling), held ones excluded (review F3)."""
+
+        from learnloop.held_grades import held_for_review_attempts
 
         with self.connection() as connection:
-            row = connection.execute(
-                "SELECT COUNT(*) AS count FROM probe_observations WHERE eligible_for_completion = 1"
-            ).fetchone()
-        return int(row["count"])
+            attempt_ids = [
+                str(row["attempt_id"])
+                for row in connection.execute(
+                    "SELECT attempt_id FROM probe_observations WHERE eligible_for_completion = 1"
+                ).fetchall()
+            ]
+            # Every held attempt in one read (the set is small); none when
+            # nothing qualifies.
+            held = held_for_review_attempts(connection) if attempt_ids else frozenset()
+        return sum(1 for attempt_id in attempt_ids if attempt_id not in held)
 
     def ordinary_practice_attempt_count(self) -> int:
         """Attempts recorded outside the diagnostic/exam channels (§5.9): the
@@ -7505,18 +7585,32 @@ class Repository(
         return int(row["count"])
 
     def probe_observation_for_attempt(self, attempt_id: str) -> ProbeObservationRecord | None:
+        """One observation AS RECORDED (its receipt): existence checks and the
+        grader-agreement regrade check read it. Readers of episode evidence read
+        :meth:`probe_observations_for_episode`, the effective view."""
+
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM probe_observations WHERE attempt_id = ?", (attempt_id,)
             ).fetchone()
         return _probe_observation_record(row) if row is not None else None
 
-    def probe_observations_for_episode(self, probe_episode_id: str) -> list[dict[str, Any]]:
+    def probe_observations_for_episode(
+        self, probe_episode_id: str, *, as_recorded: bool = False
+    ) -> list[dict[str, Any]]:
         """Observations joined through attempt → presentation → episode (§5.1).
 
         Episode progress is always derived from this join, never cached. Each row
         is the observation record dict plus its attempt and presentation context.
+
+        held-grade-evidence (review F3): the rows are the EFFECTIVE view
+        (``held_grades.effective_probe_observation_rows``). An observation whose
+        grade a later regrade holds for review reads, while it is held, as one
+        held on submission is written: no belief update, not qualifying, no
+        joined score. ``as_recorded=True`` returns the stored flags (the receipt).
         """
+
+        from learnloop.held_grades import effective_probe_observation_rows
 
         with self.connection() as connection:
             rows = connection.execute(
@@ -7544,7 +7638,10 @@ class Repository(
             payload["selection_components"] = _loads(row["selection_components_json"], {})
             payload["instrument_card_snapshot"] = _loads(row["instrument_card_snapshot_json"], None)
             results.append(payload)
-        return results
+        if as_recorded or not results:
+            return results
+        with self.connection() as connection:
+            return effective_probe_observation_rows(connection, results)
 
     def list_probe_episodes(self, *, statuses: tuple[str, ...] | None = None) -> list[ProbeEpisodeRecord]:
         """All episodes, oldest first, optionally filtered by status."""
@@ -9261,7 +9358,7 @@ class Repository(
         with self.connection() as connection:
             rows = connection.execute(
                 f"""
-                SELECT practice_item_id, rubric_score, correctness, created_at
+                SELECT id, practice_item_id, rubric_score, correctness, created_at
                 FROM practice_attempts
                 WHERE practice_item_id IN ({placeholders})
                 ORDER BY created_at, id
@@ -9270,6 +9367,7 @@ class Repository(
             ).fetchall()
         return [
             {
+                "id": row["id"],
                 "practice_item_id": row["practice_item_id"],
                 "rubric_score": row["rubric_score"],
                 "correctness": row["correctness"],

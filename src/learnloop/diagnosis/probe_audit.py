@@ -226,15 +226,20 @@ def downstream_outcome_report(repository: Repository) -> dict[str, Any]:
     completion. A retention/transfer *proxy*, not a causal estimate — there is
     no counterfactual at n = 1."""
 
+    from learnloop.held_grades import held_attempt_ids
+
     episodes: list[dict[str, Any]] = []
     for episode in repository.list_probe_episodes(statuses=("complete",)):
         if episode.completed_at is None:
             continue
         before: list[bool] = []
         after: list[bool] = []
-        for attempt in repository.list_attempts_by_learning_object(episode.learning_object_id):
+        attempts = repository.list_attempts_by_learning_object(episode.learning_object_id)
+        # held-grade-evidence: a held grade (THE predicate) is no outcome.
+        held = held_attempt_ids(repository, (attempt.get("id") for attempt in attempts))
+        for attempt in attempts:
             created_at = attempt.get("created_at")
-            if not created_at:
+            if not created_at or attempt.get("id") in held:
                 continue
             if attempt.get("attempt_type") == "diagnostic_probe":
                 continue

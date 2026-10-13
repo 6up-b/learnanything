@@ -277,6 +277,8 @@ source_modules = [
     "learnloop.field.success_head",
     # Router R0: the llm_probability arms read only their prepared cache.
     "learnloop.field.probability_arms",
+    # Owner 2026-10-13: the offline answer-signal arms read only replay rows.
+    "learnloop.field.answer_signals",
 ]
 forbidden_modules = [
     "learnloop.db",

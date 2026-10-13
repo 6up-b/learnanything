@@ -166,15 +166,68 @@ def _rich_stream(n=90, seed=11):
     return rows
 
 
+#: What the offline answer-signal arms (owner 2026-10-13) add to a report: the
+#: arms themselves, the Brier split on every metric block, two split
+#: dimensions, four counts and one limitation block. Everything else is
+#: unchanged.
+_ANSWER_SIGNAL_SPLITS = ("answer_confidence", "answer_hedging")
+_ANSWER_SIGNAL_COUNTS = ("answer_confidence_present", "answer_hedging_read",
+                         "answer_confidence_share", "answer_hedging_share")
+
+
+def _without_answer_signals(report):
+    """The report as the harness wrote it before the answer-signal arms."""
+    import copy
+
+    from learnloop.field.answer_signals import ARM_NAMES, default_pairs
+    from learnloop.field.evaluation import ANSWER_SIGNAL_LIMITATIONS
+
+    added = {*ARM_NAMES.values(), *(name for pair in default_pairs() for name in pair
+                                    if "+answer_" in name)}
+    out = copy.deepcopy(report)
+
+    def strip(metrics):
+        metrics.pop("brier_decomposition", None)
+        return metrics
+
+    for name in list(out["report1"]["arms"]):
+        if name in added:
+            del out["report1"]["arms"][name]
+            continue
+        values = out["report1"]["arms"][name]
+        strip(values["overall"])
+        for dimension in _ANSWER_SIGNAL_SPLITS:
+            values["splits"].pop(dimension, None)
+        for groups in values["splits"].values():
+            for metrics in groups.values():
+                strip(metrics)
+    for section in (out["report2"]["arms"], out["report1"]["comparisons"],
+                    out["manifest"]["arm_hashes"], out["manifest"]["arm_models"]):
+        for name in added:
+            section.pop(name, None)
+    for key in _ANSWER_SIGNAL_COUNTS:
+        out["counts"].pop(key, None)
+    out["report1"]["limitations"] = [
+        text for text in out["report1"]["limitations"] if text not in ANSWER_SIGNAL_LIMITATIONS
+    ]
+    return out
+
+
 def test_the_cluster_option_leaves_every_other_report_byte_identical():
     # Digests and the interval recorded on the pre-change harness (d154f85e):
-    # the item-cluster bootstrap is additive and only T8 passes clusters.
+    # the item-cluster bootstrap is additive and only T8 passes clusters. The
+    # answer-signal arms (owner 2026-10-13) are additive too: stripped of what
+    # they add, every report still hashes to the digest recorded before them.
     rows = _rich_stream()
-    assert report_digest(evaluate(rows, bootstrap_samples=50, seed=3)) == (
+    default = evaluate(rows, bootstrap_samples=50, seed=3)
+    assert report_digest(_without_answer_signals(default)) == (
         "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
-    assert report_digest(evaluate(rows, bootstrap_samples=50, seed=3, bootstrap_unit="attempt")) == (
+    attempt_unit = evaluate(rows, bootstrap_samples=50, seed=3, bootstrap_unit="attempt")
+    assert report_digest(_without_answer_signals(attempt_unit)) == (
         "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
-    assert report_digest(evaluate(rows, arms=family_arms(), bootstrap_samples=50, seed=3)) == (
+    assert report_digest(attempt_unit) == report_digest(default)
+    families = evaluate(rows, arms=family_arms(), bootstrap_samples=50, seed=3)
+    assert report_digest(_without_answer_signals(families)) == (
         "f2f30485ff38a9bd9c8d5360579a2e502542c60cb83fc289a5f08e452960c74e")
     values = np.random.default_rng(4).normal(size=37)
     recorded = {"n": 37, "mean": -0.07428148868918777,

@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3e59d8770656c1d9ce7dcb887fb5af83c7a7f59d"
-source_commit_timestamp: "2026-10-13T09:20:49-04:00"
+source_commit: "9c3fe435d37f0c6dd845aabefb8b20b08ea47fb7"
+source_commit_timestamp: "2026-10-13T09:45:30-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 185
+schema_head: 186
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_regrade.py`
 - `tests/test_characterization_probe_replay.py`
 - `tests/test_characterization_probe_submission.py`
+- `tests/test_held_grade_evidence.py`
 - `tests/test_probe_attempt_updates.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_episodes.py`

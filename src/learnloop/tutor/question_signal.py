@@ -244,7 +244,7 @@ def _base_failure_rate(repository: Repository) -> float:
     base_n = 0
     base_failures = 0
     for learning_object_id in repository.learning_object_ids_with_attempts():
-        for attempt in repository.list_attempts_by_learning_object(learning_object_id):
+        for attempt in _scored(repository, repository.list_attempts_by_learning_object(learning_object_id)):
             base_n += 1
             if _attempt_failed(attempt):
                 base_failures += 1
@@ -545,10 +545,22 @@ def _first_attempt_at_or_after(
 ) -> dict[str, Any] | None:
     candidates = [
         attempt
-        for attempt in repository.list_recent_attempts_by_practice_item(practice_item_id, limit=50)
+        for attempt in _scored(
+            repository, repository.list_recent_attempts_by_practice_item(practice_item_id, limit=50)
+        )
         if attempt.get("created_at") and attempt["created_at"] >= created_at
     ]
     return min(candidates, key=lambda attempt: (attempt["created_at"], attempt.get("id", "")), default=None)
+
+
+def _scored(repository: Repository, attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``attempts`` without the grades held for review (THE predicate,
+    held-grade-evidence): a held grade is neither a failure nor a success."""
+
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository, (attempt.get("id") for attempt in attempts))
+    return [attempt for attempt in attempts if attempt.get("id") not in held] if held else attempts
 
 
 def _attempt_failed(attempt: dict[str, Any]) -> bool:
@@ -570,7 +582,9 @@ def _facet_success_times(
     """Latest *successful* attempt time per canonical facet (the resolution signal)."""
 
     latest: dict[str, str] = {}
-    for attempt in repository.list_recent_attempts_by_learning_object(learning_object_id, limit=200):
+    for attempt in _scored(
+        repository, repository.list_recent_attempts_by_learning_object(learning_object_id, limit=200)
+    ):
         if exclude_attempt_id is not None and attempt.get("id") == exclude_attempt_id:
             continue
         if _attempt_failed(attempt):

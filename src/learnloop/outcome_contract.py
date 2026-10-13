@@ -5,6 +5,7 @@ Only the cold-measurement ledger can establish the latter.
 """
 from __future__ import annotations
 
+import json
 import math
 from numbers import Real
 from typing import Any, Mapping
@@ -30,6 +31,121 @@ PFC_REVIEW_REASON = "valid_alternative_unverified"
 PFC_PARTIALLY_ASSESSED = "partially_assessed"
 #: No criterion was assessed: correct for scheduling, but no measurement.
 PFC_NOTHING_ASSESSED = "nothing_assessed"
+
+# PF-c's stamp on a grading-evidence row (``attribution_json``) of a criterion
+# the valid-alternative gate recorded UNVERIFIED, and the interpretation the
+# row was written under (the full rule is documented where the projection
+# applies it, ``substrate.canonical_projection``, which re-exports these).
+# Defined here, dependency free, so the held-grade predicate
+# (``learnloop.held_grades``) reads the same stamp everywhere.
+UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
+UNVERIFIED_INTERPRETATION_KEY = "unverified_interpretation"
+UNASSESSED_INTERPRETATION = "unassessed"
+
+
+def _attribution_mapping(attribution: Any) -> Mapping[str, Any] | None:
+    if isinstance(attribution, (str, bytes)):
+        try:
+            attribution = json.loads(attribution)
+        except (TypeError, ValueError):
+            return None
+    return attribution if isinstance(attribution, Mapping) else None
+
+
+def unverified_evidence_row(attribution: Any) -> bool:
+    """Whether a grading-evidence row is a PF-c unverified criterion, under
+    either interpretation. ``attribution`` is the row's persisted
+    ``attribution_json``: the JSON text or its decoded mapping."""
+
+    mapping = _attribution_mapping(attribution)
+    return mapping is not None and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+
+
+def unassessed_evidence_row(attribution: Any) -> bool:
+    """Whether a grading-evidence row is a PF-c criterion written under the
+    unassessed rule (owner decision 2026-10-12).
+
+    Every reader that turns grading evidence into a grade, a facet outcome, a
+    probe feature, a repair verification or a display uses this one test. A
+    row written before the rule (no interpretation mark) is False here: it is
+    read as it was written.
+    """
+
+    mapping = _attribution_mapping(attribution)
+    return (
+        mapping is not None
+        and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+        and mapping.get(UNVERIFIED_INTERPRETATION_KEY) == UNASSESSED_INTERPRETATION
+    )
+
+
+# The proofs route check (mvp-0.17, re-review F9). A grade with nothing
+# assessed and nothing validated is HELD FOR REVIEW: the grader's own grade,
+# provisional, no evidence, no FSRS review, no prediction error, until a
+# regrade or an adjudication settles it. Unlike PF-c's nothing-assessed answer
+# (verified, so correct for scheduling) a held grade is no outcome at all:
+# outcome readers exclude it with this reason, and its score is never read as
+# the answer's. The hold is one recorded fact, the attempt's latest blind
+# record (``grading_support.proof_route_check``); ``attempts.proof_check``
+# writes it and re-exports the predicate below.
+GRADE_HELD_FOR_REVIEW = "grade_held_for_review"
+#: Route-check gate versions whose records predate the hold: v2 scheduled a
+#: held grade as correct, so such a record replays as it was written.
+PRE_HOLD_ROUTE_CHECK_VERSIONS = frozenset({"proof-route-check-v1", "proof-route-check-v2"})
+#: held-grade-evidence F2: a regrade whose route check failed (``status =
+#: unavailable``) on an attempt whose grade was held KEEPS the hold. Its record
+#: names the record the hold was carried from under this key; nothing else
+#: writes ``held_for_review`` on a check that did not run.
+HOLD_KEPT_FROM_KEY = "hold_kept_from"
+#: The key a reader's attempt row carries when THE predicate holds its grade
+#: (``held_grades.mark_held_attempts``): the row stays (an exposure is
+#: an exposure, and its time is the item's last attempt) but its score is no
+#: outcome, no failure and no success.
+HELD_ROW_KEY = GRADE_HELD_FOR_REVIEW
+
+
+def grade_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:
+    """Did the proofs route check leave this grade held for review?
+
+    The RECORD half of the hold: read from a blind run's ``grading_support``
+    or the blind record that persists it, never from today's config. A hold
+    the check decided (``status = checked``), or one a failed regrade check
+    kept (``hold_kept_from``). Whether the attempt is held NOW is
+    :func:`grade_is_held` over this and the attempt's current evidence.
+    """
+
+    proof = (grading_support or {}).get("proof_route_check") or {}
+    return (
+        isinstance(proof, Mapping)
+        and bool(proof.get("held_for_review"))
+        and proof.get("version") not in PRE_HOLD_ROUTE_CHECK_VERSIONS
+        and (proof.get("status") == "checked" or bool(proof.get(HOLD_KEPT_FROM_KEY)))
+    )
+
+
+def grade_is_held(*, record_held: bool, anything_assessed: bool) -> bool:
+    """THE held-grade predicate (held-grade-evidence): is this attempt's grade
+    held for review, and so unusable as evidence anywhere?
+
+    Held = the latest blind record holds it (:func:`grade_held_for_review`)
+    AND nothing in the attempt's current evidence is assessed: no criterion
+    that a live row grades and no live row marks unassessed (the criterion
+    vector the attempt step reads). A regrade into a hold supersedes the
+    machine-graded rows it replaces (review F1). A regrade
+    releases a hold by writing a record without it; an owner adjudication
+    (Ruling A's evidence revision) releases it by writing assessed evidence
+    over it, so a hold never outlives the revision that settled it.
+
+    Two callers evaluate it, and every reader reads one of them: the attempt
+    step in flight (``attempts._compute_resolved_grade_application``, the
+    grade being applied, before its blind record is written) and the ledger
+    (``learnloop.held_grades.held_for_review_attempts``, re-exported by
+    ``substrate.canonical_projection``: any persisted attempt). A held grade
+    is the grader's own, provisional score: no outcome, no review, no
+    failure, no success, no label.
+    """
+
+    return bool(record_held) and not anything_assessed
 
 
 def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
@@ -58,6 +174,9 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
         reasons.append("same_session")
     if pfc_assessment == PFC_NOTHING_ASSESSED:
         reasons.append("outcome_unassessed")
+    if row.get("outcome_grade_held_for_review"):
+        # mvp-0.17: nothing validated the grade; it is no outcome yet.
+        reasons.append(GRADE_HELD_FOR_REVIEW)
     review_reason = row.get("outcome_manual_review_reason", outcome.get("manual_review_reason"))
     pfc_sole_concern = review_reason == PFC_REVIEW_REASON and pfc_assessment in (
         PFC_PARTIALLY_ASSESSED,

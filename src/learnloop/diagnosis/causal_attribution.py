@@ -2245,6 +2245,12 @@ def _open_repair_factor(
         # differently; the machine-side backfill obligation owns this gap.
         return
     attempt_id = str(attempt["id"])
+    from learnloop.held_grades import attempt_grade_held
+
+    if attempt_grade_held(repository, attempt_id):
+        # held-grade-evidence: a grade held for review (THE predicate) is no
+        # failure, so it owes no repair factor.
+        return
     if str(
         attempt.get("attempt_type") or ""
     ) != "diagnostic_probe" and not _attempt_has_nontrivial_error(

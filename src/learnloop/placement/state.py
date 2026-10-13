@@ -672,6 +672,13 @@ def load_answers(
         rows.sort(key=lambda row: (str(row["created_at"]), str(row["id"])))
     classes = _contamination_classes(connection, (str(row["id"]) for row in rows))
     unverified = pfc_unverified_attempt_ids(connection) if rows else frozenset()
+    if rows:
+        # held-grade-evidence: a grade held for review (THE predicate) is
+        # unassessed here too (nothing assessed, nothing validated): never a
+        # clean correct answer, never a graded miss.
+        from learnloop.held_grades import held_for_review_attempts
+
+        unverified = unverified | held_for_review_attempts(connection, (str(row["id"]) for row in rows))
     grouped: dict[str, list[AnswerFacts]] = defaultdict(list)
     for row in rows:
         facts = answer_facts(

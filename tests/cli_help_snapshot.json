@@ -48,8 +48,8 @@
     "sha256": "494c48c8c4d827b6d9c613023503d335e614914244854f50691ab6cfaf424690"
   },
   "attempt": {
-    "bytes": 7499,
-    "sha256": "b5a5a2392b607c4a8d13938fd83aa372eb2bdd3f67d9721e24fb45190ef4faa8"
+    "bytes": 7746,
+    "sha256": "8983a924ddbe0c3119a04487b8a06ca76a3a35ee782c86be71f6cd7af6376dc9"
   },
   "backfill-originals": {
     "bytes": 1364,
@@ -524,12 +524,16 @@
     "sha256": "dfb4943abfa56992f0910e1cd695d079976bb6a054966e96295de16363917fbf"
   },
   "grading": {
-    "bytes": 2526,
-    "sha256": "f5d9506ee18378f1e8cbe192454b27a0e43741002ca388f293a1581fd797cfa2"
+    "bytes": 2696,
+    "sha256": "214c04376c4bcc30a13c08b4a7d4cfe006aa9c6345abc97c4d88b5df4036b838"
   },
   "grading adjudicate": {
     "bytes": 2346,
     "sha256": "695631b22e196d510f29fd48f776341dacb0c2113fb11139064015e5fa268bac"
+  },
+  "grading hardcases": {
+    "bytes": 7213,
+    "sha256": "016a5d1b29335787b3b8e4f3ac5007559e8b90859257c8b2b7833cbaae12191d"
   },
   "grading receipt": {
     "bytes": 1752,
@@ -1064,8 +1068,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 3973,
-    "sha256": "52c710c740858e0a2ca13f80d3f9ed3a36af2ec10d378d88ade41562bba58d8a"
+    "bytes": 4216,
+    "sha256": "5036ad5de972a29893539a86ab0dd872c122e88ca9a6fa6b47e2b0405bb5864c"
   },
   "usage": {
     "bytes": 1546,

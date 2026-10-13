@@ -77,6 +77,9 @@ AITask = Literal[
     "router_llm",
     "llm_probability_decider",
     "llm_probability_llm",
+    # mvp-0.17: the proofs-and-explanations route check and its item reading
+    # (unset: chosen by attempts.proof_check.proof_check_route).
+    "proof_check",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -168,6 +171,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "llm_probability_prediction": "llm_probability_llm",
     # Facet identity at ingest and in `learnloop facets dedupe`.
     "facet_identity_judgment": "facet_identity_judge",
+    # mvp-0.17: the independent re-derivation of a proof or explanation and
+    # the once-per-item proof-like reading.
+    "proof_route_check": "proof_check",
+    "proof_item_classification": "proof_check",
 }
 
 

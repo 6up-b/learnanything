@@ -40,6 +40,7 @@ from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.substrate.canonical_projection import (
     UNVERIFIED_CRITERION_BLOCK,
+    held_for_review_attempts,
     surface_group_id,
     unverified_evidence_row,
 )
@@ -709,6 +710,10 @@ class VaultHistoryStore:
                 "SELECT * FROM misconception_candidates ORDER BY created_at, id"
             )]
             learner_text_candidates = _learner_text_candidate_ids(connection, vault)
+            # held-grade-evidence: THE held predicate. A held attempt stays in
+            # the history (it happened) with no score: its grade is the
+            # grader's provisional one, nothing assessed, nothing validated.
+            held = held_for_review_attempts(connection)
             cold = [dict(row) for row in connection.execute(
                 "SELECT source_attempt_id, cold_attempt_id, repair_class_id, success, created_at "
                 "FROM causal_cold_verifications ORDER BY created_at, id"
@@ -743,6 +748,8 @@ class VaultHistoryStore:
                     row, item, evidence.get(attempt_id, {}), events.get(attempt_id, []),
                     fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
                 )
+            if attempt_id in held:
+                record = replace(record, score=None)
             self._attempts.append(record)
             self._by_id[attempt_id] = record
 

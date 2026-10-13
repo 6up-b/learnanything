@@ -9,6 +9,7 @@ from learnloop.config import EvidenceConfig, LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.numeric import clamp
+from learnloop.outcome_contract import HELD_ROW_KEY
 from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
 from learnloop.attempts.evidence import (
     attempt_evidence_mass,
@@ -290,6 +291,14 @@ def derive_facet_outcomes(
     return outcomes
 
 
+def _with_held_marked(repository: Repository, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``rows`` with THE held predicate's mark (held-grade-evidence)."""
+
+    from learnloop.held_grades import mark_held_attempts
+
+    return mark_held_attempts(repository, rows)
+
+
 def familiarity_discount(
     repository: Repository,
     item: PracticeItem,
@@ -299,10 +308,10 @@ def familiarity_discount(
     config: LearnLoopConfig,
     exclude_attempt_id: str | None = None,
 ) -> FamiliarityResult:
-    recent = repository.list_recent_attempts_by_learning_object(
+    recent = _with_held_marked(repository, repository.list_recent_attempts_by_learning_object(
         learning_object_id,
         limit=config.recall_coverage.familiarity_recent_attempt_window,
-    )
+    ))
     return familiarity_discount_from_attempts(
         recent,
         item,
@@ -328,7 +337,10 @@ def familiarity_discount_from_attempts(
     for attempt in recent:
         if attempt.get("id") == exclude_attempt_id:
             continue
-        attempt_weight = clamp(float(attempt.get("correctness") if attempt.get("correctness") is not None else 1.0))
+        # held-grade-evidence: a held grade's score is unknown, like a
+        # missing one: the exposure counts, its provisional score does not.
+        correctness = None if attempt.get(HELD_ROW_KEY) else attempt.get("correctness")
+        attempt_weight = clamp(float(correctness if correctness is not None else 1.0))
         attempt_mass = 1.0 if attempt.get("attempt_type") == "dont_know" else max(0.25, attempt_weight)
         if attempt.get("practice_item_id") == item.id:
             same_item_mass += attempt_mass
@@ -432,7 +444,9 @@ def event_local_severity(
     base_severity: float | None = None,
     exclude_attempt_id: str | None = None,
 ) -> tuple[float, dict[str, Any]]:
-    recent = repository.list_recent_attempts_by_learning_object(learning_object_id, limit=20)
+    recent = _with_held_marked(
+        repository, repository.list_recent_attempts_by_learning_object(learning_object_id, limit=20)
+    )
     return event_local_severity_from_attempts(
         vault,
         recent,
@@ -475,7 +489,8 @@ def event_local_severity_from_attempts(
     recent_same_error_events = 0
     target_facets = set(covered_facets)
     for attempt in recent:
-        if attempt.get("id") == exclude_attempt_id:
+        if attempt.get("id") == exclude_attempt_id or attempt.get(HELD_ROW_KEY):
+            # held-grade-evidence: a held grade is no failure.
             continue
         failed = attempt.get("attempt_type") == "dont_know" or float(attempt.get("correctness") or 0.0) <= 0.40 or bool(attempt.get("error_type"))
         if not failed:
@@ -626,8 +641,11 @@ def build_quality_state_update(
     prior = repository.practice_item_quality_state(item.id)
     recent_failures = sum(
         1
-        for attempt in repository.list_recent_attempts_by_practice_item(item.id, limit=5)
+        for attempt in _with_held_marked(
+            repository, repository.list_recent_attempts_by_practice_item(item.id, limit=5)
+        )
         if attempt.get("id") != exclude_attempt_id
+        if not attempt.get(HELD_ROW_KEY)
         if attempt.get("attempt_type") == "dont_know" or float(attempt.get("correctness") or 0.0) <= 0.40
     )
     return build_quality_state_update_from_prior(
