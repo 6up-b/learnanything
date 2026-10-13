@@ -240,3 +240,179 @@ tracked fixture vaults were not opened.
   this file.
 - **Fixtures:** none touched. `fixtures/linear_algebra`, `probability` and
   `arxiv_v2` were not opened.
+
+## Re-review 2
+
+Codex re-reviewed the fixes after `dd4e41af` (`97137de4`, references
+`70effb29`, record `ddf941d5`; job `20261013-095625-XzqNgm`). Verdict
+REOPENED: F1, F3, F4, F5 and F6 confirmed fixed, F2 not clean (a reopened
+variant), and one new finding, F7, in F6's audit mechanism. Both reproduced
+fail-first and both are fixed in `cc30ebb8`; references regenerated in
+`de4b02d9`. Facet locks stay removed.
+
+- One migration (186, `facet_registry_saves`, WORKFLOW) and a new head
+  fixture; no config change, no RPC shape change (a Library save's result
+  gains `save_id`; the sidecar reads only `text`), no frontend or
+  `src-tauri` change.
+- No algorithm successor: content admission and a Library save's write-ahead
+  bookkeeping. Scoring, scheduling, projections and replay are unchanged.
+- No paid call.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test (fail-first on `ddf941d5`) or reason |
+|---|---|---|---|---|---|
+| F1 | High | A refused undo permanently blocks later facet operations | confirmed fixed by Codex | `97137de4` | no action |
+| F2 | High | `meaning_support` coverage counted a declared citation before validating its unit (reopened) | fixed | `cc30ebb8` | `tests/test_facet_authority_rereview.py::test_a_declared_citation_that_does_not_resolve_never_hides_the_writes_exam_ref[chapter#Theory / chapter#Nowhere]`, `::test_a_declared_citation_covers_a_recorded_span_only_when_it_resolves`; guard `::test_a_write_declaring_both_halves_of_a_split_unit_under_their_own_units_applies` |
+| F3 | High | Split units lose their span boundaries and role overrides | confirmed fixed by Codex | `97137de4` | no action |
+| F4 | High | Re-extraction makes a forbidden exam-facet restoration admissible | confirmed fixed by Codex | `97137de4` | no action |
+| F5 | Medium | Unresolved citations become current semantic-authority links | confirmed fixed by Codex | `97137de4` | no action |
+| F6 | Medium | The manual-authority exception lacks complete audit records | confirmed fixed by Codex for successful saves; its durability gap is F7 | `97137de4` | no action beyond F7 |
+| F7 | Medium | Interrupted saves without rewords leave permanent authority grants | fixed | `cc30ebb8` | `tests/test_facet_authority_rereview.py::test_recovery_withdraws_the_verdict_of_a_save_killed_before_its_write[new_facet_only / example_only / claim_edit]`, `::test_recovery_keeps_the_verdict_of_a_save_killed_after_its_write[3 edits]`, `::test_a_save_that_fails_in_process_settles_its_intent`, `::test_a_save_that_lands_records_a_settled_intent`, `::test_doctor_reports_and_settles_an_interrupted_save_with_no_reword`, `::test_a_save_intent_has_a_closed_lifecycle` |
+
+Nothing was rejected.
+
+**Reproduction.** Both scenarios were reproduced on `ddf941d5` before any
+change:
+
+- **F2**: a split chapter with `chapter#Theory` (textbook) and `chapter#Exam`
+  (`role_override: exam`) both selected; a new facet whose provenance records
+  the exam half `ext_split/s2` and whose `meaning_support` declares
+  `ext_split/s2` under `chapter#Theory` (or under a unit that does not exist)
+  applied (`DID NOT RAISE`). The declaration fails resolution ("span s2 is not
+  in unit chapter#Theory"), yet its `(extraction_id, span_id)` marked the
+  recorded ref as covered, so the exam ref was never judged and the facet
+  compiled as `new_unsupported`.
+- **F7**: a Library save killed (a `BaseException` from `_write_registry`)
+  after its verdicts committed: for a new-facet-only and an example-only save,
+  `recover_interrupted_actions` returned `[]` and the ledger kept
+  `['granted']`; the claim-edit control returned
+  `[('applying', 'abandoned')]` with `['granted', 'withdrawn']`, as Codex
+  described.
+
+**Fail-first.** The 14 tests in `tests/test_facet_authority_rereview.py`, run
+against `ddf941d5`'s `src/` and `migrations/` (a `git archive` copy under
+`fixtures-local/tmp`, `-o pythonpath=` pointing at it): **13 failed, 1
+passed** (the guard: both halves declared under their own units apply,
+before and after). The failures: F2's two scenarios `DID NOT RAISE`; F2's
+unit test has no `resolver` argument to give; F7's six kill tests find no
+`library_save` recovery row (`StopIteration`; for the before-write
+new-facet and example cases this is the defect: nothing recovers and the
+verdict stays `granted`); doctor reports nothing in flight; the intent and
+lifecycle tests find no save intent API. On the fix all 14 pass.
+
+### What changed
+
+**F2. A declared citation covers a recorded span only when it resolves.**
+- `authority.write_contributions(payload, before, after, resolver)`: a
+  recorded block-span ref is left out of the extra `provenance` contribution
+  only when a declared citation that **resolves** in the proposal's resolver
+  names the same span. A declared citation that does not resolve (its unit
+  does not hold the span, the unit does not exist, the span is outside the
+  selected units, the extraction is not in the source set) supports nothing
+  and covers nothing, so the write's own exam ref is judged on its own:
+  exam-only, refused (`exam_authority`). Without a resolver nothing covers.
+- A resolved declared citation of a span has the span's role (the resolver
+  decides a role from the scope entries that hold the span, never from the
+  unit the citation names), so coverage never changes what a span is.
+- `patches._compile_facet` passes `facet_authority.resolver`. The undo path
+  (`_restore_basis`) is unchanged: a registry entry carries no
+  `meaning_support`, so all its refs are one contribution and must resolve.
+
+**F7. Every Library save with verdicts is a recoverable intent.**
+- Migration 186 adds `facet_registry_saves` (WORKFLOW): `id` (the save id the
+  verdicts' rationale carries), `status` (`applying`, `applied`,
+  `abandoned`), `facets_json` (per facet: the wording key before, or null
+  for a new facet, the wording key after, which is the verdict's
+  `right_id`, and the fields), `judgment_ids_json`, `action_ids_json`,
+  `applied_at`, `abandoned_at`, `settle_detail_json`.
+- `save_registry_text` records the intent in the same write-ahead
+  transaction as the owner's verdicts and the `applying` rewords, whenever
+  there are verdicts (a new facet or an example-only edit included). The
+  intent owns the verdicts: a reword row now carries `detail.save_id` (and
+  its own `authority_judgment_id`) instead of the list of the save's
+  verdicts. On success the rewords and the intent become `applied` together;
+  an in-process write failure abandons both and withdraws the verdicts once.
+- `recover_interrupted_actions` settles each `applying` intent first
+  (`registry_save_state`): the file is replaced atomically, so one facet
+  showing the wording its verdict names proves the save landed (derived
+  state refreshed, `applied`, verdicts stand); every facet as before (a new
+  facet absent) or edited since is not proof, so the verdicts are
+  `withdrawn` and the intent `abandoned` with the reason, the file state and
+  the withdrawn ids. Its outcome rows carry `kind: "library_save"`. Rewords
+  settle as before, from their own facet. A reword recorded by `97137de4`'s
+  code (no intent, a `detail.authority_judgment_ids` list) still withdraws
+  its save's verdicts when abandoned.
+- `doctor` counts interrupted saves with the in-flight actions
+  (`facet_identity:interrupted`), and `--fix-state` reports a settled save
+  ("Library save … (applying -> abandoned; 1 owner verdict(s) withdrawn)").
+- Head fixture `migration_head_185` → `migration_head_186`: a backup-API copy
+  with only 186 applied (checkpointed, `journal_mode=DELETE`,
+  `integrity_check` ok, `foreign_key_check` clean, no `-wal`/`-shm`). README,
+  `SCHEMA_HEAD` and every hard-coded head path (12 tests, both reference
+  scripts) point at 186; `test_facet_rewords_migration` pins its 184 → 185
+  upgrade to migrations through 185.
+
+**Merge note.** main's head is now `185_reader_authored_question_scopes`
+(RW1a, merged after this branch was cut), so this branch's
+`185_facet_identity_rewords` and `186_facet_registry_saves` renumber to 186
+and 187 when `merge/facet-locks` lands on main, with the head fixture rebuilt
+from main's head the same way.
+
+### Behaviour the owner will notice
+
+- **A misdeclared citation no longer hides exam material.** A proposal whose
+  facet cites the exam half of a split chapter under the theory half (or
+  under a unit that does not exist) is refused at accept with the
+  exam-authority message, instead of applying as uncited.
+- **A Library save stopped mid-write leaves no standing verdict.** The next
+  facet operation, sidecar open or `doctor --fix-state` withdraws the
+  verdicts of a save the registry never showed, a new facet or an
+  example-only edit included, and keeps them when the edit did land. Doctor
+  lists such a save as in flight until then.
+- Open question 2 of the first re-review (leave the reword-less window) is
+  closed by F7: there is no such window now.
+
+### Gate
+
+Run on `de4b02d9` (the fix and the references; only this file changed
+after), 2026-10-13, with `TMPDIR` set to the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (163 packages resolved; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 15 contracts kept, 0 broken |
+| Fail-first: `tests/test_facet_authority_rereview.py` against `ddf941d5`'s `src/` and `migrations/` | 13 failed, 1 passed (the guard) |
+| Targeted (before the commit) | 62 facet, proposal, synthesis, append, library, doctor, migration, upgrade, apply, provenance, registry, unit-selection, judgment and fixture suites: 802 passed, 1 failed (`test_facet_reword_paths.py::test_a_library_reword_interrupted_after_the_write_is_finished_by_recovery`, which expected one recovery row; updated to the save and its reword), then 25/25 in that file |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **9,154 passed**, 0 failed, 0 skipped, 46 warnings (the existing fork and deprecation warnings), 345 s (lock taken at once, 10:25:07); 9,140 at `ddf941d5` plus the 14 new tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **95 passed**, 9,059 deselected, 1 warning, 96 s |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated (`de4b02d9`: schema head 186, the new `facet_registry_saves` table note, `source_commit` stamps); `errors: []`, 309 table notes, role counts workflow 77 |
+| `validate_vault.py` | passed (1,086 notes, 21,874 wikilinks/fragments, 4,482 source paths) |
+| `module_validate.py` | wikilinks 14,712/14,712, source/test links 11,795/11,795, catalog YAML 508/508; the 539 "missing expected note" issues are the same as at `ddf941d5` |
+| Frontend, `src-tauri`, config | unchanged (no npm or cargo step needed) |
+| Tracked fixture vaults | untouched; `git status` clean after the full suite and the durability lane |
+
+### Paid calls
+
+None. Cost $0. Every test uses fakes; no command ran against a vault, and the
+tracked fixture vaults (`fixtures/linear_algebra`, `probability`,
+`arxiv_v2`) were not opened.
+
+### Files
+
+- **Changed, Python:** `content/facet_identity/authority.py`
+  (`write_contributions` validates coverage); `content/proposals/patches.py`
+  (passes the resolver); `content/facet_identity/actions.py` (save intents,
+  `registry_save_state`, recovery, `wording_key`);
+  `db/stores/facet_identity.py` (save intent rows); `db/table_roles.py`;
+  `ops/doctor.py`.
+- **Schema:** `migrations/186_facet_registry_saves.sql`;
+  `fixtures/migration_head_186/` (renamed from 185, README).
+- **Tests:** new `tests/test_facet_authority_rereview.py` (14); updated
+  `tests/test_facet_authority_review.py` and `tests/test_facet_reword_paths.py`
+  (a killed save now recovers as two rows, the save and its reword),
+  `tests/test_facet_rewords_migration.py`, and the 12 head-fixture paths.
+- **Docs:** `spec_source_ingestion_v2.md` §8.7; the regenerated architecture
+  references; this file.
+- **Fixtures:** only the migration-head fixture. `fixtures/linear_algebra`,
+  `probability` and `arxiv_v2` were not opened.
