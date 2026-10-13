@@ -250,7 +250,10 @@ def prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> 
 
     vault, repository = ctx.require_vault()
     try:
-        episode = prescribe_remediation(vault, repository, params.episode_id)
+        from learnloop.instructional.sources import remediation_passage_provider
+
+        episode = prescribe_remediation(vault, repository, params.episode_id,
+                                        passage_provider=remediation_passage_provider)
     except RemediationError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     try:

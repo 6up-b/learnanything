@@ -73,11 +73,16 @@ class TutorSpanProvider:
     a ``None`` manifest (kill switch off) records nothing."""
 
     def __init__(self, *, embedder: Any | None = None, rewrite_client: Any | None = None,
-                 rerank_client: Any | None = None, clock: Clock | None = None) -> None:
+                 rerank_client: Any | None = None, clock: Clock | None = None,
+                 intent_for: Any | None = None) -> None:
         self.embedder = embedder
         self.rewrite_client = rewrite_client
         self.rerank_client = rerank_client
         self.clock = clock
+        # Canonical sources S3 (§9.5): ``intent_for(vault, repository, context=,
+        # item=)`` -> ``{"intent": "remediate", "misconceptions": [...]}`` or
+        # None (explain). Injected by the adapter; None keeps T6's behaviour.
+        self.intent_for = intent_for
 
     def __call__(self, vault: LoadedVault, repository: Repository, *, context: str,
                  question_md: str, learning_object_ids: Sequence[str],
@@ -107,12 +112,26 @@ class TutorSpanProvider:
             for span in build_cross_source_spans(vault, repository, lo_id,
                                                  max_spans_per_item=PROVENANCE_SPANS_PER_LO)
         ]
+        intent = None
+        if self.intent_for is not None:
+            try:
+                intent = self.intent_for(vault, repository, context=context, item=item if item_bound else None)
+            except Exception:  # noqa: BLE001 - an intent hint never blocks grounding
+                intent = None
+        extra_lists: dict[str, Any] = {"provenance": provenance}
+        if intent and intent.get("intent") == "remediate":
+            from learnloop.source_retrieval.find_sources import correction_lists
+
+            for misconception in intent.get("misconceptions") or ():
+                lists, _report = correction_lists(vault, repository, misconception, sorted(scope.extractions))
+                for name, keys in lists.items():
+                    extra_lists.setdefault(name, []).extend(keys)
         # The learner's question alone: the practice question would rank the
         # item's own exercise and solution first (and so would a rewrite of it).
         search = search_spans(
             vault, repository, question_md, scope, limit=config.tutor_candidate_pool * 2,
             deep=True, rewrite=None if config.tutor_query_rewrite else False,
-            extra_lists={"provenance": provenance}, embedder=self.embedder,
+            extra_lists=extra_lists, embedder=self.embedder,
             rewrite_client=self.rewrite_client, owner_id=owner_id, deadline=deadline,
         )
         if not config.tutor_query_rewrite:
@@ -128,6 +147,10 @@ class TutorSpanProvider:
                     kept.append(hit)
             pool = kept
         pool = pool[: config.tutor_candidate_pool]
+        if intent and intent.get("intent") == "remediate" and pool:
+            return self._remediate(vault, repository, question_md=question_md, pool=pool, intent=intent,
+                                   item=item if item_bound else None, search=search, withheld=withheld,
+                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started)
         verification = verify_spans(
             vault, repository, question=question_md, pool=pool, pick_at_most=config.tutor_spans,
             context=item.prompt if item_bound and item is not None else None, owner_id=owner_id,
@@ -147,6 +170,39 @@ class TutorSpanProvider:
         spans = [span_context(hit) for hit in verification.picks]
         return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
                        "span_keys": [hit.record_id for hit in verification.picks]}
+
+    def _remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit],
+                   intent: dict[str, Any], item: PracticeItem | None, search: Any, withheld: list[str],
+                   owner_id: str, ready: Any, deadline: float, started: float) -> tuple[Any, dict[str, Any]]:
+        """The remediate intent: same retrieval, the intent's verification prompt (no extra call)."""
+
+        from learnloop.source_retrieval.find_sources import _verify
+
+        config = vault.config.source_retrieval
+        misconceptions = intent.get("misconceptions") or ()
+        context: dict[str, Any] = {"misconceptions": [
+            {"statement": getattr(m, "statement", ""), "correction": getattr(m, "correction_statement", "")}
+            for m in misconceptions]}
+        if item is not None:
+            context["practice_question"] = " ".join(item.prompt.split())[:700]
+        status, rows, picks, reason = _verify(
+            vault, repository, intent="remediate", question=question_md, pool=pool,
+            pick_at_most=config.tutor_spans, context=context, client=ready.client, owner_id=owner_id,
+            deadline=deadline, clock=self.clock)
+        manifest: dict[str, Any] = {
+            "search": search.describe(), "candidates": len(pool), "candidate_keys": [hit.record_id for hit in pool],
+            "withheld_answer_overlap": len(withheld), "withheld_keys": withheld, "intent": "remediate",
+            "verification": {"status": status, "reason": reason, "judged": len(rows), "picked": len(picks)},
+            "owner_id": owner_id, "time_box_seconds": config.retrieval_timeout_seconds,
+            "elapsed_ms": int(round((time.monotonic() - started) * 1000)),
+        }
+        if status not in ("verified", "cached"):
+            return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
+        by_key = {hit.key: hit for hit in pool}
+        chosen = [by_key[key] for key in picks if key in by_key]
+        spans = [span_context(hit) for hit in chosen]
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
+                       "span_keys": [hit.record_id for hit in chosen]}
 
 
 __all__ = ["ITEM_BOUND_CONTEXTS", "PROVENANCE_SPANS_PER_LO", "SPAN_TEXT_CAP", "TutorSpanProvider", "span_context"]

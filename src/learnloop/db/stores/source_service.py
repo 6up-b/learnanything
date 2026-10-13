@@ -369,6 +369,56 @@ def reference_status_for_item(connection: sqlite3.Connection, item: Any) -> str:
     return "verified" if status in VERIFIED_STATUSES else "unverified"
 
 
+# -- S3: comparisons (migration 186) -------------------------------------------
+
+
+def insert_comparison(connection: sqlite3.Connection, *, id: str, created_at: str, query_hash: str, query_md: str,
+                      requested_perspectives: Sequence[str], counterpart_keys: Sequence[Any],
+                      comparison: Mapping[str, Any], dropped_lines: Sequence[Any], dropped_pins: Sequence[Any],
+                      unverified_sources: Sequence[Any], policy: str, caller_context: Mapping[str, Any],
+                      model: str | None, prompt_version: str, ledger_ids: Sequence[str], caller: str,
+                      caller_ref: str | None) -> None:
+    connection.execute(
+        "INSERT INTO source_comparisons (id,query_hash,query_md,requested_perspectives_json,counterpart_keys_json,"
+        "comparison_json,dropped_lines_json,dropped_pins_json,unverified_sources_json,policy,caller_context_json,"
+        "model,prompt_version,ledger_ids_json,caller,caller_ref,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (id, query_hash, query_md, _dumps(list(requested_perspectives)), _dumps(list(counterpart_keys)),
+         _dumps(dict(comparison)), _dumps(list(dropped_lines)), _dumps(list(dropped_pins)),
+         _dumps(list(unverified_sources)), policy, _dumps(dict(caller_context)), model, prompt_version,
+         _dumps(list(ledger_ids)), caller, caller_ref, created_at),
+    )
+
+
+def _comparison(row: sqlite3.Row) -> dict[str, Any]:
+    value = dict(row)
+    for key in ("requested_perspectives", "counterpart_keys", "dropped_lines", "dropped_pins",
+                "unverified_sources", "ledger_ids"):
+        value[key] = _loads(value.pop(f"{key}_json"), [])
+    value["comparison"] = _loads(value.pop("comparison_json"), {})
+    value["caller_context"] = _loads(value.pop("caller_context_json"), {})
+    return value
+
+
+def comparison_row(connection: sqlite3.Connection, comparison_id: str) -> dict[str, Any] | None:
+    if not table_exists(connection, "source_comparisons"):
+        return None
+    row = connection.execute("SELECT * FROM source_comparisons WHERE id=?", (comparison_id,)).fetchone()
+    return None if row is None else _comparison(row)
+
+
+def find_comparison(connection: sqlite3.Connection, *, query_hash: str, policy: str,
+                    counterpart_keys: Sequence[Any]) -> dict[str, Any] | None:
+    """A stored comparison of the same question over the same counterparts under the same policy."""
+
+    if not table_exists(connection, "source_comparisons"):
+        return None
+    wanted = _dumps(list(counterpart_keys))
+    row = connection.execute(
+        "SELECT * FROM source_comparisons WHERE query_hash=? AND policy=? AND counterpart_keys_json=? "
+        "ORDER BY created_at DESC LIMIT 1", (query_hash, policy, wanted)).fetchone()
+    return None if row is None else _comparison(row)
+
+
 # -- spend ---------------------------------------------------------------------
 
 
@@ -400,6 +450,9 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
 
 
 __all__ = [
+    "comparison_row",
+    "find_comparison",
+    "insert_comparison",
     "SERVICE_OWNER_KINDS",
     "spend_since",
     "CHECK_STATUSES",

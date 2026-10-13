@@ -360,6 +360,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Migration 089 defines an additive, versioned analyzer artifact.  Some
     # analyzer inputs (for example equation confidence) live only in this row.
     ("source_block_health", TableRole.RAW_LEDGER),
+    # Canonical sources S3: stored comparisons (paid outputs, never re-run).
+    ("source_comparisons", TableRole.WORKFLOW),
     ("source_conflict_resolutions", TableRole.RECEIPT),
     ("source_conflicts", TableRole.WORKFLOW),
     ("source_document_assets", TableRole.RAW_LEDGER),

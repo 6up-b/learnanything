@@ -21,6 +21,8 @@ SOURCE_SERVICE_RPCS: tuple[str, ...] = (
     "record_proposal_impressions",
     "import_source_exercise",
     "get_source_exercise_import",
+    "find_sources",
+    "compare_sources",
 )
 
 
@@ -123,4 +125,112 @@ def get_source_exercise_import_rpc(ctx: SidecarContext, params: GetSourceExercis
     })
 
 
-__all__ = ["SOURCE_SERVICE_RPCS"]
+class CallerInput(ParamsModel):
+    """Who is asking: a kind and a reference only. The server rebuilds the
+    context (item, attempt window, cold status) from its own records."""
+
+    kind: str
+    ref: str | None = None
+    practice_item_id: str | None = None
+    post_attempt: bool = False
+
+
+class FindSourcesInput(ParamsModel):
+    query: str = Field(default="", max_length=4000)
+    intent: str = "explain"
+    scope: str = "library"
+    learning_object_ids: list[str] = Field(default_factory=list)
+    facet_ids: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
+    expand: list[str] = Field(default_factory=list)
+    exclude_span_ids: list[str] = Field(default_factory=list)
+    exclude_span_keys: list[str] = Field(default_factory=list)
+    target_hypotheses: list[dict[str, Any]] = Field(default_factory=list)
+    learner_work_md: str | None = Field(default=None, max_length=8000)
+    personalized: bool = True
+    verify: bool = False
+    limit: int = Field(default=8, ge=1, le=40)
+    cursor: dict[str, Any] | None = None
+    policy: str | None = None
+    caller: CallerInput
+
+
+class CompareSourcesInput(ParamsModel):
+    query: str = Field(min_length=1, max_length=4000)
+    facet_ids: list[str] = Field(default_factory=list)
+    requested_perspectives: list[str] = Field(default_factory=list, max_length=8)
+    pinned_span_ids: list[str] = Field(default_factory=list, max_length=20)
+    pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
+    policy: str | None = None
+    caller: CallerInput
+
+
+#: Caller kinds a frontend may name for passages and comparisons.
+SOURCE_CALLER_KINDS = frozenset({"tutor", "reader", "plan", "dl3_box"})
+
+
+def server_caller(ctx: SidecarContext, caller: CallerInput) -> Any:
+    from learnloop.instructional.policy import caller_for, caller_for_question_event
+
+    vault, repository = ctx.require_vault()
+    if caller.kind not in SOURCE_CALLER_KINDS:
+        raise SidecarError("validation_error", f"Unknown caller kind {caller.kind!r}.")
+    if caller.kind == "tutor":
+        if not caller.ref:
+            raise SidecarError("validation_error", "A tutor caller names its question event.")
+        return caller_for_question_event(vault, repository, caller.ref, post_attempt=caller.post_attempt)
+    if caller.practice_item_id is not None and caller.practice_item_id not in vault.practice_items:
+        raise SidecarError("not_found", f"Unknown Practice Item {caller.practice_item_id}.")
+    return caller_for(repository, caller.kind, caller.ref, item_id=caller.practice_item_id,
+                      post_attempt=caller.post_attempt,
+                      context="practice" if caller.practice_item_id and not caller.post_attempt else None)
+
+
+@method("find_sources", FindSourcesInput)
+def find_sources_rpc(ctx: SidecarContext, params: FindSourcesInput) -> dict[str, Any]:
+    """Verbatim passages for an intent, under the caller's derived policy (S3, §9)."""
+
+    from learnloop.instructional.sources import propose_sources
+    from learnloop.source_retrieval.policy import PolicyRefused
+
+    vault, repository = ctx.require_vault()
+    caller = server_caller(ctx, params.caller)
+    try:
+        hits = propose_sources(
+            vault, repository, params.query, caller=caller, intent=params.intent, policy=params.policy,
+            scope=params.scope, learning_object_ids=params.learning_object_ids or list(caller.learning_object_ids),
+            facet_ids=params.facet_ids, roles=params.roles, expand=params.expand,
+            exclude_span_ids=params.exclude_span_ids, exclude_span_keys=params.exclude_span_keys,
+            target_hypotheses=params.target_hypotheses, learner_work_md=params.learner_work_md,
+            personalized=params.personalized, verify=params.verify, limit=params.limit, cursor=params.cursor,
+        )
+    except PolicyRefused as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned(hits.as_dict())
+
+
+@method("compare_sources", CompareSourcesInput)
+def compare_sources_rpc(ctx: SidecarContext, params: CompareSourcesInput) -> dict[str, Any]:
+    """How the learner's sources treat one question: quote-verified, no consensus (S3, §9.4)."""
+
+    from learnloop.instructional.sources import propose_comparison
+    from learnloop.source_retrieval.policy import PolicyRefused
+
+    vault, repository = ctx.require_vault()
+    caller = server_caller(ctx, params.caller)
+    try:
+        comparison = propose_comparison(
+            vault, repository, params.query, caller=caller, facet_ids=params.facet_ids,
+            requested_perspectives=params.requested_perspectives, pinned_span_ids=params.pinned_span_ids,
+            pinned_span_keys=params.pinned_span_keys, policy=params.policy,
+        )
+    except PolicyRefused as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned(comparison.as_dict())
+
+
+__all__ = ["SOURCE_SERVICE_RPCS", "server_caller"]

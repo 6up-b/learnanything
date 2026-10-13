@@ -133,8 +133,11 @@ SOURCE_SERVICE_RPCS = (
     "record_proposal_impressions",
     "import_source_exercise",
     "get_source_exercise_import",
+    "find_sources",
+    "compare_sources",
 )
 SOURCE_SERVICE_EXTENDED_RPCS = (
+    "prescribe_remediation",
     "find_practice",
     "record_practice_usage",
     "plan_learner_pick",

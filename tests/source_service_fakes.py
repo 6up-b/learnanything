@@ -228,7 +228,9 @@ class FakeServiceLLM:
     def __init__(self, *, panel_answers: dict[str, str] | None = None, key_override: str | None = None,
                  family_verdict: str = "different", family_relation: str = "isomorph",
                  drop_cited_quote: bool = False, sympy_check: str | None = None,
-                 learning_object_id: str = "lo_matrices", fail_purposes: set[str] | None = None) -> None:
+                 learning_object_id: str = "lo_matrices", fail_purposes: set[str] | None = None,
+                 bad_comparison_quote: bool = False) -> None:
+        self.bad_comparison_quote = bad_comparison_quote
         self.panel_answers = dict(panel_answers or {})
         self.key_override = key_override
         self.family_verdict = family_verdict
@@ -410,6 +412,50 @@ class FakeServiceLLM:
         return C.SpanSupportVerdict(span_answer=context["cited_span"][:200], answer_supported=supported,
                                     rationale_supported=supported, executable_consequence=False,
                                     rationale="word check")
+
+    # S3: intent-fit verification and the comparison
+    def _IntentVerification(self, request, context):
+        from learnloop.source_retrieval.find_sources import INTENT_VERDICTS, IntentJudgment, IntentVerification
+
+        match = _re.search(r"source_intent_fit\.v1\.(\w+)", request.prompt)
+        intent = match.group(1) if match else "explain"
+        best, middle, *_rest = INTENT_VERDICTS[intent]
+        worst = INTENT_VERDICTS[intent][-1]
+        question = " ".join([context.get("question") or ""] + [
+            " ".join(str(v) for v in m.values()) for m in context.get("misconceptions") or []])
+        judged = []
+        for c in context["candidates"]:
+            hits = len(_words(question) & _words(c["passage"]))
+            judged.append((c["ref"], best if hits >= 2 else middle if hits == 1 else worst))
+        drop = {worst} | ({"same_treatment"} if intent == "alternative" else set())
+        order = {best: 0, middle: 1}
+        picks = [ref for ref, verdict in sorted(judged, key=lambda pair: (order.get(pair[1], 9), pair[0]))
+                 if verdict not in drop][: context["pick_at_most"]]
+        return IntentVerification(judgments=[IntentJudgment(ref=ref, verdict=verdict, rationale="overlap")
+                                             for ref, verdict in judged], picks=picks)
+
+    def _SourceComparison(self, request, context):
+        from learnloop.source_retrieval.compare import Contribution, PairRelation, SourceComparison
+
+        sources = context["sources"]
+        requested = context.get("requested_perspectives") or []
+
+        def quote(text, words=6):
+            return " ".join(text.split()[:words])
+
+        contributions = [Contribution(source_ref=src["ref"], contribution=f"{src['source']} states it its way",
+                                      perspective=requested[0] if requested else "its own view",
+                                      quote=quote(src["passage"])) for src in sources]
+        if self.bad_comparison_quote and sources:
+            contributions.append(Contribution(source_ref=sources[0]["ref"], contribution="invented",
+                                              perspective="made up", quote="words that are nowhere in the passage"))
+        relations = []
+        for left, right in zip(sources, sources[1:]):
+            relations.append(PairRelation(left_ref=left["ref"], right_ref=right["ref"], relation="different_notation",
+                                          statement="same idea, different notation", left_quote=quote(left["passage"], 5),
+                                          right_quote=quote(right["passage"], 5)))
+        return SourceComparison(contributions=contributions, relations=relations,
+                                missing_perspectives=requested[1:])
 
     def _FamilyVerdict(self, request, context):
         from learnloop.ops.family_proposals import FamilyVerdict

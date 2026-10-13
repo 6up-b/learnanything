@@ -176,7 +176,16 @@ def prescribe_remediation(
     episode_id: str,
     *,
     clock: Clock | None = None,
+    passage_provider: Any | None = None,
 ) -> dict[str, Any]:
+    """Prescribe the passages a repair overlay shows.
+
+    ``passage_provider`` (canonical sources S3, injected by the adapter: this
+    package never imports the service) ranks and verifies passages for the
+    misconception, at most one per role. When it is absent, returns nothing,
+    or fails, today's first linked span per facet is used, so the prescription
+    is byte-identical (G11).
+    """
     episode = repository.remediation_episode(episode_id)
     if episode is None:
         raise RemediationError("remediation episode does not exist")
@@ -185,6 +194,32 @@ def prescribe_remediation(
         raise RemediationError("remediation case no longer exists")
 
     passages: list[dict[str, Any]] = []
+    if passage_provider is not None:
+        try:
+            ranked = list(passage_provider(vault, repository, misconception=misconception, episode=episode) or [])
+        except Exception:  # noqa: BLE001 - the fallback below is today's prescription
+            logger.warning("ranked remediation passages failed for %s", episode_id, exc_info=True)
+            ranked = []
+        for entry in ranked:
+            try:
+                view = build_span_view(
+                    repository,
+                    str(entry["extraction_id"]),
+                    str(entry["span_id"]),
+                    context="remediation",
+                    entity_type="misconception",
+                    entity_id=str(case_value(misconception, "id", episode["case_ref"])),
+                    record=False,
+                    clock=clock,
+                )
+            except SpanViewError:
+                continue
+            passages.append({"role": entry["role"], "facet_id": entry.get("facet_id"), "span_view": view,
+                             "basis": entry.get("basis", "ranked_verified")})
+        if passages:
+            return repository.update_remediation_episode(
+                episode_id, state="prescribed", passages_shown=passages, clock=clock
+            ) or episode
     for role, facet_id in (
         ("target", case_value(misconception, "target_facet")),
         ("confused_with", case_value(misconception, "confused_with_facet")),

@@ -233,7 +233,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             },
             # Slice 2 T6: question-dependent, verified source spans (kill switch
             # source_retrieval.enabled; any failure keeps the linked spans).
-            source_span_provider=TutorSpanProvider(),
+            source_span_provider=TutorSpanProvider(intent_for=_tutor_intent_for),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -268,6 +268,14 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             "practice_request": tutor_practice_request(vault, repository, result["event_id"]),
         }
     )
+
+
+def _tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None:
+    """Canonical sources S3: remediate when the item's LO has an active misconception."""
+
+    from learnloop.instructional.sources import tutor_intent_for
+
+    return tutor_intent_for(vault, repository, context=context, item=item)
 
 
 def tutor_practice_request(vault: Any, repository: Any, event_id: str) -> dict[str, Any] | None:
