@@ -189,10 +189,60 @@ def record_tutor_citations(vault: LoadedVault, repository: Repository, event_id:
         session_id=event.get("session_id"), attempt_id=event.get("attempt_id"))
 
 
+def record_shown_spans(repository: Repository, keys: Sequence[str], *, context: str, entity_type: str,
+                       entity_id: str, source_versions: Mapping[str, Any] | None = None,
+                       clock: Clock | None = None) -> list[str]:
+    """One ``source_exposure_events`` row per span whose text became visible.
+
+    Written whatever ``source_service.interventions`` says: the exposure rule
+    (§5.4 rule 3), the coldness receipts and the Reader's progress read these
+    rows, so a passage shown on any surface stops being "unseen" (Codex F3).
+    """
+
+    parsed = []
+    for key in keys:
+        extraction_id, _, span_id = str(key).partition(":")
+        if extraction_id and span_id:
+            parsed.append((extraction_id, span_id))
+    if not parsed:
+        return []
+    from learnloop.db.stores.source_block_fts import blocks_by_key
+    from learnloop.ingest.locators import format_block_span
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        blocks = blocks_by_key(connection, parsed)
+    versions = dict(source_versions or {})
+    ids = []
+    for extraction_id, span_id in dict.fromkeys(parsed):
+        block = blocks.get((extraction_id, span_id))
+        revision_id = versions.get(extraction_id)
+        if revision_id is None:
+            revision_id = (repository.get_extraction_run(extraction_id) or {}).get("revision_id")
+        revision = repository.get_source_revision(str(revision_id or "")) or {}
+        ids.append(repository.insert_source_exposure_event({
+            "context": context, "extraction_id": extraction_id, "span_id": span_id,
+            "revision_id": revision_id, "source_id": revision.get("source_id"),
+            "entity_type": entity_type, "entity_id": entity_id,
+            "page": getattr(block, "page", None), "locator": format_block_span(extraction_id, span_id),
+            "section_path": list(getattr(block, "section_path", None) or []),
+        }, clock=clock))
+    return ids
+
+
 def record_offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
                        span_keys: Sequence[str] = (), session_id: str | None = None,
                        clock: Clock | None = None) -> str | None:
     """A tool's passage offer opened (``source_passage``) or comparison shown (``comparison``)."""
+
+    return offer_shown(vault, repository, tool_call_id, span_keys=span_keys, session_id=session_id,
+                       clock=clock)["intervention_id"]
+
+
+def offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
+                span_keys: Sequence[str] = (), session_id: str | None = None,
+                clock: Clock | None = None) -> dict[str, Any]:
+    """The passages that became visible are recorded as exposure first, always;
+    the intervention (when ``interventions`` is on) links those rows."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         request = tool_call(connection, tool_call_id)
@@ -208,17 +258,23 @@ def record_offer_shown(vault: LoadedVault, repository: Repository, tool_call_id:
     run = ran[-1]
     keys = [key for key in run["result_keys"] if not span_keys or key in set(span_keys)]
     arguments = request["arguments"]
-    return record_intervention(
+    exposure_ids = record_shown_spans(
+        repository, keys, context="tutor_citation" if request["caller_kind"] == "tutor" else "library",
+        entity_type="source_tool_call", entity_id=tool_call_id, source_versions=run["source_versions"],
+        clock=clock)
+    intervention_id = record_intervention(
         vault, repository, kind=kinds[request["tool"]], clock=clock, caller_kind=request["caller_kind"],
         caller_ref=request["caller_ref"], intent=arguments.get("intent") or ("compare" if request["tool"]
                                                                               == "compare_sources" else None),
         policy=run["policy"], tool_call_id=tool_call_id,
         question_event_id=request["caller_ref"] if request["caller_kind"] == "tutor" else None,
-        assets={"span_keys": keys, "source_versions": run["source_versions"], "result_ref": run["result_ref"]},
+        assets={"span_keys": keys, "source_versions": run["source_versions"], "result_ref": run["result_ref"],
+                "exposure_event_ids": exposure_ids},
         targets={"facets": list(arguments.get("facet_ids") or ()),
                  "hypotheses": list(arguments.get("target_hypotheses") or ()),
                  "practice_item_ids": [request["context"]["item_id"]] if request["context"].get("item_id") else []},
         session_id=session_id)
+    return {"intervention_id": intervention_id, "exposure_event_ids": exposure_ids}
 
 
 def record_remediation_delivery(vault: LoadedVault, repository: Repository, episode: Mapping[str, Any], *,
@@ -355,11 +411,13 @@ def outcomes_report(vault: LoadedVault, repository: Repository) -> dict[str, Any
 __all__ = [
     "ASSOCIATIONS_LABEL",
     "interventions_active",
+    "offer_shown",
     "outcomes_report",
     "record_intervention",
     "record_need_served",
     "record_offer_shown",
     "record_pick",
     "record_remediation_delivery",
+    "record_shown_spans",
     "record_tutor_citations",
 ]

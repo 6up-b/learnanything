@@ -134,3 +134,42 @@ def test_the_switch_off_writes_nothing(textbook):
     vault = loaded(paths)
     record_need_served(vault, repository, {"id": "n", "learning_object_id": "lo_matrices"}, practice_item_id="pi_eigen_1")
     assert _rows(repository) == []
+
+
+@pytest.mark.parametrize("interventions_on", [True, False])
+def test_an_opened_offer_records_exposure_that_independence_reads(textbook, interventions_on):
+    """F3 (Codex sources-build review): before, opening a passage offer wrote
+    only a retrieval intervention, so the exercise it showed stayed "unseen"."""
+
+    from learnloop.instructional.exposure import independent_check_eligibility
+
+    paths, repository, spans = textbook
+    if not interventions_on:
+        set_config(paths, "source_service", interventions=False)
+    vault = loaded(paths)
+    llm = FakeServiceLLM()
+    caller = caller_for_question_event(vault, repository, insert_question(
+        repository, context="library", question="eigenvalue exercise"))
+    exercise_span = spans["exercises"][1]  # "1. An eigenvalue t satisfies 3t + 5 = 20 ..."
+    candidate = {"key": f"ext_text:{exercise_span}", "extraction_id": "ext_text", "span_ids": [exercise_span]}
+    before = independent_check_eligibility(vault, repository, candidate, intent="discriminate")
+    assert "source_exposed" not in before["reasons"]
+    offer = run_tool(vault, repository, "find_sources",
+                     {"query": "an eigenvalue t satisfies 3t + 5 = 20 solve for x"}, caller=caller,
+                     clients={"source_rerank": llm})
+    shown_key = f"ext_text:{exercise_span}"
+    assert shown_key in offer["result_keys"]
+    from learnloop.instructional.interventions import offer_shown
+
+    shown = offer_shown(vault, repository, offer["tool_call_id"], span_keys=[shown_key])
+    assert len(shown["exposure_event_ids"]) == 1
+    events = repository.source_exposure_events(extraction_id="ext_text", span_id=exercise_span)
+    assert [event["entity_id"] for event in events] == [offer["tool_call_id"]]
+    after = independent_check_eligibility(vault, repository, candidate, intent="discriminate")
+    assert "source_exposed" in after["reasons"]
+    assert after["inputs"]["exposure_event_ids"] == shown["exposure_event_ids"]
+    rows = _rows(repository)
+    if interventions_on:
+        assert rows[-1]["assets"]["exposure_event_ids"] == shown["exposure_event_ids"]
+    else:
+        assert rows == []

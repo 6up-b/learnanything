@@ -273,15 +273,16 @@ class RecordSourceOfferShownInput(ParamsModel):
 def record_source_offer_shown_rpc(ctx: SidecarContext, params: RecordSourceOfferShownInput) -> dict[str, Any]:
     """Fire-and-forget when a passage offer is opened or a comparison is shown (S5, §11.1)."""
 
-    from learnloop.instructional.interventions import record_offer_shown
+    from learnloop.instructional.interventions import offer_shown
 
     vault, repository = ctx.require_vault()
     try:
-        intervention_id = record_offer_shown(vault, repository, params.tool_call_id, span_keys=params.span_keys,
-                                             session_id=params.session_id)
+        shown = offer_shown(vault, repository, params.tool_call_id, span_keys=params.span_keys,
+                            session_id=params.session_id)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    return versioned({"intervention_id": intervention_id, "recorded": intervention_id is not None})
+    return versioned({"intervention_id": shown["intervention_id"], "recorded": shown["intervention_id"] is not None,
+                      "exposure_event_ids": shown["exposure_event_ids"]})
 
 
 __all__ = ["SOURCE_SERVICE_RPCS", "server_caller"]
