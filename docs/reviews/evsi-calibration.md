@@ -443,7 +443,7 @@ decision.
 |---|---|---|
 | `probe_selection` | `probe_episodes.commit_presentation` and the scheduler's committed presentation | the card's grader-composed rows over the episode labels, under the selection-time posterior; EIG = the presentation's |
 | `probe_robust_selection` | `_robust_completion_override` (the mvp-0.8 stop/abstain gate) | the chosen candidate's ensemble mean; robust EIG, `VALUE_PER_NAT × EIG`, the stop threshold, the agreement fraction, the verdict |
-| `followup_selection` | `evaluate_intervention_followup` when a follow-up is queued | the facet response model over the primary facet's marginal; the target facet's scoring contract (criteria → facet share, fatal errors, item and rubric hashes) frozen with it |
+| `followup_selection` | `evaluate_intervention_followup` when a follow-up is queued | the facet response model over the primary facet's marginal; the target facet's scoring contract frozen with it (criterion → facet share read from the assessment contract's own targets, fatal errors, item and rubric hashes, the criteria's hash, the item's evidence facets) |
 | `causal_shadow_selection` | `causal_diagnostic_selector.record_shadow_selection` (`rank_feasible`) | EVSI point/LCB/UCB of every candidate, the loss table, emission keys per hypothesis |
 | `staged_diagnostic_selection` | `staged_policy.decide`, once the decision is persisted (`rank_feasible`) | same, for the candidate actually committed after the near-tie randomization (`forecast_of: committed`, its assignment id and propensity), keyed by the decision id; the ranking's nominal best kept apart (`nominal_best_ref`, `nominal`); stops and abstentions `forecast_of: nominal_best` |
 
@@ -463,30 +463,34 @@ R1's `router_decisions`/`router_outcomes` when the tables exist (the decision's
 chosen scheduler candidate → the attempt that took it; `pending` and
 `not_taken` stay right-censored), else the ledgers:
 `practice_attempts.probe_presentation_id` → `probe_observations` for probes;
-for a queued follow-up, the attempt the scheduler's own binding
-(`Repository.followup_source_attempt`) gives this decision, answered through
-the follow-up lane (its offer is a slate candidate inserted as an intervention
-follow-up), with `superseded`, `not_taken`, `unbound_attempt` and `pending`
-kept apart; for a staged decision, `not_administered` (stop/abstain),
+for a queued follow-up, the first attempt on the item after its queue, taken
+only when it answered the offer this decision's queue produced (the offer is a
+slate candidate inserted as an intervention follow-up, not served by a delayed
+task, and built while this decision's queue was the one the scheduler
+served), with `superseded`, `answered_earlier_offer`, `not_taken`,
+`unbound_attempt` and `pending` kept apart; for a staged decision, `not_administered` (stop/abstain),
 `shadow_not_administered` (shadow mode composes no work) or
 `no_attempt_binding` (live, no attempt receipt exists yet); else the first
 later attempt on the chosen item (causal shadow, joined through its
 discriminating observation). The realized answer is mapped into the
 forecast's own alphabet (probe outcome label, the robust coarse emission, the
 **target facet's** `bucket|error` for follow-ups, scored from the attempt's
-grading evidence under the contract frozen at selection, the matched
+grading evidence under the contract frozen at selection, facet map
+included, the matched
 hypothesis's declared emission for the causal shadow, the graded probe outcome
 for a staged check); anything else is `unmapped` with its reason, never
 guessed. **Truth adapters** need explicit linkage (the evidence names the
 forecast's own hypothesis ids, which belong to one episode; a shared repair
 class is not linkage) and independent diagnostic evidence: a cold
-verification's diagnosis-support update on an admitted basis
-(`SUPPORT_BASIS_AUTHORITY`) citing its observation, an admitted
-`matched_single` discriminating observation that is not the forecast's own
-answer, a later teach-back whose diagnosis names the same cause. What a repair
-did (cold-check success or failure, `repair_confirmed` /
-`escalated_unrepaired`) is reported apart as `repair_effect`: it neither
-confirms nor rules out a cause. The system's own posterior resolving a
+verification's diagnosis-support update whose cited observation resolves to
+an admitted, independent `matched_single` on one of the verification's own
+hypotheses and carries the authority its basis grants
+(`SUPPORT_BASIS_AUTHORITY`), an admitted, independent `matched_single`
+discriminating observation that is not the forecast's own answer, a later
+teach-back whose diagnosis names the same cause. What a repair did
+(cold-check success or failure, `repair_confirmed` /
+`escalated_unrepaired`) is reported apart as `repair_effect`, one outcome per
+cold verification: it neither confirms nor rules out a cause. The system's own posterior resolving a
 misconception is not truth.
 
 **Report:** per site, reliability of answer forecasts (log loss, Brier, ECE,
@@ -605,14 +609,17 @@ uv run learnloop evsi calibration --vault <vault> --since 2026-10-13T00:00:00Z
 * CLI `learnloop evsi simulate|calibration` (help snapshot refreshed); no
   sidecar RPC (nothing to pin in `test_mobile_allowlist.py`).
 * Tests: `tests/test_evsi_calibration_sim.py` (10), `tests/test_voi_forecasts.py`
-  (25); `tests/test_architecture.py` registers the new SQL owner.
+  (29); `tests/test_architecture.py` registers the new SQL owner.
 * Codex review fixes (F1–F8, `evsi-calibration-codex-review.md`): linked,
   independent truth with repair effect apart; target-facet follow-up outcomes
   under a frozen contract; follow-up and staged joins through explicit
   bindings; the staged forecast written after the decision, behind the kill
   switch; untimed recurrences never measured zeros; the `incumbent` arm and
-  per-world histories, with the study rerun. Forecast body `voi_forecast_v2`,
-  report `voi_calibration_report_v2`.
+  per-world histories, with the study rerun. Re-review fixes (F1, F5/F9, F6,
+  F10): cited diagnosis support resolved to its observation; the facet map
+  part of the frozen follow-up contract; a follow-up taken only through the
+  offer its own queue produced; one repair outcome per cold verification.
+  Forecast body `voi_forecast_v3`, report `voi_calibration_report_v3`.
 
 ## 12. Paid calls and data
 
