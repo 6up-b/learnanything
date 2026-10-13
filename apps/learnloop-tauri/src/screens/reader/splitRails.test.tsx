@@ -40,7 +40,7 @@ it("a hidden rail stays mounted but out of view", () => {
 it("the Ask rail submits through its ask callback", () => {
   const ask = vi.fn();
   render(<AskRail {...askProps({ ask, question: "Why?" })} />);
-  fireEvent.click(screen.getByRole("button", { name: "ask ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask · ctrl+↵" }));
   expect(ask).toHaveBeenCalledTimes(1);
 });
 
@@ -63,7 +63,8 @@ it("the Guide rail renders its section and contents from the plan", () => {
   render(<GuideRail {...props} />);
   expect(screen.getByText("Reading guide")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Sums/ }));
-  expect(props.jumpToSpan).toHaveBeenCalledWith("s1");
+  // Contents opens a section at the top of the view (UX Phase 1 finishing pass).
+  expect(props.jumpToSpan).toHaveBeenCalledWith("s1", "start");
 });
 
 it("the Notes rail shows the capture hint without a selection and the palette with one", () => {

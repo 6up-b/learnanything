@@ -613,7 +613,10 @@ export interface VaultSummary {
   root: string;
   schemaVersion: number;
   algorithmVersion: string;
+  /** Subject ids, the ones the learner practises most first (usability round 1, U10). */
   subjects: string[];
+  /** Each subject's title, in the same order. Absent from older sidecars. */
+  subjectTitles?: Array<{ id: string; title: string }>;
   counts: {
     learningObjects: number;
     practiceItems: number;
@@ -3255,6 +3258,120 @@ export interface SourceLibraryCard {
   /** Per-source ingest-time choice: false = opted out of the reader loop. */
   readerEnabled: boolean;
   updateAvailable: boolean;
+  /** UX Phase 1: "book", "paper", "article", "video" or "recording". */
+  kindNoun?: string;
+  /** The subject the source is filed under (automatic for Add), if any. */
+  subjectId?: string | null;
+  /** That subject's title: what the learner reads (usability round 1). */
+  subjectTitle?: string | null;
+  /** The card's one learner-facing status line, or null when there is nothing to say. */
+  statusLine?: SourceStatusLineDto | null;
+  /** "Keep this book on this computer": nothing of it is sent to an AI. */
+  keepLocal?: boolean;
+  /** Whether text recognition can run for this book here: details offer
+   *  "Read it again with text recognition" only then (usability round 2). */
+  textRecognitionAvailable?: boolean;
+}
+
+// ── UX Phase 1: one Add, the book card's status line, connect AI once ──────
+// docs/specs/ux_learnloop_v1.md §6, §7.2. Every string here is learner copy
+// produced by the sidecar in plain words (glossary §9).
+
+export type SourceActionKind =
+  | "undo_questions"
+  | "build_now"
+  | "build_whole_book"
+  | "retry"
+  | "text_recognition"
+  /** The separate OK for sending a whole file out (a recording, a whole PDF). */
+  | "allow_upload"
+  /** Book details: keep this book on this computer, or let it go again. */
+  | "keep_local"
+  | "share_with_ai"
+  | "connect_ai"
+  | "open_changes"
+  | "open_settings";
+
+export interface SourceStatusLineDto {
+  text: string;
+  /** quiet: a fact; working: something is happening; problem: something stopped. */
+  tone: "quiet" | "working" | "problem";
+  action: { kind: SourceActionKind; label: string } | null;
+  /** The raw message behind the line, for details ▸ only. */
+  details: string | null;
+  /** What the card says instead while no AI can write questions (usability
+   *  round 2: "come up as you read" under "Connect an AI"). */
+  withoutAi?: SourceStatusLineDto | null;
+}
+
+/** A link an Add is still fetching: it has no library card yet. */
+export interface PendingAddDto {
+  batchId: string;
+  source: string;
+  kind: string | null;
+  kindNoun: string;
+  title: string;
+  statusLine: SourceStatusLineDto | null;
+}
+
+export type AddSourceStatus = "added" | "queued" | "existing" | "unsupported";
+
+export interface AddSourceItemDto {
+  source: string;
+  /** The library's spelling of the source (a card's canonicalUri). */
+  canonical?: string | null;
+  kind: string | null;
+  kindNoun: string | null;
+  status: AddSourceStatus;
+  sourceId: string | null;
+  revisionId: string | null;
+  title: string;
+  batchId: string | null;
+  /** True until the source's text is ready (the Reader shows the original meanwhile). */
+  preparing: boolean;
+  /** One plain line for "existing" and "unsupported". */
+  message: string | null;
+}
+
+export interface AddSourceResultDto {
+  version?: number;
+  items: AddSourceItemDto[];
+  /** The item the Reader opens: the first that could be added or found. */
+  opened: AddSourceItemDto | null;
+}
+
+export interface AddSourceInput {
+  sources: string[];
+  pages?: string | null;
+  problemSet?: boolean;
+  keepLocal?: boolean;
+  textRecognition?: boolean;
+}
+
+export interface AiConnectionDto {
+  version?: number;
+  canAuthor: boolean;
+  provider: string;
+  providerLabel: string;
+  consentKey: string;
+  consented: boolean;
+  consentedAt: string | null;
+  /** connect: no AI can write questions; consent: one OK is missing; null: ready. */
+  needs: "connect" | "consent" | null;
+  message: string | null;
+  whatLeaves: string;
+  chatgptSignedIn: boolean;
+  openrouterKeyPresent: boolean;
+  /** connect_ai only: books whose questions were waiting and now start. */
+  released?: string[];
+}
+
+export interface SourceActionResultDto {
+  version?: number;
+  sourceId: string | null;
+  action: SourceActionKind;
+  batchId?: string;
+  reverted?: number;
 }
 
 // ── Source deletion (§4.1) ───────────────────────────────────────────────
@@ -3297,6 +3414,8 @@ export interface SourceDeletionResultDto {
 export interface SourceLibrarySnapshot {
   version: number;
   sources: SourceLibraryCard[];
+  /** UX Phase 1: links an Add is still fetching (no card yet). */
+  pending?: PendingAddDto[];
 }
 
 // ── ING M3: outline, unit selection, budget planning, repair (§3/§5.3/§8.6) ──
@@ -3594,6 +3713,9 @@ export interface QuickAddConsentDto {
   stage: string;
   reason?: string;
   provider?: string;
+  /** UX Phase 1: the learner already said OK to this provider once (with its date). */
+  granted?: boolean;
+  grantedAt?: string | null;
   [key: string]: unknown;
 }
 
@@ -6647,11 +6769,17 @@ export interface ReaderPdfBlockDto {
 export interface ReaderPdfViewDto {
   version?: number;
   available: boolean;
+  /** UX Phase 1: the original is shown while the text is still being prepared (no blocks yet). */
+  preparing?: boolean;
   fileName: string | null;
   extractionId: string;
   sourceId: string | null;
   revisionId: string | null;
   blocks: ReaderPdfBlockDto[];
+  /** Every passage's page, geometry or not (usability round 1, U2): a
+   *  text-only extraction has no boxes, but the Reader still jumps to,
+   *  follows and resumes a page. Absent from older sidecars. */
+  pageSpans?: Array<{ spanId: string; page: number }>;
 }
 
 /** A raw display-coordinate selection captured by TS (design §A.2). */

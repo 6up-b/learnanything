@@ -73,6 +73,22 @@ export async function pickSourceFile(): Promise<string | null> {
   return typeof selected === "string" ? selected : null;
 }
 
+/** The same dialog for one Add of several books (UX Phase 1, §6.2): every
+ * file chosen becomes a book. Resolves to [] when the learner cancels. */
+export async function pickSourceFiles(): Promise<string[]> {
+  const selected = await openDialog({
+    multiple: true,
+    directory: false,
+    title: "Add to your library",
+    filters: [
+      { name: "Books, papers and notes", extensions: SOURCE_EXTENSIONS.map((ext) => ext.slice(1)) },
+      { name: "All files", extensions: ["*"] }
+    ]
+  });
+  if (Array.isArray(selected)) return selected.filter((path): path is string => typeof path === "string");
+  return typeof selected === "string" ? [selected] : [];
+}
+
 export function useSourceFileDrop({
   enabled = true,
   priority = 0,

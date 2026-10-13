@@ -793,6 +793,11 @@ pub async fn set_openrouter_api_key(
 
 sidecar_passthrough!(update_ingest_settings, "update_ingest_settings");
 sidecar_passthrough!(chatgpt_plan_status, "chatgpt_plan_status");
+// UX Phase 1: one Add, the AI connection sheet, and the book card's actions.
+sidecar_passthrough!(add_source, "add_source");
+sidecar_passthrough!(get_ai_connection, "get_ai_connection");
+sidecar_passthrough!(connect_ai, "connect_ai");
+sidecar_passthrough!(source_action, "source_action");
 sidecar_passthrough!(chatgpt_plan_signin_start, "chatgpt_plan_signin_start");
 sidecar_passthrough!(chatgpt_plan_signin_cancel, "chatgpt_plan_signin_cancel");
 sidecar_passthrough!(chatgpt_plan_signout, "chatgpt_plan_signout");

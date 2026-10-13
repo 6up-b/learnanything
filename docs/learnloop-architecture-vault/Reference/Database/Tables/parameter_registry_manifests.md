@@ -3,13 +3,13 @@ title: "parameter_registry_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
-source_commit_timestamp: "2026-10-13T16:01:27-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry_manifests"
   - "table parameter_registry_manifests"
-schema_head: 197
+schema_head: 199
 table_name: "parameter_registry_manifests"
 table_role: "receipt"
 functionality_status: "active"
@@ -102,7 +102,6 @@ Indexes and uniqueness:
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_mvp017_upgrade.py`
 - `tests/test_mvp018_upgrade.py`
-- `tests/test_mvp020_upgrade.py`
 - `tests/test_recurrence_commands.py`
 - `tests/test_p0_cutover_mvp08.py`
 

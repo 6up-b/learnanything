@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
-source_commit_timestamp: "2026-10-13T16:01:27-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 197
+schema_head: 199
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/cli/data.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/substrate/model_usage.py"
-  - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/graph_nomination_report.py`
@@ -135,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_source_set_synthesis.py`
+- `tests/test_ux_phase1_round2_review.py`
 - `tests/test_facet_identity.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_ingest_ownership.py`

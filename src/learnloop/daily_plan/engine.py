@@ -112,6 +112,38 @@ def plan_active(vault: Any) -> bool:
     )
 
 
+def reading_from_furthest_active(vault: Any) -> bool:
+    """The reading block continues from the furthest section read (UX Phase 1,
+    U4) wherever the plan acts, with its kill switch
+    ``plan.reading_from_furthest`` on; off, it is DL1's selection exactly, the
+    first unfinished section in book order.
+
+    A live change behind a kill switch, not a successor tag (owner ruling at
+    the UX Phase 1 merge, docs/reviews/ux-phase1.md "Landing onto main"): the
+    selection is a serving choice that replay never reads. A plan block
+    records the section it chose as workflow state (``attention_blocks``), and
+    no replayer or projection reads it back."""
+
+    return plan_active(vault) and bool(vault.config.plan.reading_from_furthest)
+
+
+def _exam_material(vault: Any, repository: Any) -> Any:
+    """Main's exam predicate for the reading step (UX Phase 1's selection never
+    offers exam material, a ``held_out_evaluation`` unit included, as reading).
+    None when it cannot be read: the plan then offers no reading step (fail
+    closed) rather than one that might be exam material."""
+
+    from learnloop.source_retrieval.corpus import exam_exclusions
+
+    try:
+        return exam_exclusions(vault, repository)
+    except Exception:  # noqa: BLE001 - the plan never fails on the reading step's filter
+        import logging
+
+        logging.getLogger(__name__).warning("could not read exam material for the reading step", exc_info=True)
+        return None
+
+
 def local_date(clock: Clock | None = None) -> str:
     """The plan's day: the machine's local calendar date, like the streak (D9)."""
 
@@ -659,7 +691,10 @@ def _prepare_plan(
     reading: ReadingTarget | None = None
     reading_full: float | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
-        reading = next_reading_target(env.repository)
+        from_furthest = reading_from_furthest_active(env.vault)
+        exam = _exam_material(env.vault, env.repository) if from_furthest else None
+        if not (from_furthest and exam is None):
+            reading = next_reading_target(env.repository, from_furthest=from_furthest, exam=exam)
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -2357,6 +2392,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "reading_from_furthest_active",
     "reading_ended",
     "reconcile",
     "register_plan_decision_logger",

@@ -347,3 +347,31 @@ def sources_tool(
         report = {"version": 1, "status": "refused", "code": exc.code, "reason": str(exc)}
     _emit(report, json_output)
     _exit_for(report, {"dry_run", "ran"})
+
+
+@sources_app.command("build-preview")
+def sources_build_preview(
+    source_id: Annotated[str, typer.Argument(help="The book's source id (src_...).")],
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root; use a fixtures-local copy for experiments.")],
+    whole_book: Annotated[bool, typer.Option("--whole-book", help="Preview 'Build questions for the whole book'.")] = False,
+    approved: Annotated[bool, typer.Option("--approved", help="Preview as if the learner pressed 'Build them'.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Dry run of an automatic question build for one book (UX Phase 1): what it
+    would cover, the route, tokens, money and whether it would ask first or
+    stop. Zero model calls; reads only (the database opens read-only)."""
+
+    from learnloop.content.pipeline.add_source import preview_auto_build
+
+    loaded, repository = _open(vault, migrate=False)
+    report = preview_auto_build(loaded.root, repository, source_id, whole_book=whole_book, approved=approved)
+    if json_output:
+        typer.echo(json.dumps(report, sort_keys=True, default=str))
+        return
+    typer.echo(f"dry run: {report['status']}; 0 model calls")
+    if "chapters" in report:
+        typer.echo(f"  chapters: {', '.join(report['chapters'])}")
+        typer.echo(f"  route: {report['provider']} ({report['cost_basis']}); tokens about {report['estimate_tokens']:,}")
+        usd = report.get("estimate_usd")
+        typer.echo(f"  money: {'unknown' if usd is None else f'about ${usd:,.2f}'}"
+                   + (f"; allowed up to ${report['authorized_usd']:,.2f}" if report.get("authorized_usd") is not None else ""))

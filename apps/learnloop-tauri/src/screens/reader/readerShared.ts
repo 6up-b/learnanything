@@ -1,5 +1,17 @@
 // Shared helpers for the Reader screen and its rail components (RW1a split).
 
+export const ANSWER_MODE_OPTIONS = [
+  { value: "answer_directly", label: "answer directly" },
+  { value: "help_me_reason", label: "help me reason" },
+  { value: "ask_me_first", label: "ask me first" },
+];
+
+/** The answer style in the learner's words, never its internal name (UX
+ *  Phase 1 usability round 2). */
+export function answerModeLabel(mode: string): string {
+  return ANSWER_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? mode.replace(/_/g, " ");
+}
+
 export function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }

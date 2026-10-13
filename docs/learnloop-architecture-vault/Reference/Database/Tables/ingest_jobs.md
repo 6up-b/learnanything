@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
-source_commit_timestamp: "2026-10-13T16:01:27-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 197
+schema_head: 199
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/033_durable_ingest_jobs.sql"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop_sidecar/handlers/animation.py"
-  - "src/learnloop_sidecar/handlers/app.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -128,6 +128,13 @@ None found by exact static reference scan.
 - `tests/test_sidecar_goals.py`
 - `tests/test_sidecar_measurement.py`
 - `tests/test_table_roles.py`
+- `tests/test_ux_phase1_add_source.py`
+- `tests/test_ux_phase1_connect_ai.py`
+- `tests/test_ux_phase1_finish.py`
+- `tests/test_ux_phase1_review_fixes.py`
+- `tests/test_ux_phase1_round2_rereview.py`
+- `tests/test_ux_phase1_round2_review.py`
+- `tests/test_ux_phase1_usability_round1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

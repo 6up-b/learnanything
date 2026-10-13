@@ -57,7 +57,7 @@ it("asks without a parentExchangeId and never logs inquiry activity", async () =
   render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.change(await screen.findByPlaceholderText("ask about this passage…"), { target: { value: "Plain question" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask · ctrl+↵" }));
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
   expect("parentExchangeId" in api.readerAsk.mock.calls[0][0]).toBe(false);
   expect(await screen.findByText("Fresh answer")).toBeTruthy();

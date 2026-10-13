@@ -13,6 +13,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import type { InquiryResolution, ReaderAnswerMode, TutorCitationDto } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
+import { answerModeLabel } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 export interface ReaderExchange {
@@ -169,7 +170,7 @@ export function ReaderAskBranches({
     const isRoot = depth === 0;
     const resolution = exchange.resolution ?? "open";
     return (
-      <li key={exchange.id} data-exchange-id={exchange.id} style={{ listStyle: "none" }}>
+      <li key={exchange.id} data-exchange-id={exchange.id} data-ask-id={exchange.id} style={{ listStyle: "none" }}>
         <Card status="running" style={{ display: "flex", flexDirection: "column", gap: 8, fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text, overflowWrap: "anywhere" }}>
           <button
             type="button"
@@ -188,7 +189,7 @@ export function ReaderAskBranches({
               <MarkdownMath value={exchange.question} />
             </LearnerVoice>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <Pill color="cyan">{exchange.answerMode}</Pill>
+              <Pill color="cyan">{answerModeLabel(exchange.answerMode)}</Pill>
               {exchange.createdAt ? <Faint style={{ fontSize: 9 }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
             </div>
             {exchange.selectionSourceQuoteMd ? (

@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -203,6 +203,9 @@ class RunnerServices:
     #: Canonical sources S1: the Reader import's answer-key check runs in a
     #: background thread after the import (tests turn it off for determinism).
     background_key_checks: bool = True
+    # UX Phase 1: which provider would write questions for an automatic build
+    # and whether it is ready (learnloop.content.pipeline.add_source).
+    authoring_route_factory: Callable[["JobContext"], Any] | None = None
     _inventory_identity_cache: tuple[str, str] | None = field(
         default=None, init=False, repr=False
     )
@@ -310,6 +313,15 @@ class RunnerServices:
 
         return (self.video_client_factory or _job_defaults().default_video_client)(ctx)
 
+    def authoring_route(self, ctx: "JobContext") -> Any:
+        """The question-writing route an automatic build would use (no model call)."""
+
+        if self.authoring_route_factory is not None:
+            return self.authoring_route_factory(ctx)
+        from learnloop.content.pipeline.add_source import default_authoring_route
+
+        return default_authoring_route(ctx)
+
 
 def _job_defaults() -> Any:
     """Load concrete ingest jobs only when a default seam is actually used.
@@ -338,6 +350,11 @@ class JobContext:
     _usage: dict[str, Any] = field(default_factory=dict)
     _phase: str | None = None
     _bind_interruptible: Callable[[Any], None] | None = None
+    # The runner's own enqueue, so a planning job can queue the work it planned
+    # (UX Phase 1: the automatic build after an Add) as a separate batch.
+    _enqueue_batch: Callable[..., str] | None = None
+    # Scopes held until this attempt ends (see ``hold``); set by the runner.
+    _held: ExitStack | None = None
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -397,6 +414,22 @@ class JobContext:
 
         if self._bind_interruptible is not None:
             self._bind_interruptible(client)
+
+    def hold(self, scope: AbstractContextManager[Any]) -> Any:
+        """Enter ``scope`` for the rest of this attempt: the runner exits it
+        when the handler returns or raises (in this thread, so context
+        variables it sets are reset), before the outcome is recorded."""
+
+        if self._held is None:
+            raise IngestRunnerError("this job context cannot hold a scope outside the runner.")
+        return self._held.enter_context(scope)
+
+    def enqueue_batch(self, workflow_type: str, jobs: Sequence["JobSpec"], **kwargs: Any) -> str:
+        """Queue a follow-up batch through the runner that is running this job."""
+
+        if self._enqueue_batch is None:
+            raise IngestRunnerError("this job context cannot enqueue follow-up work.")
+        return self._enqueue_batch(workflow_type, jobs, **kwargs)
 
     def _cancel_requested(self) -> bool:
         fresh = self.repo.get_ingest_job(self.job_id)
@@ -825,6 +858,7 @@ class IngestRunner:
             _bind_interruptible=lambda client: self._bind_job_interruptible(
                 job["id"], job["attempt_count"], client
             ),
+            _enqueue_batch=self.enqueue_batch,
         )
         if ctx.cancelled():
             finish(
@@ -851,11 +885,18 @@ class IngestRunner:
             )
             heartbeat_thread.start()
             try:
-                with guard_ingest_writes(
-                    self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
-                ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
-                    result = handler(ctx)
+                # Scopes a handler holds for the rest of its attempt (the
+                # per-request spend gate of an automatic build) close here,
+                # inside the classification below, so what they raise on the
+                # way out is classified like the handler's own outcome.
+                with ExitStack() as held:
+                    ctx._held = held
+                    with guard_ingest_writes(
+                        self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
+                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
+                        result = handler(ctx)
             finally:
+                ctx._held = None
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
         except JobOwnershipLost:

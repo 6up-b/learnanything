@@ -1381,6 +1381,19 @@ Phase 1 needs no new navigation, so it can ship first and be tested with the tes
 | 7.2 | The jargon deny-list test (§9) and the sigh-audit checklist in the PR template. | S | new `src/copy/denyList.test.tsx`; `.github` or `docs/` PR checklist |
 | 7.3 | Under the hood keeps its terminal voice. Nothing there is renamed except titles. | — | — |
 
+### Deferred from Phase 1's usability rounds
+
+Phase 1's two persona rounds (`docs/reviews/ux-phase1.md`, "Usability round 1" and "Usability round 2 fixes") fixed everything found on Phase 1's own path. These findings sit on later phases' screens, and those phases carry them:
+
+| Phase | Deferred finding (round) |
+|---|---|
+| 2 | The ten-tab bar (Ingest, Proposals, Registry, Maintain) and the Ingest screen's developer words ("learnloop[pdf]", "chatgpt_plan"); the build-plan modal's Escape steps back instead of closing (1). Proposals grows on every practice, with duplicate error-type proposals (1). Notes & files opens previewing `vault.lock` (1). The notice system that clears a notice once it is resolved (2.3): round 2 added a stopgap for the session-first notices only (`app/notices.ts`). |
+| 3 | The Start epigraph, "learning_objects", "+ create a new vault", "session warm-up" (1, 2). "Today complete · 1 min · 0 items" with a streak after two pages, beside an offer of new items (1, 2). The session counter (025, then 447 after a relaunch) and "41 retrieval reps" on a 10-minute budget (2). Implicit sessions (3.2): round 2 made Today's own begin start the plan; the other "Start a session first" notices remain. |
+| 4 | The practice card's raw ids, "constructed_response" and the mastery estimate (1, 2). Feedback jargon and the red "manual review recommended" banner; no "I think I was right"; `r` duplicates the rubric row; "a ledger fact, not a request for your verdict" (1, 2). The self-grade box's "fallback provider_auth_required" and missing "out of 4"; "what made this case fit?" and "(2/3)" numbering (1). |
+| 5 | The progress view (the graph is the table of contents in boxes: "concept", "lo_…", "0 edges") and the Graph key bar's duplicate-key warning (1, 2). |
+| 7 / Reader doc | The Reader key bar's "capture box union" and "sweep blocks" (1, 2). Small, dim text (1). |
+| Owner (Q-L) | Offering to install text recognition from a scan's card. Today the card says how (`uv sync --extra pdf`) and offers it only where it can run (2). |
+
 **What does not change in any phase:** the sidecar's data contracts beyond the additions named above, the durable runner, gates, receipts, replay and rebuild, kill switches, spend caps, the CLI (all 123 commands), the vault's file layout, and the evidence model.
 
 ---

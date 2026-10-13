@@ -385,13 +385,22 @@ def plan_quick_add(
     for entry in item.potential_external or []:
         consent.append({**entry, "stage": "extraction"})
     # Inventory + synthesis call the configured external AI provider (codex) — the
-    # single consent that actually spends tokens on the build batch.
+    # single consent that actually spends tokens on the build batch. UX Phase 1
+    # (Q4): when the learner already said OK to that provider once, the entry
+    # carries the recorded OK, so the confirmation does not ask again.
+    from learnloop.ai.routing import provider_for_task
+    from learnloop.content.pipeline.add_source import consent_key
+
+    route_key = consent_key(config, provider_for_task(config, "canonical_ingest").provider_name)
+    recorded = config.ai.consent.get(route_key)
     consent.append(
         {
             "kind": "external_ai_synthesis",
             "stage": "synthesis",
             "reason": "unit inventory and study-map synthesis call the configured AI provider",
             "provider": "codex",
+            "granted": recorded is not None,
+            "granted_at": recorded.granted_at if recorded is not None else None,
         }
     )
 

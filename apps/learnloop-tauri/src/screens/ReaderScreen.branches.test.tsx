@@ -50,7 +50,7 @@ it("hydrates an old root, submits inherited anchors, and restores its child afte
   const first = render(<ReaderScreen initialSource={initialSource} onError={onError} />);
   await openFollowUp();
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "Why does that follow?" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledWith(expect.objectContaining({
     extractionId: view.extractionId, spanId: saved.spanId, parentExchangeId: "root", question: "Why does that follow?",
     selectionSpanIds: saved.selectionSpanIds, selectionQuote: saved.selectionQuoteMd,
@@ -70,7 +70,7 @@ it("new thread explicitly clears the parent and uses the current passage", async
   await openFollowUp();
   fireEvent.click(screen.getByRole("button", { name: "new thread from current passage" }));
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "Different topic" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask · ctrl+↵" }));
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledWith(expect.objectContaining({ parentExchangeId: null, spanId: initialSource.spanId })));
 });
 
@@ -80,10 +80,10 @@ it("retains the question and parent on failure so a follow-up can be retried", a
   render(<ReaderScreen initialSource={initialSource} onError={onError} />);
   await openFollowUp();
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "Retry me" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   await waitFor(() => expect(onError).toHaveBeenCalledWith("Provider offline"));
   expect((screen.getByPlaceholderText("ask about this passage…") as HTMLTextAreaElement).value).toBe("Retry me");
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   expect(await screen.findByText("Follow-up answer")).toBeTruthy();
   expect(api.readerAsk.mock.calls[1][0].parentExchangeId).toBe("root");
 });
@@ -94,8 +94,8 @@ it("does not attach an in-flight answer after leaving and reopening a source", a
   render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
   await openFollowUp();
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "Still running" } });
-  fireEvent.click(screen.getByRole("button", { name: "ask follow-up ↵" }));
-  fireEvent.click(screen.getByText("← library"));
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
+  fireEvent.click(screen.getByText("← Library"));
   fireEvent.click(await screen.findByText("Matrices"));
   await openFollowUp();
   await act(async () => finish({ readerAnswerEventId: "late", parentExchangeId: "root", answerMd: "Stale response", answerMode: "answer_directly", citations: [] }));

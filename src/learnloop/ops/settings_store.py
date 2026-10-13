@@ -225,6 +225,15 @@ def copy_ai_settings(source_path: Path, target_path: Path) -> bool:
                 continue
             _flatten_into_updates(("ai", "providers", name), table, updates)
 
+    # The learner's one-time OK per provider (UX Phase 1, Q4) is the same
+    # person and machine sending to the same provider, so a library created
+    # later inherits it with the routes it covers.
+    consent = ai.get("consent")
+    if isinstance(consent, Mapping):
+        for key, record in consent.items():
+            if isinstance(record, Mapping):
+                _flatten_into_updates(("ai", "consent", key), record, updates)
+
     if not updates:
         return False
     apply_config_updates(target_path, updates)

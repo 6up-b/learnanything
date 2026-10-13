@@ -33,7 +33,7 @@ tags:
 | canonical projection base | `mvp-0.8` semantics | inherited by every successor, mvp-0.9 through mvp-0.20 (`P0_SUCCESSOR_VERSIONS`, the `SUCCESSOR_CHAIN`) |
 | knowledge-model activation | `mvp-0.7` | canonical state/contracts boundary |
 | config schema | `2` | emitted `learnloop.toml`; schema 1 accepted |
-| SQLite migration head | `197` | current schema ledger maximum |
+| SQLite migration head | `199` | current schema ledger maximum |
 | collection | `learnloop-events-v1` | `COLLECTION_VERSION` stamped on attempts, slates, offer receipts, submission intents, completion work, model-call receipts and adjudications; attempt and slate rows written before migration 161 read `legacy-unversioned` |
 | outcome labels | `learnloop-outcomes-v1` | `LABEL_VERSION` of the exported R_next/R_cold/Q/B/F labels and of adjudications |
 | selection policy | `composed_offer_v2` | `selection_policy` on every persisted slate; candidates carry `propensity_kind = unavailable_composed_offer` |

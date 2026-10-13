@@ -377,6 +377,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_annotation_versions", TableRole.RAW_LEDGER),
     ("source_annotations", TableRole.RAW_LEDGER),
     ("source_artifacts", TableRole.RAW_LEDGER),
+    # UX Phase 1 review (migration 198): a book's automatic-build generation
+    # (advanced by Undo) and the reading position a build could not act on yet.
+    ("source_auto_build_state", TableRole.WORKFLOW),
     # Slice 2 T6 (migration 177): FTS5 keyword index over
     # source_document_blocks, kept in step by triggers and rebuilt by its one
     # replayer. Its FTS5 shadow tables are owned by the virtual table (see

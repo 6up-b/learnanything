@@ -18,6 +18,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
+from types import SimpleNamespace
 from typing import Any
 
 from learnloop.content.sources.role_authority import role_authority
@@ -388,6 +389,22 @@ def exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions:
                 _member_exclusions(connection, repository, member, whole, spans,
                                    teaches=lambda role: str(role or "") != "exam")
                 _held_out_exclusions(connection, repository, member, whole, spans)
+    return Exclusions(frozenset(whole), frozenset(spans))
+
+
+def source_exam_exclusions(vault: LoadedVault, repository: Repository, *, source_id: str,
+                           revision_id: str | None) -> Exclusions:
+    """:func:`exam_exclusions`, plus one source's own ``held_out_evaluation``
+    units before it is a member of any source set (UX Phase 1's automatic
+    builds plan a book's scope before its first study map exists). The same
+    rules as :func:`_held_out_exclusions`, read for ``source_id``."""
+
+    base = exam_exclusions(vault, repository)
+    whole: set[str] = set(base.extractions)
+    spans: set[tuple[str, str]] = set(base.spans)
+    member = SimpleNamespace(source_id=source_id, revision_id=revision_id)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        _held_out_exclusions(connection, repository, member, whole, spans)
     return Exclusions(frozenset(whole), frozenset(spans))
 
 
@@ -776,6 +793,7 @@ __all__ = [
     "model_reader_withheld",
     "role_keys",
     "role_proposal_keys",
+    "source_exam_exclusions",
     "teaching_exclusions",
     "teaching_scope",
 ]

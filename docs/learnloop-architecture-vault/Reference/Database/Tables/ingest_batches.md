@@ -3,13 +3,13 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1e3b56d766f5b133aedca5b64ae06802e8f41a94"
-source_commit_timestamp: "2026-10-13T16:01:27-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
   - "table ingest_batches"
-schema_head: 197
+schema_head: 199
 table_name: "ingest_batches"
 table_role: "workflow"
 functionality_status: "active"
@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/test_capture_route_recovery.py`
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
+- `tests/test_ux_phase1_usability_round2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

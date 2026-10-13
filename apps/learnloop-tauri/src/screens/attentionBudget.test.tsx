@@ -75,7 +75,7 @@ it("an answer landing leaves focus where it was", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.change(await screen.findByPlaceholderText("ask about this passage…"), { target: { value: "Why?" } });
   const elsewhere = focusOutside();
-  fireEvent.click(screen.getByRole("button", { name: "ask ↵" }));
+  fireEvent.click(screen.getByRole("button", { name: "ask · ctrl+↵" }));
   await screen.findByText("Landed answer");
   await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)));
   expect(document.activeElement).toBe(elsewhere);

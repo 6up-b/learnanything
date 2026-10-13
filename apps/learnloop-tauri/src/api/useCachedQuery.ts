@@ -26,8 +26,14 @@ export interface CachedQuery<T> {
    */
   readonly refreshing: boolean;
   readonly error: CommandError | null;
-  /** Force a fetch (shares an in-flight request). Rejects when the query is disabled. */
-  readonly refetch: () => Promise<T>;
+  /**
+   * Force a fetch (shares an in-flight request). A disabled query (a null key,
+   * or `enabled: false`) fetches nothing and resolves with whatever is cached,
+   * usually `undefined`: being turned off is a state, never an error
+   * (UX Phase 1 usability round 2: a refresh of Today's turned-off full list
+   * surfaced as a red "query is disabled" banner on every tab).
+   */
+  readonly refetch: () => Promise<T | undefined>;
 }
 
 export interface CachedQueryOptions {
@@ -60,6 +66,8 @@ export function useCachedQuery<T>(
   fetcherRef.current = fetcher;
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const subscribeToKey = useCallback(
     (listener: () => void) => (hash && keyRef.current ? subscribe(keyRef.current, listener) : () => undefined),
@@ -72,9 +80,11 @@ export function useCachedQuery<T>(
   const state = useSyncExternalStore(subscribeToKey, getSnapshot);
 
   const start = useCallback(
-    (force: boolean): Promise<T> => {
+    (force: boolean): Promise<T | undefined> => {
       const current = keyRef.current;
-      if (!current) return Promise.reject(new Error("query is disabled"));
+      if (!current || !enabledRef.current) {
+        return Promise.resolve(current ? peek<T>(current).data : undefined);
+      }
       const fetchOptions: FetchOptions = {
         tags: optionsRef.current.tags,
         staleAfterMs: optionsRef.current.staleAfterMs,

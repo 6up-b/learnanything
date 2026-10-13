@@ -110,6 +110,14 @@ class SidecarContext:
             # ... and imported exercises' key checks it never committed
             # (canonical sources, Codex review F5).
             self.recover_import_key_checks()
+            # UX Phase 1 (review F7): reading progress that arrived while a
+            # book's questions were being built, and the process ended first.
+            try:
+                from learnloop.content.pipeline.add_source import reconcile_reading_builds
+
+                reconcile_reading_builds(self.ingest_jobs)
+            except Exception:  # noqa: BLE001 - never block opening the library
+                _LOGGER.warning("could not act on pending reading progress", exc_info=True)
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
@@ -412,13 +420,42 @@ def _adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bo
         return False
 
 
+def subjects_practised_first(vault: LoadedVault) -> list[str]:
+    """Subject ids, the ones the learner practises most first, then by name.
+
+    Screens that default to the first subject (Today's tutor subject,
+    Maintain) keep the learner's own subject when Add files a new book under a
+    new subject that happens to sort first (UX Phase 1 usability round 1, U10).
+    """
+
+    items: dict[str, int] = {}
+    topics: dict[str, int] = {}
+    for item in vault.practice_items.values():
+        if getattr(item, "status", "active") != "active":
+            continue
+        for subject in vault.subjects_for_item(item):
+            items[subject] = items.get(subject, 0) + 1
+    for lo in vault.learning_objects.values():
+        if lo.status != "active":
+            continue
+        for subject in lo.subjects:
+            topics[subject] = topics.get(subject, 0) + 1
+    return sorted(vault.subjects, key=lambda subject: (-items.get(subject, 0), -topics.get(subject, 0), subject))
+
+
 def vault_summary(vault: LoadedVault) -> dict[str, Any]:
     return versioned(
         {
             "root": str(vault.root),
             "schema_version": vault.config.schema_version,
             "algorithm_version": vault.config.algorithms.algorithm_version,
-            "subjects": sorted(vault.subjects),
+            "subjects": subjects_practised_first(vault),
+            # The learner reads titles, never ids (usability round 1, U10). A
+            # list, not a map: ids are data and must not be camel-cased.
+            "subject_titles": [
+                {"id": subject_id, "title": vault.subjects[subject_id].metadata.title}
+                for subject_id in subjects_practised_first(vault)
+            ],
             "counts": {
                 "learning_objects": len(vault.learning_objects),
                 "practice_items": len(vault.practice_items),
