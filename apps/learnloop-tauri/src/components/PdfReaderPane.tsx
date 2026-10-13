@@ -303,27 +303,41 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     const node = containerRef.current;
     if (!node) return;
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey) return;
+      if (!event.ctrlKey) {
+        // The learner is scrolling: a place still waiting for layout is dropped.
+        pendingTargetRef.current = null;
+        return;
+      }
       event.preventDefault();
       setZoom((z) => clampZoom(z * (event.deltaY < 0 ? 1.1 : 0.9)));
     };
+    const onTouch = () => {
+      pendingTargetRef.current = null;
+    };
     node.addEventListener("wheel", onWheel, { passive: false });
-    return () => node.removeEventListener("wheel", onWheel);
+    node.addEventListener("touchmove", onTouch, { passive: true });
+    return () => {
+      node.removeEventListener("wheel", onWheel);
+      node.removeEventListener("touchmove", onTouch);
+    };
   }, [doc]);
 
-  const scrollToSegment = useCallback((page: number, spanId?: string | null) => {
-    const pageEl = containerRef.current?.querySelector(`[data-pdf-page="${page}"]`);
-    if (!(pageEl instanceof HTMLElement)) return;
-    // The block overlay exists once the page has rendered; otherwise the lazy
-    // page placeholder is close enough and rendering catches up on arrival.
-    const target = spanId ? pageEl.querySelector(`[data-span-id="${spanId}"]`) : null;
-    (target instanceof HTMLElement ? target : pageEl).scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
-
-  // A position asked for before its page is laid out is applied when it is
-  // (polled for a few seconds: the document loads, then page sizes arrive).
-  const pendingPageScrollRef = useRef<{ page: number; offset: number; tries: number } | null>(null);
-  const [pendingPageScroll, setPendingPageScroll] = useState(0);
+  // A place asked for before it can be reached is kept until it can (review
+  // of usability round 2, F4): the document loads, page sizes arrive, then a
+  // page near the view is drawn and only then do its passages get boxes. A
+  // page offset applies once its page has a size; a passage is centred once
+  // its box exists, its page brought into view first so that it is drawn.
+  // The newest request replaces an older one (the Reader's resume asks for
+  // the page, then the passage), and the learner's own wheel or touch drops
+  // it, so a late layout never pulls them back.
+  const pendingTargetRef = useRef<{
+    page: number;
+    offset: number;
+    spanId: string | null;
+    tries: number;
+    paged: boolean;
+  } | null>(null);
+  const [pendingTarget, setPendingTarget] = useState(0);
   const applyPageScroll = useCallback((page: number, offset: number): boolean => {
     const container = containerRef.current;
     const pageEl = container?.querySelector(`[data-pdf-page="${page}"]`);
@@ -341,33 +355,77 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     scroller.scrollTop += pageRect.top - scroller.getBoundingClientRect().top + offset * pageRect.height;
     return true;
   }, []);
-  const scrollToPage = useCallback(
-    (page: number, offset = 0) => {
-      if (applyPageScroll(page, offset)) {
-        pendingPageScrollRef.current = null;
+  /** The passage's box on a laid-out page, once that page is drawn. */
+  const passageBox = useCallback((page: number, spanId: string): HTMLElement | null => {
+    const pageEl = containerRef.current?.querySelector(`[data-pdf-page="${page}"]`);
+    if (!(pageEl instanceof HTMLElement) || pageEl.getBoundingClientRect().height <= 0) return null;
+    const box = Array.from(pageEl.querySelectorAll<HTMLElement>("[data-span-id]")).find(
+      (element) => element.dataset.spanId === spanId,
+    );
+    return box ?? null;
+  }, []);
+  const applyTarget = useCallback(
+    (target: { page: number; offset: number; spanId: string | null; paged: boolean }): boolean => {
+      if (target.spanId === null) return applyPageScroll(target.page, target.offset);
+      const box = passageBox(target.page, target.spanId);
+      if (box) {
+        box.scrollIntoView({ block: "center" });
+        return true;
+      }
+      // Not drawn yet: its page first, once, so that it is drawn.
+      if (!target.paged) target.paged = applyPageScroll(target.page, 0);
+      return false;
+    },
+    [applyPageScroll, passageBox],
+  );
+  const keepTarget = useCallback(
+    (page: number, offset: number, spanId: string | null) => {
+      const target = { page, offset, spanId, tries: 0, paged: false };
+      if (applyTarget(target)) {
+        pendingTargetRef.current = null;
         return;
       }
-      pendingPageScrollRef.current = { page, offset, tries: 0 };
-      setPendingPageScroll((tick) => tick + 1);
+      pendingTargetRef.current = target;
+      setPendingTarget((tick) => tick + 1);
     },
-    [applyPageScroll],
+    [applyTarget],
+  );
+
+  const scrollToSegment = useCallback(
+    (page: number, spanId?: string | null) => {
+      // Ready now (an annotation's card on a drawn page): glide there.
+      const box = spanId ? passageBox(page, spanId) : null;
+      if (box) {
+        pendingTargetRef.current = null;
+        box.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      keepTarget(page, 0, spanId ?? null);
+    },
+    [passageBox, keepTarget],
+  );
+
+  /** Put ``offset`` of page ``page`` at the top of the view, exactly. */
+  const scrollToPage = useCallback(
+    (page: number, offset = 0) => keepTarget(page, offset, null),
+    [keepTarget],
   );
   useEffect(() => {
-    if (!pendingPageScrollRef.current) return;
+    if (!doc || !pendingTargetRef.current) return;
     const timer = window.setInterval(() => {
-      const pending = pendingPageScrollRef.current;
+      const pending = pendingTargetRef.current;
       if (!pending) {
         window.clearInterval(timer);
         return;
       }
       pending.tries += 1;
-      if (applyPageScroll(pending.page, pending.offset) || pending.tries > 50) {
-        pendingPageScrollRef.current = null;
+      if (applyTarget(pending) || pending.tries > 80) {
+        if (pendingTargetRef.current === pending) pendingTargetRef.current = null;
         window.clearInterval(timer);
       }
     }, 100);
     return () => window.clearInterval(timer);
-  }, [doc, containerWidth, pendingPageScroll, applyPageScroll]);
+  }, [doc, containerWidth, pendingTarget, applyTarget]);
 
   useImperativeHandle(handleRef, () => ({ scrollToSegment, scrollToPage }), [scrollToSegment, scrollToPage]);
 

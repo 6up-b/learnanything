@@ -188,6 +188,8 @@ const BADGED_HEALTH = new Set(["suspect", "failed"]);
 // reading positions gather before they are saved.
 const SEEN_SETTLE_MS = 1500;
 const SEEN_REPORT_MS = 1500;
+// Timed retries of a failed progress save (leaving the Reader always retries).
+const SEEN_RETRY_LIMIT = 3;
 // The reading marker sits 70% of the way down the reading area (as the
 // extracted-text view's), and a page-only passage counts as read once the
 // marker is this far through it.
@@ -428,7 +430,16 @@ export function ReaderScreen({
   // the position they set stands (the first layout pass must not overwrite a
   // restored place) and no section counts as read.
   const settleUntilRef = useRef(0);
+  // How far each section was read, as the backend has acknowledged it, and
+  // the counts on their way there (round-2 review F3: a save that failed was
+  // counted as reported and never sent again). Both are per source: a source
+  // switch replaces the objects, so a late answer for the last book lands in
+  // that book's maps.
   const reportedSeenRef = useRef<Record<string, number>>({});
+  const sendingSeenRef = useRef<Record<string, number>>({});
+  const seenRetryRef = useRef<{ attempts: number; timer: number | null }>({ attempts: 0, timer: null });
+  // The current book's save, for the gathering timer, retries and navigation.
+  const flushSeenRef = useRef<{ extractionId: string; send: () => void } | null>(null);
   const lastReadRef = useRef<{ id: string; index: number; progress: number } | null>(null);
   const pageModeRef = useRef(false);
   const pageSpansRef = useRef<Array<{ spanId: string; page: number }>>([]);
@@ -542,6 +553,10 @@ export function ReaderScreen({
 
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
+    // Leaving a book for another (or for the Library) saves what was read in
+    // it first, as closing the Reader does (round-2 review F3).
+    flushSeenRef.current?.send();
+    flushSeenRef.current = null;
     setGuidePlan(null);
     setGuideLoading(false);
     setActiveSpan(null);
@@ -549,6 +564,8 @@ export function ReaderScreen({
     setReadingOffset(null);
     setSectionSeen({});
     reportedSeenRef.current = {};
+    sendingSeenRef.current = {};
+    seenRetryRef.current = { attempts: 0, timer: null };
     lastReadRef.current = null;
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
@@ -667,7 +684,8 @@ export function ReaderScreen({
             // How far each section was read survives a restart (usability round 1, U3).
             const seen: Record<string, number> = {};
             for (const row of progress.sections) if (row.spansSeen > 0) seen[row.sectionId] = row.spansSeen;
-            reportedSeenRef.current = { ...seen, ...reportedSeenRef.current };
+            const acknowledged = reportedSeenRef.current;
+            for (const [id, count] of Object.entries(seen)) acknowledged[id] = Math.max(acknowledged[id] ?? 0, count);
             setSectionSeen((current) => {
               const next = { ...current };
               for (const [id, count] of Object.entries(seen)) next[id] = Math.max(next[id] ?? 0, count);
@@ -950,24 +968,49 @@ export function ReaderScreen({
 
   // Save how far each section was read, gathered for a moment, and once more
   // when the Reader closes: Today's reading step and the next open read it.
-  const flushSeenRef = useRef<(() => void) | null>(null);
+  // A count is reported only once the backend has it; a failed save is tried
+  // again a few times, and again when the Reader closes (round-2 review F3).
   useEffect(() => {
     if (!render || offline) return;
     const extractionId = render.extractionId;
+    const acknowledged = reportedSeenRef.current;
+    const sending = sendingSeenRef.current;
+    const retry = seenRetryRef.current;
     const counts = new Map((guidePlan?.sections ?? []).map((section) => [section.id, section.spanIds.length]));
     const send = () => {
       for (const [sectionId, spansSeen] of Object.entries(sectionSeen)) {
         const spanCount = counts.get(sectionId);
-        if (spanCount === undefined || spansSeen <= (reportedSeenRef.current[sectionId] ?? 0)) continue;
-        reportedSeenRef.current[sectionId] = spansSeen;
-        api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount }).catch(() => undefined);
+        if (spanCount === undefined) continue;
+        if (spansSeen <= Math.max(acknowledged[sectionId] ?? 0, sending[sectionId] ?? 0)) continue;
+        sending[sectionId] = spansSeen;
+        api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount })
+          .then(() => {
+            acknowledged[sectionId] = Math.max(acknowledged[sectionId] ?? 0, spansSeen);
+            retry.attempts = 0;
+          })
+          .catch(() => {
+            // Not saved: tried again shortly (a busy database, a restarting
+            // sidecar), at most a few times, and on leaving the Reader.
+            if (retry.timer !== null || retry.attempts >= SEEN_RETRY_LIMIT) return;
+            retry.attempts += 1;
+            retry.timer = window.setTimeout(() => {
+              retry.timer = null;
+              // The newest counts for this book, or this closure's for a book
+              // the learner has since left.
+              const latest = flushSeenRef.current;
+              (latest && latest.extractionId === extractionId ? latest.send : send)();
+            }, SEEN_REPORT_MS * 2 ** retry.attempts);
+          })
+          .finally(() => {
+            if (sending[sectionId] === spansSeen) delete sending[sectionId];
+          });
       }
     };
-    flushSeenRef.current = send;
+    flushSeenRef.current = { extractionId, send };
     const timer = window.setTimeout(send, SEEN_REPORT_MS);
     return () => window.clearTimeout(timer);
   }, [render, offline, guidePlan, sectionSeen]);
-  useEffect(() => () => flushSeenRef.current?.(), []);
+  useEffect(() => () => flushSeenRef.current?.send(), []);
 
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
@@ -979,8 +1022,9 @@ export function ReaderScreen({
     const section = currentGuideSection;
     if (!section || section.question || authorRequestedRef.current.has(section.id)) return;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
-    // Only where the learner has read: never on the page a book opened at.
-    if (!readingMoved || currentSectionProgress < 0.6) return;
+    // Only where the learner has read: never on the page a book opened at,
+    // nor where a jump has only just landed.
+    if (!readingMoved || currentSectionProgress < 0.6 || Date.now() < settleUntilRef.current) return;
     authorRequestedRef.current.add(section.id);
     const extractionId = render.extractionId;
     void (async () => {
@@ -1717,12 +1761,11 @@ export function ReaderScreen({
     [pdfView, surface, offline],
   );
 
-  // A passage with boxes: its page first, through the pane's own wait for the
-  // document's layout, then the passage centred once its page is drawn
-  // (usability round 2: a resume asked to centre a block on a page that did
-  // not exist yet, and the pane stayed on the chapter's first page).
+  // A passage with boxes: the pane keeps it until the document is laid out
+  // and its page drawn, then centres it (usability round 2: a resume asked to
+  // centre a block on a page that did not exist yet; round-2 review F4: only
+  // a delayed page-top scroll survived).
   const revealSegment = useCallback((page: number, spanId: string) => {
-    paneRef.current?.scrollToPage(page, 0);
     paneRef.current?.scrollToSegment(page, spanId);
   }, []);
 
@@ -1776,12 +1819,15 @@ export function ReaderScreen({
     userScrollAtRef.current = Date.now();
   }, []);
   // Watching is reading too: playback that moves past the cue a video
-  // resumed at counts, as the learner's own scrolling does on a page.
+  // resumed at counts, as the learner's own scrolling does on a page. A seek
+  // (a jump, a resume, a click in the transcript) only sets the cue playback
+  // starts from, and nothing counts while the video is paused (round-2
+  // review F5: a paused video taken to a short section counted as watched).
   const lastPlaybackSpanRef = useRef<string | null>(null);
-  const onPlaybackSpan = useCallback((spanId: string | null) => {
+  const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean) => {
     const last = lastPlaybackSpanRef.current;
     lastPlaybackSpanRef.current = spanId;
-    if (spanId && last && spanId !== last) setReadingMoved(true);
+    if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) setReadingMoved(true);
     setReadingSpan(spanId);
   }, []);
   useEffect(() => {
@@ -4122,7 +4168,9 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   guidanceSpans: Set<string>;
   resumeSpan: string | null;
   findShortcutEnabled: boolean;
-  onPlaybackSpan: (spanId: string | null) => void;
+  /** The cue playback is at; ``advancing`` is false for a seek's landing
+   *  and while the player is paused (only playing on is watching). */
+  onPlaybackSpan: (spanId: string | null, advancing: boolean) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
 }>(function YouTubeWatchPanel({
@@ -4142,6 +4190,14 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const [followTranscript, setFollowTranscript] = useState(true);
   const [playerReady, setPlayerReady] = useState(false);
   const resumeSpanRef = useRef(resumeSpan);
+  // Whether the player is playing (YouTube's playerState 1), once it says;
+  // and until when a seek's landing (and the late reports around it) is not
+  // playback.
+  const playingRef = useRef<boolean | null>(null);
+  const seekUntilRef = useRef(0);
+  const noteSeek = useCallback(() => {
+    seekUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+  }, []);
   // ctrl/cmd+F transcript find (mirrors the PDF pane's find conventions).
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -4183,23 +4239,30 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: "llwatch", channel: "widget" }), YT_ORIGIN);
     const resumeCue = transcriptCues.find((cue) => cue.block.spanId === resumeSpanRef.current);
     if (resumeCue && resumeCue.start > 0) {
+      noteSeek();
       post("seekTo", [resumeCue.start, true]);
       setCurrentTime(resumeCue.start);
     }
     setPlayerReady(true);
-  }, [post, transcriptCues]);
+  }, [post, transcriptCues, noteSeek]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== YT_ORIGIN) return;
-      let data: { event?: string; info?: { currentTime?: number } };
+      let data: { event?: string; info?: number | { currentTime?: number; playerState?: number } };
       try {
         data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
       } catch {
         return;
       }
-      if (data?.event === "infoDelivery" && typeof data.info?.currentTime === "number") {
-        setCurrentTime(data.info.currentTime);
+      // The widget reports only what changed: the player's state when it
+      // changes (also as onStateChange), the time as it moves.
+      if (data?.event === "onStateChange" && typeof data.info === "number") {
+        playingRef.current = data.info === 1;
+      }
+      if (data?.event === "infoDelivery" && typeof data.info === "object" && data.info !== null) {
+        if (typeof data.info.playerState === "number") playingRef.current = data.info.playerState === 1;
+        if (typeof data.info.currentTime === "number") setCurrentTime(data.info.currentTime);
       }
     };
     window.addEventListener("message", onMessage);
@@ -4213,7 +4276,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   useEffect(() => {
     if (!playerReady) return;
     const spanId = activeCue?.block.spanId ?? null;
-    onPlaybackSpan(spanId);
+    onPlaybackSpan(spanId, playingRef.current !== false && Date.now() >= seekUntilRef.current);
     if (!spanId || !followTranscript) return;
     const scroller = transcriptRef.current;
     const cue = scroller?.querySelector(`[data-transcript-span="${spanId}"]`);
@@ -4246,11 +4309,12 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const seekToCue = useCallback((cue: TranscriptCue) => {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
+    noteSeek();
     post("seekTo", [cue.start, true]);
     post("playVideo");
     setFollowTranscript(true);
     onAskSpan(cue.block.spanId);
-  }, [onAskSpan, post]);
+  }, [onAskSpan, post, noteSeek]);
 
   // ── transcript find ──
   const findNeedle = findQuery.trim().toLowerCase();
@@ -4319,12 +4383,13 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     seekToSpan: (spanId: string) => {
       const cue = transcriptCues.find((c) => c.block.spanId === spanId);
       if (!cue) return false;
+      noteSeek();
       post("seekTo", [cue.start, true]);
       setCurrentTime(cue.start);
       setFollowTranscript(true);
       return true;
     },
-  }), [transcriptCues, post]);
+  }), [transcriptCues, post, noteSeek]);
 
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>

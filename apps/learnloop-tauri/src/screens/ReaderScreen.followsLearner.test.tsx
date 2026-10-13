@@ -101,7 +101,9 @@ const QUICK_CHECK: ReaderSectionQuestionDto = {
 const backend = {
   withCheck: false,
   progress: [] as Array<Record<string, unknown>>,
-  marks: [] as Array<Record<string, unknown>>
+  marks: [] as Array<Record<string, unknown>>,
+  // Progress saves fail while true (the database is busy, the sidecar is gone).
+  failMarks: false
 };
 
 function plan(): ReaderGuidePlanDto {
@@ -147,6 +149,7 @@ function sidecar(command: string, args?: { input?: Record<string, unknown> }): u
         revisionId: "rev_prob", blocks: [], pageSpans: PAGES.map(([spanId, page]) => ({ spanId, page }))
       };
     case "reader_mark_section_progress":
+      if (backend.failMarks) throw { code: "database_busy", message: "database is locked", retryable: true };
       backend.marks.push(args?.input ?? {});
       return { version: 1, progress: {}, enqueuedGeneration: false, batchId: null };
     case "reader_author_section_question":
@@ -202,6 +205,7 @@ beforeEach(() => {
   backend.withCheck = false;
   backend.progress = [];
   backend.marks = [];
+  backend.failMarks = false;
   view.scrollY = 0;
   pane.scrollToPage.mockReset();
   pane.scrollToSegment.mockReset();
@@ -508,8 +512,9 @@ it("R3: a book with block geometry reaches the passage's page even before the do
 
   await openReader();
 
-  // The page itself, through the pane's own wait for layout.
-  expect(pane.scrollToPage).toHaveBeenCalledWith(4, 0);
+  // The passage itself, which the pane keeps until its page is laid out and
+  // drawn (round-2 review F4; PdfReaderPane.scroll.test.tsx).
+  expect(pane.scrollToSegment).toHaveBeenCalledWith(4, "s5");
 });
 
 it("watching a video is reading: playback still earns the section's quick check", async () => {
@@ -554,4 +559,162 @@ it("watching a video is reading: playback still earns the section's quick check"
 
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_author_section_question");
   expect(asked.length).toBeGreaterThan(0);
+});
+
+// ---------------------------------------------------------------------------
+// Codex review of usability round 2 (docs/reviews/ux-phase1-round2-codex-review.md)
+// ---------------------------------------------------------------------------
+
+function marksFor(sectionId: string) {
+  return backend.marks.filter((mark) => mark.sectionId === sectionId);
+}
+
+it("F3: a progress save that failed is sent again when the learner leaves the Reader", async () => {
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  // Long enough for the save and every retry to fail.
+  await settle(30_000);
+  expect(marksFor("u3")).toEqual([]);
+
+  backend.failMarks = false;
+  cleanup();
+  await settle();
+
+  expect(marksFor("u3").length).toBeGreaterThan(0);
+  expect(Number(marksFor("u3")[0].spansSeen)).toBeGreaterThanOrEqual(1);
+});
+
+it("F3: a progress save that failed once is retried without leaving", async () => {
+  let failures = 1;
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) => {
+    if (command === "reader_mark_section_progress" && failures > 0) {
+      failures -= 1;
+      throw { code: "database_busy", message: "database is locked", retryable: true };
+    }
+    return sidecar(command, args);
+  });
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  await settle(3_000);
+  await settle(5_000);
+
+  expect(marksFor("u3").length).toBeGreaterThan(0);
+});
+
+it("F3: a save the backend acknowledged is not sent again on leaving", async () => {
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  await settle(3_000);
+  const sent = marksFor("u3").length;
+  expect(sent).toBeGreaterThan(0);
+
+  cleanup();
+  await settle();
+
+  expect(marksFor("u3").length).toBe(sent);
+});
+
+it("F3: leaving a book inside the Reader saves what was just read, before the gathering moment ends", async () => {
+  // The Reader's own way back to its shelf (no Library place to go to): the
+  // book's state is reset, which used to drop the gathered counts unsent.
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+
+  fireEvent.click(screen.getByRole("button", { name: "← Library" }));
+  await settle();
+
+  expect(marksFor("u3").length).toBeGreaterThan(0);
+});
+
+function videoFixture() {
+  const video: SourceLibraryCard = { ...CARD, sourceId: "src_vid", canonicalUri: "https://www.youtube.com/watch?v=abcdefghijk" };
+  const cues = ["v1", "v2", "v3", "v4", "v5"];
+  const videoView: ReaderRenderViewDto = {
+    ...VIEW,
+    sourceId: "src_vid",
+    blocks: cues.map((spanId, index) => ({
+      ...VIEW.blocks[0],
+      displayNodeId: `node-${spanId}`,
+      spanId,
+      extractorBlockId: `t=${index * 10}-${index * 10 + 10}`,
+      markdown: `Caption ${spanId}.`
+    }))
+  };
+  // A long first part and a short last one: landing on it is most of it.
+  const videoPlan = {
+    version: 1, sourceId: "src_vid", extractionId: EXTRACTION_ID, personalized: false, selectionBasis: "", goalContext: null,
+    pendingDiagnosisAttemptIds: [],
+    sections: [
+      { id: "u1", label: "The lecture", startSpanId: "v1", endSpanId: "v4", spanIds: ["v1", "v2", "v3", "v4"], question: null, suggestedPassages: [] },
+      { id: "u2", label: "Summary", startSpanId: "v5", endSpanId: "v5", spanIds: ["v5"], question: null, suggestedPassages: [] }
+    ]
+  };
+  invoke.mockImplementation(async (command: string, args?: { input?: Record<string, unknown> }) => {
+    if (command === "reader_render_view") return videoView;
+    if (command === "reader_guide_plan") return videoPlan;
+    if (command === "reader_watch_plan") return { version: 1, sourceId: "src_vid", videoId: "abcdefghijk", embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk", pausePoints: [] };
+    return sidecar(command, args);
+  });
+  Element.prototype.scrollTo = vi.fn();
+  return video;
+}
+
+function player(info: Record<string, unknown>) {
+  window.dispatchEvent(new MessageEvent("message", {
+    origin: "https://www.youtube-nocookie.com",
+    data: JSON.stringify({ event: "infoDelivery", info })
+  }));
+}
+
+function authoredFor(sectionId: string) {
+  return invoke.mock.calls.filter(
+    ([command, args]) => command === "reader_author_section_question" && (args as { input?: { sectionId?: string } })?.input?.sectionId === sectionId
+  );
+}
+
+it("F5: jumping a paused video to a short section is not watching it", async () => {
+  const video = videoFixture();
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: video, spanId: null }} />);
+  await settle(2_000);
+  fireEvent.load(document.querySelector("iframe")!);
+  await settle(100);
+  // Paused at the start.
+  player({ playerState: 2, currentTime: 2 });
+  await settle(100);
+
+  fireEvent.click(contentsEntry("Summary"));
+  await settle(100);
+  // The player reports the time it was taken to (and a late report of where it was).
+  player({ currentTime: 2 });
+  await settle(100);
+  player({ currentTime: 40 });
+  await settle(3_000);
+
+  expect(authoredFor("u2")).toEqual([]);
+  expect(within(contentsEntry("Summary")).queryByText("✓")).toBeNull();
+});
+
+it("F5: playing on after a jump is watching", async () => {
+  const video = videoFixture();
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: video, spanId: null }} />);
+  await settle(2_000);
+  fireEvent.load(document.querySelector("iframe")!);
+  await settle(100);
+  player({ playerState: 2, currentTime: 2 });
+  await settle(100);
+  fireEvent.click(contentsEntry("The lecture"));
+  await settle(2_000);
+
+  player({ playerState: 1 });
+  for (const seconds of [2, 12, 22, 32]) {
+    player({ currentTime: seconds });
+    await settle(100);
+  }
+
+  expect(authoredFor("u1").length).toBeGreaterThan(0);
 });
