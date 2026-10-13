@@ -25,6 +25,10 @@ MAIN_ASK_RESULT_KEYS = {
     "version", "eventId", "readerAnswerEventId", "answerMd", "answerMode", "citations",
     "manifest", "warmedSurfaceIds", "burnedSurfaceIds", "hintEquivalent", "remaining", "learnerGap",
 }
+#: Canonical sources (merged after RW1a): the reader answer's deterministic
+#: "Practice this" request, behind source_service.tutor_offers (not a
+#: reader_inquiry field, so the kill switch leaves it as it is).
+SOURCE_SERVICE_ASK_KEYS = {"practiceRequest"}
 MAIN_HISTORY_KEYS = {
     "eventId", "extractionId", "spanId", "questionMd", "answerMd", "answerMode", "citations", "createdAt",
 }
@@ -112,7 +116,7 @@ def test_rpcs_off_answer_exactly_as_before(tmp_path, monkeypatch):
     ])
     first, second, history, contract, refused = (r for r in responses[1:])
     for answer in (first["result"], second["result"]):
-        assert set(answer) == MAIN_ASK_RESULT_KEYS
+        assert set(answer) - SOURCE_SERVICE_ASK_KEYS == MAIN_ASK_RESULT_KEYS
         assert answer["manifest"]["version"] == "p2-reader-v1"
         assert set(answer["manifest"]) == {
             "version", "span", "selection", "sourceSpans", "questionMd", "answerMode",
@@ -164,7 +168,7 @@ def test_rpcs_on_add_only_the_branch_fields(tmp_path, monkeypatch):
         {"jsonrpc": "2.0", "id": 2, "method": "reader.ask", "params": params},
         {"jsonrpc": "2.0", "id": 3, "method": "reader.ask_history", "params": {"extractionId": "ext1"}},
     ])[1:])
-    assert set(answer) - MAIN_ASK_RESULT_KEYS == {"parentExchangeId", "model"}
+    assert set(answer) - MAIN_ASK_RESULT_KEYS - SOURCE_SERVICE_ASK_KEYS == {"parentExchangeId", "model"}
     assert answer["parentExchangeId"] is None and answer["model"] == "stub-reader-1"
     assert answer["manifest"]["version"] == "p3-reader-branches-v1"
     (saved,) = history["exchanges"]
