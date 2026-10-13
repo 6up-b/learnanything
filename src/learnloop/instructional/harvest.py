@@ -53,7 +53,7 @@ from learnloop.practice_index.retrieval import (
     PracticeConstraints,
     find_practice,
 )
-from learnloop.source_retrieval.service_spend import batch_envelope, subscription_providers
+from learnloop.source_retrieval.service_spend import batch_envelope, service_spend, subscription_providers
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -181,7 +181,9 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
         raise ValueError("A live harvest needs --max-cost-usd (or --dry-run)")
     started = utc_now_iso(clock)
     envelope = batch_envelope("--max-cost-usd", max_cost_usd)
-    with spend_envelopes(envelope):
+    # The batch cap and the service's shared daily cap bound every request,
+    # the reranks included (Codex re-review F2).
+    with spend_envelopes(envelope), service_spend(vault, repository, clock=clock):
         for target in targets:
             if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
                 report["status"] = "over_budget"
@@ -282,7 +284,7 @@ def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cos
         raise ValueError("A live verify needs --max-cost-usd (or --dry-run)")
     started = utc_now_iso(clock)
     envelope = batch_envelope("--max-cost-usd", max_cost_usd)
-    with spend_envelopes(envelope):
+    with spend_envelopes(envelope), service_spend(vault, repository, clock=clock):
         for target in targets:
             if envelope.remaining() <= 0 or envelope.report()["refused_requests"]:
                 report["status"] = "over_budget"

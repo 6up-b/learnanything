@@ -200,3 +200,81 @@ def test_spend_since_counts_a_request_in_the_first_second_of_a_run(tmp_path, sin
         spent = spend_since(connection, since, owner_kinds=None, price_per_million=1.0)
     assert spent["requests"] == 2
     assert spent["usd"] == pytest.approx(0.002)
+
+
+# -- Codex re-review F2: every service operation under the daily cap; shared reservations ----------
+
+
+def _spent_out(tmp_path):
+    """A metered vault (every service route priced) whose daily cap is already spent."""
+
+    paths, repository, spans = _metered_vault(tmp_path, max_daily_cost_usd=0.0, import_max_cost_usd=5.0,
+                                              compare_max_cost_usd=5.0)
+    set_config(paths, "source_retrieval", llm_price_per_million=PRICE, rerank_max_cost_usd=1.0)
+    return paths, repository, spans
+
+
+def test_an_ordinary_practice_request_respects_the_daily_cap(tmp_path):
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.practice import propose_practice
+
+    paths, repository, _spans = _spent_out(tmp_path)
+    llm = MeteredServiceLLM()
+    result = propose_practice(loaded(paths), repository, "determinant rows swapped sign", {"kinds": "items"},
+                              caller=caller_for(repository, "plan"), rerank_client=llm)
+    assert [name for _purpose, name in llm.calls] == []  # nothing paid was sent
+    assert result["rerank_status"].startswith("over_budget"), result["rerank_status"]
+    assert "max_daily_cost_usd" in result["rerank_status"]
+
+
+def test_a_verified_passage_request_respects_the_daily_cap(tmp_path):
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.sources import propose_sources
+
+    paths, repository, _spans = _spent_out(tmp_path)
+    llm = MeteredServiceLLM()
+    hits = propose_sources(loaded(paths), repository, "what happens when rows are swapped",
+                           caller=caller_for(repository, "reader"), intent="explain", verify=True, rerank_client=llm)
+    assert [name for _purpose, name in llm.calls] == [], hits.manifest.get("verification")
+
+
+def test_a_comparison_pays_for_nothing_once_the_daily_cap_is_spent(tmp_path):
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.sources import propose_comparison
+
+    paths, repository, _spans = _spent_out(tmp_path)
+    llm = MeteredServiceLLM()
+    propose_comparison(loaded(paths), repository, "what happens when rows are swapped",
+                       caller=caller_for(repository, "reader"), client=llm, verify_client=llm)
+    assert [name for _purpose, name in llm.calls] == []
+
+
+def test_the_daily_cap_is_shared_by_concurrent_processes(tmp_path):
+    """Two processes (each with its own in-memory envelope) reserve against one
+    vault's daily cap: a request in flight in one counts for the other."""
+
+    from learnloop.source_retrieval import service_spend as SS
+
+    paths, repository, _spans = _metered_vault(tmp_path, max_daily_cost_usd=1.0)
+    vault = loaded(paths)
+    first = SS.daily_envelope(vault, repository)
+    SS._DAILY.clear()  # the second process has its own envelope objects
+    second = SS.daily_envelope(vault, repository)
+    assert first is not second
+    outcome: dict[str, object] = {}
+
+    def process_b() -> None:  # a fresh context: only its own envelope is active
+        try:
+            with spend_envelopes(second), SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0)).request(
+                    SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.6)):
+                outcome["b"] = "admitted"
+        except SpendLimitExceeded as exc:
+            outcome["b"] = f"refused: {exc}"
+
+    budget = SpendBudget(SpendCaps(max_calls=10, max_estimated_usd=10.0))
+    with spend_envelopes(first), budget.request(SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.6)):
+        # Process A's request is in flight; process B asks for the same allowance.
+        thread = threading.Thread(target=process_b)
+        thread.start()
+        thread.join()
+    assert str(outcome["b"]).startswith("refused"), outcome

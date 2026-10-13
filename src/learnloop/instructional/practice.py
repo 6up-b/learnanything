@@ -35,6 +35,7 @@ from learnloop.ids import new_ulid
 from learnloop.practice_index.retrieval import IntentUnavailable, PracticeConstraints, find_practice
 from learnloop.practice_index.usage import USAGE_TASK, record_practice_usage
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
 
 #: Prompt characters an impression keeps of what was shown (a record of the
@@ -90,8 +91,12 @@ def propose_practice(vault: LoadedVault, repository: Repository, query: str,
                                 "source_service.discriminating_search is off: only the practice intent is served")
     constraints = constrain_for_caller(constraints, caller)
     caller_block = None if caller is None else {"kind": caller.kind, "ref": caller.ref}
-    result = find_practice(vault, repository, query, constraints, origin=origin, embedder=embedder,
-                           rerank_client=rerank_client, clock=clock, caller=caller_block, **injected)
+    # The whole operation (the query embedding, every rerank page, the arm's
+    # search, the valuation's judges) runs under the service's shared daily
+    # cap (Codex re-review F2).
+    with service_spend(vault, repository, clock=clock):
+        result = find_practice(vault, repository, query, constraints, origin=origin, embedder=embedder,
+                               rerank_client=rerank_client, clock=clock, caller=caller_block, **injected)
     if caller is not None:
         policy, reason = derive_policy(caller)
         result["caller"] = {**caller_block, "policy": policy, "policy_reason": reason}

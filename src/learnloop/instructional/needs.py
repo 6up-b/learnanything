@@ -48,6 +48,7 @@ from learnloop.instructional.validation import draft_validator
 from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
 from learnloop.source_retrieval.corpus import teaching_scope
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -153,11 +154,15 @@ def fulfil_need_from_sources(
     proposals: list[str] = []
     receipt: dict[str, Any] = {"intent": intent}
     while True:
-        result = find_practice(vault, repository, query or "practice", constraints, origin="api",
-                               caller={"kind": "need", "ref": str(need["id"])}, exercise_arm=injected["exercise_arm"],
-                               valuer=injected.get("valuer") if intent == "discriminate" else None,
-                               estimator=estimator, rerank_client=rerank_client, clock=clock,
-                               pending_decision=pending_decision, cursor=cursor)
+        # The search (and each import below) runs under the service's shared
+        # daily cap (Codex re-review F2).
+        with service_spend(vault, repository, clock=clock):
+            result = find_practice(vault, repository, query or "practice", constraints, origin="api",
+                                   caller={"kind": "need", "ref": str(need["id"])},
+                                   exercise_arm=injected["exercise_arm"],
+                                   valuer=injected.get("valuer") if intent == "discriminate" else None,
+                                   estimator=estimator, rerank_client=rerank_client, clock=clock,
+                                   pending_decision=pending_decision, cursor=cursor)
         proposal_id = result.get("proposal_id")
         proposals.append(str(proposal_id))
         exercises = {entry["key"]: entry for entry in result.get("source_exercises") or ()}

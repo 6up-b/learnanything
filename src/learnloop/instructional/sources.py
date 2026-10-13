@@ -24,6 +24,7 @@ from learnloop.db.repositories import Repository
 from learnloop.source_retrieval.compare import Comparison, compare_sources
 from learnloop.source_retrieval.find_sources import SourceHits, find_sources_for_caller
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused
+from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -99,11 +100,12 @@ def remediation_passage_provider(vault: LoadedVault, repository: Repository, *, 
         else misconception.get("learning_object_id")
     from learnloop.source_retrieval.find_sources import find_sources
 
-    hits = find_sources(
-        vault, repository, "", policy="assisted_practice" if item is not None else "reading",
-        intent="remediate", scope="teaching", learning_object_ids=[lo_id] if lo_id else [], item=item,
-        misconceptions=[misconception], limit=len(roles), owner_id=f"rem_{episode.get('id')}",
-    )
+    with service_spend(vault, repository):  # the shared daily cap (Codex re-review F2)
+        hits = find_sources(
+            vault, repository, "", policy="assisted_practice" if item is not None else "reading",
+            intent="remediate", scope="teaching", learning_object_ids=[lo_id] if lo_id else [], item=item,
+            misconceptions=[misconception], limit=len(roles), owner_id=f"rem_{episode.get('id')}",
+        )
     if not hits.hits or not str(hits.manifest.get("verification", {}).get("status")) in ("verified", "cached"):
         return None
     return [{"role": role, "facet_id": facet, "extraction_id": hit["extraction_id"], "span_id": hit["span_id"],
@@ -117,14 +119,20 @@ def propose_sources(vault: LoadedVault, repository: Repository, query: str, *, c
     misconceptions = kwargs.pop("misconceptions", None)
     if intent == "remediate" and misconceptions is None:
         misconceptions = resolve_misconceptions(repository, kwargs.get("target_hypotheses") or (), item=item)
-    return find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
-                                   misconceptions=misconceptions or (), **kwargs)
+    # Retrieval, its embeddings and rewrite, and verification all run under the
+    # service's shared daily cap (Codex re-review F2).
+    with service_spend(vault, repository, clock=kwargs.get("clock")):
+        return find_sources_for_caller(vault, repository, query, caller=caller, intent=intent, item=item,
+                                       misconceptions=misconceptions or (), **kwargs)
 
 
 def propose_comparison(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext,
                        **kwargs: Any) -> Comparison:
     _require(vault, "compare")
-    return compare_sources(vault, repository, query, caller=caller, **kwargs)
+    # The whole comparison (its retrieval, verification and the comparison
+    # call), not only its last call, is under the daily cap (re-review F2).
+    with service_spend(vault, repository, clock=kwargs.get("clock")):
+        return compare_sources(vault, repository, query, caller=caller, **kwargs)
 
 
 __all__ = [

@@ -176,6 +176,33 @@ def compare_sources(
     for switch in ("enabled", "compare"):
         if not getattr(config, switch):
             raise PolicyRefused("source_service_disabled", f"source_service.{switch} is off")
+    # The whole comparison (retrieval, verification and the comparison call) is
+    # under the service's shared daily cap, on every entry point (re-review F2).
+    with service_spend(vault, repository, clock=clock):
+        return _compare_sources(vault, repository, query, caller=caller, facet_ids=facet_ids,
+                                requested_perspectives=requested_perspectives, pinned_span_ids=pinned_span_ids,
+                                pinned_span_keys=pinned_span_keys, policy=policy, deadline=deadline, client=client,
+                                verify_client=verify_client, embedder=embedder, clock=clock)
+
+
+def _compare_sources(
+    vault: LoadedVault,
+    repository: Repository,
+    query: str,
+    *,
+    caller: CallerContext,
+    facet_ids: Sequence[str],
+    requested_perspectives: Sequence[str],
+    pinned_span_ids: Sequence[Any],
+    pinned_span_keys: Sequence[Any],
+    policy: str | None,
+    deadline: float | None,
+    client: Any | None,
+    verify_client: Any | None,
+    embedder: Any | None,
+    clock: Clock | None,
+) -> Comparison:
+    config = vault.config.source_service
     derived, reason = derive_policy(caller)
     if policy is not None and policy != derived:
         raise PolicyRefused("policy_refused", f"requested policy {policy!r} differs from the caller's {derived!r}")

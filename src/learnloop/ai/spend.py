@@ -227,15 +227,15 @@ class SpendBudget:
             with declared_budgets(self.declared()):
                 yield charge
         finally:
-            for envelope, amount in reserved:
-                envelope.settle(amount)
+            for envelope, handle in reserved:
+                envelope.settle(handle, actual=charge.actual_usd)
 
 
 class SpendCharge:
     """An admitted attempt; reconciliation is monotonic and idempotent."""
 
     def __init__(self, budget: SpendBudget, estimate: SpendEstimate, *,
-                 envelopes: tuple[tuple[SpendEnvelope, Decimal], ...] = ()) -> None:
+                 envelopes: tuple[tuple[SpendEnvelope, object], ...] = ()) -> None:
         self._budget = budget
         self._tokens = estimate.total_tokens
         # None only on a subscription budget whose price is unknown.
@@ -243,6 +243,8 @@ class SpendCharge:
         self._envelopes = envelopes
         self._noted_tokens = 0
         self._noted_usd = Decimal(0)
+        #: The attempt's actual cost as last reconciled (None: never reported).
+        self.actual_usd: Decimal | None = None
 
     def note_estimated_only(self, *, total_tokens: int, estimated_usd: float | None) -> None:
         """A subscription attempt's estimated usage (cumulative, ``estimated_only``)
@@ -285,13 +287,14 @@ class SpendCharge:
         if estimated_usd is None:
             return
         actual = Decimal(str(estimated_usd))
+        self.actual_usd = actual
         usd = actual if self._usd is None else max(self._usd, actual)
         delta = usd - (self._usd or Decimal(0))
         self._budget._usd += delta
         self._usd = usd
         if delta > 0 and not self._budget.subscription:
-            for envelope, _amount in self._envelopes:
-                envelope.charge(delta)
+            for envelope, handle in self._envelopes:
+                envelope.charge(delta, handle)
 
 
 class SpendEnvelope:
@@ -328,7 +331,9 @@ class SpendEnvelope:
         with self._lock:
             return float(max(Decimal(0), self.max_usd - self._total()))
 
-    def reserve(self, usd: Decimal) -> None:
+    def reserve(self, usd: Decimal) -> object:
+        """Reserve ``usd`` before a request is sent; returns the reservation's
+        handle (passed back to ``unreserve``, ``charge`` and ``settle``)."""
         with self._lock:
             if self._total() + usd > self.max_usd:
                 self._refused += 1
@@ -338,16 +343,18 @@ class SpendEnvelope:
                 self._charged += usd
             else:
                 self._in_flight += usd
+        return usd
 
-    def unreserve(self, usd: Decimal) -> None:
+    def unreserve(self, handle: object) -> None:
         """Undo a reservation whose request was never sent (another envelope refused it)."""
+        usd = Decimal(str(handle))
         with self._lock:
             if self._observed is None:
                 self._charged -= usd
             else:
                 self._in_flight -= usd
 
-    def charge(self, usd: Decimal) -> None:
+    def charge(self, usd: Decimal, handle: object = None) -> None:
         """Usage above the reservation (reconciliation; never a refund)."""
         if usd <= 0:
             return
@@ -356,12 +363,13 @@ class SpendEnvelope:
                 self._charged += usd
             # An observed envelope reads the reconciled cost from the receipt.
 
-    def settle(self, reserved: Decimal) -> None:
-        """The request finished and its receipt is written."""
+    def settle(self, handle: object, actual: Decimal | None = None) -> None:
+        """The request finished and its receipt is written (``actual``: its
+        reconciled cost, when the provider reported one)."""
         if self._observed is None:
             return
         with self._lock:
-            self._in_flight -= reserved
+            self._in_flight -= Decimal(str(handle))
 
     def note_estimated_only(self, tokens: int, usd: Decimal | None) -> None:
         with self._lock:
@@ -409,23 +417,34 @@ def active_envelopes() -> tuple[SpendEnvelope, ...]:
     return _envelopes.get()
 
 
+class _NoReservation:
+    """A subscription request's place in an envelope: nothing reserved, so
+    nothing to settle (its usage is tallied ``estimated_only``)."""
+
+    def __str__(self) -> str:
+        return "0"
+
+
+NO_RESERVATION = _NoReservation()
+
+
 def _reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *,
-                subscription: bool) -> tuple[tuple[SpendEnvelope, Decimal], ...]:
-    """Reserve a metered estimate in every envelope, all or none."""
+                subscription: bool) -> tuple[tuple[SpendEnvelope, object], ...]:
+    """Reserve a metered estimate in every envelope, all or none; returns each
+    envelope with its reservation handle."""
     if not envelopes:
         return ()
     if subscription:
-        return tuple((envelope, Decimal(0)) for envelope in envelopes)
+        return tuple((envelope, NO_RESERVATION) for envelope in envelopes)
     if estimate.estimated_usd is None:
         raise SpendLimitExceeded("Unknown price: an envelope cannot admit an unpriced metered request")
     amount = Decimal(str(estimate.estimated_usd))
-    done: list[tuple[SpendEnvelope, Decimal]] = []
+    done: list[tuple[SpendEnvelope, object]] = []
     try:
         for envelope in envelopes:
-            envelope.reserve(amount)
-            done.append((envelope, amount))
+            done.append((envelope, envelope.reserve(amount)))
     except SpendLimitExceeded:
-        for envelope, reserved in done:
-            envelope.unreserve(reserved)
+        for envelope, handle in done:
+            envelope.unreserve(handle)
         raise
     return tuple(done)

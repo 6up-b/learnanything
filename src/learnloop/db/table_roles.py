@@ -385,6 +385,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_render_block_crosswalk", TableRole.RAW_LEDGER),
     ("source_render_views", TableRole.WORKFLOW),
     ("source_revisions", TableRole.RAW_LEDGER),
+    # The daily cap's shared reservations (canonical sources, Codex re-review
+    # F2): in-flight and settled request charges, never rebuilt.
+    ("source_service_spend", TableRole.WORKFLOW),
     ("source_span_reanchors", TableRole.RAW_LEDGER),
     ("source_tool_calls", TableRole.RECEIPT),
     ("source_unit_inventories", TableRole.RAW_LEDGER),

@@ -793,6 +793,65 @@ def receipt_time_floor(since: str) -> str:
     return moment.replace(microsecond=0).isoformat(timespec="seconds")
 
 
+# -- the daily cap's shared reservations (migration 191; Codex re-review F2) ----------
+
+
+SERVICE_SPEND_TABLE = "source_service_spend"
+
+
+def service_spend_total(connection: sqlite3.Connection, envelope: str, day: str) -> float:
+    """Dollars reserved or charged under ``envelope`` on ``day`` (every process)."""
+
+    if not table_exists(connection, SERVICE_SPEND_TABLE):
+        return 0.0
+    row = connection.execute(
+        "SELECT COALESCE(SUM(charged_usd), 0) FROM source_service_spend WHERE envelope=? AND day=?",
+        (envelope, day)).fetchone()
+    return float(row[0] or 0.0)
+
+
+def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: str, day: str, usd: float,
+                          cap: float, process: str, now: str, floor_usd: float = 0.0) -> tuple[bool, float]:
+    """Admit one request under the shared cap, inside the caller's IMMEDIATE transaction.
+
+    The day's total is the larger of the reservations recorded here and
+    ``floor_usd`` (the service's own receipts, which also count spend made
+    before this table existed). Returns (admitted, total before this request)."""
+
+    total = max(service_spend_total(connection, envelope, day), float(floor_usd or 0.0))
+    if total + float(usd) > float(cap) + 1e-12:
+        return False, total
+    connection.execute(
+        "INSERT INTO source_service_spend (id, envelope, day, reserved_usd, charged_usd, state, process, "
+        "created_at, updated_at) VALUES (?,?,?,?,?,'in_flight',?,?,?)",
+        (id, envelope, day, float(usd), float(usd), process, now, now))
+    return True, total
+
+
+def charge_service_spend(connection: sqlite3.Connection, id: str, usd: float, now: str) -> None:
+    """Reconcile a reservation upward (usage above the estimate); never a refund."""
+
+    if usd > 0:
+        connection.execute("UPDATE source_service_spend SET charged_usd = charged_usd + ?, updated_at=? WHERE id=?",
+                           (float(usd), now, id))
+
+
+def settle_service_spend(connection: sqlite3.Connection, id: str, now: str, actual_usd: float | None = None) -> None:
+    """The request finished: it counts its reported cost from now on, else its reservation."""
+
+    if actual_usd is None:
+        connection.execute("UPDATE source_service_spend SET state='settled', updated_at=? WHERE id=?", (now, id))
+    else:
+        connection.execute("UPDATE source_service_spend SET state='settled', charged_usd=?, updated_at=? WHERE id=?",
+                           (max(0.0, float(actual_usd)), now, id))
+
+
+def release_service_spend(connection: sqlite3.Connection, id: str) -> None:
+    """Remove a reservation whose request was never sent (another cap refused it)."""
+
+    connection.execute("DELETE FROM source_service_spend WHERE id=? AND state='in_flight'", (id,))
+
+
 def spend_since(connection: sqlite3.Connection, since: str, *,
                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                 price_per_million: float | None = None,
@@ -865,6 +924,12 @@ __all__ = [
     "find_comparison",
     "insert_comparison",
     "SERVICE_OWNER_KINDS",
+    "SERVICE_SPEND_TABLE",
+    "charge_service_spend",
+    "release_service_spend",
+    "reserve_service_spend",
+    "service_spend_total",
+    "settle_service_spend",
     "spend_since",
     "receipt_time_floor",
     "CHECK_STATUSES",

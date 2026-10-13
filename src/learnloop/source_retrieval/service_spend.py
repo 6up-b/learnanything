@@ -1,13 +1,17 @@
 """The canonical-sources service's shared money bounds (spec_source_practice_and_probes_v1 SC10, §7.5).
 
 Every paid step of the service runs under ``SpendBudget`` caps per operation;
-these envelopes bound the SUM (Codex review F2):
+these envelopes bound the SUM (Codex review F2, re-review F2):
 
-* **the daily cap** (``source_service.max_daily_cost_usd``, metered): one
-  envelope per database and UTC day, shared by every thread of the process. It
-  reads the service's metered receipts since midnight (every process's) at
-  each reservation and adds this process's requests still in flight, so a
-  request that would pass the cap is refused before it is sent;
+* **the daily cap** (``source_service.max_daily_cost_usd``, metered): shared
+  by every thread AND every process that opens the vault. Each metered request
+  reserves its estimate in ``source_service_spend`` inside one BEGIN
+  IMMEDIATE transaction that checks the day's total (every process's
+  reservations, never less than the service's own receipts) plus the estimate
+  against the cap, so a request that would pass it is refused before it is
+  sent, and a sidecar and a CLI batch cannot both spend the same allowance.
+  Every complete service operation runs under it: retrieval (embeddings,
+  rewrites, reranks, verification), valuation and imports;
 * **one operation's cap** (an import: ``import_max_cost_usd``);
 * **a batch's cap** (``--max-cost-usd`` of an owner-run harvest or verify).
 
@@ -19,19 +23,101 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
+from decimal import Decimal
+import sqlite3
 import threading
 from typing import Any
 
-from learnloop.ai.spend import SpendEnvelope, spend_envelopes
+from learnloop.ai.spend import SpendEnvelope, SpendLimitExceeded, spend_envelopes
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.source_service import SERVICE_OWNER_KINDS, spend_since
+from learnloop.db.stores.source_service import (
+    SERVICE_OWNER_KINDS,
+    charge_service_spend,
+    release_service_spend,
+    reserve_service_spend,
+    service_spend_total,
+    settle_service_spend,
+    spend_since,
+)
+from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import SUBSCRIPTION_PROFILE_TYPES
 from learnloop.vault.models import LoadedVault
 
+DAILY_ENVELOPE = "source_service.max_daily_cost_usd"
+#: This process, on its reservations (a crashed process's stay counted).
+PROCESS = "proc_" + new_ulid()
+
 _DAILY: dict[tuple[str, str, float], SpendEnvelope] = {}
 _DAILY_LOCK = threading.Lock()
+
+
+class SharedDailyEnvelope(SpendEnvelope):
+    """The daily cap, reserved transactionally in the vault database (re-review F2).
+
+    ``reserve`` admits a request only when the day's total (every process's
+    reservations, and never less than the service's own receipts) plus its
+    estimate fits the cap. The reservation is a row: in flight it counts its
+    estimate (reconciled upward); once the request finished it counts the cost
+    the provider reported, as the receipt does, else its estimate.
+    Subscription requests reserve nothing (``estimated_only``).
+    """
+
+    def __init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float) -> None:
+        super().__init__(DAILY_ENVELOPE, cap)
+        self._vault = vault
+        self._repository = repository
+        self._since = day  # UTC midnight
+        self._day = day[:10]
+
+    def _receipts(self, connection: sqlite3.Connection) -> float:
+        return float(spend_since(connection, self._since, owner_kinds=SERVICE_OWNER_KINDS,
+                                 price_per_million=self._vault.config.source_service.llm_price_per_million,
+                                 subscription_providers=subscription_providers(self._vault))["usd"])
+
+    def _total(self) -> Decimal:
+        with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
+            ledger = service_spend_total(connection, self.name, self._day)
+            receipts = self._receipts(connection)
+        return Decimal(str(max(ledger, receipts)))
+
+    def reserve(self, usd: Decimal) -> object:
+        handle = "ssp_" + new_ulid()
+        with self._repository.atomic():
+            connection = self._repository.connection()
+            admitted, total = reserve_service_spend(
+                connection, id=handle, envelope=self.name, day=self._day, usd=float(usd),
+                cap=float(self.max_usd), process=PROCESS, now=utc_now_iso(), floor_usd=self._receipts(connection))
+        if not admitted:
+            with self._lock:
+                self._refused += 1
+            raise SpendLimitExceeded(
+                f"{self.name}: ${total + float(usd):.4f} would pass the ${float(self.max_usd):.4f} cap "
+                "(shared by every process using this vault)")
+        return handle
+
+    def unreserve(self, handle: object) -> None:
+        if isinstance(handle, str):
+            with self._repository.atomic():
+                release_service_spend(self._repository.connection(), handle)
+
+    def charge(self, usd: Decimal, handle: object = None) -> None:
+        if usd > 0 and isinstance(handle, str):
+            with self._repository.atomic():
+                charge_service_spend(self._repository.connection(), handle, float(usd), utc_now_iso())
+
+    def settle(self, handle: object, actual: Decimal | None = None) -> None:
+        if isinstance(handle, str):
+            with self._repository.atomic():
+                settle_service_spend(self._repository.connection(), handle, utc_now_iso(),
+                                     None if actual is None else float(actual))
+
+    def report(self) -> dict[str, object]:
+        report = super().report()
+        report["basis"] = ("reservations shared by every process (source_service_spend), never less than the "
+                           "service's receipts")
+        return report
 
 
 def subscription_providers(vault: LoadedVault) -> frozenset[str]:
@@ -47,16 +133,23 @@ def midnight(clock: Clock | None = None) -> str:
 
 def service_spend_today(vault: LoadedVault, repository: Repository, clock: Clock | None = None) -> dict[str, Any]:
     """The service's spend since UTC midnight: metered dollars (the daily
-    cap's basis) and the subscription's ``estimated_only`` tokens and dollars."""
+    cap's basis: every process's reservations, never less than the receipts)
+    and the subscription's ``estimated_only`` tokens and dollars."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return spend_since(connection, midnight(clock), owner_kinds=SERVICE_OWNER_KINDS,
-                           price_per_million=vault.config.source_service.llm_price_per_million,
-                           subscription_providers=subscription_providers(vault))
+        spent = spend_since(connection, midnight(clock), owner_kinds=SERVICE_OWNER_KINDS,
+                            price_per_million=vault.config.source_service.llm_price_per_million,
+                            subscription_providers=subscription_providers(vault))
+        ledger = service_spend_total(connection, DAILY_ENVELOPE, midnight(clock)[:10])
+    spent["receipts_usd"] = spent["usd"]
+    spent["reserved_usd"] = ledger
+    spent["usd"] = max(float(spent["usd"]), ledger)
+    return spent
 
 
 def daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | None = None) -> SpendEnvelope:
-    """The process-wide daily envelope for this database and UTC day."""
+    """The daily envelope for this database and UTC day, shared through the
+    database by every process (one object per process for its threads)."""
 
     cap = float(vault.config.source_service.max_daily_cost_usd)
     day = midnight(clock)
@@ -64,10 +157,7 @@ def daily_envelope(vault: LoadedVault, repository: Repository, clock: Clock | No
     with _DAILY_LOCK:
         envelope = _DAILY.get(key)
         if envelope is None:
-            def observed() -> float:
-                return float(service_spend_today(vault, repository, clock)["usd"])
-
-            envelope = SpendEnvelope("source_service.max_daily_cost_usd", cap, observed=observed)
+            envelope = SharedDailyEnvelope(vault, repository, day=day, cap=cap)
             _DAILY[key] = envelope
         return envelope
 
@@ -89,6 +179,8 @@ def batch_envelope(name: str, max_usd: float) -> SpendEnvelope:
 
 
 __all__ = [
+    "DAILY_ENVELOPE",
+    "SharedDailyEnvelope",
     "batch_envelope",
     "daily_envelope",
     "midnight",
