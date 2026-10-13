@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 197
+schema_head: 199
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -27,8 +27,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/build_plan.py"
-  - "src/learnloop/content/pipeline/jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -88,9 +88,11 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._record_reading_request_for_extraction()`
 - `Repository.delete_source_artifact()`
 - `Repository.get_source_revision()`
 - `Repository.insert_source_revision()`
+- `Repository.reading_request_unsettled()`
 - `Repository.source_revision_by_asset_hash()`
 - `Repository.source_revisions_for()`
 
@@ -110,6 +112,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -119,14 +122,13 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/db/repositories.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop/reader/source_render_views.py`
-- `src/learnloop/reader/source_search.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -148,6 +150,7 @@ Indexes and uniqueness:
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_span_view.py`
 - `tests/test_t6_followup_rereview.py`
+- `tests/test_ux_phase1_landing.py`
 - `tests/test_source_layer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

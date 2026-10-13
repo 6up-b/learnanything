@@ -3,22 +3,22 @@ title: "source_auto_build_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "23ec08aeae5590b15bde2683c9526cf206b5b693"
-source_commit_timestamp: "2026-10-13T14:25:01-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_auto_build_state"
   - "table source_auto_build_state"
-schema_head: 187
+schema_head: 199
 table_name: "source_auto_build_state"
 table_role: "workflow"
 functionality_status: "active"
 domain_family: "sources-and-ingest"
-introduced_in: "186_add_book_state.sql"
+introduced_in: "198_add_book_state.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/186_add_book_state.sql"
+  - "migrations/198_add_book_state.sql"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
@@ -48,8 +48,8 @@ It belongs to the **sources and ingest** navigation family. The family context l
 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/186_add_book_state.sql`.
-- **Schema touched by:** `186_add_book_state.sql`, `187_reading_request_revision.sql`.
+- **Introduced by:** `migrations/198_add_book_state.sql`.
+- **Schema touched by:** `198_add_book_state.sql`, `199_reading_request_revision.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

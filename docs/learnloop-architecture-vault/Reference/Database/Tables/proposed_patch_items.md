@@ -3,13 +3,13 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
   - "table proposed_patch_items"
-schema_head: 197
+schema_head: 199
 table_name: "proposed_patch_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,16 +20,15 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/content/authoring/persona_gate.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
-  - "src/learnloop_sidecar/handlers/app.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
-  - "src/learnloop/content/pipeline/source_ingestion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -123,6 +122,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/curriculum/concepts.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop_sidecar/handlers/app.py`
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/proposals/patches.py`
@@ -153,7 +154,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/error_taxonomy.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/tutor/promotions.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

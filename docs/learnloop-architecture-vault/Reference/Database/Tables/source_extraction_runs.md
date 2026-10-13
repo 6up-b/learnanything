@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 197
+schema_head: 199
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
-  - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -91,6 +91,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._record_reading_request_for_extraction()`
 - `Repository.complete_extraction_run()`
 - `Repository.delete_source_artifact()`
 - `Repository.extraction_run_by_request_hash()`
@@ -98,6 +99,7 @@ Indexes and uniqueness:
 - `Repository.get_extraction_run()`
 - `Repository.insert_extraction_run()`
 - `Repository.persist_document_ir()`
+- `Repository.reading_request_unsettled()`
 
 ### Direct SQL readers
 
@@ -112,6 +114,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/facet_identity/authority.py`
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
@@ -129,7 +132,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop/reader/source_render_views.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -138,6 +140,7 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_facet_reword_confirm.py`
@@ -151,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`
 - `tests/test_span_reanchor.py`
+- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

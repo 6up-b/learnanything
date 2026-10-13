@@ -3,13 +3,13 @@ title: "proposed_patch_item_dependencies"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_item_dependencies"
   - "table proposed_patch_item_dependencies"
-schema_head: 197
+schema_head: 199
 table_name: "proposed_patch_item_dependencies"
 table_role: "workflow"
 functionality_status: "active"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_proposal_dependencies.py`
 - `tests/test_repositories.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

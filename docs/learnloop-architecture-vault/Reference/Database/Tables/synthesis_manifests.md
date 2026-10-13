@@ -3,13 +3,13 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
   - "table synthesis_manifests"
-schema_head: 197
+schema_head: 199
 table_name: "synthesis_manifests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/daily_plan/reading.py"
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 
@@ -134,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_synthesis_runs_repo.py`
+- `tests/test_ux_phase1_round2_review.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
 

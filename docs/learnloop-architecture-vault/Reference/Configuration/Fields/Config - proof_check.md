@@ -3,8 +3,8 @@ title: "Config - proof_check"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml proof_check"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.17's route check. On, each new blind grade of an item an LLM reads as proof-like is followed by an independent re-derivation of the learner's route (ai.routing.proof_check, else a route with a model other than the grader's); the gate restores, records unverified or flags criteria and the verdict goes to judgment_ledger. Off, new answers are graded exactly as mvp-0.16. Dormant below mvp-0.17; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1813`; `src/learnloop/attempts/proof_check.py:164` |
+| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.17's route check. On, each new blind grade of an item an LLM reads as proof-like is followed by an independent re-derivation of the learner's route (ai.routing.proof_check, else a route with a model other than the grader's); the gate restores, records unverified or flags criteria and the verdict goes to judgment_ledger. Off, new answers are graded exactly as mvp-0.16. Dormant below mvp-0.17; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1865`; `src/learnloop/attempts/proof_check.py:164` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

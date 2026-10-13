@@ -3,13 +3,13 @@ title: "task_blueprint_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68408145bb52bb64c16da3809dfeea6bd592b1bf"
-source_commit_timestamp: "2026-10-13T14:48:55-04:00"
+source_commit: "0ece66d149dc333b4b3837861b5cf7c767f0f487"
+source_commit_timestamp: "2026-10-13T16:10:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite task_blueprint_versions"
   - "table task_blueprint_versions"
-schema_head: 197
+schema_head: 199
 table_name: "task_blueprint_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
