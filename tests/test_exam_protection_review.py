@@ -776,6 +776,34 @@ def test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_
     assert not report.already_reserved and set(report.reserved_item_ids).isdisjoint(session["item_order"])
 
 
+def test_the_report_of_an_automatically_closed_sitting_is_its_closure_report(tmp_path):
+    """Codex final verify F7: ``exam_report`` of a sitting closed because every
+    item was set aside returns the persisted closure report (why it closed,
+    which items were set aside and why), never a rebuilt progress view that
+    claims nothing was withdrawn."""
+
+    from learnloop.goals.exam_session import ExamSessionError, exam_report, start_exam
+    from tests.test_exam_pool import NOW
+
+    paths, repository, session = _started_exam(tmp_path)
+    session_id = session["session_id"]
+    for item_id in session["item_order"]:
+        _reveal(repository, item_id)
+    vault = load_vault(paths.root)
+    with pytest.raises(ExamSessionError, match="none is a fair test"):
+        start_exam(vault, repository, vault.goals[0].id, clock=FrozenClock(NOW))
+    stored = repository.exam_session(session_id)
+    assert stored["status"] == "abandoned"
+
+    report = exam_report(load_vault(paths.root), repository, session_id)
+    assert report == stored["report"]
+    assert report["closed_reason"] == "every_item_withdrawn"
+    withdrawn = {entry["practice_item_id"]: entry["reasons"] for entry in report["withdrawn_items"]}
+    assert set(withdrawn) == set(session["item_order"])
+    assert all(withdrawn.values())
+    assert report["withdrawn_note"]
+
+
 def test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before(tmp_path):
     from learnloop.goals.exam_session import queue_exam_answer, start_exam
     from tests.test_exam_pool import NOW

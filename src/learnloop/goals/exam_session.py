@@ -713,12 +713,20 @@ def _compute_report(vault: LoadedVault, repository: Repository, session, goal, *
 
 
 def exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> dict[str, Any]:
-    """Return the persisted report (completed) or a live progress view."""
+    """Return the persisted report (completed), the persisted closure report
+    (a sitting closed because every item was set aside), or a live progress
+    view.
+
+    A closed sitting's report is the one written when it closed
+    (``_close_exhausted_sitting``: ``closed_reason``, the withdrawn items and
+    their reasons, the note). It is never rebuilt: the progress view reads the
+    set-aside items of an in-progress sitting only, so a rebuild would say
+    nothing was withdrawn (Codex final verify F7)."""
 
     session = repository.exam_session(session_id)
     if session is None:
         raise ExamSessionError(f"Unknown exam session {session_id}")
-    if session["status"] == "completed" and session.get("report") is not None:
+    if session["status"] in {"completed", "abandoned"} and session.get("report") is not None:
         return session["report"]
     withdrawn = session_withdrawn_items(vault, repository, session)
     view = _session_view(repository, session_id, already_started=True, withdrawn=withdrawn)
