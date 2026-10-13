@@ -384,7 +384,9 @@ class CitationResolver:
     def with_span_support(self, vault: Any, repository: Any) -> CitationResolver:
         """Attach the span-support check (switch ``decider_routes.facet_span_support``)."""
 
-        if vault.config.decider_routes.facet_span_support:
+        from learnloop.decider_judgments import enabled
+
+        if enabled(vault.config, "facet_span_support"):
             from learnloop.content.facet_identity.span_support import check
 
             def checker(facet_id: str, after: Mapping[str, Any],

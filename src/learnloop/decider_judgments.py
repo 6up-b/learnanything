@@ -57,17 +57,21 @@ Admit = Callable[[str, str, int], AbstractContextManager[Any]]
 
 
 def enabled(config: Any, task: str) -> bool:
-    """Whether the Decider decides ``task`` for this vault's config (its switch and version)."""
+    """Whether the Decider decides ``task`` for this vault's config (its switch and version).
+
+    A config without a ``[decider_routes]`` section (a partial config a caller
+    builds by hand) keeps every judgment on its predecessor path.
+    """
 
     if task not in SERVING_TASKS and task not in CONTENT_TASKS:
         return False
-    if not bool(getattr(config.decider_routes, task, False)):
+    if not bool(getattr(getattr(config, "decider_routes", None), task, False)):
         return False
     if task in CONTENT_TASKS:
         return True
     from learnloop.algorithm_versions import DECIDER_TIER1_VERSIONS
 
-    return config.algorithms.algorithm_version in DECIDER_TIER1_VERSIONS
+    return getattr(getattr(config, "algorithms", None), "algorithm_version", None) in DECIDER_TIER1_VERSIONS
 
 
 def client_for(root: Any, config: Any) -> Any:
