@@ -542,12 +542,10 @@ Codex reviews and `voi-v2.md` describe the branch and keep its placeholders
   provenance). Off, the table is built exactly as before (same hash, the
   unresolved cost never read) and the restore golden reproduces; on, every
   off-diagonal cell charges the estimate and EVSI rises
-  (`tests/test_voi_merge_composition.py`). One thing for the owner before
-  turning it on: the value rule's hypotheses are probe labels, not
-  `causal_hypotheses` rows, so `unresolved_minutes_for_hypotheses` reads each
-  label's scope as `unknown`, which it treats as persistent: every label
-  (`mastered` and `unfamiliar` included) is charged the estimate on its
-  off-diagonal cells.
+  (`tests/test_voi_merge_composition.py`). *Phase 1 wired it through
+  `unresolved_minutes_for_hypotheses`, which reads a probe label (not a
+  `causal_hypotheses` row) as an unknown, persistent cause, so every label was
+  charged; phase 2 maps each label's scope explicitly ("Phase 2" below).*
 - **EVSI calibration's forecast log.** Every value decision the successor
   takes is now also a `voi_forecasts` row (behind `evsi.forecast_logging`),
   logged once, where it acts, at four new sites in `VOI_SITES`
@@ -593,10 +591,9 @@ Codex reviews and `voi-v2.md` describe the branch and keep its placeholders
   gate decision that was not taken; where the gate decides (rank 1's switch
   on, the site off, below the successor, a calibration session) it logs as on
   main. (The branch's refactor also left main's logging call reading an
-  undefined `posterior`; it reads the gate's own belief now.) The live
-  calibration report counts and joins the new sites; it has no realized-
-  emission mapping for them yet (`site_without_outcome_mapping`), so nothing
-  is scored twice.
+  undefined `posterior`; it reads the gate's own belief now.) *Phase 1 left
+  the live calibration report without outcome mappings for the new sites;
+  phase 2 joins them by exact receipts ("Phase 2" below).*
 - **The restore golden.** It reproduces exactly with the switches at their
   restore values, unchanged, with `evsi.forecast_logging = false` in its
   integration scenarios (`voi_restore_scenarios.PINNED_ID_STREAM_TOML`). The
@@ -668,3 +665,128 @@ template, the registry audit, the tracked-fixture and copy guards.
 Main moved to `1def803a1` (the EVSI multi-family study, merged after
 `9fd00e9fe`) while this phase ran; the full gate, the durability lane and
 parity follow once that main is merged in.
+
+### Phase 2: main's EVSI multi-family study merged in, rank 4's scopes, the report's joins
+
+| Commit | What |
+|---|---|
+| `345c8098f` | main `1def803a1` merged in (the EVSI multi-family and unbounded single-family studies: offline `evsi_calibration` modules, `learnloop evsi multisim|compare`) |
+| `8c3cfe68a` | rank 4 by each label's scope; the calibration report joins the four value sites |
+| `e61a673dd` | references regenerated |
+| (this commit) | this section, the gate and parity |
+
+- **Main's merge.** No serving, config or schema change: only generated
+  reference notes conflicted (this branch's kept, regenerated after). All
+  thirteen defaults snapshots still match (nothing moved) and the CLI help
+  snapshot is main's (`--write` changes nothing). The study's policy notes now
+  name the successor's landed label (`policies.py`: mvp-0.21, built as
+  mvp-0.17).
+- **Rank 4 reads each label by Part C's definition.** Part C
+  (`scheduling/unresolved_cost.py`, `evsi-calibration.md` §8,
+  `evsi-multisim.md` §4.7) prices a cause that persists: a misconception that
+  keeps producing the same error until something else catches it. Its prior is
+  Eedi's excess repeat rate of a misconception-consistent error over learners
+  taught in between, and its personal measurement is the recurrence of one
+  misconception's class; `learner_state` and `unknown` causes are charged,
+  transient, item, grader and context causes are not. The value rule's
+  hypotheses are probe labels, so `voi_stopping.unresolved_scope_for_label`
+  reads each class explicitly, and `unresolved_cost.unresolved_minutes_for_scopes`
+  applies Part C's rule to those scopes (`unresolved_minutes_for_hypotheses`
+  now uses it, output unchanged):
+
+  | Labels | Scope | Charged | Why |
+  |---|---|---|---|
+  | `mastered`, `robust_initial_grasp` | `no_problem` | never | nothing is left unresolved (a robust grasp's error is a memory lapse that spaced review already repairs) |
+  | `unfamiliar`, `surface_only`, `recall_without_mechanism`, `procedure_without_selection`, `schema_without_transfer` | `knowledge_gap` | no | a gap is an absence, not a belief that keeps producing the same wrong answer: the LO stays in teaching and practice until it is known, so a wrong first action only delays the right one, which the minutes-only cell already charges (the delay of the effective repair). Eedi's rate is measured on misconceptions that survive teaching; nothing measures a gap's recurrence |
+  | `misconception:<id>`, `confuses_with:<concept>` | `learner_state` | Part C's estimate | Part C's own case: the learner's recurrence-measured cost, shrunk toward Eedi's prior |
+  | `other_or_unknown`, and any label the map does not know | `unknown` | Part C's estimate | an unknown cause, which Part C charges as persistent |
+
+  Each cell's `unresolved_source` names its scope and reason; a measured
+  decision's context adds `unresolved_scopes`. Off (the default), every table
+  and hash is today's for every label class and the estimate is never read.
+  On, only the persistent rows are charged: two rival misconceptions are worth
+  more to tell apart, a gap against a robust grasp values exactly as off, and
+  a misconception against a gap makes the misconception's repair the safer
+  action before any answer. With recurrence history the misconception's charge
+  is Part C's measured, shrunk estimate (`source: shrunk_personal`).
+- **The calibration report scores the four sites** (`voi_calibration_report_v5`).
+  Outcomes bind by exact receipts only, never by a session rule or "the next
+  attempt on the item":
+
+  | Site | Binding | Realized emission |
+  |---|---|---|
+  | `probe_episode_value_decision` | the committed presentation's attempt (`practice_attempts.probe_presentation_id`; R1's `taken` first, as for `probe_selection`) | the coarse robust emission when the episode's pinned credible set valued it, else the graded probe outcome |
+  | `followup_value_decision` | its `followup_value_decisions` receipt (`decision_ref`) must be the decision in force on its source attempt (any later decision there, a queue or a suppression, rewrote the queue: `superseded`), then the queue and the offer it produced (main's follow-up join) | the answer's score bucket and error channel (a discriminating item's fired registry misconception, else the error type when the alphabet has it, else none), as the probe-phase posterior reads it |
+  | `teach_back_value_decision` | the attempt bound to the offer's scheduler candidate (R1's `taken` when it was the head) | `correct` when correctness reaches 0.5, else `incorrect` (the reward's predicted correctness) |
+  | `project_probe_value_decision` | R1's `plan_block` row (`decision_ref`) and the logged `plan_block_id` -> the probe planned in that block -> its `item_served` candidate -> the attempt bound to it; a probe admitted but planned in another block is `not_planned_in_this_block` | as the teach-back |
+
+  A stop administered nothing (`not_administered`); a forecast without its
+  exact binding stays right-censored with its reason (`pending`,
+  `no_attempt_binding`, `superseded`, ...). A held grade realizes nothing, as
+  at every site. A teach-back's and a project probe's forecast now carries its
+  `emission_alphabet` (`correct`, `incorrect`).
+- **Tests** (`tests/test_voi_merge_composition.py`, 23): each label class's
+  scope; off keeps today's table for every class; on charges only
+  misconceptions, confusions and unknown causes; the recurrence-measured
+  charge; the decision values by class; and per site: the probe continue
+  realized through its presentation, a stop never joined to a later answer, a
+  follow-up realized through its receipt and offer, superseded by a later
+  decision on its attempt, revoked by a suppression, a kept teach-back
+  realized only through its offer's candidate (an unbound answer to the same
+  item binds nothing), a dropped teach-back not administered, a project probe
+  realized through R1's plan block (an attempt with no serving receipt binds
+  nothing), another block's probe and a held-back probe right-censored.
+
+### Gate
+
+Run at `e61a673dd` (the code is `8c3cfe68a`'s), `TMPDIR` = the worktree's
+`fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and
+`uv pip install pypdfium2`, both suites under
+`flock /tmp/learnloop-fullsuite.lock`, with another worktree's full suite
+running before and beside it.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Full suite: `uv run pytest -n auto` | **10,398 passed, 1 failed** of 10,399 (11 min 7 s). The failure, `test_learner_pick_proposal.py::test_the_delivery_carries_r1s_decision_of_the_block_that_served_it` (the pick's block carried no R1 row), passes alone 4 of 4 (`-n 4`, three runs of its file, 14 of 14 each) and in one process after `test_daily_plan_owner_decisions.py`, the VOI files and itself (116 of 116) |
+| Durability lane: `uv run pytest -m durability` | **99 passed**, 10,300 deselected (2 min 4 s) |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors**: head 201, 319 table notes, 804 leaves in 48 sections |
+| `validate_vault.py` | passed |
+| Frontend (`apps/` differs from main: `dto.ts`, `PracticeScreen.tsx` and its test) | `npm run typecheck` ok; `npm run frontend:build` ok; `npm test` (vitest) 476 of 479 under the suite's load (3 `PracticeScreen.test.tsx` vault-switch cases) and 478 of 479 on a rerun (one `FeedbackScreen.test.tsx` case, a file the merge does not touch); each failing file passes alone (24 of 24, 11 of 11) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok |
+
+Phase 1's targeted run (1,074 passed, 1 fixed) is above.
+
+### Parity
+
+**Setup.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`)
+of this worktree's tracked `fixtures/linear_algebra` and
+`fixtures/probability` (migration 155, `mvp-0.8`) in
+`fixtures-local/voi-parity`. Each copy was migrated by its own code
+(`migration_coordinator.migrate_vault`): main `1def803a1` exported with
+`git archive` and run on `PYTHONPATH` (to 199, 44 migrations applied), and the
+merge's (to 201, 46). On each copy `learnloop rebuild --shadow --json` and
+`learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+**Shadow rebuilds and doctor match main's exactly** once minted ids,
+timestamps, the live database hash and the copy's path are set aside (0
+differences on all four outputs):
+
+| Fixture | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|
+| linear algebra | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, as at the route-rules
+landing. `live_database.unchanged` is true on every run; doctor exits 1 on
+both sides, as on main.
+
+**Upgrade mvp-0.20 -> mvp-0.21 (playbook item 7).** A third copy of
+`linear_algebra`: `mvp-0.8` -> `mvp-0.9` -> `mvp-0.20` (the chain's advisory
+guard notes passed through), rebuilt twice to its fixed point;
+`rebuild --shadow` at `mvp-0.20` showed facets 0, mastery 0, schedule 0;
+`learnloop upgrade` (the default target) took it to `mvp-0.21`;
+`rebuild --shadow` then showed facets 0 and schedule 0, and mastery 21 rows
+whose only differing field is `algorithm_version` (`mvp-0.20` -> `mvp-0.21`),
+as at every successor. The live database was unchanged by every shadow run,
+and the tracked fixtures were only copied: `git status fixtures` is clean.
