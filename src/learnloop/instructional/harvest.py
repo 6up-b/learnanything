@@ -47,9 +47,9 @@ from learnloop.instructional.validation import draft_validator
 from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.catalog import facet_label, registered_facets
 from learnloop.practice_index.coverage import coverage_targets
+from learnloop.ai.output_budget import output_budget
 from learnloop.practice_index.paid import FRAMING_TOKENS
 from learnloop.practice_index.retrieval import (
-    MIXED_RERANK_OUTPUT_TOKENS,
     PracticeConstraints,
     find_practice,
 )
@@ -159,8 +159,10 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
                                 pool_size=vault.config.practice_index.candidate_pool, embedder=None)
             target["exercise_candidates"] = len(pool.candidates)
             statements = [len(str(candidate.get("statement") or "")) for candidate in pool.candidates]
+            # The mixed rerank's output at its route's policy budget (main's
+            # shared output-budget policy), as the live call reserves it.
             rerank_tokens = sum(statements) + len(_query(vault, target["facet_id"])) + FRAMING_TOKENS \
-                + MIXED_RERANK_OUTPUT_TOKENS
+                + output_budget(vault.config, "practice_rerank")
             rerank = {"calls": 1, "tokens": rerank_tokens,
                       "usd": None if price is None else round(rerank_tokens * float(price) / 1_000_000, 6)}
             imports = plan_import_cost(vault, statement_chars=max(statements, default=0),

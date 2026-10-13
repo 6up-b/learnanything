@@ -955,7 +955,6 @@ def _proposed_entry(entry: Mapping[str, Any], *, with_rationale: bool) -> dict[s
 #: The mixed pool's rerank: practice items and textbook exercises judged in one
 #: listwise call (canonical sources S1, §7.1). Items-only requests keep v1.
 MIXED_RERANK_PROMPT_VERSION = "practice_rerank.v2"
-MIXED_RERANK_OUTPUT_TOKENS = 5000
 EXERCISE_STATEMENT_PROMPT_CHARS = 1200
 _MIXED_INSTRUCTIONS = (
     _RERANK_INSTRUCTIONS
@@ -971,7 +970,8 @@ _MIXED_INSTRUCTIONS = (
 MIXED_RERANK_TASK = ListwiseTask(
     route_task="practice_rerank", ledger_task="practice_relevance", left_kind="practice_query",
     right_kind="practice_candidate", id_prefix="prm_", prompt_version=MIXED_RERANK_PROMPT_VERSION,
-    output_tokens=MIXED_RERANK_OUTPUT_TOKENS, result_model=MixedPracticeRerank, verdict_field="relevance",
+    # None: the route's budget under main's shared policy (as RERANK_TASK).
+    output_tokens=None, result_model=MixedPracticeRerank, verdict_field="relevance",
     scores=RELEVANCE_SCORE, price_setting="practice_index.rerank_price_per_million",
     route_label="rerank ",
 )

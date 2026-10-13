@@ -37,6 +37,11 @@ def _metered_vault(tmp_path, **service):
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
     set_config(paths, "source_service", llm_price_per_million=PRICE, **service)
     set_config(paths, "practice_index", rerank_price_per_million=PRICE, rerank_max_cost_usd=1.0)
+    # Main's shared output-budget policy gives every route 16,384 output tokens
+    # by default; these tests pin the routes to the sizes their reservation
+    # arithmetic was written for (each request still reserves what it sends).
+    set_config(paths, "ai.route_output_tokens", source_solution_match=1500, authoring=8000,
+               pf_reference_verifier=1200, pf_solver_panel=1500, practice_rerank=5000)
     return paths, repository, spans
 
 

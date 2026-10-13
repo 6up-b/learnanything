@@ -121,7 +121,7 @@ def test_no_retired_hard_coded_output_cap_remains():
         "learnloop.source_retrieval.verify": ("VERIFY_OUTPUT_TOKENS",),
         "learnloop.source_retrieval.queries": ("REWRITE_OUTPUT_TOKENS",),
         "learnloop.practice_index.evaluation": ("QUERY_OUTPUT_TOKENS", "LABEL_OUTPUT_TOKENS"),
-        "learnloop.practice_index.retrieval": ("RERANK_OUTPUT_TOKENS",),
+        "learnloop.practice_index.retrieval": ("RERANK_OUTPUT_TOKENS", "MIXED_RERANK_OUTPUT_TOKENS"),
         "learnloop.practice_index.dossiers": ("DOSSIER_OUTPUT_TOKENS",),
         "learnloop.ops.family_proposals": ("OUTPUT_TOKENS",),
         "learnloop.ops.contamination.judge": ("OUTPUT_TOKENS",),
@@ -130,6 +130,14 @@ def test_no_retired_hard_coded_output_cap_remains():
         "learnloop.diagnosis.recurrence.backlog": ("JUDGE_OUTPUT_TOKENS",),
         "learnloop.projects.probes": ("AUTHORING_OUTPUT_TOKENS", "CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION",
                                       "GRADING_OUTPUT_TOKENS_PER_ITEM"),
+        # Canonical sources (merged after the policy): no pinned caps either.
+        "learnloop.ops.pf_verify": ("PANEL_OUTPUT_TOKENS", "EQUIVALENCE_OUTPUT_TOKENS",
+                                    "SPAN_SUPPORT_OUTPUT_TOKENS"),
+        "learnloop.content.authoring.source_exercise_import": ("SOLUTION_MATCH_OUTPUT_TOKENS",
+                                                               "AUTHORING_OUTPUT_TOKENS"),
+        "learnloop.source_retrieval.find_sources": ("INTENT_OUTPUT_TOKENS",),
+        "learnloop.source_retrieval.compare": ("COMPARE_OUTPUT_TOKENS",),
+        "learnloop.instructional.screen": ("SCREEN_OUTPUT_TOKENS",),
     }
     for module, names in retired.items():
         loaded = importlib.import_module(module)

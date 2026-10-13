@@ -38,20 +38,27 @@ def cold_administration_open(repository: Repository, item_id: str | None) -> boo
 
 
 def attempt_window_open(repository: Repository, item_id: str | None) -> bool | None:
-    """False once the item's latest attempt was a correct submission; else True."""
+    """False once the item's latest attempt was a correct submission; else True.
+
+    A grade held for review (THE predicate, ``held_grades``) is the grader's
+    provisional score, not a correct submission: it keeps the window open
+    (so it never unlocks the item's own passages or solution)."""
+
+    from learnloop.held_grades import held_for_review_attempts
 
     if not item_id:
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = connection.execute(
-            "SELECT correctness FROM practice_attempts WHERE practice_item_id=? "
+            "SELECT id, correctness FROM practice_attempts WHERE practice_item_id=? "
             "ORDER BY created_at DESC, id DESC LIMIT 1",
             (item_id,),
         ).fetchone()
+        held = bool(row is not None and held_for_review_attempts(connection, (row[0],)))
     if row is None:
         return True
-    correctness = row[0]
-    return not (correctness is not None and float(correctness) >= WINDOW_CLOSING_CORRECTNESS)
+    correctness = row[1]
+    return held or not (correctness is not None and float(correctness) >= WINDOW_CLOSING_CORRECTNESS)
 
 
 def learning_objects_for_event(vault: LoadedVault, event: Mapping[str, Any]) -> tuple[str, ...]:

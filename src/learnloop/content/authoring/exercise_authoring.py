@@ -25,13 +25,14 @@ rung (``select_rung`` owns that).
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 import json
 import re
 from pathlib import Path
 from typing import Any, Mapping
 
+from learnloop.ai.errors import AIOutputTruncated
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.content.authoring.ai_contracts import (
     ExerciseAuthoring,
@@ -86,18 +87,35 @@ def request_exercise_authoring(
     """Author selected exercises through the shared transport.
 
     ``admit(prompt, result_model)``, when given, admits the request under the
-    caller's spend caps before it is sent (canonical sources' imports); None
-    keeps the Reader's import unchanged.
+    caller's spend caps before it is sent (canonical sources' imports), and
+    its ``after_truncation()`` (when present) decides the one truncation retry
+    at double the budget; None keeps the Reader's import unchanged.
     """
 
     prompt = exercise_authoring_prompt(context)
-    with admit(prompt, ExerciseAuthoring) if admit is not None else nullcontext():
+    if admit is None:
         return execute_structured_operation(
             client,
             purpose="exercise_authoring",
             prompt=prompt,
             result_model=ExerciseAuthoring,
         )
+    while True:
+        try:
+            with admit(prompt, ExerciseAuthoring):
+                return execute_structured_operation(
+                    client,
+                    purpose="exercise_authoring",
+                    prompt=prompt,
+                    result_model=ExerciseAuthoring,
+                )
+        except AIOutputTruncated:
+            # Main's shared output-budget policy: a truncated draft is never
+            # accepted; the admission logs it and allows one retry at double
+            # the budget (admitted and reserved again), else it fails.
+            retry = getattr(admit, "after_truncation", None)
+            if retry is None or not retry():
+                raise
 
 
 def _normalize(text: str) -> str:

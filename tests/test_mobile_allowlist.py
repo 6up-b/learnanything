@@ -187,6 +187,9 @@ SOURCE_SERVICE_EXTENDED_RPCS = (
     "reader.ask",
     "reader.import_exercise",
     "edit_practice_item",
+    # Extended by the branch too (proposal delivery; the source-first step).
+    "get_practice_item",
+    "start_primed_retry",
 )
 
 

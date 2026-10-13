@@ -27,8 +27,9 @@ class _StubCaller:
     def __init__(self) -> None:
         self.ledgered: list[dict[str, Any]] = []
 
-    def call(self, entry: RoleClient, *, prompt: str, prompt_version: str, result_model, output_tokens: int,
-             **_kwargs: Any) -> CallResult:
+    def call(self, entry: RoleClient, *, prompt: str, prompt_version: str, result_model,
+             output_tokens: int | None = None, **_kwargs: Any) -> CallResult:
+        # None: the role's policy budget (main's retired per-role caps).
         from learnloop.ai.transport import StructuredRequest
 
         result = entry.client.complete(StructuredRequest(purpose="pf", prompt=prompt, result_model=result_model))

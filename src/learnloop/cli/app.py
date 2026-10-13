@@ -2628,7 +2628,7 @@ def populate_goal(
 
 def _source_first_needs(loaded: Any, repository: Any, learning_object_id: str | None,
                         max_needs: int) -> list[dict[str, Any]]:
-    """Canonical sources S2b (mvp-0.16): textbook exercises before generation."""
+    """Canonical sources S2b (mvp-0.19): textbook exercises before generation."""
 
     from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
     from learnloop.instructional.needs import fulfil_need_from_sources, pending_causal_decision

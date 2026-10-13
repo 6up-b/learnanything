@@ -40,6 +40,7 @@ from learnloop.db.stores.source_service import impressions_of_item, impressions_
 from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 from learnloop.instructional.exercises import exercise_regions
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
+from learnloop.practice_index.paid import plan_route
 from learnloop.source_retrieval.corpus import role_keys
 from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
@@ -72,7 +73,9 @@ class EquivalenceVerdicts(WireModel):
 EQUIVALENCE_TASK = ListwiseTask(
     route_task="worked_example_equivalence", ledger_task="worked_example_equivalence",
     left_kind="practice_candidate", right_kind="source_span", id_prefix="wee_",
-    prompt_version=EQUIVALENCE_PROMPT_VERSION, output_tokens=1500, result_model=EquivalenceVerdicts,
+    # None: the route's budget under main's shared policy (PaidCalls retries a
+    # truncation once at double it).
+    prompt_version=EQUIVALENCE_PROMPT_VERSION, output_tokens=None, result_model=EquivalenceVerdicts,
     verdict_field="verdict", scores={"equivalent": 2.0, "related": 1.0, "unrelated": 0.0},
     price_setting="source_service.llm_price_per_million",
 )
@@ -324,7 +327,10 @@ def _judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_c
         vault, repository, EQUIVALENCE_TASK, prompt=prompt, refs=refs,
         left_id=str(candidate.get("practice_item_id") or candidate.get("key") or content_key(text)[:32]),
         right_id=lambda key: f"{key[0]}:{key[1]}", id_parts=lambda key: list(key), pick_at_most=0,
-        caps=listwise_caps(len(refs), max_total_tokens=100_000,
+        # The input allowance plus room for the call and its doubled truncation
+        # retry at the route's policy budget.
+        caps=listwise_caps(len(refs), max_total_tokens=100_000 + 3 * plan_route(
+                               vault, "worked_example_equivalence", judge_client).output_tokens,
                            max_estimated_usd=vault.config.source_service.import_max_cost_usd),
         price=vault.config.source_service.llm_price_per_million, owner_id="worked_example_equivalence",
         client=judge_client, validate=validate,

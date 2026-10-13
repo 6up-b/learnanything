@@ -29,9 +29,12 @@ persists (so replay can rehydrate the pinned channel).
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 import json
+import logging
 import math
 from typing import Any
 
@@ -260,11 +263,14 @@ def recent_assisted_success(vault: LoadedVault, repository: Repository, lo_id: s
     "Assisted" is S5's reading of an attempt (not an independent attempt, a
     hint used, or primed) and "successful" its report threshold, so the
     retention question and the outcome that answers it use one definition.
-    The most recent success decides: no window is set by hand."""
+    The most recent success decides: no window is set by hand. A grade held
+    for review (THE predicate, ``held_grades``) is neither a success nor a
+    failure here: it is skipped, as main's readers skip it."""
 
     from contextlib import closing
 
     from learnloop.db.connection import connect
+    from learnloop.held_grades import held_for_review_attempts
     from learnloop.substrate.intervention_outcomes import SUCCESS_CORRECTNESS, is_assisted
 
     item_ids = sorted(item.id for item in vault.practice_items.values() if item.learning_object_id == lo_id)
@@ -277,7 +283,10 @@ def recent_assisted_success(vault: LoadedVault, repository: Repository, lo_id: s
             "SELECT id, practice_item_id, created_at, correctness, attempt_type, hints_used, primed, "
             f"evidence_facets_json FROM practice_attempts WHERE practice_item_id IN ({marks}) "
             "AND correctness IS NOT NULL ORDER BY created_at DESC, id DESC", item_ids).fetchall()
+        held = held_for_review_attempts(connection, (row["id"] for row in rows))
     for row in rows:
+        if row["id"] in held:
+            continue
         if float(row["correctness"]) < SUCCESS_CORRECTNESS:
             continue
         if facet is not None:
@@ -932,6 +941,26 @@ def _predicted(candidate: CandidateInput, prior: Mapping[str, float] | None) -> 
             for e in candidate.outcome_alphabet}
 
 
+#: EVSI calibration (main's ``voi_forecasts``, merged with the sources): a
+#: caller whose decision rides on a decision-mode valuation (source-first
+#: needs: stop marks the need stale, measure orders the imports) listens here
+#: and records the ``rank_feasible`` forecast. Logging only: a listener's
+#: failure never changes the valuation.
+_RANK_LISTENER: ContextVar[Callable[..., Any] | None] = ContextVar("valuation_rank_listener", default=None)
+
+
+@contextmanager
+def rank_listener(listener: Callable[..., Any]) -> Iterator[None]:
+    """Call ``listener(problem=, result=, candidates=, loss_table=)`` for each
+    ``rank_feasible`` decision a valuation in this context makes."""
+
+    token = _RANK_LISTENER.set(listener)
+    try:
+        yield
+    finally:
+        _RANK_LISTENER.reset(token)
+
+
 def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], report: dict[str, Any],
                    by_ref: Mapping[str, CandidateInput], *, system_initiated: bool) -> dict[str, Any]:
     report["mode"] = "decision"
@@ -951,6 +980,12 @@ def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], 
                       checks=[], selector="rank_feasible")
         return report
     result = EV.rank_feasible(candidates, decision.loss_table)
+    listener = _RANK_LISTENER.get()
+    if listener is not None:
+        try:
+            listener(problem=problem, result=result, candidates=candidates, loss_table=decision.loss_table)
+        except Exception:  # noqa: BLE001 - forecast logging never changes a decision
+            logging.getLogger(__name__).warning("rank listener failed", exc_info=True)
     report["rank"] = result.as_dict()
     report["selector"] = "rank_feasible"
     common = EV.shared_optimal_action(decision.loss_table)

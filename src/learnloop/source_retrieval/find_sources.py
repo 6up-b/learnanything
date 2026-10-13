@@ -49,6 +49,7 @@ from learnloop.source_retrieval.corpus import (
     extraction_scope,
     item_exclusions,
     library_scope,
+    model_reader_withheld,
     teaching_scope,
 )
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
@@ -63,7 +64,6 @@ INTENTS: tuple[str, ...] = ("explain", "remediate", "alternative", "worked_examp
 EXPANSIONS: tuple[str, ...] = ("prerequisites", "applications", "confusables")
 INTENT_FIT_TASK = "source_intent_fit"
 INTENT_PROMPT_VERSION = "source_intent_fit.v1"
-INTENT_OUTPUT_TOKENS = 2500
 PASSAGE_CHARS = 900
 HIT_TEXT_CHARS = 2000
 #: Candidates one verification call judges (a prompt-size bound; the rest page).
@@ -118,7 +118,10 @@ def intent_task(intent: str) -> ListwiseTask:
     scores = {verdict: float(len(verdicts) - 1 - index) for index, verdict in enumerate(verdicts)}
     return ListwiseTask(
         route_task="source_rerank", ledger_task=INTENT_FIT_TASK, left_kind="source_query", right_kind="source_span",
-        id_prefix="sif_", prompt_version=f"{INTENT_PROMPT_VERSION}.{intent}", output_tokens=INTENT_OUTPUT_TOKENS,
+        id_prefix="sif_", prompt_version=f"{INTENT_PROMPT_VERSION}.{intent}",
+        # None: the source_rerank route's budget under main's shared policy
+        # (verify_caps sizes the call and its doubled truncation retry for it).
+        output_tokens=None,
         result_model=IntentVerification, verdict_field="verdict", scores=scores,
         price_setting=PRICE_SETTING, drop_pick_verdicts=frozenset(_DROP[intent]),
     )
@@ -493,6 +496,16 @@ def find_sources(
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]
+    # Exam and held-out material is assessment-only (role authority; the
+    # sources merge): never judged by the verification model nor offered as a
+    # passage for an intent. A learner still reads it in the Reader. Under
+    # post_attempt the item's own passages stay (the reveal this policy is for).
+    own_spans = item_exclusions(repository, item).spans if policy == "post_attempt" and item is not None else set()
+    lane = {key for key, why in model_reader_withheld(vault, repository, [hit.key for hit in pool]).items()
+            if why == "assessment_lane" and key not in own_spans}
+    if lane:
+        pool = [hit for hit in pool if hit.key not in lane]
+        result.manifest["assessment_lane_withheld"] = len(lane)
     withheld: list[str] = []
     if intent == "alternative":
         shown = set(personal.get("shown_sources") or ())

@@ -395,7 +395,7 @@ class PaidCalls:
             try:
                 if self.admit is not None:
                     self.admit(estimate)
-                with self.budget.request(estimate) as charge:
+                with self.budget.request(estimate, subscription_route=self.subscription) as charge:
                     # Metered: exactly one physical request per admitted attempt.
                     bound = nullcontext() if self.subscription else single_request()
                     try:

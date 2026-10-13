@@ -44,8 +44,10 @@ from learnloop.ai.execution import (
     generation_limit,
     observe_model_calls,
     record_model_calls,
+    requested_reasoning_effort,
     single_request,
 )
+from learnloop.ai.output_budget import TruncationRetry, output_budget, output_ceiling, reasoning_effort
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
@@ -64,6 +66,7 @@ from learnloop.content.authoring.exercise_authoring import (
     write_draft,
 )
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
+from learnloop.content.authoring.practice_leakage import build_held_out_inventory, screen_practice_payload
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgment_claims import (
@@ -95,6 +98,7 @@ from learnloop.db.stores.source_service import (
 from learnloop.ids import new_ulid
 from learnloop.ops import pf_verify
 from learnloop.ops.pf_calls import (
+    ROLE_TASKS,
     PFCaller,
     PFUnavailable,
     RoleClient,
@@ -102,7 +106,7 @@ from learnloop.ops.pf_calls import (
     resolve_role_clients,
 )
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
-from learnloop.practice_index.paid import FRAMING_TOKENS, estimated_call_tokens
+from learnloop.practice_index.paid import FRAMING_TOKENS, estimated_call_tokens, plan_route
 from learnloop.source_retrieval.corpus import effective_hint, extraction_scope
 from learnloop.source_retrieval.search import POOL_HYBRID_RRF, search_spans
 from learnloop.source_retrieval.service_spend import service_spend, service_spend_today
@@ -115,7 +119,6 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 
 LADDER_VERSION = "source_key_ladder.v1"
 SOLUTION_MATCH_PROMPT_VERSION = "source_solution_match.v1"
-SOLUTION_MATCH_OUTPUT_TOKENS = 1500
 #: Solution passages one match call reads (a prompt-size bound).
 SOLUTION_CANDIDATES = 8
 SOLUTION_PASSAGE_CHARS = 1500
@@ -138,9 +141,11 @@ CHECK_CLAIM_TASK = "source_key_check"
 CHECK_LEASE_SECONDS = 120
 CHECK_HEARTBEAT_SECONDS = 30
 PRICE_SETTING = "source_service.llm_price_per_million"
-#: The authoring request's output bound on a metered route (a compute bound
-#: that lets the request be priced before it is sent; one exercise's draft).
-AUTHORING_OUTPUT_TOKENS = 8000
+#: Every paid step's output budget is its route's under main's shared policy
+#: (``learnloop.ai.output_budget``): the match and the ladder through their
+#: callers (``PaidCalls``, ``PFCaller``), the authoring request through
+#: :func:`authoring_admission`. Each retries a truncation once at double the
+#: budget, admitted and reserved at what it sends.
 
 _SOLUTION_INSTRUCTIONS = (
     "Below is a textbook exercise and candidate passages from the same book that are labelled "
@@ -171,7 +176,7 @@ class SolutionMatch(WireModel):
 SOLUTION_MATCH_TASK = ListwiseTask(
     route_task="source_solution_match", ledger_task="source_solution_match", left_kind="source_exercise",
     right_kind="source_span", id_prefix="ssm_", prompt_version=SOLUTION_MATCH_PROMPT_VERSION,
-    output_tokens=SOLUTION_MATCH_OUTPUT_TOKENS, result_model=SolutionMatch, verdict_field="verdict",
+    output_tokens=None, result_model=SolutionMatch, verdict_field="verdict",
     scores={"solves_this_exercise": 2.0, "other_exercise": 0.0, "unrelated": 0.0},
     price_setting=PRICE_SETTING, drop_pick_verdicts=frozenset({"other_exercise", "unrelated"}),
 )
@@ -269,7 +274,10 @@ def find_book_solution(vault: LoadedVault, repository: Repository, *, extraction
         vault, repository, SOLUTION_MATCH_TASK, prompt=prompt, refs=refs,
         left_id=content_key([extraction_id, label, statement])[:40],
         right_id=lambda spans: f"{extraction_id}:{','.join(spans)}", id_parts=lambda spans: list(spans),
-        pick_at_most=1, caps=listwise_caps(len(refs), max_total_tokens=200_000,
+        # The input allowance plus room for the call and its doubled truncation
+        # retry at the route's policy budget.
+        pick_at_most=1, caps=listwise_caps(len(refs), max_total_tokens=200_000 + 3 * plan_route(
+                                                vault, "source_solution_match", client).output_tokens,
                                             max_estimated_usd=vault.config.source_service.import_max_cost_usd),
         price=vault.config.source_service.llm_price_per_million, owner_id=owner_id or OWNER_KIND,
         client=client, deadline=deadline,
@@ -376,20 +384,30 @@ def authoring_admission(vault: LoadedVault, repository: Repository, client: Any,
                         owner_id: str) -> Callable[[str, type], Any]:
     """Admit the authoring request under the import's caps before it is sent.
 
-    It is priced from its own prompt plus ``AUTHORING_OUTPUT_TOKENS``, so the
+    It is priced from its own prompt plus the ``authoring`` route's output
+    budget under main's shared policy (``learnloop.ai.output_budget``), so the
     active envelopes (the import's cap, the daily cap, a batch's cap) refuse
-    it instead of noticing the overrun after. A metered route needs the
-    owner's price and a transport bounded to one physical request; a
-    subscription route is never refused by money (``estimated_only``).
+    it instead of noticing the overrun after. A truncation is never accepted:
+    ``admit.after_truncation()`` (called by ``request_exercise_authoring``)
+    logs it and allows one retry at double the budget (held to the
+    transport's ceiling), which is admitted and reserved at what it sends. A
+    metered route needs the owner's price and a transport bounded to one
+    physical request; a subscription route is never refused by money
+    (``estimated_only``).
     """
 
     subscription = is_subscription_transport(client=client)
     price = vault.config.source_service.llm_price_per_million
     budget = SpendBudget(import_caps(vault), subscription=subscription)
+    provider = getattr(client, "provider_name", None)
+    truncation = TruncationRetry(output_budget(vault.config, "authoring", provider=provider),
+                                 role="exercise_authoring", provider=provider, model=getattr(client, "model", None),
+                                 owner_kind=OWNER_KIND, owner_id=owner_id, ceiling=output_ceiling(client))
+    effort = reasoning_effort(vault.config, "authoring")
 
     @contextmanager
     def admit(prompt: str, result_model: type) -> Iterator[None]:
-        tokens = estimated_call_tokens(prompt, result_model, AUTHORING_OUTPUT_TOKENS)
+        tokens = estimated_call_tokens(prompt, result_model, truncation.budget)
         if not subscription:
             if price is None:
                 raise SpendLimitExceeded(f"skipped: metered authoring route without {PRICE_SETTING}")
@@ -403,11 +421,12 @@ def authoring_admission(vault: LoadedVault, repository: Repository, client: Any,
                 events.append(event)
             repository.record_model_event(action, event, owner_kind=OWNER_KIND, owner_id=owner_id)
 
-        with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd)) as charge:
+        with budget.request(SpendEstimate(calls=1, retries=int(truncation.retried), total_tokens=tokens,
+                                          estimated_usd=usd)) as charge:
             bound = nullcontext() if subscription else single_request()
-            limit = nullcontext() if subscription else generation_limit(AUTHORING_OUTPUT_TOKENS)
             try:
-                with observe_model_calls(observe), bound, limit:
+                with observe_model_calls(observe), bound, generation_limit(truncation.budget), \
+                        truncation.receipts(), requested_reasoning_effort(effort):
                     yield
             finally:
                 reported_tokens = sum(int(event.get("input_tokens") or 0) + int(event.get("output_tokens") or 0)
@@ -422,6 +441,11 @@ def authoring_admission(vault: LoadedVault, repository: Repository, client: Any,
                                      estimated_usd=max([*costs, priced or 0.0]) if (costs or reported_tokens)
                                      else None)
 
+    def after_truncation() -> bool:
+        """Log a truncation; True when one retry at double the budget may run."""
+        return truncation.after_truncation(allowed=budget.used.retries < budget.caps.max_retries)
+
+    admit.after_truncation = after_truncation  # type: ignore[attr-defined]
     return admit
 
 
@@ -430,9 +454,11 @@ def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int =
 
     Per import: one solution match, one authoring request, the solver panel
     (each model ``pf.panel_solves_per_model`` times), one equivalence judge and
-    one span-support check, each priced at its output bound plus an input
-    approximated from the statement and the role's fixed context. Family
-    passes depend on the family found and are listed, not priced.
+    one span-support check, each priced at its route's output budget under
+    main's shared policy (``learnloop.ai.output_budget``, as the live calls
+    reserve it) plus an input approximated from the statement and the role's
+    fixed context. Family passes depend on the family found and are listed,
+    not priced.
     """
 
     service = vault.config.source_service
@@ -441,12 +467,18 @@ def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int =
     panel_models = max(1, len(panel))
     solves = panel_models * int(vault.config.pf.panel_solves_per_model)
     statement = max(0, int(statement_chars))
+
+    def pf_budget(role: str) -> int:
+        entries = panel if role == "panel" else planned_role_clients(vault, role)
+        return output_budget(vault.config, ROLE_TASKS[role], provider=entries[0].provider if entries else None)
+
     roles = [
-        ("source_solution_match", 1, statement + SOLUTION_CANDIDATES * SOLUTION_PASSAGE_CHARS, SOLUTION_MATCH_OUTPUT_TOKENS),
-        ("exercise_authoring", 1, statement * 3 + 4000 + 4000, AUTHORING_OUTPUT_TOKENS),
-        ("pf_solver_panel", solves, statement, pf_verify.PANEL_OUTPUT_TOKENS),
-        ("pf_reference_verifier", 1, statement * 2, pf_verify.EQUIVALENCE_OUTPUT_TOKENS),
-        ("pf_span_support", 1, statement + 4000, pf_verify.SPAN_SUPPORT_OUTPUT_TOKENS),
+        ("source_solution_match", 1, statement + SOLUTION_CANDIDATES * SOLUTION_PASSAGE_CHARS,
+         output_budget(vault.config, "source_solution_match")),
+        ("exercise_authoring", 1, statement * 3 + 4000 + 4000, output_budget(vault.config, "authoring")),
+        ("pf_solver_panel", solves, statement, pf_budget("panel")),
+        ("pf_reference_verifier", 1, statement * 2, pf_budget("equivalence")),
+        ("pf_span_support", 1, statement + 4000, pf_budget("span_support")),
     ]
     rows = []
     calls = tokens = 0
@@ -461,7 +493,8 @@ def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int =
         "usd": None if price is None else round(tokens * float(price) / 1_000_000, 6),
         "price_per_million": price, "panel_models": panel_models, "by_role": rows,
         "basis": "upper bound: input approximated from the statement and each role's fixed context, output at "
-                 "each role's bound; subscription routes are estimated_only (never capped)",
+                 "each route's policy output budget (ai.output_tokens / ai.route_output_tokens; a truncation "
+                 "retry would double one call's); subscription routes are estimated_only (never capped)",
         "panel_billing": "subscription" if subscription_panel else "metered",
         "not_priced": ["pf_family_judge (two passes per member of a matching family)"],
     }
@@ -1163,6 +1196,15 @@ def _import_source_exercise(
             return fail("rejected", "already in your practice", practice_item_id=skipped.get("practice_item_id"))
         return fail("failed", str(skipped.get("reason")))
     draft = batch.drafts[0]
+    # Held-out exam material stays assessment-only (role authority; the
+    # sources merge): the same deterministic leakage gate generation runs
+    # (practice_leakage §8.5 over the prompt, key and rubric), so neither a
+    # verbatim exam exercise nor a key written from a held-out solution
+    # becomes practice. No model call.
+    leaks = screen_practice_payload(draft.payload, build_held_out_inventory(vault, repository))
+    if leaks:
+        return fail("rejected", "held_out_leakage: the exercise or its key overlaps held-out exam material",
+                    verification={"held_out_leakage": leaks[:5]})
     diagnostic = None
     if screen is not None:
         draft, diagnostic = screen_profiles(draft, screen, repository)
@@ -1570,7 +1612,6 @@ __all__ = [
     "SOLUTION_MATCH_PROMPT_VERSION",
     "SOLUTION_MATCH_TASK",
     "SolutionMatch",
-    "AUTHORING_OUTPUT_TOKENS",
     "attach_to_matching_family",
     "authoring_admission",
     "screen_profiles",

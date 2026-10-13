@@ -47,10 +47,10 @@ from learnloop.content.authoring.pf_sandbox import (
 )
 from learnloop.ops.pf_calls import CallResult, PFCaller, RoleClient
 
-#: Output-token bounds of the three verification roles (PF's own values).
-PANEL_OUTPUT_TOKENS = 1500
-EQUIVALENCE_OUTPUT_TOKENS = 2500
-SPAN_SUPPORT_OUTPUT_TOKENS = 1200
+#: Every verification role's output budget is its route's under main's shared
+#: policy (``learnloop.ai.output_budget`` via ``PFCaller.call``, which retries a
+#: truncation once at double the budget); PF-b's per-role caps were retired on
+#: main (owner 2026-10-12) and the extraction keeps them retired.
 SYMBOLIC_KINDS = frozenset({"numeric", "symbolic"})
 SYMBOLIC_STATUSES = ("not_applicable", "confirmed", "rejected", "reference_unreadable", "degenerate_check",
                      "no_check_written", "sandbox_error", "sandbox_unavailable")
@@ -94,7 +94,6 @@ def panel_solves(env: VerifierEnv, stem: str, *, solves_per_model: int,
             call = env.call(
                 entry, on_call=on_call, prompt=C.panel_solve_prompt(stem=stem, solve_index=index),
                 prompt_version=C.PANEL_SOLVE_PROMPT, result_model=C.PanelSolve,
-                output_tokens=PANEL_OUTPUT_TOKENS,
             )
             solves.append({"model": call.model, "index": index, "input_hash": call.input_hash,
                            "final_answer": call.result.final_answer,
@@ -110,7 +109,6 @@ def equivalence(env: VerifierEnv, stem: str, reference: str, solves: Sequence[di
         prompt=C.equivalence_prompt(stem=stem, reference=reference,
                                     answers=[solve["final_answer"] for solve in solves]),
         prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
-        output_tokens=EQUIVALENCE_OUTPUT_TOKENS,
     )
     return call, call.result
 
@@ -240,7 +238,6 @@ def span_support(env: VerifierEnv, *, subject_kind: str, subject_id: str, questi
             question=question, cited_span=cited_quote, reference_answer=reference_answer,
             explanation=explanation, item_kind=item_kind),
         prompt_version=C.SPAN_SUPPORT_PROMPT, result_model=C.SpanSupportVerdict,
-        output_tokens=SPAN_SUPPORT_OUTPUT_TOKENS,
     )
     result = call.result
     executable = item_kind == "what_if" and result.executable_consequence

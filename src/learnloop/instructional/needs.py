@@ -45,6 +45,7 @@ from learnloop.db.stores.source_service import import_row, update_import
 from learnloop.diagnosis.followups import misconception_discrimination
 from learnloop.diagnosis.probes import build_hypothesis_set
 from learnloop.instructional.screen import persisted_screen
+from learnloop.instructional.valuation import rank_listener
 from learnloop.instructional.validation import draft_validator
 from learnloop.instructional.wiring import disabled_reason, find_practice_injections
 from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
@@ -154,10 +155,24 @@ def fulfil_need_from_sources(
     cursor: Mapping[str, Any] | None = None
     proposals: list[str] = []
     receipt: dict[str, Any] = {"intent": intent}
+
+    def forecast(*, problem: Any, result: Any, candidates: Any, loss_table: Any) -> None:
+        # EVSI calibration (main's voi_forecasts, behind evsi.forecast_logging):
+        # the need's value decision is a forecast like every live VOI decision.
+        from learnloop.scheduling import voi_forecasts as VF
+
+        VF.record_rank_feasible_forecast(
+            repository, vault=vault, site="source_need_selection",
+            receipt_key=f"source_need_selection:{need['id']}:{problem.state_hash}:{len(proposals)}",
+            result=result, candidates=candidates, loss_table=loss_table, committed=False, clock=clock,
+            learning_object_id=need.get("learning_object_id"), source_attempt_id=need.get("attempt_id"),
+            extra={"need_id": str(need["id"]), "intent": intent, "problem": problem.key,
+                   "hypothesis_set_id": (pending_decision or {}).get("hypothesis_set_id")})
+
     while True:
         # The search (and each import below) runs under the service's shared
         # daily cap (Codex re-review F2).
-        with service_spend(vault, repository, clock=clock):
+        with service_spend(vault, repository, clock=clock), rank_listener(forecast):
             result = find_practice(vault, repository, query or "practice", constraints, origin="api",
                                    caller={"kind": "need", "ref": str(need["id"])},
                                    exercise_arm=injected["exercise_arm"],

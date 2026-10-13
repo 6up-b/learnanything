@@ -26,6 +26,14 @@ intervention, never the clock). Per intervention:
   ``bayes_update_member0``) and the decision's action before and after it;
 * the learner's taps and their text on the proposal.
 
+A grade held for review (mvp-0.17's route check; THE predicate,
+``held_grades.held_for_review_attempts``) is no evidence here either (merge
+onto main, held-grade-evidence): a held next attempt has no correctness,
+bucket or posterior movement, and a held cold attempt is
+``grade_held_for_review`` (unmeasured, with no correctness), never a success
+or failure. It still occupies its place in the search, as main's dataset
+labels do: the attempt happened, so a later one is not the next cold one.
+
 Associations, not causes: nothing reads these rows to serve.
 """
 from __future__ import annotations
@@ -38,9 +46,12 @@ from typing import Any
 
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import interventions, replace_outcomes
+from learnloop.held_grades import held_for_review_attempts
+from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW, HELD_ROW_KEY
 from learnloop.vault.models import LoadedVault
 
-OUTCOME_VERSION = "retrieval_outcomes.v3"
+#: v4 (the merge onto main): a held grade is no outcome (held-grade-evidence).
+OUTCOME_VERSION = "retrieval_outcomes.v4"
 #: The cold retrieval delay (``diagnosis.remediation.COLD_RETRIEVAL_DELAY``, 1 day).
 COLD_DELAY = timedelta(days=1)
 #: Past this, an intervention with no independent attempt is expired, not pending.
@@ -49,7 +60,8 @@ CENSOR_HORIZON = timedelta(days=30)
 #: counts as a success in the association report.
 SUCCESS_CORRECTNESS = 0.5
 COLD_STATES = ("cold_success", "cold_failure", "cold_dont_know", "right_censored_pending", "right_censored_expired",
-               "learner_declined", "unmeasurable_no_targets", "contaminated_or_assisted", "missing_duration")
+               "learner_declined", "unmeasurable_no_targets", "contaminated_or_assisted", "missing_duration",
+               GRADE_HELD_FOR_REVIEW)
 #: Measured cold outcomes (a submitted "don't know" is a measured failure).
 MEASURED_COLD_STATES = ("cold_success", "cold_failure", "cold_dont_know")
 #: Coldness-receipt dimensions whose failure makes an attempt not independent.
@@ -67,9 +79,13 @@ def _attempts(connection: Any) -> list[dict[str, Any]]:
         "SELECT id, practice_item_id, learning_object_id, created_at, session_id, correctness, rubric_score, "
         "error_type, attempt_type, hints_used, primed, latency_seconds, declared_dont_know, evidence_facets_json "
         "FROM practice_attempts ORDER BY created_at, id").fetchall()
+    # THE held predicate (held-grade-evidence): a held grade's score is the
+    # grader's provisional one, never read as an outcome below.
+    held = held_for_review_attempts(connection)
     attempts = []
     for row in rows:
         value = dict(row)
+        value[HELD_ROW_KEY] = value["id"] in held
         try:
             value["facets"] = set(json.loads(value.pop("evidence_facets_json") or "[]"))
         except (TypeError, ValueError):
@@ -236,9 +252,17 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
         same_session = session is not None and attempt.get("session_id") == session
         same_day = _parse(attempt["created_at"]).date() == created.date()
         if same_session or (session is None and same_day):
-            row.update(next_attempt_id=attempt["id"], next_correctness=attempt.get("correctness"),
+            held = bool(attempt.get(HELD_ROW_KEY))
+            row.update(next_attempt_id=attempt["id"], next_correctness=None if held else attempt.get("correctness"),
                        next_assisted=int(_assisted(attempt)), next_window="session" if same_session else "day")
-            if valuation and attempt["practice_item_id"] in items:
+            if held:
+                # Held for review: no observation (the minutes are time only).
+                if attempt["practice_item_id"] in items and attempt.get("latency_seconds") is not None:
+                    row["actual_minutes"] = round(float(attempt["latency_seconds"]) / 60.0, 4)
+                if valuation.get("prior") and likelihood:
+                    row["hypothesis_movement"] = {"status": GRADE_HELD_FOR_REVIEW,
+                                                  "reason": "the check's grade is held for review"}
+            elif valuation and attempt["practice_item_id"] in items:
                 row["observed_bucket"] = _bucket(attempt, alphabet)
                 if attempt.get("latency_seconds") is not None:
                     row["actual_minutes"] = round(float(attempt["latency_seconds"]) / 60.0, 4)
@@ -262,7 +286,7 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
     if cold is None:
         if masked is not None:
             row["cold_attempt_id"] = masked["id"]
-            row["cold_correctness"] = masked.get("correctness")
+            row["cold_correctness"] = None if masked.get(HELD_ROW_KEY) else masked.get("correctness")
             row["cold_outcome_state"] = "contaminated_or_assisted"
         elif any(signal.get("signal") == "skipped" for signal in signals):
             row["cold_outcome_state"] = "learner_declined"  # declined the proposal itself
@@ -271,6 +295,11 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
                                          else "right_censored_pending")
         return row
     row["cold_attempt_id"] = cold["id"]
+    if cold.get(HELD_ROW_KEY):
+        # Held for review: the cold check happened, its grade is no outcome.
+        row["cold_correctness"] = None
+        row["cold_outcome_state"] = GRADE_HELD_FOR_REVIEW
+        return row
     row["cold_correctness"] = cold.get("correctness")
     if _dont_know(cold):
         row["cold_outcome_state"] = "cold_dont_know"

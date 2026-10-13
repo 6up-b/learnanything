@@ -204,18 +204,28 @@ class SpendBudget:
         return estimate
 
     @contextmanager
-    def request(self, estimate: SpendEstimate) -> Iterator[SpendCharge]:
+    def request(self, estimate: SpendEstimate, *, subscription_route: bool = False) -> Iterator[SpendCharge]:
         """Reserve one physical attempt before entering the paid-call body.
 
         The provider's root ``model_call`` must be inside this context so that
         existing receipt observation writes all caps to ``budget_json``.
         Call ``charge.reconcile`` with usage, including known failed usage.
+
+        ``subscription_route``: the request goes to a subscription route
+        (Codex, the ChatGPT plan) although this budget enforces the metered
+        caps (``PaidCalls`` keeps one budget per route and prices a
+        subscription attempt at $0). Shared envelopes then treat it as the
+        subscription it is: no reservation, never refused for money, its
+        usage tallied ``estimated_only`` (the sources merge: a $0 reservation
+        in the service's daily ledger was refusable once the day's total
+        passed its cap).
         """
         if estimate.calls != 1 or estimate.retries not in (0, 1):
             raise ValueError("A request must declare calls=1 and retries=0 or 1")
         self.check(estimate)
         envelopes = _envelopes.get()
-        reserved = _reserve_in(envelopes, estimate, subscription=self._subscription)
+        subscription = self._subscription or subscription_route
+        reserved = _reserve_in(envelopes, estimate, subscription=subscription)
         self._used = replace(
             self._used,
             **{name: getattr(self._used, name) + getattr(estimate, name) for name in _COUNTS},
@@ -224,7 +234,7 @@ class SpendBudget:
             self._usd_known = False
         else:
             self._usd += Decimal(str(estimate.estimated_usd))
-        charge = SpendCharge(self, estimate, envelopes=reserved)
+        charge = SpendCharge(self, estimate, envelopes=reserved, subscription=subscription)
         declared = self.declared()
         refs = [ref for envelope, handle in reserved if (ref := envelope.reservation_ref(handle))]
         if refs:
@@ -247,8 +257,12 @@ class SpendCharge:
     """An admitted attempt; reconciliation is monotonic and idempotent."""
 
     def __init__(self, budget: SpendBudget, estimate: SpendEstimate, *,
-                 envelopes: tuple[tuple[SpendEnvelope, object], ...] = ()) -> None:
+                 envelopes: tuple[tuple[SpendEnvelope, object], ...] = (),
+                 subscription: bool | None = None) -> None:
         self._budget = budget
+        #: Whether the attempt is a subscription request for the envelopes
+        #: (the budget's flag, or the request's ``subscription_route``).
+        self._subscription = budget.subscription if subscription is None else subscription
         self._tokens = estimate.total_tokens
         # None only on a subscription budget whose price is unknown.
         self._usd = Decimal(str(estimate.estimated_usd)) if estimate.estimated_usd is not None else None
@@ -261,7 +275,7 @@ class SpendCharge:
     def note_estimated_only(self, *, total_tokens: int, estimated_usd: float | None) -> None:
         """A subscription attempt's estimated usage (cumulative, ``estimated_only``)
         for the active envelopes' reports. Never refuses anything."""
-        if not self._budget.subscription:
+        if not self._subscription:
             return
         tokens = max(0, int(total_tokens) - self._noted_tokens)
         usd = None
@@ -294,7 +308,7 @@ class SpendCharge:
             total_tokens=self._budget._used.total_tokens + tokens - self._tokens,
         )
         self._tokens = tokens
-        if self._budget.subscription:
+        if self._subscription:
             self.note_estimated_only(total_tokens=tokens, estimated_usd=estimated_usd)
         if estimated_usd is None:
             return
@@ -304,7 +318,7 @@ class SpendCharge:
         delta = usd - (self._usd or Decimal(0))
         self._budget._usd += delta
         self._usd = usd
-        if delta > 0 and not self._budget.subscription:
+        if delta > 0 and not self._subscription:
             for envelope, handle in self._envelopes:
                 envelope.charge(delta, handle)
 
