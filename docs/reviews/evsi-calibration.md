@@ -623,19 +623,20 @@ gitignored `fixtures-local/evsi-copies/`.
 
 ## 13. Gate
 
-Source and tests as of `bd49ed56` (later commits are this file and
-regenerated references only). `TMPDIR` = the worktree's `fixtures-local/tmp`.
+After the Codex review fixes (source and tests as of `e1f5b98f`; the
+original stage gate, at `bd49ed56`, was 8,635 / 94). `TMPDIR` = the
+worktree's `fixtures-local/tmp`.
 
 | Step | Result |
 |---|---|
 | `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
 | `uv run lint-imports --no-cache` | 14 contracts kept, 0 broken |
-| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8,635 passed**, 0 failed, 0 skipped (261 s) |
-| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **94 passed**, 8,541 deselected (98 s) |
-| `db_generate_reference.py` then `db_validate_reference.py` | `errors: []` (300 table notes, 681 config leaves, 3,951 wikilinks) |
-| New tests | `tests/test_evsi_calibration_sim.py` 8 passed, `tests/test_voi_forecasts.py` 17 passed |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8,645 passed**, 0 failed, 0 skipped (257 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **94 passed**, 8,551 deselected (85 s) |
+| `db_generate_reference.py` then `db_validate_reference.py` | not rerun: the review fixes change no schema or config (stage run: `errors: []`, 300 table notes, 681 config leaves) |
+| New tests | `tests/test_evsi_calibration_sim.py` 10 passed, `tests/test_voi_forecasts.py` 25 passed |
 | Frontend | unchanged (not run) |
-| `learnloop evsi simulate` (full study) | ok, 607 s on 12 workers, report in `fixtures-local/evsi-calibration/` |
+| `learnloop evsi simulate` (full study) | ok, 711 s on 12 workers, report in `fixtures-local/evsi-calibration-v2/` |
 
 ## 14. Open questions
 
