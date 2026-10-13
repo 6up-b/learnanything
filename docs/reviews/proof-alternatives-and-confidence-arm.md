@@ -354,6 +354,28 @@ exploratory, as every field report says.
 
 Reports are in `fixtures-local/proofs-eval/field-*` and are not committed.
 
+## Gate
+
+Run on the branch tree after the last code commit (`0248f84e`; later commits
+are docs only). No frontend or `src-tauri` file changed, so the npm and cargo
+steps do not apply.
+
+- **Setup.** `uv sync --extra dev --extra mobile`, then `uv pip install
+  pypdfium2`: done, with `TMPDIR` set to the worktree's `fixtures-local/tmp`.
+- **`uv run lint-imports --no-cache`:** 14 kept, 0 broken. The purity
+  contract now covers `field.answer_signals`.
+- **Full suite** (`flock /tmp/learnloop-fullsuite.lock uv run pytest -n
+  auto`): **8741 passed**, 0 failed.
+- **Durability lane** (`flock /tmp/learnloop-fullsuite.lock uv run pytest -m
+  durability`): **94 passed**, 8647 deselected.
+- **DB reference scripts.** `db_generate_reference.py`, then
+  `db_validate_reference.py`: **0 errors**. Schema head 185, 299 table
+  notes, 680 configuration leaves in 41 sections.
+- **CLI help snapshot.** Regenerated for `upgrade` and the new `grading
+  hardcases`.
+- **No sidecar RPC was added**, so `tests/test_mobile_allowlist.py` is
+  unchanged.
+
 ## Owner commands
 
 The owner's vaults are at `mvp-0.8` (`linear_algebra`). The route check acts
