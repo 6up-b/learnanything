@@ -12,6 +12,9 @@ gaps around it, each pinned here:
 * F5: ``version`` is server-managed for an existing facet. A payload's own
   ``version`` (stale or oversized) never overwrites it, so a later write can
   not break an earlier reword's undo.
+* F2 and re-review F6: an append restructure can reword a facet, and the
+  reword obeys the §4.2 authority matrix: it cites its supporting spans, an
+  uncited one is dropped, and exam-only support fails ``exam_authority``.
 """
 
 from __future__ import annotations
@@ -343,8 +346,14 @@ def test_a_library_reword_whose_write_never_landed_is_withdrawn_by_recovery(tmp_
 SYMMETRY = "facet_symmetry_definition"
 SYMMETRY_CLAIM = "A real square matrix A is symmetric exactly when it equals its transpose: A^T = A."
 
+#: The span the appended member (``_bootstrap_and_add``: ``src_alt``/``rev_alt``) provides;
+#: its role is whatever ``add_role`` the test gave the member.
+NEW_SPAN = {"extraction_id": "ext_alt", "unit_id": "chapter_symmetry_alt", "span_id": "s1"}
+#: A span of the bootstrap's ``primary_textbook`` member (``src_text``/``rev_text``).
+TEXT_SPAN = {"extraction_id": "ext_text", "unit_id": "chapter_symmetry", "span_id": "s1"}
 
-def _facet_restructure(operation: str = "update", target: str = SYMMETRY):
+
+def _facet_restructure(operation: str = "update", target: str = SYMMETRY, *, citations=(NEW_SPAN,)):
     """The response a provider returns under the strict schema (validated, not constructed)."""
 
     from learnloop.content.synthesis.ai_contracts import AppendReconciliation
@@ -359,6 +368,12 @@ def _facet_restructure(operation: str = "update", target: str = SYMMETRY):
                 "facet_wording": {
                     "kind": None, "claim": SYMMETRY_CLAIM, "description": "",
                     "preconditions": [], "postconditions": [], "applicability": [], "non_goals": [],
+                    # The model's own role claim is ignored: the role comes from the extraction.
+                    "provenance": [
+                        {"revision_id": "", "source_id": "", "locator": "", "relation": "support",
+                         "role": "primary_textbook", **span}
+                        for span in citations
+                    ],
                 },
             }],
         })
@@ -446,3 +461,144 @@ def test_an_append_facet_restructure_that_cannot_apply_is_dropped_with_a_diagnos
                    for row in repo.proposal_items(result.proposal_id or "") or [])
     (diag,) = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_restructure"]
     assert diag["severity"] == "review" and target in diag["entity_refs"]
+
+
+# --- F6 (re-review): a facet reword obeys the exam-authority rule ---------------------------
+#
+# Exam material MUST NOT modify a canonical claim on its own (ingestion §4.2, the
+# §8.7 ``exam_authority`` gate). A facet reword changes a canonical claim, so it
+# cites the spans that support its new wording, the roles come from their
+# extraction runs, and the gates judge them like a new facet's provenance.
+
+
+def _symmetry_links(repo):
+    return repo.entity_source_links("facet", SYMMETRY)
+
+
+def test_the_append_schema_lets_a_facet_reword_cite_its_spans():
+    from learnloop.ai.strict_schema import strict_output_schema
+    from learnloop.content.synthesis.ai_contracts import AppendReconciliation
+
+    schema = strict_output_schema(AppendReconciliation)
+    wording = schema["$defs"]["AppendFacetWording"]["properties"]
+    assert "provenance" in wording
+    assert wording["provenance"]["items"]["$ref"].endswith("/SynthSpanRef")
+
+
+def test_an_exam_only_facet_reword_hard_fails_the_exam_authority_gate(tmp_path):
+    """Schema to gate: the provider's wire response, through normalization, into the gates."""
+
+    from learnloop.content.synthesis.source_append import append_source
+    from learnloop.content.synthesis.source_set_synthesis import StudyMapError
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
+    old = load_vault(root).evidence_facets[SYMMETRY]
+
+    with pytest.raises(StudyMapError) as raised:
+        append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure()),
+                      new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert raised.value.code == "append_gate_failed"
+    (diag,) = [diag for diag in raised.value.diagnostics if diag["gate"] == "exam_authority"]
+    assert diag["severity"] == "hard_fail" and SYMMETRY in diag["entity_refs"]
+    assert load_vault(root).evidence_facets[SYMMETRY].claim == old.claim
+
+
+@pytest.mark.parametrize("add_role", ["exam", "alternate_explanation"])
+def test_an_uncited_facet_reword_is_dropped_because_its_authority_cannot_be_judged(tmp_path, add_role):
+    """Exam units never reach the model as text, so an exam-driven reword arrives uncited."""
+
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role=add_role)
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=())),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(row["item_type"] == "facet" and row["operation"] == "update"
+                   for row in repo.proposal_items(result.proposal_id or "") or [])
+    (diag,) = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_restructure"]
+    assert diag["severity"] == "review" and SYMMETRY in diag["entity_refs"]
+    assert "cites no span" in diag["message"]
+    assert load_vault(root).evidence_facets[SYMMETRY].claim != SYMMETRY_CLAIM
+
+
+def test_a_facet_reword_an_explanatory_span_corroborates_passes_the_gate(tmp_path):
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+
+    root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
+    result = append_source(
+        root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=(NEW_SPAN, TEXT_SPAN))),
+        new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK,
+    )
+
+    assert not any(diag["gate"] == "exam_authority" for diag in result.gate_diagnostics)
+    (item,) = [row for row in repo.proposal_items(result.proposal_id)
+               if row["item_type"] == "facet" and row["operation"] == "update"]
+    refs = {ref["revision_id"]: ref for ref in item["payload"]["provenance"]["source_refs"]}
+    # The exam span is kept, labelled as assessment alignment: never semantic support.
+    assert refs["rev_alt"]["role"] == "exam" and refs["rev_alt"]["relation"] == "assessment_alignment"
+    assert refs["rev_text"]["role"] == "primary_textbook"
+
+
+def test_a_cited_facet_reword_records_its_spans_in_the_facets_provenance(tmp_path):
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    old = load_vault(root).evidence_facets[SYMMETRY]
+    old_refs = [ref.model_dump(mode="json") for ref in old.provenance.source_refs]
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure()),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+    (item,) = [row for row in repo.proposal_items(result.proposal_id)
+               if row["item_type"] == "facet" and row["operation"] == "update"]
+
+    apply_accepted_items(root, result.proposal_id, item_ids=[item["id"]], clock=_CLOCK)
+
+    facet = load_vault(root).evidence_facets[SYMMETRY]
+    assert facet.claim == SYMMETRY_CLAIM
+    refs = [ref.model_dump(mode="json") for ref in facet.provenance.source_refs]
+    assert refs[: len(old_refs)] == old_refs  # the earlier support is kept
+    (new,) = refs[len(old_refs):]
+    assert new["revision_id"] == "rev_alt" and new["role"] == "alternate_explanation"
+    assert facet.provenance.origin == old.provenance.origin
+    assert any(link["revision_id"] == "rev_alt" and link["patch_id"] == result.proposal_id
+               for link in _symmetry_links(repo))
+
+    (record,) = [row for row in list_actions(repo) if row["action"] == "reword"]
+    undo_action(root, repo, record["id"], clock=_CLOCK)
+    restored = load_vault(root).evidence_facets[SYMMETRY]
+    assert restored.claim == old.claim
+    assert [ref.model_dump(mode="json") for ref in restored.provenance.source_refs] == old_refs
+
+
+@pytest.mark.parametrize("with_good_citation", [False, True])
+def test_a_facet_reword_citation_that_does_not_resolve_is_dropped_not_fatal(tmp_path, with_good_citation):
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+
+    bad = {"extraction_id": "ext_not_in_the_set", "unit_id": "u9", "span_id": "s9"}
+    citations = (bad, NEW_SPAN) if with_good_citation else (bad,)
+    root, repo = _bootstrap_and_add(tmp_path)
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=citations)),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(diag["severity"] == "hard_fail" for diag in result.gate_diagnostics)
+    notes = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_restructure"]
+    assert any("ext_not_in_the_set" in diag["message"] for diag in notes)
+    rewords = [row for row in repo.proposal_items(result.proposal_id or "") or []
+               if row["item_type"] == "facet" and row["operation"] == "update"]
+    if with_good_citation:
+        (item,) = rewords
+        cited = [ref["extraction_id"] for ref in item["payload"]["provenance"]["source_refs"]]
+        assert "ext_alt" in cited and "ext_not_in_the_set" not in cited
+    else:
+        assert rewords == []
+        assert any("cites no span" in diag["message"] for diag in notes)
