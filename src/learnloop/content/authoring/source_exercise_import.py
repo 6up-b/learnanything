@@ -37,8 +37,8 @@ import time
 from pathlib import Path
 from typing import Any, Literal
 
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
-from learnloop.ai.execution import content_key
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.execution import content_key, record_model_calls
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
@@ -685,13 +685,19 @@ def import_source_exercise(
             return fail("failed", f"no authoring route is ready: {getattr(resolved.runtime, 'message', '')}")
         author_client = resolved.client
     try:
-        batch = author_exercises(
-            root, repository, author_client, extraction_id=extraction_id, raw_selection=selection,
-            source_id=source_id, revision_id=revision_id, learning_object_hint=learning_object_hint, clock=clock,
-            book_solution=book_solution,
-        )
+        # The authoring call is receipted under the import (as the ladder's
+        # calls are), so the daily cap and the receipts see it.
+        with record_model_calls(repository, owner_kind=OWNER_KIND, owner_id=import_id):
+            batch = author_exercises(
+                root, repository, author_client, extraction_id=extraction_id, raw_selection=selection,
+                source_id=source_id, revision_id=revision_id, learning_object_hint=learning_object_hint,
+                clock=clock, book_solution=book_solution,
+            )
     except ExerciseAuthoringError as exc:
         return fail("failed", str(exc))
+    except (AIInvalidOutput, AIProviderUnavailable, AIInterrupted, TimeoutError) as exc:
+        # A model failure ends this import as failed (never left "authoring").
+        return fail("failed", f"authoring failed: {type(exc).__name__}: {exc}")
     if not batch.drafts:
         skipped = batch.skipped[0] if batch.skipped else {"reason": "nothing authored"}
         if skipped.get("deduplicated"):

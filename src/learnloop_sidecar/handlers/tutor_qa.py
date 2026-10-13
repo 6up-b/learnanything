@@ -156,8 +156,8 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "note_id", "answer_md", "question_type", "facets", "hint_equivalent", "leak_suspected",
             )}
             response.update(event_id=event_id, remaining=max(0, limit - used),
-                            citations=(event.get("source_context") or {}).get("citations", []),
-                            practice_request=tutor_practice_request(vault, repository, event_id))
+                            citations=(event.get("source_context") or {}).get("citations", []))
+            _with_offers(vault, repository, response, event_id, _stored_tool_requests(repository, event_id))
         if response is not None:
             return finish_route(ctx, repository, params.capture_id, "ask_tutor",
                                 {"question_event_id": event_id, "note_id": response["note_id"]}, response)
@@ -261,28 +261,47 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             retryable=True,
         ) from exc
     _record_citations(vault, repository, result["event_id"])
+    response = {
+        "note_id": note_id,
+        "event_id": result["event_id"],
+        "answer_md": result["answer_md"],
+        "question_type": result["question_type"],
+        "facets": result["facets"],
+        "hint_equivalent": result["hint_equivalent"],
+        "leak_suspected": result["leak_suspected"],
+        # ING M8 (§9.2): source-span citations; chips open Open-in-source.
+        "citations": result.get("citations", []),
+        "remaining": result["remaining"],
+    }
+    _with_offers(vault, repository, response, result["event_id"], result.get("tool_requests") or [])
     return finish_route(
         ctx, repository, params.capture_id, "ask_tutor",
-        {"question_event_id": result["event_id"], "note_id": note_id},
-        {
-            "note_id": note_id,
-            "event_id": result["event_id"],
-            "answer_md": result["answer_md"],
-            "question_type": result["question_type"],
-            "facets": result["facets"],
-            "hint_equivalent": result["hint_equivalent"],
-            "leak_suspected": result["leak_suspected"],
-            # ING M8 (§9.2): source-span citations; chips open Open-in-source.
-            "citations": result.get("citations", []),
-            "remaining": result["remaining"],
-            # Canonical sources S0 (§6.2): a deterministic "Practice this"
-            # request the frontend runs once the answer is on screen. S4: the
-            # tutor's own find_practice request replaces it when it wrote one.
-            "practice_request": (None if _wrote_find_practice(result) else
-                                 tutor_practice_request(vault, repository, result["event_id"])),
-            **({"tool_requests": result["tool_requests"]} if "tool_requests" in result else {}),
-        }
+        {"question_event_id": result["event_id"], "note_id": note_id}, response,
     )
+
+
+def _with_offers(vault: Any, repository: Any, response: dict[str, Any], event_id: str,
+                 tool_requests: list[dict[str, Any]]) -> None:
+    """Canonical sources S0 (§6.2): a deterministic "Practice this" request the
+    frontend runs once the answer is on screen. S4 (§10.3): the tutor's typed
+    requests (present only when it wrote some); its own find_practice request
+    replaces S0's. A recovered response is built the same way, from the rows."""
+
+    response["practice_request"] = (None if any(entry.get("tool") == "find_practice" for entry in tool_requests)
+                                    else tutor_practice_request(vault, repository, event_id))
+    if tool_requests:
+        response["tool_requests"] = tool_requests
+
+
+def _stored_tool_requests(repository: Any, event_id: str | None) -> list[dict[str, Any]]:
+    if not event_id:
+        return []
+    from learnloop.instructional.tools import offered_tool_requests
+
+    try:
+        return offered_tool_requests(repository, event_id)
+    except Exception:  # noqa: BLE001 - a vault before migration 189 has no rows
+        return []
 
 
 def _record_citations(vault: Any, repository: Any, event_id: str) -> None:
@@ -313,8 +332,6 @@ def _tool_request_handler(vault: Any) -> Any:
     return tutor_request_handler(vault)
 
 
-def _wrote_find_practice(result: dict[str, Any]) -> bool:
-    return any(entry.get("tool") == "find_practice" for entry in result.get("tool_requests") or ())
 
 
 def _tutor_intent_for(vault: Any, repository: Any, *, context: str, item: Any) -> dict[str, Any] | None:

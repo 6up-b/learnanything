@@ -113,3 +113,27 @@ def test_exercise_labels():
     assert exercise_label("Problem 7 Compute", None) == "Problem 7"
     assert exercise_label("3. Explain why", 9) == "Exercise 3, p. 9"
     assert exercise_label("Show that A is invertible.", 11) == "Exercise on p. 11"
+
+
+def test_page_furniture_and_empty_blocks_never_form_an_exercise(tmp_path):
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.instructional.exercises import exercise_regions
+    from tests.source_service_fakes import build_textbook_vault, seed_textbook
+
+    paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
+    units = {"exercises": ("Exercises", [("1. Solve 2x = 4 for x.", 9), ("", 9),
+                                         ("2. Solve 3x = 9 for x.", 10)])}
+    seed_textbook(repository, source_id="src_furn", revision_id="rev_furn", extraction_id="ext_furn",
+                  title="Furniture", units=units)
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_document_blocks (extraction_id, span_id, extractor_block_id, block_type, "
+                           "role_hint, page, bbox_json, polygon_json, section_path_json, text, content_hash, "
+                           "asset_ids_json, ordinal) SELECT extraction_id, 'pf1', NULL, 'PageFooter', 'exercise', page, "
+                           "bbox_json, polygon_json, section_path_json, '12', content_hash || 'f', asset_ids_json, "
+                           "ordinal FROM source_document_blocks WHERE extraction_id='ext_furn' AND span_id='t3'")
+        connection.commit()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        regions = exercise_regions(connection, "ext_furn")
+    assert [region.text for region in regions] == ["1. Solve 2x = 4 for x.", "2. Solve 3x = 9 for x."]

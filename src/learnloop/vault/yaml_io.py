@@ -61,18 +61,47 @@ def read_yaml_data(path: Path) -> dict[str, Any]:
     return loaded
 
 
-def write_yaml(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    yaml = _yaml()
-    with path.open("w", encoding="utf-8") as handle:
-        yaml.dump(data, handle)
+#: The emitter's line width when the default one would not read back.
+WIDE_EMITTER_WIDTH = 4096
 
 
-def yaml_to_string(data: dict[str, Any]) -> str:
+def _dumped(data: dict[str, Any]) -> str:
+    """The YAML text for ``data``, guaranteed to read back.
+
+    ruamel folds a plain mapping key longer than the line width across lines,
+    which is invalid YAML (a simple key must stay on one line): a trace
+    contract keyed by long checkpoint sentences was written unreadable, and
+    the loader then skipped the item. The default emitter's output is kept
+    whenever it reads back, so every file that was valid stays byte-identical;
+    otherwise the text is emitted again without folding.
+    """
+
     yaml = _yaml()
     stream = StringIO()
     yaml.dump(data, stream)
-    return stream.getvalue()
+    text = stream.getvalue()
+    try:
+        _yaml().load(text)
+        return text
+    except Exception:  # noqa: BLE001 - re-emit below; a second failure raises
+        wide = _yaml()
+        wide.width = WIDE_EMITTER_WIDTH
+        stream = StringIO()
+        wide.dump(data, stream)
+        text = stream.getvalue()
+        _yaml().load(text)
+        return text
+
+
+def write_yaml(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = _dumped(data)
+    with path.open("w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def yaml_to_string(data: dict[str, Any]) -> str:
+    return _dumped(data)
 
 
 def read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]:

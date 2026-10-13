@@ -78,6 +78,10 @@ class ExercisePool:
                 "scope": self.scope, "list_ends": dict(self.list_ends), "unjudged": self.unjudged}
 
 
+#: Marker's page furniture: never an exercise, never part of one.
+PAGE_FURNITURE = frozenset({"PageHeader", "PageFooter"})
+
+
 def exercise_regions(connection, extraction_id: str) -> list[ExerciseRegion]:
     """One extraction's exercise regions in document order.
 
@@ -99,6 +103,10 @@ def exercise_regions(connection, extraction_id: str) -> list[ExerciseRegion]:
         current.clear()
 
     for row in extraction_hint_rows(connection, extraction_id):
+        if row.block_type in PAGE_FURNITURE or not (row.text or "").strip():
+            # Page headers, footers and empty blocks neither lead nor end a
+            # region (an exercise can run across a page break).
+            continue
         hint = effective_hint(row, titles)
         if hint == "exercise" and row.block_type != "SectionHeader":
             close()

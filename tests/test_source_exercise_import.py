@@ -134,3 +134,17 @@ def test_items_without_a_canonical_exercise_serialize_byte_identically(textbook)
     item = vault.practice_items["pi_eigen_1"]
     assert "canonical_exercise" not in item.model_dump(mode="json")
     assert practice_item_hash(item) == practice_item_hash(item.model_copy(update={"canonical_exercise": None}))
+
+
+def test_a_model_failure_while_authoring_fails_the_import_and_is_receipted(textbook):
+    paths, repository, spans = textbook
+    result = _import(paths, repository, spans["exercises"][1], FakeServiceLLM(fail_purposes={"ExerciseAuthoring"}))
+    assert result["status"] == "failed" and "authoring failed" in result["reason"]
+    with repository.connection() as connection:
+        assert import_row(connection, result["import_id"])["status"] == "failed"  # never left "authoring"
+    written = _import(paths, repository, spans["exercises"][1], FakeServiceLLM(), label="Exercise 1")
+    with repository.connection() as connection:
+        purposes = {row[0] for row in connection.execute(
+            "SELECT purpose FROM model_call_receipts WHERE owner_kind='source_exercise_import' AND owner_id=?",
+            (written["import_id"],))}
+    assert "exercise_authoring" in purposes or "authoring" in purposes, purposes

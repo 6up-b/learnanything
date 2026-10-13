@@ -58,9 +58,10 @@ CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     assert STUCK_PROMPT_ALGORITHM_VERSION == "mvp-0.13"
     # Daily-loop DL1's finite plan (mvp-0.14) followed it and keeps the stuck
-    # prompt; it is the latest successor (tests/test_mvp014_upgrade.py).
+    # prompt (tests/test_mvp014_upgrade.py); canonical sources' mvp-0.15 and
+    # mvp-0.16 follow that, and mvp-0.16 is the latest.
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.16"
-    assert SUCCESSOR_CHAIN[-2] == STUCK_PROMPT_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-4] == STUCK_PROMPT_ALGORITHM_VERSION
     assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14", "mvp-0.15", "mvp-0.16"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS

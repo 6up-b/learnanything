@@ -78,3 +78,18 @@ def test_the_practice_item_detail_names_the_book_and_the_key_label(tmp_path):
     assert canonical["keyStatus"] and canonical["keyLabel"]
     plain = call(paths.root, "get_practice_item", {"practiceItemId": "pi_eigen_2"})["result"]
     assert "canonicalExercise" not in plain
+
+
+def test_long_mapping_keys_are_written_readably(tmp_path):
+    """A trace contract keyed by long checkpoint sentences must read back."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml, yaml_to_string
+
+    key = "Compute the total area of the board and the areas of the 50-point disk and 30-point annulus."
+    data = {"trace_contract": {"dependencies": {key: [], "next": [key]}}, "prompt": "short"}
+    path = tmp_path / "item.yaml"
+    write_yaml(path, data)
+    assert read_yaml(path)["trace_contract"]["dependencies"][key] == []
+    # A payload that was already valid is emitted exactly as before (no re-wrap).
+    plain = {"prompt": "x " * 60, "items": ["a", "b"]}
+    assert yaml_to_string(plain).count("\n") > 2

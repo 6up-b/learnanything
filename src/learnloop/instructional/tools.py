@@ -31,7 +31,7 @@ from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.db.stores.source_service import insert_tool_call, tool_call
+from learnloop.db.stores.source_service import insert_tool_call, tool_call, tool_calls
 from learnloop.ids import new_ulid
 from learnloop.instructional.exercises import exercise_region_count
 from learnloop.instructional.policy import caller_for_question_event, cold_administration_open
@@ -573,6 +573,18 @@ def tutor_tool_requests(vault: LoadedVault, repository: Repository, *, event_id:
     return offered
 
 
+def offered_tool_requests(repository: Repository, event_id: str) -> list[dict[str, Any]]:
+    """The offers a tutor answer carried, re-read from their request rows (a
+    recovered response says what the original said)."""
+
+    with repository.connection() as connection:
+        rows = tool_calls(connection, caller_kind="tutor", caller_ref=event_id)
+    return [{"tool_call_id": row["id"], "tool": row["tool"], "reason": row["arguments"].get("reason"),
+             "run": "eager" if row["tool"] in EAGER_TOOLS else "lazy", "dropped": row["dropped"],
+             "arguments": {key: value for key, value in row["arguments"].items() if key != "reason"}}
+            for row in rows if row["row_kind"] == "request" and row["status"] == "requested"]
+
+
 def tutor_request_handler(vault: LoadedVault) -> Callable[..., list[dict[str, Any]]] | None:
     """What the adapters pass to ``ask_question(tool_request_handler=...)``; None when off."""
 
@@ -587,6 +599,7 @@ __all__ = [
     "ToolArgumentsInvalid",
     "drop_unknown_ids",
     "execute_tool",
+    "offered_tool_requests",
     "request_tool",
     "run_requested_tool",
     "run_tool",
