@@ -3,8 +3,8 @@ title: "Config - evsi"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
-source_commit_timestamp: "2026-10-12T23:10:42-04:00"
+source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
+source_commit_timestamp: "2026-10-13T00:42:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml evsi"
@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/evsi_calibration/live_report.py"
+  - "tests/test_voi_forecasts.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/evsi"
@@ -39,9 +40,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1605`; `src/learnloop/evsi_calibration/live_report.py:298` |
-| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1606`; `src/learnloop/evsi_calibration/live_report.py:299` |
-| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1607` |
+| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1605`; `src/learnloop/evsi_calibration/live_report.py:300` |
+| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1606`; `src/learnloop/evsi_calibration/live_report.py:301` |
+| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1607`; `src/learnloop/evsi_calibration/live_report.py:307` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -50,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
-None found by exact static reference scan.
+- `tests/test_voi_forecasts.py`
 
 ## Extension and modification guidance
 

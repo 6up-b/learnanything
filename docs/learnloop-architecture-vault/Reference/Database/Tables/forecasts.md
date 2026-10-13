@@ -3,8 +3,8 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
-source_commit_timestamp: "2026-10-12T23:10:42-04:00"
+source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
+source_commit_timestamp: "2026-10-13T00:42:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 
 - `tests/test_config_refactor.py`
 - `tests/test_doctor.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_forecast_ledger.py`
 - `tests/test_sidecar_goals.py`
 

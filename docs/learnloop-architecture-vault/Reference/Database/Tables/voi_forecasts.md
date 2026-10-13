@@ -3,8 +3,8 @@ title: "voi_forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
-source_commit_timestamp: "2026-10-12T23:10:42-04:00"
+source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
+source_commit_timestamp: "2026-10-13T00:42:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite voi_forecasts"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/184_voi_forecasts.sql"
   - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/voi_forecasts.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
-  - "src/learnloop/evsi_calibration/__init__.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -125,7 +125,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_architecture.py`
+- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

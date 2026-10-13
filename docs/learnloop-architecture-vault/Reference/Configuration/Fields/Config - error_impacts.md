@@ -3,8 +3,8 @@ title: "Config - error_impacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
-source_commit_timestamp: "2026-10-12T23:10:42-04:00"
+source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
+source_commit_timestamp: "2026-10-13T00:42:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml error_impacts"
@@ -51,13 +51,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1254` |
+| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1260` |
 | `error_impacts.recall_failure.lo_mastery_delta` | `-0.05` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as recall failure. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1212` |
 | `error_impacts.recall_failure.local_severity_gain` | `0.8` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as recall failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1213` |
-| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1254` |
+| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1260` |
 | `error_impacts.scaffold_failure.lo_mastery_delta` | `-0.05` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as scaffold failure. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1212` |
 | `error_impacts.scaffold_failure.local_severity_gain` | `1.5` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as scaffold failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1213` |
-| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1254` |
+| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1211`; `src/learnloop/params/parameter_registry.py:1260` |
 | `error_impacts.arithmetic_slip.lo_mastery_delta` | `0.0` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as arithmetic slip. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1212` |
 | `error_impacts.arithmetic_slip.local_severity_gain` | `0.35` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as arithmetic slip. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1213` |
 

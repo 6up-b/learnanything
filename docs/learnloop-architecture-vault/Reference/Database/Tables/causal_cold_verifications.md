@@ -3,8 +3,8 @@ title: "causal_cold_verifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "57d31c63b99bf3d2402ed2b1551dbcbbeadb4fd9"
-source_commit_timestamp: "2026-10-12T23:10:42-04:00"
+source_commit: "bd49ed56388eff03e4ffcccfacac25281f527c94"
+source_commit_timestamp: "2026-10-13T00:42:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_verifications"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_certification_cold_probe.py`
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_guided_redo.py`
+- `tests/test_voi_forecasts.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`
