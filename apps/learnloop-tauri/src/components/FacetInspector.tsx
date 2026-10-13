@@ -25,6 +25,7 @@ import type {
 } from "../api/dto";
 import { EntityLink } from "./ui";
 import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader, TermSelect } from "./term";
+import { roleLabel } from "./RewordConfirms";
 import { FacetEvidenceReceipt } from "./KnowledgeModel";
 
 export function FacetInspector({
@@ -271,6 +272,17 @@ function FacetBody({
 // ── history: rewords and merges, each with its undo ─────────────────────────
 
 export function historyLine(entry: FacetIdentityActionDto): string {
+  if (entry.action === "reword" && entry.confirm?.status === "pending") {
+    const fields = entry.confirm.fields.length ? entry.confirm.fields.join(", ") : "meaning";
+    return `${fields} reword waiting for your confirm (registry review or proposals)`;
+  }
+  if (entry.action === "reword" && entry.confirm?.status === "kept") {
+    return "proposed reword: you kept the current wording";
+  }
+  if (entry.action === "reword" && entry.presentation && entry.reworded) {
+    const fields = entry.reworded.fields.length ? entry.reworded.fields.join(", ") : "examples";
+    return `${fields} updated (not a new version)`;
+  }
   if (entry.action === "reword" && entry.reworded) {
     const from = entry.reworded.fromVersion ?? "?";
     const to = entry.reworded.toVersion ?? "?";
@@ -322,10 +334,17 @@ function HistorySection({
                 <Faint style={{ fontSize: 10 }}>{entry.status}</Faint>
               )}
             </div>
-            {entry.action === "reword" && entry.reworded ? (
+            {entry.action === "reword" && entry.reworded && !entry.presentation && entry.confirm?.status !== "pending" ? (
               <div style={{ fontSize: 11, color: COLOR.textDim, lineHeight: 1.55, marginTop: 2 }}>
                 <Faint>was:</Faint> {entry.reworded.from || "—"}
               </div>
+            ) : null}
+            {entry.action === "reword" && entry.sources?.length ? (
+              <Faint style={{ display: "block", fontSize: 10 }}>
+                sources: {entry.sources.map((source) => `${roleLabel(source.role)} · ${source.unitId || source.extractionId}`).join("; ")}
+              </Faint>
+            ) : entry.action === "reword" && entry.confirm?.status === "confirmed" ? (
+              <Faint style={{ display: "block", fontSize: 10 }}>no explanatory source: applied on your confirm</Faint>
             ) : null}
             {entry.undoLimits && entry.undoable ? (
               <Faint style={{ display: "block", fontSize: 10 }}>{entry.undoLimits}</Faint>

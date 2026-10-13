@@ -90,3 +90,24 @@ it("undoes a reword from the history and re-reads the facet", async () => {
   expect(screen.getByText("v1")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "undo" })).toBeNull();
 });
+
+it("labels a held reword, a title or example change, and a kept wording in the history", () => {
+  const pending = {
+    actionId: "act_r", facetId: "facet_svd", title: "SVD", fields: ["claim"], changes: [], sources: [], unresolved: [],
+    message: "", proposalId: "prop_1", proposalItemId: null, runId: "run_1", createdAt: "2026-10-13T12:00:00Z",
+    status: "pending" as const, decidedAt: null, interrupted: null
+  };
+  expect(historyLine({ ...reword, status: "proposed", undoable: false, confirm: pending })).toBe(
+    "claim reword waiting for your confirm (registry review or proposals)"
+  );
+  expect(historyLine({ ...reword, confirm: { ...pending, status: "kept" }, status: "abandoned", undoable: false })).toBe(
+    "proposed reword: you kept the current wording"
+  );
+  expect(
+    historyLine({
+      ...reword,
+      presentation: true,
+      reworded: { from: "Old claim.", to: "Old claim.", fromVersion: 1, toVersion: 1, fields: ["positive_examples"] }
+    })
+  ).toBe("positive_examples updated (not a new version)");
+});

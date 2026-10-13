@@ -443,6 +443,8 @@ def _perform_side_effect(
     if kind == "facet_version":
         # An existing facet's meaning changed: keep the entry it replaced as a
         # ``reword`` action with an undo (facet locks removed, owner 2026-10-12).
+        # A title or worked-example change is recorded the same way, with its
+        # sources, but is not a version (owner, 2026-10-13).
         from learnloop.content.facet_identity.actions import record_reword
 
         patch_id = row.get("patch_id")
@@ -452,6 +454,31 @@ def _perform_side_effect(
             facet_id=str(row["facet_id"]),
             before=row["before"],
             after=row["after"],
+            run_id=_run_id_for_patch(repository, patch_id),
+            proposal_id=patch_id,
+            proposal_item_id=row.get("proposal_item_id"),
+            sources=row.get("sources"),
+            presentation=bool(row.get("presentation")),
+            fields=row.get("fields"),
+            clock=clock,
+        )
+    elif kind == "facet_reword_confirm":
+        # A reword with no explanatory support: held for the owner's confirm,
+        # nothing written to facets.yaml (owner, 2026-10-13).
+        from learnloop.content.facet_identity.actions import record_reword_confirm
+
+        patch_id = row.get("patch_id")
+        record_reword_confirm(
+            repository,
+            action_id=str(row["id"]),
+            facet_id=str(row["facet_id"]),
+            before=row["before"],
+            after=row["after"],
+            fields=row.get("fields") or [],
+            sources=row.get("sources") or [],
+            unresolved=row.get("unresolved") or [],
+            meaning_support=row.get("meaning_support") or [],
+            message=str(row.get("message") or ""),
             run_id=_run_id_for_patch(repository, patch_id),
             proposal_id=patch_id,
             proposal_item_id=row.get("proposal_item_id"),

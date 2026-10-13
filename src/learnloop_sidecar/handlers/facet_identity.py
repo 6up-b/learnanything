@@ -1,13 +1,15 @@
-"""Facet identity (handoff §4): list a run's merges and absorbs, undo one."""
+"""Facet identity (handoff §4): list a run's merges and absorbs, undo one, decide a held reword."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from learnloop.content.facet_identity.actions import (
     FacetIdentityActionError,
     action_by_id,
+    confirm_reword,
     describe,
+    keep_current_wording,
     list_actions,
     undo_action,
 )
@@ -24,6 +26,11 @@ class ListFacetIdentityActionsInput(ParamsModel):
 
 class FacetIdentityActionInput(ParamsModel):
     action_id: str
+
+
+class FacetRewordDecisionInput(ParamsModel):
+    action_id: str
+    decision: Literal["confirm", "keep"]
 
 
 @method("list_facet_identity_actions", ListFacetIdentityActionsInput)
@@ -46,6 +53,31 @@ def undo_facet_identity_action(ctx: SidecarContext, params: FacetIdentityActionI
     vault, repository = ctx.require_vault()
     try:
         result = undo_action(vault.root, repository, params.action_id)
+    except FacetIdentityActionError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    ctx.reload(maintenance=False)
+    vault, repository = ctx.require_vault()
+    record = action_by_id(repository, params.action_id)
+    return versioned({**result, "action": describe(record, vault) if record is not None else None})
+
+
+@method("decide_facet_reword", FacetRewordDecisionInput)
+def decide_facet_reword(ctx: SidecarContext, params: FacetRewordDecisionInput) -> dict[str, Any]:
+    """The owner's one tap on a reword held for confirm (owner, 2026-10-13).
+
+    ``confirm`` applies it as the owner's manual authority (an owner verdict,
+    the write through the facet-meaning chokepoint, and a one-tap undo);
+    ``keep`` keeps the facet's current wording and closes it. A confirm whose
+    support is exam material only is refused (``exam_authority``), as is one
+    whose facet changed since (``changed_since``).
+    """
+
+    vault, repository = ctx.require_vault()
+    try:
+        if params.decision == "confirm":
+            result = confirm_reword(vault.root, repository, params.action_id)
+        else:
+            result = keep_current_wording(vault.root, repository, params.action_id)
     except FacetIdentityActionError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     ctx.reload(maintenance=False)

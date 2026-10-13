@@ -230,16 +230,24 @@ def test_split_children_keep_their_own_role_overrides_in_any_order(tmp_path, the
                       authority.CitationProblem)
 
 
-def test_the_writer_refuses_a_reword_citing_the_unselected_half_of_a_split_unit(tmp_path):
+def test_the_writer_never_writes_a_reword_citing_the_unselected_half_of_a_split_unit(tmp_path):
+    from learnloop.content.facet_identity.actions import pending_reword_confirms
+
     root, repo = _bootstrap_and_add(tmp_path)
     _add_split_chapter(repo, root, [{"unit_id": "chapter#Theory"}])
     patch_id = _facet_proposal(repo, {"id": SYMMETRY, "claim": EXAM_CLAIM, "meaning_support": _support(
         {"extraction_id": "ext_split", "unit_id": "chapter#Theory", "span_id": "s2"})}, operation="update")
 
-    with pytest.raises(PatchApplicationError, match="chapter#Theory"):
-        apply_accepted_items(root, patch_id, clock=_CLOCK)
+    apply_accepted_items(root, patch_id, clock=_CLOCK)
 
+    # The citation supports nothing (s2 is not in chapter#Theory, and the
+    # other half is not selected): the reword is not written, and waits for
+    # the owner's confirm, which names the citation that does not count
+    # (owner, 2026-10-13). Selected as exam material, it is refused instead
+    # (tests/test_facet_reword_confirm.py).
     assert load_vault(root).evidence_facets[SYMMETRY].claim != EXAM_CLAIM
+    (confirm,) = pending_reword_confirms(repo, load_vault(root))
+    assert confirm["sources"] == [] and any("chapter#Theory" in problem for problem in confirm["unresolved"])
 
 
 # --- F4: a re-extraction never turns exam material into "uncited" ------------------------

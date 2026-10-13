@@ -585,6 +585,17 @@ def _span_refs(
     return gate_refs, yaml_refs, span_ids
 
 
+def _unresolved_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
+    """The citations of a candidate that did not resolve, by their ids (they support nothing)."""
+
+    return [
+        {"extraction_id": ref.extraction_id, "unit_id": ref.unit_id or "", "span_id": ref.span_id,
+         "relation": ref.relation}
+        for ref in gate_refs
+        if ref.role == facet_meaning.UNRESOLVED_ROLE and ref.extraction_id and ref.span_id
+    ]
+
+
 def _support_citations(gate_refs: list[ProvenanceRef]) -> list[dict[str, Any]]:
     """The validated citations of a candidate, as a proposal's ``meaning_support`` carries them."""
 
@@ -799,6 +810,11 @@ def _normalize(
                 "deps": [concept_client] if concept_client and concept_client in concept_ids else [],
                 "gate_refs": gate_refs,
                 "support": support,
+                # Citations that did not resolve: they support nothing, but a
+                # reword of a registered facet is judged with them, so one that
+                # names exam material by its span is never "uncited" (and so
+                # never held for the owner's confirm; owner, 2026-10-13).
+                "unresolved": _unresolved_citations(gate_refs),
                 # What supports the facet's meaning, one entry per source of it:
                 # the candidate itself, then each candidate whose meaning a
                 # consolidation joined to it. The proposal carries them
@@ -888,15 +904,23 @@ def _normalize(
         registered_entry = vault.evidence_facets.get(fid) if verdict.disposition is not MintDisposition.ALIAS else None
         if registered_entry is not None:
             # A candidate carrying a registered facet's id rewrites that facet
-            # (Codex verification of F6, finding 1). It is a reword: it must
-            # cite explanatory support for every source of its meaning, and it
-            # applies as a checked update against the facet as it was now.
+            # (Codex verification of F6, finding 1). It is a reword, checked as
+            # an update against the facet as it was now. With explanatory
+            # support for every source of its meaning it applies; without it,
+            # and not exam-only, it is kept and waits for the owner's confirm
+            # at accept (owner, 2026-10-13); exam-only, it is dropped.
             before = registered_entry.model_dump(mode="json", exclude_none=False)
+            own, *joined = candidate["contributions"]
+            candidate["contributions"] = [
+                facet_meaning.Contribution(own.label, (*own.citations, *candidate["unresolved"])), *joined,
+            ]
             check = facet_meaning.check_meaning_write(
                 fid, before=before, after=facet_meaning.overlay(before, payload), registered=True,
                 contributions=candidate["contributions"], resolver=inputs.resolver,
             )
-            if not check.allowed:
+            if check.confirmable:
+                dropped_diagnostics.append(check.diagnostic(entity_refs=[fid, fkey]))
+            elif not check.allowed:
                 # References resolve to the registered facet, as it is.
                 facet_client_to_id[fkey] = fid
                 dropped_diagnostics.append(check.diagnostic(

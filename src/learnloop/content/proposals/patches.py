@@ -516,6 +516,13 @@ def _compile_facet(
     supports. The refs it records are the ones that were validated
     (``authority.written_provenance``); one that was not never becomes a
     source link (``authority.added_provenance``).
+
+    A change to a registered facet's meaning with no explanatory support that
+    is not exam-only (``verdict.confirmable``) is not written: the item is
+    accepted and the change is held as a pending "confirm this reword" for the
+    owner (owner, 2026-10-13; :func:`_held_for_confirm`). A change to a
+    registered facet's title or worked examples needs no explanatory citation
+    and is recorded on the facet's history with its sources.
     """
 
     entity_id = _entity_id(item, payload)
@@ -546,12 +553,16 @@ def _compile_facet(
         entity_id, before=before, after=after, registered=existing is not None,
         contributions=contributed, resolver=facet_authority.resolver,
     )
+    if verdict.confirmable:
+        return _held_for_confirm(item, entity_id, before, data, payload, verdict, contributed, facet_authority)
     if not verdict.allowed:
         raise PatchApplicationError(f"Refusing to apply facet {entity_id}: {verdict.message}")
     data["provenance"] = authority.written_provenance(
         before, after, verdict, facet_authority.resolver, record_support="provenance" in payload,
     )
-    data, side_effect = _facet_version(vault, item, entity_id, data)
+    data, side_effect = _facet_version(
+        vault, item, entity_id, data, sources=authority.source_views(verdict, facet_authority.resolver),
+    )
     facet_authority.record(entity_id, authority.overlay(before, data))
     return CompiledPatch(
         proposal_item_id=item["id"],
@@ -567,8 +578,64 @@ def _compile_facet(
     )
 
 
+def _held_for_confirm(
+    item: dict[str, Any],
+    entity_id: str,
+    before: dict[str, Any] | None,
+    data: dict[str, Any],
+    payload: dict[str, Any],
+    verdict: authority.MeaningVerdict,
+    contributed: tuple[authority.Contribution, ...],
+    facet_authority: authority.ProposalAuthority,
+) -> CompiledPatch:
+    """A reword with no explanatory support, held for the owner's one-tap confirm (owner, 2026-10-13).
+
+    Nothing is written to facets.yaml and no source link is added: the item is
+    accepted, and the apply records a pending ``reword`` action (status
+    ``proposed``) with the wording it would replace and write, the fields it
+    changes, its validated sources (an excerpt each, never exam text) and the
+    contributions the confirm judges again (``actions.confirm_reword``). Only
+    the owner's confirm, an audited owner edit, writes it; keeping the current
+    wording closes it. Later items of this acceptance see the facet as it is.
+    """
+
+    held = dict(data)
+    held["provenance"] = authority.written_provenance(
+        before, authority.overlay(before, data), verdict, facet_authority.resolver,
+        record_support="provenance" in payload,
+    )
+    after = authority.overlay(before, held)
+    return CompiledPatch(
+        proposal_item_id=item["id"],
+        entity_type="facet",
+        entity_id=entity_id,
+        subject=None,
+        event_type=_event_type(item["operation"] if item["operation"] in {"create", "update"} else "update"),
+        summary=f"facet {entity_id}: reword ({', '.join(verdict.fields)}) waits for the owner's confirm",
+        apply=_noop_apply,
+        db_side_effect={
+            "kind": "facet_reword_confirm",
+            "row": {
+                "id": new_ulid(),
+                "facet_id": entity_id,
+                "before": before,
+                "after": after,
+                "fields": list(verdict.fields),
+                "sources": authority.source_views(verdict, facet_authority.resolver),
+                "unresolved": list(verdict.problems),
+                "meaning_support": authority.support_entries(contributed),
+                "message": verdict.message,
+                "proposal_item_id": item["id"],
+            },
+        },
+        # The facet is not changed now, so nothing links to it now.
+        link_payload={"provenance": {"source_refs": []}},
+    )
+
+
 def _facet_version(
-    vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any]
+    vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any], *,
+    sources: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """A write that changes an existing facet's meaning becomes a facet version.
 
@@ -587,6 +654,11 @@ def _facet_version(
     it changes, so no write lowers or skips a version, and an earlier reword's
     recorded after-state stays what the file shows until the facet really
     changes again.
+
+    A change to a registered facet's title or worked examples only
+    (``authority.PRESENTATION_FIELDS``) is not a version, but it is recorded on
+    the facet's history with its ``sources`` (owner, 2026-10-13): a ``reword``
+    row marked ``presentation``, with the same undo.
     """
 
     from learnloop.content.facet_identity.actions import meaning_changes
@@ -603,7 +675,10 @@ def _facet_version(
 
     fields = meaning_changes(before, merged(data))
     data = {**data, "version": current + 1 if fields else current}
-    if not fields:
+    presentation = [] if fields else [
+        name for name in authority.authority_changes(before, merged(data)) if name in authority.PRESENTATION_FIELDS
+    ]
+    if not fields and not presentation:
         return data, None
     return data, {
         "kind": "facet_version",
@@ -613,6 +688,9 @@ def _facet_version(
             "before": before,
             "after": merged(data),
             "proposal_item_id": item["id"],
+            "sources": list(sources or []),
+            "presentation": bool(presentation),
+            "fields": fields or presentation,
         },
     }
 

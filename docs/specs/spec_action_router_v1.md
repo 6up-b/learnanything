@@ -448,6 +448,35 @@ Design sketch (orchestrator additions in *italics*):
 | D11 | Teach-back in the probe tie-break | Keep it. It is an information-rich probe, and its dialogue summary feeds the card (§15.1) |
 | D12 | `R_cold` | Learned from logged covariates in R3. The 1-day rule is provisional (§15.2) |
 | D13 | Staged P2 bridge wiring | Deferred to R2's cutover (R1 open question) |
+| D14 | Source exercise failed, generated practice passed (2026-10-13) | A "surface gap" signal for the router, which decides what to do with it; not a fixed rule (§15.5) |
+| D15 | Exam and problem-set profiles (2026-10-13) | Seed the difficulty and rigor of generated practice, not only its families and formats; held-out units stay excluded (§15.6) |
+
+### 15.5 The "surface gap" signal (owner, 2026-10-13)
+
+Exams and problem sets make poor facets: they test applications of an idea, not the idea, so they never establish or change a facet's meaning (ingestion §4.2; the facet-authority chokepoint). They still carry information the generated practice can miss.
+
+**The signal.** The learner fails a canonical exercise (a textbook or problem-set exercise attached as a practice surface), yet succeeds on the generated practice surfaces that test the same facets. That pattern suggests the source exercise tests a nuance or an application of the idea that the generated practice family does not capture.
+
+**The router decides, not a fixed rule.** The signal enters `LearnerStateCardV1` (§4) as typed evidence: the source exercise, its facets, the generated surfaces passed, and the attempts on each. Among its candidate actions the router weighs:
+- **probe with more source exercises** of the same family, to tell a real gap from noise (one failure on one hard exercise is weak evidence);
+- **propose a refined facet or condition**, through the facet-authority confirm path: the proposal carries the exercise as context, but a problem set never authorizes wording, so the reword waits for the owner's one-tap confirm unless an explanatory span supports it;
+- **harden the generated family**: ask practice-family generation for surfaces that exercise the missed application.
+
+Each is an ordinary candidate with its own cost and information value (§7), logged with its propensity like any other.
+
+**Needs.** Canonical exercises attached as surfaces of the same practice family as the generated ones (sources track S1: textbook exercises as practice, branch `sources/canonical-practice`), so "same facets, different surface origin" is a query over one family, not a heuristic match. Exam items in the `held_out_evaluation` partition never take part: their outcomes are evaluation only, never a router signal.
+
+**Trigger.** After S1 lands and R2 is live; R3 can then fit the signal's value from logged outcomes.
+
+### 15.6 Exam and problem-set profiles seed difficulty and rigor (owner, 2026-10-13)
+
+Today the exam profile (`content/synthesis/exam_profile.py`) shapes only task families, capabilities, representations, formats and point/time emphasis, and only at synthesis. The owner's direction: the profile of the exams and problem sets the learner is preparing for should also seed **how hard and how rigorous** the generated practice is, so practice matches what the learner will face.
+- **Practice-family generation** (`ops/pf_generation.py`) takes the profile's difficulty and rigor as a target for the surfaces it generates (for example: computation versus proof, number of steps, which conditions must be checked explicitly), next to the families and formats it already uses.
+- **The sources track's exercise selection** (S1) prefers source exercises whose difficulty matches the profile.
+- **Held-out evaluation units stay excluded** from the profile's inputs for generation and selection, as they are from every teaching and generation context today (ingestion §4.2, §8.5). Only `blueprint_only` and `available_for_practice` units feed it.
+- **No semantic authority.** The profile shapes practice, never a facet's meaning (ingestion §4.2).
+
+**Trigger.** With PF generation's next revision, after S1 lands.
 
 ---
 

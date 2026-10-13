@@ -428,16 +428,24 @@
     "sha256": "ac77a69150d837586317b8765af49e2fdc9e00b93b79ab8ccbda6a68b7105e9b"
   },
   "facets": {
-    "bytes": 2008,
-    "sha256": "c13c77acc099b43e5eaa818a14243c8262d881f7cb83c1a824393991fe5fb03c"
+    "bytes": 2348,
+    "sha256": "d077234194ec9b221ec495d69ff27519314eec9b30e7edb9ce546382a92a7c57"
   },
   "facets actions": {
-    "bytes": 1461,
-    "sha256": "226fb4fda6c7289e2c1295a1c0157be0d74b2348964b1c9174014e530b000cb6"
+    "bytes": 1704,
+    "sha256": "41ad3deff4d7d5f9a5b414136d70ca37865f73f940037427736aceb3cd6bd449"
+  },
+  "facets confirm": {
+    "bytes": 2245,
+    "sha256": "3f924569dcb2023e94709deff9f9c88741206b4436b632288c4f7fe5301397e4"
   },
   "facets dedupe": {
     "bytes": 3485,
     "sha256": "9f7fea22cc2fad080edcc6a1858015abfd0fa70173773a05e1c09e06939dcada"
+  },
+  "facets keep": {
+    "bytes": 1921,
+    "sha256": "ab79c55666e4e41b1b71593bb3001ef2bde4d86f4fcc464822e733d328c69425"
   },
   "facets undo": {
     "bytes": 2079,

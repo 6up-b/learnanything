@@ -2,7 +2,9 @@
 
 Actions: ``merge`` and ``absorb`` (a survivor plus retired facets) and, since
 migration 185, ``reword`` (one facet's meaning changed by a proposal apply;
-the row keeps the entry it replaced). Lifecycle: ``proposed`` (an ingest action riding on its proposal),
+the row keeps the entry it replaced; a ``proposed`` reword is a change held for
+the owner's confirm). Lifecycle: ``proposed`` (an ingest action riding on its
+proposal, or a reword waiting for the owner's confirm),
 ``applying`` (a vault merge's write-ahead intent), ``applied``, ``undoing``
 (an undo's write-ahead intent), ``undone``, and ``abandoned`` (an intent
 withdrawn before its file write).
@@ -146,6 +148,40 @@ def set_status(
     connection.execute(f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", params)
 
 
+def update_action(
+    connection: sqlite3.Connection,
+    action_id: str,
+    *,
+    status: str | None = None,
+    judge: str | None = None,
+    before: Mapping[str, Any] | None = None,
+    after: Mapping[str, Any] | None = None,
+    detail: Mapping[str, Any] | None = None,
+    undo_detail: Mapping[str, Any] | None = None,
+) -> None:
+    """Rewrite a pending reword confirm as the owner confirms it (proposed -> applying, or back).
+
+    A confirm writes the facet as it is when the owner taps it, so the row's
+    ``before``/``after`` become what the write replaces and writes (its undo
+    restores exactly that), and its judge becomes the owner.
+    """
+
+    values: dict[str, Any] = {
+        "status": status, "judge": judge,
+        "before_json": _dump(dict(before)) if before is not None else None,
+        "after_json": _dump(dict(after)) if after is not None else None,
+        "detail_json": _dump(dict(detail)) if detail is not None else None,
+        "undo_detail_json": _dump(dict(undo_detail)) if undo_detail is not None else None,
+    }
+    assignments = [f"{column} = ?" for column, value in values.items() if value is not None]
+    if not assignments:
+        return
+    params = [value for value in values.values() if value is not None]
+    connection.execute(
+        f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", (*params, action_id),
+    )
+
+
 # --- Library save intents (migration 186) ----------------------------------------------------
 
 _SAVE_JSON_COLUMNS = {
@@ -287,4 +323,5 @@ __all__ = [
     "list_actions",
     "set_status",
     "settled_merge_rows",
+    "update_action",
 ]

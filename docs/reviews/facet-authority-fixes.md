@@ -348,3 +348,29 @@ None. Cost $0. Every test uses fakes; no command ran against a vault.
   `spec_knowledge_model.md` §3.4; the regenerated architecture references.
 - **Fixtures:** none touched. `fixtures/linear_algebra`, `probability` and
   `arxiv_v2` were not opened.
+
+## 11. Second re-review, F7 (pre-186 interrupted saves keep grants): rejected
+
+Recorded 2026-10-13 (stage `facet-reword-confirm`, owner-directed).
+
+The read-only Codex verification of the second re-review's fixes (job
+`20261013-103557-c11o4C`, diff `ddf941d5..merge/facet-locks`) confirmed F1 to
+F6 fixed and reopened F7 as "Pre-upgrade interrupted saves retain permanent
+authority grants" (Medium): a Library save made by `ddf941d5`'s code (owner
+verdicts recorded, no `facet_registry_saves` intent) and killed before its
+file write would keep its `granted` verdicts after migration 186, because
+recovery only finds action rows and new save intents. Its fix was a
+legacy-grant reconciliation.
+
+**Verdict: rejected; no change.** The grant-recording save code
+(`_grant_owner_authority` in `save_registry_text`, added in `97137de4` for
+the first re-review's F6) exists only on this unmerged branch, and migration
+186 came with it on the same branch (`cc30ebb8`). No vault ever ran the
+pre-186 version: main never had it, the owner's working vaults
+(`fixtures/linear_algebra`, `probability`, `arxiv_v2`) run main's code and
+were never opened by this branch's stages, and the branch lands with both
+together (185 and 186 renumbered to 187 and 188 at landing). A vault
+therefore upgrades straight to code that records each save's intent with its
+verdicts, so the state the reconciliation would repair cannot exist. The
+reopened finding is recorded here and in
+`docs/reviews/facet-reword-confirm.md`.

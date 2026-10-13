@@ -733,7 +733,7 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
             if reword.payload is None:
                 dropped_diagnostics.append(
                     {
-                        "gate": "facet_restructure",
+                        "gate": reword.gate,
                         "severity": "review",
                         "entity_refs": refs,
                         "message": (
@@ -761,6 +761,8 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
                         "suggested_action": "check the reword against the spans it still cites",
                     }
                 )
+            if reword.confirm is not None:
+                dropped_diagnostics.append({**reword.confirm, "entity_refs": refs})
             row = _row("facet", target_id, reword.payload, [], client_id=client, now=now,
                        target_entity_id=target_id, target_entity_type="facet")
             row["operation"] = operation
@@ -810,6 +812,10 @@ class _FacetReword:
     provenance: list[ProvenanceRef] = field(default_factory=list)
     problem: str | None = None
     unresolved: list[str] = field(default_factory=list)
+    #: A ``facet_reword_confirm`` review record when the reword will wait for the owner's confirm.
+    confirm: dict[str, Any] | None = None
+    #: The review gate a dropped reword is reported under.
+    gate: str = "facet_restructure"
 
 
 def _facet_reword(
@@ -827,18 +833,23 @@ def _facet_reword(
     own value can only be a guess, and a guess would refuse every accept.
 
     A reword changes a canonical claim, so it obeys the §4.2 authority matrix
-    like a new facet (Codex re-review F6). It must cite the provided spans
-    that support its new wording (``facet_wording.provenance``):
+    like a new facet (Codex re-review F6). It cites the provided spans that
+    support its new wording (``facet_wording.provenance``):
 
     * a citation that does not resolve in the source set is dropped, as an
       unresolvable ``provenance_link`` is, rather than hard-failing the run;
-    * a reword left with no citation is dropped. Exam units never reach the
-      model as text, so a reword drawn from exam material alone would arrive
-      uncited, and the gates could not tell;
     * each citation's role comes from its extraction run, never from the
       model. The gates then judge them: only exam material is an
       ``exam_authority`` hard fail, no semantic-authority role is an
-      ``adequate_provenance`` review.
+      ``adequate_provenance`` review;
+    * a reword with no explanatory support that is not exam-only (left with
+      no citation, or citing only notes, problem-set or unknown-role spans)
+      is kept, with a ``facet_reword_confirm`` diagnostic: accepting it holds
+      it for the owner's one-tap confirm, which shows the wording before and
+      after and its sources (owner, 2026-10-13). It used to be dropped
+      because exam units never reach the model as text, so an exam-driven
+      reword arrives uncited; the confirm shows the owner that it cites
+      nothing, and only the owner writes it.
 
     The citations are added to the facet's ``provenance`` snapshot (the apply
     links them in ``entity_source_links``). An exam citation is recorded as
@@ -868,6 +879,7 @@ def _facet_reword(
     citations = wording.get("provenance") or loose.get("provenance")
     resolved: list[dict[str, Any]] = []
     unresolved: list[str] = []
+    exam_unresolved: list[dict[str, Any]] = []
     for span in citations if isinstance(citations, list) else []:
         span = span if isinstance(span, dict) else {}
         problem = _span_problem(span, inputs)
@@ -876,17 +888,20 @@ def _facet_reword(
         else:
             label = f"{span.get('extraction_id') or '?'}:{span.get('span_id') or '?'}"
             unresolved.append(f"{label} ({problem})")
-    if not resolved:
-        return _FacetReword(
-            None, unresolved=unresolved,
-            problem="it cites no span from the source set, so its authority cannot be judged (§4.2)",
-        )
-    gate_refs, yaml_refs, _spans = _span_refs(resolved, inputs, default_relation="support")
+            if inputs.resolver is not None and inputs.resolver.exam_material(span):
+                # Dropped, it supports nothing, but it is still exam material:
+                # the reword is judged with it, so it is never "uncited".
+                exam_unresolved.append({key: span.get(key) for key in ("extraction_id", "unit_id", "span_id")})
+    gate_refs, yaml_refs, _spans = (_span_refs(resolved, inputs, default_relation="support") if resolved
+                                    else ([], [], []))
     if not yaml_refs:
-        return _FacetReword(
-            None, unresolved=unresolved,
-            problem="it cites no span from the source set, so its authority cannot be judged (§4.2)",
-        )
+        # Uncited: kept for the owner's confirm at accept (owner, 2026-10-13),
+        # never written without it. The facet's provenance is left as it is.
+        payload["id"] = target_id
+        payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
+        support = facet_meaning.contributions(exam_unresolved, label="reword")
+        payload["meaning_support"] = facet_meaning.support_entries(support)
+        return _checked_reword(target_id, current, payload, [], support, unresolved, inputs)
     snapshot = dict(current.get("provenance") or {})
     source_refs = [dict(ref) for ref in snapshot.get("source_refs") or []]
     seen = {(ref.get("revision_id"), ref.get("locator"), ref.get("relation")) for ref in source_refs}
@@ -901,10 +916,35 @@ def _facet_reword(
     payload["id"] = target_id
     payload["expected_target_hash"] = compute_target_hash(vault, "facet", target_id)
     # What the apply judges again, at the facet-meaning chokepoint.
-    payload["meaning_support"] = facet_meaning.support_entries(
-        facet_meaning.contributions(_support_citations(gate_refs), label="reword"),
+    support = facet_meaning.contributions([*_support_citations(gate_refs), *exam_unresolved], label="reword")
+    payload["meaning_support"] = facet_meaning.support_entries(support)
+    return _checked_reword(target_id, current, payload, gate_refs, support, unresolved, inputs)
+
+
+def _checked_reword(
+    target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef],
+    support: Any, unresolved: list[str], inputs: Any,
+) -> _FacetReword:
+    """A reword, judged in advance by the chokepoint the apply runs again.
+
+    Waiting for the owner's confirm: kept, with a ``facet_reword_confirm``
+    review record. Exam-only: when an exam citation the gates see is among
+    its refs, the gates hard-fail it; when its only exam material is a
+    citation that did not resolve (named under the wrong unit, say), the gates
+    cannot see it, so the reword is dropped here (``exam_authority``, review).
+    """
+
+    check = facet_meaning.check_meaning_write(
+        target_id, before=current, after=facet_meaning.overlay(current, payload), registered=True,
+        contributions=support, resolver=inputs.resolver,
     )
-    return _FacetReword(payload, provenance=gate_refs, unresolved=unresolved)
+    if check.code == "exam_authority" and not any(ref.role in ASSESSMENT_ONLY_ROLES for ref in gate_refs):
+        return _FacetReword(None, unresolved=unresolved, gate="exam_authority", problem=(
+            "it rests on exam material only (cited under a unit that does not hold it, or outside the selected "
+            "units): an exam citation only ever aligns assessment (§4.2)"
+        ))
+    return _FacetReword(payload, provenance=gate_refs, unresolved=unresolved,
+                        confirm=check.diagnostic(entity_refs=[target_id]) if check.confirmable else None)
 
 
 def _span_problem(span: dict[str, Any], inputs) -> str | None:

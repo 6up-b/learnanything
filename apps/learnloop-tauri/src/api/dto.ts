@@ -2893,6 +2893,53 @@ export interface FacetRewordDto {
   fields: string[];
 }
 
+/** A validated citation of a facet change, as the owner sees it beside the change.
+ *  Exam material (assessmentOnly) never carries its text. */
+export interface FacetChangeSourceDto {
+  sourceId: string;
+  revisionId: string;
+  extractionId: string;
+  unitId: string;
+  spanId: string;
+  /** The unit's effective role: primary_textbook, notes, problem_set, exam… */
+  role: string;
+  relation: string;
+  locator: string;
+  assessmentOnly: boolean;
+  /** A short excerpt of the cited span (null for exam material). */
+  excerpt: string | null;
+}
+
+/** One field a held reword changes, before and after. */
+export interface FacetRewordChangeDto {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** A reword with no textbook, lecture, paper, reference or alternate-explanation
+ *  source behind it, held for the owner's one-tap confirm (owner, 2026-10-13).
+ *  `decideFacetReword(actionId, "confirm" | "keep")`. */
+export interface FacetRewordConfirmDto {
+  actionId: string;
+  facetId: string;
+  title: string;
+  fields: string[];
+  changes: FacetRewordChangeDto[];
+  sources: FacetChangeSourceDto[];
+  /** Citations that did not count (outside the selected units, wrong unit…), and why. */
+  unresolved: string[];
+  message: string;
+  proposalId: string | null;
+  proposalItemId: string | null;
+  runId: string | null;
+  createdAt: string;
+  status: "pending" | "confirmed" | "kept" | "withdrawn";
+  decidedAt: string | null;
+  /** Why an earlier confirm did not land (it waits again). */
+  interrupted: string | null;
+}
+
 export interface FacetIdentityActionDto {
   id: string;
   /** proposal = a reword applied from a proposal; registry = the owner's own merge. */
@@ -2911,6 +2958,12 @@ export interface FacetIdentityActionDto {
   evidencedFacets?: string[];
   /** Present on a reword. */
   reworded?: FacetRewordDto | null;
+  /** The validated sources a reword cited (its history). */
+  sources?: FacetChangeSourceDto[];
+  /** A title or worked-example change: on the history, not a new version. */
+  presentation?: boolean;
+  /** A reword held for the owner's confirm, and what became of it. */
+  confirm?: FacetRewordConfirmDto | null;
   /** Why an attach left a registered facet's contract as it was. */
   contractNote?: string | null;
   /** What an undo does not move back (rows graded while the merge stood). */
@@ -2918,7 +2971,8 @@ export interface FacetIdentityActionDto {
   judge: string;
   judgeModel: string | null;
   /**
-   * proposed = applies with its proposal; applied = undoable now; undone.
+   * proposed = applies with its proposal (a reword: waits for the owner's
+   * confirm); applied = undoable now; undone.
    * applying/undoing = interrupted mid-write (doctor --fix-state finishes it);
    * abandoned = withdrawn before it was written.
    */
@@ -3517,6 +3571,18 @@ export interface SubjectRegistryDto {
   identifiabilityWarnings: IdentifiabilityWarningDto[];
   facetCount: number;
   measurementRank?: MeasurementRankDto;
+  /** Rewords of this subject's facets waiting for the owner's one-tap confirm. */
+  rewordConfirms?: FacetRewordConfirmDto[];
+}
+
+/** The result of `decideFacetReword`: applied (confirmed, with an undo) or kept. */
+export interface FacetRewordDecisionDto {
+  version: number;
+  status: "applied" | "kept";
+  actionId: string;
+  facetId: string;
+  ownerJudgmentId: string;
+  action: FacetIdentityActionDto | null;
 }
 
 /** The owner's merge applies live (facet locks were removed); undo it with
@@ -3764,6 +3830,8 @@ export interface ProposalItemDto {
   // Raw payload as a JSON string (snake_case field names preserved) — the source
   // the Library payload editor reads and writes back.
   payloadJson: string;
+  /** A facet reword this accepted item holds for the owner's confirm, and its state. */
+  rewordConfirm?: FacetRewordConfirmDto["status"] | null;
 }
 
 export interface ProposalAgentRunDto {
@@ -3801,6 +3869,8 @@ export interface ProposalsSnapshot {
   batches: ProposalBatchDto[];
   totals: ProposalDecisionCounts;
   batchCount: number;
+  /** Rewords accepted proposals hold for the owner's one-tap confirm. */
+  rewordConfirms?: FacetRewordConfirmDto[];
 }
 
 // ── entity provenance (source lineage read-only panel) ───────────────────────

@@ -4,7 +4,8 @@ Locks used to refuse rewording an evidenced facet in place, because that would
 reinterpret its past evidence. Now a proposal apply that changes an existing
 facet's meaning writes a facet version: ``version`` goes up, a ``reword``
 action keeps the old entry, and the one-tap undo restores it. Growth-only
-writes (aliases, examples) are not versions. The synthesis gate and the
+writes (aliases, examples) are not versions; a title or worked-example change
+is still on the facet's history (owner, 2026-10-13). The synthesis gate and the
 bootstrap no longer refuse because a facet carries evidence; the
 learning-object arm (an LO with attempts) still refuses a destructive op.
 """
@@ -117,7 +118,10 @@ def test_a_growth_only_update_is_not_a_version(tmp_path):
     apply_accepted_items(paths.root, patch_id, clock=_CLOCK)
     assert "a 3x2 example" in _entry(paths, SHARED)["positive_examples"]
     assert _entry(paths, SHARED).get("version", 1) == 1
-    assert list_actions(repository) == []
+    # Not a version, but on the facet's history with its source (owner, 2026-10-13).
+    (record,) = list_actions(repository)
+    assert record["detail"]["presentation"] is True and record["detail"]["fields"] == ["positive_examples"]
+    assert record["after"]["facets"][SHARED].get("version", 1) == 1
 
 
 def test_a_reword_undo_refuses_after_a_later_edit(tmp_path):

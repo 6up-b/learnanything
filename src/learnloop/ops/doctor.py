@@ -1128,6 +1128,7 @@ def _recover_facet_identity_actions(
                     + f"{row['id']} ({row['from']} -> {row['to']}"
                     + (f"; refused by the meaning-authority check: {row['refused']}" if row.get("refused") else "")
                     + (f"; {len(row['withdrawn'])} owner verdict(s) withdrawn" if row.get("withdrawn") else "")
+                    + ("; the reword waits for your confirm again" if row.get("to") == "proposed" else "")
                     + ")"
                     for row in finished
                 ),

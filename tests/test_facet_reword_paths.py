@@ -13,8 +13,9 @@ gaps around it, each pinned here:
   ``version`` (stale or oversized) never overwrites it, so a later write can
   not break an earlier reword's undo.
 * F2 and re-review F6: an append restructure can reword a facet, and the
-  reword obeys the §4.2 authority matrix: it cites its supporting spans, an
-  uncited one is dropped, and exam-only support fails ``exam_authority``.
+  reword obeys the §4.2 authority matrix: it cites its supporting spans,
+  exam-only support fails ``exam_authority``, and an uncited one waits for
+  the owner's confirm (owner, 2026-10-13; it used to be dropped).
 """
 
 from __future__ import annotations
@@ -509,9 +510,14 @@ def test_an_exam_only_facet_reword_hard_fails_the_exam_authority_gate(tmp_path):
 
 
 @pytest.mark.parametrize("add_role", ["exam", "alternate_explanation"])
-def test_an_uncited_facet_reword_is_dropped_because_its_authority_cannot_be_judged(tmp_path, add_role):
-    """Exam units never reach the model as text, so an exam-driven reword arrives uncited."""
+def test_an_uncited_facet_reword_waits_for_the_owners_confirm(tmp_path, add_role):
+    """Exam units never reach the model as text, so an exam-driven reword arrives uncited.
 
+    It is never written as it stands: it waits for the owner's confirm, which
+    shows that it cites no source (owner, 2026-10-13; it used to be dropped).
+    """
+
+    from learnloop.content.facet_identity.actions import pending_reword_confirms
     from learnloop.content.synthesis.source_append import append_source
 
     from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
@@ -520,12 +526,15 @@ def test_an_uncited_facet_reword_is_dropped_because_its_authority_cannot_be_judg
     result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=())),
                            new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
 
-    assert not any(row["item_type"] == "facet" and row["operation"] == "update"
-                   for row in repo.proposal_items(result.proposal_id or "") or [])
-    (diag,) = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_restructure"]
+    (item,) = [row for row in repo.proposal_items(result.proposal_id or "") or []
+               if row["item_type"] == "facet" and row["operation"] == "update"]
+    (diag,) = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_reword_confirm"]
     assert diag["severity"] == "review" and SYMMETRY in diag["entity_refs"]
-    assert "cites no span" in diag["message"]
+    assert "cites no source" in diag["message"]
+    apply_accepted_items(root, result.proposal_id, item_ids=[item["id"]], clock=_CLOCK)
     assert load_vault(root).evidence_facets[SYMMETRY].claim != SYMMETRY_CLAIM
+    (confirm,) = pending_reword_confirms(repo, load_vault(root))
+    assert confirm["facet_id"] == SYMMETRY and confirm["sources"] == []
 
 
 def test_a_facet_reword_an_explanatory_span_corroborates_passes_the_gate(tmp_path):
@@ -597,10 +606,11 @@ def test_a_facet_reword_citation_that_does_not_resolve_is_dropped_not_fatal(tmp_
     assert any("ext_not_in_the_set" in diag["message"] for diag in notes)
     rewords = [row for row in repo.proposal_items(result.proposal_id or "") or []
                if row["item_type"] == "facet" and row["operation"] == "update"]
+    (item,) = rewords
     if with_good_citation:
-        (item,) = rewords
         cited = [ref["extraction_id"] for ref in item["payload"]["provenance"]["source_refs"]]
         assert "ext_alt" in cited and "ext_not_in_the_set" not in cited
     else:
-        assert rewords == []
-        assert any("cites no span" in diag["message"] for diag in notes)
+        # Left uncited, it waits for the owner's confirm (owner, 2026-10-13).
+        assert "provenance" not in item["payload"]
+        assert any(diag["gate"] == "facet_reword_confirm" for diag in result.gate_diagnostics)

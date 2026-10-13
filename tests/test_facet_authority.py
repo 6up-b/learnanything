@@ -227,16 +227,22 @@ def test_an_uncited_append_facet_carrying_a_registered_id_never_rewrites_it(tmp_
     result = append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
                            repository=repo, clock=_CLOCK)
 
-    assert not [row for row in repo.proposal_items(result.proposal_id or "") or []
-                if row["item_type"] == "facet" and (row["payload"] or {}).get("claim") == EXAM_CLAIM]
+    # Uncited, it is never written as it stands: it is kept as a checked
+    # update that waits for the owner's confirm (owner, 2026-10-13), which
+    # shows that it cites no source.
+    rows = [row for row in repo.proposal_items(result.proposal_id or "") or []
+            if row["item_type"] == "facet" and (row["payload"] or {}).get("claim") == EXAM_CLAIM]
+    assert [row["operation"] for row in rows] == ["update"]
     assert any(SYMMETRY in diag["entity_refs"] and diag["severity"] == "review"
-               and diag["gate"] in {"exam_authority", "facet_restructure"} for diag in result.gate_diagnostics)
+               and diag["gate"] == "facet_reword_confirm" for diag in result.gate_diagnostics)
     _accept_pending(root, repo, result.proposal_id)
     facet = load_vault(root).evidence_facets[SYMMETRY]
     assert facet.claim == old.claim and EXAM_CONDITION not in facet.preconditions
+    (confirm,) = facet_actions.pending_reword_confirms(repo, load_vault(root))
+    assert confirm["facet_id"] == SYMMETRY and confirm["sources"] == []
 
 
-def test_a_bootstrap_candidate_carrying_a_registered_id_cannot_reword_it_uncited(tmp_path):
+def test_a_bootstrap_candidate_carrying_a_registered_id_rewords_it_uncited_only_with_the_owners_confirm(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path, add_role="exam")
     vault = load_vault(root)
     inputs = _collect_inputs(repo, vault, _source_set(root))
@@ -246,9 +252,12 @@ def test_a_bootstrap_candidate_carrying_a_registered_id_cannot_reword_it_uncited
 
     normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
-    assert not [row for row in normalized.rows
-                if row["item_type"] == "facet" and row["payload"].get("claim") == EXAM_CLAIM]
-    assert any(SYMMETRY in diag["entity_refs"] and diag["gate"] in {"exam_authority", "facet_restructure"}
+    # Kept as a checked update (never a create over the facet), which the
+    # apply holds for the owner's confirm (owner, 2026-10-13).
+    (row,) = [row for row in normalized.rows
+              if row["item_type"] == "facet" and row["payload"].get("claim") == EXAM_CLAIM]
+    assert row["operation"] == "update" and row["payload"]["expected_target_hash"]
+    assert any(SYMMETRY in diag["entity_refs"] and diag["gate"] == "facet_reword_confirm"
                for diag in normalized.edge_diagnostics)
 
 
@@ -269,18 +278,19 @@ def test_a_cited_bootstrap_candidate_carrying_a_registered_id_rewords_it_as_a_ch
     assert row["payload"]["meaning_support"][0]["citations"][0]["extraction_id"] == "ext_text"
 
 
-def test_a_proposal_create_over_a_registered_facet_needs_explanatory_support(tmp_path):
+def test_a_proposal_create_over_a_registered_facet_needs_explanatory_support_or_the_owners_confirm(tmp_path):
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     patch_id = _facet_proposal(repository, {
         "id": SHARED, "kind": "definition", "claim": EXAM_CLAIM,
         "provenance": {"origin": "sourceset_synthesis", "source_refs": []},
     }, operation="create")
 
-    with pytest.raises(PatchApplicationError, match="no span"):
-        apply_accepted_items(paths.root, patch_id, clock=_CLOCK)
+    apply_accepted_items(paths.root, patch_id, clock=_CLOCK)
 
+    # Not written: held for the owner's confirm (owner, 2026-10-13).
     assert _registry_entry(paths.root, SHARED)["claim"] == OLD_CLAIM
-    assert list_actions(repository) == []
+    (held,) = list_actions(repository)
+    assert (held["action"], held["status"]) == ("reword", "proposed") and facet_actions.is_reword_confirm(held)
 
 
 # --- 2. a non-explanatory citation never corroborates exam material ------------------------
@@ -537,17 +547,21 @@ def test_the_writer_judges_a_persisted_citation_by_the_span_its_locator_names(tm
 # --- 6. citations resolve inside the selected units, a span inside its unit ------------------
 
 
-def test_a_reword_citing_a_span_outside_its_unit_is_dropped(tmp_path):
+def test_a_reword_citing_a_span_outside_its_unit_drops_the_citation(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path)
     _add_two_units(repo, root)
 
     result = append_source(root, "set_la", client=FakeAppendClient(builder=_facet_restructure(citations=(MISMATCHED_SPAN,))),
                            new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
 
-    assert not [row for row in repo.proposal_items(result.proposal_id or "") or []
-                if row["item_type"] == "facet" and row["operation"] == "update"]
+    # The citation is dropped; left uncited, the reword waits for the owner's
+    # confirm (owner, 2026-10-13) and records nothing it cited.
+    (row,) = [row for row in repo.proposal_items(result.proposal_id or "") or []
+              if row["item_type"] == "facet" and row["operation"] == "update"]
+    assert "provenance" not in row["payload"]
     notes = [diag for diag in result.gate_diagnostics if diag["gate"] == "facet_restructure"]
     assert any("two_selected" in diag["message"] for diag in notes)
+    assert any(diag["gate"] == "facet_reword_confirm" for diag in result.gate_diagnostics)
 
 
 def test_an_unselected_span_never_corroborates_exam_material(tmp_path):
@@ -576,16 +590,19 @@ def test_a_provenance_link_to_an_unselected_unit_is_dropped(tmp_path):
     assert _span_problem({**MISMATCHED_SPAN, "span_id": "s1"}, inputs) is None
 
 
-def test_the_writer_refuses_a_reword_whose_only_support_is_unselected(tmp_path):
+def test_the_writer_never_writes_a_reword_whose_only_support_is_unselected(tmp_path):
     root, repo = _bootstrap_and_add(tmp_path)
     _add_two_units(repo, root)
     patch_id = _facet_proposal(repo, {"id": SYMMETRY, "claim": NEW_CLAIM,
                                       "meaning_support": _support(UNSELECTED_SPAN)}, operation="update")
 
-    with pytest.raises(PatchApplicationError, match="selected"):
-        apply_accepted_items(root, patch_id, clock=_CLOCK)
+    apply_accepted_items(root, patch_id, clock=_CLOCK)
 
+    # Unselected support is no support: the reword waits for the owner's
+    # confirm (owner, 2026-10-13), which says why its citation does not count.
     assert load_vault(root).evidence_facets[SYMMETRY].claim != NEW_CLAIM
+    (confirm,) = facet_actions.pending_reword_confirms(repo, load_vault(root))
+    assert confirm["sources"] == [] and any("selected" in problem for problem in confirm["unresolved"])
 
 
 # --- 7. a Library save that lists a facet twice is refused ---------------------------------

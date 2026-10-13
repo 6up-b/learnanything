@@ -143,8 +143,9 @@ ROUTER_R1_LOGGING_RPCS = (
 LEARNER_TEXT_GAP_RPCS = ("get_learner_text_gap", "reverse_learner_text_gap", "ask_tutor_question", "reader.ask")
 
 # Facet identity adds the ingest activity's merge list and its one-tap undo
-# (a facets.yaml rewrite and owner verdicts). Desktop only.
-FACET_IDENTITY_RPCS = ("list_facet_identity_actions", "undo_facet_identity_action")
+# (a facets.yaml rewrite and owner verdicts), and the owner's one-tap decision
+# on a reword held for confirm (owner, 2026-10-13). Desktop only.
+FACET_IDENTITY_RPCS = ("list_facet_identity_actions", "undo_facet_identity_action", "decide_facet_reword")
 
 
 @pytest.mark.parametrize(

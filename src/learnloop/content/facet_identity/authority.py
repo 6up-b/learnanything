@@ -19,13 +19,27 @@ that rule is enforced for a facet, whichever path writes it.
   unit selected in the member's scope; its role is that scope entry's
   ``role_override`` when there is one, else the member's ``default_role`` (the
   least authoritative one when several entries or members select it, in any
-  order); an exam citation's relation is ``assessment_alignment``; and its
-  locator is derived from the ids.
+  order), and ``exam`` for a span in a ``held_out_evaluation`` unit whatever
+  its member's role; an exam citation's relation is ``assessment_alignment``;
+  and its locator is derived from the ids. A citation that does not resolve
+  supports nothing, and one that names exam material by its span (under the
+  wrong unit, or in an exam member's unselected unit) still counts as exam
+  material (:meth:`CitationResolver.exam_material`), never as "uncited".
 * :func:`check_meaning_write` judges one facet's change from the resolved
   citations of each contribution to it, with ``role_authority.support_verdict``:
 
   - a registered facet's meaning changes only when every contribution has an
-    explanatory citation (an uncited or exam-only change is refused);
+    explanatory citation. An exam-only change is refused (exam material only
+    ever aligns assessment). A change with no explanatory support that is not
+    exam-only (uncited, or citing only notes, problem-set or unknown-role
+    spans) is ``unsupported_reword``: not written, but *confirmable*. The
+    proposal compiler holds it as a pending "confirm this reword" for the
+    owner (owner, 2026-10-13), and only the owner's confirm, an audited owner
+    edit, can write it;
+  - a facet's title and worked examples (:data:`PRESENTATION_FIELDS`) are not
+    its meaning for this rule: changing them needs no explanatory citation,
+    though exam-only support is still refused (an exam's wording or worked
+    item never reaches a facet through a model);
   - a new facet may not carry a contribution only exam material supports (a
     notes or problem-set citation never corroborates one). An uncited new
     facet stays what it was: a proposal the ``adequate_provenance`` gate sends
@@ -96,12 +110,23 @@ AUTHORITY_FIELDS = (
     "kind", "title", "claim", "description", "preconditions", "postconditions", "applicability",
     "non_goals", "positive_examples", "negative_examples",
 )
+#: A facet's title and worked examples (owner, 2026-10-13): a change to them
+#: needs no explanatory citation (exam-only support is still refused). Claim,
+#: definition, conditions, applicability and non-goals stay meaning.
+PRESENTATION_FIELDS = ("title", "positive_examples", "negative_examples")
+#: The verdict code of a change the owner may confirm (it is never written
+#: without the owner's confirm, an audited owner edit).
+CONFIRMABLE_CODES = frozenset({"unsupported_reword"})
 #: Proposal bookkeeping a facet payload may carry; never written to facets.yaml.
 PROPOSAL_ONLY_KEYS = frozenset({"expected_target_hash", "meaning_support"})
+#: The exam use mode of a protected, held-out evaluation unit (ingestion §4.2).
+HELD_OUT_EVALUATION = "held_out_evaluation"
 #: The role a citation that does not resolve is given: it supports nothing.
 UNRESOLVED_ROLE = "unresolved"
 
-ALLOWED_CODES = frozenset({"unchanged", "explanatory", "new_unsupported", "owner", "registered", "restore"})
+ALLOWED_CODES = frozenset({
+    "unchanged", "explanatory", "presentation", "new_unsupported", "owner", "registered", "restore",
+})
 
 
 class FacetAuthorityError(ValueError):
@@ -223,6 +248,11 @@ class _Units:
     raw: dict[str, frozenset[str]]
     effective: dict[str, frozenset[str]]
     spans: set[str]
+    #: Spans of the units the owner marked ``held_out_evaluation`` (§4.2): exam
+    #: material whatever role their member has.
+    held_out: frozenset[str] = frozenset()
+    #: Each span's text (an excerpt the owner reads beside a confirm).
+    texts: dict[str, str] = field(default_factory=dict)
 
     def spans_of(self, unit_id: str) -> frozenset[str] | None:
         """The spans ``unit_id`` holds, or None when it is no unit of this extraction.
@@ -256,11 +286,13 @@ class CitationResolver:
         load_ir: Callable[[str], Any],
         load_overrides: Callable[[str], Sequence[Mapping[str, Any]]],
         load_revision: Callable[[str], str | None] | None = None,
+        load_held_out: Callable[[str], Iterable[str]] | None = None,
     ) -> None:
         self._members = list(members)
         self._load_ir = load_ir
         self._load_overrides = load_overrides
         self._load_revision = load_revision
+        self._load_held_out = load_held_out
         self._units: dict[str, _Units | None] = {}
         self._revisions: dict[str, str | None] = {}
 
@@ -284,7 +316,12 @@ class CitationResolver:
             run = repository.get_extraction_run(extraction_id)
             return str(run["revision_id"]) if run and run.get("revision_id") else None
 
-        return cls(members, load_ir=repository.load_document_ir, load_overrides=overrides, load_revision=revision)
+        def held_out(extraction_id: str) -> list[str]:
+            modes = (repository.get_unit_selection(extraction_id) or {}).get("exam_use_modes") or {}
+            return [str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION]
+
+        return cls(members, load_ir=repository.load_document_ir, load_overrides=overrides, load_revision=revision,
+                   load_held_out=held_out)
 
     @classmethod
     def for_source_set(cls, repository: Any, source_set: Any) -> CitationResolver:
@@ -301,12 +338,34 @@ class CitationResolver:
                 self._units[extraction_id] = None
             else:
                 effective = effective_unit_spans(ir, list(self._load_overrides(extraction_id)))
-                self._units[extraction_id] = _Units(
+                units = _Units(
                     raw={unit.unit_id: frozenset(unit.span_ids) for unit in ir.units},
                     effective={unit_id: frozenset(spans) for unit_id, spans in effective.items()},
                     spans={block.span_id for block in ir.blocks},
+                    texts={block.span_id: str(block.text or "") for block in ir.blocks},
                 )
+                held: set[str] = set()
+                for unit_id in self._load_held_out(extraction_id) if self._load_held_out is not None else ():
+                    held |= set(units.spans_of(str(unit_id)) or ())
+                units.held_out = frozenset(held)
+                self._units[extraction_id] = units
         return self._units[extraction_id]
+
+    def excerpt(self, citation: ResolvedCitation, *, limit: int = 280) -> str | None:
+        """The cited span's text, shortened, for the owner to judge a reword by.
+
+        Never for exam material (assessment only): a held-out item's text must
+        not reach the learner's screen, and an exam is never what a facet's
+        wording rests on.
+        """
+
+        if citation.role in ASSESSMENT_ONLY_ROLES:
+            return None
+        units = self._index(citation.extraction_id)
+        text = " ".join(((units.texts.get(citation.span_id) if units is not None else None) or "").split())
+        if not text:
+            return None
+        return text if len(text) <= limit else text[: limit - 1].rstrip() + "\u2026"
 
     def _members_for(self, extraction_id: str) -> list[_Member]:
         """The members an extraction run belongs to: by its id, else by the revision it extracted.
@@ -373,6 +432,10 @@ class CitationResolver:
             return CitationProblem(
                 citation, f"span {span_id} is outside the selected units of extraction run {extraction_id}",
             )
+        if span_id in units.held_out:
+            # A held-out evaluation unit is protected exam material (§4.2),
+            # whatever role its member was given (owner, 2026-10-13).
+            hits = [("exam", unit, member) for _role, unit, member in hits]
         role, unit, member = min(hits, key=lambda hit: (_authority_rank(hit[0]), hit[0], hit[1]))
         relation = str(citation.get("relation") or default_relation)
         if relation not in CITATION_RELATIONS:
@@ -385,6 +448,30 @@ class CitationResolver:
             revision_id=member.revision_id, role=role, relation=relation,
             span_hash=str(span_hash) if span_hash else None,
         )
+
+    def exam_material(self, citation: Mapping[str, Any]) -> bool:
+        """Whether a citation that does not resolve still names exam material by its span.
+
+        A citation can fail because it names the wrong unit, or a unit the
+        owner did not select. It then supports nothing, but it must not turn
+        exam material into "uncited" either (an uncited reword waits for the
+        owner's confirm; an exam-only one is refused): the span is judged by
+        its ids alone. Exam when, with the unit it names set aside, it resolves
+        as exam, lies in a held-out evaluation unit, or belongs to a member
+        whose role is exam.
+        """
+
+        bare = {key: value for key, value in dict(citation).items() if key != "unit_id"}
+        resolved = self.resolve(bare)
+        if isinstance(resolved, ResolvedCitation):
+            return resolved.role in ASSESSMENT_ONLY_ROLES
+        extraction_id = str(bare.get("extraction_id") or "")
+        span_id = str(bare.get("span_id") or "")
+        members = self._members_for(extraction_id) if extraction_id else []
+        units = self._index(extraction_id) if members else None
+        if units is None or span_id not in units.spans:
+            return False
+        return span_id in units.held_out or any(member.default_role in ASSESSMENT_ONLY_ROLES for member in members)
 
     def resolve_ref(self, ref: Mapping[str, Any], *, default_relation: str = "support") -> ResolvedCitation | CitationProblem:
         """Resolve a persisted provenance ref by the span its locator names (its identity)."""
@@ -539,10 +626,32 @@ class MeaningVerdict:
     problems: tuple[str, ...] = ()
     message: str = ""
 
+    @property
+    def confirmable(self) -> bool:
+        """Not written as it stands, but the owner may confirm it (a pending "confirm this reword").
+
+        A change to a registered facet's meaning with no explanatory support
+        that is not exam-only (owner, 2026-10-13). Exam-only support is never
+        confirmable: only the owner's own Library edit overrides it.
+        """
+
+        return self.code in CONFIRMABLE_CODES
+
     def diagnostic(self, *, entity_refs: Sequence[str] | None = None, severity: str = "review",
                    suggested_action: str | None = None) -> dict[str, Any]:
-        """A typed review record for a producer that dropped what this verdict refuses."""
+        """A typed review record for a producer that dropped, or held for the owner, what this verdict refuses."""
 
+        if self.confirmable:
+            return {
+                "gate": "facet_reword_confirm",
+                "severity": severity,
+                "entity_refs": list(entity_refs or [self.facet_id]),
+                "message": self.message,
+                "suggested_action": suggested_action or (
+                    "accept the proposal, then confirm the new wording or keep the current one "
+                    "(registry review or the proposals inbox)"
+                ),
+            }
         return {
             "gate": "exam_authority" if self.code == "exam_authority" else "facet_restructure",
             "severity": severity,
@@ -572,10 +681,15 @@ def check_meaning_write(
 ) -> MeaningVerdict:
     """Judge one write of a facet's meaning from validated citations (the §4.2 rule, once).
 
-    ``registered``: the facet is in the registry, so a change needs an
-    explanatory citation in every contribution. Otherwise (a new facet, or a
-    candidate a consolidation grows) only an exam-uncorroborated contribution
-    is refused. Citations resolve through ``resolver``; without one none does.
+    ``registered``: the facet is in the registry, so a change to its meaning
+    needs an explanatory citation in every contribution; one without it that
+    is not exam-only is ``unsupported_reword``, which the owner may confirm
+    (:attr:`MeaningVerdict.confirmable`). A change to the title or worked
+    examples only (:data:`PRESENTATION_FIELDS`) needs none (``presentation``).
+    Otherwise (a new facet, or a candidate a consolidation grows) only an
+    exam-uncorroborated contribution is refused. Exam-only support is refused
+    whatever the fields. Citations resolve through ``resolver``; without one
+    none does.
 
     ``require_resolved``: the citations were recorded (an undo restoring a
     candidate on its own citations), so one that no longer resolves refuses
@@ -592,6 +706,7 @@ def check_meaning_write(
     verdicts: list[tuple[str, str]] = []
     for contribution in contributions:
         resolved: list[ResolvedCitation] = []
+        exam_unresolved = False
         for citation in contribution.citations:
             result = (resolver.resolve(citation, default_relation="support") if resolver is not None
                       else CitationProblem(citation, "no source set to resolve it in"))
@@ -599,8 +714,15 @@ def check_meaning_write(
                 resolved.append(result)
             else:
                 problems.append(f"{result.label()}: {result.problem}")
+                # A citation naming exam material under the wrong (or an
+                # unselected) unit supports nothing, and is still exam
+                # material: never "uncited" (owner, 2026-10-13).
+                exam_unresolved = exam_unresolved or (resolver is not None and resolver.exam_material(citation))
         resolved_all.extend(resolved)
-        verdicts.append((contribution.label, support_verdict((item.role, item.relation) for item in resolved)))
+        pairs = [(item.role, item.relation) for item in resolved]
+        if exam_unresolved:
+            pairs.append(("exam", "assessment_alignment"))
+        verdicts.append((contribution.label, support_verdict(pairs)))
     where = ", ".join(fields)
     detail = f" ({'; '.join(problems)})" if problems else ""
     extra = {"fields": fields, "resolved": tuple(resolved_all), "problems": tuple(problems)}
@@ -619,17 +741,47 @@ def check_meaning_write(
             f"cannot be judged ({where}){detail}",
             **extra,
         )
+    explained = bool(verdicts) and all(verdict == EXPLANATORY for _label, verdict in verdicts)
     if registered:
-        if not verdicts or any(verdict != EXPLANATORY for _label, verdict in verdicts):
+        core = [name for name in fields if name not in PRESENTATION_FIELDS]
+        if core and not explained:
+            cited = ", ".join(sorted({item.role or "unknown-role" for item in resolved_all}))
+            support = (f"it cites only {cited} material" if cited
+                       else "none of its citations resolves in the selected units" if problems
+                       else "it cites no source")
             return _verdict(
                 facet_id, False, "unsupported_reword",
-                f"a change to registered facet {facet_id}'s meaning ({where}) cites no span from an "
-                f"explanatory source in the selected units{detail}",
+                f"The proposed new wording of facet {facet_id} ({', '.join(core)}) has no textbook, lecture, "
+                f"paper, reference or alternate-explanation source behind it ({support}), so it waits for "
+                f"your confirm before it changes the facet{detail}",
                 **extra,
             )
-        return _verdict(facet_id, True, "explanatory", **extra)
-    explained = bool(verdicts) and all(verdict == EXPLANATORY for _label, verdict in verdicts)
+        return _verdict(facet_id, True, "explanatory" if explained or core else "presentation", **extra)
     return _verdict(facet_id, True, "explanatory" if explained else "new_unsupported", **extra)
+
+
+def source_views(verdict: MeaningVerdict, resolver: CitationResolver | None) -> list[dict[str, Any]]:
+    """The validated citations of a write, as the owner sees them beside it.
+
+    Each names its source, unit, role and locator, with a short excerpt of the
+    span; exam material never shows its text (:meth:`CitationResolver.excerpt`).
+    """
+
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for citation in verdict.resolved:
+        key = (citation.extraction_id, citation.span_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "source_id": citation.source_id, "revision_id": citation.revision_id,
+            "extraction_id": citation.extraction_id, "unit_id": citation.unit_id, "span_id": citation.span_id,
+            "role": citation.role, "relation": citation.relation, "locator": citation.locator,
+            "assessment_only": citation.role in ASSESSMENT_ONLY_ROLES,
+            "excerpt": resolver.excerpt(citation) if resolver is not None else None,
+        })
+    return out
 
 
 def written_provenance(
@@ -1008,6 +1160,9 @@ def verify_registry_transition(
 __all__ = [
     "ALLOWED_CODES",
     "AUTHORITY_FIELDS",
+    "CONFIRMABLE_CODES",
+    "HELD_OUT_EVALUATION",
+    "PRESENTATION_FIELDS",
     "Basis",
     "Cited",
     "CitationProblem",
@@ -1034,6 +1189,7 @@ __all__ = [
     "merged_survivor",
     "overlay",
     "registry_entries",
+    "source_views",
     "support_entries",
     "verify_registry_transition",
     "write_contributions",

@@ -10,6 +10,7 @@ import type {
   ProposalsSnapshot
 } from "../api/dto";
 import { EntityLink } from "../components/ui";
+import { RewordConfirmList } from "../components/RewordConfirms";
 import { notifyQueueChanged } from "../queueEvents";
 import {
   COLOR,
@@ -311,6 +312,7 @@ function ProposalItemRow({
         <RoutePill route={item.reviewRoute} />
       </div>
       <div style={{ display: "flex", gap: 6, flexShrink: 0, minWidth: 92, justifyContent: "flex-end" }}>
+        {item.rewordConfirm === "pending" ? <Pill color="amber">waits for your confirm</Pill> : null}
         <DecisionPill decision={item.decision} />
       </div>
     </div>
@@ -784,6 +786,15 @@ export function ProposalsScreen({
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* Master list */}
         <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {snapshot.rewordConfirms?.length ? (
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${COLOR.border}` }}>
+              <RewordConfirmList
+                confirms={snapshot.rewordConfirms}
+                onDecided={() => void proposalsQuery.refetch()}
+                onError={onError}
+              />
+            </div>
+          ) : null}
           {snapshot.batches.length === 0 ? (
             <div style={{ padding: 40, color: COLOR.textFaint, fontSize: 13 }}>
               No proposals yet. AI authoring runs land here for review before anything touches the vault.

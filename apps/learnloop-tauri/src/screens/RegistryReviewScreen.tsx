@@ -2,7 +2,9 @@
 // conditions / examples / non-goals / error signatures / repairs and version,
 // identifiability warnings from synthesis generation-needs, and merge/coarsen
 // actions. Facet identity locks were removed (owner, 2026-10-12): every facet
-// can be merged, and a merge applies now with a one-tap undo.
+// can be merged, and a merge applies now with a one-tap undo. Rewords with no
+// explanatory source behind them wait here for the owner's one-tap confirm
+// (owner, 2026-10-13).
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
@@ -10,6 +12,7 @@ import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type { FacetContractCardDto, IdentifiabilityWarningDto, MeasurementRankDto, SubjectRegistryDto } from "../api/dto";
 import { ProvenancePanel } from "../components/ProvenancePanel";
+import { RewordConfirmList } from "../components/RewordConfirms";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../components/term";
 
 export function RegistryReviewScreen({
@@ -92,6 +95,22 @@ export function RegistryReviewScreen({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {registry?.rewordConfirms?.length ? (
+        <RewordConfirmList
+          confirms={registry.rewordConfirms}
+          onDecided={(confirm, decision) => {
+            setLastMerge(null);
+            setNotice(
+              decision === "confirm"
+                ? `${confirm.facetId} reworded (undo it from the facet's history).`
+                : `${confirm.facetId} keeps its current wording.`
+            );
+            void registryQuery.refetch();
+          }}
+          onError={setActionError}
+        />
       ) : null}
 
       {registry?.measurementRank ? <MeasurementRankRow rank={registry.measurementRank} /> : null}

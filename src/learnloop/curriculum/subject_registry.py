@@ -6,7 +6,9 @@ the facet's version. Plus the identifiability warnings raised at synthesis
 (``coarsen_distinction`` / ``generate_discriminator`` generation-needs).
 
 Facet identity locks were removed (owner, 2026-10-12), so every card can be
-merged. ``propose_facet_merge`` applies the owner's merge live through the
+merged. Rewords waiting for the owner's one-tap confirm (a change with no
+explanatory source behind it; owner, 2026-10-13) are listed with their
+wording before and after and their sources (``reword_confirms``). ``propose_facet_merge`` applies the owner's merge live through the
 facet-identity merge (``merge_registered_facets``), with the same one-tap
 undo a judge's merge has; coarsening accepts a ``coarsen_distinction``
 warning by merging its confusable pair and resolving the need.
@@ -24,6 +26,7 @@ from learnloop.content.facet_identity.actions import (
     action_by_id,
     describe,
     merge_registered_facets,
+    pending_reword_confirms,
 )
 from learnloop.content.facet_identity.judge import TASK
 from learnloop.db.stores.judgments import append_judgment
@@ -115,7 +118,24 @@ def build_subject_registry(vault, repository, subject_id: str) -> dict[str, Any]
         "identifiability_warnings": warnings,
         "facet_count": len(cards),
         "measurement_rank": rank.as_dict(),
+        "reword_confirms": _reword_confirms(vault, repository, subject_id, [card["facet_id"] for card in cards]),
     }
+
+
+def _reword_confirms(vault, repository, subject_id: str, facet_ids: list[str]) -> list[dict[str, Any]]:
+    """Rewords waiting for the owner's confirm (owner, 2026-10-13) that this subject's review shows.
+
+    Those of the subject's facets, plus those of a facet no subject's
+    practice uses yet (it belongs to no other review, so it is never hidden).
+    """
+
+    pending = pending_reword_confirms(repository, vault)
+    if not pending:
+        return []
+    shown = set(facet_ids)
+    used = {facet_id for other in vault.subjects if other != subject_id
+            for facet_id in _facet_ids_for_subject(vault, other)}
+    return [confirm for confirm in pending if confirm["facet_id"] in shown or confirm["facet_id"] not in used]
 
 
 def propose_facet_merge(
