@@ -948,8 +948,12 @@
     "sha256": "f79086ca4300ae8c3f1919f1ccd95498a043eedbf08584936087260a2c2b9e1e"
   },
   "sources": {
-    "bytes": 1757,
-    "sha256": "5fde63e9e7eb11dea9c1199d35ca407589fc1d120bfb11700715e52fd6fc5cf1"
+    "bytes": 2267,
+    "sha256": "0593bc26cdb5add971a45c6f16e76fb28c0bf77a347cb15b8505f7a5f918b437"
+  },
+  "sources build-preview": {
+    "bytes": 2172,
+    "sha256": "aa052d947684482b20ba5100e85e8fe1ca51550238dd0927a6c18235fb35345b"
   },
   "sources search": {
     "bytes": 4220,
