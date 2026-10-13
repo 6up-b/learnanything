@@ -2236,9 +2236,7 @@ def _section_span_ids(repository: Repository, extraction_id: str, section_id: st
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         return []
-    from learnloop.reader.reader_guidance import extraction_sections
-
-    section_rows, _block_by_span, _span_to_section = extraction_sections(ir)
+    section_rows, _block_by_span, _span_to_section = RQC.extraction_sections(ir)
     return next((list(row["span_ids"]) for row in section_rows if row["id"] == section_id), [])
 
 

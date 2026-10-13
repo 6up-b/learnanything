@@ -42,6 +42,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
 from learnloop.db.repositories import Repository
 from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
@@ -588,8 +589,6 @@ def ask(
     # Exam protection (2026-10-13): a question about held-out material is
     # refused before any signal lands (the tutor refuses it too, before any
     # call: ``tutor_qa.HeldOutMaterialRefused``).
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
-
     if held_out_among(held_out_material(repository), extraction_id, [span_id, *selection_span_ids]):
         raise tutor_qa.HeldOutMaterialRefused(HELD_OUT_REFUSAL)
 

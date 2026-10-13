@@ -27,6 +27,7 @@ from learnloop.reader.ai_contracts import (
     reader_preset_synthesis_prompt,
 )
 from learnloop.clock import Clock, utc_now_iso, parse_utc
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
 from learnloop.db.repositories import Repository
 from learnloop.reader import source_objects as SO
 
@@ -373,8 +374,6 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
         # here, when the request is sent (a mark may postdate the capture): a
         # request on a held-out passage fails with the reason, before any call;
         # a held-out neighbour is left out of the window.
-        from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
-
         held_out = held_out_material(repository)
         focus = [request.get("span_id"), *(window.get("selected_span_ids") or [])]
         if held_out_among(held_out, request["extraction_id"], focus):
