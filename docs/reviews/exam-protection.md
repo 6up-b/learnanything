@@ -162,7 +162,7 @@ Run on `27a60d0fe` (the code as committed; this record is the only later change)
 | `db_generate_reference.py` / `db_validate_reference.py` | regenerated (no schema change; cited source lines moved); validate: no errors |
 | frontend (`npm ...`), `cargo check` | not run: nothing under `apps/learnloop-tauri` changed |
 
-The first full run (on `2cd7b7c70`) failed one test, `test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`: the Reader refusals had added four function-local cross-domain imports. `118fba8a8` moved them to module level (`exam_material` is a stdlib-only leaf, so no cycle) and the rerun above is clean. Targeted runs before the gate: `tests/test_exam_protection.py` 24 passed; the Reader, tutor, quick-check, ingest-job, exam and leakage test files (51 files) 483 passed.
+The first full run (on `2cd7b7c70`) failed one test, `test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`: the Reader refusals had added four function-local cross-domain imports. `118fba8a8` moved them to module level (`exam_material` is a stdlib-only leaf, so no cycle) and the rerun above is clean. Targeted runs before the gate: `tests/test_exam_protection.py` 24 passed; the Reader, tutor, quick-check, ingest-job, exam and leakage test files (45 files) 483 passed.
 
 ## 8. Open questions for the owner
 
