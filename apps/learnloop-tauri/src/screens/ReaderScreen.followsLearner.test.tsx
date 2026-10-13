@@ -631,6 +631,48 @@ it("F3: leaving a book inside the Reader saves what was just read, before the ga
   expect(marksFor("u3").length).toBeGreaterThan(0);
 });
 
+it("F7: a retry still waiting when the learner leaves the book saves the newest count, not the one that failed first", async () => {
+  // Re-review F7: the save of 1 fails and a retry is set; the learner reads on
+  // to 2 and leaves through the Reader's own shelf, whose save fails too. The
+  // retry used to resend the first failure's 1 and nothing ever sent the 2.
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900); // u3: one of its two passages read
+  await settle(1_600); // the gathered save of 1 fails; a retry waits
+  expect(marksFor("u3")).toEqual([]);
+  await scrollTo(3200); // u3: read through its last page (2 of 2)
+
+  fireEvent.click(screen.getByRole("button", { name: "← Library" })); // this save of 2 fails as well
+  await settle();
+  backend.failMarks = false;
+  await settle(30_000);
+
+  const saved = marksFor("u3").map((mark) => Number(mark.spansSeen));
+  expect(saved.length).toBeGreaterThan(0);
+  expect(Math.max(...saved)).toBe(2);
+});
+
+it("F7: the newest count of a book left behind is still sent when the Reader closes", async () => {
+  // Every timed retry fails too: the book's newest count waits for the Reader
+  // to close, though the learner went back to the shelf in between.
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  await settle(1_600);
+  await scrollTo(3200);
+  fireEvent.click(screen.getByRole("button", { name: "← Library" }));
+  await settle(60_000);
+  expect(marksFor("u3")).toEqual([]);
+
+  backend.failMarks = false;
+  cleanup();
+  await settle();
+
+  expect(marksFor("u3").map((mark) => Number(mark.spansSeen))).toEqual([2]);
+});
+
 function videoFixture() {
   const video: SourceLibraryCard = { ...CARD, sourceId: "src_vid", canonicalUri: "https://www.youtube.com/watch?v=abcdefghijk" };
   const cues = ["v1", "v2", "v3", "v4", "v5"];

@@ -201,6 +201,56 @@ const PAGE_READ_THROUGH = 0.85;
 const USER_SCROLL_MS = 1200;
 const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"]);
 
+/** One book's reading-progress saves (round-2 review F3, re-review F7): the
+ * newest count per section, the counts the backend acknowledged and the ones
+ * on their way, and the book's timed retry. It outlives leaving the book, so a
+ * retry set before the learner left sends that book's newest counts. */
+interface SeenSave {
+  wanted: Record<string, { spansSeen: number; spanCount: number }>;
+  acknowledged: Record<string, number>;
+  sending: Record<string, number>;
+  attempts: number;
+  timer: number | null;
+}
+
+function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave {
+  let save = saves.get(extractionId);
+  if (!save) {
+    save = { wanted: {}, acknowledged: {}, sending: {}, attempts: 0, timer: null };
+    saves.set(extractionId, save);
+  }
+  return save;
+}
+
+/** Send a book's counts that are neither acknowledged nor on their way. A
+ * failed save is tried again a few times (a busy database, a restarting
+ * sidecar) with whatever the book's newest counts are by then; after that it
+ * waits for the next change, or for the learner leaving the book or the Reader. */
+function sendSeenCounts(saves: Map<string, SeenSave>, extractionId: string): void {
+  const save = saves.get(extractionId);
+  if (!save) return;
+  for (const [sectionId, { spansSeen, spanCount }] of Object.entries(save.wanted)) {
+    if (spansSeen <= Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0)) continue;
+    save.sending[sectionId] = spansSeen;
+    api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount })
+      .then(() => {
+        save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, spansSeen);
+        save.attempts = 0;
+      })
+      .catch(() => {
+        if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
+        save.attempts += 1;
+        save.timer = window.setTimeout(() => {
+          save.timer = null;
+          sendSeenCounts(saves, extractionId);
+        }, SEEN_REPORT_MS * 2 ** save.attempts);
+      })
+      .finally(() => {
+        if (save.sending[sectionId] === spansSeen) delete save.sending[sectionId];
+      });
+  }
+}
+
 interface AnnotationSegment {
   spanId: string;
   page: number | null;
@@ -430,16 +480,15 @@ export function ReaderScreen({
   // the position they set stands (the first layout pass must not overwrite a
   // restored place) and no section counts as read.
   const settleUntilRef = useRef(0);
-  // How far each section was read, as the backend has acknowledged it, and
-  // the counts on their way there (round-2 review F3: a save that failed was
-  // counted as reported and never sent again). Both are per source: a source
-  // switch replaces the objects, so a late answer for the last book lands in
-  // that book's maps.
-  const reportedSeenRef = useRef<Record<string, number>>({});
-  const sendingSeenRef = useRef<Record<string, number>>({});
-  const seenRetryRef = useRef<{ attempts: number; timer: number | null }>({ attempts: 0, timer: null });
-  // The current book's save, for the gathering timer, retries and navigation.
-  const flushSeenRef = useRef<{ extractionId: string; send: () => void } | null>(null);
+  // How far each section was read, per book (extraction): the newest counts,
+  // the ones the backend acknowledged and the ones on their way (round-2
+  // review F3: a save that failed was counted as reported and never sent
+  // again). A book's entry is kept after the learner leaves it, so its retry
+  // still sends its newest counts (re-review F7), and a late answer lands in
+  // that book's entry.
+  const seenSavesRef = useRef(new Map<string, SeenSave>());
+  // The book being read now, which leaving it saves first.
+  const activeSeenRef = useRef<string | null>(null);
   const lastReadRef = useRef<{ id: string; index: number; progress: number } | null>(null);
   const pageModeRef = useRef(false);
   const pageSpansRef = useRef<Array<{ spanId: string; page: number }>>([]);
@@ -554,18 +603,16 @@ export function ReaderScreen({
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
     // Leaving a book for another (or for the Library) saves what was read in
-    // it first, as closing the Reader does (round-2 review F3).
-    flushSeenRef.current?.send();
-    flushSeenRef.current = null;
+    // it first, as closing the Reader does (round-2 review F3). Its entry
+    // stays: a save still failing is retried with its newest counts (F7).
+    if (activeSeenRef.current) sendSeenCounts(seenSavesRef.current, activeSeenRef.current);
+    activeSeenRef.current = null;
     setGuidePlan(null);
     setGuideLoading(false);
     setActiveSpan(null);
     setReadingSpan(null);
     setReadingOffset(null);
     setSectionSeen({});
-    reportedSeenRef.current = {};
-    sendingSeenRef.current = {};
-    seenRetryRef.current = { attempts: 0, timer: null };
     lastReadRef.current = null;
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
@@ -684,7 +731,7 @@ export function ReaderScreen({
             // How far each section was read survives a restart (usability round 1, U3).
             const seen: Record<string, number> = {};
             for (const row of progress.sections) if (row.spansSeen > 0) seen[row.sectionId] = row.spansSeen;
-            const acknowledged = reportedSeenRef.current;
+            const acknowledged = seenSaveFor(seenSavesRef.current, view.extractionId).acknowledged;
             for (const [id, count] of Object.entries(seen)) acknowledged[id] = Math.max(acknowledged[id] ?? 0, count);
             setSectionSeen((current) => {
               const next = { ...current };
@@ -969,48 +1016,31 @@ export function ReaderScreen({
   // Save how far each section was read, gathered for a moment, and once more
   // when the Reader closes: Today's reading step and the next open read it.
   // A count is reported only once the backend has it; a failed save is tried
-  // again a few times, and again when the Reader closes (round-2 review F3).
+  // again a few times, and again when the learner leaves the book or the
+  // Reader (round-2 review F3). The newest counts are kept in the book's own
+  // entry at once, so every retry and every leaving sends them (F7).
   useEffect(() => {
     if (!render || offline) return;
     const extractionId = render.extractionId;
-    const acknowledged = reportedSeenRef.current;
-    const sending = sendingSeenRef.current;
-    const retry = seenRetryRef.current;
+    const saves = seenSavesRef.current;
+    const save = seenSaveFor(saves, extractionId);
     const counts = new Map((guidePlan?.sections ?? []).map((section) => [section.id, section.spanIds.length]));
-    const send = () => {
-      for (const [sectionId, spansSeen] of Object.entries(sectionSeen)) {
-        const spanCount = counts.get(sectionId);
-        if (spanCount === undefined) continue;
-        if (spansSeen <= Math.max(acknowledged[sectionId] ?? 0, sending[sectionId] ?? 0)) continue;
-        sending[sectionId] = spansSeen;
-        api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount })
-          .then(() => {
-            acknowledged[sectionId] = Math.max(acknowledged[sectionId] ?? 0, spansSeen);
-            retry.attempts = 0;
-          })
-          .catch(() => {
-            // Not saved: tried again shortly (a busy database, a restarting
-            // sidecar), at most a few times, and on leaving the Reader.
-            if (retry.timer !== null || retry.attempts >= SEEN_RETRY_LIMIT) return;
-            retry.attempts += 1;
-            retry.timer = window.setTimeout(() => {
-              retry.timer = null;
-              // The newest counts for this book, or this closure's for a book
-              // the learner has since left.
-              const latest = flushSeenRef.current;
-              (latest && latest.extractionId === extractionId ? latest.send : send)();
-            }, SEEN_REPORT_MS * 2 ** retry.attempts);
-          })
-          .finally(() => {
-            if (sending[sectionId] === spansSeen) delete sending[sectionId];
-          });
-      }
-    };
-    flushSeenRef.current = { extractionId, send };
-    const timer = window.setTimeout(send, SEEN_REPORT_MS);
+    for (const [sectionId, spansSeen] of Object.entries(sectionSeen)) {
+      const spanCount = counts.get(sectionId);
+      if (spanCount === undefined) continue;
+      if (spansSeen > (save.wanted[sectionId]?.spansSeen ?? 0)) save.wanted[sectionId] = { spansSeen, spanCount };
+    }
+    activeSeenRef.current = extractionId;
+    const timer = window.setTimeout(() => sendSeenCounts(saves, extractionId), SEEN_REPORT_MS);
     return () => window.clearTimeout(timer);
   }, [render, offline, guidePlan, sectionSeen]);
-  useEffect(() => () => flushSeenRef.current?.send(), []);
+  useEffect(() => {
+    const saves = seenSavesRef.current;
+    // Closing the Reader saves every book it still holds counts for.
+    return () => {
+      for (const extractionId of saves.keys()) sendSeenCounts(saves, extractionId);
+    };
+  }, []);
 
   // Quick-check producer trigger: approaching a section's end while reading
   // closely (anchor mode, prompts on) with no question placed for it enqueues
