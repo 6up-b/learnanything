@@ -440,6 +440,7 @@ Design sketch (orchestrator additions in *italics*):
   - *retrieved candidates join the logged candidate set, so propensities stay exact and off-policy evaluation still works (R1/R3);*
   - retrieved spans keep T6's answer-leak exclusions.
 - **Trigger:** after R2 is live and T6's re-evaluation (2026-10-12, stronger model) settles hybrid vs dense. *Start with the tutor's "Practice this", which has the shortest path to value; it needs only `find_practice` and T6.*
+- **Superseded (2026-10-12) by `spec_source_practice_and_probes_v1.md`.** That backend track builds the tools now: `find_practice` with intents and value-of-information ranking, `find_sources` (this section's `search_sources`), `compare_sources`, `find_facets` (this section's `facet_lookup`) and an availability pass. The tutor uses them at once. The router's wiring keeps a phase there (its §10.6), and its trigger is now **R2 live and that spec's S4 merged**: the hybrid-versus-dense question changes what `search_spans` fuses, not how a router calls the tools.
 
 ### 15.4 Decisions recorded
 
