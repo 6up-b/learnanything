@@ -21,6 +21,24 @@ import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
 
+/**
+ * The span's newest completed Reader exchange, when the sidecar reports
+ * branches (reader_inquiry on: its history carries question ids); otherwise
+ * null, and the Ask goes out exactly as before.
+ */
+async function readerThreadParent(extractionId: string, spanId: string): Promise<string | null> {
+  try {
+    const history = (api as { readerAskHistory?: (id: string) => Promise<{ exchanges: Array<{ eventId: string; spanId: string; questionEventId?: string | null }> }> }).readerAskHistory;
+    if (typeof history !== "function") return null;
+    const { exchanges } = await history(extractionId);
+    const onSpan = exchanges.filter((exchange) => exchange.spanId === spanId);
+    if (!onSpan.some((exchange) => exchange.questionEventId !== undefined)) return null;
+    return onSpan[0]?.eventId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface AskTarget {
   initialQuestion?: string;
   captureId?: string;
@@ -149,6 +167,11 @@ export function AskOverlay({
   const promoteNoticeTimerRef = useRef<number | null>(null);
   const routedCaptureRef = useRef<string | null>(null);
   const captureNoteRef = useRef<string | null>(null);
+  // Reader workbench RW1a: with reader_inquiry on, an Ask with no parent starts
+  // a new thread that sees no earlier exchange. Continuing a reader question
+  // from here continues its span's newest exchange instead (the overlay shows
+  // that span's conversation), then each answer this overlay receives.
+  const readerParentRef = useRef<string | null | undefined>(undefined);
   const gapTimersRef = useRef<number[]>([]);
 
   useEffect(
@@ -250,6 +273,7 @@ export function AskOverlay({
     setQuestion(target.initialQuestion ?? "");
     routedCaptureRef.current = null;
     captureNoteRef.current = null;
+    readerParentRef.current = undefined;
     // A new capture has no library note yet. Do not request an unscoped
     // library transcript; the server anchors it on the first successful send.
     if (target.captureId && !target.noteId) return;
@@ -392,11 +416,17 @@ export function AskOverlay({
         if (!target.extractionId || !target.spanId) {
           throw new Error("This reader question is no longer linked to its source span.");
         }
+        if (readerParentRef.current === undefined) readerParentRef.current = await readerThreadParent(target.extractionId, target.spanId);
         const readerAnswer = await api.readerAsk({
           extractionId: target.extractionId,
           spanId: target.spanId,
-          question: text
+          question: text,
+          // Present only while reader_inquiry is on (absent: today's request).
+          ...(readerParentRef.current !== null ? { parentExchangeId: readerParentRef.current } : {})
         });
+        if (readerParentRef.current !== null && readerAnswer.parentExchangeId !== undefined) {
+          readerParentRef.current = readerAnswer.readerAnswerEventId;
+        }
         answer = {
           eventId: readerAnswer.eventId,
           answerMd: readerAnswer.answerMd,
