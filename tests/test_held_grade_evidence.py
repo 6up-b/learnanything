@@ -898,3 +898,97 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
     assert _ledger_and_replay_held(vault, repository, graded.attempt_id) == (True, True)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _schedule(repository) == before
+
+
+def _hold_by_regrade(vault, repository, attempt_id, when):
+    """The ledger a regrade INTO a hold leaves on an assessed attempt (review
+    F1's supersession): every criterion re-graded unassessed over the machine
+    tiers it replaces, the grader's own 0, and a held blind record. Readers
+    that read the ledger see exactly what ``regrade_attempt`` writes; the
+    vaults these readers live in run no route check of their own."""
+
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    rubric = resolved_rubric(vault, vault.practice_items[attempt["practice_item_id"]])
+    rows = [
+        {
+            "id": f"ge_hold_{attempt_id}_{criterion.id}", "criterion_id": criterion.id,
+            "points_awarded": 0.0, "evidence": "regraded, held", "notes": None, "agent_run_id": None,
+            "local_grader_id": None, "grader_tier": 3, "created_at": _iso(when),
+            "attribution_json": unverified_attribution_json(),
+        }
+        for criterion in rubric.criteria
+    ]
+    repository.insert_regrade_evidence(
+        attempt_id=attempt_id, new_evidence_rows=rows, superseded_by_evidence_id=rows[0]["id"],
+        supersede_tiers=(1, 3), clock=FrozenClock(when),
+    )
+    repository.insert_blind_grade_record(
+        attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="blind-test",
+        output_schema_version="BlindGradingProposal", context_hash=f"ctx-hold-{attempt_id}",
+        record={
+            "practice_item_id": attempt["practice_item_id"], "rubric_score": 0,
+            "max_points": rubric.max_points,
+            "criteria": [{"criterion_id": criterion.id, "points_awarded": 0.0} for criterion in rubric.criteria],
+            "error_attributions": [], "fatal_errors": [], "regrade": True,
+            "grading_support": _held_support(rubric),
+        },
+        clock=FrozenClock(when),
+    )
+    assert attempt_grade_held(repository, attempt_id)
+
+
+def test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains(tmp_path):
+    """Review F2: a certification probe scored on submission, then held by a
+    regrade, leaves its receipt as recorded, but no current reader takes its
+    verdict: not the false-certification rate, not causal P4's training
+    labels, not the report. Released, it counts again."""
+
+    from learnloop.attempts.coldness_receipt import record_certification_administration_snapshot
+    from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
+    from learnloop.goals.certification_cold_probe import (
+        certification_cold_probe_report,
+        cold_outcome_labels,
+        false_certification_rate,
+        resolve_cold_probe_parameters,
+        schedule_certification_cold_probes,
+    )
+    from tests.helpers import NOW
+    from tests.test_certification_cold_probe import HELD_OUT_ITEM, _certify, _tasks
+
+    _paths, vault, repository, _certificate = _certify(tmp_path)
+    schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
+    task = _tasks(repository)[0]
+    parameters = resolve_cold_probe_parameters(repository)
+    due = NOW + timedelta(days=parameters.horizon_days)
+    record_certification_administration_snapshot(vault, repository, task=task, clock=FrozenClock(due))
+    probe = _graded_apply(vault, repository, HELD_OUT_ITEM, {"correctness": 4.0},
+                          attempt_id="att_scored_probe", when=due)
+    recorded = repository.certification_cold_probe_outcome_for_attempt(probe.attempt_id)
+    assert recorded["verdict"] == "held" and recorded["success"] is True
+    assert false_certification_rate(repository).denominator == 1
+    assert len(cold_outcome_labels(repository)) == 1
+
+    _hold_by_regrade(vault, repository, probe.attempt_id, due + timedelta(days=1))
+    # The receipt is immutable ...
+    assert repository.certification_cold_probe_outcome_for_attempt(probe.attempt_id) == recorded
+    # ... and no reader takes its verdict while the grade is held.
+    rate = false_certification_rate(repository)
+    assert rate.denominator == 0 and rate.rate is None and rate.held == 0
+    assert rate.indeterminate == 1
+    assert dict(rate.indeterminate_reasons) == {GRADE_HELD_FOR_REVIEW: 1}
+    assert cold_outcome_labels(repository) == []
+    report = certification_cold_probe_report(vault, repository)
+    assert report["cold_outcome_labels"] == 0
+    assert report["false_certification_rate"]["denominator"] == 0
+    assert {row["verdict"] for row in report["certificates"] if row["verdict"]} <= {"indeterminate"}
+
+    # An owner adjudication releases it: the recorded verdict counts again.
+    append_adjudication_evidence_revision(
+        repository, attempt_id=probe.attempt_id, resolved_fraction=1.0, adjudication_id="adj-review-f2",
+        adjudicator_source="human_owner", rationale="valid", vault=vault,
+        clock=FrozenClock(due + timedelta(days=2)),
+    )
+    assert not attempt_grade_held(repository, probe.attempt_id)
+    assert false_certification_rate(repository).denominator == 1
+    [label] = cold_outcome_labels(repository)
+    assert label["success"] is True and label["cold_attempt_id"] == probe.attempt_id

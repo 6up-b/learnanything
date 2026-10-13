@@ -1592,6 +1592,53 @@ class FalseCertificationRate:
         }
 
 
+def effective_cold_probe_outcomes(repository: Repository) -> list[dict[str, Any]]:
+    """The outcome store as every reader takes it NOW (held-grade-evidence,
+    review F2).
+
+    A probe row is an immutable receipt of the verdict recorded when the probe
+    was answered. A later regrade can hold that grade for review (THE
+    predicate over the ledger, ``learnloop.held_grades``): its score is then
+    the grader's provisional one, so while it is held the probe abstains like
+    one held on submission: ``indeterminate``, reason ``grade_held_for_review``,
+    no success, no correctness, out of the rate's denominator and out of the
+    training labels. The stored row is untouched (its verdict stays under
+    ``recorded_verdict`` here), and a release (a validating regrade or an
+    owner adjudication) restores it. A probe held on submission (recorded
+    ``grade_unavailable``) reads with the same reason while it is held, and as
+    recorded once released (a held probe is written once, decision 4). Any
+    other abstention outranks the hold, as on the ladder.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+    from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+    outcomes = repository.certification_cold_probe_outcomes()
+
+    def _abstains_on_grade(row: Mapping[str, Any]) -> bool:
+        return str(row.get("verdict")) in SCORED_VERDICTS or (
+            row.get("indeterminate_reason") == "grade_unavailable"
+        )
+
+    held = held_attempt_ids(
+        repository,
+        (row.get("probe_attempt_id") for row in outcomes if _abstains_on_grade(row)),
+    )
+    effective: list[dict[str, Any]] = []
+    for row in outcomes:
+        if row.get("probe_attempt_id") in held and _abstains_on_grade(row):
+            row = {
+                **row,
+                "recorded_verdict": row.get("verdict"),
+                "verdict": "indeterminate",
+                "indeterminate_reason": GRADE_HELD_FOR_REVIEW,
+                "success": None,
+                "correctness": None,
+            }
+        effective.append(row)
+    return effective
+
+
 def false_certification_rate(
     repository: Repository, *, clock: Clock | None = None
 ) -> FalseCertificationRate:
@@ -1603,9 +1650,12 @@ def false_certification_rate(
     — "certified, but no held-out surface exists to probe with" — lives in
     :func:`certification_cold_probe_report` instead, because it is an authoring
     finding rather than a measurement.
+
+    The store is read through :func:`effective_cold_probe_outcomes`: a probe
+    whose grade is held for review now abstains (review F2).
     """
 
-    outcomes = repository.certification_cold_probe_outcomes()
+    outcomes = effective_cold_probe_outcomes(repository)
     tasks = repository.followup_tasks_of_kind(COLD_PROBE_TASK_KIND)
 
     held = failed = indeterminate = 0
@@ -1692,11 +1742,13 @@ def cold_outcome_labels(repository: Repository) -> list[dict[str, Any]]:
     causal row tests a *repair*, one of these tests a *certificate*.
 
     Abstained probes are excluded — they carry no label, and a training set that
-    treats "not interpretable" as an outcome is worse than a smaller one.
+    treats "not interpretable" as an outcome is worse than a smaller one. So is
+    a probe whose grade is held for review now (review F2,
+    :func:`effective_cold_probe_outcomes`).
     """
 
     labels: list[dict[str, Any]] = []
-    for row in repository.certification_cold_probe_outcomes():
+    for row in effective_cold_probe_outcomes(repository):
         if str(row.get("verdict")) not in SCORED_VERDICTS:
             continue
         labels.append(
@@ -1743,7 +1795,7 @@ def certification_cold_probe_report(
     parameters = resolve_cold_probe_parameters(repository)
     outcomes_by_certificate = {
         str(row.get("certificate_id")): row
-        for row in repository.certification_cold_probe_outcomes()
+        for row in effective_cold_probe_outcomes(repository)
     }
     certified: list[dict[str, Any]] = []
     for learning_object in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
