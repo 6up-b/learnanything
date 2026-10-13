@@ -328,11 +328,12 @@ the owner replaced:
 Codex's verification of the second re-review's fixes (job
 `20261013-103557-c11o4C`) reopened F7: "Pre-upgrade interrupted saves retain
 permanent authority grants". A Library save by `ddf941d5`'s code, killed
-before its write, would keep its `granted` verdicts after migration 186.
+before its write, would keep its `granted` verdicts after migration 197
+(built as 186 on this branch; renumbered at the landing, §10.1).
 
 Rejected, with no change. The grant-recording save code exists only on this
-unmerged branch, together with migration 186, so no vault ever ran the
-pre-186 version. Recorded in `docs/reviews/facet-authority-fixes.md` §11.
+unmerged branch, together with migration 197 (its 186), so no vault ever ran
+the pre-197 version. Recorded in `docs/reviews/facet-authority-fixes.md` §11.
 
 ## 7. Gate
 
@@ -385,3 +386,202 @@ tracked fixture vaults (`fixtures/linear_algebra`, `probability`,
    is selected in two sets with different roles, the less authoritative role
    wins, so a span that is exam material in any set refuses the confirm.
    Recommended default: keep that (fail closed for exams).
+
+## 10. Landing onto main
+
+Branch `merge/facet-locks-onto-main`, from main `e3aed505` (RW1a, the route
+check mvp-0.17 and the sources track mvp-0.18/0.19; migrations 185-195). A
+real `--no-ff` merge of `merge/facet-locks` (`5a5e1e8e`, unchanged) as
+`7a2e4135`, the composition fix `68408145` (§10.3), references `bbb4363b`,
+and this record. No algorithm successor (a content path; owner-consistent).
+No paid call.
+
+### 10.1 Migrations
+
+| On `merge/facet-locks` | On main | What |
+|---|---|---|
+| `185_facet_identity_rewords` (built as 188 on facets/locks-and-depends-on) | **196** | rebuilds `facet_identity_actions` (rows, ids and indexes kept) so its CHECKs accept `action = 'reword'` and `origin IN ('proposal', 'registry')`; the temporary table is now `facet_identity_actions__196` |
+| `186_facet_registry_saves` | **197** | adds `facet_registry_saves` (WORKFLOW, no replayer) |
+
+Main's 185 (RW1a), 186 (route check) and 187-195 (sources) keep their
+numbers; `migrations/` runs 1..197 with only main's historical gaps (38-39,
+42-43, 46, 60, 67, 127-129, 135-137). The numbers 185 and 186 in §0-§9 and in
+the branch's other records mean 196 and 197 on main. Head fixture
+`fixtures/migration_head_197` (renamed from main's `migration_head_195`; a
+backup-API copy with only 196-197 applied through `apply_migrations`,
+`wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok,
+`foreign_key_check` clean); every hard-coded head path (15 tests and the two
+reference scripts) and `SCHEMA_HEAD` point at it. A database that ran this
+branch's code before the landing would record 185/186 as the facet
+migrations and skip main's 185/186; none exists (the owner's vaults run
+main's code, and this branch's stages never opened them; §6).
+
+Config: the effective defaults gain only `facet_identity.reword_confirm =
+true`, so all eleven `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9 to
+mvp-0.19) were recomputed. `decide_facet_reword` stays desktop-only in
+`tests/test_mobile_allowlist.py`; the CLI help snapshot is unchanged by
+`--write`.
+
+### 10.2 The sources track's write paths, checked against the chokepoint
+
+No module of the sources track writes a facet's meaning. Each was read, and
+`tests/test_facet_locks_landing.py` pins it structurally: the bypass test
+(`test_every_writer_of_facet_meaning_goes_through_the_authority_chokepoint`)
+parses all 33 modules, and none names `facets_path` or `"facets.yaml"`,
+calls `upsert_facet`, `union_payload`, `write_registry_text`, `OwnerEdit`,
+`compile_proposal_item`, `stage_target_contents`, `check_meaning_write` or
+`persist_proposal_batch` (the only way a facet item reaches the proposal
+compiler), or writes `entity_source_links`.
+
+| Path | Entry points | What it writes | Facets |
+|---|---|---|---|
+| Exercise imports | `source_exercise_import.import_source_exercise` (CLI `learnloop sources`, sidecar `source_service`, the `source_exercise_import` ingest job, harvest, needs, `record_reader_import`) | `exercise_authoring.write_draft` → `vault.writer.upsert_practice_item` (with `canonical_exercise`); `source_exercise_imports`, `reference_key_checks` rows | references registered canonical facets only (`vault.evidence_facets`; an unknown id is dropped, `lo_fallback` takes the LO's facet union) |
+| Key checks and recovery | `verify_item_key`, `resume_import`, `recover_import_checks`, the edit re-check in `handlers/item_authoring.py` | database rows | none |
+| Family attachment | `attach_to_matching_family` | activity-family membership proposals (families store) | none |
+| Authoring and draft validation | `exercise_authoring.author_exercises`, `draft_validation.py` | nothing (validation) or the import's write | none |
+| Practice proposals | `practice_index/retrieval.py` (`insert_proposal`: caller, intent, valuation), `instructional/practice.py` (impressions, selection, delivery, pick) | `practice_index_proposals`, `instructional_impressions`, `retrieval_interventions` rows | none |
+| Source-first needs | `instructional/needs.fulfil_need_from_sources` (the primed-retry handler, `learnloop generate-diagnostics`) | an exercise import; otherwise the existing generation lane (`generate_diagnostic_proposal`, authoring proposals whose item types exclude `facet`) | none |
+| Harvest and verify | `instructional/harvest.harvest`, `verify` | exercise imports, key checks | none |
+| Source comparisons, find_sources, tools | `compare.compare_sources`, `find_sources.find_sources_for_caller`, `instructional/tools.py` | `source_comparisons`, `source_tool_calls` rows; reads `entity_source_links` | none |
+| Valuation, exposure, interventions, outcomes | `instructional/valuation.py`, `exposure.py`, `interventions.py`, `substrate/intervention_outcomes.py` | receipts and the DERIVED outcome join | none |
+| PF publish and verify | `ops/pf_publish.py`, `ops/pf_verify.py` | practice items (`variant_of` canonical exercises) | none |
+| Spend | `source_retrieval/service_spend.py`, `db/stores/source_service.py` | `source_service_spend` | none |
+| Upgrade | `sources_upgrade.py` | `algorithm_version` | none |
+
+### 10.3 The two exam predicates
+
+Not unified here (the exam-protection stage makes one). Where each is used:
+
+**A. main's source predicates (`source_retrieval/corpus.py`)**, which decide
+what text a model or the tutor receives:
+
+- `exam_exclusions` → `exam_withheld(vault, repository, keys)`: exam-role
+  members whole and exam unit overrides (by id in the pinned extraction, by
+  label elsewhere; unresolvable means the whole extraction), in every
+  extraction of the source (all revisions). Used by
+  `tutor.PinnedSpanProvider` (pinned spans, "it is exam material"),
+  `find_sources.find_sources_for_caller` (the pool, `manifest.exam_withheld`)
+  and `compare.compare_sources` (pins and hits).
+- `teaching_exclusions` (a superset: exam, problem-set, notes and
+  unknown-role material, every `exercise` / `assessment_alignment` link):
+  `teaching_scope` (the tutor's grounding; `find_sources`, `needs`,
+  `exposure`, `exercises`), `model_reader_withheld` (`instructional/tools.py`,
+  results returned to a model) and `assessment_spans`.
+
+**B. the facet-meaning predicate (`role_authority` + `facet_identity/authority.py`)**,
+which decides whether a citation can support a facet's meaning:
+
+- `role_authority.ASSESSMENT_ONLY_ROLES = {exam}`, `support_verdict`,
+  `is_semantic_support`;
+- `authority.CitationResolver.resolve` (the scope entry's role, else the
+  member's; the least authoritative across members and sets; a span in a
+  `held_out_evaluation` unit is `exam`) and `exam_material` (an unresolved
+  citation that names exam material by its span stays exam);
+- used by `check_meaning_write` (every facet writer: `patches._compile_facet`,
+  `write_registry_text` with a `Cited` basis, `join_candidate`),
+  `actions.confirm_reword` (re-judged), `visible_sources` / `excerpt` (no
+  exam text in a confirm card), `synthesis_gates._gate_exam_authority`,
+  `_has_semantic_authority` and `_gate_practice_exam_only`,
+  `source_set_synthesis._span_refs` and its registered-id check, and
+  `source_append._facet_reword` / `_checked_reword`.
+
+**Held-out units.** B counted a `held_out_evaluation` unit as exam whatever
+its member's role; A counted it only inside an exam member or an exam unit
+override, so a textbook unit held out for evaluation still reached the tutor
+and models. Fixed in `68408145` (fail closed, nothing released): both corpus
+predicates add every `held_out_evaluation` unit of a member's source (by id
+where its selection marks it, by label in the source's other extractions; an
+unresolvable id or label withholds the whole extraction; a split child
+withholds its raw parent). Tests: `tests/test_facet_locks_landing.py` (4 of
+its 6 failed on the merge commit's `corpus.py`).
+
+**Neither weakens the other.** The landing changed no line of B; A only
+gained exclusions. `role_authority`'s existing `semantic_contract` table,
+which A's teaching rule reads, is unchanged (the branch only added the
+support rule beside it).
+
+**Differences left for the exam-protection stage:**
+
+1. *Revisions.* A treats every extraction of an exam source (any revision)
+   as exam; B resolves only the member's pinned revision's extractions, so a
+   citation into another revision does not resolve, is not `exam_material`,
+   and an otherwise-uncited reword resting on it becomes a confirm (shown to
+   the owner without excerpt) rather than refused.
+2. *Corroboration.* A withholds exam spans regardless of what else is in the
+   result; B lets an exam citation stand beside an explanatory one
+   (corroborated, `assessment_alignment`).
+3. *A third exam test.* `content/authoring/practice_leakage.held_out_spans`
+   (the leakage inventory exercise imports and PF generation screen against)
+   counts held-out units only inside exam-role units, as before; unchanged
+   here.
+
+### 10.4 Gate
+
+Run on `bbb4363b` (the merge, the fix and the references; only this record
+and `facet-authority-fixes.md` §11 changed after), 2026-10-13, `TMPDIR` the
+worktree's `fixtures-local/tmp`, under heavy machine load (load average
+about 20). Nothing failed, so nothing needed a solo rerun.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 17 contracts kept, 0 broken |
+| Targeted (120 facet, source, migration, config, upgrade, synthesis, proposal and registry files; the resolved tree with the fix, before committing) | 1,476 passed |
+| `tests/test_facet_locks_landing.py` against the merge commit's `corpus.py` | 4 failed (the held-out cases), 2 passed (the guards); 6 passed on the fix |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **9,952 passed**, 0 failed, 0 skipped, 46 warnings (the existing fork and deprecation warnings), 394 s (lock taken at once) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 9,853 deselected, 1 warning, 105 s (after a 6-minute wait for the lock) |
+| `apps/learnloop-tauri`: `npm install`, `npm run typecheck`, `npm test`, `npm run frontend:build` | ok; typecheck clean; vitest 54 files, 295 tests passed; build ok (the existing chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok, 0 warnings |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated at schema head 197 (317 table notes, 788 effective leaves; prose counts in `Configuration.md` and `Database.md` fixed by hand); `errors: []` |
+| `validate_vault.py` | passed (1,097 notes, 21,981 wikilinks/fragments, 4,603 source paths) |
+| `module_validate.py` | wikilinks 14,712/14,712, source/test links 11,795/11,795, catalog YAML 508/508; its 612 issues are all "missing expected note" (the existing kind; the branch recorded 539 before main's new modules) |
+| CLI help snapshot, `--write` | unchanged |
+| Tracked fixture vaults | `git status` clean after every step |
+
+### 10.5 Parity
+
+Backup-API copies (`copy_tree_with_databases`) of this worktree's tracked
+`fixtures/linear_algebra` and `fixtures/probability` (both at migration 155)
+into `fixtures-local/facet-locks-parity/{main,merge}/`; the `main` copies run
+`e3aed505`'s `src/` and `migrations/` (a `git archive` copy, on
+`PYTHONPATH`, the import path checked), the `merge` copies this branch.
+Each copy was migrated by opening a `Repository`, then `learnloop rebuild
+--shadow --json` and `learnloop doctor` (text and `--json`).
+
+| | linear_algebra main | linear_algebra merge | probability main | probability merge |
+|---|---|---|---|---|
+| Migrated to | 195 | 197 | 195 | 197 |
+| Shadow rebuild | exit 0, live DB unchanged | same | exit 0, live DB unchanged | same |
+| Replay | 70 attempts, 11 replayers, 0 unaccounted | identical (after normalizing run-time ULIDs: minted family ids, the marker) | 2 attempts, 11 replayers, 0 unaccounted | identical (same normalization) |
+| `learner_state_diff` (facet / mastery / schedule) | 22 / 6 / 47 | identical | 2 / 1 / 1 | identical |
+| doctor errors | 1 | 1 (same) | 49 | 49 (same) |
+| doctor issues | 105 | 106 | 133 | 134 |
+| `criterion:unknown_dependency` | 0 | 0 | **46** | **46** |
+
+- The only doctor difference is the branch's expected warning
+  `config:retired_setting` ("learnloop.toml sets retired 'locks'"), once per
+  vault.
+- **The depends_on work does not change the 46.** Doctor's check is the same;
+  the branch stops new synthesis from writing such entries and adds the
+  owner-run repair. `learnloop doctor --fix-content --dry-run` on the merge
+  copy would remove all 46 entries (28 criteria, 13 items, 1 unreadable
+  item, 0 self-dependencies), as recorded in
+  `facet-locks-and-depends-on.md` §4. The tracked copy has 46; the owner's
+  live vault may differ (48 was reported there).
+- probability's other errors (2 `yaml:invalid` for
+  `pi_exercise_01kyn22qcffk7sae9ttxvz4j5n.yaml`, 1 `layout:missing_directory`)
+  are the same under both.
+
+### 10.6 Open questions for the owner
+
+1. **Held-out units in the leakage inventory.** `practice_leakage.held_out_spans`
+   (the leakage screen of exercise imports and PF generation) still counts a
+   held-out unit only inside an exam-role unit. Recommended default: leave it
+   to the exam-protection stage, which makes one predicate.
+2. **Revision scope of exam material for facet citations** (§10.3, difference
+   1). Recommended default: the exam-protection stage adopts the corpus rule
+   (every revision of an exam source is exam).
+3. **The live probability vault's `unknown_dependency` entries.** Run
+   `learnloop doctor --vault <vault> --fix-content --dry-run`, then without
+   `--dry-run`, when convenient (no grade changes). Recommended default: run
+   it.
