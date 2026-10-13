@@ -14,6 +14,13 @@ halves of that work:
   :func:`learnloop.scheduling.evsi.rank_feasible`) choose the checks; the
   harness scores their forecasts against what the simulated learner did.
   ``learnloop evsi simulate``.
+* **Several simulator families** (stage ``evsi-multisim``; :mod:`.family_data`,
+  :mod:`.family_fit`, :mod:`.families`, :mod:`.multisim`,
+  :mod:`.multifamily`): a cognitive diagnosis model, a nominal-response IRT
+  model with a misconception trait and a learning (latent transition) model
+  fitted to the same Eedi answers beside the latent class model and scored on
+  held-out students; the study rerun in each, a conclusion counted only when
+  every family agrees (RankCert). ``learnloop evsi multisim``.
 * **Part B, live** (:mod:`.live_report`): the calibration report over the
   ``voi_forecasts`` receipts that every live value-of-information decision
   writes (:mod:`learnloop.scheduling.voi_forecasts`), joined to realized

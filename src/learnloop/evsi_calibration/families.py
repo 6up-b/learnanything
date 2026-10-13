@@ -31,9 +31,12 @@ Families
          a non-holder.
 ``lta``  the latent class states with the learning family's fitted
          within-session transitions after every answer (history and checks).
-``lta_reveal``  a stress variant, not a fit: after every check the learner
-         moves at the fitted *between-session* rates, as if each check's
-         reveal taught as much as the days of teaching between Eedi sessions.
+         Fitted to Eedi they are close to the identity: within one session
+         nobody's state moves measurably.
+``lta_reveal``  a stress variant, not a fit: after every answer (the history's
+         and the checks') the learner moves at the fitted *between-session*
+         rates, as if each answer's reveal taught as much as the days of
+         teaching between Eedi sessions.
 
 Instrument strength (``with_strength``): "what if a check were as diagnostic
 as consistency ``c``", for truth and system alike. Who holds what does not
