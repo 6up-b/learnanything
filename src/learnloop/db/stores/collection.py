@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+from collections.abc import Mapping
+from typing import Any
 
 from learnloop.clock import utc_now_iso
+from learnloop.db.stores.router import append_router_decision, record_learner_pick
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.ids import new_ulid
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
@@ -39,7 +43,23 @@ def _check_evidence_reference(connection: sqlite3.Connection, reference: object)
 
 
 class CollectionStoreMixin:
-    def finalize_scheduler_offer(self, slate_id: str | None, candidate_ids: list[str], *, entry_surface: str = "desktop_queue") -> None:
+    def finalize_scheduler_offer(
+        self,
+        slate_id: str | None,
+        candidate_ids: list[str],
+        *,
+        entry_surface: str = "desktop_queue",
+        router_decision: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Publish the offer; router R1's decision row commits with it.
+
+        ``router_decision`` (built by ``learnloop.router.decisions``) is written in
+        the receipt's own transaction, so a published offer and its logged
+        decision never disagree. A republished (identical) offer writes nothing.
+        A row the ledger refuses (a CHECK or NOT NULL violation) rolls back
+        alone with a warning; the offer still publishes.
+        """
+
         if slate_id is None:
             return
         encoded = json.dumps(candidate_ids)
@@ -56,6 +76,8 @@ class CollectionStoreMixin:
             connection.executemany("UPDATE scheduler_slate_candidates SET was_returned=1,returned_rank=? WHERE id=? AND slate_id=?", [(rank, candidate_id, slate_id) for rank, candidate_id in enumerate(candidate_ids, 1)])
             connection.execute("UPDATE scheduler_slates SET returned_count=? WHERE id=?", (len(candidate_ids), slate_id))
             connection.execute("INSERT INTO scheduler_offer_receipts(slate_id,returned_candidate_ids_json,entry_surface,collection_version,created_at) VALUES (?,?,?,?,?)", (slate_id, encoded, entry_surface, COLLECTION_VERSION, utc_now_iso()))
+            if router_decision is not None:
+                append_router_decision(connection, router_decision)
 
     def record_false_remediation(self, *, attempt_id: str, value: bool, evidence_refs: list[dict[str, str]], author_kind: str, verifier_version: str) -> str:
         if type(value) is not bool or not evidence_refs or author_kind not in {"human", "machine"} or not verifier_version.strip():
@@ -74,7 +96,7 @@ class CollectionStoreMixin:
             )
         return identifier
 
-    def bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str = "desktop_practice") -> str | None:
+    def bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str = "desktop_practice", record_pick: bool = True) -> str | None:
         """Return the scheduler offer a submission answers, binding it on first use.
 
         The first offer bound to a submission id wins: the learner composed the
@@ -83,6 +105,10 @@ class CollectionStoreMixin:
         accepted when it is a real offer of that item in that session, and the
         original offer is returned. A submission id reused for another item or
         session, or an offer that does not belong to them, is rejected.
+
+        ``record_pick=False`` validates an offer without logging a router
+        learner pick: a teach-back conversation already bound to its first
+        offer only checks a refreshed list's offer of the same item.
         """
 
         def require_offered(connection, candidate_id: str) -> None:
@@ -116,9 +142,33 @@ class CollectionStoreMixin:
                 return original
             if scheduler_candidate_id is not None:
                 require_offered(connection, scheduler_candidate_id)
+            created_at = utc_now_iso()
             if submission_id:
                 connection.execute(
                     "INSERT INTO submission_intents(submission_id,session_id,practice_item_id,scheduler_candidate_id,entry_surface,created_at) VALUES (?,?,?,?,?,?)",
-                    (submission_id, session_id, practice_item_id, scheduler_candidate_id, entry_surface, utc_now_iso()),
+                    (submission_id, session_id, practice_item_id, scheduler_candidate_id, entry_surface, created_at),
                 )
+            if scheduler_candidate_id is not None and record_pick:
+                # Router R1: a first bind to an offered candidate other than the
+                # logged offer's head is a learner pick (no propensity). Same
+                # transaction as the bind, so the two never disagree; its own
+                # savepoint, so a logging failure never fails the bind.
+                connection.execute("SAVEPOINT router_learner_pick")
+                try:
+                    record_learner_pick(
+                        connection,
+                        scheduler_candidate_id=scheduler_candidate_id,
+                        practice_item_id=practice_item_id,
+                        session_id=session_id,
+                        entry_surface=entry_surface,
+                        submission_id=submission_id,
+                        created_at=created_at,
+                    )
+                except Exception:  # logging never fails the bind
+                    connection.execute("ROLLBACK TO router_learner_pick")
+                    logging.getLogger(__name__).warning(
+                        "router R1: learner pick of candidate %s not logged", scheduler_candidate_id,
+                        exc_info=True,
+                    )
+                connection.execute("RELEASE router_learner_pick")
             return scheduler_candidate_id

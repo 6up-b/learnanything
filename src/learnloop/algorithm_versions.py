@@ -100,8 +100,23 @@ STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 # as mvp-0.12 and it was relabelled mvp-0.14 when it merged after recurrence
 # groups (mvp-0.12) and the stuck prompt (mvp-0.13). Kill switch:
 # ``plan.enabled`` (sub-switches ``plan.new_admission_enabled`` and
-# ``plan.reading_blocks``); off, Today is mvp-0.13's.
+# ``plan.reading_blocks``); off, Today is mvp-0.13's. New vaults started here
+# until mvp-0.15 merged.
 DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
+
+# mvp-0.15 (router R1, spec_action_router_v1 §11): mvp-0.14 PLUS probe
+# near-ties admitted to the Today queue's seeded exploration (the chain stays
+# linear: mvp-0.15 means the split PLUS placement PLUS recurrence groups PLUS
+# the stuck prompt PLUS the plan PLUS probe ties), so probe decisions carry a
+# true propensity instead of 1 or 0. PROBE intent includes teach-back items
+# (owner decision D11, 2026-10-12: a teach-back dialogue is a high-value
+# probe). It changes what is SERVED (which near-tie leads the offer), not the
+# projection, so it is another successor tag on the mvp-0.8 namespace. The
+# branch built it as mvp-0.12 and it was relabelled mvp-0.15 when it merged
+# after the daily plan (mvp-0.14). Kill switch: ``router.probe_tie_admission``.
+# Decision logging (``router.log_decisions``) is not a serving change and runs
+# at every version.
+PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -117,6 +132,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     RECURRENCE_GROUP_ALGORITHM_VERSION,
     STUCK_PROMPT_ALGORITHM_VERSION,
     DAILY_PLAN_ALGORITHM_VERSION,
+    PROBE_TIE_ALGORITHM_VERSION,
 )
 
 
@@ -168,6 +184,11 @@ PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION
 # Every later successor keeps the plan; gates must use this set, never
 # equality against DAILY_PLAN_ALGORITHM_VERSION.
 DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
+
+# Versions whose Today queue admits probe near-ties to the seeded exploration
+# (behind ``router.probe_tie_admission``). Every later successor keeps it;
+# gates must use this set, never equality against PROBE_TIE_ALGORITHM_VERSION.
+PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

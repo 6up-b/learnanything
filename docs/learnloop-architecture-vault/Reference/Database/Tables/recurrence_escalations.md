@@ -3,13 +3,13 @@ title: "recurrence_escalations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
+source_commit_timestamp: "2026-10-12T22:43:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite recurrence_escalations"
   - "table recurrence_escalations"
-schema_head: 180
+schema_head: 181
 table_name: "recurrence_escalations"
 table_role: "receipt"
 functionality_status: "active"

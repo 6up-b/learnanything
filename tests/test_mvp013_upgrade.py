@@ -51,17 +51,18 @@ from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.split_live_helpers import append_config, split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_180"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_181"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
 def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     assert STUCK_PROMPT_ALGORITHM_VERSION == "mvp-0.13"
-    # Daily-loop DL1's finite plan (mvp-0.14) followed it and keeps the stuck
-    # prompt; it is the latest successor (tests/test_mvp014_upgrade.py).
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.14"
-    assert SUCCESSOR_CHAIN[-2] == STUCK_PROMPT_ALGORITHM_VERSION
-    assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14"}
+    # Daily-loop DL1's finite plan (mvp-0.14) and router R1's probe ties
+    # (mvp-0.15, the latest successor, tests/test_mvp015_upgrade.py) followed
+    # it and keep the stuck prompt.
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.15"
+    assert SUCCESSOR_CHAIN[-3] == STUCK_PROMPT_ALGORITHM_VERSION
+    assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14", "mvp-0.15"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     # The chain is linear: mvp-0.13 means the split PLUS placement PLUS
@@ -150,7 +151,7 @@ def test_an_earlier_vault_goes_through_mvp012s_guard(tmp_path):
 
 
 def test_upgrade_command_reaches_the_stuck_target_explicitly(tmp_path):
-    # The default target moved on to mvp-0.14 (daily-loop DL1); mvp-0.13 is
+    # The default target moved on (mvp-0.14, then mvp-0.15); mvp-0.13 is
     # still reached explicitly.
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.12")

@@ -111,10 +111,24 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
     assert set(DAILY_PLAN_RPCS) == set(registered)
 
 
+# Router R1 (mvp-0.15) adds no RPC. It extends these: a published Today offer
+# (and a skip's requeue) writes a router decision, and a first bind of a
+# submission to an offered candidate other than the head writes a learner
+# pick. Desktop only.
+ROUTER_R1_LOGGING_RPCS = (
+    "get_today_queue",
+    "skip_practice_item",
+    "save_practice_draft",
+    "submit_attempt",
+    "submit_dont_know",
+    "start_teach_back",
+)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
-    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS,
+    + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
@@ -63,10 +63,19 @@ def scheduled_item_dtos(
     vault: LoadedVault,
     repository: Repository,
     scheduled_items: list[ScheduledItem],
+    *,
+    now: datetime | None = None,
+    item_states: Mapping[str, PracticeItemState] | None = None,
 ) -> list[dict[str, Any]]:
-    """Serialize a queue with two bulk state reads, independent of its size."""
+    """Serialize a queue with two bulk state reads, independent of its size.
 
-    item_states = repository.practice_item_states()
+    ``now`` pins the due/later split to one instant and ``item_states`` to one
+    read of the item states (router R1 computes the offer's head with the same
+    ones); by default each is read here.
+    """
+
+    if item_states is None:
+        item_states = repository.practice_item_states()
     mastery_states = repository.mastery_states()
     return [
         _scheduled_item_dto(
@@ -74,6 +83,7 @@ def scheduled_item_dtos(
             scheduled,
             state=item_states.get(scheduled.practice_item_id),
             mastery=mastery_states.get(scheduled.learning_object_id),
+            now=now,
         )
         for scheduled in scheduled_items
     ]
@@ -100,6 +110,7 @@ def _scheduled_item_dto(
     *,
     state: PracticeItemState | None,
     mastery: MasteryState | None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     item = _require_item(vault, scheduled.practice_item_id)
     learning_object = vault.learning_objects.get(scheduled.learning_object_id)
@@ -128,7 +139,7 @@ def _scheduled_item_dto(
             "mastery": mastery_display.mastery_mean if mastery_display is not None else None,
             "mastery_variance": mastery_display.mastery_variance if mastery_display is not None else None,
             "due_at": state.due_at if state is not None else None,
-            "due_status": _due_status(scheduled, state.due_at if state is not None else None),
+            "due_status": _due_status(scheduled, state.due_at if state is not None else None, now=now),
             # A positive EIG marks a ranking-time candidate. Only the item with
             # a durable scheduler-backed presentation is a diagnostic probe.
             "is_probe": scheduled.components.get("probe_committed", 0.0) > 0.0,
@@ -1173,7 +1184,7 @@ def _primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None:
     return subjects[0] if subjects else None
 
 
-def _due_status(scheduled: ScheduledItem, due_at: str | None) -> str:
+def _due_status(scheduled: ScheduledItem, due_at: str | None, *, now: datetime | None = None) -> str:
     if (
         scheduled.components.get("negative_surprise_followup", 0.0) > 0.0
         or scheduled.components.get("intervention_followup", 0.0) > 0.0
@@ -1182,7 +1193,8 @@ def _due_status(scheduled: ScheduledItem, due_at: str | None) -> str:
     if scheduled.components.get("probe_eig", 0.0) > 0.0:
         return "probe"
     parsed_due = parse_utc(due_at)
-    now = SystemClock().now().astimezone(UTC)
+    if now is None:
+        now = SystemClock().now().astimezone(UTC)
     if parsed_due is not None and parsed_due <= now:
         return "due"
     return "later"

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 
 from typing import Any
 
-from learnloop.clock import utc_now_iso
+from learnloop.clock import SystemClock, utc_now_iso
 from learnloop.substrate.instrument_serving import (
     UNSERVABLE_ERROR_CODE,
     unservable_refusal,
@@ -13,7 +15,15 @@ from learnloop.content.proposals.proposals import queue_accepted_diagnostic_foll
 from learnloop.daily_plan.engine import plan_active
 from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
+from learnloop.router.decisions import (
+    build_today_offer_decision,
+    logging_enabled,
+    record_decision,
+)
 from learnloop.scheduling.scheduler import (
+    SELECTION_POLICY,
+    OfferTrace,
+    ScheduledItem,
     SchedulerSession,
     build_due_queue,
     deferred_cold_followups,
@@ -25,12 +35,17 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.goals import _nearest_active_goal
 from learnloop_sidecar.handlers.serializers import (
+    _due_status,
     latest_scheduler_explanation_dto,
     practice_item_detail,
     scheduled_item_dtos,
     scheduler_explanation_dto,
 )
-from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
+from learnloop_sidecar.handlers.teach_back import (
+    TEACH_BACK_PRACTICE_MODE,
+    filter_unready_teach_back_items,
+    teach_back_offerable,
+)
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.serving import refuse_unservable_item
@@ -118,6 +133,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     limit = params.limit
     if reentry_cap is not None:
         limit = reentry_cap if limit is None else min(limit, reentry_cap)
+    trace = offer_trace_for(vault, params.session_id)
     queue = build_due_queue(
         vault,
         repository,
@@ -127,16 +143,9 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             energy=params.energy,
         ),
         limit=limit,
+        offer_trace=trace,
     )
-    slate_id = queue[0].scheduler_slate_id if queue else None
-    # Teach-back items dead-end without their AI provider, so they are dropped
-    # from the offered queue while it is down. The filtered list is what
-    # finalize_scheduler_offer records as offered.
-    queue = filter_unready_teach_back_items(
-        vault, queue, grading_provider_override=ctx.grading_provider_override
-    )
-    repository.finalize_scheduler_offer(slate_id, [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id])
-    dtos = scheduled_item_dtos(vault, repository, queue)
+    queue, dtos = publish_offer(ctx, vault, repository, queue, trace=trace, surface="desktop_queue")
     slate = repository.latest_scheduler_slate_by_session(params.session_id) if params.session_id else None
     log_event(
         "scheduler_slate",
@@ -295,15 +304,238 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
     return practice_item_detail(vault, repository, params.practice_item_id)
 
 
+#: Today's sections in display order. Today focuses (and "Next" opens) the
+#: first item of the first non-empty one, which is the offer's served head.
+_SECTION_SPECS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("Due now", frozenset({"due", "followup"})),
+    ("Probe queue", frozenset({"probe"})),
+    ("Later today", frozenset({"later"})),
+)
+
+
 def _sections(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    specs = [
-        ("Due now", {"due", "followup"}),
-        ("Probe queue", {"probe"}),
-        ("Later today", {"later"}),
-    ]
     sections = []
-    for title, statuses in specs:
+    for title, statuses in _SECTION_SPECS:
         grouped = [item for item in items if item["dueStatus"] in statuses]
         if grouped:
             sections.append({"title": title, "items": grouped})
     return sections
+
+
+def _served_head(dtos: list[dict[str, Any]]) -> str | None:
+    for section in _sections(dtos):
+        if section["items"]:
+            return section["items"][0]["practiceItemId"]
+    return None
+
+
+# -- Router R1: every published Today offer is a logged decision ---------------
+
+
+def offer_trace_for(vault: Any, session_id: str | None) -> OfferTrace | None:
+    """A trace to fill when this build's offer will be logged, else None.
+
+    An offer without a session records no slate (nothing can be served from it
+    under an offer id), so it is not a logged decision.
+    """
+
+    if session_id is None or not logging_enabled(vault.config):
+        return None
+    return OfferTrace()
+
+
+def today_head_served(vault: Any) -> bool:
+    """Whether Today serves the queue's head (router R1's chosen candidate).
+
+    True on this branch: the legacy queue is Today, and Today focuses (and
+    "Next" opens) the first item of its first non-empty section. Daily-loop
+    DL1 merge: return ``not plan_active(vault)``. While the finite plan serves
+    Today, this list is the full list one key away from the plan (picks from it
+    go through ``plan_learner_pick``), so its builds are logged with no chosen
+    candidate (``not_served``) and every bind from it is a learner pick.
+    ``test_the_full_list_seam_follows_dl1s_plan_once_it_lands`` fails until
+    this reads the plan.
+    """
+
+    return True
+
+
+class _TeachBackReadiness:
+    """One teach-back readiness probe per published offer, run only if needed.
+
+    The served list's filter and the head rule's counterfactual offers share
+    it, so they never disagree and the AI clients are resolved once.
+    """
+
+    def __init__(self, ctx: SidecarContext, vault: Any) -> None:
+        self._ctx = ctx
+        self._vault = vault
+        self.value: bool | None = None
+
+    def __call__(self) -> bool:
+        if self.value is None:
+            self.value = teach_back_offerable(
+                self._vault, grading_provider_override=self._ctx.grading_provider_override
+            )
+        return self.value
+
+
+class _OfferHeadRule:
+    """Which item an offer shows first, for any composed order of the build.
+
+    The same steps that turn a build into the published list: ``limit`` (inside
+    the build's composed order), the teach-back readiness filter, the caller's
+    removals (a skipped item), then the sections. One ``now``, one read of the
+    item states and one readiness probe, shared with the published list.
+    """
+
+    def __init__(
+        self,
+        vault: Any,
+        *,
+        limit: int | None,
+        removed_ids: frozenset[str],
+        now: datetime,
+        states: Mapping[str, Any],
+        teach_back_ready: Callable[[], bool],
+    ) -> None:
+        self._vault = vault
+        self._limit = limit
+        self._removed = removed_ids
+        self._now = now
+        self._states = states
+        self._teach_back_ready = teach_back_ready
+
+    def _is_teach_back(self, scheduled: ScheduledItem) -> bool:
+        item = self._vault.practice_items.get(scheduled.practice_item_id)
+        return item is not None and item.practice_mode == TEACH_BACK_PRACTICE_MODE
+
+    def probe_readiness(self, orders: Any) -> None:
+        """Probe readiness once if any of ``orders`` would show a teach-back."""
+
+        for composed in orders:
+            items = list(composed)[: self._limit] if self._limit is not None else list(composed)
+            if any(self._is_teach_back(item) for item in items):
+                self._teach_back_ready()
+                return
+
+    def offered(self, composed: Any) -> list[ScheduledItem]:
+        items = list(composed)
+        if self._limit is not None:
+            items = items[: self._limit]
+        if any(self._is_teach_back(item) for item in items) and not self._teach_back_ready():
+            items = [item for item in items if not self._is_teach_back(item)]
+        return [item for item in items if item.practice_item_id not in self._removed]
+
+    def section(self, scheduled: ScheduledItem) -> str:
+        state = self._states.get(scheduled.practice_item_id)
+        return _due_status(scheduled, state.due_at if state is not None else None, now=self._now)
+
+    def head(self, composed: Any) -> str | None:
+        items = self.offered(composed)
+        for _title, statuses in _SECTION_SPECS:
+            for item in items:
+                if self.section(item) in statuses:
+                    return item.practice_item_id
+        return None
+
+
+def _in_progress_draft(repository: Any, session_id: str | None) -> dict[str, Any] | None:
+    """The session's saved, unsubmitted draft, if any (router R1's "continue")."""
+
+    if session_id is None:
+        return None
+    checkpoint = repository.fetch_session_checkpoint(session_id)
+    if not checkpoint:
+        return None
+    item_id = checkpoint.get("current_practice_item_id")
+    if not item_id or not str(checkpoint.get("current_answer") or "").strip():
+        return None
+    practice = (checkpoint.get("focus_block_state") or {}).get("practice") or {}
+    submission_id = practice.get("submissionId") if isinstance(practice, dict) else None
+    if submission_id and repository.practice_attempt_by_submission_id(str(submission_id)) is not None:
+        return None
+    return {"source": "draft", "practice_item_id": str(item_id), "submission_id": submission_id}
+
+
+def publish_offer(
+    ctx: SidecarContext,
+    vault: Any,
+    repository: Any,
+    queue: list[ScheduledItem],
+    *,
+    trace: OfferTrace | None,
+    surface: str,
+    removed_ids: frozenset[str] = frozenset(),
+) -> tuple[list[ScheduledItem], list[dict[str, Any]]]:
+    """Filter, serialize and publish one Today offer; returns (items, dtos).
+
+    Teach-back items dead-end without their AI provider, so they are dropped
+    from the offered queue while it is down; ``removed_ids`` are dropped too (a
+    skipped item). The resulting list is what ``finalize_scheduler_offer``
+    records as offered, and router R1's decision row commits with that receipt.
+    The list, its DTOs and the decision's head rule read the item states once
+    and probe teach-back readiness at most once, so the logged decision
+    describes exactly the list that was published.
+    """
+
+    slate_id = queue[0].scheduler_slate_id if queue else None
+    built = list(queue)
+    teach_back_ready = _TeachBackReadiness(ctx, vault)
+    queue = filter_unready_teach_back_items(vault, queue, offerable=teach_back_ready)
+    kept = {item.practice_item_id for item in queue}
+    unready = [item.practice_item_id for item in built if item.practice_item_id not in kept]
+    if removed_ids:
+        queue = [item for item in queue if item.practice_item_id not in removed_ids]
+    now = SystemClock().now().astimezone(UTC)
+    states = repository.practice_item_states()
+    dtos = scheduled_item_dtos(vault, repository, queue, now=now, item_states=states)
+    decision = None
+    if trace is not None and trace.slate_id is not None:
+        try:
+            head_served = today_head_served(vault)
+            head_rule = _OfferHeadRule(
+                vault, limit=trace.limit, removed_ids=removed_ids, now=now, states=states,
+                teach_back_ready=teach_back_ready,
+            )
+            # Readiness is a decision input: probe it now if any order the
+            # exploration could compose would show a teach-back.
+            head_rule.probe_readiness([outcome.composed for outcome in trace.outcomes])
+            decision = build_today_offer_decision(
+                trace,
+                offered=queue,
+                head_of=head_rule.head,
+                section_of=head_rule.section,
+                served_head=_served_head(dtos),
+                surface=surface if head_served else "full_list",
+                policy=SELECTION_POLICY,
+                in_progress=_in_progress_draft(repository, trace.session_id),
+                removed={
+                    "teach_back_provider_unready": unready,
+                    "skipped_by_learner": sorted(removed_ids),
+                },
+                inputs={"teach_back_ready": teach_back_ready.value},
+                head_served=head_served,
+            )
+        except Exception:  # logging never fails the offer
+            logging.getLogger(__name__).warning(
+                "router R1: offer decision for slate %s not logged", trace.slate_id, exc_info=True
+            )
+            decision = None
+    if slate_id is not None:
+        repository.finalize_scheduler_offer(
+            slate_id,
+            [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id],
+            entry_surface="desktop_queue",
+            router_decision=decision,
+        )
+    elif decision is not None:
+        # Nothing was published (an empty offer): the stop is still a decision.
+        try:
+            record_decision(repository, decision)
+        except Exception:  # pragma: no cover - logging never fails the offer
+            logging.getLogger(__name__).warning(
+                "router R1: empty-offer decision for slate %s not logged", trace.slate_id if trace else None,
+                exc_info=True,
+            )
+    return queue, dtos

@@ -17,6 +17,7 @@ checkpointed state, and linked to the graded attempt at finish.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
@@ -266,14 +267,22 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
     return _finish(ctx, vault, repository, params, state)
 
 
-def filter_unready_teach_back_items(vault, queue: list, *, grading_provider_override: str | None = None) -> list:
+def filter_unready_teach_back_items(
+    vault,
+    queue: list,
+    *,
+    grading_provider_override: str | None = None,
+    offerable: Callable[[], bool] | None = None,
+) -> list:
     """Drop teach_back items from a built queue when AI is unavailable for them.
 
     Handler-level only (never persisted): a teach-back conversation dead-ends
     without the naive-student provider AND without an AI grader (manual
     grading cannot grade a transcript), so the item is only offered when both
     halves are available. The readiness probes only run when the queue
-    actually contains a teach_back item.
+    actually contains a teach_back item. ``offerable`` replaces the probe with
+    the caller's own (router R1 shares one probe between this filter and the
+    offer's head rule).
     """
 
     def is_teach_back(entry) -> bool:
@@ -282,14 +291,27 @@ def filter_unready_teach_back_items(vault, queue: list, *, grading_provider_over
 
     if not any(is_teach_back(entry) for entry in queue):
         return list(queue)
+    ready = (
+        offerable()
+        if offerable is not None
+        else teach_back_offerable(vault, grading_provider_override=grading_provider_override)
+    )
+    if ready:
+        return list(queue)
+    return [entry for entry in queue if not is_teach_back(entry)]
+
+
+def teach_back_offerable(vault, *, grading_provider_override: str | None = None) -> bool:
+    """Both halves of a teach-back are available: the naive student and an AI grader."""
+
     _provider, runtime, client = ready_teach_back_provider(vault)
     if runtime.ready and client is not None:
         _grader, grading_runtime, grading_client = ready_grading_provider(
             vault, override=grading_provider_override
         )
         if grading_runtime.ready and grading_client is not None:
-            return list(queue)
-    return [entry for entry in queue if not is_teach_back(entry)]
+            return True
+    return False
 
 
 def _finish(
@@ -464,11 +486,14 @@ def _conversation_offer(repository, params, bound_offer: str | None) -> str | No
     if carried is None or carried == bound_offer:
         return bound_offer
     try:
+        # Only the conversation's first offer is the learner's pick; a later
+        # one (the item reopened from a refreshed list) is only validated.
         repository.bind_submission_offer(
             submission_id=None,
             session_id=params.session_id,
             practice_item_id=params.practice_item_id,
             scheduler_candidate_id=carried,
+            record_pick=bound_offer is None,
         )
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc

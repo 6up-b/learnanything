@@ -3,13 +3,13 @@ title: "task_blueprints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe77a530c3c0b21edbf1745a221603c75400d88f"
-source_commit_timestamp: "2026-10-12T22:23:09-04:00"
+source_commit: "19798a0cc2cb42f381c3ac28bbcc7c0ca9631ee1"
+source_commit_timestamp: "2026-10-12T22:43:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite task_blueprints"
   - "table task_blueprints"
-schema_head: 180
+schema_head: 181
 table_name: "task_blueprints"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 - `tests/test_golden_path_confirm.py`
 - `tests/test_golden_path_run.py`
 - `tests/test_reader_guidance.py`
+- `tests/test_router_staged_p2.py`
 - `tests/test_sidecar_golden_path_assessment.py`
 - `tests/test_task_blueprints.py`
 

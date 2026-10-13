@@ -1848,6 +1848,22 @@ class PlanConfig(BaseModel):
         return self
 
 
+class RouterConfig(BaseModel):
+    """Action router (spec_action_router_v1). R1: decision logging on today's paths.
+
+    ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
+    P2 decision and learner pick. It is not a serving change and acts at every
+    algorithm version; off stops the rows and nothing else.
+    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor
+    (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included (owner
+    decision D11), join the Today queue's seeded exploration. Off (or below
+    ``mvp-0.15``) serves exactly as ``mvp-0.14``.
+    """
+
+    log_decisions: bool = True
+    probe_tie_admission: bool = True
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1880,6 +1896,7 @@ class LearnLoopConfig(BaseModel):
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
+    router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)

@@ -900,7 +900,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change and no version
     # semantics change. Every snapshot moves only because the effective config
     # gains the key; all four were recomputed (defaults_fingerprint_for_version).
-    "mvp-0.9": "22a2fbcc543d0b12bfa35c8445571652417a4ccb3c3f5bfd9341fc01dd8e89ad",
+    # Router R1 adds the [router] section (modelled defaults only, left out of
+    # the decision-only template): log_decisions (decision logging, not a
+    # serving change, acts at every version) and probe_tie_admission (the
+    # mvp-0.15 kill switch, dormant below mvp-0.15). Built as mvp-0.12 and
+    # relabelled mvp-0.15 at its merge after DL1, where every snapshot was
+    # recomputed (defaults_fingerprint_for_version); they move only because
+    # the effective config gains the section, so mvp-0.9 to mvp-0.14 serving
+    # is unchanged.
+    "mvp-0.9": "7a41cd1e360503dc3cfc7a13157cd3d2eba37834e124da3b78ba6d8a9127cc98",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -915,7 +923,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.10": "46d889ccfdc069890aa99bfb3c2fde42ab7d3a57f1fde223ca25a16b340f80c8",
+    # Router R1's [router] section moves it too (see mvp-0.9).
+    "mvp-0.10": "b5cd25af44562a4e78ffa41c552e2d9ff4c13d3cdec71db566276e8ff31c86f3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -938,7 +947,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The stuck prompt's merge moves it too (see mvp-0.9; no serving change).
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2's recurrence.require_guard moves it too (see mvp-0.9).
-    "mvp-0.11": "2dbfffa08efd7d9c3f66cf31c63d3301cb20f37c7b1aa2af55547a8bf3ab3785",
+    # Router R1's [router] section moves it too (see mvp-0.9).
+    "mvp-0.11": "74dffa4c9c0a4b5c37af0fdb6c0138e4173688786d546196604fafa5900147c1",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -955,7 +965,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # DL1's merge moves it too (see mvp-0.9; no serving change).
     # Owner batch 2: the same-cause guard is advisory (recurrence.require_guard
     # = true restores the refusal); no serving change.
-    "mvp-0.12": "6eb4c39b4fb4f6b7a3e71bdc3ccb15423b49bd7007add6c63c169b94424ed0a2",
+    # Router R1's [router] section moves it too (see mvp-0.9).
+    "mvp-0.12": "982e38d2a52d4edb0cb9b3600a5a75966469c9747aa57d1fe3c1481924224b3d",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -967,9 +978,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # through the chain (under mvp-0.12's guard). New vaults start here (the
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
     # mvp-0.14 merged. DL1's merge moves it too (see mvp-0.9; no serving
-    # change).
+    # change). Router R1's [router] section moves it too (see mvp-0.9).
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.13": "cd5841032e3aab75eb1fbf01ea2939626ed028667a3b345ba644ad9d6075d95a",
+    "mvp-0.13": "718c929717120c4aaddc21989287d9d5297c691d03720c122f745b23982bde07",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -977,10 +988,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # goal-optional re-entry and reading blocks. Kill switch plan.enabled.
     # Built as mvp-0.12 and relabelled at its merge. Existing vaults reach it
     # by `learnloop upgrade` (default target) from mvp-0.13, or from mvp-0.9
-    # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults start
-    # here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
-    "mvp-0.14": "14b1e9f49c30238dffe84fa04ee5d4af26109a64be75689a67427bd40cb64138",
+    # to mvp-0.12 through the chain (under mvp-0.12's guard). New vaults
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.15 merged. Router R1's [router] section moves it
+    # too (see mvp-0.9).
+    "mvp-0.14": "d7ede6e4057f7af07847679994fa2dde29a16ab0ad7c87ce3c7bcffc009a57f0",
+    # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
+    # stuck prompt and plan plus probe near-ties (teach-back items included,
+    # owner decision D11) admitted to the Today queue's seeded exploration
+    # with a logged propensity. Kill switch router.probe_tie_admission
+    # (default on). Built as mvp-0.12 and relabelled at its merge. Existing
+    # vaults reach it by `learnloop upgrade` (default target) from mvp-0.14, or
+    # from mvp-0.9 to mvp-0.13 through the chain (under mvp-0.12's advisory
+    # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12).
+    "mvp-0.15": "5a1ebf081ccf4bf181d7e0ab57d14c8e47a43671ef14da12f100590b07aad786",
 }
 
 
