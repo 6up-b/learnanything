@@ -485,6 +485,7 @@ def _classified_pool(
         probe_cap_left=max(int(env.plan_config.project_probes_max_per_day) - probes_planned, 0),
         deadline_learning_object_ids=deadlines,
         open_problem_learning_object_ids=open_problems,
+        project_probe_value=_project_probe_valuer(env, probes_planned),
     )
     if reentry:
         pool = reentry_order(pool)
@@ -492,6 +493,44 @@ def _classified_pool(
     return _Pool(
         scheduled=list(scheduled), pool=pool, estimator=estimator, deadlines=deadlines, repair_rule=repair_rule
     )
+
+
+def _project_probe_valuer(env: PlanEnv, probes_planned: int) -> Callable[[Any, float, int], Mapping[str, Any]] | None:
+    """mvp-0.17 (``voi_stopping``, site ``project_probe``): value due project
+    probes instead of counting them; ``None`` keeps the former daily cap.
+
+    A project probe has no locked hypothesis set, so no next-action decision is
+    at stake: its information is the scheduler's ``probe_eig_total`` for the
+    item (LO-mastery and facet-recall entropy reduction, familiarity
+    discounted), converted to minutes and set against the plan's own estimate
+    of its minutes. The former cap's counterfactual counts the probes already
+    planned today plus this one's place in the former order.
+    """
+
+    from learnloop.diagnosis import voi_stopping as voi
+
+    if not voi.voi_stopping_active(env.vault.config, voi.SITE_PROJECT_PROBE):
+        return None
+    context = voi.VoiContext(env.vault, env.repository)
+    cap = int(env.plan_config.project_probes_max_per_day)
+
+    def value(scheduled: Any, est_minutes: float, order: int) -> Mapping[str, Any]:
+        components = getattr(scheduled, "components", {}) or {}
+        decision = voi.adapter_information_decision(
+            context,
+            voi.SITE_PROJECT_PROBE,
+            ref=scheduled.practice_item_id,
+            learning_object_id=scheduled.learning_object_id,
+            eig_nats=float(components.get("probe_eig_total", 0.0) or 0.0),
+            minutes=voi.MinutesEstimate(float(est_minutes), "plan_estimate"),
+            predicted_correct=components.get("predicted_correctness"),
+            cap_value=cap,
+            cap_count=int(probes_planned) + int(order),
+            context={"probes_planned_today": int(probes_planned)},
+        )
+        return decision.as_dict()
+
+    return value
 
 
 def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
@@ -1282,6 +1321,11 @@ def _boundary(
             for item in forced
         ],
     }
+    voi_decisions = [dict(item.voi) for item in context.pool if item.voi is not None]
+    if voi_decisions:
+        # mvp-0.17: the value-of-information decisions on today's due project
+        # probes (admitted or held back), logged with the block decision.
+        detail["voi_decisions"] = voi_decisions
     candidate = decision.candidate
     if candidate is None and not forced:
         _close(

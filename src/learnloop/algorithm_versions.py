@@ -135,6 +135,23 @@ PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"
 # live change behind its own switches, not version-gated.
 LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 
+# mvp-0.17 (value-of-information stopping, owner-directed 2026-10-12/13): on
+# top of mvp-0.16 (the chain stays linear: mvp-0.17 means the split PLUS
+# placement PLUS recurrence groups PLUS the stuck prompt PLUS the plan PLUS
+# probe ties PLUS the sooner check PLUS this). Two parts, one successor:
+# Part 1 lifts four count caps onto value of information (a probe episode
+# keeps asking, a further follow-up is queued, a teach-back is offered and a
+# due project probe enters the plan while the next observation's value pays
+# for its minutes; diagnosis.voi_stopping), kill switch
+# ``voi_stopping.enabled`` (per-site sub-switches); Part 2 makes the probe
+# hypothesis lane read the diagnoser's verdict through the diagnosis overlay
+# under split grading and leave out an event whose diagnosis is pending, kill
+# switch ``diagnosis.probe_lane_reads_diagnosis``. Both change what is SERVED,
+# not the projection, so it is another successor tag on the mvp-0.8
+# namespace. "mvp-0.17" is the branch's placeholder; expect relabelling at
+# its merge.
+VOI_STOPPING_ALGORITHM_VERSION = "mvp-0.17"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -151,6 +168,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     DAILY_PLAN_ALGORITHM_VERSION,
     PROBE_TIE_ALGORITHM_VERSION,
     LEARNER_TEXT_GAP_ALGORITHM_VERSION,
+    VOI_STOPPING_ALGORITHM_VERSION,
 )
 
 
@@ -213,6 +231,13 @@ PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION
 # gates must use this set, never equality against
 # LEARNER_TEXT_GAP_ALGORITHM_VERSION.
 LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
+
+# Versions whose serving values the four former count caps (behind
+# ``voi_stopping.enabled``) and whose probe hypothesis lane reads the diagnosis
+# overlay (behind ``diagnosis.probe_lane_reads_diagnosis``). Every later
+# successor keeps both; gates must use this set, never equality against
+# VOI_STOPPING_ALGORITHM_VERSION.
+VOI_STOPPING_VERSIONS: frozenset[str] = successors_from(VOI_STOPPING_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

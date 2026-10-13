@@ -942,7 +942,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # locked facets merge live too, each action naming its lock, with an undo.
     # Merged after learner-text gaps (mvp-0.16), where every snapshot was
     # recomputed (defaults_fingerprint_for_version); no successor.
-    "mvp-0.9": "05d3efcd76c93ae224bcdb815dce386472f295da04ab59f06e5b6a4131ea1717",
+    # Value-of-information stopping adds [voi_stopping] (modelled defaults
+    # only, left out of the decision-only template: the kill switch and one
+    # sub-switch per site) and diagnosis.probe_lane_reads_diagnosis /
+    # diagnosis.probe_lane_pending (Part 2's switch and pending rule). Both are
+    # dormant below mvp-0.17 (the algorithm version gates them), so mvp-0.9 to
+    # mvp-0.16 serving is unchanged; every snapshot moves only because the
+    # effective config gains the keys, and all were recomputed
+    # (defaults_fingerprint_for_version). "mvp-0.17" is a placeholder label.
+    "mvp-0.9": "7cd4d17eadaaa64a8a0cd4cab416f2df3b54b24e3aca4a67e59de0afe7ccdf0d",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -960,7 +968,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.10": "bbf236ea688fc7040694cdf878cc8421a9fa7892dfba9d381f8b1f84fa543cc2",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.10": "93c86dc400de0c292230e1168b08750176ae71ff90bbf6ea6fb1c04e5c757d82",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -986,7 +996,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.11": "76dd58fa8b3f0e1790598690723991326ac94d9e47528f5a75e5cac74c5993d7",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.11": "5c8a62a15affe91e1e6b450d732af0c758365c202f4dff1fa04867e7407d1355",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1006,7 +1018,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.12": "9d4908f8b028b9b81b45642faa44f148b0aca3aa0b76ccc94e6f18517916645b",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.12": "2ea0d7707e429dbb74e2417f0648cf71a88d98a96285da384a6269b7ac6e4087",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1021,7 +1035,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change). Router R1's [router] section moves it too (see mvp-0.9).
     # Learner-text gaps' [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.13": "2fc70438f48f90567d1107210c2f156660645a618e72999ecd2136c86a16477f",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.13": "0235f020793ec02e3a1e729974c081c42abec7e72dff0f155946710de099a04e",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1035,7 +1051,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # too (see mvp-0.9). Learner-text gaps' [learner_text_gaps] moves it too
     # (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.14": "748e350da1133b6d07183ae2a8b9cead02aec786200182c4eda18d7c032641c6",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.14": "2e2e08c06228dad9b9c3a7c70aaf50ad614a38483b59b04afa445229b197d3f2",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1047,7 +1065,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # owner decision 2026-10-12) until mvp-0.16 merged. Learner-text gaps'
     # [learner_text_gaps] moves it too (see mvp-0.9).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.15": "f96a114fb74aa9dc8a33fab3df4670c9d6ad98c4884465bba0d59f97d9add1b8",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.15": "5c3c67011828ff7ce17a84a90887365e13bc8db978b1874827a3f34a9adc088f",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1056,16 +1076,35 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # learner_text_gaps.sooner_check_enabled. Built as mvp-0.13 and relabelled
     # at its merge. Existing vaults reach it by `learnloop upgrade` (default
     # target) from mvp-0.15, or from mvp-0.9 to mvp-0.14 through the chain
-    # (under mvp-0.12's advisory guard). New vaults start here (the template's
-    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12). The rest of
-    # [learner_text_gaps] (modelled defaults only, left out of the
+    # (under mvp-0.12's advisory guard). New vaults started here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
+    # mvp-0.17 merged. The rest of [learner_text_gaps] (modelled defaults only, left out of the
     # decision-only template) and the unset learner_gap_judge /
     # learner_gap_reader / learner_gap_decider routes are live at every
     # version behind learner_text_gaps.enabled and their own switches (named
     # gaps, matches, "needed"-gated edges, created prerequisites as content,
     # holding-pen sightings, the gap targets the field loader reads).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.16": "2f77e9cd2c54cf95a7b507b0c4920de3df34a0c3e464672be5174c2378feafbd",
+    # Value-of-information stopping's [voi_stopping] and probe-lane keys move
+    # it too (see mvp-0.9; dormant below mvp-0.17).
+    "mvp-0.16": "0013e5ac671ae8f705eb1fabaac5250b005a6cd9e4ebf669f3bd2da00a13f049",
+    # mvp-0.17 (value-of-information stopping, owner-directed 2026-10-12/13; a
+    # placeholder label, expect relabelling at the merge): mvp-0.16's split,
+    # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
+    # check plus Part 1, four count caps lifted onto value of information
+    # (probe observations per session, further follow-ups per LO per session,
+    # further teach-backs per queue, due project probes per day: each served
+    # while its value pays for its minutes; kill switch voi_stopping.enabled,
+    # a sub-switch per site), and Part 2, the probe hypothesis lane reading
+    # the diagnoser's verdict through the diagnosis overlay and holding out a
+    # pending diagnosis (kill switch diagnosis.probe_lane_reads_diagnosis;
+    # diagnosis.probe_lane_pending = "hold_out"). No new constants: the value
+    # rule reads robust_composition's heuristic decision parameters. Existing
+    # vaults reach it by `learnloop upgrade` (default target) from mvp-0.16,
+    # or from mvp-0.9 to mvp-0.15 through the chain (under mvp-0.12's advisory
+    # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12).
+    "mvp-0.17": "518ce08c6bf62748a5c0d3ede75dbf5053c024a42032fb11b325134985400f85",
 }
 
 

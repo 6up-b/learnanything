@@ -3,8 +3,8 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
@@ -31,7 +31,6 @@ source_paths:
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +105,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.active_error_events_overlaid()`
 - `Repository.active_misconception_facet_ids()`
 - `Repository.insert_misconception()`
 - `Repository.misconception()`
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
+- `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
@@ -146,8 +147,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/independence_audit.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/learner/surfaced_beliefs.py`
-- `src/learnloop/tutor/durable_promotion.py`
-- `src/learnloop/tutor/promotions.py`
+- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

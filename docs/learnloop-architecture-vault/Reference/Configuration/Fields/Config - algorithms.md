@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.16"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/attempts/attempts.py:2493`; `src/learnloop/attempts/blind_grading.py:85` |
+| `algorithms.algorithm_version` | `"mvp-0.17"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/attempts/attempts.py:2493`; `src/learnloop/attempts/blind_grading.py:85` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

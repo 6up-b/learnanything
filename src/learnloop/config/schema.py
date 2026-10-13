@@ -1516,6 +1516,18 @@ class DiagnosisConfig(BaseModel):
     knn_limit: int = Field(default=8, ge=1, le=64)
     hybrid_keep: int = Field(default=6, ge=1, le=64)
     rrf_k: int = Field(default=60, ge=1)
+    # mvp-0.17 Part 2 (the Guide-fix audit's question 1, owner decision
+    # 2026-10-12/13): under split grading the probe hypothesis lane (the
+    # follow-up misconception gate's hypothesis set) reads the diagnoser's
+    # verdict through the diagnosis overlay instead of the blind grader's
+    # taxonomy prior. Dormant below mvp-0.17; off, the lane reads the stored
+    # events exactly as mvp-0.16 does.
+    probe_lane_reads_diagnosis: bool = True
+    # While an event's live diagnosis is pending: "hold_out" leaves it out of
+    # the lane until the diagnoser's verdict arrives (the recommended default);
+    # "keep_prior" admits it on the stored flag meanwhile. A failed or skipped
+    # diagnosis never arrives, so its event is read as stored either way.
+    probe_lane_pending: Literal["hold_out", "keep_prior"] = "hold_out"
 
 
 class RecurrenceBlockingCutoff(BaseModel):
@@ -2042,6 +2054,33 @@ class RouterConfig(BaseModel):
     probe_tie_admission: bool = True
 
 
+class VoiStoppingConfig(BaseModel):
+    """mvp-0.17 Part 1: four count caps lifted onto value of information.
+
+    Acts only on a vault at a value-of-information successor (``mvp-0.17`` or
+    later, ``VOI_STOPPING_VERSIONS``). ``enabled`` is the kill switch: off (or
+    below ``mvp-0.17``) the four former caps serve exactly as ``mvp-0.16``:
+    ``probe.episode.session_qualifying_observation_cap``,
+    ``scheduler.followup.max_interventions_per_lo_per_session``,
+    ``teach_back.session_cap`` and ``plan.project_probes_max_per_day``. Each
+    site has a narrower sub-switch that restores its own cap alone.
+
+    On, the next observation at each site is served while its value of
+    information pays for its minutes (``diagnosis.voi_stopping``): robust EVSI
+    and ``evsi.rank_feasible``'s stop rule where a next-action decision is at
+    stake, otherwise the robust EIG converted to minutes. The decision
+    parameters are the existing heuristic ones in
+    ``diagnosis.robust_composition`` (lambda_time, burden, the nat-to-minutes
+    scale, the robust quantile); there are no new constants here.
+    """
+
+    enabled: bool = True
+    probe_episodes: bool = True
+    followups: bool = True
+    teach_back: bool = True
+    project_probes: bool = True
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -2090,6 +2129,7 @@ class LearnLoopConfig(BaseModel):
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
     learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
+    voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
 
     @model_validator(mode="before")
     @classmethod

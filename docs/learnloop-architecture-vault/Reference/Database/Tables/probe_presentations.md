@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -159,6 +159,7 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_voi_stopping.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

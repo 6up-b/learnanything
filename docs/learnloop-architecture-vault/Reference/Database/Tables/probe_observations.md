@@ -3,8 +3,8 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/scheduling/voi_stopping.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary

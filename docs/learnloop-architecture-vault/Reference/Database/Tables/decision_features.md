@@ -3,8 +3,8 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
@@ -27,6 +27,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -90,6 +91,7 @@ Database triggers:
 
 ### Repository access surface
 
+- `Repository.active_error_events_overlaid()`
 - `Repository.decision_features()`
 - `Repository.find_record()`
 - `Repository.record_decision_features()`
@@ -110,6 +112,7 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
@@ -129,6 +132,7 @@ Database triggers:
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
+- `tests/test_voi_stopping.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

@@ -78,7 +78,7 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15 or mvp-0.16); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16 or mvp-0.17); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -110,12 +110,18 @@ def upgrade(
     mvp-0.14 vault (or an mvp-0.9 to mvp-0.13 vault through the chain; kill
     switch: ``router.probe_tie_admission = false``). Router decision logging
     (``router.log_decisions``) is not a serving change and runs at every
-    version. ``--to mvp-0.16`` (default, the latest successor) adds
-    learner-text gaps' sooner checks (a prerequisite gap named in the
-    learner's own text brings an assumed or maintenance LO's next check
-    forward) over an mvp-0.15 vault (or an mvp-0.9 to mvp-0.14 vault through
-    the chain; kill switch: ``learner_text_gaps.sooner_check_enabled =
-    false``)."""
+    version. ``--to mvp-0.16`` adds learner-text gaps' sooner checks (a
+    prerequisite gap named in the learner's own text brings an assumed or
+    maintenance LO's next check forward) over an mvp-0.15 vault (or an mvp-0.9
+    to mvp-0.14 vault through the chain; kill switch:
+    ``learner_text_gaps.sooner_check_enabled = false``). ``--to mvp-0.17``
+    (default, the latest successor) lifts four count caps onto value of
+    information (probe observations per session, further follow-ups per LO,
+    further teach-backs, project probes per day; kill switch
+    ``voi_stopping.enabled``) and makes the probe hypothesis lane read the
+    diagnoser's verdict (kill switch ``diagnosis.probe_lane_reads_diagnosis``)
+    over an mvp-0.16 vault (or an mvp-0.9 to mvp-0.15 vault through the
+    chain)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -155,11 +161,15 @@ def upgrade(
         from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
 
         result = upgrade_to_mvp016(_root(vault))
+    elif to == "mvp-0.17":
+        from learnloop.voi_stopping_upgrade import upgrade_to_mvp017
+
+        result = upgrade_to_mvp017(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15 or mvp-0.16."
+            "mvp-0.14, mvp-0.15, mvp-0.16 or mvp-0.17."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2102,19 +2112,50 @@ def misconceptions(
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
 ) -> None:
-    """List active error events, defaulting to misconceptions only."""
+    """List active error events, defaulting to misconceptions only.
+
+    On a split vault a blind-graded event's stored ``is_misconception`` is the
+    grader's taxonomy prior; the listing decides by the diagnoser's verdict
+    where its diagnosis is in force (``misconception_verdict``, with
+    ``verdict_source``). ``is_misconception`` keeps its stored meaning.
+    """
 
     loaded = load_vault(_root(vault))
     repository = _repository(loaded.root)
     events = repository.active_error_events()
+    # The diagnosis overlay (owner decision 2026-10-12/13): the same events,
+    # with a live diagnosis's verdict laid over blind-graded ones. Joint-graded
+    # events read as stored, so a joint vault lists exactly what it listed.
+    overlaid = {event.id: event for event in repository.active_error_events_overlaid()}
+    diagnosed = set(repository.live_causal_views(event.attempt_id for event in events if event.attempt_id))
+    pending = set(
+        repository.pending_live_diagnoses_for_active_errors(sorted({event.learning_object_id for event in events}))
+    )
+
+    def verdict(event) -> bool:
+        return bool(overlaid.get(event.id, event).is_misconception)
+
+    def verdict_source(event) -> str:
+        if event.attempt_id in diagnosed:
+            return "diagnosis"
+        if event.attempt_id in pending:
+            return "diagnosis_pending"
+        return "stored"
+
     if not all_errors:
-        events = [event for event in events if event.is_misconception]
+        events = [event for event in events if verdict(event)]
     rows = [
         {
             "id": event.id,
             "error_type": event.error_type,
             "title": (error_type.title if (error_type := loaded.error_types.get(event.error_type)) else None),
+            # Stored meaning, unchanged: the grader's verdict on a joint grade,
+            # the taxonomy prior on a blind grade.
             "is_misconception": event.is_misconception,
+            # Added (2026-10-13): the verdict the listing uses, and whose it is
+            # (diagnosis | diagnosis_pending | stored).
+            "misconception_verdict": verdict(event),
+            "verdict_source": verdict_source(event),
             "severity": event.severity,
             "learning_object_id": event.learning_object_id,
             "created_at": event.created_at,
@@ -2128,7 +2169,11 @@ def misconceptions(
         typer.echo("No active misconceptions." if not all_errors else "No active error events.")
         return
     for row in rows:
-        kind = "misconception" if row["is_misconception"] else "error"
+        kind = "misconception" if row["misconception_verdict"] else "error"
+        if row["verdict_source"] == "diagnosis":
+            kind += ", diagnosed"
+        elif row["verdict_source"] == "diagnosis_pending":
+            kind += ", diagnosis pending"
         typer.echo(
             f"{row['id']} {row['error_type']} ({kind}) severity={row['severity']:.2f} "
             f"lo={row['learning_object_id']} created={row['created_at']}"

@@ -3,8 +3,8 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
   - "src/learnloop/curriculum/golden_path_run.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
-  - "src/learnloop/diagnosis/causal_activity_policy.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
@@ -169,11 +169,11 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_instrument_servability_journeys.py`
+- `tests/test_mvp017_upgrade.py`
 - `tests/test_p2_acceptance.py`
 - `tests/test_p2_leakage_suite.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
-- `tests/test_probe_audit.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

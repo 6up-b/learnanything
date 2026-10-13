@@ -3,8 +3,8 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c1482f0751d26392a9576382bf230f8431aebbc8"
-source_commit_timestamp: "2026-10-13T01:34:56-04:00"
+source_commit: "11177f6ff2a29f93d1370d7b53e576e945cb6855"
+source_commit_timestamp: "2026-10-13T01:36:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
@@ -90,6 +90,7 @@ Indexes and uniqueness:
 - `Repository._active_error_rows()`
 - `Repository._insert_error_event()`
 - `Repository.active_error_events()`
+- `Repository.active_error_events_overlaid()`
 - `Repository.all_error_events_by_attempt()`
 - `Repository.attempt_ids_for_misconception()`
 - `Repository.find_record()`
@@ -145,12 +146,14 @@ Indexes and uniqueness:
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_migrations.py`
+- `tests/test_mvp017_upgrade.py`
 - `tests/test_probability_prep.py`
 - `tests/test_replay.py`
 - `tests/test_simulation.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_table_roles.py`
+- `tests/test_voi_stopping.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
@@ -158,8 +161,6 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
 - `tests/test_diagnostic_gate.py`
-- `tests/test_e2e_codex_mock.py`
-- `tests/test_guided_redo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

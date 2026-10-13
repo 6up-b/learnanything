@@ -28,6 +28,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_contract,
     episode_hypothesis_set,
     probe_serving_block_reason,
+    probe_value_block_reason,
     stop_diagnosing_and_teach,
 )
 from learnloop.learner.mastery import sigmoid
@@ -131,10 +132,20 @@ class PracticeScreen(Screen):
         hypothesis_set = episode_hypothesis_set(repository, episode)
         if hypothesis_set is None:
             return
+        # mvp-0.17 (voi_stopping): commit only while the observation's value
+        # of information pays for its minutes (the sidecar's rule).
+        value_reason, value_decision = probe_value_block_reason(
+            vault, repository, episode, self.practice_item.id
+        )
+        if value_reason is not None:
+            return
         # Shared slate-preferring commit: the presentation carries the same
         # §7.3 selection components and §13.3 shadow rankings as the sidecar.
         presentation = commit_item_presentation(
-            vault, repository, episode, self.practice_item, hypothesis_set
+            vault, repository, episode, self.practice_item, hypothesis_set,
+            extra_selection_components=(
+                {"voi_stopping": value_decision} if value_decision is not None else None
+            ),
         )
         if presentation is None:
             return

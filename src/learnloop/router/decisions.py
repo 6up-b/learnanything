@@ -329,7 +329,8 @@ def build_today_offer_decision(
     realized_ids = set(realized_rank)
     capped = [item_id for item_id in trace.greedy_item_ids if item_id not in realized_ids]
     if capped:
-        exclusions["teach_back_session_cap"] = capped
+        # mvp-0.17 names the value rule that dropped them; below it, the cap.
+        exclusions[getattr(trace, "teach_back_exclusion_reason", None) or "teach_back_session_cap"] = capped
     if trace.limit is not None:
         beyond = [
             item.practice_item_id
@@ -369,6 +370,11 @@ def build_today_offer_decision(
         # candidate here has a staged eligibility to log.
         "staged_eligibility": "not_evaluated_on_legacy_queue",
     }
+    voi_decisions = list(getattr(trace, "voi_decisions", None) or ())
+    if voi_decisions:
+        # mvp-0.17 (voi_stopping): every value-of-information stop/continue
+        # decision the build made, each with its forecast; absent below it.
+        detail["voi_decisions"] = voi_decisions
     # The decision's inputs (P4 §3.3): candidates with their planner values,
     # exclusions, the draw's design, the session context (budget, energy), the
     # configuration that shaped the build, and the caller's own inputs. Not the

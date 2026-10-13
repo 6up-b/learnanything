@@ -154,6 +154,10 @@ MODULE_INVENTORY: dict[str, str] = {
     # (spec_p4 §6, U-023, design §E).
     "action_loss": "src/learnloop/scheduling/action_loss.py",
     "evsi": "src/learnloop/scheduling/evsi.py",
+    # mvp-0.17 -- four count caps lifted onto value of information. Its value
+    # rule reads robust_composition's and evsi's heuristic decision parameters;
+    # its own constants only shape estimates and receipts.
+    "voi_stopping": "src/learnloop/diagnosis/voi_stopping.py",
     "predictive_targets": "src/learnloop/scheduling/predictive_targets.py",
     # P4 step 4 -- dispersion/interleaving constraints + the single randomization
     # layer (spec_p4 §9, U-024, design §E).
@@ -697,6 +701,22 @@ _reg_const("action_loss:DEFAULT_INTERVENTION_MINUTES", "threshold", owner="actio
            "the loss table inspectable on an un-instrumented vault. The EVSI-per-minute ranking's "
            "loss magnitudes reuse the already-registered robust_composition LAMBDA_TIME/BURDEN_COST; "
            "this is the only new duration constant.")
+_reg_const("voi_stopping:DURATION_PSEUDO_OBSERVATIONS", "prior", owner="voi_stopping",
+           rationale="mvp-0.17: pseudo-observations behind a duration prior when a candidate's "
+           "minutes come from its practice mode's median shrunk toward the authored estimate; DL1's "
+           "own constant (daily_plan/estimates.PSEUDO_OBSERVATIONS) repeated because serving never "
+           "imports the plan. Sizes the minutes cost the value of information must pay.")
+_reg_const("voi_stopping:DEFAULT_LATENCY_CAP_MINUTES", "numerical", kind="structural",
+           owner="voi_stopping",
+           rationale="winsorizing cap on one latency (minutes) when a vault config has no "
+           "plan.latency_cap_minutes; the plan's own default, a numerical clamp.")
+_reg_const("voi_stopping:_ROUND_DIGITS", "numerical", kind="structural", owner="voi_stopping",
+           rationale="decimal places a value-of-information receipt keeps for probabilities and "
+           "nats; display of the logged forecast only.")
+_reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structural",
+           owner="voi_stopping",
+           rationale="how many candidates' summaries one value-of-information receipt keeps (the "
+           "best keeps its full forecast); receipt size only, never a decision.")
 _reg_const("evsi:PERTURBATION_DELTA", "threshold", owner="evsi",
            rationale="§6.5 bounded per-row probability perturbation (±0.15) for the robustness stress "
            "test; reuses the standing ±0.15 robustness axis. A winner/action flip under it abstains.",

@@ -47,19 +47,19 @@ CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     assert PLACEMENT_ALGORITHM_VERSION == "mvp-0.11"
-    # Learner-text gaps' sooner check (mvp-0.16) is the latest successor; it
+    # Value-of-information stopping (mvp-0.17) is the latest successor; it
     # keeps placement.
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.16"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.17"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
     # A linear chain: the split is live at mvp-0.10 and later, placement at
     # mvp-0.11 and later; mvp-0.9 has neither.
     assert DIAGNOSIS_SPLIT_VERSIONS == frozenset(
-        {"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16"}
+        {"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17"}
     )
     assert PLACEMENT_VERSIONS == frozenset(
-        {"mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16"}
+        {"mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17"}
     )
 
 
@@ -68,6 +68,7 @@ def test_split_and_placement_activate_at_the_right_versions(tmp_path):
     expected = {
         "mvp-0.9": (False, False), "mvp-0.10": (True, False), "mvp-0.11": (True, True), "mvp-0.12": (True, True),
         "mvp-0.13": (True, True), "mvp-0.14": (True, True), "mvp-0.15": (True, True), "mvp-0.16": (True, True),
+        "mvp-0.17": (True, True),
     }
     for version, (split, placement) in expected.items():
         set_algorithm_version(paths, version)
@@ -172,7 +173,7 @@ def test_new_vaults_start_at_the_latest_version(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.16"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.17"
     assert placement_active(fresh) and split_grading_active(fresh) and recurrence_active(fresh)
     assert stuck_prompt_active(fresh) and plan_active(fresh)
     from learnloop.placement.state import gap_sooner_checks_active

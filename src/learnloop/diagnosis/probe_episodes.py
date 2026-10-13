@@ -1335,8 +1335,13 @@ def probe_serving_block_reason(
 
     if cap_lifted:
         return None
+    from learnloop.diagnosis.voi_stopping import SITE_PROBE_EPISODE, voi_stopping_active
+
     cap = vault.config.probe.episode.session_qualifying_observation_cap
-    if session_id is not None and cap > 0:
+    # mvp-0.17 (voi_stopping): the session cap is lifted onto value of
+    # information; each episode's next observation is valued instead
+    # (``probe_value_block_reason``). Off, the count cap serves exactly.
+    if session_id is not None and cap > 0 and not voi_stopping_active(vault.config, SITE_PROBE_EPISODE):
         if repository.qualifying_probe_observation_count_for_session(session_id) >= cap:
             return "session_cap_reached"
     ceiling = vault.config.probe.episode.onboarding_practice_ceiling_observations
@@ -1347,6 +1352,49 @@ def probe_serving_block_reason(
         ):
             return "onboarding_practice_ceiling"
     return None
+
+
+def probe_value_block_reason(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: "ProbeEpisodeRecord",
+    practice_item_id: str,
+    *,
+    session_id: str | None = None,
+    cap_lifted: bool = False,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """mvp-0.17 (voi_stopping, site ``probe_episode``): may this item be the
+    episode's next observation?
+
+    Returns ``(reason, decision)``: ``reason`` is
+    ``"value_below_minutes_cost"`` when the item's value of information does
+    not pay for its minutes (``None`` otherwise), and ``decision`` is the
+    logged forecast. ``(None, None)`` below mvp-0.17, with the site off, under
+    a calibration session's lift, or when the item is not an eligible
+    instrument (the caller's own path decides that).
+    """
+
+    from learnloop.diagnosis import voi_stopping as voi
+
+    if cap_lifted or not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
+        return None, None
+    hypothesis_set = episode_hypothesis_set(repository, episode)
+    if hypothesis_set is None:
+        return None, None
+    live = episode_posterior(vault, repository, episode, hypothesis_set=hypothesis_set)
+    if live is None:
+        return None, None
+    candidates = eligible_instruments(
+        vault, repository, episode, hypothesis_set=hypothesis_set, posterior=live.posterior
+    )
+    if not any(entry.item.id == practice_item_id for entry in candidates):
+        return None, None
+    decision = voi.probe_episode_decision(
+        voi.VoiContext(vault, repository), episode, candidates, live.posterior, session_id=session_id
+    )
+    if decision.admits(practice_item_id):
+        return None, decision.as_dict()
+    return "value_below_minutes_cost", decision.as_dict()
 
 
 def commit_item_presentation(

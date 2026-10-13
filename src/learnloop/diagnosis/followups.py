@@ -336,7 +336,16 @@ def evaluate_intervention_followup(
             repository.update_attempt_surprise_actions(attempt_id, suppressed_actions=suppressed, gate_diagnostics=gate)
             return _decision(False, None, suppressed[0], [], suppressed, intent=None, gate_diagnostics=gate)
         would_suppress.append("no_time")
-    if session_interventions_for_lo >= config.max_interventions_per_lo_per_session:
+    # mvp-0.17 (voi_stopping, site followup_intervention): an intervention
+    # beyond the per-LO session cap is no longer suppressed by count; it is
+    # queued below while its value of information pays for its minutes.
+    from learnloop.diagnosis.voi_stopping import SITE_FOLLOWUP, voi_stopping_active
+
+    voi_further = (
+        session_interventions_for_lo >= config.max_interventions_per_lo_per_session
+        and voi_stopping_active(vault.config, SITE_FOLLOWUP)
+    )
+    if session_interventions_for_lo >= config.max_interventions_per_lo_per_session and not voi_further:
         if not manual_override:
             suppressed = [f"{INTERVENTION_ACTION}:session_cap_reached:{learning_object_id}"]
             triggered = [f"{INTERVENTION_ACTION}:{reason}:{practice_item_id}" for reason in triggered_reasons]
@@ -375,6 +384,36 @@ def evaluate_intervention_followup(
         # Always tag manual triggers so the scheduler/tuning queries can tell a
         # user-forced follow-up apart from one the automatic policy chose.
         triggered.append(f"{INTERVENTION_ACTION}:manual_trigger:{practice_item_id}")
+    voi_body: dict[str, Any] | None = None
+    if voi_further:
+        voi_decision = _further_intervention_value(
+            vault,
+            repository,
+            selection=selection,
+            learning_object_id=learning_object_id,
+            session_interventions_for_lo=session_interventions_for_lo,
+            session_id=session_id,
+            clock=clock,
+        )
+        voi_body = voi_decision.as_dict() if voi_decision is not None else None
+        stopped = voi_decision is None or voi_decision.decision != "continue"
+        if stopped:
+            # No candidate to value (a further intervention never records a
+            # generation need), or the candidate's value does not pay for its
+            # minutes: the former cap's suppression, with the value's reason.
+            reason = "voi_no_candidate" if voi_decision is None else "voi_value_below_minutes_cost"
+            if not manual_override:
+                suppressed = [f"{INTERVENTION_ACTION}:{reason}:{learning_object_id}"]
+                gate = _gate("suppressed", reason, [reason])
+                if voi_body is not None:
+                    gate["voi_stopping"] = voi_body
+                repository.update_attempt_surprise_actions(
+                    attempt_id, triggered_actions=triggered, suppressed_actions=suppressed, gate_diagnostics=gate
+                )
+                return _decision(
+                    False, None, suppressed[0], triggered, suppressed, intent=intent, gate_diagnostics=gate
+                )
+            would_suppress.append(reason)
     if candidate is None:
         now = _now_iso(clock)
         need_target_facets = selection.diagnostic_gate_facets or target_facets
@@ -402,6 +441,8 @@ def evaluate_intervention_followup(
         )
         suppressed = [f"{INTERVENTION_ACTION}:no_suitable_item:{need_id}"]
         gate = _gate("need_recorded", "no_suitable_item", would_suppress)
+        if voi_body is not None:
+            gate["voi_stopping"] = voi_body
         repository.update_attempt_surprise_actions(
             attempt_id, triggered_actions=triggered, suppressed_actions=suppressed, gate_diagnostics=gate
         )
@@ -431,6 +472,10 @@ def evaluate_intervention_followup(
 
     triggered.append(f"{INTERVENTION_ACTION}:queued:{candidate.id}")
     gate = _gate("queued", triggered_reasons[0], would_suppress)
+    if voi_body is not None:
+        # mvp-0.17: the continue decision that admitted this further
+        # intervention, with its forecast.
+        gate["voi_stopping"] = voi_body
     repository.update_attempt_surprise_actions(attempt_id, triggered_actions=triggered, gate_diagnostics=gate)
     _record_followup_decision_features(
         vault,
@@ -1890,6 +1935,88 @@ def _choose_intervention_item(
         eligible_slate_size=len(eligible),
         unservable_skips=unservable_skips,
         administered_diagnostic_skips=administered_diagnostic_skips,
+    )
+
+
+def _further_intervention_value(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    selection: InterventionSelection,
+    learning_object_id: str,
+    session_interventions_for_lo: int,
+    session_id: str | None,
+    clock: Clock | None,
+) -> Any:
+    """mvp-0.17 (b): value the selected further intervention, or None.
+
+    The learner's rival hypotheses about the LO are its probe hypothesis set
+    (``build_hypothesis_set``: mastered, unfamiliar and the active or
+    resolving misconceptions, the set the misconception gate already values
+    with), and the candidate's ``P(outcome | hypothesis)`` is that adapter's
+    (``hypothesis_conditionals``). Its information is that EIG plus the
+    slate's facet EIG over the open facet states (discounted for familiarity
+    as the slate discounts it), without the slate's ranking-only boosts.
+    Where the plausible hypotheses route to different repairs ("which repair
+    to try; repair or move on") a next-action decision is at stake, and robust
+    EVSI with ``rank_feasible``'s stop rule decides.
+    """
+
+    from learnloop.diagnosis import voi_stopping as voi
+    from learnloop.diagnosis.probes import hypothesis_conditionals
+
+    candidate = selection.candidate
+    if candidate is None:
+        return None
+    row = next(
+        (entry for entry in selection.slate if str(entry.get("practice_item_id")) == candidate.id),
+        {},
+    )
+    familiarity = float(row.get("familiarity_discount", 1.0) or 0.0)
+    facet_eig = sum(float(value) for value in (row.get("facet_eig_by_facet") or {}).values())
+    rival_misconceptions = "misconception_eig" in row
+    hypothesis_set = build_hypothesis_set(vault, repository, learning_object_id, clock=clock)
+    rubric = vault.rubric_for_item(candidate)
+    discrimination, discriminated_ids = item_registry_discrimination(
+        repository, vault, candidate, rubric, hypothesis_set
+    )
+    item_a, item_b, probe_irt = resolve_item_irt(vault, candidate)
+    conditionals = hypothesis_conditionals(
+        hypothesis_set,
+        candidate,
+        rubric,
+        item_a=item_a,
+        item_b=item_b,
+        irt=probe_irt,
+        discrimination=discrimination,
+        discriminated_ids=discriminated_ids,
+    )
+    context = voi.VoiContext(vault, repository)
+    value = voi.Candidate(
+        ref=candidate.id,
+        minutes=context.item_minutes(candidate),
+        members=(conditionals,),
+        extra_eig_nats=familiarity * facet_eig,
+        detail={
+            "facet_eig_nats": round(facet_eig, 8),
+            "familiarity_discount": round(familiarity, 8),
+            "misconception_eig_nats": row.get("misconception_eig"),
+            "open_facets": list(selection.open_facets),
+            "active_misconception_ids": list(selection.active_misconception_ids or []),
+        },
+    )
+    return voi.value_candidates(
+        context,
+        voi.SITE_FOLLOWUP,
+        [value],
+        prior=hypothesis_set.prior,
+        learning_object_id=learning_object_id,
+        former_cap=voi.former_cap(
+            voi.SITE_FOLLOWUP,
+            value=int(vault.config.scheduler.followup.max_interventions_per_lo_per_session),
+            count=int(session_interventions_for_lo),
+        ),
+        context={"session_id": session_id, "rival_misconceptions_open": rival_misconceptions},
     )
 
 

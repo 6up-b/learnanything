@@ -850,7 +850,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "trace_evidence": "opportunistic trace evidence and learner-burden limits",
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
-    "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
+    "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.17's probe hypothesis lane reading the diagnoser's verdict (with its pending rule)",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
@@ -859,6 +859,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
+    "voi_stopping": "value-of-information stopping (mvp-0.17): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information",
 }
 
 

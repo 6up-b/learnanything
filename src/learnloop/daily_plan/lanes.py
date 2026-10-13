@@ -32,7 +32,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
@@ -133,6 +133,9 @@ class PoolItem:
     due: bool = False
     goal_frontier: bool = False
     deadline: bool = False
+    #: mvp-0.17: a due project probe's value-of-information decision (its
+    #: forecast), when the plan valued it instead of counting it.
+    voi: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -168,8 +171,13 @@ def classify_item(
     probe_slot_available: bool,
     deadline: bool = False,
     open_problem: bool | None = None,
+    probe_value: Mapping[str, Any] | None = None,
 ) -> PoolItem:
     """§6.1: the first lane that matches, in order.
+
+    ``probe_value`` (mvp-0.17) is a due project probe's value-of-information
+    decision: when given, the probe takes the maintain lane exactly when that
+    decision continues (its value pays for its minutes), whatever the count.
 
     ``open_problem`` says whether the item's LO has an open diagnosed problem
     (owner decision 2026-10-12). ``None`` means the diagnosis split is off and
@@ -198,7 +206,17 @@ def classify_item(
     if float(components.get("assumed_check", 0.0) or 0.0) > 0.0 and (check is None or check.kind != "project_probe"):
         check = ScheduledCheck("assumed_check")
     if check is not None:
-        if check.kind == "project_probe" and not probe_slot_available:
+        if check.kind == "project_probe" and probe_value is not None:
+            base["voi"] = dict(probe_value)
+            if probe_value.get("decision") != "continue":
+                return PoolItem(
+                    lane=None,
+                    reason="a due project probe whose value does not pay for its minutes today",
+                    check_kind=check.kind,
+                    check_priority=check.priority,
+                    **base,
+                )
+        elif check.kind == "project_probe" and not probe_slot_available:
             return PoolItem(lane=None, reason="a due project probe beyond today's probe limit", check_kind=check.kind, check_priority=check.priority, **base)
         reasons = {
             "assumed_check": ASSUMED_CHECK_REASON,
@@ -243,12 +261,21 @@ def classify_pool(
     probe_cap_left: int,
     deadline_learning_object_ids: Iterable[str] = (),
     open_problem_learning_object_ids: Iterable[str] | None = None,
+    project_probe_value: Callable[[Any, float, int], Mapping[str, Any]] | None = None,
 ) -> list[PoolItem]:
     """Classify the scheduler's ranked list, in rank order (§6.1).
 
     ``open_problem_learning_object_ids`` are the LOs with an open diagnosed
     problem (the repair lane, owner decision 2026-10-12); ``None`` while the
     diagnosis split is off, when repair falls back to the recency rule.
+
+    ``project_probe_value`` (mvp-0.17, ``voi_stopping``) values a due project
+    probe: ``(scheduled item, its estimated minutes, its index among today's
+    due probes in the former cap's order) -> decision``. With it there is no
+    count cap: every probe whose value pays for its minutes takes the maintain
+    lane, the probes ordered among themselves by value per minute, and the
+    plan's finite minutes bound how many are planned. Without it the former
+    cap (``probe_cap_left``) serves exactly.
     """
 
     requested = set(requested_ids)
@@ -265,6 +292,10 @@ def classify_pool(
         key=lambda pair: (-checks[pair[1]].priority, pair[0]),
     )
     probe_slots = {item_id for _index, item_id in probes[: max(int(probe_cap_left), 0)]}
+    values: dict[str, Mapping[str, Any]] = {}
+    if project_probe_value is not None:
+        for order, (index, item_id) in enumerate(probes):
+            values[item_id] = project_probe_value(scheduled_items[index], estimate(item_id), order)
     pool = []
     for rank, scheduled in enumerate(scheduled_items):
         item_id = scheduled.practice_item_id
@@ -280,9 +311,34 @@ def classify_pool(
                 probe_slot_available=item_id in probe_slots,
                 deadline=scheduled.learning_object_id in deadline_los,
                 open_problem=None if open_problems is None else scheduled.learning_object_id in open_problems,
+                probe_value=values.get(item_id),
             )
         )
+    if values:
+        pool = _order_probes_by_value(pool)
     return pool
+
+
+def _order_probes_by_value(pool: list[PoolItem]) -> list[PoolItem]:
+    """Admitted project probes take their own positions in value-per-minute
+    order (then the former order: priority, rank); every other item keeps its
+    place. The lanes pack in pool order, so the best probe per minute is
+    planned first and the plan's minutes decide how many fit."""
+
+    slots = [index for index, item in enumerate(pool) if item.check_kind == "project_probe" and item.lane is not None]
+    if len(slots) < 2:
+        return pool
+
+    def value_per_minute(item: PoolItem) -> float:
+        best = (item.voi or {}).get("best") or {}
+        minutes = float(((best.get("minutes") or {}).get("minutes")) or item.est_minutes or 1e-6)
+        return float(best.get("evsi_robust_minutes") or 0.0) / max(minutes, 1e-6)
+
+    ordered = sorted((pool[index] for index in slots), key=lambda item: (-value_per_minute(item), -item.check_priority, item.rank))
+    reordered = list(pool)
+    for index, item in zip(slots, ordered):
+        reordered[index] = item
+    return reordered
 
 
 def reentry_order(pool: Sequence[PoolItem]) -> list[PoolItem]:

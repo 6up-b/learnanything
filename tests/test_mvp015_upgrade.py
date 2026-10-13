@@ -67,9 +67,10 @@ CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 def test_probe_tie_successor_keeps_every_predecessor():
     assert PROBE_TIE_ALGORITHM_VERSION == "mvp-0.15"
-    # Learner-text gaps' sooner check (mvp-0.16) followed it and keeps it.
-    assert SUCCESSOR_CHAIN[-2] == PROBE_TIE_ALGORITHM_VERSION
-    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16"})
+    # Learner-text gaps' sooner check (mvp-0.16) and value-of-information
+    # stopping (mvp-0.17) followed it and keep it.
+    assert SUCCESSOR_CHAIN[-3] == PROBE_TIE_ALGORITHM_VERSION
+    assert PROBE_TIE_VERSIONS == frozenset({"mvp-0.15", "mvp-0.16", "mvp-0.17"})
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.
     for versions in (
@@ -90,6 +91,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.14": (True, True, True, False),
         "mvp-0.15": (True, True, True, True),
         "mvp-0.16": (True, True, True, True),
+        "mvp-0.17": (True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
