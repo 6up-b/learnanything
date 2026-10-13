@@ -111,6 +111,23 @@ Added in the continuation (§9): the draft left these as an owner question, but 
 
 The library search (only the query reaches a model), the reader guide plan (deterministic, no model) and the embedding backfill (exam text is embedded for search, not for teaching) do not ask the predicate. Reading a source in the Reader is the learner's choice and stays open, held-out units included: the owner rule's last clause allows for the learner having seen exam material, and §2.4 (shown material never becomes an exam item or a cold check) and §8 Q5 (an item exposed after its reservation) cover what that means for the exam.
 
+### 2.8 UX Phase 1's exam paths (composed at the landing onto main)
+
+UX Phase 1 landed on main first and composed its exam paths with main's corpus predicates (`docs/reviews/ux-phase1.md`, "Landing onto main", check 4). At this stage's landing they read the one predicate, so there is exactly one exam and held-out test:
+
+| Caller | Via | What it does |
+|---|---|---|
+| `source_retrieval/corpus.source_exam_exclusions` (one book's exam material before its first study map) | `exam_exclusions` → `exam_material` | now the predicate itself. Main's version added the book's own held-out units through `_held_out_exclusions` (gone with the old corpus predicates) to an `exam_exclusions` that read source-set members only; the predicate's rule 3 reads every unit selection, in a source set or not, so nothing is added. `source_id` / `revision_id` stay in the signature (the material is vault-wide; the caller reads its own extraction) |
+| `content/pipeline/add_source.exam_material_units` → `_choose_scope` (callers: the automatic build job, `preview_auto_build` / `learnloop sources build-preview`, and every `request_auto_build`: Add, first run's "Build now" and "whole book", reading builds, retries) | `source_exam_exclusions` | an automatic build's scope never takes an exam unit or a held-out unit, and an exam book (whole) builds nothing. The build's model calls are its inventory and synthesis jobs; synthesis rechecks at run time through `_collect_inputs` (§2.1) |
+| `daily_plan/engine._exam_material` → `daily_plan/reading.next_reading_target` (U4's reading step, `plan.reading_from_furthest` on) | `exam_exclusions` | the step never offers an exam or held-out section and fails closed (no step) when the predicate cannot be read; DL1's selection (the switch off) never reads it |
+
+What the predicate adds on these paths, against main's composition (each test failed on main's code, §10):
+- an outline role pick `exam` (rule 1, the import-batch path's role before any study map): the whole book is exam material and an automatic build takes nothing from it;
+- a held-out unit of a book in no source set: main's reading step offered it, since main's `exam_exclusions` read held-out units of source-set members only;
+- the predicate's other rules: marks projected across revisions (Codex F2), held-out assessment signals (F3), split children resolved to their own blocks.
+
+Not an exam test (unchanged): Add's "past exam or problem set" option. It sets the book's `reader_enabled = false` and the automatic build skips the book (`problem_set`): the learner's own content choice, which cannot tell an exam from a problem set and marks neither. Such a book is outside the library scope (`library_scope` reads reader-enabled sources only) and has no role for the teaching scopes (`teaching_scope` excludes role-less sources), so no model context reads it. Route rules (`mvp-0.20`, the grader's own-route rules) and value-of-information stopping (`mvp-0.21`) read no source text: they change how an answer is graded and how many probes, follow-ups, teach-backs and project probes are served, never which source material a model sees. Their serves go through the same doors (§2.3, `refuse_held_out_item`; the routine exclusions).
+
 ## 3. The five gaps
 
 | Gap | Before (base) | Fix | Test (failed on the base) |
@@ -192,3 +209,47 @@ On `sources/exam-protection`, base main `e8d261405`:
 | this record | `docs/reviews/exam-protection.md` |
 
 The implement step was interrupted by a machine reboot after `7c495260f`, with this record an uncommitted draft. The continuation reviewed the committed diff against the draft and the predicate's callers (a grep of every caller of `exam_material`, `exam_withheld`, `exam_exclusions`, `teaching_exclusions`, `held_out_spans`, `build_held_out_inventory`, `cold_administration_open`, `shown_items` and `refuse_exam_reserved_pick` matches §2), found the Reader's model contexts still showing held-out material to a model, closed that (§2.6), and ran the gate (§7).
+
+## 10. Landing onto main
+
+**Branch:** `merge/exam-onto-main` (worktree `learnanything-merge4`), from main `21440c9cf` (`mvp-0.21`, migrations to 201, head fixture `fixtures/migration_head_201`). **Phase 1 commits:** `389d9e0b2` the `--no-ff` merge of `sources/exam-protection` (`6ab938e33`, not modified) with the conflict resolution and the two semantic-conflict fixes the merge needs to run · `a997d9ca9` UX Phase 1's exam paths composed, with three landing tests · `a5300a0ac` F7 · `9b36e4f0e` the regenerated references · this section. **Phase 2** (pending): main again once the Decider migration (`mvp-0.22`) lands, the full gate and parity.
+
+Main had gained, since the branch's base `e8d261405`: UX Phase 1 (migrations 198-199: automatic builds, `corpus.source_exam_exclusions`, the reading step's exam skip, consent), the route rules in the grader (`mvp-0.20`; the separate proof check deleted), the EVSI multi-family study (offline) and value-of-information stopping with voi-v2 (`mvp-0.21`, migrations 200-201, head fixture `migration_head_201`).
+
+### Versioning
+
+No migration and no successor, as on the branch (§6, Codex F6): `goals.held_out_selection` is a live switch at every version, `mvp-0.20` and `mvp-0.21` included. `SUCCESSOR_CHAIN` is main's (latest `mvp-0.21`).
+
+### Conflicts and how they were composed
+
+| Where | Resolution |
+|---|---|
+| `config/template.py` | Main's narrative (UX Phase 1, route rules, VOI) plus the exam-protection note on every version, `mvp-0.20` and `mvp-0.21` included. All thirteen snapshots (`mvp-0.9`..`mvp-0.21`) recomputed from the composed defaults (`defaults_fingerprint_for_version`), the template's `.pyc` cleared; each moves only because the effective config gains the key |
+| Generated references (369 files) | Main's in the merge, regenerated after (`9b36e4f0e`) |
+| Auto-merged, both sides kept | `config/schema.py`, `content/pipeline/jobs.py`, `content/synthesis/source_set_synthesis.py`, `db/repositories.py`, `reader/reader_requests.py`, `scheduling/scheduler.py`, `source_retrieval/corpus.py`, the sidecar's `handlers/practice.py` |
+
+Semantic conflicts, fixed in the merge commit:
+- `corpus.source_exam_exclusions` (UX Phase 1) called `_held_out_exclusions`, which the branch removed with main's old corpus predicates, so the first automatic build would have raised `NameError`. It is now the predicate itself (§2.8).
+- `test_exam_protection_review.py::test_replay_never_reads_the_switch` named `migration_head_197`; it names main's `migration_head_201`.
+
+### Composition checks
+
+1. **Exams on UX's paths** (§2.8). The automatic build's scope and U4's reading step read the one predicate. Every automatic build entry point (Add, first run's "Build now" and "whole book", reading builds, retries, `learnloop sources build-preview`) plans through `_choose_scope`. Add's "past exam or problem set" option is not an exam test and reaches no model context (§2.8).
+2. **Route rules and VOI.** Neither reads source text (no IR, block, corpus or retrieval read in the grader, `proof_check`, `voi_stopping`, `voi_forecasting` or the probe and follow-up changes). VOI changes how many probes, follow-ups, teach-backs and project probes are served, and those serves still go through the routine exclusions and the session-serve door (`get_next_probe_item` is a read-only peek; the serve is `get_practice_item`).
+3. **Migration 193's comment** (§4.2). `migration_head_201` was built from main's migration file and keeps the old comment in its stored DDL, as §4.2 expected of a database that already applied 193; the next head-fixture rebuild picks it up.
+4. **Defaults.** One new effective leaf (`goals.held_out_selection`): 805 leaves in 48 sections. No CLI help change (`tests/test_cli_help_snapshot.py --write` left the snapshot as it was).
+
+### F7 (Codex final verify, job `20261013-185937-C44IdZ`)
+
+`exam_report()` returned the stored report only for a completed session. A sitting closed because every item was set aside (`abandoned`, its report `closed_reason: every_item_withdrawn` with the withdrawn items, their reasons and the note: re-review F5) fell through to the live progress view, which reads set-aside items for in-progress sittings only (`session_withdrawn_items`' status guard), so it said `withdrawn_items: []`, `withdrawn_note: None`. It now returns the persisted report for a completed or an abandoned session (`a5300a0ac`). Test: `test_the_report_of_an_automatically_closed_sitting_is_its_closure_report`. It failed on the merge before the fix (a rebuilt progress view with `already_started`, `withdrawn_items: []`) and passes after.
+
+### Tests (phase 1)
+
+- **`tests/test_exam_protection_landing.py`** (new, 3 tests): the build scope is the predicate's material; an outline role pick `exam` builds nothing; the reading step never offers a held-out section of a book in no source set. **Fail-first:** run against a `git archive` of main's `src/` and `migrations/` (`-o pythonpath=fixtures-local/tmp/basemain/src`; a probe confirmed `corpus` was imported from the archive): **3 failed**. The first failed on the missing module. The second failed because main's `exam_material_units` returned `frozenset()` for an exam-picked book, so it was built. The third failed because main's `exam_exclusions` was empty for a held-out mark outside every source set, so the step offered the held-out section.
+- **Targeted run** (`-n 8`, `TMPDIR` the worktree's `fixtures-local/tmp`): 122 files, **1767 passed** (10 min 50 s). The files: exam (protection, review, landing, pool, session, calibration, seeding, readiness), UX Phase 1 (landing and the other ten), the reading-step switch, daily plan (11), Reader (17), tutor (6), quick check, ingest jobs, leakage, PF generation, source exercise import, source-set synthesis, source retrieval (9), find_sources, compare, contamination, sources-merge composition, facet authority (3), learner picks, sidecar exams, queue and teach-back, certification cold probe, remediation cold retry, scheduler (4), practice-index admission, instructional layering, source-service spend, teach-back, placement (7), route rules, VOI (4), shadow rebuild, rebuild orchestrator, config refactor, the eleven `mvp0*_upgrade` files, CLI help snapshot and architecture.
+- `uv run lint-imports --no-cache`: 17 contracts kept, 0 broken.
+- References: `db_generate_reference.py` at head 201 (319 table notes, 805 leaves in 48 sections; prose counts 804 → 805 by hand); `db_validate_reference.py` errors `[]`; `validate_vault.py` passed (1100 notes). `git diff --check` clean.
+
+### Phase 2
+
+Pending: merge the then-current main (the Decider migration, `mvp-0.22`), the full gate (lint-imports, `pytest -n auto`, the durability lane, frontend and cargo only if `apps/` differs from main) and parity on backup-API copies of `fixtures/linear_algebra` and `fixtures/probability` (main against the merge, each migrated by its own code: `rebuild --shadow --json`, `doctor`).
