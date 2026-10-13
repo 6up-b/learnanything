@@ -388,7 +388,8 @@ class _Caller:
     def __init__(self):
         self.calls_by_role: dict[str, int] = {}
 
-    def call(self, entry, *, prompt, prompt_version, result_model, output_tokens, candidates=0, pairs=0):
+    def call(self, entry, *, prompt, prompt_version, result_model, output_tokens, candidates=0, pairs=0,
+             retry_truncated=True):
         from learnloop.ai.transport import execute_structured_operation
 
         self.calls_by_role[entry.role] = self.calls_by_role.get(entry.role, 0) + 1
@@ -475,3 +476,287 @@ def test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged(tmp_path):
         report = compare.run_compare(vault, request=request, caps=caps, clients={B1_WRITER_ROLE: _Writer()},
                                      embedding_clients={"qwen/qwen3-embedding-8b": embedder})
         assert report["status"] == "complete", report
+
+
+# -- owner batch 2 (2026-10-12): B1 fixes found in the owner's real run ----------------------
+
+
+import types  # noqa: E402
+
+from learnloop.ai.errors import AIOutputTruncated  # noqa: E402
+from learnloop.ops import embedding_compare as compare  # noqa: E402
+from learnloop.ops import pf_calls  # noqa: E402
+
+from tests.openai_fakes import install_fake_openai  # noqa: E402
+
+QWEN = "qwen/qwen3-embedding-8b"
+
+
+class _NamedWriter:
+    """A metered-or-subscription writer whose model and effort are its identity."""
+
+    provider_name = "fake"
+
+    def __init__(self, model="writer-a", *, effort=None, provider_type="codex_sdk", fail_on=()):
+        self.model = model
+        self.provider_type = provider_type
+        self.profile = types.SimpleNamespace(type=provider_type, model=model, reasoning_effort=effort,
+                                             base_url=None, thinking=None, response_format=None, max_tokens=None)
+        self.fail_on = set(fail_on)
+        self.calls = 0
+
+    def supports(self, capability):
+        return True
+
+    def complete(self, request):
+        self.calls += 1
+        if self.calls in self.fail_on:
+            raise AIOutputTruncated("fake exhausted its output budget")
+        return MisconceptionHypothesis(misconception=f"{self.model} says: adds the numerators and the denominators")
+
+
+def _harness(vault, tmp_path, *, out="o1", writer=None, views=("raw", "hypothesis"), dry_run=False,
+             writer_output_tokens=None, embedder=None, **kwargs):
+    register_suites(compare.SUITES, role_tasks=pf_calls.ROLE_TASKS)
+    request = compare.CompareRequest(
+        suite="b1", output_dir=tmp_path / out, benchmark_dir=tmp_path / "eedi", models=(QWEN,), dims=(16,),
+        views=views, dry_run=dry_run, writer_output_tokens=writer_output_tokens,
+    )
+    caps = SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=200, max_total_tokens=2_000_000,
+                     max_estimated_usd=1.0)
+    clients = {B1_WRITER_ROLE: writer} if writer is not None else None
+    return compare.run_compare(vault, request=request, caps=caps, clients=clients,
+                               embedding_clients={QWEN: embedder or FakeEmbeddingClient(dims=16)}, **kwargs)
+
+
+def _cache_rows(tmp_path, out="o1"):
+    path = tmp_path / out / "b1_hypotheses.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_b1_hypothesis_cache_is_keyed_by_the_writer_and_its_settings(tmp_path):
+    """2a: a rerun with a new writer (model, effort or output budget) never reuses old text."""
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    first = _NamedWriter("writer-a")
+    assert _harness(vault, tmp_path, writer=first)["status"] == "complete"
+    assert first.calls == 4
+    rows = _cache_rows(tmp_path)
+    assert {row["writer"]["model"] for row in rows} == {"writer-a"}
+    second = _NamedWriter("writer-b")
+    report = _harness(vault, tmp_path, writer=second)
+    assert second.calls == 4, "a new writer model writes its own hypotheses"
+    assert report["results"]["writer"]["model"] == "writer-b"
+    again = _NamedWriter("writer-a")
+    _harness(vault, tmp_path, writer=again)
+    assert again.calls == 0, "the same writer reuses its own cache"
+    effort = _NamedWriter("writer-a", effort="low")
+    _harness(vault, tmp_path, writer=effort)
+    assert effort.calls == 4, "a new reasoning effort is a new writer setting"
+    budget = _NamedWriter("writer-a")
+    _harness(vault, tmp_path, writer=budget, writer_output_tokens=4000)
+    assert budget.calls == 4, "a new output budget is a new writer setting"
+
+
+def test_b1_ignores_cache_rows_without_a_writer(tmp_path):
+    """2a: rows from before the fix name no model; they are ignored, not reused."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.diagnosis.recurrence.benchmarks import B1_PROMPT_VERSION, load_eedi
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    _manifest, _misconceptions, cases = load_eedi(tmp_path / "eedi")
+    out = tmp_path / "o1"
+    out.mkdir()
+    with (out / "b1_hypotheses.jsonl").open("w", encoding="utf-8") as handle:
+        for case in cases:
+            key = content_key({"prompt_version": B1_PROMPT_VERSION, "case": dict(case)})
+            handle.write(json.dumps({"key": key, "misconception": "old text from another writer"}) + "\n")
+    writer = _NamedWriter("writer-a")
+    report = _harness(vault, tmp_path, writer=writer)
+    assert report["status"] == "complete" and writer.calls == 4
+    assert report["results"]["writer"]["cached"] == 0
+
+
+def test_b1_markdown_renders_the_results_table(tmp_path):
+    """2b: the harness's .md shows recall@25 / MAP@25 per method, model and view."""
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    report = _harness(vault, tmp_path, writer=_NamedWriter())
+    assert report["status"] == "complete", report
+    text = (tmp_path / "o1" / report["report_files"][1]).read_text(encoding="utf-8")
+    assert "Grader model" not in text
+    assert "| Method | Model | View | recall@25 | MAP@25 |" in text
+    raw = report["results"]["bm25"]["raw"]
+    assert f"| BM25 | - | raw | {raw['recall@25']} | {raw['map@25']} |" in text
+    assert f"| embedding (centred) | {QWEN} | hypothesis |" in text
+    assert f"| hybrid | {QWEN} | raw |" in text
+
+
+def test_b3_markdown_renders_its_table_on_the_harness(tmp_path):
+    _paths, vault, repository = _bench_vault(tmp_path)
+    register_suites(compare.SUITES, role_tasks=pf_calls.ROLE_TASKS)
+    request = compare.CompareRequest(suite="b3", output_dir=tmp_path / "o3", models=(QWEN,))
+    report = compare.run_compare(vault, request=request, caps=CAPS, embedding_clients={QWEN: FakeEmbeddingClient(dims=16)})
+    assert report["status"] == "complete", report
+    text = (tmp_path / "o3" / report["report_files"][1]).read_text(encoding="utf-8")
+    assert "| Model | AUC |" in text and "Grader model" not in text
+
+
+def test_b1_writer_output_budget_defaults_to_2000_and_is_planned(tmp_path):
+    """2d: the writer's output budget is configurable, in the plan and the estimate."""
+
+    from learnloop.diagnosis.recurrence.benchmarks import b1_prompt, load_eedi, writer_tokens
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    _manifest, _misconceptions, cases = load_eedi(tmp_path / "eedi")
+    default = _harness(vault, tmp_path, dry_run=True)
+    assert default["status"] == "dry_run", default
+    role = default["plan"]["roles"][B1_WRITER_ROLE]
+    assert default["plan"]["writer"]["output_tokens"] == 2000
+    assert role["output_tokens"] == 2000 * 4
+    assert role["tokens"] == sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis, 2000) for case in cases)
+    small = _harness(vault, tmp_path, dry_run=True, writer_output_tokens=500)
+    assert small["plan"]["writer"]["output_tokens"] == 500
+    assert small["plan"]["roles"][B1_WRITER_ROLE]["tokens"] == role["tokens"] - 4 * 1500
+
+
+def test_a_truncated_writer_call_is_a_failed_case_not_a_failed_run(tmp_path):
+    """2d: one long answer is recorded as a failed case (not retried, not cached);
+    it counts as a miss in the hypothesis view and the run completes."""
+
+    _paths, vault, _repository = _bench_vault(tmp_path)
+    _eedi(tmp_path / "eedi")
+    writer = _NamedWriter("writer-a", fail_on={2})
+    report = _harness(vault, tmp_path, writer=writer)
+    assert report["status"] == "complete", report
+    assert writer.calls == 4, "the truncated case is not retried"
+    summary = report["results"]["writer"]
+    assert summary["failed_cases"] == 1 and summary["failed_by_error"] == {"AIOutputTruncated": 1}
+    assert summary["written"] == 3
+    assert report["results"]["bm25"]["hypothesis"]["n"] == 4, "a failed case is a miss, not dropped"
+    assert report["usage"]["charged"]["subscription"]["retries"] == 0
+    text = (tmp_path / "o1" / report["report_files"][1]).read_text(encoding="utf-8")
+    assert "1 of 4" in text and "failed" in text
+    # A rerun asks again for the failed case only.
+    rerun = _NamedWriter("writer-a")
+    again = _harness(vault, tmp_path, writer=rerun)
+    assert rerun.calls == 1 and again["results"]["writer"]["failed_cases"] == 0
+
+
+def _openrouter_writer(paths, *, effort="low"):
+    """Point the diagnosis route (B1's writer) at a metered OpenRouter profile."""
+
+    text = (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    head, marker, tail = text.partition("[ai.routing]\n")
+    text = head + marker + 'diagnosis = "b1_writer"\n' + tail
+    text += (
+        '\n[ai.providers.b1_writer]\ntype = "openrouter"\nmodel = "openai/gpt-6-luna"\n'
+        'api_key_env = "OPENROUTER_API_KEY"\nresponse_format = "json_object"\n'
+        + (f'reasoning_effort = "{effort}"\n' if effort else "")
+    )
+    (paths.root / "learnloop.toml").write_text(text, encoding="utf-8")
+    return load_vault(paths.root)
+
+
+def _completion(content, *, finish_reason="stop", prompt_tokens=120, completion_tokens=30, cost=0.0002):
+    return types.SimpleNamespace(
+        choices=[types.SimpleNamespace(finish_reason=finish_reason, message=types.SimpleNamespace(content=content))],
+        usage={"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "cost": cost},
+        model="openai/gpt-6-luna-20261001",
+    )
+
+
+def _hypothesis_json(text="Adds the numerators and adds the denominators."):
+    return json.dumps({"misconception": text})
+
+
+def test_the_openrouter_writer_carries_its_effort_and_budget_and_the_bill_is_the_headline(tmp_path, monkeypatch):
+    """2c and 2d on the owner's path: a configured OpenRouter writer gets the
+    profile's reasoning effort and the writer budget on the wire; the report
+    leads with the provider-reported bill and keeps the reservation-based
+    "charged" figure as cap accounting; the dry run sees the cache the run wrote."""
+
+    paths, _vault, _repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths)
+    _eedi(tmp_path / "eedi")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    fake = install_fake_openai(monkeypatch, *[_completion(_hypothesis_json()) for _ in range(4)])
+    report = _harness(vault, tmp_path, input_price_per_million=0.4, output_price_per_million=1.6)
+    assert report["status"] == "complete", report
+    requests = fake.instances[0].requests
+    assert len(requests) == 4
+    assert all(request["max_tokens"] == 2000 for request in requests)
+    assert all(request["extra_body"] == {"reasoning": {"effort": "low"}} for request in requests)
+    assert report["results"]["writer"]["settings"]["reasoning_effort"] == "low"
+    billed = report["usage"]["billed"]["metered"]
+    assert billed["usd"] == pytest.approx(4 * 0.0002)
+    assert billed["requests_reporting_cost"] == 4
+    assert billed["requests"] > 4, "the embedding requests report no cost and are counted as such"
+    charged = report["usage"]["charged"]["metered"]["estimated_usd"]
+    assert charged > billed["usd"]
+    assert report["pricing"]["basis"] == "input_output"
+    text = (tmp_path / "o1" / report["report_files"][1]).read_text(encoding="utf-8")
+    assert "Billed (provider-reported)" in text and "Charged (cap accounting" in text
+    assert text.index("Billed (provider-reported)") < text.index("Charged (cap accounting")
+    # The dry run computes the writer identity from config exactly as the run did.
+    plan = _harness(vault, tmp_path, dry_run=True, input_price_per_million=0.4, output_price_per_million=1.6)
+    assert plan["plan"]["roles"][B1_WRITER_ROLE]["cached"] == 4
+    assert plan["plan"]["roles"][B1_WRITER_ROLE]["calls"] == 0
+
+
+def test_a_length_finish_from_openrouter_is_one_failed_case(tmp_path, monkeypatch):
+    paths, _vault, _repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths, effort=None)
+    _eedi(tmp_path / "eedi")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    responses = [_completion(_hypothesis_json()) for _ in range(4)]
+    responses[1] = _completion('{"misconception": "an unfinished', finish_reason="length", completion_tokens=2000)
+    fake = install_fake_openai(monkeypatch, *responses)
+    report = _harness(vault, tmp_path, price_per_million=1.6)
+    assert report["status"] == "complete", report
+    assert len(fake.instances[0].requests) == 4, "the truncated case is not retried"
+    assert "extra_body" not in fake.instances[0].requests[0], "no effort on the profile, none on the wire"
+    assert report["results"]["writer"]["failed_by_error"] == {"AIOutputTruncated": 1}
+    # The truncated response was still paid for: it is in the bill.
+    assert report["usage"]["billed"]["metered"]["usd"] == pytest.approx(4 * 0.0002)
+    assert report["pricing"]["basis"] == "single_rate_upper_bound"
+
+
+def test_split_pricing_admits_less_than_a_single_upper_bound_rate(tmp_path, monkeypatch):
+    paths, _vault, _repository = _bench_vault(tmp_path)
+    vault = _openrouter_writer(paths)
+    _eedi(tmp_path / "eedi")
+    single = _harness(vault, tmp_path, dry_run=True, price_per_million=1.6)
+    split = _harness(vault, tmp_path, dry_run=True, input_price_per_million=0.4, output_price_per_million=1.6)
+    assert single["status"] == split["status"] == "dry_run"
+    assert split["estimate"]["metered"]["estimated_usd"] < single["estimate"]["metered"]["estimated_usd"]
+    assert single["pricing"]["basis"] == "single_rate_upper_bound"
+    with pytest.raises(ValueError, match="both"):
+        _harness(vault, tmp_path, dry_run=True, input_price_per_million=0.4)
+    with pytest.raises(ValueError, match="not both"):
+        _harness(vault, tmp_path, dry_run=True, price_per_million=1.6, input_price_per_million=0.4,
+                 output_price_per_million=1.6)
+
+
+def test_the_cli_takes_the_writer_budget_and_split_prices(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, _vault, _repository = _bench_vault(tmp_path)
+    _openrouter_writer(paths)
+    _eedi(tmp_path / "eedi")
+    result = CliRunner().invoke(app, [
+        "recurrence", "bench", "--vault", str(paths.root), "--suite", "b1", "--benchmark", str(tmp_path / "eedi"),
+        "--output", str(tmp_path / "cli"), "--model", QWEN, "--dims", "16", "--dry-run", "--json",
+        "--writer-output-tokens", "800", "--input-price-per-million", "0.4", "--output-price-per-million", "1.6",
+    ])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    assert report["plan"]["writer"]["output_tokens"] == 800
+    assert report["pricing"] == {"basis": "input_output", "input_per_million": 0.4, "output_per_million": 1.6}
