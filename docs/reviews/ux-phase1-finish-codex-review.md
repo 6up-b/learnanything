@@ -66,7 +66,7 @@ The one-instant check closes the race that was found without adding that loop. S
 
 ## Open question
 
-- **Q-F1** (low; behaviour unchanged by this pass). A request deferred behind work the learner then cancels is not acted on until one of these happens: the Reader reaches the next section, the next start, or anything else wakes the worker. `cancel_batch` does not wake it. Waking it there would immediately re-plan the chapter whose work the learner just cancelled. So this pass leaves it alone. Recommended default: keep as is.
+- **Q-F1** (low; behaviour unchanged by this pass; *settled by `reading-hardening.md`, part 1: a cancel settles the book's reading request, and a periodic sweep replaces every wake-up*). A request deferred behind work the learner then cancels is not acted on until one of these happens: the Reader reaches the next section, the next start, or anything else wakes the worker. `cancel_batch` does not wake it. Waking it there would immediately re-plan the chapter whose work the learner just cancelled. So this pass leaves it alone. Recommended default: keep as is.
 
 ## Gate
 

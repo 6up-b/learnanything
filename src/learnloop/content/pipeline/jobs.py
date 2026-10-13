@@ -2946,8 +2946,21 @@ class ReadingSweep:
     deferred: int = 0
     #: Acting failed (recorded with its backoff by the act, when it could be).
     failed: int = 0
-    #: The earliest retry time still to come (ISO UTC), if any.
-    next_due_at: str | None = None
+    #: The earliest retry time still to come, if any.
+    next_due_at: datetime | None = None
+
+
+def _reading_due_at(retry_at: str | None) -> datetime | None:
+    """When a pending reading request is due: its retry time, or ``None``
+    (due now) when it has none or one that does not parse, so no stored
+    value can keep a request from ever being due."""
+
+    if not retry_at:
+        return None
+    try:
+        return parse_utc(str(retry_at))
+    except (TypeError, ValueError):
+        return None
 
 
 class ActiveIngestJobError(RuntimeError):
@@ -3225,12 +3238,12 @@ class DurableIngestJobs:
         from learnloop.content.pipeline import add_source
 
         moment = now or self.reading_now()
-        at = _iso(moment)
         sweep = ReadingSweep()
         for request in self.repository.pending_reading_requests():
-            retry_at = request["retry_at"]
-            if retry_at is not None and retry_at > at:
-                sweep.next_due_at = retry_at if sweep.next_due_at is None else min(sweep.next_due_at, retry_at)
+            due_at = _reading_due_at(request["retry_at"])
+            if due_at is not None and due_at > moment:
+                if sweep.next_due_at is None or due_at < sweep.next_due_at:
+                    sweep.next_due_at = due_at
                 continue
             try:
                 outcome = add_source.act_on_reading_request(self, request["source_id"], now=moment)
@@ -3269,9 +3282,8 @@ class DurableIngestJobs:
         time comes first."""
 
         delay = float(self.READING_SWEEP_SECONDS)
-        due = parse_utc(sweep.next_due_at) if sweep.next_due_at else None
-        if due is not None:
-            delay = min(delay, max((due - self.reading_now()).total_seconds(), 0.0))
+        if sweep.next_due_at is not None:
+            delay = min(delay, max((sweep.next_due_at - self.reading_now()).total_seconds(), 0.0))
         return delay
 
     def _reading_sweep_loop(self) -> None:
@@ -3298,18 +3310,17 @@ class DurableIngestJobs:
                 continue
             try:
                 sweep = self.sweep_reading_requests()
+                if not sweep.failed:
+                    failures = 0
+                    delay = self._reading_sweep_delay(sweep)
+                    continue
+                delay = self._reading_sweep_delay(sweep)
             except Exception:  # noqa: BLE001 - the sweep outlives any failed pass
-                logging.getLogger(__name__).warning("the reading sweep's scan failed; retrying", exc_info=True)
-                sweep = None
-            if sweep is None or sweep.failed:
-                failures += 1
-                backoff = float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16)
-                delay = min(delay, backoff)
-                if sweep is not None:
-                    delay = min(delay, self._reading_sweep_delay(sweep))
-                continue
-            failures = 0
-            delay = self._reading_sweep_delay(sweep)
+                logging.getLogger(__name__).warning("the reading sweep's pass failed; retrying", exc_info=True)
+            # A failed scan, or an act whose failure may not even be recorded:
+            # try again soon, backing off up to the pace. Never "nothing due".
+            failures += 1
+            delay = min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
 
     def _settle_reading_for_cancel(self, batch_id: str) -> None:
         """A cancel answers the reading requests of the books whose work it

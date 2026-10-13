@@ -139,7 +139,7 @@ So the hand-over says "Getting this PDF ready", a scan or a two-page handout is 
 
 - **D21.** A place to read on from (a resume, a section from Contents) is put at the top of the view; a cited or annotated passage is still centred. This refines round 2's R6 and F4 ("centred once its page is drawn"), which still hold for the passage itself.
 - **D22.** In the original PDF, a section's check is offered at the section's last page, reached by the learner's own reading in this visit. A resume or a jump never offers it, whether the check is new or left from an earlier visit. This answers half of Q-N for the leftover case.
-- **D23.** The learner-facing name of the per-book privacy choice (spec §6.4, Q4: "Keep this book on this computer") is now "Never send this book to an AI". The behaviour, the `keep_local` column and the API are unchanged.
+- **D23.** The learner-facing name of the per-book privacy choice (spec §6.4, Q4: "Keep this book on this computer") is now "Never send this book to an AI". The behaviour, the `keep_local` column and the API are unchanged. *(Retired with the choice itself by the owner, 2026-10-13: `reading-hardening.md`, part 3.)*
 - **D24.** A PDF's kind is "PDF" until its text says "book" (more than 10 pages) or "paper". This extends D18.
 - **D25.** "No questions for this book yet · Build them as you read"; details offer "the whole book at once".
 - **D26.** "Open in Imports & builds" → "See how it was added and built", until Phase 2's Under the hood exists.
@@ -174,7 +174,7 @@ Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`.
 
 ## Open questions for the owner
 
-- **Q-U.** Is "Never send this book to an AI" the right name for the per-book privacy choice (D23), or should the spec's "Keep this book on this computer" come back with a few words saying what it means?
+- **Q-U.** Is "Never send this book to an AI" the right name for the per-book privacy choice (D23), or should the spec's "Keep this book on this computer" come back with a few words saying what it means? *(Moot: the owner retired the choice on 2026-10-13.)*
 - **Q-V.** A PDF is a "PDF" up to 10 pages (D24). Is 10 the right line between a handout and a book?
 - **Q-W (merge).** Migrations 186 (`add_book_state`) and 187 (`reading_request_revision`) were both built on this branch, after main's own 186. The merge renumbers both after main's head. It also rebuilds `migration_head_*` from main's head plus both, and updates the names in the 11 tests, 2 scripts and the reference. The placeholder algorithm tag `mvp-0.15` relabels as Q-T says. *Done at the landing on main: 186 became 198 and 187 became 199, and the head fixture is `migration_head_199` (`ux-phase1.md`, "Landing onto main").*
 - Still open from earlier rounds: Q-M, Q-N (keyboard reading; D22 settles the leftover-check half), Q-O, Q-P, Q-Q and Q-S.

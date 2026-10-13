@@ -492,7 +492,7 @@ Every choice that today's Add flow asks for, with the redesigned default and whe
 | Inventory output budget per unit; *no LearnLoop token ceiling* | The recommended budget (12,000). Spend caps bound the total | Settings → Advanced → Token budgets |
 | Brief (outcome, depth, practice timing, topics, notation) | The default brief; practice *as you read* | Book card → *details ▸ → Focus and depth* |
 | Reader on/off (QuickAdd, staging) | On | *Add → More options → This is a past exam or problem set* (turns it off) |
-| External-AI consent checkbox per stage (QuickAdd confirm) | **Asked once, when an AI is connected** (§6.6) | Settings → AI → *What leaves this computer* · per book: *details ▸ → Keep this book on this computer* |
+| External-AI consent checkbox per stage (QuickAdd confirm) | **Asked once, when an AI is connected** (§6.6) | Settings → AI → *What leaves this computer* |
 | Confirm & build, after reviewing scope, role and token estimate (QuickAdd) | Builds automatically once extraction finishes. Asks only when the build is unusually costly (§6.6) | Book card → *details ▸ → Build questions for the whole book* |
 | Accept each proposal (Proposals screen) | Study maps that pass the checks **apply themselves**, with undo (§6.5) | Under the hood → Study-map changes |
 | Import vs. "＋ create study map" vs. outline & select vs. collections (Ingest) | One verb: **Add** | Under the hood → Imports & builds keeps the deliberate path |
@@ -525,7 +525,7 @@ Today a quick-add build ends at "Study-map proposal ready for review" (`content/
 - This replaces the per-build checkbox list (`QuickAddDialog.tsx:502`).
 - It is recorded in vault config with the provider and date, so the audit trail survives.
 - If a later action would send something new (audio to a transcription service, a whole PDF to a native-PDF model), that action asks once, in place.
-- A book can opt out (*Keep this book on this computer*). Its questions then need a local route, or none are built.
+- **No per-book opt-out** (owner, 2026-10-13: it is fine to send books to an AI, and a per-book opt-out was not asked for). This draft's *Keep this book on this computer* (shipped in Phase 1 as *Never send this book to an AI*) is retired: no control in Add or book details, no refusal at any boundary. The `source_artifacts.keep_local` column it used stays and nothing reads it; `learnloop doctor` names a book that still has it set (`source:retired_keep_local`). See `docs/reviews/reading-hardening.md`, part 3.
 
 **Money.** Spend caps (the existing `SpendBudget`) bound everything.
 - A build whose estimate is above a threshold (open question Q5: default $1 per build, or more than 25% of the remaining daily cap) pauses before it runs. The book card shows one line: *Building questions for all 24 chapters would cost about $3.10 · Build as I read (recommended) · Build all now*.
@@ -770,7 +770,6 @@ Wireframe W3:
 **The card's `details ▸` holds the receipts and controls:**
 - *Use as…* (role) and *Subject*;
 - *Focus and depth* (the brief) and *Build questions for the whole book*;
-- *Keep this book on this computer*;
 - *Undo this book's questions*;
 - *Only some pages…* and *Re-read with text recognition*;
 - *Update to the new edition* (from Maintain's *update study map*) and *Source conflicts* (only when they exist);
@@ -1177,7 +1176,6 @@ F5  first answer (in the Reader)        F6  next day: Today
                                          │   Only some pages…               │
                                          │   This is a past exam or problem │
                                          │   set (no reading questions)     │
-                                         │   Keep this on this computer     │
                                          │   Read with text recognition     │
                                          └──────────────────────────────────┘
 ```
@@ -1197,7 +1195,7 @@ F5  first answer (in the Reader)        F6  next day: Today
 │                                                               │
 │ What leaves this computer: passages of the books you add, and │
 │ your answers, go to the AI you connect. Your library stays    │
-│ here. You can keep a single book private from its details.    │
+│ here.                                                         │
 │                                                    [ OK ]     │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -1504,7 +1502,7 @@ A small Under-the-hood report, *First-run funnel*, computes these from the datab
 | **Q1** | Where does the default library live? | `~/LearnLoop`, visible and easy to back up | It is a folder of the learner's own files (the "files in folders" promise, N1). The alternative is `~/.local/share/learnloop`, which hides the learner's own notes. |
 | **Q2** | Dev fallback: should a launch with no remembered library still open `fixtures/linear_algebra`? | **No.** Create a fresh library instead. The owner keeps `LEARNLOOP_VAULT` and `fixtures-local/` | The tracked fixture is the owner's working vault (CLAUDE.md). A tester should never land in it, and opening it dirties `git status`. |
 | **Q3** | Auto-apply study maps that pass every gate, with undo? | **Yes**, for builds started by Add and progressive builds. Deliberate builds from Under the hood keep their current behaviour. | It extends R1 (practice families auto-accepted with undo) to study maps. Proposals become review-by-exception. |
-| **Q4** | Consent: once per provider, or once per build? | Once per provider and data flow, recorded with date and provider. Each book can opt out with *Keep this book on this computer*. | Per-build checkboxes are a ritual the learner learns to click through. Once, clearly, is more honest. |
+| **Q4** | Consent: once per provider, or once per build? | Once per provider and data flow, recorded with date and provider. No per-book opt-out (owner, 2026-10-13: the draft's *Keep this book on this computer* is retired, §6.6). | Per-build checkboxes are a ritual the learner learns to click through. Once, clearly, is more honest. |
 | **Q5** | When does a build ask before spending? | When its estimate exceeds **$1**, or 25% of the remaining daily cap | Most single-chapter builds stay silent. Whole-book builds ask. |
 | **Q6** | Progressive builds (the chapter being read, plus one ahead) or whole book up front? | Progressive. *Build questions for the whole book* stays in book details. | It reaches the first question fastest, costs least, and follows M3 (a personal path through the book). |
 | **Q7** | Subjects: automatic, or named by the learner? | Automatic: named from the book, filed by an LLM, renamable in book details | DL C2 already decided this for captures. It removes the first-run trap. |

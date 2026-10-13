@@ -511,3 +511,23 @@ def test_a_scan_that_keeps_failing_backs_off_to_the_sweeps_pace(tmp_path, monkey
     assert done.is_set()
     # The first wait is the pace (the start reconciles at once); then the backoff.
     assert waits == [30.0, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+
+
+def test_no_stored_retry_time_keeps_a_request_from_ever_being_due(tmp_path):
+    """None (retries that ran out before the sweep) and an unreadable value
+    both read as due now."""
+
+    _root, ctx, source_id, extraction_id = _added_book(tmp_path)
+    jobs = ctx.ingest_jobs
+    jobs._ensure_worker = lambda: None  # type: ignore[method-assign]
+    planners = _planners(ctx)
+    revision = ctx.repository.record_reading_request(source_id, extraction_id, "u3")
+    with ctx.repository.connection() as connection:
+        connection.execute("UPDATE source_auto_build_state SET wanted_retry_at = 'soon' WHERE source_id = ?",
+                           (source_id,))
+        connection.commit()
+    assert ctx.repository.pending_reading_request(source_id)["revision"] == revision
+
+    assert jobs.retry_reading_advances(now=_later()) == 1
+    assert _pending(ctx, source_id) is None
+    assert _planners(ctx) == planners + 1
