@@ -112,7 +112,10 @@ def continuation_cursor(repository: Repository, proposal_id: str, *, caller: Cal
     A continuation continues the same request for the same caller: the
     proposal must belong to this caller, for the same query and intent, and
     its paging must have stopped with candidates left (ValueError, or
-    PolicyRefused for another caller's search)."""
+    PolicyRefused for another caller's search). The cursor is also bound to
+    every normalized constraint, which ``find_practice`` checks
+    (``ContinuationMismatch``; Codex third pass F12): a changed filter is a
+    new search, and carried exercises are readmitted as the arm sees them now."""
 
     from learnloop.practice_index.query_vectors import normalize_query, query_id
     from learnloop.practice_index.retrieval import canonical_intent

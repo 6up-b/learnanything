@@ -143,6 +143,20 @@ class IntentUnavailable(ValueError):
         self.code = code
 
 
+class ContinuationMismatch(ValueError):
+    """A cursor resumed another request than the one that made it (Codex third pass F12)."""
+
+    code = "continuation_invalid"
+
+
+def continuation_binding(text: str, constraints: "PracticeConstraints") -> str:
+    """What a cursor is bound to: the normalized query and every normalized
+    constraint (Codex third pass F12). A continuation that narrows, widens or
+    otherwise changes any filter is a new request, never a resumed one."""
+
+    return content_key({"query_id": query_id(normalize_query(text)), "constraints": constraints.as_dict()})
+
+
 @dataclass(frozen=True)
 class PracticeConstraints:
     """Exact filters applied before ranking; ``limit`` is a display page.
@@ -1190,6 +1204,11 @@ def find_practice(
     want_items = kinds in ("items", "both")
     want_exercises = kinds in ("source_exercises", "both")
     limit = constraints.limit or config.proposals
+    binding = continuation_binding(text, constraints)
+    if cursor is not None and cursor.get("request") != binding:
+        raise ContinuationMismatch(
+            "a continuation continues the same request: its query and every constraint "
+            "(a changed filter is a new search)")
     proposal_id = "pp_" + new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock, estimator=estimator)
     admissible = set(corpus)
@@ -1234,6 +1253,12 @@ def find_practice(
     # calls (Codex re-review F5); each is re-checked for admissibility here
     # and for independence by the valuer.
     carried = _carried_relevance(cursor, admissible=admissible) if value_search else _Carried()
+    # A carried exercise is readmitted as the arm and the exact filters see it
+    # NOW (Codex third pass F12): one imported, excluded, re-extracted or
+    # failing a filter since the earlier page is dropped, never restored.
+    continuation_dropped = _readmit_carried(
+        carried, vault=vault, repository=repository, text=text, constraints=constraints, estimator=estimator,
+        exercise_arm=exercise_arm if want_exercises else None, owner_id=proposal_id)
     judgments: dict[str, dict[str, Any]] = dict(carried.judgments)
     metadata: dict[str, Any] = dict(carried.metadata)
     by_key: dict[str, dict[str, Any]] = dict(carried.exercises)
@@ -1336,6 +1361,8 @@ def find_practice(
             break
         list_depths = (paging.get("cursor") or {}).get("exercise_list_depths") or list_depths
     paging["pages"] = len(pages)
+    if paging.get("cursor") is not None:
+        paging["cursor"]["request"] = binding
     if value_search and paging.get("cursor") is not None:
         paging["cursor"].update(_carry_relevance(relevant_order, judgments, metadata, by_key, vault))
     reranked = any(status in {"reranked", "cached"} for status in statuses) or bool(carried.order)
@@ -1396,6 +1423,8 @@ def find_practice(
             signals["exercises"]["failed_filters"] = dict(exercise_failures)
     if remediation_note:
         signals["remediation"] = remediation_note
+    if cursor is not None:
+        signals["continuation"] = {"carried": len(carried.order), "dropped": dict(continuation_dropped)}
     if len(pages) > 1:
         signals["pages"] = pages
     if paging.get("cursor") is not None:
@@ -1544,18 +1573,54 @@ def _carried_relevance(cursor: Mapping[str, Any] | None, *, admissible: set[str]
                  if isinstance(entry, Mapping) and entry.get("key")}
     for key in relevant.get("order") or ():
         key = str(key)
-        if key in exercises:
-            carried.exercises[key] = exercises[key]
-        elif key not in admissible:
+        if key not in exercises and key not in admissible:
             continue  # no longer admissible (attempted, retired, filtered): dropped
         judgment = (relevant.get("judgments") or {}).get(key)
         if not isinstance(judgment, Mapping):
             continue
+        if key in exercises:
+            carried.exercises[key] = exercises[key]
         carried.order.append(key)
         carried.judgments[key] = dict(judgment)
         if key in (relevant.get("metadata") or {}):
             carried.metadata[key] = relevant["metadata"][key]
     return carried
+
+
+def _readmit_carried(carried: _Carried, *, vault: LoadedVault, repository: Repository, text: str,
+                     constraints: PracticeConstraints, estimator: Any | None, exercise_arm: Any | None,
+                     owner_id: str) -> Counter[str]:
+    """Drop the carried exercises the arm or the exact filters would not admit
+    now; keep the rest as the arm records them now (Codex third pass F12).
+
+    The arm readmits by its own rules (scope, ingest exclusions, already
+    imported, the region still read the same: ``readmit``, no search and no
+    model call); the filters read the carried provisional metadata. With the
+    arm off, or exercises not requested, nothing carried is restored."""
+
+    dropped: Counter[str] = Counter()
+    if not carried.exercises:
+        return dropped
+    current: dict[str, dict[str, Any]] = {}
+    if exercise_arm is None:
+        dropped["arm_off"] += len(carried.exercises)
+    else:
+        pool = exercise_arm(vault, repository, text, constraints, pool_size=len(carried.exercises),
+                            owner_id=owner_id, readmit=list(carried.exercises.values()))
+        current = {str(entry["key"]): dict(entry) for entry in pool.candidates}
+        dropped.update(pool.dropped or {})
+    for key in list(carried.exercises):
+        if key in current:  # the arm's drop counts say why the others went
+            reason = exercise_filter(constraints, carried.metadata.get(key), estimator)
+            if reason is None:
+                carried.exercises[key] = current[key]
+                continue
+            dropped[reason] += 1
+        carried.exercises.pop(key, None)
+        carried.judgments.pop(key, None)
+        carried.metadata.pop(key, None)
+        carried.order = [entry for entry in carried.order if entry != key]
+    return dropped
 
 
 def _carry_relevance(order: Sequence[str], judgments: Mapping[str, Any], metadata: Mapping[str, Any],
@@ -1633,6 +1698,7 @@ __all__ = [
     "INTENTS",
     "INTENT_ALIASES",
     "IndexSnapshot",
+    "ContinuationMismatch",
     "IntentUnavailable",
     "KINDS",
     "MIXED_RERANK_PROMPT_VERSION",
@@ -1644,6 +1710,7 @@ __all__ = [
     "PracticeConstraints",
     "VALUE_INTENTS",
     "canonical_intent",
+    "continuation_binding",
     "RERANK_PROMPT_VERSION",
     "Ranking",
     "RerankOutcome",

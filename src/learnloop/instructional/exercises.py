@@ -233,18 +233,25 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
                         pool_size: int, embedder: Any | None = None, rewrite_client: Any | None = None,
                         owner_id: str = "", deadline: float | None = None,
                         list_depth: int | Mapping[str, int] | None = None,
-                        exclude_keys: Sequence[str | Sequence[str]] = ()) -> ExercisePool:
+                        exclude_keys: Sequence[str | Sequence[str]] = (),
+                        readmit: Sequence[Mapping[str, Any]] | None = None) -> ExercisePool:
     """Up to ``pool_size`` exercise regions for the request (a prompt-size bound).
 
     ``exclude_keys`` are regions already judged in an earlier page (resumable
     paging, §8.3.4), as exercise keys (``srcex:...``) or region tuples; they
     are dropped before the pool is cut, so a continuation reaches the next
     regions instead of re-reading the first pool.
+
+    ``readmit`` (a continuation's carried exercise records) searches nothing:
+    it returns the records this arm would still admit now, as it records them
+    now, and counts why the others are dropped (Codex third pass F12).
     """
 
     lo_ids = list(getattr(constraints, "learning_object_ids", ()) or ())
     scope = exercise_scope(vault, repository, lo_ids)
     pool = ExercisePool(scope=scope.describe())
+    if readmit is not None:
+        return _readmitted(vault, repository, scope, pool, readmit)
     if not scope.extractions:
         pool.dropped["no_scope"] = 1
         return pool
@@ -292,28 +299,77 @@ def exercise_candidates(vault: LoadedVault, repository: Repository, query: str, 
                 continue
             ordered.append(region)
         pool.unjudged = max(0, len(ordered) - pool_size)
-        chosen = ordered[:pool_size]
-        leads = blocks_by_key(connection, [(region.extraction_id, region.span_ids[0]) for region in chosen])
-        runs: dict[str, Any] = {}
-        for region in chosen:
-            if region.extraction_id not in runs:
-                runs[region.extraction_id] = repository.get_extraction_run(region.extraction_id) or {}
-            lead = leads.get((region.extraction_id, region.span_ids[0]))
-            page = lead.page if lead is not None else None
-            source = scope.extractions[region.extraction_id]
-            statement = region.text if len(region.text) <= STATEMENT_CHARS else region.text[:STATEMENT_CHARS - 1] + "…"
-            pool.candidates.append({
-                "kind": "source_exercise",
-                "extraction_id": region.extraction_id,
-                "span_ids": list(region.span_ids),
-                "source_id": source.source_id,
-                "revision_id": runs[region.extraction_id].get("revision_id"),
-                "source_title": source.title,
-                "label": exercise_label(region.text, page),
-                "page": page,
-                "statement": statement,
-                "key": exercise_key(region.extraction_id, region.span_ids),
-            })
+        pool.candidates = _records(connection, repository, scope, ordered[:pool_size])
+    pool.dropped = {name: count for name, count in dropped.items() if count}
+    return pool
+
+
+def _records(connection, repository: Repository, scope: Scope, regions: Sequence[ExerciseRegion]) -> list[dict[str, Any]]:
+    """The proposal records of admitted regions (statement, label, page, source)."""
+
+    leads = blocks_by_key(connection, [(region.extraction_id, region.span_ids[0]) for region in regions])
+    runs: dict[str, Any] = {}
+    records = []
+    for region in regions:
+        if region.extraction_id not in runs:
+            runs[region.extraction_id] = repository.get_extraction_run(region.extraction_id) or {}
+        lead = leads.get((region.extraction_id, region.span_ids[0]))
+        page = lead.page if lead is not None else None
+        source = scope.extractions[region.extraction_id]
+        statement = region.text if len(region.text) <= STATEMENT_CHARS else region.text[:STATEMENT_CHARS - 1] + "…"
+        records.append({
+            "kind": "source_exercise",
+            "extraction_id": region.extraction_id,
+            "span_ids": list(region.span_ids),
+            "source_id": source.source_id,
+            "revision_id": runs[region.extraction_id].get("revision_id"),
+            "source_title": source.title,
+            "label": exercise_label(region.text, page),
+            "page": page,
+            "statement": statement,
+            "key": exercise_key(region.extraction_id, region.span_ids),
+        })
+    return records
+
+
+def _readmitted(vault: LoadedVault, repository: Repository, scope: Scope, pool: ExercisePool,
+                carried: Sequence[Mapping[str, Any]]) -> ExercisePool:
+    """A continuation's carried exercises, readmitted under the arm's rules now.
+
+    Dropped (counted): outside the request's teaching scope, no longer an
+    exercise region of its extraction (``no_region``), imported since
+    (``already_imported``), excluded by an ingest exclusion, or its region
+    reads differently than the text the judge read (``changed``)."""
+
+    dropped = {"out_of_scope": 0, "no_region": 0, "already_imported": 0, "excluded": 0, "changed": 0}
+    admitted: list[tuple[ExerciseRegion, Mapping[str, Any]]] = []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        imported = imported_span_keys(vault, repository)
+        imported |= _same_text_keys(connection, imported, sorted(scope.extractions))
+        regions: dict[str, dict[tuple[str, ...], ExerciseRegion]] = {}
+        for record in carried:
+            extraction_id = str(record.get("extraction_id") or "")
+            spans = tuple(str(span) for span in record.get("span_ids") or ())
+            if extraction_id not in scope.extractions:
+                dropped["out_of_scope"] += 1
+                continue
+            if extraction_id not in regions:
+                regions[extraction_id] = {region.span_ids: region for region in exercise_regions(connection, extraction_id)}
+            region = regions[extraction_id].get(spans)
+            if region is None:
+                dropped["no_region"] += 1
+            elif any((extraction_id, span) in imported for span in spans):
+                dropped["already_imported"] += 1
+            elif any(not scope.allows(extraction_id, span) for span in spans):
+                dropped["excluded"] += 1
+            else:
+                admitted.append((region, record))
+        records = _records(connection, repository, scope, [region for region, _record in admitted])
+    for current, (_region, record) in zip(records, admitted):
+        if record.get("statement") is not None and current["statement"] != record.get("statement"):
+            dropped["changed"] += 1
+            continue
+        pool.candidates.append(current)
     pool.dropped = {name: count for name, count in dropped.items() if count}
     return pool
 

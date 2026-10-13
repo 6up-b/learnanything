@@ -40,6 +40,7 @@ from learnloop.instructional.sources import propose_comparison, propose_sources
 from learnloop.instructional.valuation import HYPOTHESIS_ALIASES, REFERENCE_KINDS, named_gap_target
 from learnloop.practice_index.retrieval import (
     INTENTS as PRACTICE_INTENTS,
+    ContinuationMismatch,
     IntentUnavailable,
     PracticeConstraints,
     admissible_corpus,
@@ -413,11 +414,14 @@ def execute_tool(vault: LoadedVault, repository: Repository, name: str, args: _A
                                              intent=args.intent)
             except ValueError as exc:
                 raise ToolArgumentsInvalid("continuation_invalid", str(exc)) from exc
-        result = propose_practice(vault, repository, args.query, constraints, caller=caller, origin="tool",
-                                  rerank_client=client.get("practice_rerank"), embedder=injected.get("embedder"),
-                                  clock=clock, cursor=cursor,
-                                  **{key: injected[key] for key in ("exercise_arm", "valuer", "estimator")
-                                     if key in injected})
+        try:
+            result = propose_practice(vault, repository, args.query, constraints, caller=caller, origin="tool",
+                                      rerank_client=client.get("practice_rerank"), embedder=injected.get("embedder"),
+                                      clock=clock, cursor=cursor,
+                                      **{key: injected[key] for key in ("exercise_arm", "valuer", "estimator")
+                                         if key in injected})
+        except ContinuationMismatch as exc:  # another filter is a new search (Codex third pass F12)
+            raise ToolArgumentsInvalid("continuation_invalid", str(exc)) from exc
         view = _practice_view(vault, result, withhold)
         out.update(result=view, result_ref=result.get("proposal_id"), model=result.get("rerank_model"),
                    result_keys=[entry["practice_item_id"] for entry in view["items"]]

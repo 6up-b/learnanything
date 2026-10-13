@@ -119,3 +119,27 @@ def test_a_find_practice_tool_result_can_be_continued(textbook):
     with pytest.raises((PolicyRefused, ToolArgumentsInvalid)):
         run_tool(vault, repository, "find_practice", {**arguments, "continue_from": paging["continue_from"]},
                  caller=other, injections=injections, clients={"practice_rerank": FakeServiceLLM()})
+
+
+
+def test_a_continuation_with_narrower_filters_is_refused(textbook):
+    """Codex third pass F12: a continuation was bound to its query and intent
+    only, so narrower facets resumed the search and restored carried
+    candidates the new filters reject. It is bound to every constraint."""
+
+    from learnloop.instructional.wiring import find_practice_injections
+
+    paths, repository, _spans = textbook
+    vault = loaded(paths)
+    agent = caller_for(repository, "agent", "cli")
+    injections = {key: value for key, value in find_practice_injections(vault).items() if key == "exercise_arm"}
+    down = FakeServiceLLM(fail_purposes={"PracticeRerank", "MixedPracticeRerank"})
+    arguments = {"query": "determinant rows swapped sign", "intent": "practice"}
+    first = run_tool(vault, repository, "find_practice", arguments, caller=agent, injections=injections,
+                     clients={"practice_rerank": down})
+    continue_from = first["result"]["paging"]["continue_from"]
+    with pytest.raises(ToolArgumentsInvalid) as narrower:
+        run_tool(vault, repository, "find_practice",
+                 {**arguments, "facet_ids": ["facet_eigen"], "continue_from": continue_from},
+                 caller=agent, injections=injections, clients={"practice_rerank": FakeServiceLLM()})
+    assert narrower.value.code == "continuation_invalid"

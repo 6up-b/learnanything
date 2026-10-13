@@ -564,3 +564,57 @@ def test_a_value_search_pages_on_until_a_stop_inside_one_call(textbook):
     eligibility = result["valuation"].get("eligibility") or {}
     assert target.id in valued or target.id in eligibility, (target.id, valued)
     del first_page
+
+
+# -- Codex third pass F12: a continuation is the same request, and carried exercises are readmitted ----------
+
+
+def _stopped_value_search(textbook, constraints):
+    """A discriminate search over both arms stopped by its deadline after one
+    page: its cursor carries the relevant exercises judged so far."""
+
+    paths, repository, _spans, misconception = textbook
+    vault = loaded(paths)
+    vault.config.practice_index.candidate_pool = 2
+    llm = FakeServiceLLM()
+    request = {"intent": "discriminate", "kinds": "both",
+               "target_hypotheses": [{"kind": "misconception", "id": misconception}], **constraints}
+    first = find_practice(vault, repository, "eigenvalue solve determinant", request, valuer=_valuer(llm),
+                          rerank_client=llm, exercise_arm=exercise_candidates, deadline=0.0)
+    cursor = first["paging"]["cursor"]
+    carried = [entry["key"] for entry in cursor["relevant"]["exercises"]]
+    assert carried, "the fixture needs a carried exercise"
+    return vault, repository, llm, request, cursor, carried
+
+
+def test_a_continuation_with_other_constraints_is_refused(textbook):
+    """Before: only the query and intent were compared, so a continuation
+    narrowed to a facet restored carried exercises the new filter rejects
+    (their provisional facets are unknown, which fails a facet filter)."""
+
+    vault, repository, llm, request, cursor, carried = _stopped_value_search(textbook, {})
+    narrower = {**request, "facet_ids": ["facet_eigen"]}
+    assert exercise_filter(PracticeConstraints.from_mapping(narrower),
+                           cursor["relevant"]["metadata"][carried[0]], estimator) is not None
+    with pytest.raises(ValueError, match="same request"):
+        find_practice(vault, repository, "eigenvalue solve determinant", narrower, valuer=_valuer(llm),
+                      rerank_client=llm, exercise_arm=exercise_candidates, cursor=cursor)
+
+
+def test_a_carried_exercise_imported_since_is_not_restored(textbook):
+    """Same request, but one carried exercise was imported after the first
+    page: the arm would no longer admit it, so the continuation drops it."""
+
+    from learnloop.db.stores.source_service import insert_import
+
+    vault, repository, llm, request, cursor, carried = _stopped_value_search(textbook, {})
+    record = next(entry for entry in cursor["relevant"]["exercises"] if entry["key"] == carried[0])
+    with repository.connection() as connection:
+        insert_import(connection, id="sei_since", created_at="2026-10-13T00:00:00Z", caller="learner",
+                      extraction_id=record["extraction_id"], span_ids=record["span_ids"], status="written")
+    resumed = find_practice(vault, repository, "eigenvalue solve determinant", request, valuer=_valuer(llm),
+                            rerank_client=llm, exercise_arm=exercise_candidates, cursor=cursor)
+    proposed = {entry["key"] for entry in resumed.get("source_exercises") or ()}
+    assert carried[0] not in proposed, proposed
+    assert carried[0] not in (resumed["paging"].get("cursor") or {}).get("relevant", {}).get("order", [])
+    assert resumed["signals"]["continuation"]["dropped"] == {"already_imported": 1}
