@@ -91,14 +91,27 @@ def _check_entry(valuation: Mapping[str, Any] | None, ref: str) -> dict[str, Any
         for check in [*(section.get("checks") or ()), *valued]:
             if check.get("ref") == ref:
                 problem = section.get("problem") or {}
+                listed = next((entry for entry in valued if entry.get("ref") == ref), {})
+
+                def field(name: str) -> Any:
+                    return check.get(name) if check.get(name) is not None else listed.get(name)
+
                 return {"problem": problem.get("key"), "regime": check.get("regime"),
-                        "robust_eig_nats": check.get("robust_eig_nats"), "point_eig_nats": check.get("point_eig_nats"),
-                        "value_minutes_lcb": check.get("value_minutes_lcb"),
-                        "expected_minutes": check.get("expected_minutes"),
-                        "predicted_outcomes": check.get("predicted_outcomes"),
-                        "likelihood_basis": next((entry.get("likelihood_basis")
-                                                  for entry in (section.get("groups") or {}).get("valued", ())
-                                                  if entry.get("ref") == ref), None),
+                        "robust_eig_nats": field("robust_eig_nats"), "point_eig_nats": field("point_eig_nats"),
+                        "value_minutes_lcb": field("value_minutes_lcb"),
+                        "value_minutes_ucb": field("value_minutes_ucb"),
+                        "expected_minutes": field("expected_minutes"),
+                        "predicted_outcomes": field("predicted_outcomes"),
+                        "likelihood_basis": listed.get("likelihood_basis"),
+                        # What calibration replays the observation against
+                        # (§11.4; Codex re-review F11): the problem's prior and
+                        # state, the check's member-0 likelihood, EVSI and the
+                        # decision's action before and after each outcome.
+                        "prior": problem.get("prior"), "state_hash": problem.get("state_hash"),
+                        "prior_basis": problem.get("prior_basis"), "likelihood": field("likelihood"),
+                        "evsi": check.get("evsi"), "action_before": check.get("action_before"),
+                        "action_by_outcome": check.get("action_by_outcome"),
+                        "named_action": section.get("named_action"), "action_kind": section.get("action_kind"),
                         "verdict": section.get("verdict"), "mode": section.get("mode"),
                         "check_order": check.get("order", check.get("check_order")),
                         "scale": section.get("scale")}
@@ -160,10 +173,18 @@ def record_pick(vault: LoadedVault, repository: Repository, *, proposal_id: str,
             assets["import_id"] = import_id
         facets = list(constraints.get("facet_ids") or (entry.get("provisional") or {}).get("facets") or [])
         kind = "source_exercise"
-    since = None
+    # The time since the most recent related exposure (router §15.2's
+    # covariate): a related worked example studied, or an earlier impression
+    # of the question, as the eligibility rule recorded them (re-review F11).
+    seconds = []
     for verdict in (serve_verdict, valuation_time):
-        if verdict and (verdict.get("worked_example") or {}).get("seconds_since_exposure") is not None:
-            since = verdict["worked_example"]["seconds_since_exposure"]
+        if not verdict:
+            continue
+        for value in ((verdict.get("worked_example") or {}).get("seconds_since_exposure"),
+                      (verdict.get("inputs") or {}).get("seconds_since_impression")):
+            if value is not None:
+                seconds.append(float(value))
+    since = min(seconds) if seconds else None
     return record_intervention(
         vault, repository, kind=kind, clock=clock, caller_kind=found.get("caller") or "learner",
         caller_ref=found.get("caller_ref"), intent=found.get("intent") or constraints.get("intent") or "practice",

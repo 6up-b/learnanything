@@ -85,7 +85,7 @@ Items 1, 2, 7 and 11 are no longer deviations; the review fixes F10, F17, F5 and
 7. ~~**The Reader import's background check** runs in a daemon thread inside the job handler.~~ Made durable by F5 (write-ahead marker, resumed at startup).
 8. **The daily money cap** sums the leaf receipts of the service's owner kinds since UTC midnight.
 9. **S2b decision mode** needs an open probe episode whose locked hypothesis set covers the factor's hypotheses; otherwise the factor is "unpriced" and the need goes to generation.
-10. **S5's hypothesis movement** is not computed: rows keep references (`state_ref`) for the calibration track.
+10. **S5's hypothesis movement** is derived from persisted rows (Codex re-review F11): the record keeps the problem's prior and state hash, the check's member-0 likelihood, EVSI and the decision's per-outcome actions, and the outcome replayer (`retrieval_outcomes.v3`) computes the Bayes posterior over that table for the observed bucket (`bayes_update_member0`, the model's implied movement) and the action after the observation. It does not read the diagnoser's own replayed posterior.
 11. ~~**S5's "imported source exercise served"** is recorded at the learner's pick of the exercise (before the import finishes).~~ Fixed by F16: recorded when the imported item is served.
 12. **The cold-success threshold** in the outcome report is correctness ≥ 0.5, a report threshold.
 13. **The tutor may request three tools** (`find_practice`, `find_sources`, `compare_sources`); `find_facets` and `practice_availability` are for agents and the router.

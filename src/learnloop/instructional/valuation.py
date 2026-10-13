@@ -827,7 +827,8 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
         entry.update(point_eig_nats=round(series[0], 6), robust_eig_nats=round(low, 6),
                      value_minutes_lcb=round(RC.VALUE_PER_NAT_MINUTES * low, 4),
                      value_minutes_ucb=round(RC.VALUE_PER_NAT_MINUTES * high, 4),
-                     predicted_outcomes=_predicted(candidate, problem.prior))
+                     predicted_outcomes=_predicted(candidate, problem.prior),
+                     likelihood=_member0(candidate))
     groups["valued"].sort(key=lambda entry: (-entry["value_minutes_lcb"] / max(entry["expected_minutes"], 1e-6),
                                              entry["ref"]))
     report["groups"] = groups
@@ -900,6 +901,7 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             "action_agreement": round(decision.action_agreement_fraction, 4),
             "licenses_system_check": chosen.regime in LICENSES_SYSTEM_CHECK,
             "predicted_outcomes": _predicted(chosen, problem.prior if len(picks) == 1 else None),
+            "likelihood": _member0(chosen),
         })
         verdict, reason = "act", "positive_robust_net_value"
     report.update(verdict=verdict, reason=reason, checks=checks, selector=selector)
@@ -908,6 +910,16 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
         if entry["ref"] in {check["ref"] for check in checks}:
             entry["check_order"] = next(check["order"] for check in checks if check["ref"] == entry["ref"])
     return report
+
+
+def _member0(candidate: CandidateInput) -> dict[str, dict[str, float]] | None:
+    """The point-estimate ``P(E|H)`` table, persisted so S5 can replay the
+    posterior movement an observation implies (§11.4 item 2; re-review F11)."""
+
+    if not candidate.members:
+        return None
+    return {slot: {emission: round(float(p), 6) for emission, p in sorted(row.items())}
+            for slot, row in sorted(candidate.members[0].items())}
 
 
 def _predicted(candidate: CandidateInput, prior: Mapping[str, float] | None) -> dict[str, float] | None:
@@ -945,9 +957,16 @@ def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], 
     best = next((r for r in result.ranked if r.ref == result.best_ref), None)
     if result.verdict == "measure":
         verdict = "measure"
+        chosen = by_ref[result.best_ref]
         checks = [{"ref": result.best_ref, "order": 1, "evsi": best.evsi.as_dict() if best else None,
-                   "regime": by_ref[result.best_ref].regime,
-                   "licenses_system_check": by_ref[result.best_ref].regime in LICENSES_SYSTEM_CHECK}]
+                   "regime": chosen.regime,
+                   "licenses_system_check": chosen.regime in LICENSES_SYSTEM_CHECK,
+                   "expected_minutes": round(chosen.expected_minutes, 4),
+                   "predicted_outcomes": _predicted(chosen, problem.prior),
+                   "likelihood": _member0(chosen),
+                   # The decision before the observation and after each outcome
+                   # (member 0), so S5 records whether it flipped (§11.4 item 3).
+                   **_decision_actions(chosen, problem, decision.loss_table)}]
     else:
         verdict = result.verdict
         checks = []
@@ -956,6 +975,14 @@ def _decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], 
                   named_action=named_action, action_kind="common_action" if common else "current_action",
                   perfect_information_minutes=round(_evpi(problem, decision.loss_table), 4))
     return report
+
+
+def _decision_actions(candidate: CandidateInput, problem: ValuationProblem, loss_table: Any) -> dict[str, Any]:
+    try:
+        member = EV.evsi_for_conditionals(candidate.members[0], problem.prior, loss_table)
+    except (EV.EVSIInputError, IndexError):
+        return {"action_before": None, "action_by_outcome": None}
+    return {"action_before": member.current_action, "action_by_outcome": dict(member.argmin_by_emission)}
 
 
 def _evpi(problem: ValuationProblem, loss_table: Any) -> float:

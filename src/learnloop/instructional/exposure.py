@@ -90,32 +90,41 @@ def _family_items(vault: LoadedVault, item_id: str) -> set[str]:
 
 
 def studied_worked_examples(repository: Repository, extraction_ids: Sequence[str], *,
-                            since: str) -> list[tuple[str, str, str]]:
-    """Worked-example blocks shown to the learner, or in sections they read, since ``since``."""
+                            since: str) -> list[tuple[str, str, str, str]]:
+    """Worked-example blocks shown to the learner, or in sections they read,
+    since ``since``: ``(extraction_id, span_id, text, studied_at)``, where
+    ``studied_at`` is the latest exposure or reading-progress stamp (S5's
+    time since the related exposure, router §15.2's covariate)."""
 
     found: dict[tuple[str, str], str] = {}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         examples = role_keys(connection, extraction_ids, ("worked_example",))
-        shown = {(str(row[0]), str(row[1])) for row in connection.execute(
-            "SELECT extraction_id, span_id FROM source_exposure_events WHERE created_at >= ?", (since,))}
-        read_spans: set[tuple[str, str]] = set()
+        shown: dict[tuple[str, str], str] = {}
+        for row in connection.execute(
+                "SELECT extraction_id, span_id, created_at FROM source_exposure_events WHERE created_at >= ?",
+                (since,)):
+            key = (str(row[0]), str(row[1]))
+            shown[key] = max(shown.get(key, ""), str(row[2] or ""))
+        read_spans: dict[tuple[str, str], str] = {}
         for extraction_id in extraction_ids:
             rows = connection.execute(
-                "SELECT section_id FROM reader_section_progress WHERE extraction_id=? AND updated_at >= ? AND "
-                "(completed_at IS NOT NULL OR (span_count > 0 AND spans_seen >= span_count))",
+                "SELECT section_id, updated_at FROM reader_section_progress WHERE extraction_id=? AND updated_at >= ? "
+                "AND (completed_at IS NOT NULL OR (span_count > 0 AND spans_seen >= span_count))",
                 (extraction_id, since)).fetchall()
-            sections = {str(row[0]) for row in rows}
+            sections = {str(row[0]): str(row[1] or "") for row in rows}
             if sections:
                 for unit in extraction_units(connection, extraction_id):
                     if unit.unit_id in sections:
-                        read_spans.update((extraction_id, span) for span in unit.span_ids)
+                        for span in unit.span_ids:
+                            key = (extraction_id, span)
+                            read_spans[key] = max(read_spans.get(key, ""), sections[unit.unit_id])
         studied = sorted(key for key in examples if key in shown or key in read_spans)
         blocks = blocks_by_key(connection, studied)
     for key in studied:
         block = blocks.get(key)
         if block is not None:
             found[key] = " ".join(block.text.split())
-    return [(key[0], key[1], text) for key, text in found.items()]
+    return [(key[0], key[1], text, max(shown.get(key, ""), read_spans.get(key, ""))) for key, text in found.items()]
 
 
 def independent_check_eligibility(
@@ -182,7 +191,7 @@ def independent_check_eligibility(
             result["inputs"]["impression_ids"] = [row["id"] for row in earlier]
             result["inputs"]["seconds_since_impression"] = _seconds_since(now, earlier[-1]["created_at"])
     worked = _worked_example_rule(vault, repository, candidate, item, extraction_id, since=since,
-                                  judge_client=judge_client)
+                                  judge_client=judge_client, now=now)
     result["worked_example"] = worked
     verdict = worked.get("verdict")
     if verdict == "equivalent":
@@ -257,7 +266,8 @@ def _candidate_text(vault: LoadedVault, repository: Repository, candidate: Mappi
 
 
 def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: Mapping[str, Any], item: Any,
-                         extraction_id: str | None, *, since: str, judge_client: Any | None) -> dict[str, Any]:
+                         extraction_id: str | None, *, since: str, judge_client: Any | None,
+                         now: Any | None = None) -> dict[str, Any]:
     from learnloop.source_retrieval.corpus import teaching_scope
 
     lo_ids = [item.learning_object_id] if item is not None else list(candidate.get("learning_object_ids") or ())
@@ -275,6 +285,7 @@ def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: 
     shortlist = sorted(studied, key=lambda entry: order.get((entry[0], entry[1]), 10_000))[:SHORTLIST]
     refs = {f"w{index}": (entry[0], entry[1]) for index, entry in enumerate(shortlist, start=1)}
     texts = {(entry[0], entry[1]): entry[2] for entry in shortlist}
+    studied_at = {(entry[0], entry[1]): entry[3] for entry in shortlist}
     prompt = render_structured_prompt(
         "Worked-example equivalence", EQUIVALENCE_PROMPT_VERSION,
         {"instructions": _EQUIVALENCE_INSTRUCTIONS,
@@ -289,7 +300,18 @@ def _worked_example_rule(vault: LoadedVault, repository: Repository, candidate: 
 
     with service_spend(vault, repository):  # the service's daily cap (F2)
         outcome = _judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate)
-    return _equivalence_result(refs, outcome)
+    result = _equivalence_result(refs, outcome)
+    # When the related exposure happened (S5's covariate, Codex re-review F11):
+    # the latest study of an example judged equivalent or related, or of any
+    # shortlisted example while none could be judged.
+    verdicts = {key: str(row["verdict"]) for key, row in (outcome.rows or {}).items()}
+    related = [key for key in refs.values()
+               if result["verdict"] == "unjudged" or verdicts.get(key) in ("equivalent", "related")]
+    stamps = [studied_at[key] for key in related if studied_at.get(key)]
+    result["studied_at"] = {f"{key[0]}:{key[1]}": studied_at.get(key) for key in refs.values()}
+    result["seconds_since_exposure"] = (_seconds_since(now, max(stamps))
+                                        if stamps and now is not None else None)
+    return result
 
 
 def _judge_equivalence(vault, repository, prompt, refs, candidate, text, judge_client, validate):

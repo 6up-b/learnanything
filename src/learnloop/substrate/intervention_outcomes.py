@@ -20,6 +20,10 @@ intervention, never the clock). Per intervention:
   outcomes stay right-censored, never failures;
 * the observed outcome bucket of a valued check beside its predicted P(E), and
   the actual minutes beside the predicted;
+* what that observation implies, from the record's own persisted prior,
+  member-0 likelihood and per-outcome actions: the posterior movement on the
+  target hypotheses (Bayes over the model's table, labelled
+  ``bayes_update_member0``) and the decision's action before and after it;
 * the learner's taps and their text on the proposal.
 
 Associations, not causes: nothing reads these rows to serve.
@@ -29,13 +33,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 import json
+import math
 from typing import Any
 
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import interventions, replace_outcomes
 from learnloop.vault.models import LoadedVault
 
-OUTCOME_VERSION = "retrieval_outcomes.v2"
+OUTCOME_VERSION = "retrieval_outcomes.v3"
 #: The cold retrieval delay (``diagnosis.remediation.COLD_RETRIEVAL_DELAY``, 1 day).
 COLD_DELAY = timedelta(days=1)
 #: Past this, an intervention with no independent attempt is expired, not pending.
@@ -209,17 +214,18 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
     items, facets = _targets(intervention, vault)
     valuation = intervention.get("valuation") or {}
     predicted = valuation.get("predicted_outcomes")
+    likelihood = valuation.get("likelihood") or None
+    alphabet = predicted or ({emission: None for row in likelihood.values() for emission in row}
+                             if likelihood else None)
     row: dict[str, Any] = {
         "intervention_id": intervention["id"], "as_of": as_of.isoformat(), "outcome_version": OUTCOME_VERSION,
         "predicted_outcomes": predicted, "predicted_minutes": valuation.get("expected_minutes"),
         "learner_signals": signals,
-        "hypothesis_movement": {"status": "not_computed",
-                                "reason": "v1 keeps references (state_ref); the evsi/calibration track reads "
-                                          "posteriors before and after from replayed state"},
-        "action_before": valuation.get("action_before"), "action_after": valuation.get("action_after"),
+        "hypothesis_movement": ({"status": "pending", "reason": "no observation on the check yet"}
+                                if valuation.get("prior") and likelihood else
+                                {"status": "not_valued", "reason": "the record has no prior and likelihood"}),
+        "action_before": valuation.get("action_before"), "action_after": None,
     }
-    if row["action_before"] is not None and row["action_after"] is not None:
-        row["action_flipped"] = int(row["action_before"] != row["action_after"])
     if not items and not facets:
         row["cold_outcome_state"] = "unmeasurable_no_targets"
         return row
@@ -233,9 +239,10 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
             row.update(next_attempt_id=attempt["id"], next_correctness=attempt.get("correctness"),
                        next_assisted=int(_assisted(attempt)), next_window="session" if same_session else "day")
             if valuation and attempt["practice_item_id"] in items:
-                row["observed_bucket"] = _bucket(attempt, predicted)
+                row["observed_bucket"] = _bucket(attempt, alphabet)
                 if attempt.get("latency_seconds") is not None:
                     row["actual_minutes"] = round(float(attempt["latency_seconds"]) / 60.0, 4)
+                _observation(row, valuation, likelihood)
             break
     # The next INDEPENDENT attempt (§11.2): assisted attempts and attempts
     # contaminated by an exposure in the cold delay before them are skipped,
@@ -275,6 +282,47 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
         row["cold_outcome_state"] = ("cold_success" if float(cold["correctness"]) >= SUCCESS_CORRECTNESS
                                      else "cold_failure")
     return row
+
+
+def _entropy(distribution: Mapping[str, float]) -> float:
+    return -sum(p * math.log(p) for p in distribution.values() if p > 0)
+
+
+def _observation(row: dict[str, Any], valuation: Mapping[str, Any],
+                 likelihood: Mapping[str, Mapping[str, float]] | None) -> None:
+    """What the observed bucket implies, from persisted rows only (§11.4 items
+    2 and 3; Codex re-review F11): the posterior on the target hypotheses by
+    Bayes' rule over the check's own member-0 likelihood (the model's implied
+    movement, labelled so; calibration compares it with the predicted EIG),
+    and the decision's action after the observation from the persisted
+    per-outcome actions."""
+
+    bucket = row.get("observed_bucket")
+    by_outcome = valuation.get("action_by_outcome") or {}
+    if row.get("action_before") is not None and bucket in by_outcome:
+        row["action_after"] = by_outcome[bucket]
+        row["action_flipped"] = int(row["action_before"] != row["action_after"])
+    prior = {str(h): float(p) for h, p in (valuation.get("prior") or {}).items()}
+    if not prior or not likelihood:
+        return
+    if bucket is None or not any(bucket in (likelihood.get(h) or {}) for h in prior):
+        row["hypothesis_movement"] = {"status": "bucket_not_in_alphabet", "observed_bucket": bucket,
+                                      "basis": "bayes_update_member0"}
+        return
+    joint = {h: p * float((likelihood.get(h) or {}).get(bucket, 0.0)) for h, p in prior.items()}
+    total = sum(joint.values())
+    if total <= 0:
+        row["hypothesis_movement"] = {"status": "impossible_under_model", "observed_bucket": bucket,
+                                      "basis": "bayes_update_member0"}
+        return
+    posterior = {h: round(value / total, 6) for h, value in joint.items()}
+    before, after = _entropy(prior), _entropy(posterior)
+    row["hypothesis_movement"] = {
+        "status": "computed", "basis": "bayes_update_member0", "observed_bucket": bucket,
+        "prior": {h: round(p, 6) for h, p in prior.items()}, "posterior": posterior,
+        "entropy_before_nats": round(before, 6), "entropy_after_nats": round(after, 6),
+        "information_gained_nats": round(before - after, 6),
+        "predicted_eig_nats": valuation.get("point_eig_nats"), "state_hash": valuation.get("state_hash")}
 
 
 def _dont_know(attempt: Mapping[str, Any]) -> bool:
