@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/content/facet_identity/authority.py"
+  - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/sources/provenance.py"
-  - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
 tags:
   - "learnloop/database/table"
@@ -108,10 +108,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/ops/doctor.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
@@ -158,9 +160,9 @@ Indexes and uniqueness:
 - `tests/test_find_sources_intents.py`
 - `tests/test_prescription_passages.py`
 - `tests/test_provenance_service.py`
+- `tests/test_reread_safety.py`
 - `tests/test_revision_refresh.py`
 - `tests/test_source_deletion.py`
-- `tests/test_source_retrieval_guards.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

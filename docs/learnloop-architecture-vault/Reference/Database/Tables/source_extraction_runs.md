@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -120,20 +121,20 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/instructional/exercises.py`
 - `src/learnloop/instructional/interventions.py`
+- `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/annotations.py`
-- `src/learnloop/reader/reader_authoring.py`
-- `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -149,6 +150,7 @@ Indexes and uniqueness:
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`

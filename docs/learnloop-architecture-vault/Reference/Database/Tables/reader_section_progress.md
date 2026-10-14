@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/reader/reader_progression.py"
+  - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop_sidecar/handlers/reader.py"
 tags:
@@ -82,6 +83,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.carry_reader_section_progress()`
 - `Repository.delete_source_artifact()`
 - `Repository.mark_section_generation()`
 - `Repository.reader_section_progress_for()`
@@ -101,6 +103,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop_sidecar/handlers/reader.py`
@@ -111,6 +114,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_daily_plan_reading.py`
+- `tests/test_reread_safety.py`
 - `tests/test_ux_phase1_round2_rereview.py`
 - `tests/test_ux_phase1_round2_review.py`
 

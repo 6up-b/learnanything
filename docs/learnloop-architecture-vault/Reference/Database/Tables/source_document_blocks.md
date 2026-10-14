@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -21,16 +21,16 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/sources/exam_material.py"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/source_retrieval/evaluation.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/revision_refresh.py"
+  - "src/learnloop/content/pipeline/reread.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -108,6 +108,7 @@ Database triggers:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/sources/exam_material.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -123,10 +124,12 @@ Database triggers:
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
@@ -137,8 +140,6 @@ Database triggers:
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop/reader/reader_requests.py`
-- `src/learnloop/reader/source_render_views.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -163,8 +164,8 @@ Database triggers:
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_reading_hardening_landing.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_ingest_m3.py`
-- `tests/test_sidecar_quick_add.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "source_document_assets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_assets"
@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/revision_refresh.py"
+  - "src/learnloop/content/pipeline/reread.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -99,10 +99,12 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
@@ -113,8 +115,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop/reader/reader_requests.py`
-- `src/learnloop/reader/source_render_views.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_reading_hardening_landing.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
@@ -140,7 +141,6 @@ Indexes and uniqueness:
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`
-- `tests/test_ux_phase1_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

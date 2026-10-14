@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/content/facet_identity/span_support.py"
   - "src/learnloop/content/pipeline/add_source.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_library.py`
@@ -142,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
 - `tests/test_reading_hardening_landing.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
@@ -150,7 +152,6 @@ Indexes and uniqueness:
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/test_sidecar_reader.py`
-- `tests/test_source_layer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

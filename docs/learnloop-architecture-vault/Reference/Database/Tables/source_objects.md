@@ -3,8 +3,8 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_find_sources_intents.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_reader_p3_slice2.py`
 - `tests/test_source_objects.py`
 - `tests/test_ingest_jobs.py`
