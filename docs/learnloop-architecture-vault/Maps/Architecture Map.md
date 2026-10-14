@@ -36,6 +36,7 @@ The arrows show allowed dependency direction, not the temporal learning workflow
 
 ## Primary notes
 
+- [[LearnLoop Pipeline Map]] — the current end-to-end pipeline, cross-cutting layers, and implementation anchors.
 - [[Architecture Overview]] — system shape and runtime composition.
 - [[Package Boundaries]] — what belongs in each layer and what is forbidden.
 - [[Adapter Architecture]] — CLI, TUI, sidecar, and neutral launch coordination.
