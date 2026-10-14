@@ -13,7 +13,11 @@ workbench spec and the UX document's §9.2 ask:
 * **detours**: the return rate (detours opened in the window that end back at
   their origin, each counted once however often it is walked back to) and the
   detour cost (minutes away, model wait separated);
-* **proactive load**: LearnLoop-started elements per reading hour;
+* **proactive load**: LearnLoop-started elements per reading hour (RW3a's
+  margin marks included);
+* **cues** (RW3a): marks shown, open, check-me and not-relevant rates against
+  marks shown, marks per reading hour (the interruption burden) and the
+  learner's density and per-book choices;
 * **waiting behaviour**: the share of model waits during which the learner
   scrolled, selected or typed;
 * **visits**: visits, active minutes, time to the first action.
@@ -227,9 +231,10 @@ def build_reader_report(
         by_kind.setdefault(kind, {"opened": 0, "returned": 0})["returned"] += 1
 
     # -- proactive load, waiting, visits ---------------------------------------
+    cue_shown = actions("cue_shown")
     shown = [("reconnect_line", e) for e in actions("reconnect_shown")] + [
         (str(e["payload"].get("element") or "unknown"), e) for e in actions("proactive_shown")
-    ]
+    ] + [("margin_mark", e) for e in cue_shown]
     closes = of_kind("reader_view_closed")
     active_seconds = sum(float(c["payload"].get("active_seconds") or 0) for c in closes)
     reading_hours = round(active_seconds / 3600, 4)
@@ -296,6 +301,19 @@ def build_reader_report(
             "by_element": dict(Counter(element for element, _ in shown)),
             "reading_hours": reading_hours,
             "per_reading_hour": round(len(shown) / reading_hours, 3) if reading_hours else None,
+        },
+        "cues": {
+            "shown": len(cue_shown),
+            "per_reading_hour": round(len(cue_shown) / reading_hours, 3) if reading_hours else None,
+            "opened": _share(len(actions("cue_opened")), len(cue_shown)),
+            "check_me": _share(len(actions("cue_check_me")), len(cue_shown)),
+            "not_relevant": _share(len(actions("cue_not_relevant")), len(cue_shown)),
+            "not_relevant_undone": len(actions("cue_not_relevant_undone")),
+            "density_changes": dict(Counter(
+                f"{e['payload'].get('from')}->{e['payload'].get('to')}" for e in actions("cue_density_changed")
+            )),
+            "books_switched_off": len(actions("cue_source_off")),
+            "books_switched_on": len(actions("cue_source_on")),
         },
         "waiting": _share(waited_with_activity, len(completions)),
         "visits": {

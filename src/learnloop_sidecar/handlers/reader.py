@@ -466,9 +466,14 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
     if source_id is not None:
         _require_source_reader(repository, source_id)
     try:
-        return versioned(RG.build_guide_plan(vault, repository, extraction_id=resolved))
+        plan = RG.build_guide_plan(vault, repository, extraction_id=resolved)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    # Reader workbench RW3a: the plan's own misunderstanding passages as margin
+    # cues, within the learner's choices. Switched off, the plan is unchanged.
+    if RCU.cues_enabled(vault):
+        plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
+    return versioned(plan)
 
 
 class ReaderBlockHealthInput(ParamsModel):
@@ -2069,3 +2074,143 @@ def reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> 
     except RI.InquiryError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned({"recorded": len(ids)})
+
+
+# ---------------------------------------------------------------------------
+# Reader workbench RW3a: margin cues from the Guide (spec §6)
+# ---------------------------------------------------------------------------
+
+from learnloop.reader import reader_cues as RCU  # noqa: E402
+
+
+def _require_cues(ctx: SidecarContext):
+    vault, repository = _require_reader(ctx)
+    if not RCU.cues_enabled(vault):
+        raise SidecarError("cues_disabled", "Margin cues are switched off (cues.enabled = false).")
+    return vault, repository
+
+
+def check_me_proposal(vault: Any, repository: Any, extraction_id: str, cue: dict[str, Any]) -> dict[str, Any]:
+    """"Check me" on a cue (spec §6.1): one short item on the cue's Learning
+    Object, through ``find_practice`` under the Reader's caller (the
+    question the learner answered left out). It proposes only: the plan's
+    learner pick (or, with the plan off, the open) serves it."""
+
+    from learnloop.instructional.policy import caller_for
+    from learnloop.instructional.practice import propose_practice, service_enabled
+    from learnloop.instructional.wiring import find_practice_injections
+    from learnloop.practice_index.retrieval import IntentUnavailable, PracticeConstraints, find_practice
+    from learnloop.source_retrieval.policy import PolicyRefused
+    from learnloop_sidecar.handlers.practice_index import plan_minutes_estimator
+
+    request = RCU.check_me_request(vault, cue)
+    try:
+        constraints = PracticeConstraints.from_mapping(request["constraints"])
+        if service_enabled(vault):
+            caller = caller_for(repository, "reader", extraction_id,
+                                learning_object_ids=[str(cue["learning_object_id"])])
+            result = propose_practice(
+                vault, repository, request["query"], constraints, caller=caller, origin="rpc",
+                **find_practice_injections(vault, estimator=plan_minutes_estimator(vault, repository)),
+            )
+        else:
+            result = find_practice(vault, repository, request["query"], constraints, origin="rpc")
+    except (PolicyRefused, IntentUnavailable, ValueError) as exc:
+        return {"status": "failed", "reason": str(exc), "proposal_id": None}
+    item = next((entry for entry in result.get("items") or [] if entry.get("practice_item_id")), None)
+    if item is None:
+        return {"status": "none", "proposal_id": result.get("proposal_id")}
+    prompt = " ".join(str(item.get("prompt") or "").split())
+    return {
+        "status": "found",
+        "practice_item_id": item["practice_item_id"],
+        "learning_object_id": item.get("learning_object_id") or cue.get("learning_object_id"),
+        "prompt": prompt if len(prompt) <= 220 else prompt[:219].rstrip() + "…",
+        "proposal_id": result.get("proposal_id"),
+    }
+
+
+class ReaderCueActionInput(ParamsModel):
+    extraction_id: str
+    cue_id: str
+    action: str
+    # "Not relevant, because…" (optional): judge feedback only.
+    text: str | None = None
+
+
+@method("reader.cue_action", ReaderCueActionInput)
+def reader_cue_action(ctx: SidecarContext, params: ReaderCueActionInput) -> dict[str, Any]:
+    """A tap on a margin cue: open, check me, not relevant (and its undo).
+
+    One salience-only event and a ``learner_card`` verdict (task
+    ``passage_cue``); "check me" also proposes one item for an ordinary
+    attempt on your own. Display only: nothing reaches evidence."""
+
+    vault, repository = _require_cues(ctx)
+    resolved = resolve_extraction_id(repository, params.extraction_id)
+    if resolved is None:
+        raise SidecarError(
+            "extraction_not_found", f"No extraction resolves for {params.extraction_id!r}."
+        )
+    try:
+        plan = RG.build_guide_plan(vault, repository, extraction_id=resolved)
+        cue = RCU.find_cue(vault, repository, extraction_id=resolved, cue_id=params.cue_id, plan=plan)
+        result = RCU.record_cue_tap(
+            repository, extraction_id=resolved, cue=cue, action=params.action, text=params.text,
+        )
+    except RCU.CueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    response: dict[str, Any] = {**result, "check": None}
+    if params.action == "check_me":
+        response["check"] = check_me_proposal(vault, repository, resolved, cue)
+    return versioned(response)
+
+
+class ReaderCuePreferencesInput(ParamsModel):
+    source_id: str | None = None
+
+
+@method("reader.cue_preferences", ReaderCuePreferencesInput)
+def reader_cue_preferences(ctx: SidecarContext, params: ReaderCuePreferencesInput) -> dict[str, Any]:
+    """The learner's cue preferences (Settings, the Guide's footer). Reports
+    the kill switch, like ``reader.prompt_contract``: switched off it says so."""
+
+    vault, _repository = ctx.require_vault()
+    return versioned(RCU.preferences(vault, source_id=params.source_id))
+
+
+class ReaderSetCuePreferencesInput(ParamsModel):
+    extraction_id: str | None = None
+    source_id: str | None = None
+    density: str | None = None
+    source_off: bool | None = None
+    via: str = "footer"
+
+
+@method("reader.set_cue_preferences", ReaderSetCuePreferencesInput)
+def reader_set_cue_preferences(ctx: SidecarContext, params: ReaderSetCuePreferencesInput) -> dict[str, Any]:
+    """Change the margin-mark density, or switch cues off (or back on) for a
+    book. Remembered in the vault's ``[cues]`` config, so it holds across
+    devices; logged as a salience-only event. No change, no write."""
+
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+
+    vault, repository = _require_cues(ctx)
+    try:
+        updates, events = RCU.preference_changes(
+            vault, density=params.density, source_id=params.source_id, source_off=params.source_off,
+            via=params.via,
+        )
+    except RCU.CueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    if updates:
+        try:
+            apply_config_updates(vault.root / "learnloop.toml", updates)
+        except SettingsStoreError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        ctx.reload(maintenance=False)
+        vault, repository = ctx.require_vault()
+        RCU.log_preference_events(repository, events, extraction_id=params.extraction_id)
+    return versioned(RCU.preferences(vault, source_id=params.source_id))

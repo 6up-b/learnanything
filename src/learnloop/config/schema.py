@@ -1810,6 +1810,32 @@ class ReaderInquiryConfig(BaseModel):
     metered_price_per_million: float | None = Field(default=None, gt=0)
 
 
+class CuesConfig(BaseModel):
+    """Reader workbench RW3a: margin cues from the Guide (spec_reader_workbench_v1 §6).
+
+    The Guide's own passages whose Learning Object carries a recent
+    misunderstanding (the diagnoser's overlay, ``reader_guidance``) are shown
+    as quiet margin marks beside the text, with a one-line note from a fixed
+    template and a "because" line. Display only: nothing here writes
+    evidence, mastery, projections, FSRS or the plan, and nothing changes
+    serving, so no algorithm successor; taps are salience-only events and
+    ``learner_card`` verdicts (task ``passage_cue``). ``enabled`` is the kill
+    switch: off, the guide plan carries no cues and the Reader shows no marks
+    and no density control.
+
+    ``density`` is the learner's display limit per section (off, fewer,
+    normal, more = 0, 1, 2 or 4 marks; "fewer marks like this" steps it down),
+    remembered here so it holds across devices. ``one_per_viewport`` keeps at
+    most one mark per screenful at every density (off: the per-section budget
+    alone). ``off_sources`` are the books the learner switched cues off for.
+    """
+
+    enabled: bool = True
+    density: Literal["off", "fewer", "normal", "more"] = "normal"
+    one_per_viewport: bool = True
+    off_sources: list[str] = Field(default_factory=list)
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -2518,6 +2544,7 @@ class LearnLoopConfig(BaseModel):
     learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
+    cues: CuesConfig = Field(default_factory=CuesConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
