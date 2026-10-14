@@ -22,6 +22,7 @@ source_paths:
   - src/learnloop/source_retrieval/corpus.py
   - src/learnloop/reader/reader_inquiry.py
   - src/learnloop/reader/reader_quick_check.py
+  - src/learnloop/reader/reader_cues.py
   - src/learnloop/daily_plan/engine.py
   - src/learnloop/router/decisions.py
   - src/learnloop/attempts/blind_grading.py
@@ -133,6 +134,7 @@ flowchart LR
     A --> T["Salience and learner-text gaps"]
     Q --> F["Formative answer<br/>no mastery evidence"]
     Q -->|explicit escalation| P["Practice item"]
+    G --> C["RW3a margin cues<br/>display only"]
     G --> R["Section progress"]
     R --> B["Current + next chapter build<br/>per-LO practice seeding"]
     N["Reader Tutor and Teach-Back"] --- G
@@ -142,6 +144,7 @@ flowchart LR
 - [[Reader Tutor and Teach-Back]] and [[Reader to Practice Workflow]] explain instruction versus assessment. `src/learnloop/reader/reader_guidance.py` ([source](../../../src/learnloop/reader/reader_guidance.py)) assembles source-grounded guidance; `src/learnloop/reader/reader_inquiry.py` ([source](../../../src/learnloop/reader/reader_inquiry.py)) owns RW1a status/reconnect over [[question_events]] and [[interaction_events]]. See the [RW1a landing review](../../reviews/rw1a-inquiry.md) for the newer inquiry UX.
 - `src/learnloop/reader/reader_quick_check.py` ([source](../../../src/learnloop/reader/reader_quick_check.py)) produces passage/section-grounded questions in [[reader_authored_questions]]. Their answers are formative, not attempts or mastery updates; explicit collection/escalation can create a practice item. Owner-reviewed placements take precedence over automatically authored section checks. Every Reader offer path (guide cards, rail badge, section breaks, RW1a's reconnect line) asks one check-offer rule, `apps/learnloop-tauri/src/screens/reader/checkOffer.ts` ([source](../../../apps/learnloop-tauri/src/screens/reader/checkOffer.ts)): a resume, jump or video seek offers nothing until the learner reads in this visit, and a held-out section's check is refused before anything is sent.
 - [[reader_section_progress]] records progress. `src/learnloop/reader/reader_progression.py` ([source](../../../src/learnloop/reader/reader_progression.py)) seeds practice for reached LOs under an `as_you_read` build; `src/learnloop/content/pipeline/add_source.py` ([source](../../../src/learnloop/content/pipeline/add_source.py)) separately keeps the current and next chapter built, subject to route, consent, cost and build gates. Its one-per-book reading request is level-triggered: a 30 s sweep with backoff acts on every due request, and enqueue, cancel and settle commit together at the revision read. The per-book AI opt-out (`keep_local`) is retired and never consulted. See [UX Phase 1](../../reviews/ux-phase1.md), its [completion review](../../reviews/ux-phase1-finish.md) and the [reading-hardening review](../../reviews/reading-hardening.md).
+- The Reader screen's orchestration lives in hooks under `apps/learnloop-tauri/src/screens/reader/` (`useReaderVisit`, `useReadingProgress`, `useReaderInquiry`, `useReaderCues`, with the YouTube watch panel its own module); only `useReadingProgress` and `useReaderInquiry` call `checkOffer.ts`. RW3a margin cues, `src/learnloop/reader/reader_cues.py` ([source](../../../src/learnloop/reader/reader_cues.py)), mark the Guide's own `recent_misunderstanding` passages with fixed-template notes (open, check me, not relevant, fewer, off) within a per-section density budget and one per screenful, never on held-out or exam material; they are display only (salience events and `passage_cue` learner-card verdicts, no evidence), configured by `[cues]`. See the [Reader hooks and RW3a review](../../reviews/reader-hook-rw3a.md).
 - Reading and Ask can affect salience, familiarity and gap handling without granting ability evidence. Practice, diagnostic checks and a completed teach-back cross into the shared attempt pipeline; [[Tutor and Teach-Back Workflow]] describes that boundary.
 
 ## Daily plan, router and serving
