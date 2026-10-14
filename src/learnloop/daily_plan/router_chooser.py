@@ -162,6 +162,16 @@ def support_order(
     return support
 
 
+def favoured_option(distribution: Mapping[str, float] | None) -> str | None:
+    """The one option a model's distribution puts the most on (None on a tie at the top)."""
+
+    if not distribution:
+        return None
+    top = max(distribution.values())
+    leaders = [ref for ref, value in distribution.items() if value >= top - 1e-12]
+    return leaders[0] if len(leaders) == 1 else None
+
+
 def _rule_sentence(candidate: BlockCandidate | None, state: PlanState) -> tuple[str, str]:
     if candidate is None:
         code = router_why.stop_code(state.minutes_left, STOP_OFFER_MINUTES)
@@ -460,7 +470,14 @@ class RouterChooser:
         llm = results.get(LLM)
         rationale = llm.parsed.rationale if llm is not None and llm.parsed is not None else None
         cited = tuple(llm.parsed.evidence_ids) if llm is not None and llm.parsed is not None else ()
+        # The rationale explains the block the LLM favours (its prompt asks why
+        # "the block you favour" is a good next step): its one most probable
+        # option. It is shown only when that block was drawn; another drawn
+        # option shows the computed reason (Codex review F7).
+        about = favoured_option(llm.parsed.distribution) if llm is not None and llm.parsed is not None else None
         guard = router_why.rationale_guard(rationale, cited, set(evidence)) if rationale is not None else "absent"
+        if guard is None and drawn.component == "llm" and drawn.chosen != about:
+            guard = "another_option"
         shown = drawn.component == "llm" and guard is None
         why, why_kind = router_why.model_why(drawn.component, rule, option_count=len(support), rationale=rationale,
                                              rationale_shown=shown)
@@ -502,7 +519,8 @@ class RouterChooser:
                 "models": {name: result.summary() for name, result in sorted(results.items())},
                 "similar": similar or {"status": "disabled"},
                 "sensor_source": str(config.router.sensor_source),
-                "rationale": {"text": rationale, "guard": guard, "shown": shown, "evidence_ids": list(cited)},
+                "rationale": {"text": rationale, "guard": guard, "shown": shown, "evidence_ids": list(cited),
+                              "about": about},
                 "prefetched_at": material.get("decided_at"),
                 "waited_ms": int(round(max(self.runtime.clock() - entry.started, 0.0) * 1000)),
             },

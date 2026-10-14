@@ -453,6 +453,48 @@ def test_a_json_repair_is_admitted_as_its_own_request(tmp_path, monkeypatch):
     assert RouterSpend().spent_today(env.repository, env.vault.config, utc_now_iso()) <= 0.03
 
 
+def _seed_drawing(*, first_at_least: float, second_at_least: float):
+    from learnloop.router.mixture import uniform
+
+    for index in range(20_000):
+        seed = f"pinned-{index}"
+        if uniform(seed, "component") >= first_at_least and uniform(seed, "candidate") >= second_at_least:
+            return lambda _key, _decision_id, seed=seed: seed
+    raise AssertionError("no seed found")
+
+
+def test_the_llm_rationale_is_shown_only_for_the_option_it_explains(tmp_path):
+    # Codex review F7: the LLM favours the first option (0.6) and explains
+    # it; the draw takes the LLM's branch but samples its second option
+    # (0.4). The rationale describes another block, so it is not shown: the
+    # block shows the computed reason, and the receipt keeps the words.
+    rationale = "Reviewing this again will strengthen what you learned yesterday."
+
+    def split(request):
+        answer = FakeLLM.default_answer(request)
+        refs = options_in(request.prompt)
+        answer["choose_block"] = [{"id": refs[0], "probability": 0.6}, {"id": refs[1], "probability": 0.4}]
+        answer["rationale"], answer["evidence_ids"] = rationale, []
+        return answer
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=split),
+                                             seed=_seed_drawing(first_at_least=0.2, second_at_least=0.7)),
+                      toml="[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n")
+    record = run(env)
+    drawn = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
+    assert drawn
+    for row in drawn:
+        mixture = row["detail_json"]["mixture"]
+        assert mixture["drawn_component"] == "llm" and row["chosen_ref"] == mixture["support"][1]
+        assert mixture["rationale"]["shown"] is False and mixture["rationale"]["guard"] == "another_option"
+        assert mixture["rationale"]["about"] == mixture["support"][0] and mixture["rationale"]["text"] == rationale
+    # Each drawn block (a drawn stop for today is a receipt, not a block) shows the computed reason.
+    chosen = [block.chosen for block in record.blocks if block.chosen.get("decision_ref") in {row["id"] for row in drawn}]
+    assert chosen
+    for detail in chosen:
+        assert rationale not in str(detail.get("why")) and detail.get("why_kind") == "model_no_rationale"
+
+
 # -- the why ---------------------------------------------------------------------------------------
 
 
