@@ -123,6 +123,10 @@ forbidden_modules = [
     "learnloop.cli",
     "learnloop_sidecar",
 ]
+# Router R2b: the request builder constructs the Decider's typed questions
+# (pure dataclasses in learnloop.ai.decisions) and nothing else from
+# learnloop.ai; no router module reaches a client, so replay still never can.
+ignore_imports = ["learnloop.router.requests -> learnloop.ai.decisions"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

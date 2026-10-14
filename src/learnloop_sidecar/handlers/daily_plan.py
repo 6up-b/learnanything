@@ -103,7 +103,7 @@ class PlanLearnerPickInput(ParamsModel):
     source_exercise_import_id: str | None = None
 
 
-def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> PlanEnv:
+def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False) -> PlanEnv:
     def eligible(minutes: float) -> list[Any]:
         # Today's own build: the same scheduler call and teach-back filter as
         # get_today_queue, so a served plan item carries the candidate id of
@@ -123,22 +123,24 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         )
 
     # Router R2a: the staged frame composes Today at mvp-0.23 with the router
-    # on; otherwise DL1's pair exactly (daily_plan.policy, G8).
+    # on; otherwise DL1's pair exactly (daily_plan.policy, G8). Router R2b: at
+    # the mixture's successor the models are asked off the hot path; a read
+    # (``serve`` false) never waits on them, a serving step waits a few seconds.
     return PlanEnv(
         vault=vault,
         repository=repository,
         session_id=session_id,
         eligible=eligible,
-        policy=policy_for(vault, repository, session_id=session_id),
+        policy=policy_for(vault, repository, session_id=session_id, serve=serve),
     )
 
 
-def _require(ctx: SidecarContext, session_id: str | None) -> tuple[Any, Any, PlanEnv] | None:
+def _require(ctx: SidecarContext, session_id: str | None, *, serve: bool = False) -> tuple[Any, Any, PlanEnv] | None:
     vault, repository = ctx.require_vault()
     if not plan_active(vault):
         return None
     prepare_queue_build(ctx, vault, repository, session_id)
-    return vault, repository, _env(ctx, vault, repository, session_id)
+    return vault, repository, _env(ctx, vault, repository, session_id, serve=serve)
 
 
 def _off(ctx: SidecarContext) -> dict[str, Any]:
@@ -216,7 +218,7 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
 
     if params.serve and not params.session_id:
         raise SidecarError("validation_error", "serving a plan item needs a session.", details={"field": "sessionId"})
-    required = _require(ctx, params.session_id)
+    required = _require(ctx, params.session_id, serve=params.serve)
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required

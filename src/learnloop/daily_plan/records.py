@@ -106,10 +106,19 @@ class PlannedBlock:
     outcome: str | None = None
     reading_progress: tuple[int, int] | None = None
     simulated: bool = False
+    #: Router R2c: follow-ups the restraint decided while this block ran,
+    #: ``practice_item_id -> "deferred" | "refused"`` (``followup_deferred``,
+    #: ``followup_refused`` events).
+    followup_decisions: dict[str, str] = field(default_factory=dict)
 
     @property
     def is_reading(self) -> bool:
         return self.reading is not None
+
+    def deferred_followups(self) -> set[str]:
+        """Follow-ups the restraint let wait for the next block (R2c)."""
+
+        return {item for item, kind in self.followup_decisions.items() if kind == "deferred"}
 
     @property
     def reading_target(self) -> ReadingTarget | None:
@@ -219,6 +228,13 @@ class PlanRecord:
 
     def next_ordinal(self) -> int:
         return max((block.ordinal for block in self.blocks), default=0) + 1
+
+    def refused_followups(self) -> set[str]:
+        """Follow-ups a hard constraint refused in this plan (R2c): never placed again in it."""
+
+        return {
+            item for block in self.blocks for item, kind in block.followup_decisions.items() if kind == "refused"
+        }
 
     def planned_ids(self) -> set[str]:
         """Items this plan has taken (displaced items go back to the pool)."""
@@ -376,6 +392,10 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
         block.outcome = detail.get("outcome")
     elif kind == "reading_progress":
         block.reading_progress = (int(detail.get("spans_seen") or 0), int(detail.get("span_count") or 0))
+    elif kind == "followup_deferred" and item_id:
+        block.followup_decisions[str(item_id)] = "deferred"
+    elif kind == "followup_refused" and item_id:
+        block.followup_decisions[str(item_id)] = "refused"
 
 
 def day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]:

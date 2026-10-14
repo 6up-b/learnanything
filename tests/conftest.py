@@ -27,6 +27,11 @@ os.environ["LEARNLOOP_CHATGPT_SECRET_STORE"] = "file"
 # exercises the Decider injects a fake client).
 for _decider_key in ("OPENROUTER_API_KEY", "PERPLEXITY_API_KEY"):
     os.environ.pop(_decider_key, None)
+# Router R2b (mvp-0.24, the template's version): Today's block choice asks the
+# router's models through their routes. No test reaches a real model: the
+# routes are "off" (the staged rule chooses, as with no model set up), and a
+# test of the mixture injects fake models into its own runtime.
+os.environ["LEARNLOOP_ROUTER_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

@@ -397,6 +397,9 @@ def _finish(
             session_id=params.session_id,
         ),
         lambda: _log_attempt_recorded(repository, params.session_id, result.transcript_md, result.attempt),
+        # Router R2c (spec §15.1): summarize the graded dialogue into the
+        # learner-state card's typed evidence, off the hot path.
+        lambda: _schedule_router_summary(vault, repository, result.attempt.attempt_id),
     ):
         try:
             post_step()
@@ -417,6 +420,12 @@ def _finish(
             "graded_criterion_ids": result.graded_criterion_ids,
         }
     )
+
+
+def _schedule_router_summary(vault, repository, attempt_id: str) -> None:
+    from learnloop.daily_plan.router_teach_back import schedule
+
+    schedule(vault, repository.sqlite_path, attempt_id)
 
 
 def _existing_attempt_payload(vault, repository, state: TeachBackState, attempt_id: str) -> dict[str, Any]:

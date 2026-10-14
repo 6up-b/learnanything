@@ -35,7 +35,7 @@ def rows(env, kind: str = "plan_block") -> list[dict[str, Any]]:
             "SELECT * FROM router_decisions WHERE decision_kind = ? ORDER BY created_at, id", (kind,)
         )]
     for row in found:
-        for key in ("candidates_json", "detail_json", "mixture_weights_json", "model_distributions_json",
+        for key in ("candidates_json", "detail_json", "exclusions_json", "mixture_weights_json", "model_distributions_json",
                     "sensor_answers_json", "model_ids_json", "similar_decision_ids_json"):
             if row.get(key) is not None:
                 row[key] = json.loads(row[key])

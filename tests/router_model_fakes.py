@@ -40,6 +40,12 @@ def uniform(refs: list[str]) -> dict[str, float]:
     return {ref: 1.0 / len(refs) for ref in refs}
 
 
+def first_option(refs: list[str]) -> dict[str, float]:
+    """All mass on the first option (the staged rule's pick leads the options)."""
+
+    return {ref: (1.0 if index == 0 else 0.0) for index, ref in enumerate(refs)}
+
+
 class FakeDecider:
     provider_name = "fake_decider"
     provider_type = "decider"

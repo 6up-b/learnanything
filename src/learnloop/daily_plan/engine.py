@@ -88,6 +88,7 @@ from learnloop.daily_plan.types import (
     BlockChoice,
     BlockChooser,
     BlockSource,
+    DecisionPending,
     IntentView,
     PlanState,
     ReadingTarget,
@@ -198,6 +199,10 @@ class PlanPolicy:
     chooser: BlockChooser
     make_source: Callable[[PoolContext], BlockSource]
     projection_chooser: BlockChooser = field(default_factory=LaneQuotaChooser)
+    #: Router R2c: the restraint gate on mid-block follow-ups (``plan_interrupt``;
+    #: ``daily_plan.router_chooser.RestraintGate``). None: DL1's follow-up
+    #: rules alone (a placeable follow-up always joins the current block).
+    restraint: Any = None
 
     def projection(self) -> "PlanPolicy":
         """The pair the view projects with: this source, the projection chooser."""
@@ -431,7 +436,12 @@ register_plan_decision_logger(log_plan_block_decision)
 
 #: The keys of a router chooser's record copied onto the ``block_chosen``
 #: receipt (the card itself is stored beside the router decision).
-ROUTER_SUMMARY_KEYS = ("mode", "policy", "card_version", "card_hash", "why_code", "controller_decision_id")
+ROUTER_SUMMARY_KEYS = (
+    "mode", "policy", "card_version", "card_hash", "why_code", "controller_decision_id",
+    # Router R2b: who drew and why the models did not answer (the "details" line).
+    "decided_by", "drawn_component", "option_count", "fallback", "fallback_reasons", "rationale_hidden",
+    "evidence_labels",
+)
 
 
 def router_summary(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -1186,7 +1196,13 @@ def build_plan(
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
     record = _reload(env, plan_id)
     context = _context_from_build(env, record, prepared.built)
-    _boundary(env, record, context, forced=prepared.requests, forced_origin=ORIGIN_REQUESTED)
+    try:
+        _boundary(env, record, context, forced=prepared.requests, forced_origin=ORIGIN_REQUESTED)
+    except DecisionPending:
+        # Router R2b: the first block's models are still out (Today's open is a
+        # read). The plan stands without a block; the next call decides it
+        # (``advance`` crosses the open boundary, placing the requests first).
+        pass
     return _reload(env, plan_id)
 
 
@@ -1388,6 +1404,10 @@ def decide(
     reason: str | None = None
     try:
         choice = policy.chooser.choose(state, feasible)
+    except DecisionPending:
+        # Router R2b: a read found the decision's models still out. Nothing
+        # is decided; the boundary stays open for the next call.
+        raise
     except Exception as exc:  # noqa: BLE001 - a broken chooser falls back (rule 2)
         choice = BlockChoice(candidate_id=f"<error: {type(exc).__name__}>", chosen_by="lane_quota", propensity=None, why="", why_kind="computed")
         reason = "chooser_error"
@@ -2064,6 +2084,13 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
     followups = _pending_followups(record, built)
     if not followups or not record.is_open:
         return record, []
+    # Router R2c: the restraint gate (None: DL1's rules alone, unchanged).
+    gate = getattr(env.policy, "restraint", None)
+    if gate is not None:
+        refused = record.refused_followups()
+        followups = [item for item in followups if item.practice_item_id not in refused]
+        if not followups:
+            return record, []
     cap = record.split.get("items_cap")
     current = record.current_block()
     if current is None or current.is_reading:
@@ -2077,11 +2104,49 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
                 fitted.append(item)
                 free -= item.est_minutes
         return record, fitted
+    outcomes: dict[str, Any] = {}
+    if gate is not None:
+        # A follow-up the current block's restraint already deferred waits for
+        # the next block (it is forced into it, above).
+        deferred = current.deferred_followups()
+        followups = [item for item in followups if item.practice_item_id not in deferred]
+        protected_now = {item.practice_item_id for item in record.items() if item.origin == ORIGIN_FOLLOWUP}
+        for item in followups:
+            need_items = 0 if cap is None else max(record.item_count() + 1 - int(cap), 0)
+            if _displacement_plan(
+                record, need_minutes=item.est_minutes - record.minutes_left(), need_items=need_items,
+                keep=protected_now,
+            ) is None:
+                # The rules would not place it now: never forced (G4).
+                continue
+            try:
+                # Decided before the write opens (no lock is held on a model).
+                outcomes[item.practice_item_id] = gate.decide(record, current, item)
+            except DecisionPending:
+                continue
+        if not outcomes:
+            return record, []
     now = env.now_iso()
     protected = {item.practice_item_id for item in record.items() if item.origin == ORIGIN_FOLLOWUP}
     with env.repository.atomic(), env.repository.connection() as connection:
         position = max((item.position for item in current.items), default=0)
         for item in followups:
+            decision_ref = None
+            if gate is not None:
+                outcome = outcomes.get(item.practice_item_id)
+                if outcome is None:
+                    continue
+                decision_ref = _log_interrupt(env, connection, record, current, item, outcome)
+                if not outcome.insert:
+                    _event(
+                        connection,
+                        current.id,
+                        "followup_refused" if outcome.refused else "followup_deferred",
+                        {"practice_item_id": item.practice_item_id, "decision_ref": decision_ref,
+                         "propensity": outcome.propensity},
+                        now,
+                    )
+                    continue
             need_items = 0 if cap is None else max(record.item_count() + 1 - int(cap), 0)
             victims = _displacement_plan(
                 record,
@@ -2120,6 +2185,7 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
                     "check_kind": None,
                     "serving_origin": "daily_plan",
                     **({"lane_release": release} if release is not None else {}),
+                    **({"decision_ref": decision_ref} if decision_ref is not None else {}),
                 },
                 now,
             )
@@ -2132,6 +2198,46 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
             )
             protected.add(item.practice_item_id)
     return _reload(env, record.id), []
+
+
+def _log_interrupt(
+    env: PlanEnv, connection: Any, record: PlanRecord, current: PlannedBlock, item: PoolItem, outcome: Any
+) -> str | None:
+    """Router R2c: the follow-up's ``plan_interrupt`` row, on the write's own connection."""
+
+    from learnloop.router.plan_log import log_plan_interrupt_decision
+
+    try:
+        return log_plan_interrupt_decision(
+            connection,
+            {
+                "plan_id": record.id,
+                "plan_kind": record.kind,
+                "local_date": str(record.row.get("local_date") or ""),
+                "block_id": current.id,
+                "parent_decision_id": None,
+                "session_id": env.session_id,
+                "followup": {
+                    "practice_item_id": item.practice_item_id,
+                    "learning_object_id": item.learning_object_id,
+                    "lane": item.lane,
+                    "est_minutes": round(float(item.est_minutes), 4),
+                    "reason": item.reason,
+                },
+                "chosen_ref": outcome.chosen_ref,
+                "propensity": outcome.propensity,
+                "refused": outcome.refused,
+                "router_record": outcome.record,
+                "why": outcome.why,
+                "decided_at": env.now_iso(),
+                "config": env.vault.config,
+            },
+        )
+    except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
+        import logging
+
+        logging.getLogger(__name__).warning("plan_interrupt decision not logged", exc_info=True)
+        return None
 
 
 # -- the next step -------------------------------------------------------------------
@@ -2242,7 +2348,12 @@ def advance_with_context(
                 if row.get("practice_item_id") in by_id
             ]
             forced_origin = ORIGIN_REQUESTED
-        block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin)
+        try:
+            block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin)
+        except DecisionPending:
+            # Router R2b: the decision's models are still out on a read. No
+            # step yet: the view says the next block is being chosen.
+            return record, None, context  # type: ignore[return-value]
         record = _reload(env, record.id)
         context = _context(env, record, built, day=())
         if block_id is None:

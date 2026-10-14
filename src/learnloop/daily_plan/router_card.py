@@ -170,6 +170,7 @@ class CardGatherer:
             interaction = self._interaction(connection, now_iso, unknowns)
             hypotheses = self._open_problems(connection, set(los), titles, unknowns, withheld)
             reports = self._self_reports(connection, set(los), titles, now_iso, unknowns)
+            evidence_sections = self._evidence_sections(connection, los, titles, now_iso, withheld, unknowns)
         recent = self._recent_work(attempts, held, pinned, titles, withheld)
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
         session = {
@@ -206,7 +207,26 @@ class CardGatherer:
             unknowns=unknowns,
             self_reports=reports,
             recent_work=recent,
+            evidence_sections=evidence_sections,
         )
+
+    @staticmethod
+    def _evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str,
+                           withheld: frozenset[str] | None, unknowns: list[str]) -> dict[str, Any]:
+        """The typed evidence registry (R2a's hook). Router R2c: teach-back summaries."""
+
+        sections: dict[str, Any] = {}
+        try:
+            from learnloop.daily_plan import router_teach_back
+
+            summaries = router_teach_back.summaries_for(connection, los, before=now_iso, withheld=withheld,
+                                                         titles=titles)
+        except Exception:  # noqa: BLE001 - a section that cannot be read is named, never guessed
+            unknowns.append("teach-back summaries could not be read")
+            summaries = []
+        if summaries:
+            sections[router_teach_back.SECTION] = summaries
+        return sections
 
     # -- sections -----------------------------------------------------------------
 

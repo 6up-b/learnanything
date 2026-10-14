@@ -197,6 +197,17 @@ def render_text(card: Mapping[str, Any]) -> str:
         lines.append("none recorded")
     for report in reports:
         lines.append(f"- {str(report.get('at') or '')[:10]} {report.get('topic') or ''}: {report.get('report')}".rstrip())
+    teach_backs = (card.get("evidence_sections") or {}).get("teach_back_summaries") or ()
+    if teach_backs:
+        # Router R2c (spec §15.1): typed evidence from graded teach-back dialogues.
+        lines.append("# Teach-back summaries (newest first)")
+        for entry in teach_backs:
+            lines.append(f"- {str(entry.get('at') or '')[:10]} {entry.get('topic') or ''} (attempt {entry.get('attempt_id')})")
+            for label, key in (("explained correctly", "explained_correctly"), ("missing or wrong", "missing_or_wrong"),
+                               ("in their words", "learner_words")):
+                points = [str(point) for point in entry.get(key) or ()]
+                if points:
+                    lines.append(f"  {label}: " + "; ".join(points))
     lines.append("# Recent graded work (newest first)")
     work = card.get("recent_work") or ()
     if not work:

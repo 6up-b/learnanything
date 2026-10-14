@@ -169,7 +169,9 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     assert decider["provider"] == "openrouter_decider" and decider["providerType"] == "decider"
     assert decider["ready"] is False
     assert "Perplexity" in decider["disclosure"] and "OpenRouter" in decider["disclosure"]
-    assert "Nothing is sent yet" in judges["router_llm"]["disclosure"]
+    # Router R2b: the router routes send the learner state card from mvp-0.24.
+    assert "From mvp-0.24" in judges["router_llm"]["disclosure"]
+    assert "Never a reference answer" in judges["router_llm"]["disclosure"]
     assert "ChatGPT subscription" in judges["router_llm"]["disclosure"]
     names = {provider["name"]: provider["type"] for provider in response["result"]["ai"]["providers"]}
     assert names["openrouter_decider"] == "decider"

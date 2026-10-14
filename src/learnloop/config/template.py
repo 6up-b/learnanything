@@ -1103,7 +1103,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the keys; all fifteen were recomputed from the composed defaults
     # (defaults_fingerprint_for_version) on its branch, and all fifteen again
     # when it landed on main after exam protection.
-    "mvp-0.9": "d3427e048fb1d1c408c43ba9335371459f5de154f35e891dd07b6ee123fd211d",
+    # Router R2b + R2c (the model mixture and the restraint, owner decisions
+    # 2026-10-13; built as successor mvp-0.24, a placeholder tag relabelled at
+    # its merge) change router.mode's default to "mixture" (dormant below
+    # mvp-0.24, where it serves as "staged") and add modelled [router] keys,
+    # left out of the decision-only template: weights (one third each, D1), k
+    # (6, D3), epsilon_min (0.02), ties_only (false), timeout_seconds (8),
+    # prefetch_timeout_seconds (45), max_daily_cost_usd (5.00: the owner's
+    # metered guard, subscription routes uncapped), sensors (true),
+    # sensor_source ("decider"), restraint (true), similar_decisions (true,
+    # needs embedding.enabled), similar_k (6), similar_include_rate (0.5) and
+    # teach_back_summary (true). mvp-0.9 to mvp-0.23 serving is unchanged;
+    # every snapshot moves only because the effective config gains the keys,
+    # and all sixteen were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "fe9b94000c07808e9cebf75dcd72e5f50d9de4f3f34714b9582571949b114dfc",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1134,7 +1148,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.10": "b1cbc9c79e2ca40d4c3b5806e3a1828bb7bea178f6334c69e104b42926a64ba7",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.10": "92983b15a7ca10c9aabab18d0403d495928605cf17cc03e859abb0053c83eff6",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1173,7 +1188,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.11": "20881d247b5b70c748e7a1f2936b4fbe71cf566bd5d35b36959f597132fc740c",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.11": "5a6c09da6e836f6f613871bb546cc276449c1c0b534ec1d150965f52a6f11907",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1206,7 +1222,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.12": "61e31b9d60396215bf57f3d370b4d086bae9cb87ecd698643713085db8f9b42a",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.12": "9a0525d741737c80ec37a2e94dbf31c0d913dd8ce2002b3f2dc68787b25a2009",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1234,7 +1251,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.13": "c2ad3f464a06f440056d8cf969832fa3b2fa75a648d4339ae27de8275066d71f",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.13": "e42b2c6d57b893446ce7a16edab9f1cdb5e784c10e76612d2f4d613b6810b7e8",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1261,7 +1279,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.14": "8835c3dbe9afb1d1513e048c1e558fb99de5ca7dfe2494fdcb20c4388587bd57",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.14": "ac3d77fcf9d6af81264c089c810b9ca0f39167392949df135158d63c8ab0045e",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1286,7 +1305,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.15": "38cc3923478827e20c2cbb78b06120b8c966b1fc5c64d9ff435119303a4c9345",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.15": "9595e066481e8e7e843c2f320ad9f3aa651823c1de359d0528a4515a4f5c5089",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1318,7 +1338,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.16": "5c0bf2fcfac6cf4cbe1359e3fea05670b6bc5f07567555ebe7aedac6fa16cbb1",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.16": "7c19c379156b11f1f0885be2ac4ec50ede8fc984041f44491fd22336b4cbd7f2",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1346,7 +1367,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.17": "f2380901a280ae379ed0925391763dcc3f47ce9339b608cb565ac8726670c01b",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.17": "e9637b32dcc34c9988ec7d1befc1d3a4054653fb1387f026eb240d79c1c42c42",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1367,7 +1389,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.18": "2bb89cde582a6f8c3e478c49cf391b7a7aa6ac1470d94e45b7ad410c42cb1c3f",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.18": "e0a62ef9cdd2b2316cb0d26316c2481b2ebac3a7d38f3b7dd0f3a005f4903677",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1388,7 +1411,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.19": "3fc54178afbfd672fc0a2bbd3888b98ec5c1dec6863e95853e851df9524f80b0",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.19": "bf58646de5f74c67447f5677a140e22c54884599c87497d47268f1fa219f7e7c",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1405,7 +1429,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.20": "b9d23f536708687a638e4e18dbe1d57967baeae8bd15db2b537ce955916802c6",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.20": "9e7df8c76f018aa0a225e7c37559142d26eba56365526f251b0a7f6a071f30e0",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1431,7 +1456,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.21": "a57e6ccbf2859bfe25bdb8d09b3e6ead2013ff5a28703d8131bdb0d158e6f938",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.21": "c3e0ce02869d4c508c7daa3d9ee7b0caa5608d94e00bbf10b59652941466681d",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1449,7 +1475,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # owner decision 2026-10-12) until mvp-0.23 merged.
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
-    "mvp-0.22": "ee6c582d4307e52eaa98f2594eae41702fac183a1d5a58030f1ad500151fdd20",
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.22": "6af8d035099db511cb8bb2f360a28e54771d49dd915730ee7c5972201a151e61",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1459,9 +1486,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # router.enabled (off: mvp-0.22's serving exactly). Existing vaults reach
     # it by `learnloop upgrade` (default target) from mvp-0.22, or from
     # mvp-0.9 to mvp-0.21 through the chain (under mvp-0.12's advisory guard).
-    # New vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
-    # decision 2026-10-12).
-    "mvp-0.23": "854661a4da26aea66016ba50e3ef77ef22bddb4417e4d33ccf4c6d5b065603be",
+    # New vaults started here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12) until mvp-0.24 merged.
+    # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
+    "mvp-0.23": "204a5f12714922bc7e82f120629824e7a61d162742fd82b8e2f7585fcfc4875e",
+    # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
+    # tag, relabelled at its merge): mvp-0.23 plus Today's next block drawn
+    # from the logged model mixture (the staged rule, the Decider and the
+    # router LLM over the top-k reversible candidates, exact propensities, a
+    # floor for each) and mid-block follow-ups decided by the restraint
+    # (plan_interrupt). Kill switches router.mode = "staged" (mvp-0.23's
+    # serving exactly) and router.restraint = false. Existing vaults reach it
+    # by `learnloop upgrade` (default target) from mvp-0.23, or from mvp-0.9 to
+    # mvp-0.22 through the chain (under mvp-0.12's advisory guard). New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.24": "0a3fbf6335d8efb23abf2ad7a34a7275c8a22dbb3d8d5ab08c567c80cd53e5df",
 }
 
 

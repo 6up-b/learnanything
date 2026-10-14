@@ -36,9 +36,15 @@ ROUTER_LOG_VERSION = "router_decisions_v1"
 #:   uniform over the 5 % relative tie set, seeded per decision and persisted in
 #:   ``policy_experiment_assignments`` before selection. The staged P2 path's
 #:   within-block EVSI choice uses it.
+#: * ``model_mixture`` (router R2b, mvp-0.24; ``randomization_layer``'s fourth
+#:   design): a two-stage draw from the staged rule, the Decider and the router
+#:   LLM over the top-k reversible candidates, each kept at ``epsilon_min`` or
+#:   above; the seed, the weights, every component's distribution and the
+#:   propensity are on the row, written in the block's transaction.
 ROUTER_DESIGNS: dict[str, str] = {
     "scheduler_seeded_exploration": "legacy Today queue epsilon exploration (seeded hash, logged with the offer)",
     "epsilon_tiebreak": "randomization_layer epsilon tie-break (P4 §9.3, persisted before selection)",
+    "model_mixture": "randomization_layer model mixture (router R2b: staged, Decider, LLM; eps floor; exact)",
 }
 
 DECISION_COLUMNS: tuple[str, ...] = (

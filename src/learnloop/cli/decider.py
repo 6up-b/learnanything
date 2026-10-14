@@ -3,7 +3,10 @@
 * ``agreement``: per ``judgment_ledger`` task, the real pairs where both the
   Decider and an LLM judged the same input, their agreement and confusion
   counts, the Decider's fallbacks, and its calibration where owner or
-  verifier labels exist. Read-only: no model call, no migration, no write.
+  verifier labels exist. Router R2b adds the router's own decisions through
+  an adapter (``learnloop.router.agreement``: block choices, sensors and the
+  restraint, as ``router_*`` tasks), read from ``router_decisions`` rather than
+  duplicated into the ledger. Read-only: no model call, no migration, no write.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from typing import Annotated
 import typer
 
 from learnloop.ai.agreement import agreement_report, ledger_rows
+from learnloop.router.agreement import router_agreement_rows, router_decision_rows_for_agreement
 from learnloop.db.connection import connect
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -53,10 +57,14 @@ def agreement(
     paths = [VaultPaths(loaded.root, loaded.config).sqlite_path]
     paths += [Path(run) / REVIEW_SCRATCH for run in review_runs or []]
     rows = []
-    for path in paths:
+    for index, path in enumerate(paths):
         if not path.exists():
             raise typer.BadParameter(f"no ledger at {path}")
         with closing(connect(path, read_only=True)) as connection:
             rows += ledger_rows(connection)
+            if index == 0:
+                # Router R2b: the router's block choices, sensors and restraint
+                # decisions, from the vault's own decision ledger.
+                rows += router_agreement_rows(router_decision_rows_for_agreement(connection))
     report = {**agreement_report(rows), "ledgers": [str(path) for path in paths]}
     typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))

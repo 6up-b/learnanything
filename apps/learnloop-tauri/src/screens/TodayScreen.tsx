@@ -203,6 +203,25 @@ export function TodayScreen({
   const planEnabled = planData?.enabled === true && planData.plan !== null;
   const [showFullList, setShowFullList] = useState(false);
   const planView = planEnabled && !showFullList;
+  // Router R2b: the first block of the day (and each next one) is decided off
+  // the hot path. Opening Today starts its prefetch; while the plan says the
+  // block is still being chosen, read it again every 1.5 s (up to a minute) so
+  // the chosen block appears without a click. Begin decides it at once.
+  const planDeciding = planView && planData?.plan?.deciding === true;
+  const refetchPlan = planQuery.refetch;
+  useEffect(() => {
+    if (!planDeciding) return;
+    let reads = 0;
+    const timer = window.setInterval(() => {
+      reads += 1;
+      if (reads > 40) {
+        window.clearInterval(timer);
+        return;
+      }
+      refetchPlan().catch(() => undefined);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [planDeciding, refetchPlan]);
   const headlineQuery = useCachedQuery<TodayHeadlineDto>(
     planEnabled ? ["get_today_headline"] : null,
     () => api.getTodayHeadline(),

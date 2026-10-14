@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 import re
+from typing import Any
 
 WHY_VERSION = "router_why_v1"
 
@@ -173,14 +174,155 @@ def stop_code(minutes_left: float, stop_offer_minutes: float) -> str:
     return "stop_minutes_used" if float(minutes_left) < float(stop_offer_minutes) else "stop_nothing_fits"
 
 
+# -- router R2b: the "why" of a block the mixture chose (plan §7) ---------------------------
+
+#: The version of the mixture's copy (the staged copy keeps ``router_why_v1``).
+MIXTURE_WHY_VERSION = "router_why_v2"
+#: The model-written mark (UX §1461): a model wrote this text.
+MODEL_MARK = "◇"
+#: D7, verbatim: the Decider explains nothing, so the label says what happened.
+PICKED_BY_MODEL = "LearnLoop's model picked this among {count} close options."
+#: Owner Q12 (2026-10-13): an exploration-floor draw.
+PICKED_TO_VARY = "Picked to vary the order today."
+
+#: Who chose, in the ``details`` line (plain words; no model names or ids).
+DRAWN_DETAILS: Mapping[str, str] = {
+    "staged": "This time the usual rule's pick was drawn.",
+    "decider": "This time the first model's pick was drawn (that model gives no reasons).",
+    "llm": "This time the second model's pick was drawn.",
+    "uniform": "This time a random pick was drawn, to vary the order.",
+}
+WEIGHED_DETAILS = "LearnLoop's two models and the plan's usual rule were weighed."
+NOT_READY_DETAILS = "LearnLoop's models aren't set up, so the plan's usual rule chose; no model was asked."
+ONLY_RULE_DETAILS = "Only the plan's usual rule may pick this block, so no model was asked."
+SINGLE_OPTION_DETAILS = "There was only one sensible option, so no model was asked."
+HIDDEN_RATIONALE_DETAILS = "The model's own words are kept with the receipt."
+MODEL_NAMES: Mapping[str, str] = {"decider": "first model", "llm": "second model"}
+FALLBACK_REASONS: Mapping[str, str] = {
+    "timeout": "didn't answer in time",
+    "failed": "couldn't be reached",
+    "invalid": "gave an answer that couldn't be used",
+    "spend": "wasn't asked: today's model budget is used",
+    "not_ready": "isn't set up",
+    "unreachable": "couldn't be reached",
+}
+#: The restraint decision's copy (a follow-up that waits for the next block).
+FOLLOWUP_WAITS = "A follow-up from your answer waits for the next block, so this one isn't interrupted."
+
+
+def model_why(
+    component: str,
+    rule_sentence: str,
+    *,
+    option_count: int,
+    rationale: str | None = None,
+    rationale_shown: bool = False,
+) -> tuple[str, str]:
+    """``(why, why_kind)`` of a block the mixture chose, by the component that drew it.
+
+    * the usual rule: its own sentence (``computed``);
+    * the Decider (no rationale, D7): "LearnLoop's model picked this among N
+      close options." and the rule's sentence (``model_no_rationale``);
+    * the LLM: its rationale, marked as written by a model (``model_written``),
+      when the guard passed; else the Decider-style label and the rule's sentence;
+    * the exploration floor: "Picked to vary the order today." and the rule's
+      sentence (``computed``, owner Q12).
+    """
+
+    rule = (rule_sentence or "").strip()
+    if component == "llm" and rationale_shown and rationale:
+        return f"{MODEL_MARK} {' '.join(rationale.split())}", "model_written"
+    if component in ("decider", "llm"):
+        label = PICKED_BY_MODEL.format(count=int(option_count))
+        return f"{label} {rule}".strip(), "model_no_rationale"
+    if component == "uniform":
+        return f"{PICKED_TO_VARY} {rule}".strip(), "computed"
+    return rule, "computed"
+
+
+_SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
+_PROBABILITY_TEXT = re.compile(r"\b\d+(?:\.\d+)?\s*%|\b0\.\d+\b")
+
+
+def rationale_guard(
+    rationale: str | None,
+    evidence_ids: Sequence[str],
+    card_evidence_ids: Sequence[str] | set[str] | frozenset[str],
+    *,
+    max_sentences: int = 3,
+) -> str | None:
+    """Why the LLM's rationale may not be shown, or None when it may (plan §7 guards).
+
+    Not shown: empty text, more than ``max_sentences`` sentences, an internal
+    term (:data:`DENY_PATTERNS`), a number that reads as a probability, or an
+    evidence id that is not on the card. The text stays in the payload and the
+    block shows the Decider-style label with the rule's reason instead."""
+
+    text = " ".join(str(rationale or "").split())
+    if not text:
+        return "empty"
+    if len(_SENTENCE_END.findall(text + " ")) > max_sentences:
+        return "too_long"
+    if jargon_in(text):
+        return "jargon"
+    if _PROBABILITY_TEXT.search(text):
+        return "probability"
+    allowed = set(card_evidence_ids)
+    if any(evidence_id not in allowed for evidence_id in evidence_ids):
+        return "unknown_evidence"
+    return None
+
+
+def mixture_details(summary: Mapping[str, Any], *, propensity: Any, decision_ref: str | None) -> str:
+    """The ``details`` line of a block decided under the mixture: plain words, then the receipt."""
+
+    lines: list[str] = []
+    status = summary.get("decided_by")
+    if status == "not_ready":
+        lines.append(NOT_READY_DETAILS)
+    elif status == "irreversible":
+        lines.append(ONLY_RULE_DETAILS)
+    elif status == "single_option":
+        lines.append(SINGLE_OPTION_DETAILS)
+    else:
+        lines.append(WEIGHED_DETAILS)
+        drawn = DRAWN_DETAILS.get(str(summary.get("drawn_component") or ""))
+        if drawn:
+            lines.append(drawn)
+        for name, reason in sorted((summary.get("fallback_reasons") or {}).items()):
+            words = FALLBACK_REASONS.get(str(reason))
+            if words and name in MODEL_NAMES:
+                lines.append(f"The {MODEL_NAMES[name]} {words}, so its share went to the usual rule.")
+        if isinstance(propensity, (int, float)) and not isinstance(propensity, bool) and 0 < propensity < 1:
+            lines.append(f"This pick had a {max(1, round(100 * float(propensity)))}% chance.")
+        if summary.get("rationale_hidden"):
+            lines.append(HIDDEN_RATIONALE_DETAILS)
+    evidence = [str(label) for label in summary.get("evidence_labels") or () if label]
+    if evidence:
+        lines.append("Based on " + "; ".join(evidence) + ".")
+    if decision_ref:
+        lines.append(f"Receipt: learnloop router log --decision {decision_ref}")
+    return " ".join(lines)
+
+
 __all__ = [
     "DEFERRALS",
     "DENY_PATTERNS",
     "DETAILS_STAGED",
+    "DRAWN_DETAILS",
+    "FALLBACK_REASONS",
+    "FOLLOWUP_WAITS",
+    "MIXTURE_WHY_VERSION",
+    "MODEL_MARK",
+    "PICKED_BY_MODEL",
+    "PICKED_TO_VARY",
     "SENTENCES",
     "WHY_VERSION",
     "deferral_sentence",
     "jargon_in",
+    "mixture_details",
+    "model_why",
+    "rationale_guard",
     "sentence",
     "stop_code",
     "topic_phrase",

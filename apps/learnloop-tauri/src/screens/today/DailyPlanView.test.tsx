@@ -235,6 +235,20 @@ it("shows a small trade-off as computed, never rounded up to a minute (DL1 revie
   expect(screen.getByTestId("plan-more-new").textContent).toContain("adds about 0.3 min/day of reviews");
 });
 
+it("while the next block is being chosen, says so and lets Begin decide it at once (router R2b)", () => {
+  const deciding = plan({ blocks: [], currentBlockId: null, deciding: true, firstBlock: null });
+  const props = show(data(deciding));
+  expect(screen.getByTestId("plan-choosing").textContent).toContain("Choosing the next block…");
+  fireEvent.click(screen.getByRole("button", { name: "begin ↵" }));
+  expect(props.onContinue).toHaveBeenCalledOnce();
+});
+
+it("offers no Begin while no block is being chosen", () => {
+  show(data(plan({ blocks: [], currentBlockId: null, deciding: false, firstBlock: null })));
+  expect(screen.getByTestId("plan-choosing")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "begin ↵" })).toBeNull();
+});
+
 it("says nothing is due on an empty plan, and offers keep going", () => {
   const empty = plan({ status: "complete", currentBlockId: null, blocks: [], projected: [], totals: { plannedMinutes: 0, plannedItems: 0, doneItems: 0, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 0 } });
   show(data(empty));

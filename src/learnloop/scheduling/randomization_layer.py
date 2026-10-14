@@ -1,14 +1,20 @@
 """P4 step 4 -- the single randomization layer (U-024, spec §9.3, design §B step 4).
 
 ALL policy experimentation runs through here. There is no separate crossover
-machinery. Three (and only three) admissible designs:
+machinery. Four (and only four) admissible designs (:data:`ADMISSIBLE_DESIGNS`):
 
 - ``mrt_reversible`` -- micro-randomized decisions among REVERSIBLE, near-equivalent
   feasible candidates;
 - ``epsilon_tiebreak`` -- ε tie-breaking when the top feasible candidates fall within a
   declared margin (a special case of the above at the selection seam);
 - ``commitment_parallel`` -- for durable interventions whose effects are persistent
-  state changes (no washout), the experimental unit is the COMMITMENT, not time.
+  state changes (no washout), the experimental unit is the COMMITMENT, not time;
+- ``model_mixture`` -- router R2b (spec_action_router_v1 §7.3, a revision of §9.3):
+  a two-stage draw among REVERSIBLE top-k candidates from the staged rule's pick, the
+  Decider's and the router LLM's distributions, mixed with a uniform floor
+  ``router.epsilon_min`` (its own floor: the dormant :data:`PROPENSITY_FLOOR` never
+  clips it). The seed, weights, components and the exact propensity are logged on the
+  ``router_decisions`` row in the block's own transaction (:func:`model_mixture`).
 
 Every random draw logs its **seed + true propensity BEFORE selection** so an off-policy
 IPS/DR join is valid (§9.3). Randomization is INERT unless a decision is genuinely
@@ -47,6 +53,8 @@ EPSILON_TIE_MARGIN = 0.05
 PROPENSITY_FLOOR = 0.05
 
 _GRADES = ("experimental", "hypothesis_grade")
+MODEL_MIXTURE = "model_mixture"
+ADMISSIBLE_DESIGNS: tuple[str, ...] = ("mrt_reversible", "epsilon_tiebreak", "commitment_parallel", MODEL_MIXTURE)
 
 
 def _seed_int(seed: str) -> int:
@@ -274,6 +282,39 @@ def commitment_parallel_assign(
         )
     return Assignment(assignment_id, experiment_id, "commitment_parallel", "commitment",
                       commitment_id, chosen, propensity, seed, draw, True, grade, True)
+
+
+def model_mixture(
+    *,
+    experiment_id: str,
+    support: Sequence[str],
+    staged_ref: str,
+    distributions: Mapping[str, Mapping[str, float] | None],
+    weights: Mapping[str, float],
+    epsilon: float,
+    seed: str,
+    decision_id: str | None = None,
+) -> Assignment:
+    """The ``model_mixture`` design (router R2b): reversible candidates only.
+
+    ``distributions`` holds each model's distribution over ``support`` (None
+    for a model that failed: its weight moves to the staged rule, G7);
+    ``weights`` the configured component weights. The draw and its exact
+    propensity come from :mod:`learnloop.router.mixture`; nothing is persisted
+    here: the caller logs the seed, weights, distributions and propensity on
+    its ``router_decisions`` row in the same transaction as the block it
+    chose. Its floor is ``epsilon`` (never :data:`PROPENSITY_FLOOR`)."""
+
+    from learnloop.router import mixture as mx
+
+    failed = {name for name in mx.MODEL_COMPONENTS if distributions.get(name) is None}
+    effective = mx.effective_weights(weights, failed)
+    components = mx.component_distributions(support, staged_ref, distributions)
+    outcome = mx.draw(list(support), components, effective, epsilon, seed)
+    return Assignment(
+        None, experiment_id, MODEL_MIXTURE, "decision", decision_id, outcome.chosen, outcome.propensity,
+        seed, outcome.u1, len(support) > 1, "experimental", not outcome.deterministic,
+    )
 
 
 def open_outcome_window(

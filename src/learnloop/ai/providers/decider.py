@@ -215,7 +215,11 @@ class DeciderProviderClient:
 
     def decide(
         self, state: DecisionState, questions: Mapping[str, Question], *, purpose: str,
+        timeout_seconds: float | None = None,
     ) -> DecisionResult:
+        """One physical request. ``timeout_seconds`` replaces the profile's
+        timeout for this call (router R2b: the decision's remaining budget)."""
+
         checked = validate_questions(questions)
         body = request_body(self.model, state, checked)
         encoded = encode_body(body)
@@ -225,9 +229,8 @@ class DeciderProviderClient:
             self, purpose=purpose, prompt=encoded.decode("utf-8"),
             schema={name: question.wire() for name, question in checked.items()},
         ) as metadata:
-            status, headers, raw = self._http(
-                "POST", self.settings.url, self._headers, encoded, self.settings.timeout_seconds,
-            )
+            timeout = self.settings.timeout_seconds if timeout_seconds is None else max(float(timeout_seconds), 0.1)
+            status, headers, raw = self._http("POST", self.settings.url, self._headers, encoded, timeout)
             if status != 200:
                 # A rejected request is normally free, but its usage is
                 # unknown: the receipt keeps NULL usage rather than zero.
