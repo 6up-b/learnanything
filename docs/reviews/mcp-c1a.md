@@ -158,9 +158,19 @@ under the playbook with a kill switch (spec §7).
 
 ## Gate
 
-Recorded in the stage result (lint-imports, the full suite and the durability lane under
-`/tmp/learnloop-fullsuite.lock`, the DB reference regenerate/validate, the CLI help snapshot). No frontend or
-`src-tauri` file changed, so npm and cargo do not apply.
+Run on the branch head (commit `d5e82e929` and its parents), TMPDIR in the worktree's `fixtures-local/tmp`:
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` (dev carries `mcp==2.3.0`) and `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **21 kept, 0 broken** (4 new contracts) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | first run 10,672 passed, 1 failed (`test_route_rules_in_grader.py::test_migration_186_keeps_its_trigger_which_nothing_writes_now` hard-codes head 201; fixed to the placeholder 210); rerun **10,673 passed**, 0 failed (12 min 47 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,573 deselected (includes the two-process stdio test) |
+| The C1a tests alone | 34 passed (tools 22, HTTP 5, runtime 4, CLI 3) |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated; validate `errors: []` (schema head 210) |
+| CLI help snapshot | regenerated (`learnloop mcp` and its 5 subcommands, the root) |
+| npm / cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+| Paid calls | none ($0) |
 
 ## Open questions for the owner
 
