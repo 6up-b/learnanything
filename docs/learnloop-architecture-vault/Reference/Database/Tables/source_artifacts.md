@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
-source_commit_timestamp: "2026-10-13T20:06:02-04:00"
+source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
+source_commit_timestamp: "2026-10-13T20:34:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -19,12 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/content/facet_identity/span_support.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
 tags:
@@ -90,10 +91,9 @@ Indexes and uniqueness:
 - `Repository.delete_source_artifact()`
 - `Repository.get_source_artifact()`
 - `Repository.set_source_current_revision()`
-- `Repository.set_source_keep_local()`
 - `Repository.set_source_reader_enabled()`
 - `Repository.source_artifact_by_uri()`
-- `Repository.source_kept_local()`
+- `Repository.sources_with_retired_keep_local()`
 - `Repository.upsert_source_artifact()`
 
 ### Direct SQL readers
@@ -119,7 +119,6 @@ Indexes and uniqueness:
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop/source_retrieval/corpus.py`
@@ -136,22 +135,22 @@ Indexes and uniqueness:
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
+- `tests/test_decider_landing.py`
 - `tests/test_ingest_runner.py`
+- `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
+- `tests/test_reading_hardening_landing.py`
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_rereview.py`
-- `tests/test_decider_landing.py`
+- `tests/test_ux_phase1_landing.py`
 - `tests/test_sidecar_reader.py`
 - `tests/test_source_layer.py`
 - `tests/test_source_search.py`
 - `tests/test_ux_phase1_add_source.py`
-- `tests/test_ux_phase1_auto_build.py`
-- `tests/test_ux_phase1_landing.py`
-- `tests/test_ux_phase1_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

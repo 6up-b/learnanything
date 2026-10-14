@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
-source_commit_timestamp: "2026-10-13T20:06:02-04:00"
+source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
+source_commit_timestamp: "2026-10-13T20:34:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/diagnosis/recurrence/benchmarks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/ingest_queue.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/db/stores/practice_index.py`

@@ -3,8 +3,8 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
-source_commit_timestamp: "2026-10-13T20:06:02-04:00"
+source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
+source_commit_timestamp: "2026-10-13T20:34:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
@@ -123,18 +123,18 @@ None found by exact static reference scan.
 - `tests/test_ingest_latency_journey.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingest_queue_store.py`
+- `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
+- `tests/test_reading_hardening_2_fixes.py`
+- `tests/test_reading_hardening_landing.py`
+- `tests/test_reading_hardening_review_fixes.py`
+- `tests/test_reading_hardening_verify_fixes.py`
+- `tests/test_reading_request_sweep.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_sidecar_exams.py`
 - `tests/test_sidecar_goals.py`
 - `tests/test_sidecar_measurement.py`
 - `tests/test_table_roles.py`
-- `tests/test_ux_phase1_add_source.py`
-- `tests/test_ux_phase1_connect_ai.py`
-- `tests/test_ux_phase1_finish.py`
-- `tests/test_ux_phase1_review_fixes.py`
-- `tests/test_ux_phase1_round2_rereview.py`
-- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

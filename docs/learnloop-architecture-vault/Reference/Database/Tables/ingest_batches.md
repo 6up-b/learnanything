@@ -3,8 +3,8 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
-source_commit_timestamp: "2026-10-13T20:06:02-04:00"
+source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
+source_commit_timestamp: "2026-10-13T20:34:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
@@ -103,6 +103,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_auto_build_spend_report.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
