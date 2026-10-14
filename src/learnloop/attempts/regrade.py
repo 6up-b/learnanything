@@ -479,13 +479,14 @@ def regrade_attempt(
                 rubric=rubric,
                 # Review F13: the grade binds to the content it was read
                 # against. A regrade under the frozen contract read the
-                # presented content, whose key status the attempt recorded
-                # when it was graded; the current content binds only when it
-                # IS that content (else the recorded status stands).
-                bind_item=(
-                    item
-                    if not reads_contract or graded_contract is None
-                    or graded_contract.matches_current_content(vault, item)
+                # presented content: when that is not the current content,
+                # the revision it graded binds (a dispute recorded since
+                # against THAT revision lowers it; a check of the edited one
+                # does not).
+                bind_frozen=(
+                    graded_contract
+                    if reads_contract and graded_contract is not None
+                    and not graded_contract.matches_current_content(vault, item)
                     else None
                 ),
                 primary_error_type=primary_error_type,
@@ -555,7 +556,7 @@ def _publish_regrade(
     supersede_tiers: tuple[int, ...],
     new_score: int,
     rubric,
-    bind_item: Any | None,
+    bind_frozen: Any | None,
     primary_error_type: str | None,
     content_events: list[dict],
     blind_record: dict | None,
@@ -590,22 +591,31 @@ def _publish_regrade(
         clock=clock,
     )
     # C3 (canonical sources §7.3a): the new grade is bound to the content it
-    # was read against. Read against the item as it is now (``bind_item``): if
-    # that content's key is not verified, the grade certifies nothing; the
-    # attempt's status is lowered (never raised) before the replay below reads
-    # it. A method-explicit regrade (re-review F1) read the presented content
-    # its contract froze; when that is not the current content (``bind_item``
-    # None), the status the attempt recorded for it when it was graded stands,
-    # and an unverified revision made since never lowers it (review F13).
-    if bind_item is not None:
-        bind_replacement_grade(
-            repository.connection(),
-            attempt_id=attempt["id"],
-            item=bind_item,
-            gated=vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS,
-            grading="regrade",
-            created_at=utc_now_iso(clock),
-        )
+    # was read against: if that content's key is not verified, the grade
+    # certifies nothing; the attempt's status is lowered (never raised)
+    # before the replay below reads it. Usually that is the item as it is
+    # now. A method-explicit regrade (re-review F1) read the presented
+    # content its contract froze; when that is not the current content
+    # (``bind_frozen``), the revision it graded binds instead (review F13):
+    # an unverified revision made since never lowers the grade, and a later
+    # dispute of the revision graded does.
+    connection = repository.connection()
+    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
+    graded_contents, graded_revision = (
+        bind_frozen.graded_reference_contents(vault, item, connection)
+        if bind_frozen is not None and gated
+        else (None, "current")
+    )
+    bind_replacement_grade(
+        connection,
+        attempt_id=attempt["id"],
+        item=item,
+        gated=gated,
+        grading="regrade",
+        created_at=utc_now_iso(clock),
+        graded_contents=graded_contents,
+        graded_revision=graded_revision,
+    )
     if content_events:
         repository.record_content_events(content_events)
     if blind_record is not None and blind_context_hash is not None:

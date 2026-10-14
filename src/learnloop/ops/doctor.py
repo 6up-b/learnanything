@@ -1910,9 +1910,10 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
     target IS a method may require it (``required_method``). The field is the
     one authority (redesign 2026-10-14): doctor checks its structure and never
     decides anything from the prompt's phrasing. Errors: a generated
-    statement without the canonical sentence generated from the field
-    (``required_method:not_stated``: "Use {name} in your answer.", exact up to
-    whitespace), a source statement with no recorded decision
+    statement that does not end with the canonical sentence generated from
+    the field as its own final paragraph (``required_method:not_stated``:
+    "Use {name} in your answer.", exact up to whitespace; the sentence inside
+    other text does not count), a source statement with no recorded decision
     (``required_method:undecided``), and a required method naming a criterion
     its rubric lacks (``required_method:unknown_criterion``). Warnings: a
     required method on a target the metadata does not read as a method

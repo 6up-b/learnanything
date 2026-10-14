@@ -317,17 +317,33 @@ def effective_key_status(connection: sqlite3.Connection, item: Any) -> str:
 
     if not is_exercise_import(connection, item):
         return "not_applicable"
-    current = reference_content_hash(item)
+    return key_status_for_content(connection, item, reference_content_hash(item))
+
+
+def key_status_for_content(connection: sqlite3.Connection, item: Any, content_hash: str) -> str:
+    """The key status of ONE revision of an exercise import (its
+    :func:`reference_content_hash`): the latest check of that content, else
+    ``changed_since_check``, ``checking`` or ``model_answer`` as
+    :func:`effective_key_status` reads them for the current content."""
+
+    if not is_exercise_import(connection, item):
+        return "not_applicable"
     checks = key_checks_for_item(connection, item.id)
-    matching = [check for check in checks if check["content_hash"] == current]
+    matching = [check for check in checks if check["content_hash"] == content_hash]
     if matching:
         return str(matching[-1]["key_status"])
     if checks:
         return "changed_since_check"
     rows = imports_for_item(connection, item.id)
-    if rows and rows[-1].get("key_status") == "checking" and rows[-1].get("content_hash") == current:
+    if rows and rows[-1].get("key_status") == "checking" and rows[-1].get("content_hash") == content_hash:
         return "checking"
     return "model_answer"
+
+
+def checked_content_hashes(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
+    """Every revision of an item that an answer-key check has recorded, oldest first."""
+
+    return list(dict.fromkeys(check["content_hash"] for check in key_checks_for_item(connection, practice_item_id)))
 
 
 def exercise_import_ids(connection: sqlite3.Connection, items: Iterable[Any]) -> set[str]:
@@ -377,7 +393,8 @@ REFERENCE_BINDING_TASK = "attempt_reference_binding"
 
 
 def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
-                           grading: str, created_at: str) -> str | None:
+                           grading: str, created_at: str, graded_contents: Sequence[str] | None = None,
+                           graded_revision: str = "current") -> str | None:
     """C3 for a grade that replaces an attempt's grade (§7.3a, "Replacement grades").
 
     A regrade, or an adjudication against the key, reads the item as it is
@@ -391,25 +408,39 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     the content's key status and its hash. The status is never raised: a key
     that verifies later does not make an earlier grade certify. Returns
     ``"unverified"`` when it lowered the status, else None.
+
+    ``graded_contents`` (review F13) binds a grade read against an EARLIER
+    revision (a method-explicit regrade reads the content its assessment
+    contract froze): the reference-content hashes of that revision, one when
+    it could be rebuilt exactly, else every checked revision it may have
+    been (``graded_revision = unresolved``), and the grade is lowered when
+    any of them is not verified (fail closed). A dispute recorded later
+    against the revision graded therefore lowers it, while a check of an
+    unrelated revision (the current, edited one) does not.
     """
 
     if not gated or not column_exists(connection, "practice_attempts", "reference_status"):
         return None
-    if reference_status_for_item(connection, item) != "unverified":
+    contents = [reference_content_hash(item)] if graded_contents is None else list(dict.fromkeys(graded_contents))
+    statuses = {content: key_status_for_content(connection, item, content) for content in contents}
+    lowering = [content for content, status in statuses.items()
+                if status != "not_applicable" and status not in VERIFIED_STATUSES]
+    if not lowering:
         return None
     row = connection.execute("SELECT reference_status FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
     if row is None or row[0] == "unverified":
         return None
     from learnloop.db.stores.judgments import append_judgment
 
-    content = reference_content_hash(item)
+    content = lowering[0]
     connection.execute("UPDATE practice_attempts SET reference_status='unverified' WHERE id=?", (attempt_id,))
+    rationale = f"grading={grading}; attempt_time_status={row[0]}; key_status={statuses[content]}"
+    if graded_contents is not None:
+        rationale += f"; graded_revision={graded_revision}; candidate_revisions={len(contents)}"
     append_judgment(
         connection, task=REFERENCE_BINDING_TASK, left_kind="practice_attempt", left_id=attempt_id,
         right_kind="reference_content", right_id=content, judge="verifier", input_hash=content,
-        verdict="unverified", created_at=created_at,
-        rationale=(f"grading={grading}; attempt_time_status={row[0]}; "
-                   f"key_status={effective_key_status(connection, item)}"),
+        verdict="unverified", created_at=created_at, rationale=rationale,
     )
     return "unverified"
 
@@ -1486,6 +1517,7 @@ __all__ = [
     "CHECK_STATUSES",
     "KEY_STATUS_LABELS",
     "VERIFIED_STATUSES",
+    "checked_content_hashes",
     "effective_key_status",
     "reference_content_hash",
     "exercise_import_ids",
@@ -1502,6 +1534,7 @@ __all__ = [
     "need_source_import",
     "serve_time_exposure",
     "key_checks_for_item",
+    "key_status_for_content",
     "reference_status_for_item",
     "REFERENCE_BINDING_TASK",
     "bind_replacement_grade",

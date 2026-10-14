@@ -36,9 +36,10 @@ by fact, a cell 1-2 valid alternative that any valid method passes:
 
 The loader applies doctor's validation of the field (redesign 2026-10-14; no
 phrasing is read): a required method on a generated statement needs the
-canonical sentence "Use {name} in your answer." verbatim, and one on a
-hand-written statement that is never rewritten (`statement: source`) needs a
-recorded decision. The two cell 5 statements are hand-written, so they say
+canonical sentence "Use {name} in your answer." as the statement's own final
+paragraph (the writer's block; the sentence inside other text does not count),
+and one on a hand-written statement that is never rewritten (`statement:
+source`) needs a recorded decision. The two cell 5 statements are hand-written, so they say
 `statement: source, decided_by: owner` (the case author's decision, recorded
 in the field; the grader is shown only the method's name and criteria, so the
 case keys and the recorded grades are unchanged). It also checks that the

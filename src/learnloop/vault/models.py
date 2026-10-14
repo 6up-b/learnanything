@@ -679,10 +679,11 @@ class RequiredMethod(VaultModel):
     whether a method applies. The text is made to agree with the field when
     the field is written, by ``statement``:
 
-    * ``instruction`` (the default, omitted): the prompt carries the one
+    * ``instruction`` (the default, omitted): the prompt ends with the one
       canonical sentence generated from the field ("Use {name} in your
-      answer."), appended by the writer that set the field; validation checks
-      that exact sentence;
+      answer.") as its own final paragraph, the block the writer that set the
+      field renders; validation checks that exact block (the sentence quoted
+      or mentioned inside other text never stands for it);
     * ``source``: a source-authored statement whose wording is never
       rewritten (a textbook exercise). Whether it requires the method was
       decided ONCE, when it was imported (``decided_by = judgment``, the

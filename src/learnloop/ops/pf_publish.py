@@ -24,6 +24,7 @@ import json
 import logging
 from typing import Any
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.proposals.method_statement_judge import CONTRADICTS, as_lazy, recorded_verdict
@@ -191,7 +192,8 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     }
     # Method-explicit items (owner rule 2026-10-13): the variant keeps the
     # parent's rubric verbatim, so it keeps its required method too, and its
-    # stem gains the canonical sentence ("Use {method} in your answer.").
+    # stem ends with the writer's block, the canonical sentence ("Use {method}
+    # in your answer.") as its own final paragraph.
     # Whether the stem prohibits or contradicts the method was judged once
     # at publication (redesign 2026-10-14; review F10): a contradicting or
     # unjudged stem is refused before anything is appended.
@@ -473,7 +475,7 @@ def _initialize_scheduling(repository: Repository, item: PracticeItem, clock: Cl
 
 
 def judge_variant_stem(vault: LoadedVault, repository: Repository, row: Mapping[str, Any], method_judge: Any, *,
-                       owner: tuple[str, str], clock: Clock | None = None) -> str | None:
+                       owner: tuple[str, str], clock: Clock | None = None, strict: bool = False) -> str | None:
     """The one-time publication judgment of a variant's stem (redesign
     2026-10-14): does it prohibit or contradict the parent's required method?
 
@@ -482,6 +484,10 @@ def judge_variant_stem(vault: LoadedVault, repository: Repository, row: Mapping[
     is reused), and read back under the lock by :func:`_publish_locked`.
     Returns the verdict, or None when the parent requires no method or no
     judgment could be made (no judge ready, a refusal or a failure).
+
+    ``strict`` (a PF run, review F17) lets a refusal or failure propagate so
+    the run keeps its job retryable instead of completing with the variant
+    unjudged; a cancellation always propagates.
     """
 
     parent = vault.practice_items.get(str(row["parent_item_id"]))
@@ -497,7 +503,11 @@ def judge_variant_stem(vault: LoadedVault, repository: Repository, row: Mapping[
             statement=str(json.loads(row["payload_json"])["stem"]), method=method.name, owner=owner,
             right=("practice_item", parent.id), clock=clock,
         )
+    except AIInterrupted:
+        raise
     except Exception:  # noqa: BLE001 - no verdict: the candidate is not published yet
+        if strict:
+            raise
         _LOGGER.warning("the required-method publication judgment failed for %s", row["id"], exc_info=True)
         return None
     return verdict.verdict

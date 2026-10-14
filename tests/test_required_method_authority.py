@@ -174,7 +174,7 @@ def test_an_affirmative_phrasing_is_not_the_canonical_sentence():
 
     prompt = "Compute det(A) by cofactor expansion."
     assert not has_method_instruction(prompt, METHOD)
-    assert has_method_instruction("Compute det(A).\n  Use cofactor\nexpansion in   your answer.", METHOD)
+    assert has_method_instruction("Compute det(A).\n \n  Use cofactor\nexpansion in   your answer.", METHOD)
     assert not has_method_instruction("Compute det(A). use cofactor expansion in your answer.", METHOD)
     assert ensure_method_instruction(prompt, METHOD) == f"{prompt}\n\n{SENTENCE}"
     rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))

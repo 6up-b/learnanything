@@ -83,8 +83,10 @@ def test_an_item_without_a_required_method_serializes_and_hashes_as_before():
 
 def test_the_explicit_instruction():
     assert required_method_instruction("cofactor  expansion") == "Use cofactor expansion in your answer."
-    # Redesign 2026-10-14: only the canonical sentence states the field (whitespace aside).
-    assert has_method_instruction("Compute det(A). Use cofactor   expansion in your answer.", "cofactor expansion")
+    # Redesign 2026-10-14: only the canonical sentence states the field (whitespace aside),
+    # as the writer's own final paragraph (review F14: never inside other text).
+    assert has_method_instruction("Compute det(A).\n\nUse cofactor   expansion in your answer.", "cofactor expansion")
+    assert not has_method_instruction("Compute det(A). Use cofactor expansion in your answer.", "cofactor expansion")
     assert not has_method_instruction("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
     assert not has_method_instruction("Compute det(A).", "cofactor expansion")
     assert ensure_method_instruction("Compute det(A).", "cofactor expansion") == (
@@ -176,11 +178,13 @@ def test_validation_reports_the_missing_sentence_and_flags_a_contradiction():
         _item(prompt=prompt, required_method=method), rubric)]
     assert codes("You may use cofactor expansion or any other method.") == [
         "required_method:not_stated", "required_method:statement_may_disagree"]
-    assert codes("Compute det(A) without cofactor expansion. Use cofactor expansion in your answer.") == [
+    assert codes("Compute det(A) without cofactor expansion.\n\nUse cofactor expansion in your answer.") == [
         "required_method:statement_may_disagree"]
     assert codes("Explain why cofactor expansion works, then compute det(A).") == ["required_method:not_stated"]
     assert codes("Compute det(A) by cofactor expansion.") == ["required_method:not_stated"]
-    assert codes("Compute det(A). Use cofactor expansion in your answer.") == []
+    assert codes("Compute det(A).\n\nUse cofactor expansion in your answer.") == []
+    # Review F14: the sentence inside the statement's own paragraph is not the writer's block.
+    assert codes("Compute det(A). Use cofactor expansion in your answer.") == ["required_method:not_stated"]
 
 
 @pytest.mark.parametrize("description, method", [
@@ -315,7 +319,7 @@ def test_validation_names_each_problem():
     ]})
     codes = lambda item: [(p.code, p.criterion_id) for p in required_method_problems(item, rubric)]  # noqa: E731
     assert codes(_item()) == [("criterion:method_phrased", "method")]
-    stated = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+    stated = _item(prompt="Compute det(A).\n\nUse cofactor expansion in your answer.",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     assert codes(stated) == []
     unstated = _item(required_method={"name": "cofactor expansion", "criterion_ids": ["method", "ghost"]})
@@ -337,9 +341,10 @@ def test_doctor_reports_method_phrased_criteria_and_malformed_required_methods(v
     _write_item(vault_paths, "pi_phrased", "lo_determinant", "Compute det(A).", det)
     _write_item(vault_paths, "pi_unstated", "lo_cofactor", "Compute det(A).", det,
                 required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    _write_item(vault_paths, "pi_wrong_target", "lo_determinant", "Compute det(A). Use cofactor expansion in your answer.",
+    _write_item(vault_paths, "pi_wrong_target", "lo_determinant",
+                "Compute det(A).\n\nUse cofactor expansion in your answer.",
                 det, required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    _write_item(vault_paths, "pi_good", "lo_cofactor", "Compute det(A). Use cofactor expansion in your answer.",
+    _write_item(vault_paths, "pi_good", "lo_cofactor", "Compute det(A).\n\nUse cofactor expansion in your answer.",
                 det, required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     _write_item(vault_paths, "pi_retired", "lo_determinant", "Compute det(A).", det, status="retired")
     issues = [issue for issue in run_doctor(vault_paths.root).issues

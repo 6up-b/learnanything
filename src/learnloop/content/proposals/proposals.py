@@ -41,10 +41,14 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.required_method import (
+    ensure_method_instruction,
     is_source_statement,
     learning_object_method_targets,
     method_targets,
     normalize_required_method,
+    rewrites_decided_statement,
+    same_statement,
+    strip_method_instruction,
 )
 
 
@@ -1474,28 +1478,46 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     A ``required_method`` is kept only on an item whose target is that method
     (``learnloop.vault.required_method.method_targets``: the learning object's
     concept is a procedure, or one of its facets a procedure_contract), linked
-    to it, with its criteria in the rubric and the canonical sentence ("Use
-    {name} in your answer.") in the prompt, appended when it is not there
-    verbatim (redesign 2026-10-14: the prompt's phrasing is never read).
+    to it, with its criteria in the rubric and the prompt ending with the
+    writer's block, the canonical sentence ("Use {name} in your answer.") as
+    its own final paragraph (redesign 2026-10-14: the prompt's phrasing is
+    never read; review F14: the sentence inside the generated text never
+    stands for the block).
     Anything else drops it. An update without a prompt of its own is checked
     against the item's current prompt. A generated proposal never changes the
     required method of a source-authored item (a textbook statement is never
     rewritten; its requirement was decided once at import, and the owner
     changes it with ``learnloop grading required-method``): the key is
-    dropped and the item keeps its field. Deterministic; the persisted
-    payload is what is checked.
+    dropped and the item keeps its field. Nor does it rewrite such an item's
+    statement (review F15): the decision binds the statement it judged, so a
+    prompt that differs only in whitespace is dropped (the verbatim statement
+    stays) and any other is reported by validation
+    (``required_method:source_statement_edited``) and refused at apply. An
+    update that rewrites a generated item's prompt and leaves its field
+    keeps the writer's block (the canonical sentence as the final
+    paragraph). Deterministic; the persisted payload is what is checked.
     """
 
     existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
+    notes: list[str] = []
+    if existing is not None and existing.required_method is not None and "prompt" in payload:
+        if existing.required_method.statement == "source":
+            if same_statement(payload["prompt"], existing.prompt):
+                payload.pop("prompt")
+        elif "required_method" not in payload:
+            updated = ensure_method_instruction(payload["prompt"], existing.required_method.name)
+            if updated != payload["prompt"]:
+                payload["prompt"] = updated
+                notes.append("required_method:instruction_added")
     if existing is not None and "required_method" in payload and (
         is_source_statement(existing)
         or getattr(existing.required_method, "statement", "instruction") == "source"
     ):
         payload.pop("required_method", None)
-        return ["required_method:source_statement_unchanged"]
+        return [*notes, "required_method:source_statement_unchanged"]
     if not payload.get("required_method"):
         payload.pop("required_method", None)
-        return []
+        return notes
     learning_object_id = payload.get("learning_object_id") or (existing.learning_object_id if existing else None)
     facets = payload.get("evidence_facets") or (list(existing.evidence_facets) if existing else [])
     capability = payload.get("capability") or (existing.capability if existing else None)
@@ -1507,11 +1529,18 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     if not isinstance(view.get("grading_rubric"), dict) and existing is not None:
         resolved = vault.rubric_for_item(existing)
         rubric_ids = [criterion.id for criterion in resolved.criteria] if resolved is not None else []
+    previous = existing.required_method if existing is not None else None
+    proposed_name = " ".join(str((payload.get("required_method") or {}).get("name") or "").split())
+    original_prompt = view.get("prompt")
+    if previous is not None and previous.statement != "source" and proposed_name != previous.name:
+        # A renamed method's block replaces the old one (never stacked under it).
+        view["prompt"] = strip_method_instruction(view.get("prompt"), previous.name)
     notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids)
     if "required_method" in view:
         payload["required_method"] = view["required_method"]
     else:
         payload.pop("required_method", None)
+        view["prompt"] = original_prompt  # the item keeps its field, and so its block
     if view.get("prompt") != (payload.get("prompt") if "prompt" in payload else (existing.prompt if existing else None)):
         payload["prompt"] = view["prompt"]
     return notes
@@ -1708,9 +1737,21 @@ def _validation_errors(
         payload = item.payload.model_dump(mode="json", exclude_none=True)
         errors.extend(_attempt_type_validation_errors(payload))
         errors.extend(_practice_item_metadata_errors(payload, vault, proposal, generated=False))
+        errors.extend(_source_statement_edit_errors(
+            vault, payload, payload.get("id") or (item.target.entity_id if item.target else None)))
     if item.item_type == "concept_edge":
         errors.extend(_concept_edge_validation_errors(item.payload.model_dump(mode="json", exclude_none=True), vault, proposal))
     return errors
+
+
+def _source_statement_edit_errors(vault: LoadedVault, payload: dict[str, Any], entity_id: Any) -> list[str]:
+    """An update that would rewrite a statement whose required method was
+    decided on its wording (review F15; ``rewrites_decided_statement``)."""
+
+    existing = vault.practice_items.get(str(entity_id or ""))
+    if existing is None or not rewrites_decided_statement(existing, payload.get("prompt")):
+        return []
+    return ["required_method:source_statement_edited"]
 
 
 def _validation_warnings(
@@ -1789,6 +1830,9 @@ def _edited_payload_validation_errors(
     if item["item_type"] == "practice_item":
         errors.extend(_attempt_type_validation_errors(edited_payload))
         errors.extend(_practice_item_metadata_errors(edited_payload, vault, None, generated=False))
+        if item["operation"] == "update":
+            errors.extend(_source_statement_edit_errors(
+                vault, edited_payload, edited_payload.get("id") or item.get("target_entity_id")))
         if item["operation"] == "create":
             errors.extend(_instrument_gate_errors(edited_payload, vault, repository))
     if item["item_type"] == "concept_edge":

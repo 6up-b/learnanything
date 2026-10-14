@@ -18,13 +18,23 @@ The proposal carries the item's content hash: an item changed before
 acceptance is refused (run the command again). An accepted change moves the
 item's content and so its assessment contract: attempts already graded keep
 the contract (and required method) they were graded under.
+
+**The owner's verdict is ledgered** (implementation handoffs §0 rule 6;
+review F16). Accepting the proposal appends one ``judge = owner`` row to
+``judgment_ledger`` (task ``required_method_statement``, the same question
+as the import's judgment: the item and the method), write-ahead in the
+acceptance plan (:func:`owner_verdict_side_effect`, performed by
+:func:`record_owner_verdict`) and idempotently: ``requires`` when the owner
+sets the method, ``not_required`` when they clear it. It supersedes the
+latest verdict on the same question (the import's judgment, or an earlier
+owner verdict) and names the decision it replaced.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -41,6 +51,11 @@ from learnloop.vault.required_method import (
 
 PROPOSAL_PURPOSE = "required_method_override"
 OVERRIDE_VERSION = "required-method-override-v1"
+#: The acceptance plan's side-effect kind (``apply_protocol``).
+OWNER_VERDICT_EFFECT = "required_method_owner_verdict"
+#: The owner's verdicts: the method is required, or it is not.
+OWNER_REQUIRES = "requires"
+OWNER_NOT_REQUIRED = "not_required"
 
 
 def _input_hash(payload: Any) -> str:
@@ -163,4 +178,107 @@ def propose_required_method_override(
                                                              ("item_id", "statement", "from", "to", "prompt_changed")}}
 
 
-__all__ = ["OVERRIDE_VERSION", "PROPOSAL_PURPOSE", "override_payload", "propose_required_method_override"]
+def is_override_item(item: Mapping[str, Any]) -> bool:
+    """Is this proposal item the owner's override (its audit, which only
+    :func:`propose_required_method_override` writes)?"""
+
+    audit = item.get("audit")
+    return isinstance(audit, Mapping) and isinstance(audit.get(PROPOSAL_PURPOSE), Mapping)
+
+
+def owner_verdict_side_effect(
+    proposal_item_id: str, existing: Any, data: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The acceptance plan's write of the owner's verdict for one override.
+
+    ``existing`` is the item before the override, ``data`` the item after
+    it. The row's id is fixed by the proposal item, so a recovery that
+    re-runs the plan appends nothing twice.
+    """
+
+    before = getattr(existing, "required_method", None)
+    after = data.get("required_method") or None
+    if after is None and before is None:
+        raise ValueError("an override that neither sets nor clears a required method")
+    name = str(after["name"]) if after is not None else before.name
+    statement = (str(after.get("statement") or "instruction") if after is not None
+                 else getattr(before, "statement", "instruction"))
+    return {
+        "kind": OWNER_VERDICT_EFFECT,
+        "row": {
+            "id": f"rmowner_{proposal_item_id}",
+            "practice_item_id": str(data.get("id") or existing.id),
+            "method": " ".join(name.split()),
+            "criterion_ids": [str(value) for value in (after or {}).get("criterion_ids") or ()],
+            "statement": statement,
+            "prompt": str(data.get("prompt") or ""),
+            "cleared": after is None,
+            "prior": before.model_dump(mode="json") if before is not None else None,
+            "proposal_item_id": proposal_item_id,
+        },
+    }
+
+
+def owner_input_hash(row: Mapping[str, Any]) -> str:
+    """What the owner decided on: a source statement's verdict answers the
+    import judgment's own question (its statement and method), so a lookup
+    of that question finds it; a generated item's verdict is the field."""
+
+    from learnloop.content.proposals.method_statement_judge import TASK, statement_input_hash
+
+    if row["statement"] == "source":
+        return statement_input_hash("source", str(row["prompt"]), str(row["method"]))
+    identity = {"task": TASK, "question": OVERRIDE_VERSION, "statement": row["statement"],
+                "prompt": str(row["prompt"]), "method": row["method"],
+                "criterion_ids": list(row.get("criterion_ids") or ())}
+    return "sha256:" + hashlib.sha256(json.dumps(identity, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def record_owner_verdict(repository: Repository, row: Mapping[str, Any], created_at: str) -> str:
+    """Append the owner's verdict (idempotent on the row's fixed id); returns its id."""
+
+    from learnloop.content.proposals.method_statement_judge import TASK
+    from learnloop.db.stores.judgments import append_judgment
+
+    judgment_id = str(row["id"])
+    with repository.atomic():
+        connection = repository.connection()
+        if connection.execute("SELECT 1 FROM judgment_ledger WHERE id = ?", (judgment_id,)).fetchone() is not None:
+            return judgment_id
+        latest = connection.execute(
+            "SELECT id FROM judgment_ledger WHERE task = ? AND left_kind = 'practice_item' AND left_id = ? "
+            "AND right_kind = 'required_method' AND right_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            (TASK, str(row["practice_item_id"]), str(row["method"])),
+        ).fetchone()
+        prior = row.get("prior") or None
+        rationale = {
+            "decided_by": "owner", "statement": row["statement"], "method": row["method"],
+            "criterion_ids": list(row.get("criterion_ids") or ()), "cleared": bool(row.get("cleared")),
+            "prior": prior, "prior_judgment_id": (prior or {}).get("judgment_id"),
+            "proposal_id": row.get("patch_id"), "proposal_item_id": row.get("proposal_item_id"),
+            "version": OVERRIDE_VERSION,
+        }
+        append_judgment(
+            connection, id=judgment_id, task=TASK, left_kind="practice_item", left_id=str(row["practice_item_id"]),
+            right_kind="required_method", right_id=str(row["method"]), judge="owner",
+            prompt_version=OVERRIDE_VERSION, input_hash=owner_input_hash(row),
+            verdict=OWNER_NOT_REQUIRED if row.get("cleared") else OWNER_REQUIRES,
+            supersedes_id=str(latest[0]) if latest is not None else None,
+            rationale=json.dumps(rationale, sort_keys=True), created_at=created_at,
+        )
+    return judgment_id
+
+
+__all__ = [
+    "OVERRIDE_VERSION",
+    "OWNER_NOT_REQUIRED",
+    "OWNER_REQUIRES",
+    "OWNER_VERDICT_EFFECT",
+    "PROPOSAL_PURPOSE",
+    "is_override_item",
+    "override_payload",
+    "owner_input_hash",
+    "owner_verdict_side_effect",
+    "propose_required_method_override",
+    "record_owner_verdict",
+]

@@ -51,6 +51,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import logging
 import math
 from pathlib import Path
 from typing import Any, Iterator
@@ -102,6 +103,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import ActivityFamily, FamilyReference, LoadedVault, PracticeItem
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_activity_family
+
+_LOGGER = logging.getLogger(__name__)
 
 PATHS = ("generator", "ensemble", "source_anchored", "single_shot")
 RELATIONS = ("same_target", "isomorph", "near", "far")
@@ -334,6 +337,11 @@ class _Context:
         self.caller.vault = self.vault
 
 
+class RequiredMethodJudgmentIncomplete(RuntimeError):
+    """A selected variant has no required-method verdict yet (review F17):
+    the family's job stays retryable instead of completing."""
+
+
 class _FamilyRun:
     def __init__(self, ctx: _Context, family: ActivityFamily, parent: PracticeItem, path: str) -> None:
         self.ctx = ctx
@@ -547,13 +555,29 @@ class _FamilyRun:
                     self._persist(candidate)
             if self.path != "single_shot":
                 self._select()
-                self._judge_required_method()
+                try:
+                    self._judge_required_method()
+                except RequiredMethodJudgmentIncomplete:
+                    # Review F17: the variants judged so far publish now; the
+                    # job stays retryable for the rest (below).
+                    if self.ctx.options.publish:
+                        self._publish()
+                    raise
                 if self.ctx.options.publish:
                     self._publish()
             self._summarize()
             selected = self.report.get("selected", 0) + len(self.report.get("published_item_ids", []))
             self._resolve_request("admitted" if selected else "rejected")
             self.report["status"] = "complete"
+        except RequiredMethodJudgmentIncomplete as exc:
+            # Review F17: paid, verified variants are never stranded by a
+            # judgment that could not be made (a timeout, a failure, no judge
+            # ready): the mint request is left ``failed``, which a rerun of
+            # the round reclaims, resuming from the checkpointed calls and
+            # the persisted candidates and asking only the missing verdicts.
+            self._summarize()
+            self._resolve_request("failed", reason="required_method_unjudged")
+            self.report.update(status="judgment_incomplete", reason=str(exc))
         except (AIInterrupted, KeyboardInterrupt):
             self._summarize()
             self.release()
@@ -1406,22 +1430,45 @@ class _FamilyRun:
         prohibit or contradict the method? Recorded once in ``judgment_ledger``
         whether or not the candidate is published today, so publication (now
         or from the backlog, which makes no model call) reads the verdict and
-        refuses a contradicting stem before anything is appended."""
+        refuses a contradicting stem before anything is appended.
+
+        Review F17: a spend refusal or a cancellation propagates (the run
+        releases the job, resumable); any other failure, or no judge ready,
+        raises :class:`RequiredMethodJudgmentIncomplete` once every selected
+        variant has been tried, so the job stays retryable until each has a
+        verdict."""
         order = getattr(self, "selected_order", [])
         method = getattr(self.parent, "required_method", None)
         if method is None or not order:
             return
         tally: Counter = Counter()
+        failures: Counter = Counter()
         for candidate_id in order:
             with self.ctx.repository.connection() as connection:
                 row = store.candidate(connection, candidate_id)
             if row is None:
                 continue
-            verdict = judge_variant_stem(self.ctx.vault, self.ctx.repository, row, self.ctx.method_judge(),
-                                         owner=(self.ctx.caller.owner_kind, self.ctx.caller.run_id),
-                                         clock=self.ctx.clock)
+            try:
+                verdict = judge_variant_stem(self.ctx.vault, self.ctx.repository, row, self.ctx.method_judge(),
+                                             owner=(self.ctx.caller.owner_kind, self.ctx.caller.run_id),
+                                             clock=self.ctx.clock, strict=True)
+            except (AIInterrupted, SpendLimitExceeded):
+                raise
+            except Exception as exc:  # noqa: BLE001 - no verdict yet; the job stays retryable
+                _LOGGER.warning("the required-method publication judgment failed for %s", candidate_id,
+                                exc_info=True)
+                failures[type(exc).__name__] += 1
+                verdict = None
             tally[verdict or "unjudged"] += 1
         self.report["required_method_judgments"] = dict(sorted(tally.items()))
+        if failures:
+            self.report["required_method_judgment_failures"] = dict(sorted(failures.items()))
+        if tally.get("unjudged"):
+            reason = (f"{tally['unjudged']} selected variant(s) have no required-method verdict ("
+                      + (", ".join(f"{name} x{count}" for name, count in sorted(failures.items())) if failures
+                         else "no judge is ready")
+                      + "); rerun this round to judge them")
+            raise RequiredMethodJudgmentIncomplete(reason)
 
     def _publish(self) -> None:
         order = getattr(self, "selected_order", [])
@@ -1832,6 +1879,6 @@ def pf_status(vault: LoadedVault, *, clock: Clock | None = None) -> dict[str, An
 __all__ = [
     "FILTER_ORDER", "GATE_POLICY_VERSION", "GENERATOR_VERSIONS", "GenerationOptions",
     "MMR_SELECTION_POLICY", "PATHS",
-    "PFRefused", "family_targets", "generate_practice", "panel_difficulty", "pf_run_lock",
-    "pf_status", "publish_backlog",
+    "PFRefused", "RequiredMethodJudgmentIncomplete", "family_targets", "generate_practice", "panel_difficulty",
+    "pf_run_lock", "pf_status", "publish_backlog",
 ]

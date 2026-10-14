@@ -497,6 +497,12 @@ def _perform_side_effect(
             proposal_item_id=row.get("proposal_item_id"),
             clock=clock,
         )
+    elif kind == "required_method_owner_verdict":
+        # The owner's accepted required-method override (review F16): their
+        # verdict in judgment_ledger, keyed on the fixed id in the intent.
+        from learnloop.content.proposals.required_method_override import record_owner_verdict
+
+        record_owner_verdict(repository, row, created_at)
     elif kind == "provenance_link":
         repository.insert_entity_source_link(
             link_id=row["id"],

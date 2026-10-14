@@ -1552,9 +1552,76 @@ class GradedContract:
         describe what was graded.
         """
 
-        current = compile_assessment_contract(vault, item, rubric=resolved_rubric(vault, item))
+        return self._froze(compile_assessment_contract(vault, item, rubric=resolved_rubric(vault, item)))
+
+    def _froze(self, compiled: dict[str, Any]) -> bool:
         keys = ("item_content_hash", "rubric_content_hash")
-        return all(self.contract.get(key) is not None and self.contract.get(key) == current.get(key) for key in keys)
+        return all(self.contract.get(key) is not None and self.contract.get(key) == compiled.get(key) for key in keys)
+
+    def graded_reference_contents(
+        self, vault: LoadedVault, item: PracticeItem, connection: Any,
+    ) -> tuple[list[str], str]:
+        """The answer-key revision(s) a regrade under this contract graded (review F13).
+
+        A key check binds one revision of an item: its
+        ``reference_content_hash`` (statement, expected answer and the item's
+        own rubric). The contract froze the statement and expected answer
+        verbatim, and the resolved rubric only by hash, so the revision is
+        rebuilt from the frozen statement and answer with each rubric the item
+        is known to have had (its current one, its recorded snapshots', the
+        default), and the one whose contract matches the frozen one is the
+        revision graded: ``([hash], "frozen")``.
+
+        When none matches (the rubric changed too and no snapshot recorded
+        the old one), the revision cannot be rebuilt: every revision a key
+        check recorded may be it, the current one excepted when the frozen
+        statement or answer differs from it: ``(hashes, "unresolved")``,
+        bound fail-closed (any unverified one lowers the grade).
+        """
+
+        from learnloop.db.stores.source_service import checked_content_hashes, reference_content_hash
+
+        frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer")}
+        base = item.model_dump(mode="json")
+        rubrics: list[Any] = [base.get("grading_rubric")]
+        try:
+            stored = connection.execute(
+                "SELECT item_json FROM practice_item_snapshots WHERE practice_item_id = ? ORDER BY created_at DESC",
+                (item.id,),
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - a vault without snapshots rebuilds from the others
+            stored = []
+        for (item_json,) in stored:
+            try:
+                rubrics.append(json.loads(item_json).get("grading_rubric"))
+            except (TypeError, ValueError, AttributeError):
+                continue
+        rubrics.append(None)
+        tried: list[str] = []
+        for rubric in rubrics:
+            key = json.dumps(rubric, sort_keys=True, default=str)
+            if key in tried:
+                continue
+            tried.append(key)
+            try:
+                view = PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
+                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
+            except Exception:  # noqa: BLE001 - not a revision this item can have had (no rubric resolves)
+                continue
+            if self._froze(compiled):
+                return [reference_content_hash(view)], "frozen"
+        current = reference_content_hash(item)
+        same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer
+        candidates = [content for content in checked_content_hashes(connection, item.id)
+                      if same_text or content != current]
+        if not candidates:
+            # No check recorded the revision graded (it never verified): the
+            # best rebuild, which no check matches either, binds unverified.
+            try:
+                candidates = [reference_content_hash(PracticeItem.model_validate({**base, **frozen}))]
+            except Exception:  # noqa: BLE001 - an identity no check carries
+                candidates = [f"unrebuilt:{self.contract.get('item_content_hash')}"]
+        return candidates, "unresolved"
 
 
 def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedContract | None:
