@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "275fd5f7ecf414e8eb7a6c5e70dbd2579c3fa2f0"
-source_commit_timestamp: "2026-10-14T09:53:28-04:00"
+source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
+source_commit_timestamp: "2026-10-14T10:48:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -146,6 +146,7 @@ Indexes and uniqueness:
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_facet_reword_confirm.py`
+- `tests/test_glm_ocr.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_sidecar_ingest_m3.py`

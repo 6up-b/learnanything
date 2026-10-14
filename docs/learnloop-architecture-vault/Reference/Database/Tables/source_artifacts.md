@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "275fd5f7ecf414e8eb7a6c5e70dbd2579c3fa2f0"
-source_commit_timestamp: "2026-10-14T09:53:28-04:00"
+source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
+source_commit_timestamp: "2026-10-14T10:48:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/content/facet_identity/span_support.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_decider_landing.py`
+- `tests/test_glm_ocr.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
@@ -150,7 +151,6 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_landing.py`
 - `tests/test_sidecar_reader.py`
 - `tests/test_source_layer.py`
-- `tests/test_source_search.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
