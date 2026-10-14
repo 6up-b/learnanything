@@ -631,15 +631,16 @@ class VaultEpigraphBatch(WireModel):
 
 SOURCE_UNIT_INVENTORY_PROMPT_VERSION = "mvp-0.7-source-unit-inventory-role-aware"
 #: mvp-1.4 / append mvp-0.11 (owner rule 2026-10-13): criteria by fact, and a
-#: required method only on a method target (rule 15 / append rule 9).
-SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.4-sibling-criterion-dependencies-criteria-by-fact"
+#: required method only on a method target (rule 15 / append rule 9). ``-v2``
+#: (review F14 reopened): LearnLoop appends the instruction sentence.
+SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.4-sibling-criterion-dependencies-criteria-by-fact-v2"
 # Facet identity (handoff §4): the same prompt plus the one-facet-per-skill
 # rule, used only while facet_identity.enabled is on.
-SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION = "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact"
+SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION = "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1+t5-registry-nominations-1"
-APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.11-append-no-locks-sibling-criterion-dependencies-criteria-by-fact"
-APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION = "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact"
+APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.11-append-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2"
+APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION = "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2"
 VAULT_EPIGRAPHS_PROMPT_VERSION = "mvp-0.1-vault-epigraphs"
 
 SOURCE_UNIT_INVENTORY_PROMPT = """\

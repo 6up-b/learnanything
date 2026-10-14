@@ -477,18 +477,13 @@ def regrade_attempt(
                 ),
                 new_score=new_score,
                 rubric=rubric,
-                # Review F13: the grade binds to the content it was read
-                # against. A regrade under the frozen contract read the
-                # presented content: when that is not the current content,
-                # the revision it graded binds (a dispute recorded since
-                # against THAT revision lowers it; a check of the edited one
-                # does not).
-                bind_frozen=(
-                    graded_contract
-                    if reads_contract and graded_contract is not None
-                    and not graded_contract.matches_current_content(vault, item)
-                    else None
-                ),
+                # Review F13, F19: the grade binds to the content it was
+                # read against. A regrade under the frozen contract read the
+                # presented content, so the revision it graded binds (the
+                # one its contract recorded; a dispute recorded since
+                # against THAT revision lowers it; a check of an edited or
+                # merely equivalent one does not decide it).
+                bind_frozen=graded_contract if reads_contract and graded_contract is not None else None,
                 primary_error_type=primary_error_type,
                 content_events=content_events,
                 blind_record=blind_record,
@@ -595,9 +590,9 @@ def _publish_regrade(
     # certifies nothing; the attempt's status is lowered (never raised)
     # before the replay below reads it. Usually that is the item as it is
     # now. A method-explicit regrade (re-review F1) read the presented
-    # content its contract froze; when that is not the current content
-    # (``bind_frozen``), the revision it graded binds instead (review F13):
-    # an unverified revision made since never lowers the grade, and a later
+    # content its contract froze (``bind_frozen``): the revision it graded
+    # binds instead (review F13), the one the contract recorded (F19): an
+    # unverified revision made since never lowers the grade, and a later
     # dispute of the revision graded does.
     connection = repository.connection()
     gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS

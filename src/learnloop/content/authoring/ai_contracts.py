@@ -153,8 +153,9 @@ class VideoStoryboard(WireModel):
 
 
 #: mvp-0.3 (owner rule 2026-10-13): criteria by fact; a required method only
-#: when the book's own statement requires it on a method target.
-EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.3-criteria-by-fact"
+#: when the book's own statement requires it on a method target. ``-v2``
+#: (review F14 reopened): the shared guidance leaves the sentence to LearnLoop.
+EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.3-criteria-by-fact-v2"
 CONCEPT_ANIMATION_PROMPT_VERSION = "mvp-0.2-structured-explainer"
 VIDEO_STORYBOARD_PROMPT_VERSION = "mvp-0.1-video-storyboard"
 

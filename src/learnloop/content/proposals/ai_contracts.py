@@ -297,11 +297,12 @@ class RequiredMethodPayload(WireModel):
 
     Only on an item whose target is itself a method or technique (a learning
     object or facet the context lists with ``required_method_targets``); the
-    writer drops it anywhere else, links it to its target and makes sure the
-    prompt states it ("Use {name} in your answer.").
+    writer drops it anywhere else, links it to its target and renders the
+    instruction ("Use {name} in your answer.") as the prompt's final paragraph
+    itself.
     """
 
-    name: str = Field(description="The required method's name, as the prompt's instruction states it.")
+    name: str = Field(description="The required method's name; LearnLoop appends 'Use {name} in your answer.'")
     criterion_ids: list[str] = Field(
         default_factory=list,
         description="The ONLY rubric criteria that grade use of the method; every other criterion names a fact.",
@@ -674,8 +675,8 @@ class PracticeItemPatchPayload(WireModel):
         default=None,
         description=(
             "Leave null unless the item's target is itself a method (listed in the context's "
-            "required_method_targets) and executing it is the item's point: then the method's name, "
-            "the criteria grading its use, and the prompt must say 'Use {name} in your answer.'"
+            "required_method_targets) and executing it is the item's point: then the method's name "
+            "and the criteria grading its use. LearnLoop appends 'Use {name} in your answer.'"
         ),
     )
 
@@ -797,10 +798,12 @@ class AuthoringProposal(WireModel):
 #: ``_PRACTICE_METADATA_GUIDANCE`` (authoring, practice generation, diagnostic
 #: authoring, tutor promotion and learner-gap seeds, canonical ingest and exam
 #: imports) phrases criteria by fact and writes a required method only on a
-#: method target (``learnloop.vault.required_method``).
-AUTHORING_PROMPT_VERSION = "mvp-0.10-criteria-by-fact"
-DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.6-diagnostic-authoring-criteria-by-fact"
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.4-criteria-by-fact"
+#: method target (``learnloop.vault.required_method``). The ``-v2`` versions
+#: (review F14 reopened): LearnLoop appends the instruction sentence; the
+#: model no longer writes it.
+AUTHORING_PROMPT_VERSION = "mvp-0.10-criteria-by-fact-v2"
+DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.6-diagnostic-authoring-criteria-by-fact-v2"
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.4-criteria-by-fact-v2"
 
 DIAGNOSTIC_AUTHORING_PROMPT = """\
 Author ONE diagnostic Practice Item that discriminates the target misconception \

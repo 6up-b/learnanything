@@ -41,14 +41,13 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.required_method import (
-    ensure_method_instruction,
     is_source_statement,
     learning_object_method_targets,
     method_targets,
     normalize_required_method,
+    restate_method_instruction,
     rewrites_decided_statement,
     same_statement,
-    strip_method_instruction,
 )
 
 
@@ -1481,8 +1480,13 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     to it, with its criteria in the rubric and the prompt ending with the
     writer's block, the canonical sentence ("Use {name} in your answer.") as
     its own final paragraph (redesign 2026-10-14: the prompt's phrasing is
-    never read; review F14: the sentence inside the generated text never
-    stands for the block).
+    never read). The writer renders the block onto generated text; nothing
+    the generated text says stands for it (review F14). An update revises an
+    existing item's prompt, which carries the block for the item's own
+    method: a revision is restated (``restate_method_instruction``: that
+    method's block or legacy inline instruction is taken out, review F18,
+    and the field's block rendered), so a renamed method's block replaces the
+    old one and a revision never carries two.
     Anything else drops it. An update without a prompt of its own is checked
     against the item's current prompt. A generated proposal never changes the
     required method of a source-authored item (a textbook statement is never
@@ -1492,26 +1496,28 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     statement (review F15): the decision binds the statement it judged, so a
     prompt that differs only in whitespace is dropped (the verbatim statement
     stays) and any other is reported by validation
-    (``required_method:source_statement_edited``) and refused at apply. An
-    update that rewrites a generated item's prompt and leaves its field
-    keeps the writer's block (the canonical sentence as the final
-    paragraph). Deterministic; the persisted payload is what is checked.
+    (``required_method:source_statement_edited``) and refused at apply.
+    Deterministic; the persisted payload is what is checked.
     """
 
     existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
     notes: list[str] = []
-    if existing is not None and existing.required_method is not None and "prompt" in payload:
-        if existing.required_method.statement == "source":
+    previous = existing.required_method if existing is not None else None
+    # The generated item's own method: its block (or a legacy inline
+    # instruction) is what a revision of its prompt carries.
+    instruction = previous.name if previous is not None and previous.statement != "source" else None
+    if previous is not None and "prompt" in payload:
+        if previous.statement == "source":
             if same_statement(payload["prompt"], existing.prompt):
                 payload.pop("prompt")
-        elif "required_method" not in payload:
-            updated = ensure_method_instruction(payload["prompt"], existing.required_method.name)
+        elif not payload.get("required_method"):
+            updated = restate_method_instruction(payload["prompt"], instruction, previous=instruction)
             if updated != payload["prompt"]:
                 payload["prompt"] = updated
                 notes.append("required_method:instruction_added")
     if existing is not None and "required_method" in payload and (
         is_source_statement(existing)
-        or getattr(existing.required_method, "statement", "instruction") == "source"
+        or getattr(previous, "statement", "instruction") == "source"
     ):
         payload.pop("required_method", None)
         return [*notes, "required_method:source_statement_unchanged"]
@@ -1523,26 +1529,28 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     capability = payload.get("capability") or (existing.capability if existing else None)
     targets = method_targets(vault, learning_object_id=learning_object_id, facet_ids=facets, capability=capability)
     view = dict(payload)
-    if "prompt" not in view and existing is not None:
-        view["prompt"] = existing.prompt
     rubric_ids = None
     if not isinstance(view.get("grading_rubric"), dict) and existing is not None:
         resolved = vault.rubric_for_item(existing)
         rubric_ids = [criterion.id for criterion in resolved.criteria] if resolved is not None else []
-    previous = existing.required_method if existing is not None else None
-    proposed_name = " ".join(str((payload.get("required_method") or {}).get("name") or "").split())
-    original_prompt = view.get("prompt")
-    if previous is not None and previous.statement != "source" and proposed_name != previous.name:
-        # A renamed method's block replaces the old one (never stacked under it).
-        view["prompt"] = strip_method_instruction(view.get("prompt"), previous.name)
-    notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids)
+    current = existing.prompt if existing is not None else None
+    text = payload["prompt"] if "prompt" in payload else (current or "")
+    # The field is decided first; the writer then makes the text agree with
+    # it (never the other way round).
+    notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids, render_instruction=False)
     if "required_method" in view:
         payload["required_method"] = view["required_method"]
+        updated = restate_method_instruction(text, view["required_method"]["name"], previous=instruction)
+        if updated != text:
+            notes.append("required_method:instruction_added")
     else:
+        # The item keeps its field, and so its instruction: a revision of its
+        # prompt is restated for it; an unrevised prompt is left alone.
         payload.pop("required_method", None)
-        view["prompt"] = original_prompt  # the item keeps its field, and so its block
-    if view.get("prompt") != (payload.get("prompt") if "prompt" in payload else (existing.prompt if existing else None)):
-        payload["prompt"] = view["prompt"]
+        updated = (restate_method_instruction(text, instruction, previous=instruction)
+                   if instruction and "prompt" in payload else text)
+    if "prompt" in payload or updated != current:
+        payload["prompt"] = updated
     return notes
 
 

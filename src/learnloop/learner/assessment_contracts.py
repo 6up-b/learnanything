@@ -29,6 +29,7 @@ from learnloop.algorithm_versions import (
 from learnloop.clock import Clock
 from learnloop.learner.capability_mapping import compile_criterion_targets
 from learnloop.attempts.grading import resolved_rubric
+from learnloop.vault.hashes import reference_content_hash
 from learnloop.vault.models import (
     LearningObject,
     LoadedVault,
@@ -159,6 +160,12 @@ def compile_assessment_contract(
             "name": required_method.name,
             "criterion_ids": list(required_method.criterion_ids),
         }
+        # Review F19: the answer-key revision presented, exactly (statement,
+        # expected answer and the item's OWN rubric, inline or inherited). A
+        # regrade under this contract binds this revision's key status; it
+        # cannot be rebuilt from the resolved rubric, which an inherited
+        # default and the same rubric written inline share.
+        contract["reference_content_hash"] = reference_content_hash(item)
     return contract
 
 

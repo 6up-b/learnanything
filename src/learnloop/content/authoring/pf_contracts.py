@@ -22,9 +22,11 @@ SKELETON_PROMPT = "pf-skeleton-v1"
 #: The generator program, proposer, single-shot and source-anchored prompts
 #: moved for method-explicit items (owner rule 2026-10-13): a parent with a
 #: ``required_method`` passes it to every new stem; publication enforces it.
-GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v7"
-PROPOSER_PROMPT = "pf-ensemble-propose-v3"
-SINGLE_SHOT_PROMPT = "pf-single-shot-v3"
+#: v8 / v4 (review F14 reopened): LearnLoop appends the instruction sentence;
+#: the generator no longer writes it.
+GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v8"
+PROPOSER_PROMPT = "pf-ensemble-propose-v4"
+SINGLE_SHOT_PROMPT = "pf-single-shot-v4"
 PANEL_SOLVE_PROMPT = "pf-panel-solve-v1"
 EQUIVALENCE_PROMPT = "pf-answer-equivalence-v2"
 STRUCTURE_PROMPT = "pf-structure-check-v1"
@@ -32,7 +34,7 @@ FRESHNESS_PROMPT = "pf-freshness-isomorph-v1"
 SELECTION_PROMPT = "pf-selection-v1"
 PAIRWISE_PROMPT = "pf-blind-pairwise-v1"
 VALID_ALTERNATIVE_PROMPT = "pf-valid-alternative-v1"
-SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v3"
+SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v4"
 CLOSED_BOOK_PROMPT = "pf-closed-book-v1"
 SPAN_SUPPORT_PROMPT = "pf-span-support-v1"
 

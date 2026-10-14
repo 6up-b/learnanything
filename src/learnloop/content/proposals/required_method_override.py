@@ -9,8 +9,10 @@ auto-applied) that ``learnloop accept`` applies.
 
 The text agrees with the field without being read:
 
-* a GENERATED statement gains the canonical sentence ("Use {name} in your
-  answer.") with the field, and loses it when the field is cleared or renamed;
+* a GENERATED statement gains the writer's block, the canonical sentence
+  ("Use {name} in your answer.") as its final paragraph, with the field, and
+  loses it when the field is cleared or renamed (an instruction written
+  inline under the earlier rule too; a quoted occurrence never: review F18);
 * a SOURCE statement (a textbook stem) is never rewritten: the field records
   ``statement = source, decided_by = owner``.
 
@@ -42,11 +44,10 @@ from learnloop.ids import new_ulid
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.required_method import (
     best_target,
-    ensure_method_instruction,
     is_source_statement,
     method_targets,
     names_match,
-    strip_method_instruction,
+    restate_method_instruction,
 )
 
 PROPOSAL_PURPOSE = "required_method_override"
@@ -91,7 +92,9 @@ def override_payload(
         if name is not None or criterion_ids:
             raise ValueError("--clear takes no method or criteria")
         new_field: dict[str, Any] | None = None
-        prompt = item.prompt if source else strip_method_instruction(item.prompt, existing.name)
+        # Review F18: the writer's block, else a legacy inline instruction,
+        # goes with the field; a quoted occurrence stays.
+        prompt = item.prompt if source else restate_method_instruction(item.prompt, None, previous=existing.name)
     else:
         method = " ".join(str(name or "").split())
         if not method:
@@ -112,10 +115,11 @@ def override_payload(
             new_field.update(statement="source", decided_by="owner")
             prompt = item.prompt
         else:
-            prompt = item.prompt
-            if existing is not None and existing.name != method:
-                prompt = strip_method_instruction(prompt, existing.name)
-            prompt = ensure_method_instruction(prompt, method)
+            # The writer renders the new method's block (review F14: nothing
+            # the text says stands for it) after taking out the instruction
+            # of the method the item had, block or legacy inline (F18).
+            prompt = restate_method_instruction(item.prompt, method,
+                                                previous=existing.name if existing is not None else None)
     payload["required_method"] = new_field
     if prompt != item.prompt:
         payload["prompt"] = prompt

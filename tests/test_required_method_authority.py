@@ -151,8 +151,11 @@ def _targets():
 
 @pytest.mark.parametrize("case", REPRO_IDS)
 def test_a_generated_prompt_gets_the_canonical_sentence_whatever_it_says(case):
-    """The writer never reads the prompt: it appends the one sentence unless
-    it is already there verbatim, and keeps the field."""
+    """The writer never reads the prompt: it renders the one sentence as its
+    own block after the generated text (review F14: never taking anything
+    the text says for it), and keeps the field."""
+
+    from learnloop.vault.required_method import has_method_instruction
 
     prompt = REPRODUCTIONS[case]
     payload = {"prompt": prompt, "grading_rubric": {"criteria": [{"id": "method"}, {"id": "result"}]},
@@ -161,8 +164,7 @@ def test_a_generated_prompt_gets_the_canonical_sentence_whatever_it_says(case):
     assert notes == ["required_method:instruction_added"]
     assert payload["prompt"] == f"{prompt}\n\n{SENTENCE}"
     assert payload["required_method"]["name"] == METHOD
-    again = dict(payload)
-    assert normalize_required_method(again, _targets()) == [] and again["prompt"] == payload["prompt"]
+    assert has_method_instruction(payload["prompt"], METHOD)
 
 
 def test_an_affirmative_phrasing_is_not_the_canonical_sentence():
@@ -170,13 +172,14 @@ def test_an_affirmative_phrasing_is_not_the_canonical_sentence():
     det(A) by cofactor expansion." gets the sentence appended, and
     validation reports it until then."""
 
-    from learnloop.vault.required_method import ensure_method_instruction, has_method_instruction
+    from learnloop.vault.required_method import has_method_instruction, render_method_instruction
 
     prompt = "Compute det(A) by cofactor expansion."
     assert not has_method_instruction(prompt, METHOD)
-    assert has_method_instruction("Compute det(A).\n \n  Use cofactor\nexpansion in   your answer.", METHOD)
+    assert has_method_instruction("Compute det(A).\n \nUse cofactor\nexpansion in   your answer.", METHOD)
+    assert not has_method_instruction("Compute det(A).\n \n  Use cofactor\nexpansion in   your answer.", METHOD)
     assert not has_method_instruction("Compute det(A). use cofactor expansion in your answer.", METHOD)
-    assert ensure_method_instruction(prompt, METHOD) == f"{prompt}\n\n{SENTENCE}"
+    assert render_method_instruction(prompt, METHOD) == f"{prompt}\n\n{SENTENCE}"
     rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))
     codes = [problem.code for problem in required_method_problems(_item(prompt, FROZEN), rubric)]
     assert codes == ["required_method:not_stated"]

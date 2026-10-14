@@ -104,15 +104,17 @@ from learnloop.vault.required_method import (
     MethodTarget,
     advisory_statement_flag,
     best_target,
-    ensure_method_instruction,
     is_source_statement,
     method_phrase,
     method_targets,
     names_match,
+    restate_method_instruction,
 )
 
 REPORT_VERSION = "method-phrasing-report-v1"
-JUDGE_PROMPT_VERSION = "rubric-phrasing-judge-v1"
+#: v2 (review F14 reopened): the shared guidance it carries leaves the
+#: instruction sentence to LearnLoop.
+JUDGE_PROMPT_VERSION = "rubric-phrasing-judge-v2"
 DECIDER_QUESTION_SET = "rubric-phrasing-decider-v1"
 LEDGER_TASK = "rubric_method_phrasing"
 LEDGER_LEFT_KIND = "rubric_criterion"
@@ -828,7 +830,10 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
         else:
             payload["required_method"] = {"name": method_name, "criterion_ids": method_criteria,
                                           **method_target.link()}
-            prompt = ensure_method_instruction(item.prompt, method_name)
+            # The writer renders the method's block (review F14); the item's
+            # own instruction, if it had one, is taken out first (F18).
+            prompt = restate_method_instruction(item.prompt, method_name,
+                                                previous=existing.name if existing is not None else None)
             if prompt != item.prompt:
                 payload["prompt"] = prompt
     current = compute_target_hash(vault, "practice_item", item.id)

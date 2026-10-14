@@ -185,6 +185,31 @@ class Candidate:
         return skeleton_content_hash(self.payload["stem"], self.expected_answer)
 
 
+def _candidate_from_row(row: dict[str, Any]) -> Candidate:
+    """A persisted candidate as the run holds it (review F20: a resumed job)."""
+
+    def loads(raw: Any) -> dict[str, Any]:
+        return json.loads(raw) if raw else {}
+
+    return Candidate(
+        id=row["id"], path=row["generation_path"], payload=json.loads(row["payload_json"]),
+        proposer_model=row["proposer_model"], prompt_version=row["prompt_version"],
+        declared_relation=row["declared_relation"], status=row["status"], verification=row["verification"],
+        verification_check=row["verification_check"], final_relation=row["final_relation"],
+        rejection_filter=row["rejection_filter"], filters=loads(row["filters_json"]),
+        difficulty=row["difficulty"], panel=loads(row["panel_json"]), selection=loads(row["selection_json"]),
+        cost=loads(row["cost_json"]),
+    )
+
+
+def _selection_rank(candidate: Candidate) -> tuple[Any, ...]:
+    """A selected candidate's place in its run's order: the selection judge's
+    rank when it ranked, else the MMR rank."""
+
+    judge_rank = candidate.selection.get("judge_rank")
+    return (judge_rank is None, judge_rank or 0, candidate.selection.get("mmr_rank", 0), candidate.id)
+
+
 def _sha(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -523,48 +548,53 @@ class _FamilyRun:
             )
         return record
 
+    def _resume_after_selection(self) -> bool:
+        """Resume a job whose selection already finished at its judgment and
+        publication step (review F20).
+
+        A job is left retryable after selection when a required-method
+        judgment could not be made (F17), a spend refusal or a cancellation
+        stopped it there, or publication failed. Its candidates, filters,
+        panel and selection are persisted, so a rerun of the round loads them
+        and asks only what is missing (each verdict already ledgered is
+        reused) instead of re-running the pipeline: the variants it published
+        meanwhile would change the freshness and selection requests, so their
+        checkpoints would miss and the paid work run again.
+        """
+        if self.request is None or self.path == "single_shot":
+            return False
+        with self.ctx.repository.connection() as connection:
+            rows = store.candidates(connection, where="mint_request_id=?", params=(self.request["id"],))
+        if not any(row.get("selection_json") for row in rows):
+            return False
+        self.candidates = [_candidate_from_row(row) for row in rows]
+        selected = [candidate for candidate in self.candidates if candidate.status == "selected"]
+        self.selected_order = [candidate.id for candidate in sorted(selected, key=_selection_rank)]
+        self.report["resumed"] = "required_method_judgment"
+        return True
+
+    def _judge_and_publish(self) -> None:
+        try:
+            self._judge_required_method()
+        except RequiredMethodJudgmentIncomplete:
+            # Review F17: the variants judged so far publish now; the job
+            # stays retryable for the rest (below), and a rerun resumes here
+            # (F20) without any pipeline work.
+            if self.ctx.options.publish:
+                self._publish()
+            raise
+        if self.ctx.options.publish:
+            self._publish()
+
     # -- stages -------------------------------------------------------------------
     def execute(self) -> dict[str, Any]:
         if not self._enqueue_and_claim():
             return self.report
         try:
-            self.parent_skeleton = self._parent_skeleton()
-            if self.path == "generator":
-                self._generate_programs()
-            elif self.path == "source_anchored":
-                self._generate_source_anchored()
+            if self._resume_after_selection():
+                self._judge_and_publish()
             else:
-                self._generate_proposals()
-            self._free_filters()
-            if self.path == "generator":
-                self._panel_generator()
-            elif self.path == "source_anchored":
-                self._verify_source_anchored()
-            else:
-                self._verify_ensemble()
-            self._finalize_difficulty()
-            self._structure()
-            self._freshness()
-            for candidate in self.candidates:
-                if candidate.alive:
-                    for name in NOT_APPLICABLE_FILTERS:
-                        if name not in candidate.filters:
-                            self._pass(candidate, name, "not_applicable")
-                    if candidate.path != "single_shot":
-                        candidate.status = "survivor"
-                    self._persist(candidate)
-            if self.path != "single_shot":
-                self._select()
-                try:
-                    self._judge_required_method()
-                except RequiredMethodJudgmentIncomplete:
-                    # Review F17: the variants judged so far publish now; the
-                    # job stays retryable for the rest (below).
-                    if self.ctx.options.publish:
-                        self._publish()
-                    raise
-                if self.ctx.options.publish:
-                    self._publish()
+                self._run_pipeline()
             self._summarize()
             selected = self.report.get("selected", 0) + len(self.report.get("published_item_ids", []))
             self._resolve_request("admitted" if selected else "rejected")
@@ -573,8 +603,8 @@ class _FamilyRun:
             # Review F17: paid, verified variants are never stranded by a
             # judgment that could not be made (a timeout, a failure, no judge
             # ready): the mint request is left ``failed``, which a rerun of
-            # the round reclaims, resuming from the checkpointed calls and
-            # the persisted candidates and asking only the missing verdicts.
+            # the round reclaims, resuming at the judgment (F20) and asking
+            # only the missing verdicts.
             self._summarize()
             self._resolve_request("failed", reason="required_method_unjudged")
             self.report.update(status="judgment_incomplete", reason=str(exc))
@@ -596,6 +626,36 @@ class _FamilyRun:
             self._resolve_request("failed", reason=type(exc).__name__)
             raise
         return self.report
+
+    def _run_pipeline(self) -> None:
+        self.parent_skeleton = self._parent_skeleton()
+        if self.path == "generator":
+            self._generate_programs()
+        elif self.path == "source_anchored":
+            self._generate_source_anchored()
+        else:
+            self._generate_proposals()
+        self._free_filters()
+        if self.path == "generator":
+            self._panel_generator()
+        elif self.path == "source_anchored":
+            self._verify_source_anchored()
+        else:
+            self._verify_ensemble()
+        self._finalize_difficulty()
+        self._structure()
+        self._freshness()
+        for candidate in self.candidates:
+            if candidate.alive:
+                for name in NOT_APPLICABLE_FILTERS:
+                    if name not in candidate.filters:
+                        self._pass(candidate, name, "not_applicable")
+                if candidate.path != "single_shot":
+                    candidate.status = "survivor"
+                self._persist(candidate)
+        if self.path != "single_shot":
+            self._select()
+            self._judge_and_publish()
 
     def _parent_skeleton(self) -> dict[str, Any]:
         entry = self.ctx.role("skeleton")[0]

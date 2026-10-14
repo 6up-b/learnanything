@@ -39,10 +39,10 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Rubric
 from learnloop.vault.required_method import (
-    ensure_method_instruction,
     has_method_instruction,
     inherit_required_method,
     normalize_required_method,
+    render_method_instruction,
     required_method_problems,
     strip_method_instruction,
 )
@@ -104,16 +104,21 @@ def test_f14_a_pf_variant_stem_gets_the_block_whatever_it_quotes(case):
     assert payload["prompt"] == f"{QUOTED[case]}\n\n{SENTENCE}"
 
 
-def test_f14_a_trailing_instruction_sentence_becomes_the_block_without_a_duplicate():
-    """The authoring guidance asks the model for the sentence; written as the
-    prompt's own last sentence it moves into the writer's block instead of
-    being repeated."""
+def test_f14_the_writer_never_takes_a_trailing_sentence_for_its_block():
+    """Re-review (F14 reopened): the guidance no longer asks the model for the
+    sentence, and the writer renders its block after whatever the generated
+    text ends with, its own last sentence included (it is generated text,
+    never the writer's block)."""
 
-    assert ensure_method_instruction(f"Compute det(A). {SENTENCE}", METHOD) == f"Compute det(A).\n\n{SENTENCE}"
-    assert ensure_method_instruction(f"Compute det(A)?\n{SENTENCE}", METHOD) == f"Compute det(A)?\n\n{SENTENCE}"
-    assert ensure_method_instruction(SENTENCE, METHOD) == SENTENCE
-    block = f"Compute det(A).\n\n  Use cofactor\nexpansion in   your answer.  \n"
-    assert has_method_instruction(block, METHOD) and ensure_method_instruction(block, METHOD) == block
+    assert render_method_instruction(f"Compute det(A). {SENTENCE}", METHOD) == (
+        f"Compute det(A). {SENTENCE}\n\n{SENTENCE}")
+    assert render_method_instruction(f"Compute det(A)?\n{SENTENCE}", METHOD) == (
+        f"Compute det(A)?\n{SENTENCE}\n\n{SENTENCE}")
+    assert render_method_instruction("", METHOD) == SENTENCE
+    # A STORED prompt carries the block at column 0 (whitespace between its
+    # words aside); an indented final paragraph is not the writer's block.
+    assert has_method_instruction(f"Compute det(A).\n\nUse cofactor\nexpansion in   your answer.  \n", METHOD)
+    assert not has_method_instruction(f"Compute det(A).\n\n  Use cofactor\nexpansion in   your answer.", METHOD)
     # Windows line endings are paragraph breaks too.
     assert has_method_instruction(f"Compute det(A).\r\n\r\n{SENTENCE}", METHOD)
 
@@ -339,7 +344,8 @@ def test_f13_a_dispute_of_the_edited_revision_never_lowers_the_frozen_regrade(ga
 def test_f13_when_the_graded_revision_cannot_be_rebuilt_any_unverified_other_revision_lowers(
         gated_successor, disputed):
     """The rubric changed too, so the graded revision's key hash cannot be
-    rebuilt from the frozen contract: the grade stands when every checked
+    rebuilt from a HISTORICAL frozen contract (one frozen before contracts
+    recorded the hash, review F19): the grade stands when every checked
     revision other than the current one is verified, and is lowered when any
     is not (fail closed)."""
 
@@ -347,10 +353,12 @@ def test_f13_when_the_graded_revision_cannot_be_rebuilt_any_unverified_other_rev
     from tests.source_service_fakes import loaded
     from tests.test_reference_gate_imports import _attempt, _bindings, _regrade, _status
     from tests.test_required_method_authority import _verified_method_import
+    from tests.test_required_method_rereview import _make_historical
 
     paths, repository, spans = gated_successor
     item_id, criterion = _verified_method_import(paths, repository, spans)
     attempt = _attempt(paths, repository, item_id, criterion=criterion)
+    _make_historical(repository, attempt.attempt_id)
     if disputed:
         _dispute(repository, loaded(paths).practice_items[item_id], "rkc_disputed_unrebuilt")
     data = loaded(paths).practice_items[item_id].model_dump(mode="json")

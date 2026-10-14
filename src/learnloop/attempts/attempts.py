@@ -1543,17 +1543,6 @@ class GradedContract:
     def rubric(self) -> Rubric:
         return rubric_from_contract(self.contract)
 
-    def matches_current_content(self, vault: LoadedVault, item: PracticeItem) -> bool:
-        """Is the content this contract froze (statement, expected answer and
-        rubric) the item's current content? (review F13)
-
-        A regrade that read the frozen contract graded THAT content; only when
-        it is also the current content does the current content's key status
-        describe what was graded.
-        """
-
-        return self._froze(compile_assessment_contract(vault, item, rubric=resolved_rubric(vault, item)))
-
     def _froze(self, compiled: dict[str, Any]) -> bool:
         keys = ("item_content_hash", "rubric_content_hash")
         return all(self.contract.get(key) is not None and self.contract.get(key) == compiled.get(key) for key in keys)
@@ -1561,26 +1550,38 @@ class GradedContract:
     def graded_reference_contents(
         self, vault: LoadedVault, item: PracticeItem, connection: Any,
     ) -> tuple[list[str], str]:
-        """The answer-key revision(s) a regrade under this contract graded (review F13).
+        """The answer-key revision(s) a regrade under this contract graded (review F13, F19).
 
         A key check binds one revision of an item: its
         ``reference_content_hash`` (statement, expected answer and the item's
-        own rubric). The contract froze the statement and expected answer
-        verbatim, and the resolved rubric only by hash, so the revision is
-        rebuilt from the frozen statement and answer with each rubric the item
-        is known to have had (its current one, its recorded snapshots', the
-        default), and the one whose contract matches the frozen one is the
-        revision graded: ``([hash], "frozen")``.
+        OWN rubric, inline or inherited). A method-explicit contract records
+        that hash when it is frozen (review F19), and the regrade binds
+        exactly that revision: ``([hash], "frozen")``.
 
-        When none matches (the rubric changed too and no snapshot recorded
-        the old one), the revision cannot be rebuilt: every revision a key
-        check recorded may be it, the current one excepted when the frozen
-        statement or answer differs from it: ``(hashes, "unresolved")``,
-        bound fail-closed (any unverified one lowers the grade).
+        A historical contract (frozen before it recorded the hash) froze the
+        statement and expected answer verbatim and the RESOLVED rubric only by
+        hash, so the revision is rebuilt from the frozen statement and answer
+        with each rubric the item is known to have had (its current one, its
+        recorded snapshots', none: the inherited default). Every
+        representation whose contract matches the frozen one may be the
+        revision graded (an inherited default and the same rubric written
+        inline resolve alike but are different revisions):
+
+        * one revision matches: ``([hash], "frozen")``;
+        * several do: the ones a key check recorded (a verified attempt's
+          revision had one), else all of them: ``(hashes, "ambiguous")``,
+          bound fail closed (any unverified one lowers the grade);
+        * none does (the rubric changed too and no snapshot recorded the old
+          one): every revision a key check recorded may be it, the current
+          one excepted when the frozen statement or answer differs from it:
+          ``(hashes, "unresolved")``, bound fail closed.
         """
 
         from learnloop.db.stores.source_service import checked_content_hashes, reference_content_hash
 
+        recorded = self.contract.get("reference_content_hash")
+        if isinstance(recorded, str) and recorded:
+            return [recorded], "frozen"
         frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer")}
         base = item.model_dump(mode="json")
         rubrics: list[Any] = [base.get("grading_rubric")]
@@ -1598,6 +1599,7 @@ class GradedContract:
                 continue
         rubrics.append(None)
         tried: list[str] = []
+        matched: list[str] = []
         for rubric in rubrics:
             key = json.dumps(rubric, sort_keys=True, default=str)
             if key in tried:
@@ -1608,8 +1610,13 @@ class GradedContract:
                 compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
             except Exception:  # noqa: BLE001 - not a revision this item can have had (no rubric resolves)
                 continue
-            if self._froze(compiled):
-                return [reference_content_hash(view)], "frozen"
+            if self._froze(compiled) and (content := reference_content_hash(view)) not in matched:
+                matched.append(content)
+        if len(matched) == 1:
+            return matched, "frozen"
+        if matched:
+            checked = set(checked_content_hashes(connection, item.id))
+            return [content for content in matched if content in checked] or matched, "ambiguous"
         current = reference_content_hash(item)
         same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer
         candidates = [content for content in checked_content_hashes(connection, item.id)

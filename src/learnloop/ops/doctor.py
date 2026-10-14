@@ -1912,8 +1912,9 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
     decides anything from the prompt's phrasing. Errors: a generated
     statement that does not end with the canonical sentence generated from
     the field as its own final paragraph (``required_method:not_stated``:
-    "Use {name} in your answer.", exact up to whitespace; the sentence inside
-    other text does not count), a source statement with no recorded decision
+    "Use {name} in your answer.", word for word at column 0; the sentence
+    inside other text, indented or in a blockquote does not count), a source
+    statement with no recorded decision
     (``required_method:undecided``), and a required method naming a criterion
     its rubric lacks (``required_method:unknown_criterion``). Warnings: a
     required method on a target the metadata does not read as a method

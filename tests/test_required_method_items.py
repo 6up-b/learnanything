@@ -27,15 +27,16 @@ from learnloop.vault.models import PracticeItem, RequiredMethod, Rubric
 from learnloop.vault.required_method import (
     CRITERIA_BY_FACT_GUIDANCE,
     advisory_statement_flag,
-    ensure_method_instruction,
     has_method_instruction,
     inherit_required_method,
     method_phrase,
     method_targets,
     names_match,
     normalize_required_method,
+    render_method_instruction,
     required_method_instruction,
     required_method_problems,
+    restate_method_instruction,
 )
 from learnloop.vault.yaml_io import write_yaml
 
@@ -89,12 +90,13 @@ def test_the_explicit_instruction():
     assert not has_method_instruction("Compute det(A). Use cofactor expansion in your answer.", "cofactor expansion")
     assert not has_method_instruction("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
     assert not has_method_instruction("Compute det(A).", "cofactor expansion")
-    assert ensure_method_instruction("Compute det(A).", "cofactor expansion") == (
+    assert render_method_instruction("Compute det(A).", "cofactor expansion") == (
         "Compute det(A).\n\nUse cofactor expansion in your answer.")
-    assert ensure_method_instruction("Use cofactor expansion to compute det(A).", "cofactor expansion") == (
+    assert render_method_instruction("Use cofactor expansion to compute det(A).", "cofactor expansion") == (
         "Use cofactor expansion to compute det(A).\n\nUse cofactor expansion in your answer.")
+    # A stored prompt that already carries the block of an unchanged method is kept as it is.
     stated = "Compute det(A).\n\nUse cofactor expansion in your answer."
-    assert ensure_method_instruction(stated, "cofactor expansion") == stated
+    assert restate_method_instruction(stated, "cofactor expansion", previous="cofactor expansion") == stated
 
 
 # Review F2's statements, now read only by the ADVISORY flag (redesign
@@ -419,15 +421,19 @@ def test_authoring_prompts_carry_the_rule_and_moved_their_versions():
                                    generation_seed="0"),
                    source_anchored_prompt(passages=[], parent=parent, family={}, count=2, generation_seed="0")):
         assert REQUIRED_METHOD_VARIANT_GUIDANCE in prompt
+    # The second re-review (F14 reopened) moved every prompt carrying the shared
+    # guidance again (``-v2``: LearnLoop appends the sentence); teach-back has
+    # its own clause and kept its version.
     versions = (
         AUTHORING_PROMPT_VERSION, DIAGNOSTIC_AUTHORING_PROMPT_VERSION, PRACTICE_GENERATION_PROMPT_VERSION,
         CANONICAL_INGEST_PROMPT_VERSION, EXERCISE_AUTHORING_PROMPT_VERSION, SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION, APPEND_RECONCILIATION_PROMPT_VERSION,
-        APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION, TEACH_BACK_AUTHORING_PROMPT_VERSION,
+        APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION,
     )
-    assert all(version.endswith("criteria-by-fact") for version in versions), versions
+    assert all(version.endswith("criteria-by-fact-v2") for version in versions), versions
+    assert TEACH_BACK_AUTHORING_PROMPT_VERSION.endswith("criteria-by-fact")
     assert (GENERATOR_PROGRAM_PROMPT, PROPOSER_PROMPT, SINGLE_SHOT_PROMPT, SOURCE_ANCHORED_PROMPT) == (
-        "pf-generator-program-v7", "pf-ensemble-propose-v3", "pf-single-shot-v3", "pf-source-anchored-v3")
+        "pf-generator-program-v8", "pf-ensemble-propose-v4", "pf-single-shot-v4", "pf-source-anchored-v4")
 
 
 def test_the_authoring_context_names_method_targets_only_where_they_are(vault_paths):

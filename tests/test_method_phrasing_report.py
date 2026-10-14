@@ -174,7 +174,7 @@ def test_the_llm_judge_reads_and_rewrites_and_its_verdicts_reach_the_ledger(vaul
     assert det["minors"]["rewrite"] == "llm"
     ledger = _ledger(vault_paths)
     assert {row["judge"] for row in ledger} == {"llm"} and {row["prompt_version"] for row in ledger} == {
-        "rubric-phrasing-judge-v1"}
+        "rubric-phrasing-judge-v2"}
     assert {row["left_id"] for row in ledger} >= {"pi_det#method", "pi_det#minors", "pi_cofactor#result"}
     assert report["spend"]["routes"]["rubric_phrasing_judge"]["calls"] == 3
 
@@ -504,7 +504,7 @@ def test_f6_the_writers_verdicts_reach_the_ledger_linked_to_the_repair(vault_pat
     writer = [row for row in rows if row["judge"] == "llm"]
     assert {row["left_id"] for row in writer} == {"pi_det#method", "pi_det#minors", "pi_cofactor#method"}
     assert {(row["judge_model"], row["prompt_version"]) for row in writer} == {
-        ("llm-fake-model", "rubric-phrasing-judge-v1")}
+        ("llm-fake-model", "rubric-phrasing-judge-v2")}
     decider_hashes = {row["input_hash"] for row in rows if row["judge"] == "decider"}
     assert not decider_hashes & {row["input_hash"] for row in writer}
     by_id = {row["id"]: row for row in rows}
