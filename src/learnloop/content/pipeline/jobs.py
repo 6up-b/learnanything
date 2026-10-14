@@ -113,6 +113,7 @@ def default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes:
         source,
         kind=kind,
         allow_auto_captions=True,
+        raw_only=True,
         clock=ctx.clock,
     )
     title, authors = _fetch_metadata(source, category)
@@ -152,7 +153,10 @@ def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
     The job payload's ``pdf_config`` wins key-by-key (a per-ingest engine choice
     or a repair's page/OCR options); the vault's ``[ingest.pdf]`` engine fills in
     when the payload doesn't pin one, so a configured ``engine = "pypdf"`` (or
-    "marker") finally governs the durable import path too."""
+    "marker") finally governs the durable import path too. This is the config
+    the extraction request hash covers; the GLM-OCR runtime settings travel
+    beside it (:func:`_document_extractor`), since endpoints, timeouts and
+    prices never change what is extracted (the backend is in the version)."""
 
     config = dict(ctx.payload.get("pdf_config") or {})
     if not config.get("engine"):
@@ -166,36 +170,115 @@ def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
         # extraction request hash and needlessly re-extract unchanged sources.
         if engine != "auto":
             config["engine"] = engine
-    if ctx.job.get("_keep_local"):
+    if _kept_local(ctx):
         # A book kept on this computer is read by a local extractor only
         # (UX Phase 1 review F1): never the native-PDF model, never hosted
-        # Marker. Identity and extraction both read this, so they agree.
+        # Marker, never hosted GLM-OCR. Identity and extraction both read
+        # this, so they agree.
         if config.get("engine") == "native":
             config["engine"] = "auto"
-        if _hosted_marker_selected(config):
+        if _hosted_marker_selected(config, glm_selected=_glm_backend(ctx, config) is not None):
             config["engine"] = "pypdf"
     return config
 
 
-def _hosted_marker_selected(pdf_config: Mapping[str, Any]) -> bool:
-    """The explicit Datalab debug runtime: Marker runs on Datalab's servers."""
+def _kept_local(ctx: JobContext) -> bool:
+    # The book's persisted choice once it is registered (re-review F13); the
+    # Add's request before that.
+    return bool(ctx.job["_keep_local"] if "_keep_local" in ctx.job else ctx.payload.get("keep_local"))
+
+
+def _glm_settings(ctx: JobContext) -> dict[str, Any]:
+    """The vault's ``[ingest.pdf.glm_ocr]`` settings (not hashed); loading
+    the config also loads the machine's settings.env, where the key lives."""
+
+    from learnloop.config.loader import load_config
+
+    try:
+        return load_config(Path(ctx.vault_root) / "learnloop.toml").ingest.pdf.glm_ocr.model_dump()
+    except FileNotFoundError:
+        return {}
+
+
+def _glm_backend(ctx: JobContext, pdf_config: Mapping[str, Any]) -> str | None:
+    if str(pdf_config.get("engine") or "auto") not in {"auto", "glm_ocr"}:
+        return None
+    from learnloop.ingest.extractors.glm_ocr import selected_backend
+
+    return selected_backend(_glm_settings(ctx), keep_local=_kept_local(ctx))
+
+
+def _hosted_marker_selected(pdf_config: Mapping[str, Any], *, glm_selected: bool = False) -> bool:
+    """The explicit Datalab debug runtime: Marker runs on Datalab's servers
+    (only when GLM-OCR, which ``auto`` prefers, is not selected)."""
 
     import os
 
-    if str(pdf_config.get("engine") or "auto") in {"pypdf", "native"}:
+    engine = str(pdf_config.get("engine") or "auto")
+    if engine in {"pypdf", "native", "glm_ocr"} or (engine == "auto" and glm_selected):
         return False
     return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "local").strip().lower() == "datalab"
+
+
+def _is_document(fetched: FetchedBytes, category: str) -> bool:
+    """A PDF, PNG or JPG: read by the document extractors (GLM-OCR, Marker,
+    pypdf), whatever page or link it came from."""
+
+    content_type = (fetched.content_type or "").split(";")[0].strip().lower()
+    return (
+        category in {"pdf", "image"}
+        or content_type in {"application/pdf", "image/png", "image/jpeg"}
+        or fetched.raw_bytes[:5] == b"%PDF-"
+    )
+
+
+def _image_config(pdf_config: dict[str, Any], fetched: FetchedBytes) -> dict[str, Any]:
+    """Only GLM-OCR reads a PNG/JPG: a PDF-only engine choice (the native
+    PDF model, Marker, pypdf) reads an image the automatic way."""
+
+    from learnloop.ingest.extractors.glm_ocr import is_image_document
+
+    if pdf_config.get("engine") in {"native", "marker", "pypdf"} and is_image_document(fetched.raw_bytes):
+        return {**pdf_config, "engine": "auto"}
+    return pdf_config
+
+
+def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched: FetchedBytes) -> Any:
+    """The extractor for a PDF/PNG/JPG import, its upload guarded.
+
+    Hosted GLM-OCR sends the whole file to z.ai: it waits for the learner's
+    one-time whole-file OK, and a book kept on this computer never uses it.
+    An image needs GLM-OCR: Marker and pypdf read PDFs only."""
+
+    from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
+    from learnloop.ingest.extractors.glm_ocr import UNAVAILABLE_MESSAGE, is_image_document
+
+    try:
+        extractor = pdf_extractor_for(
+            {**pdf_config, "glm_ocr": _glm_settings(ctx)}, keep_local=_kept_local(ctx)
+        )
+    except MarkerUnavailableError as exc:
+        raise IngestRunnerError(str(exc), code="pdf_extractor_unavailable", retryable=True) from exc
+    if extractor.name != "glm_ocr" and is_image_document(fetched.raw_bytes):
+        raise IngestRunnerError(UNAVAILABLE_MESSAGE, code="pdf_extractor_unavailable", retryable=True)
+    if getattr(extractor, "backend", None) == "api":
+        _guard_file_upload(ctx, "glm_ocr_upload")
+    return extractor
 
 
 _UPLOAD_FLOW_MESSAGES = {
     "audio_transcription": (
         "Transcribing this recording sends it to an online service. Say OK once to allow that."
     ),
+    "glm_ocr_upload": "Reading this document sends the whole file to z.ai (GLM-OCR). Say OK once to allow that.",
     "pdf_upload": "Reading this PDF sends the whole file to your AI. Say OK once to allow that.",
 }
 _KEPT_LOCAL_FLOW_MESSAGES = {
     "audio_transcription": (
         "This recording is never sent to an AI, and recordings can only be transcribed online by one."
+    ),
+    "glm_ocr_upload": (
+        "This document is never sent to an AI, and reading it here would send the whole file to z.ai (GLM-OCR)."
     ),
     "pdf_upload": "This PDF is never sent to an AI, and reading it here would send the whole file to one.",
 }
@@ -208,14 +291,13 @@ def _guard_file_upload(ctx: JobContext, flow: str) -> None:
     the learner nothing per book) uploads only after the separate OK for whole
     files (spec §6.6: the connection's OK covers passages and answers only)."""
 
-    # The book's persisted choice once it is registered (re-review F13); the
-    # Add's request before that.
-    kept_local = ctx.job["_keep_local"] if "_keep_local" in ctx.job else bool(ctx.payload.get("keep_local"))
-    if kept_local:
+    if _kept_local(ctx):
         raise IngestRunnerError(
             _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
         )
-    if ctx.payload.get("require_upload_ok"):
+    # GLM-OCR is the default reader, so its upload always asks (not only an
+    # Add's): an import from the Ingest screen gets the same one-time OK.
+    if ctx.payload.get("require_upload_ok") or flow == "glm_ocr_upload":
         from learnloop.content.pipeline.add_source import file_upload_allowed
         from learnloop.vault.loader import load_vault
 
@@ -228,31 +310,18 @@ def _guard_file_upload(ctx: JobContext, flow: str) -> None:
 def _extract_pdf_locally(
     fetched: FetchedBytes, extractor: Any, pdf_config: Mapping[str, Any], context: Any
 ) -> Any:
-    """Run a local PDF extractor, degrading marker to pypdf with a health flag."""
+    """Run the extractor with the registry's fallback chain (§2.9): under
+    ``auto``, GLM-OCR degrades to local Marker or pypdf and Marker to pypdf,
+    each with a health flag; an explicitly chosen engine fails as itself."""
+
+    from learnloop.ingest.extractors import ExtractionFallbackFailed, extract_with_fallback
 
     try:
-        return extractor.extract(fetched.raw_bytes, context)
-    except Exception as marker_exc:  # noqa: BLE001 — degrade explicitly (§2.9)
-        # Marker can fail at runtime (model load, GPU state, malformed PDF
-        # object streams) long after the availability check passed. Unless
-        # marker was explicitly forced, degrade to native-text extraction
-        # with a health flag instead of failing the whole import.
-        if extractor.name != "marker" or pdf_config.get("engine") == "marker":
-            raise
-        from learnloop.ingest.extractors import PyPdfDocumentExtractor
-
-        try:
-            ir = PyPdfDocumentExtractor().extract(fetched.raw_bytes, context)
-        except Exception as pypdf_exc:
-            raise IngestRunnerError(
-                "PDF extraction failed: marker: "
-                f"{marker_exc}; pypdf fallback: {pypdf_exc}",
-                code="pdf_extraction_failed",
-                retryable=True,
-            ) from pypdf_exc
-        if "marker_failed_pypdf_fallback" not in ir.health.flags:
-            ir.health.flags.append("marker_failed_pypdf_fallback")
-        return ir
+        return extract_with_fallback(fetched.raw_bytes, extractor, dict(pdf_config), context)
+    except ExtractionFallbackFailed as exc:
+        raise IngestRunnerError(
+            f"PDF extraction failed: {exc}", code="pdf_extraction_failed", retryable=True
+        ) from exc
 
 
 def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any:
@@ -263,22 +332,18 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     endpoint; everything else gets honest trivial IR from its decoded text
     (§2.3)."""
 
-    from learnloop.ingest.extractors import MarkerUnavailableError, markdown_to_ir, pdf_extractor_for
+    from learnloop.ingest.extractors import markdown_to_ir
     from learnloop.ingest.extractors.base import ExtractionContext
 
     if category == "audio":
         _guard_file_upload(ctx, "audio_transcription")
         return _extract_audio(fetched, ctx)
 
-    is_pdf = (
-        category == "pdf"
-        or (fetched.content_type or "").lower().startswith("application/pdf")
-        or fetched.raw_bytes[:5] == b"%PDF-"
-    )
+    is_pdf = _is_document(fetched, category)
     if is_pdf:
-        pdf_config = _pdf_payload_config(ctx)
+        pdf_config = _image_config(_pdf_payload_config(ctx), fetched)
         native_fallback: str | None = None
-        if _hosted_marker_selected(pdf_config):
+        if _hosted_marker_selected(pdf_config, glm_selected=_glm_backend(ctx, pdf_config) is not None):
             _guard_file_upload(ctx, "pdf_upload")
         if pdf_config.get("engine") == "native":
             decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
@@ -287,15 +352,11 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
                 return _extract_pdf_native(fetched, ctx, decision.route)
             native_fallback = decision.fallback_reason if decision else "unavailable"
             pdf_config = {**pdf_config, "engine": "auto"}
-        try:
-            extractor = pdf_extractor_for(pdf_config)
-        except MarkerUnavailableError as exc:
-            raise IngestRunnerError(
-                str(exc), code="pdf_extractor_unavailable", retryable=True
-            ) from exc
+        extractor = _document_extractor(ctx, pdf_config, fetched)
         pages = _normalize_pages(ctx.payload.get("page_selection") or pdf_config.get("page_range")) or None
         context = ExtractionContext(
             revision_id=str(ctx.job.get("_revision_id") or "rev"),
+            config={"whole_file_upload_allowed": getattr(extractor, "backend", None) == "api"},
             page_selection=tuple(pages) if pages is not None else None,
         )
         ir = _extract_pdf_locally(fetched, extractor, pdf_config, context)
@@ -339,8 +400,6 @@ def default_extraction_identity(
     fetched: FetchedBytes, category: str, ctx: JobContext
 ) -> Mapping[str, Any]:
     """Describe the chosen extractor before running it, making cache hits cheap."""
-
-    from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
     if category == "audio":
         _guard_file_upload(ctx, "audio_transcription")
@@ -394,15 +453,11 @@ def default_extraction_identity(
             "config": {"base_url": audio_config.transcription_base_url, **fallback_config},
         }
 
-    is_pdf = (
-        category == "pdf"
-        or (fetched.content_type or "").lower().startswith("application/pdf")
-        or fetched.raw_bytes[:5] == b"%PDF-"
-    )
+    is_pdf = _is_document(fetched, category)
     if is_pdf:
-        config = _pdf_payload_config(ctx)
+        config = _image_config(_pdf_payload_config(ctx), fetched)
         native_fallback: str | None = None
-        if _hosted_marker_selected(config):
+        if _hosted_marker_selected(config, glm_selected=_glm_backend(ctx, config) is not None):
             _guard_file_upload(ctx, "pdf_upload")
         if config.get("engine") == "native":
             decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
@@ -418,12 +473,7 @@ def default_extraction_identity(
             # the identity says why so the cache never confuses the two.
             native_fallback = decision.fallback_reason if decision else "unavailable"
             config = {**config, "engine": "auto"}
-        try:
-            extractor = pdf_extractor_for(config)
-        except MarkerUnavailableError as exc:
-            raise IngestRunnerError(
-                str(exc), code="pdf_extractor_unavailable", retryable=True
-            ) from exc
+        extractor = _document_extractor(ctx, config, fetched)
         return {
             "extractor": extractor.name,
             "extractor_version": extractor.version(),
@@ -1889,17 +1939,13 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
 
     ctx.report("acquired", message="Fetching source material")
     fetched = ctx.services.fetch_bytes(resolved.source, category, ctx)
-    is_pdf = (
-        category == "pdf"
-        or (fetched.content_type or "").lower().startswith("application/pdf")
-        or fetched.raw_bytes[:5] == b"%PDF-"
-    )
+    is_pdf = _is_document(fetched, category)
     page_selection = requested_pages if is_pdf else None
     if page_selection:
         _validate_page_selection(fetched.raw_bytes, page_selection)
 
     display_title = _compose_display_title(fetched.title, fetched.authors)
-    if display_title is None and is_pdf:
+    if display_title is None and fetched.raw_bytes.startswith(b"%PDF-"):
         # A PDF's own title, as Add uses (UX Phase 1 usability round 2: a book
         # imported through the Ingest screen was titled by its file name).
         from learnloop.content.pipeline.add_source import pdf_metadata_title
@@ -3245,8 +3291,15 @@ class DurableIngestJobs:
         if chosen.text_recognition:
             # An extractor that really recognises text, named explicitly
             # (review F9): a configured pypdf engine would ignore force_ocr.
-            # Add and the card check that one is installed before asking.
-            import_payload["pdf_config"] = {"engine": "marker", "force_ocr": True}
+            # GLM-OCR when it can run for this book (hosted needs only a key;
+            # a kept-local book only a server on this computer), else Marker.
+            # Add and the card check that one is available before asking.
+            from learnloop.config.loader import load_config
+            from learnloop.ingest.extractors.glm_ocr import selected_backend
+
+            glm_settings = load_config(Path(runner.vault_root) / "learnloop.toml").ingest.pdf.glm_ocr.model_dump()
+            glm = selected_backend(glm_settings, keep_local=bool(chosen.keep_local)) is not None
+            import_payload["pdf_config"] = {"engine": "glm_ocr"} if glm else {"engine": "marker", "force_ocr": True}
         specs = [JobSpec("import", import_payload)]
         if auto_build:
             auto_payload: dict[str, Any] = {

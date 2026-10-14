@@ -109,7 +109,7 @@ def test_unrecognised_input_gets_one_plain_line(tmp_path):
     item = call(ctx, "add_source", {"sources": ["just some words"]})["items"][0]
     assert item["status"] == "unsupported"
     assert item["message"] == (
-        "LearnLoop can't open this yet — it reads PDFs, web pages, arXiv, YouTube, Markdown, text and subtitles."
+        "LearnLoop can't open this yet — it reads PDFs, images, web pages, arXiv, YouTube, Markdown, text and subtitles."
     )
     assert ctx.repository.list_ingest_batches() == []
 

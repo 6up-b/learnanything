@@ -100,7 +100,7 @@ class StartIngestInput(ParamsModel):
     mode: Literal["canonical", "exam"] = "canonical"
     # PDF extraction engine: marker-pdf (structured Markdown, math, OCR) or the
     # pypdf native-text fallback. "auto" defers to the vault's [ingest.pdf].
-    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
+    pdf_engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestJobInput(ParamsModel):
@@ -134,7 +134,7 @@ class StartImportBatchInput(ParamsModel):
     reader_disabled_sources: list[str] = []
     # PDF extraction engine for this batch: marker-pdf or the pypdf fallback.
     # "auto" defers to the vault's [ingest.pdf] configuration.
-    pdf_engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
+    pdf_engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] = "auto"
 
 
 class IngestBatchInput(ParamsModel):
@@ -529,7 +529,7 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
     # Whether text recognition can run, per privacy setting (a book kept on
     # this computer cannot use the hosted one): the shelf offers "Read it again
     # with text recognition" only where it can (usability round 2).
-    recognition = {keep: auto.text_recognition_available(keep_local=keep) for keep in (False, True)}
+    recognition = {keep: auto.text_recognition_available(keep_local=keep, config=vault.config) for keep in (False, True)}
     cards: list[dict[str, Any]] = []
     for artifact in repository.all_source_artifacts():
         revisions = repository.source_revisions_for(artifact["id"])

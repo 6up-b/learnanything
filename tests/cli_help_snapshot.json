@@ -593,7 +593,7 @@
   },
   "ingest": {
     "bytes": 3378,
-    "sha256": "64b0fcdba2b65f2bcc52ff4bdb5513fcacb7f9e75e047a25d0555995aae2e3b1"
+    "sha256": "99afcdc1ed023b51f6f973a62ff3fa2f93a97818b90cfde99a9d8507404d2906"
   },
   "ingest-batches": {
     "bytes": 1758,
@@ -617,7 +617,7 @@
   },
   "ingest-exam": {
     "bytes": 3431,
-    "sha256": "e34906c6a2668b108d9de0723d51ec7fe5b5e983b554330bd055b83b9868d0b6"
+    "sha256": "7354f63408b9588bbf414de8e7edb42d15e718c88d2389d3a30ab9a1335652d8"
   },
   "init": {
     "bytes": 1933,

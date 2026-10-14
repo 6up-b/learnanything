@@ -689,6 +689,11 @@ def resolve_canonical_source(
             "Audio sources are only supported by the durable import pipeline "
             "(canonical mode); exam seeding and the legacy one-shot path cannot read audio."
         )
+    if resolved.category == "image":
+        raise SourceIngestionError(
+            "Image sources are only supported by the durable import pipeline "
+            "(canonical mode); exam seeding and the legacy one-shot path cannot read images."
+        )
     if kind != "auto":
         _validate_explicit_kind(kind)
         return resolved, kind
@@ -713,6 +718,7 @@ def fetch_source(
     pdf_config: PdfIngestConfig | None = None,
     clock: Clock | None = None,
     progress: IngestProgress | None = None,
+    raw_only: bool = False,
 ) -> FetchResult:
     parsed = urllib.parse.urlparse(source)
     if kind == "youtube_video":
@@ -720,7 +726,7 @@ def fetch_source(
     if parsed.scheme in {"http", "https"}:
         fetch_uri = _canonical_fetch_uri(source, kind)
         fetched = _fetch_url(root, fetch_uri, original_uri=source, clock=clock)
-        if _is_pdf_fetch(fetched):
+        if _is_pdf_fetch(fetched) and not raw_only:
             _report_progress(progress, "extracting", source_kind=kind)
             return _pdf_fetch_result(root, fetched.raw_bytes, fetched, pdf_config)
         return fetched
@@ -2115,10 +2121,28 @@ def _pdf_fetch_result(
 def _pdf_markdown(root: Path, pdf_bytes: bytes, pdf_config: PdfIngestConfig | None) -> str:
     cache_dir = root / ".learnloop" / "source-cache" / "pdf"
     try:
-        extraction = extract_pdf_markdown(pdf_bytes, config=pdf_config, cache_dir=cache_dir)
+        extraction = extract_pdf_markdown(
+            pdf_bytes, config=pdf_config, cache_dir=cache_dir,
+            # Hosted GLM-OCR sends the whole file: only with the learner's
+            # one-time whole-file OK (else auto reads it locally).
+            whole_file_upload_allowed=_whole_file_upload_allowed(root),
+        )
     except PdfExtractionError as exc:
         raise SourceIngestionError(str(exc)) from exc
     return _normalize_markdown(extraction.markdown)
+
+
+def _whole_file_upload_allowed(root: Path) -> bool:
+    from learnloop.config.loader import load_config
+    from learnloop.content.pipeline.add_source import file_upload_allowed
+
+    path = root / "learnloop.toml"
+    if not path.is_file():
+        return False
+    try:
+        return file_upload_allowed(load_config(path))
+    except Exception:  # noqa: BLE001 - an unreadable config grants nothing
+        return False
 
 
 def _content_type_for_path(path: Path) -> str:

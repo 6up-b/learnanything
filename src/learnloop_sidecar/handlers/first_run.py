@@ -330,12 +330,12 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         result["batch_id"] = core.share_with_ai(ctx.ingest_jobs, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
         keep_local = bool(artifact.get("keep_local"))
-        if not core.text_recognition_available(keep_local=keep_local):
+        if not core.text_recognition_available(keep_local=keep_local, config=vault.config):
             # Plain words and how to get it (usability round 2); the shelf
             # offers this only where it can run, so this is a safety net.
             raise SidecarError(
                 "text_recognition_unavailable",
-                "Text recognition isn't installed on this computer, so LearnLoop can't read the words of a scan yet. "
+                "Text recognition isn't set up, so LearnLoop can't read the words of a scan yet. "
                 + core.TEXT_RECOGNITION_HOW_TO,
             )
         source = str(artifact.get("canonical_uri") or "")
