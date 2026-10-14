@@ -16,6 +16,20 @@ model-call receipts, content-addressed reuse), capped at
 nothing is queued and nothing is sent; a job queued before a switch went off
 records ``disabled`` and sends nothing.
 
+The obligation survives an interruption (Codex review F3): every path that
+establishes an extraction, a fresh one or a completed one a retry reuses,
+asks :func:`backfill_owed` and queues the job when the source's current
+extraction is not fully covered and no live job already owes it. A completed
+extraction whose worker died before queueing is therefore queued by the retry,
+and a covered one queues nothing (no second purchase).
+
+A job reports what happened (Codex review F4): ``complete`` (or nothing to
+do: ``disabled``, ``no_extraction``) completes it; lock contention
+(``busy``), a provider failure (``provider_failed``, ``unavailable``) or a
+cancellation do not, and neither does a run over its money cap
+(``over_budget``) or a vector-width conflict (``blocked``); the paid batches
+before a failure stay saved, so a retry buys only the rest.
+
 ``source_coverage`` is the status note: per source, how many of its current
 extraction's embeddable blocks have a vector, and whether dense retrieval is
 effectively on (``learnloop doctor``).
@@ -34,7 +48,7 @@ from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import extraction_blocks, section_header_titles
-from learnloop.ops.embedding_backfill import backfill_embeddings, estimated_tokens
+from learnloop.ops.embedding_backfill import BackfillLockBusy, backfill_embeddings, estimated_tokens
 from learnloop.source_retrieval.corpus import current_extractions
 from learnloop.source_retrieval.dense import extraction_coverage
 from learnloop.source_retrieval.recipes import (
@@ -50,6 +64,8 @@ from learnloop.vault.paths import VaultPaths
 
 #: The ingest job (and its batch's workflow) that embeds one source's blocks.
 SOURCE_VECTORS_JOB = "source_embedding_backfill"
+#: Job statuses that still owe their source's vectors (a queued or running job).
+LIVE_JOB_STATUSES = frozenset({"queued", "running"})
 BATCH_SIZE = 32
 MAX_RETRIES = 2
 
@@ -80,6 +96,37 @@ def target_extraction(repository: Repository, extraction_id: str) -> tuple[str |
     if not source_id:
         return None, None
     return str(source_id), resolve_extraction_id(repository, str(source_id))
+
+
+def backfill_owed(config: LearnLoopConfig, repository: Repository, extraction_id: str) -> tuple[str | None, str | None]:
+    """``(current extraction, None)`` when a completed ``extraction_id`` owes
+    its source a backfill, else ``(current extraction or None, why not)``.
+
+    Owed when the automatic backfill is on, the source has a current
+    extraction with embeddable blocks not all covered for ``embedding.model``,
+    and no queued or running ``source_embedding_backfill`` job targets it.
+    Read-only: no vector bytes read."""
+
+    reason = auto_backfill_reason(config)
+    if reason is not None:
+        return None, reason
+    _source_id, current = target_extraction(repository, extraction_id)
+    if current is None:
+        return None, "the source has no current extraction"
+    sqlite_path = Path(repository.sqlite_path)
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        covered, blocks = extraction_coverage(connection, sqlite_path, config.embedding.model, current)
+    if covered >= blocks:
+        return current, "every embeddable block already has a vector"
+    for job in repository.ingest_jobs_by_types((SOURCE_VECTORS_JOB,)):
+        if job.get("status") not in LIVE_JOB_STATUSES:
+            continue
+        payload = job.get("payload") or {}
+        queued_for = payload.get("current_extraction_id") or target_extraction(
+            repository, str(payload.get("extraction_id") or ""))[1]
+        if queued_for == current:
+            return current, "a queued backfill already covers it"
+    return current, None
 
 
 def source_block_records(repository: Repository, extraction_id: str) -> list[EmbeddingRecord]:
@@ -134,15 +181,18 @@ def backfill_source_vectors(
     price = loaded.config.source_retrieval.query_embedding_price_per_million
     try:
         result = backfill_embeddings(
-            loaded, caps=backfill_caps(loaded.config, records), recipes=(SOURCE_BLOCK_RECIPE,),
+            loaded, caps=backfill_caps(loaded.config, records, BATCH_SIZE), recipes=(SOURCE_BLOCK_RECIPE,),
             registry=SOURCE_RETRIEVAL_RECIPES, records=records, batch_size=BATCH_SIZE,
             price_per_million=price, cancelled=cancelled,
             client_factory=client_factory,
         )
+    except BackfillLockBusy as exc:
+        # Another backfill holds the vault's lock: nothing was sent; retry later.
+        return {**report, "status": "busy", "reason": str(exc), "records": len(records)}
     except ValueError as exc:
-        # Another backfill holds the vault's lock, or the stored vectors have
-        # another width: nothing was sent; the explicit command can follow up.
-        return {**report, "status": "skipped", "reason": str(exc), "records": len(records)}
+        # The stored vectors have another width or model, or a record is past
+        # the model's input: nothing was sent; the owner must resolve it.
+        return {**report, "status": "blocked", "reason": str(exc), "records": len(records)}
     return {**report, **{key: result.get(key) for key in (
         "status", "reason", "model_id", "dimensions", "records", "cached", "reused_by_content", "pending",
         "embedded", "remaining", "estimate", "charged", "caps", "price_per_million", "price_source", "run_id",
@@ -207,9 +257,11 @@ def coverage_line(coverage: Mapping[str, Any]) -> str:
 
 
 __all__ = [
+    "LIVE_JOB_STATUSES",
     "SOURCE_VECTORS_JOB",
     "auto_backfill_reason",
     "backfill_caps",
+    "backfill_owed",
     "backfill_source_vectors",
     "coverage_line",
     "source_block_records",

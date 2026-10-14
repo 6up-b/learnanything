@@ -127,6 +127,14 @@ def _estimate(records: list[EmbeddingRecord], calls: int, price: float | None) -
     )
 
 
+class BackfillLockBusy(ValueError):
+    """Another backfill holds the vault's advisory lock (nothing was sent).
+
+    A ``ValueError`` as before; its own type lets a queued job retry it rather
+    than read it as a configuration conflict (tutor delivery fixes, Codex
+    review F4)."""
+
+
 @contextmanager
 def _backfill_lock(root: Path) -> Iterator[None]:
     """Serialize backfills, not learner activity; death releases the OS lock."""
@@ -140,7 +148,7 @@ def _backfill_lock(root: Path) -> Iterator[None]:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise ValueError("Another embedding backfill is running for this vault") from exc
+            raise BackfillLockBusy("Another embedding backfill is running for this vault") from exc
         try:
             yield
         finally:

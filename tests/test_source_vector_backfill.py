@@ -162,25 +162,39 @@ def test_a_re_extraction_queues_the_backfill_of_the_new_current_extraction(tmp_p
         (second["extraction_id"], "complete")]
 
 
-def test_a_page_repair_queues_the_backfill_of_its_sources_current_extraction(tmp_path):
-    paths = _vault(tmp_path, embeddings=True)
-    extractor = _Extractor()
-    runner = _runner(paths, extractor)
-    first = _import(runner, str(tmp_path / "eigen.md"))
-    extractor.texts = SECOND
+def _repair(runner: IngestRunner, revision_id: str) -> dict:
     batch_id = runner.enqueue_batch("extraction_repair", [JobSpec("extraction_repair", {
-        "revision_id": first["revision_id"], "pages": [0], "repair_options": {"force_ocr": True},
+        "revision_id": revision_id, "pages": [0], "repair_options": {"force_ocr": True},
         "consent": {"provider": "local", "purpose": "repair"}})])
     runner.drain()
     repair = runner.repo.ingest_jobs_for_batch(batch_id)[0]
     assert repair["status"] == "completed", repair
-    jobs = {job["payload"]["extraction_id"]: job["result"] for job in _backfill_jobs(runner.repo)}
-    assert set(jobs) == {first["extraction_id"], repair["result"]["repair_extraction_id"]}
-    # A repair composes onto its parent, which stays the current extraction
-    # (already embedded: nothing is bought again).
-    queued = jobs[repair["result"]["repair_extraction_id"]]
-    assert queued["embedded_extraction_id"] == first["extraction_id"]
-    assert queued["status"] == "complete" and queued["embedded"] == 0
+    return repair
+
+
+def test_a_page_repair_queues_the_backfill_its_sources_current_extraction_owes(tmp_path):
+    paths = _vault(tmp_path, embeddings=True)
+    text = (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    switched_off = text.replace("backfill_enabled = true",
+                                "backfill_enabled = true\nbackfill_sources_on_extract = false", 1)
+    (paths.root / "learnloop.toml").write_text(switched_off, encoding="utf-8")
+    extractor = _Extractor()
+    runner = _runner(paths, extractor)
+    first = _import(runner, str(tmp_path / "eigen.md"))  # imported while the automatic backfill was off
+    assert _backfill_jobs(runner.repo) == []
+    (paths.root / "learnloop.toml").write_text(text, encoding="utf-8")
+    extractor.texts = SECOND
+    repair = _repair(runner, first["revision_id"])
+    # A repair composes onto its parent, which stays the current extraction:
+    # the parent is what the source is owed.
+    jobs = _backfill_jobs(runner.repo)
+    assert [job["payload"]["extraction_id"] for job in jobs] == [repair["result"]["repair_extraction_id"]]
+    assert jobs[0]["result"]["embedded_extraction_id"] == first["extraction_id"]
+    assert jobs[0]["status"] == "completed" and jobs[0]["result"]["embedded"] == 2
+    # Another repair of a covered source owes nothing: no job, nothing bought.
+    calls = len(extractor.embedder.calls)
+    _repair(runner, first["revision_id"])
+    assert len(_backfill_jobs(runner.repo)) == 1 and len(extractor.embedder.calls) == calls
 
 
 def test_a_job_queued_before_the_switch_went_off_sends_nothing(tmp_path):
@@ -214,3 +228,176 @@ def test_doctor_shows_dense_coverage_per_source(tmp_path):
     assert dense["auto_backfill"] == "on"
     text = cli.invoke(app, ["doctor", "--vault", str(paths.root)])
     assert "Dense source retrieval:" in text.stdout and "1 of 1 sources complete" in text.stdout
+
+
+# -- Codex review F3: the backfill obligation survives an interruption ------------
+
+
+class _Crash(BaseException):
+    """A worker dying mid-job (not an exception the runner classifies)."""
+
+
+def _later_runner(paths, extractor: _Extractor, minutes: int = 10) -> IngestRunner:
+    from datetime import timedelta
+
+    later = FrozenClock(datetime(2026, 10, 13, 12, 0, 0, tzinfo=UTC) + timedelta(minutes=minutes))
+    return IngestRunner(Repository(paths.sqlite_path), vault_root=paths.root, worker_id="w2", clock=later,
+                        services=extractor.services())
+
+
+def test_an_interruption_right_after_extraction_completes_still_indexes_the_source_on_retry(tmp_path, monkeypatch):
+    import pytest
+
+    paths = _vault(tmp_path, embeddings=True)
+    extractor = _Extractor()
+    runner = _runner(paths, extractor)
+    original = Repository.complete_extraction_run
+    crashed: list[str] = []
+
+    def complete_then_die(self, extraction_id, **kwargs):
+        result = original(self, extraction_id, **kwargs)
+        if not crashed:
+            crashed.append(extraction_id)
+            raise _Crash()  # the completion is committed; nothing after it ran
+        return result
+
+    monkeypatch.setattr(Repository, "complete_extraction_run", complete_then_die)
+    batch_id = runner.enqueue_batch("import", [JobSpec("import", {"source": str(tmp_path / "eigen.md")})])
+    with pytest.raises(_Crash):
+        runner.drain()
+    assert crashed and _backfill_jobs(runner.repo) == []
+    # The host restarts: the expired lease is recovered and the import retried.
+    later = _later_runner(paths, extractor)
+    assert later.recover_stale_leases()
+    later.resume_batch(batch_id)
+    later.drain()
+    job = later.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed" and job["result"]["reused_extraction"] is True
+    assert job["result"]["extraction_id"] == crashed[0]
+    jobs = _backfill_jobs(later.repo)
+    assert [(entry["status"], entry["result"]["embedded"]) for entry in jobs] == [("completed", 2)]
+    assert _vectors(later.repo, crashed[0]) == 2
+    bought = len(extractor.embedder.calls)
+    # A further retry of the same import owes nothing: no second job, no purchase.
+    _import(later, str(tmp_path / "eigen.md"))
+    assert len(_backfill_jobs(later.repo)) == 1 and len(extractor.embedder.calls) == bought
+
+
+def test_a_backfill_that_cannot_be_queued_fails_the_import_retryably_and_the_retry_queues_it(tmp_path, monkeypatch):
+    from learnloop.content.pipeline.runner import JobContext
+
+    paths = _vault(tmp_path, embeddings=True)
+    extractor = _Extractor()
+    runner = _runner(paths, extractor)
+    original = JobContext.enqueue_batch
+    failures: list[str] = []
+
+    def enqueue_once_failing(self, workflow_type, jobs, **kwargs):
+        if workflow_type == SOURCE_VECTORS_JOB and not failures:
+            failures.append(workflow_type)
+            raise RuntimeError("database is locked")
+        return original(self, workflow_type, jobs, **kwargs)
+
+    monkeypatch.setattr(JobContext, "enqueue_batch", enqueue_once_failing)
+    batch_id = runner.enqueue_batch("import", [JobSpec("import", {"source": str(tmp_path / "eigen.md")})])
+    runner.drain()
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "failed", job  # never a silent omission
+    assert job["error"]["code"] == "source_vectors_not_queued" and job["error"]["retryable"] is True
+    assert _backfill_jobs(runner.repo) == []
+    runner.resume_batch(batch_id)
+    runner.drain()
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed" and job["result"]["reused_extraction"] is True
+    assert [entry["status"] for entry in _backfill_jobs(runner.repo)] == ["completed"]
+    assert _vectors(runner.repo, job["result"]["extraction_id"]) == 2
+
+
+# -- Codex review F4: an unsuccessful backfill is not a completed job -------------
+
+
+def _backfill_job(repository: Repository) -> dict:
+    jobs = _backfill_jobs(repository)
+    assert len(jobs) == 1, jobs
+    return jobs[0]
+
+
+def test_lock_contention_fails_the_backfill_retryably_and_a_retry_completes_it(tmp_path):
+    import fcntl
+
+    paths = _vault(tmp_path, embeddings=True)
+    extractor = _Extractor()
+    runner = _runner(paths, extractor)
+    lock_path = paths.root / ".learnloop" / "embedding-backfill.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)  # an explicit backfill is running
+        try:
+            result = _import(runner, str(tmp_path / "eigen.md"))
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+    job = _backfill_job(runner.repo)
+    assert job["status"] == "failed", job
+    assert job["error"]["code"] == "embedding_backfill_busy" and job["error"]["retryable"] is True
+    assert _vectors(runner.repo, result["extraction_id"]) == 0 and extractor.embedder.calls == []
+    runner.resume_batch(job["batch_id"])
+    runner.drain()
+    job = _backfill_job(runner.repo)
+    assert job["status"] == "completed" and job["result"]["embedded"] == 2
+    assert _vectors(runner.repo, result["extraction_id"]) == 2
+
+
+class _FailingAfterFirst(HashingEmbedder):
+    """Embeds one batch, then the provider fails until ``failing`` is cleared."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.failing = True
+        self.attempts = 0
+
+    def embed(self, inputs, task_prefix):
+        from learnloop.ai.errors import AIProviderUnavailable
+
+        self.attempts += 1
+        if self.failing and self.calls:
+            raise AIProviderUnavailable("provider down")
+        return super().embed(inputs, task_prefix)
+
+
+def test_a_provider_failure_after_a_saved_batch_fails_retryably_and_the_retry_buys_only_the_rest(
+        tmp_path, monkeypatch):
+    from learnloop.source_retrieval import source_vectors
+
+    monkeypatch.setattr(source_vectors, "BATCH_SIZE", 1)
+    paths = _vault(tmp_path, embeddings=True)
+    extractor = _Extractor()
+    extractor.embedder = _FailingAfterFirst()
+    runner = _runner(paths, extractor)
+    result = _import(runner, str(tmp_path / "eigen.md"))
+    job = _backfill_job(runner.repo)
+    assert job["status"] == "failed", job
+    assert job["error"]["code"] == "embedding_provider_failed" and job["error"]["retryable"] is True
+    assert job["error"]["details"]["embedded"] == 1 and job["error"]["details"]["remaining"] == 1
+    assert _vectors(runner.repo, result["extraction_id"]) == 1  # the paid batch is kept
+    extractor.embedder.failing = False
+    runner.resume_batch(job["batch_id"])
+    runner.drain()
+    job = _backfill_job(runner.repo)
+    assert job["status"] == "completed" and job["result"]["embedded"] == 1  # only the rest is bought
+    assert _vectors(runner.repo, result["extraction_id"]) == 2
+    assert [len(texts) for texts, _prefix in extractor.embedder.calls] == [1, 1]
+
+
+def test_a_backfill_over_its_money_cap_fails_and_names_the_cap(tmp_path):
+    paths = _vault(tmp_path, embeddings=True)
+    text = (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    text = text.replace("backfill_enabled = true", "backfill_enabled = true\nsource_backfill_max_cost_usd = 0.0", 1)
+    (paths.root / "learnloop.toml").write_text(text, encoding="utf-8")
+    extractor = _Extractor()
+    runner = _runner(paths, extractor)
+    _import(runner, str(tmp_path / "eigen.md"))
+    job = _backfill_job(runner.repo)
+    assert job["status"] == "failed", job
+    assert job["error"]["code"] == "over_budget" and job["error"]["retryable"] is False
+    assert "embedding.source_backfill_max_cost_usd" in job["error"]["message"]
+    assert extractor.embedder.calls == []
