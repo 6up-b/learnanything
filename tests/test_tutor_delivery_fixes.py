@@ -392,6 +392,7 @@ def test_the_t6_labeller_reads_complete_blocks(tmp_path):
     # 2,000+ characters, not 900.
     assert any(passage.endswith(" ".join(EIGEN_LONG.split())) for passage in labelled)
     assert report["results"]["passages"]["label_trimmed"] == 0
+    assert report["manifest"]["benchmark"]["version"] == "t6-eval-v3"
 
 
 #: Codex review F2: a passage past the embedding recipe's 6,000-character cap
@@ -794,3 +795,4 @@ def test_the_complete_passages_kill_switch_restores_the_judges_900_characters(tm
     predecessor = " ".join(embedded.split())[:899] + "…"  # bench.clip(source_block_text(...), 900)
     assert predecessor in labelled
     assert report["results"]["passages"]["complete"] is False
+    assert report["manifest"]["benchmark"]["version"] == "t6-eval-v2"
