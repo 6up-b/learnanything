@@ -279,7 +279,9 @@ def test_u7_a_scan_says_plainly_when_text_recognition_is_not_installed(tmp_path,
     line = _card(ctx, source_id)["statusLine"]
 
     assert line["text"] == "This PDF is a scan — LearnLoop can show its pages but can't read them yet"
-    assert line["action"] is None  # Try again would fail the same way
+    # Not Try again (it would fail the same way): Settings, where the z.ai
+    # key for text recognition goes.
+    assert line["action"] == {"kind": "open_settings", "label": "Set it up"}
     assert "install" not in line["text"].lower()
     assert "text recognition" in line["details"]
 

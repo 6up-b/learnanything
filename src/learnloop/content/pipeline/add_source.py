@@ -1954,9 +1954,10 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
             return _line("This PDF is a scan", "quiet", ("text_recognition", "Read it with text recognition"),
                          message or None)
         # The extractor's own words ("install marker-pdf for OCR support") are
-        # not for the learner: the details say how to get it (usability round 2).
+        # not for the learner: the details say how to get it (usability round 2),
+        # and Settings, where the z.ai key goes, is one tap away.
         return _line("This PDF is a scan — LearnLoop can show its pages but can't read them yet", "quiet",
-                     None, _SCAN_DETAILS)
+                     ("open_settings", "Set it up"), _SCAN_DETAILS)
     if category in {"web", "arxiv", "youtube"} or any(
         marker in lowered for marker in ("http", "fetch", "connection", "timed out", "timeout", "network", "unreachable")
     ):
@@ -1999,8 +2000,9 @@ def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
     if scanned:
         if text_recognition_available(keep_local=repo.source_kept_local(source_id), config=config):
             return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
-        # Settings can't install it (usability round 1, U7): say so, no dead end.
-        return _line("Some pages look scanned — their words can't be read here yet", "quiet", None, _SCAN_DETAILS)
+        # Say so, no dead end (usability round 1, U7): Settings takes the key.
+        return _line("Some pages look scanned — their words can't be read here yet", "quiet",
+                     ("open_settings", "Set it up"), _SCAN_DETAILS)
     glm_failed = sorted(flag for flag in flags if flag.startswith("glm_ocr_failed_"))
     if glm_failed:
         # GLM-OCR failed at run time (offline, the service busy) and a plainer
