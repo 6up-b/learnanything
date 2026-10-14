@@ -3,8 +3,8 @@ title: "contrast_pair_servings"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8137d6d7c8359e24d760b1e5686ffa9e969185c7"
-source_commit_timestamp: "2026-10-14T11:07:09-04:00"
+source_commit: "9b0cd86a86951cfe5b8617fdd384f337a52baa80"
+source_commit_timestamp: "2026-10-14T12:38:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite contrast_pair_servings"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_contrast_pairs.py`
+- `tests/test_plan_determinism.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

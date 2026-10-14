@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8137d6d7c8359e24d760b1e5686ffa9e969185c7"
-source_commit_timestamp: "2026-10-14T11:07:09-04:00"
+source_commit: "9b0cd86a86951cfe5b8617fdd384f337a52baa80"
+source_commit_timestamp: "2026-10-14T12:38:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -122,6 +122,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_reading.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_mvp014_upgrade.py`
+- `tests/test_plan_determinism.py`
 - `tests/test_reading_step_switch.py`
 - `tests/test_router_card.py`
 - `tests/test_voi_merge_composition.py`
