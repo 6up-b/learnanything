@@ -458,3 +458,109 @@ None. R2a calls no model.
 4. **The one exam predicate.** The card uses main's `corpus.exam_exclusions` (exam-role members and `held_out_evaluation` units). Switch it to `content/sources/exam_material` when the exam-protection landing merges. It is a one-line change in `daily_plan/router_card.py::_withheld_items`.
 5. **Rung signals on Today.** The ladder annotation derives rungs 2, 3, 4, 5 and 9 per LO. Rungs 1 (triage), 6 (integration), 7 (terminal) and 8 (milestone) never hold on Today. R2b's models read the card, not the ladder, so this only matters if the owner wants the ladder to order Today later (Q1 says no).
 6. **Successor and migration labels** at the merge: `mvp-0.23` and 205 are placeholders. The exam-protection, reading-hardening and method-explicit stages land in parallel.
+
+## Landing onto main
+
+**Branch:** `merge/r2a-onto-main` (worktree `learnanything-docs`), from main `9c5c62df9` (mvp-0.22 LATEST: exam protection, reading hardening, the Pipeline Map and the contextual-embeddings spec; migration head 201, head fixture `fixtures/migration_head_201`). Merge commit `9fd1c4c77`, a real `--no-ff` merge of `router/r2a` (`cb86155ca`, unchanged). Not pushed. Owner-directed, 2026-10-13/14. The sections above and `router-r2a-codex-review.md` describe the branch and keep its placeholders (migration 205).
+
+**Paid calls:** none ($0.00). **`src-tauri`:** identical to main's (no `cargo check` needed).
+
+| Commit | What |
+|---|---|
+| `9fd1c4c77` | the merge, with the renumbering, the compositions, the landing tests, the recomputed snapshots and the regenerated references |
+| (this commit) | this section |
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `src/learnloop/config/template.py` | The only source conflict: the `DEFAULTS_SNAPSHOT_BY_ALGORITHM` block (15 hunks). Both sides' comment lines kept (exam protection's `goals.held_out_selection` and R2a's `[router]` keys move every entry); mvp-0.22's prose says new vaults started there until mvp-0.23 merged; every hash recomputed (below) |
+| 372 notes under `Reference/` | Taken from main, then regenerated: source-line citations, plus the two new tables and the four `[router]` leaves |
+| Auto-merged, both sides kept | `config/schema.py`, `daily_plan/engine.py`, `db/repositories.py`, the sidecar's `context.py`, `handlers/daily_plan.py` and `handlers/practice.py` (exam protection's held-out serve refusal and the proposal re-check before the serve, beside R2a's `planPresentationId` binding), `tests/cli_help_snapshot.json` |
+
+### Relabelled and renumbered
+
+| On the branch | On main |
+|---|---|
+| `mvp-0.23` (`ROUTER_STAGED_FRAME_ALGORITHM_VERSION`) | **`mvp-0.23`, kept**: main's LATEST is mvp-0.22 and nothing on main took 0.23 |
+| migration `205_router_staged_frame.sql` (`router_decisions__205`) | **`202_router_staged_frame.sql`** (`router_decisions__202`; the header names both numbers) |
+| `fixtures/migration_head_205` | **`fixtures/migration_head_202`** (main's `migration_head_201` renamed) |
+
+- **The successor.** `upgrade_to_mvp023` accepts mvp-0.22, or mvp-0.9 to mvp-0.21 through `decider_upgrade.upgrade_to_mvp022`, passes the chained notes through (a refusal's included) and an earlier step's refusal unprefixed. T1's guard stays advisory; `test_mvp023_upgrade.py`'s refusal test sets `config="[recurrence]\nrequire_guard = true"`. `learnloop upgrade` defaults to mvp-0.23 and `--to mvp-0.23` reaches it; `--to mvp-0.10` to `--to mvp-0.22` still reach those tags. The comments that said "a placeholder, relabelled at its merge" (`algorithm_versions.py`, `router_staged_upgrade.py`, the template, the upgrade test) now say it kept its label. `Version Registry.md` (algorithm `mvp-0.23`, head 202, `router_outcomes_v2`, the decision log's R2a additions) and `Algorithm Versions and Reproducibility.md` (an mvp-0.23 row; every version set through mvp-0.23, `ROUTER_STAGED_FRAME_VERSIONS`; LATEST and the default target mvp-0.23) say so, and the R2 plan's status line records the landing.
+- **The migration.** Main added no migration since the branch's base (it edited only migration 193's comment), so `ls migrations` ran 1..201 on both sides, 202 is the next free number, and 202's rebuild of `router_decisions` copies main's table exactly.
+- **The head fixture.** `git mv fixtures/migration_head_205 fixtures/migration_head_202`; its database was rebuilt from main's `migration_head_201/state.sqlite` (unchanged on main since `f2bfa2928`): a backup-API copy (`learnloop.db.copies.backup_database`) with only 202 applied through `learnloop.db.migrate.apply_migrations`, then `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok, `foreign_key_check` clean, no `-wal`/`-shm`, copied back with the backup API. Its `sqlite_master` equals the branch's head-205 fixture's exactly; only the `schema_migrations` row reads 202. The README says 202 (built as 205, renumbered at its landing). Every hard-coded head path moved: the branch's 20 test files (205), main's `tests/test_exam_protection_review.py` (201), the two reference scripts with their `SCHEMA_HEAD`, `test_route_rules_in_grader.py`'s max-migration assertion (202) and `docs/decider-tier1-migration.md`'s mention.
+
+### Compositions
+
+1. **The card reads the one exam predicate.** `daily_plan/router_card.py::_withheld_items` matched only an item's provenance refs by `extraction_id` and plain span ids against `corpus.exam_exclusions` (open question 4). On main the one predicate is `content/sources/exam_material.py`, and the item rule is `item_exam_status`. The card now withholds the question and answer of past work on every item it names: an item reserved for a goal's held-out exam (`reserved_exam_pool_item_ids`), or one whose own source is exam or held-out material (its canonical exercise; its source refs as `item_source_keys` reads them: a `block_span_v1` locator, namespaced span ids, an extraction named whole). Assessment-surface reservations and `exam_attempt` work are withheld as before. Either read failing withholds every question and answer (fail closed, as before). It is a model-context protection (R2b sends the card), so it is **not** behind `goals.held_out_selection`, which restores the predecessor's serving selection only (the predicate's own docstring: "The model-context protections are not switched").
+2. **A diagnosed cause resting on exam work shows no statement.** The card's open problems listed a diagnosed cause's statement whatever the attempt it rests on. A cause whose attempt is exam work or on a withheld item keeps its topic, status and ids, and its statement is `null` with `withheld` named ("statement withheld (exam or reserved material)" in the text); with the predicate unreadable no diagnosed statement shows. Ordinary practice keeps its statement. (The diagnoser's words about an exam answer can carry the question; Q-L1 below.)
+3. **The staged frame and exam protection agree.** The frame has no exam rule of its own: it evaluates only the pool `build_due_queue` admitted, whose routine exclusions (`scheduling/serving_exclusions.py`) hold out every unreleased exam reservation and, behind `goals.held_out_selection`, every item made from held-out material. So:
+   - an exam-reserved or held-out item never reaches the frame (no candidate, no named refusal), exactly as it never reaches DL1;
+   - a sitting's withdrawn items (`exam_session.session_withdrawn_items`) keep their reservation rows until the sitting ends, so they stay out of Today; withdrawals before a sitting (`withdraw_exposed_reservations`) release the rows and the items rejoin Today as a finished exam's do;
+   - with `goals.held_out_selection = false` a held-out item is planned as the predecessor planned it, and the frame does not veto it;
+   - the frame's own `assessment_reservation` refusal (live `activity_surface_reservations`) is unchanged, and the card withholds those surfaces' past work too.
+   A served plan item that main's session serve then refuses (`refuse_held_out_item`, a mark made mid-plan) leaves its presentation unanswered: outcomes v2 right-censors it, and no attempt binds to it.
+4. **Today's reading step and Begin.** Reading hardening changed the Reader (the one check-offer rule, the level-triggered reading request, the retired opt-out), not Today: main's diff since `f2bfa2928` touches `daily_plan/engine.py` and `reading.py` only in docstrings, and no file of R2a's frontend path (`TodayScreen.tsx`, `App.tsx`, `DailyPlanView.tsx`, `PracticeScreen.tsx`, `dailyPlan.ts`, `practiceOffer.ts`). Today's reading step still reads the one predicate (`engine._exam_material`), and a staged reading block's "why" ("Next: reading {section}.") names that same section, so it never names held-out material. Begin, Continue and feedback's Next pass `presentationId` as built.
+5. **Copy rules.** `copy/denyList.ts` is unchanged on main since the base, so `router/why.py`'s server-side twin stays in step; `test_router_why_copy.py` and the frontend's deny-list tests pass. The R2a strings are the reviewed ones.
+6. **Pipeline Map.** R2a is no longer planned: the end-to-end diagram's router node is the staged frame with the R1 log, plan presentations and the stored card; the daily-plan diagram draws the frame before the chooser and the presentation before the outcome joins, with R2b/R2c the only planned (dashed) node; the text describes the frame, the receipts and the card (exam material withheld by the one predicate) and says R2b and R2c are planned. `implementation_version: mvp-0.23`.
+
+**Tests added at the landing** (`tests/test_router_r2a_landing.py`, 6): the card withholds what the one predicate names (a canonical exercise in a held-out unit, an exam-pool reservation, a `block_span_v1` ref into the exam source) and nothing else; the same set with `goals.held_out_selection` off; a cause diagnosed from exam work shows no statement, and one from practice keeps it; through the real `build_due_queue`, exam-reserved and held-out items never reach the frame; with the switch off the held-out item is planned and not vetoed. `tests/test_router_card.py` now stubs `content.sources.exam_material.exam_material` instead of the corpus predicate. **Fail-first:** run against the branch's `router_card.py` and `router/card.py`, 4 failed (the predicate set was empty: the textbook vault's items carry no extraction-id provenance; the switch test, for the same reason; the exam statement shown; the missing `withheld` key); the two frame tests pass before and after (guards).
+
+### Defaults, CLI help and references
+
+- All fifteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9 to mvp-0.23) were recomputed with `defaults_fingerprint_for_version` from the composed defaults, the template `.pyc` cleared before and after and the file touched; every one moved (the branch's lacked `goals.held_out_selection`, main's the four `[router]` keys).
+- `python tests/test_cli_help_snapshot.py --write`: no change (the auto-merged snapshot was already exact).
+- `db_generate_reference.py`: schema head 202, 321 table notes, 818 configuration leaves in 49 sections; `db_validate_reference.py` reports `errors: []` once `Configuration.md` and `Database.md` read 818 leaves (and 321 table notes). `validate_vault.py`: passed, 1104 notes.
+- `tests/test_mobile_allowlist.py`: R2a's pins (`ROUTER_R2A_RPCS`; `plan_presentation_id` on `submit_attempt`, `submit_dont_know`, `save_practice_draft`) merged as built; main added no RPC and no parameter since the base, so nothing else moved.
+
+### Gate
+
+Run in this worktree at `9fd1c4c77` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,779 passed**, 0 failed, 48 warnings (11 min 39 s, after about 10 min waiting for the lock). No timing-sensitive failure, so nothing was rerun |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` | **100 passed**, 0 failed (30 s, after about 26 min waiting for the lock behind other worktrees' suites); main's 99 plus R2a's durability test for its two new tables |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · **75 files, 522 tests passed** · built, with the existing chunk-size notice |
+| `cargo check` | not needed: `src-tauri` is identical to main's |
+| Defaults · CLI help · references | above |
+
+Targeted runs before the gate: the landing tests and `test_router_card.py` (16), the allowlist, CLI help, config, migrations, table roles, upgrade, route-rules and exam-protection review files (306), and the R2a, daily-plan, upgrade-chain, landing, rebuild and replay files (622), all passed.
+
+### Parity
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`) in `fixtures-local/parity-r2a` (one pristine copy each, then a copy per side). Each copy was migrated by its own code (`migration_coordinator.migrate_vault`): main `9c5c62df9` exported with `git archive` and run first on `sys.path` (`python -I`; a probe printed the archive's `learnloop/__init__.py` and `migrations/`), 46 migrations to 201; the merge's, 47 to 202. On each copy `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+The merge's outputs match main's exactly: **0 differing lines** on all four outputs (3,404 / 2,290 / 553 / 1,469 lines), once ULIDs, timestamps, 64-hex hashes and the copy's path are set aside.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` | Router or plan issues |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 21 | 6 | 47 | 106 | 1 | none | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 | none |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same on both sides. (The reading-hardening landing recorded 22 changed facet rows on linear algebra; here both sides read 21, so the difference is not this merge's.) `live_database.unchanged` is true on every run; doctor exits 1 on both sides, as on main.
+
+**The mvp-0.22 → mvp-0.23 upgrade, shadowed** (playbook item 7, as the stage ran it on `linear_algebra`, now on both fixtures). A third backup-API copy of each, migrated to 202 by the merge's code, was taken `mvp-0.8` → `learnloop upgrade --to mvp-0.9` → `--to mvp-0.22` (the chain, its advisory-guard notes printed), rebuilt twice to its fixed point (`learnloop rebuild-derived-state`), shadowed, then `learnloop upgrade` (the default target, `mvp-0.22 -> mvp-0.23`) and shadowed again.
+
+| Fixture | Replayed | Shadow at mvp-0.22 (facet / mastery / schedule) | Shadow at mvp-0.23 | What differs at mvp-0.23 | Doctor at mvp-0.23 |
+|---|---:|---|---|---|---|
+| linear algebra | 70 | 0 / 0 / 0 | 0 / 21 / 0 | `algorithm_version` only (`mvp-0.22` → `mvp-0.23`), on all 21 mastery rows | 56 issues, 1 error (the fixture's missing `rubrics` directory), no router or plan issue |
+| probability | 2 | 0 / 0 / 0 | 0 / 18 / 0 | `algorithm_version` only, on all 18 mastery rows | 98 issues, 49 errors (the fixture's 46 `criterion:unknown_dependency`, 2 `yaml:invalid`, 1 missing directory), no router or plan issue |
+
+So the successor adds no delta beyond the version label, as at every successor, and the linear-algebra figures equal the stage's own run. `live_database.unchanged` is true on all four shadows.
+
+The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched and its working vaults never opened. This worktree's tracked `linear_algebra` and `probability` were opened only by the backup API; `arxiv_v2` not at all.
+- Nothing was pushed, rebased or stashed. `router/r2a` and its worktree were not modified.
+
+### Open questions for the owner (conservative defaults applied)
+
+- **Q-L1.** A diagnosed cause resting on exam or reserved work keeps its topic and status on the card but not its statement (composition 2). Keep? Recommended: **keep**: the diagnoser's statement about an exam answer can carry the question, and R2b will send the card to a model.
+- **Q-L2.** The card withholds exam material whatever `goals.held_out_selection` says (composition 1). Recommended: **keep**: that switch restores serving selection, and the predicate never switches model contexts.
+- **Q-L3.** The frame adds no exam veto of its own (composition 3): exam reservations and held-out items are the scheduler's routine exclusions, upstream of the frame. Should the frame also refuse them by name (a belt-and-braces `exam_reservation` constraint), so a refusal would show on the `plan_block` row if an upstream path ever let one through? Recommended: **not now**: it would duplicate the one routine-exclusion path and move nothing on today's vaults; revisit with R2c, where follow-ups (container-placed, open question 2) meet the constraint engine.
