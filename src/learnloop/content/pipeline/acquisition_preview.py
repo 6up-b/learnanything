@@ -144,6 +144,7 @@ def build_acquisition_preview(
 def _configured_extractor(category: str, config: LearnLoopConfig) -> str:
     # arXiv abstract pages resolve to HTML; a linked PDF uses the PDF path.
     if category in {"pdf", "image"}:
+        from learnloop.content.pipeline.add_source import file_upload_allowed
         from learnloop.ingest.extractors import marker_available
         from learnloop.ingest.extractors.glm_ocr import selected_backend
 
@@ -152,8 +153,13 @@ def _configured_extractor(category: str, config: LearnLoopConfig) -> str:
             return "pdf_native"
         if engine in {"pypdf", "marker"} and category == "pdf":
             return engine
-        if selected_backend(config.ingest.pdf.glm_ocr.model_dump()):
+        backend = selected_backend(config.ingest.pdf.glm_ocr.model_dump())
+        if backend and not (backend == "api" and engine == "auto" and category == "pdf"
+                            and not file_upload_allowed(config, "glm_ocr_upload")):
             return "glm_ocr"
+        # This preview is the Ingest screen's, whose imports can't ask for the
+        # OK naming z.ai: under "auto" they read a PDF locally until it is
+        # given (as jobs._document_extractor does).
         if category == "image" or engine == "glm_ocr":
             # Only GLM-OCR reads an image; an explicit engine fails as itself.
             return "text_recognition_unavailable"

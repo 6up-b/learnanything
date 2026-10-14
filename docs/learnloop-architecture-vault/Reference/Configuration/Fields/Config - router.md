@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2ff0863bdae776ad53ccadd94196d037be0ba246"
-source_commit_timestamp: "2026-10-13T22:21:58-04:00"
+source_commit: "c13ebeca9fefc27103ee4726a50defb3771038f4"
+source_commit_timestamp: "2026-10-13T23:52:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -43,8 +43,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2405` |
-| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2406`; `src/learnloop/scheduling/scheduler.py:1116` |
+| `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2406` |
+| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2407`; `src/learnloop/scheduling/scheduler.py:1116` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

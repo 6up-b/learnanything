@@ -125,7 +125,7 @@ def test_a_whole_short_pdf_goes_as_one_data_uri_with_its_page_range_and_bearer_k
     assert (one.body["start_page_id"], one.body["end_page_id"]) == (1, 3)
     assert one.body["return_crop_images"] is False and one.body["need_layout_visualization"] is False
     assert 6 <= len(one.body["request_id"]) <= 64
-    assert one.timeout == 180
+    assert one.timeout == 300  # the glmocr SDK's own MaaS default
     assert [block.page for block in ir.blocks] == [0, 1, 2]  # IR pages stay zero-based
 
 
@@ -663,7 +663,7 @@ def test_an_add_asks_once_naming_z_ai_then_reads_and_records_the_spend(monkeypat
     assert waiting["error"]["code"] == "needs_upload_ok"
     assert "z.ai (GLM-OCR)" in waiting["error"]["message"] and sent == []
 
-    grant_consent(root, "whole_files")
+    grant_consent(root, "whole_files_zai")  # the OK naming z.ai
     jobs.resume_batch(batch)
     jobs._require_runner().drain()
     (done,) = repo.ingest_jobs_for_batch(batch)
@@ -684,7 +684,7 @@ def test_a_kept_local_book_never_goes_to_z_ai(monkeypatch, tmp_path):
     monkeypatch.setattr(extractors, "marker_available", lambda: False)
     sent = record(monkeypatch)
     root = fresh_library(tmp_path)
-    grant_consent(root, "whole_files")
+    grant_consent(root, "whole_files_zai")  # the OK naming z.ai
     repo = repository(root)
     path = tmp_path / "private.pdf"
     path.write_bytes(pdf(1))
@@ -715,7 +715,7 @@ def test_identity_hashes_the_choice_not_endpoints_prices_or_timeouts(monkeypatch
 
     monkeypatch.setenv("ZAI_API_KEY", KEY)
     root = fresh_library(tmp_path)
-    grant_consent(root, "whole_files")
+    grant_consent(root, "whole_files_zai")  # the OK naming z.ai
     ctx = SimpleNamespace(vault_root=root, payload={}, job={})
     fetched = FetchedBytes(raw_bytes=pdf(1), content_type="application/pdf", original_uri="x.pdf", retrieved_at="now")
     before = default_extraction_identity(fetched, "pdf", ctx)
@@ -737,7 +737,7 @@ def test_an_image_import_needs_glm_and_reads_with_it(monkeypatch, tmp_path):
     assert resolve_source("page.png").category == "image"
     assert resolve_source("https://example.invalid/scan.JPG").category == "image"
     root = fresh_library(tmp_path)
-    grant_consent(root, "whole_files")
+    grant_consent(root, "whole_files_zai")  # the OK naming z.ai
     ctx = SimpleNamespace(vault_root=root, payload={}, job={})
     fetched = FetchedBytes(raw_bytes=png(), content_type="image/png", original_uri="page.png", retrieved_at="now")
     with pytest.raises(IngestRunnerError) as caught:
@@ -781,7 +781,7 @@ def test_read_again_with_text_recognition_uses_glm_when_it_can(monkeypatch, tmp_
 def test_the_preview_estimates_pages_and_names_the_upload(monkeypatch, tmp_path):
     from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
     from learnloop.vault.loader import load_vault
-    from tests.ux_phase1_support import fresh_library, repository
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository
 
     root = fresh_library(tmp_path)
     path = tmp_path / "book.pdf"
@@ -799,6 +799,13 @@ def test_the_preview_estimates_pages_and_names_the_upload(monkeypatch, tmp_path)
     assert scan["configured_extractor"] == "text_recognition_unavailable"
 
     monkeypatch.setenv("ZAI_API_KEY", KEY)
+    # Without the OK naming z.ai, an Ingest-screen import reads a PDF locally
+    # (an image needs GLM-OCR, so it still asks).
+    book, scan, link = items()
+    assert book["configured_extractor"] == "pypdf" and book["potential_external"] == []
+    assert scan["configured_extractor"] == "glm_ocr" and scan["potential_external"][0]["kind"] == "glm_ocr_upload"
+
+    grant_consent(root, "whole_files_zai")
     book, scan, link = items()
     assert book["configured_extractor"] == "glm_ocr"
     assert book["extraction_estimate"]["total_tokens"] == 2 * glm.ESTIMATED_TOKENS_PER_PAGE
@@ -866,3 +873,352 @@ def test_settings_save_the_key_and_report_it(monkeypatch, tmp_path):
     cleared = call(ctx, "set_text_recognition_api_key", {"apiKey": ""})
     assert cleared["keyPresent"] is False
     assert "ZAI_API_KEY" not in global_settings_path().read_text()
+
+
+# -- the second review (docs/reviews/glm-ocr-ingest.md, "Second review") -------------------
+
+
+def _ctx(root, payload=None, **job):
+    return SimpleNamespace(vault_root=root, payload=dict(payload or {}), job=dict(job))
+
+
+def _fetched(raw: bytes | None = None):
+    from learnloop.content.pipeline.runner import FetchedBytes
+
+    return FetchedBytes(raw_bytes=raw or pdf(1), content_type="application/pdf", original_uri="x.pdf", retrieved_at="now")
+
+
+def plain_pypdf(monkeypatch):
+    """pypdf reading some plain words (the test PDFs are blank pages)."""
+
+    from learnloop.ingest.extractors import markdown_to_ir
+
+    version = extractors.PyPdfDocumentExtractor().version()
+    monkeypatch.setattr(extractors.PyPdfDocumentExtractor, "extract", lambda self, raw, context: markdown_to_ir(
+        "Plain words", title=None, extractor_name="pypdf", extractor_version=version))
+
+
+def test_r2_f1_a_kept_local_book_never_goes_to_a_glm_server_on_another_computer(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.jobs import default_extract, default_extraction_identity
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from tests.ux_phase1_support import fresh_library, set_config
+
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    monkeypatch.setattr(glm, "local_available", lambda config=None: True)  # the other computer answers
+    sent = record(monkeypatch, lambda body: {"layout_details": [[region(0, "text", "Words", [0, 0, 10, 10])]]})
+    root = fresh_library(tmp_path)
+    set_config(root, {("ingest", "pdf", "engine"): "glm_ocr",
+                      ("ingest", "pdf", "glm_ocr", "backend"): "local",
+                      ("ingest", "pdf", "glm_ocr", "local_url"): "http://gpu-box.invalid:5002/glmocr/parse"})
+    for step in (default_extraction_identity, default_extract):
+        with pytest.raises(IngestRunnerError) as caught:
+            step(_fetched(), "pdf", _ctx(root, _keep_local=True))
+        assert caught.value.code == "kept_local"
+        assert "another computer" in str(caught.value) and "z.ai" not in str(caught.value)
+    assert sent == []
+    # A book not kept here may use the owner's own server (no whole-file OK).
+    assert default_extraction_identity(_fetched(), "pdf", _ctx(root, _keep_local=False))["extractor"] == "glm_ocr"
+    # On this computer, a kept-local book may use it too.
+    set_config(root, {("ingest", "pdf", "glm_ocr", "local_url"): "http://127.0.0.1:5002/glmocr/parse"})
+    assert default_extraction_identity(_fetched(), "pdf", _ctx(root, _keep_local=True))["extractor"] == "glm_ocr"
+
+
+def test_r2_f2_an_import_without_the_ok_reads_locally_and_offers_text_recognition(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.add_source import source_status_line
+    from learnloop.content.pipeline.runner import JobSpec
+    from learnloop.vault.loader import load_vault
+    from tests.ux_phase1_support import fresh_library, repository
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    repo = repository(root)
+    runner = _jobs(repo, root)._require_runner()
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(pdf(2))
+
+    # What `learnloop import` and the Ingest screen enqueue.
+    batch = runner.enqueue_batch("import", [JobSpec("import", {"source": str(path)})])
+    runner.drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert sent == []
+    assert job["result"]["health"]["flags"][-1] == "glm_ocr_needs_upload_ok"
+    line = source_status_line(repo, load_vault(root), job["result"]["source_id"])
+    assert line["action"] == {"kind": "text_recognition", "label": "Read it with text recognition"}
+    assert line["details"] == "glm_ocr_needs_upload_ok"
+
+    # An explicit engine still asks rather than switch, and says where the OK is.
+    batch = runner.enqueue_batch("import", [JobSpec("import", {"source": str(path), "pdf_config": {"engine": "glm_ocr"}})])
+    runner.drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["error"]["code"] == "needs_upload_ok" and "Library" in job["error"]["message"]
+    assert sent == []
+
+
+def test_r2_f2_the_card_reads_it_again_with_text_recognition_after_the_ok(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.runner import JobSpec
+    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    ctx = _draining_ctx(root)
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(pdf(2))
+    ctx.ingest_jobs._require_runner().enqueue_batch("import", [JobSpec("import", {"source": str(path)})])
+    ctx.ingest_jobs.drain_foreground()
+
+    def card():
+        return next(c for c in call(ctx, "get_source_library", {})["sources"])
+
+    source_id = card()["sourceId"]
+    assert card()["statusLine"]["action"] == {"kind": "text_recognition", "label": "Read it with text recognition"}
+    call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})
+    assert sent == []
+    assert card()["statusLine"]["text"] == "Reading this document sends the whole file to z.ai (GLM-OCR)"
+    call(ctx, "source_action", {"sourceId": source_id, "action": "allow_upload"})
+    assert len(sent) == 1
+    latest = ctx.repository.ingest_jobs_for_source(("import",), source_id)[0]
+    assert latest["status"] == "completed" and "glm_ocr_api_selected" in latest["result"]["health"]["flags"]
+    assert card()["statusLine"]["text"] == "No questions for this PDF yet"  # the plainer-reading line is gone
+
+
+def test_r2_f3_an_earlier_whole_file_ok_never_covers_z_ai(monkeypatch, tmp_path):
+    from learnloop.content.pipeline import add_source as core
+    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library, grant_consent
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files")  # said earlier to a recording or a whole PDF to "your AI"
+    ctx = _draining_ctx(root)
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(pdf(2))
+
+    item = call(ctx, "add_source", {"sources": [str(path)]})["items"][0]
+    assert sent == []
+    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
+    assert card["statusLine"]["text"] == "Reading this document sends the whole file to z.ai (GLM-OCR)"
+    assert card["statusLine"]["action"] == {"kind": "allow_upload", "label": "OK"}
+
+    call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "allow_upload"})
+    config = ctx.vault.config
+    assert config.ai.consent[core.GLM_OCR_UPLOAD_CONSENT].data_flow == "whole_files"
+    assert core.file_upload_allowed(config, "glm_ocr_upload") and len(sent) == 1
+
+
+def test_r2_f3_the_z_ai_ok_names_only_z_ai():
+    from learnloop.config import LearnLoopConfig
+    from learnloop.content.pipeline.add_source import GLM_OCR_UPLOAD_CONSENT, file_upload_allowed
+    from learnloop.config.schema import AIConsentRecord
+
+    config = LearnLoopConfig()
+    config.ai.consent[GLM_OCR_UPLOAD_CONSENT] = AIConsentRecord(granted_at="2026-10-14T00:00:00Z", data_flow="whole_files")
+    assert file_upload_allowed(config, "glm_ocr_upload")
+    assert not file_upload_allowed(config, "pdf_upload") and not file_upload_allowed(config, "audio_transcription")
+
+
+def test_r2_f5_a_timeout_is_tried_once_more_and_the_default_wait_is_the_sdks(monkeypatch):
+    tries = []
+
+    def fake(request, timeout):
+        tries.append(timeout)
+        if len(tries) == 1:
+            raise URLError(TimeoutError("timed out"))
+        return io.BytesIO(json.dumps(hosted()).encode())
+
+    monkeypatch.setattr(glm, "_open", fake)
+    api(monkeypatch).extract(pdf(), ok())
+    assert tries == [300, 300]
+
+    tries.clear()
+    monkeypatch.setattr(glm, "_open", lambda request, timeout: tries.append(timeout) or (_ for _ in ()).throw(TimeoutError()))
+    with pytest.raises(glm.GlmOcrExtractionError, match="did not answer in time"):
+        api(monkeypatch).extract(pdf(), ok())
+    assert len(tries) == 2
+
+
+def test_r2_f5_a_window_glm_ocr_answered_wrongly_stops_before_the_next_is_paid(monkeypatch):
+    sent = record(monkeypatch, lambda body: {"layout_details": []})
+    with pytest.raises(glm.GlmOcrExtractionError, match="0 page"):
+        api(monkeypatch).extract(pdf(65), ok())
+    assert len(sent) == 1
+
+
+class _CutOff:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        import http.client
+
+        raise http.client.IncompleteRead(b"{\"layout_details\": [")
+
+
+def test_r2_f6_a_cut_off_answer_or_an_unrenderable_page_falls_back_under_auto(monkeypatch):
+    monkeypatch.setattr(glm, "_open", lambda request, timeout: _CutOff())
+    with pytest.raises(glm.GlmOcrExtractionError, match="cut off"):
+        api(monkeypatch).extract(pdf(), ok())
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    ir = extractors.extract_with_fallback(pdf(), api(monkeypatch), {}, ok())
+    assert ir.extractor == "pypdf" and "glm_ocr_failed_pypdf_fallback" in ir.health.flags
+
+    pytest.importorskip("pypdfium2")
+    with pytest.raises(glm.GlmOcrExtractionError, match="render"):
+        glm._render_pages(b"%PDF-1.4 not really a pdf", [0])
+
+
+def test_r2_f8_page_sizes_come_from_data_info_before_a_regions_own_size():
+    # The region's width/height are its own (980x159), the page is 1224x1584.
+    result = {"layout_details": [[region(0, "text", "Words", [122, 158, 1102, 317], width=980, height=159)]],
+              "data_info": {"pages": [{"width": 1224, "height": 1584}]}}
+    ir = glm.responses_to_ir([(result, [0])], sizes=[(612.0, 792.0)], outline=[], version="t")
+    assert ir.blocks[0].bbox == [61.0, 79.0, 551.0, 158.5]
+    # Without data_info, a region's width/height still serve.
+    alone = {"layout_details": [[region(0, "text", "Words", [122, 158, 1102, 317])]]}
+    ir = glm.responses_to_ir([(alone, [0])], sizes=[(612.0, 792.0)], outline=[], version="t")
+    assert ir.blocks[0].bbox == [61.0, 79.0, 551.0, 158.5]
+
+
+def test_r2_f9_a_kept_local_scan_never_asks_for_a_key_that_cannot_help(monkeypatch):
+    from learnloop.config import LearnLoopConfig
+    from learnloop.content.pipeline import add_source as core
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    config = LearnLoopConfig()
+    scan = {"error": {"code": "pdf_extraction_failed", "message": "no extractable text (likely scanned)"}}
+    line = core._import_failure_line(scan, "pdf", keep_local=True, config=config)
+    assert line["action"] is None and "z.ai API key" not in line["details"]
+    assert "never sent to an AI" in line["details"]
+
+    monkeypatch.setattr(core, "_completed_extraction", lambda repo, source_id: ("src_1", "ext_1"))
+    repo = SimpleNamespace(source_kept_local=lambda source_id: True, get_extraction_run=lambda extraction_id: {
+        "health": {"flags": [], "pages": [{"page": 0, "flags": ["image_only_page"]}]}})
+    line = core._health_line(repo, "src_1", config=config)
+    assert line["action"] is None and "never sent to an AI" in line["details"]
+    # Not kept here, the key reads it.
+    repo.source_kept_local = lambda source_id: False
+    assert core._health_line(repo, "src_1", config=config)["action"]["kind"] == "text_recognition"
+
+
+def test_r2_f9_a_kept_local_image_is_refused_as_kept_here_not_as_unset(monkeypatch, tmp_path):
+    from learnloop.content.pipeline import add_source as core
+    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
+    from tests.ux_phase1_support import fresh_library
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    root = fresh_library(tmp_path)
+    image = FetchedBytes(raw_bytes=png(), content_type="image/png", original_uri="page.png", retrieved_at="now")
+    with pytest.raises(IngestRunnerError) as caught:
+        default_extraction_identity(image, "image", _ctx(root, _keep_local=True))
+    assert caught.value.code == "kept_local" and "never sent to an AI" in str(caught.value)
+    job = {"error": {"code": "kept_local", "message": str(caught.value)}}
+    assert core._import_failure_line(job, "image", keep_local=True)["text"] == (
+        "Never sent to an AI — this image can't be read here")
+
+
+def test_r2_f4_cancelling_or_keeping_it_here_stops_the_windows_not_yet_sent(monkeypatch, tmp_path):
+    from learnloop.ai.spend import SpendCancelled
+    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from tests.ux_phase1_support import fresh_library, grant_consent
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    book = _fetched(pdf(65))  # three windows
+    no_checkpoints = SimpleNamespace(model_checkpoint=lambda key: None,
+                                     save_model_checkpoint=lambda *a, **kw: None)
+
+    # The batch is cancelled after the first window went out.
+    cancelled = _ctx(root, _keep_local=False)
+    cancelled.repo = SimpleNamespace(**vars(no_checkpoints), source_kept_local=lambda source_id: False)
+    cancelled.cancelled = lambda: len(sent) >= 1
+    with pytest.raises(SpendCancelled):
+        default_extract(book, "pdf", cancelled)
+    assert len(sent) == 1
+
+    # "Keep this book on this computer" after the first window.
+    sent.clear()
+    kept_now = _ctx(root, _keep_local=False, _source_id="src_1")
+    kept_now.repo = SimpleNamespace(**vars(no_checkpoints), source_kept_local=lambda source_id: len(sent) >= 1)
+    kept_now.cancelled = lambda: False
+    with pytest.raises(IngestRunnerError) as caught:
+        default_extract(book, "pdf", kept_now)
+    assert caught.value.code == "kept_local" and len(sent) == 1
+
+
+def test_r2_f5_paid_windows_are_kept_so_trying_again_pays_only_for_the_rest(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.add_source import AddSourceOptions
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    failing = {"on": True}
+
+    def respond(body):
+        if failing["on"] and len(sent) == 3:
+            raise HTTPError(glm.API_URL, 400, "bad", {}, io.BytesIO(b"{}"))
+        return hosted(body["end_page_id"] - body["start_page_id"] + 1)
+
+    sent = record(monkeypatch, respond)
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+    path = tmp_path / "long.pdf"
+    path.write_bytes(pdf(65))
+
+    batch = jobs.enqueue_add_source(str(path), options=AddSourceOptions(), auto_build=False)
+    jobs._require_runner().drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "failed" and len(sent) == 3  # the third window failed (blank pages: no fallback text)
+
+    failing["on"] = False
+    jobs.resume_batch(batch)
+    jobs._require_runner().drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert len(sent) == 4  # only the window not yet answered
+    assert job["result"]["block_count"] == 65
+
+
+def test_r2_f7_a_stand_in_reading_is_stored_with_its_own_model_versions(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.add_source import AddSourceOptions
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    sent = record(monkeypatch, lambda body: (_ for _ in ()).throw(URLError("offline")))
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(pdf(1))
+
+    batch = jobs.enqueue_add_source(str(path), options=AddSourceOptions(), auto_build=False)
+    jobs._require_runner().drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert len(sent) == 1 and "glm_ocr_failed_pypdf_fallback" in job["result"]["health"]["flags"]
+    run = repo.get_extraction_run(job["result"]["extraction_id"])
+    assert run["extractor"] == "pypdf"
+    assert run["model_versions"] == {"fallback_from": "glm_ocr"}

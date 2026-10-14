@@ -208,8 +208,8 @@ imported):
 
 `[ingest.pdf.glm_ocr]` configures `backend` (auto/api/local), `api_url`,
 `api_key_env` (default `ZAI_API_KEY`; `ZHIPU_API_KEY`/`ZHIPUAI_API_KEY` are read
-when it is unset), `local_url`, `request_timeout_seconds`,
-`max_pages_per_request` (1–30), `price_per_million_tokens` (0.03) and
+when it is unset), `local_url`, `request_timeout_seconds` (300, the glmocr
+SDK's own), `max_pages_per_request` (1–30), `price_per_million_tokens` (0.03) and
 `base64_style`. Settings → Ingestion saves the z.ai key to the machine's
 `settings.env` (`set_text_recognition_api_key`, desktop only). No credential
 reaches a receipt, an extraction or a cache key.
@@ -223,25 +223,41 @@ engines fail rather than switch. Only GLM-OCR reads an image: a PDF-only engine
 choice (native, Marker, pypdf) reads an image the automatic way, and with no
 GLM-OCR an image import fails as "text recognition isn't set up".
 
-**Privacy and consent.** A hosted run sends the whole file to z.ai: the
-durable import waits for the learner's existing one-time whole-file OK, named
-"Reading this document sends the whole file to z.ai (GLM-OCR)", for every
-import that would use it (not only an Add's). A book kept on this computer
-never uses hosted GLM-OCR — `auto` passes over it, an explicit `glm_ocr`
-refuses with `kept_local` — and uses a local server only on this computer (a
-loopback `local_url`). GLM-OCR adds no per-book opt-out of its own. Remote
-documents download as raw bytes, so nothing is recognised before the OK; the
-extractor itself refuses a hosted run without the OK. The legacy one-shot
-PDF→Markdown path uses hosted GLM-OCR only when the vault has the OK (`auto`
-reads locally otherwise; an explicit `glm_ocr` fails asking for it).
+**Privacy and consent.** A hosted run sends the whole file to z.ai, so it
+needs the learner's one-time OK **naming z.ai** ("Reading this document sends
+the whole file to z.ai (GLM-OCR)"), recorded as its own consent
+(`ai.consent.whole_files_zai`): an earlier whole-file OK for a recording or
+for "your AI" (`whole_files`) never covers z.ai, nor does z.ai's cover them.
+An Add (and "Read it with text recognition") waits for it on the book card.
+An import with no card to ask on (`learnloop import`, the Ingest screen, a
+repair) reads a PDF locally under `auto` until the OK is given, flagged
+`glm_ocr_needs_upload_ok`, and the book card then offers "Read it with text
+recognition", which asks; an explicit `glm_ocr` engine fails there with
+`needs_upload_ok`, saying to add the book from the Library to give the OK. A
+book kept on this computer never leaves it for text recognition: `auto`
+passes over z.ai and over a self-hosted server that is not on a loopback
+`local_url`, and an explicit `glm_ocr` refuses either with `kept_local`. The
+choice is read again before every request, so keeping a book here part-way
+through stops the windows not yet sent. GLM-OCR adds no per-book opt-out of
+its own. Remote documents download as raw bytes, so nothing is recognised
+before the OK; the extractor itself refuses a hosted run without the OK. The
+legacy one-shot PDF→Markdown path uses hosted GLM-OCR only when the vault has
+the OK naming z.ai (`auto` reads locally otherwise; an explicit `glm_ocr`
+fails asking for it).
 
 **Requests.** A document that fits one window (≤ 30 pages, ≤ 50 MB) goes as
 it is with its page range; otherwise each window of at most 30 contiguous
 selected pages goes as its own PDF (pypdf), halved further while over 50 MB;
 one page over 50 MB fails clearly. Images go whole (≤ 10 MB hosted). 429/5xx
-retry twice (Retry-After, else 1 s then 2 s); every physical request has its
-own spend admission (`SpendBudget`, no per-file money cap; shared envelopes
-and an automatic build's metered request gate still apply) and its own
+retry twice (Retry-After, else 1 s then 2 s) and a timeout once; each
+window's answer is checked before the next window is sent, and each hosted
+window's answer is checkpointed (`model_work_checkpoints`, keyed by the
+file's hash, the pages, the backend and its models), so a failure part-way or
+reading the book again pays only for the windows not yet answered. A
+cancelled import stops before its next request. Every physical request has
+its own spend admission (`SpendBudget`, no per-file money cap; a shared
+envelope or metered request gate in force around the call would also apply,
+but the import jobs that run GLM-OCR install neither) and its own
 `model_call` receipt: provider `zai-glm-ocr` or `glm-ocr-local`, reported
 input/output/cached tokens and cost at the configured price (an estimate
 labelled `estimated_usage_missing` when usage is absent; local runs cost 0).
@@ -251,8 +267,9 @@ tokens per page** (`ESTIMATED_TOKENS_PER_PAGE`); a link's page count is
 unknown until it is downloaded.
 
 **Mapping.** Hosted regions (`label`, `native_label` when present, `content`,
-`bbox_2d` in pixels of z.ai's own page render with `width`/`height` and
-`data_info.pages`), the self-hosted server's (`bbox_2d` normalised to 0–1000;
+`bbox_2d` in pixels of z.ai's own page render, scaled by `data_info.pages` as
+the SDK does; a region's own `width`/`height` only when that is missing), the
+self-hosted server's (`bbox_2d` normalised to 0–1000;
 one `[[regions]]` per image) and the older flat/page-object shapes all map to
 the same IR. Boxes become **PDF points, top-left origin**, in the page's crop
 box after rotation — the space the Reader's PDF view draws in; images keep
@@ -269,10 +286,12 @@ fails rather than reading as empty. `version()` names backend, recognition
 model, layout model and mapping version, so caches re-extract when any moves;
 the endpoint, timeout, price and window settings are not part of the
 extraction request hash (they never change what is read). Under `auto`, a
-GLM-OCR failure falls back to local Marker, else pypdf, flagged
+GLM-OCR failure (transport, a cut-off answer, an unrenderable page, an
+unreadable layout) falls back to local Marker, else pypdf, flagged
 `glm_ocr_failed_<engine>_fallback` (the book card then offers "Read it
-again"); refusals (no OK, spend, cancellation) never fall back. The IR schema
-and Marker's chunk map are unchanged.
+again"); the stored run records the stand-in's model versions with
+`fallback_from`. Refusals (no OK, kept on this computer, spend, cancellation)
+never fall back. The IR schema and Marker's chunk map are unchanged.
 
 ## 3. Token-budgeted views
 

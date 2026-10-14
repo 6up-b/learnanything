@@ -247,10 +247,14 @@ def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched:
     """The extractor for a PDF/PNG/JPG import, its upload guarded.
 
     Hosted GLM-OCR sends the whole file to z.ai: it waits for the learner's
-    one-time whole-file OK, and a book kept on this computer never uses it.
-    An image needs GLM-OCR: Marker and pypdf read PDFs only."""
+    one-time OK naming z.ai, and a book kept on this computer never uses it
+    (nor a self-hosted server on another computer). Under ``auto``, an import
+    with no OK card to show (``learnloop import``, the Ingest screen, a
+    repair) reads locally until the OK is given, flagged
+    ``glm_ocr_needs_upload_ok`` so the book offers text recognition (second
+    review F2). An image needs GLM-OCR: Marker and pypdf read PDFs only."""
 
-    from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
+    from learnloop.ingest.extractors import MarkerUnavailableError, local_pdf_extractor, pdf_extractor_for
     from learnloop.ingest.extractors.glm_ocr import UNAVAILABLE_MESSAGE, is_image_document
 
     try:
@@ -259,11 +263,97 @@ def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched:
         )
     except MarkerUnavailableError as exc:
         raise IngestRunnerError(str(exc), code="pdf_extractor_unavailable", retryable=True) from exc
-    if extractor.name != "glm_ocr" and is_image_document(fetched.raw_bytes):
+    image = is_image_document(fetched.raw_bytes)
+    if extractor.name != "glm_ocr" and image:
+        if _kept_local(ctx):
+            # A key or a server elsewhere can't help a kept-local image (F9).
+            raise IngestRunnerError(
+                _KEPT_LOCAL_FLOW_MESSAGES["glm_ocr_image"], code="kept_local", retryable=False,
+                details={"flow": "glm_ocr_image"},
+            )
         raise IngestRunnerError(UNAVAILABLE_MESSAGE, code="pdf_extractor_unavailable", retryable=True)
-    if getattr(extractor, "backend", None) == "api":
+    if extractor.name != "glm_ocr":
+        return extractor
+    if extractor.backend == "api":
+        if (
+            str(pdf_config.get("engine") or "auto") == "auto"
+            and not image
+            and not ctx.payload.get("require_upload_ok")
+            and not _upload_allowed(ctx, "glm_ocr_upload")
+        ):
+            local = local_pdf_extractor(dict(pdf_config))
+            local.selection_reason = "glm_ocr_needs_upload_ok"
+            return local
         _guard_file_upload(ctx, "glm_ocr_upload")
+    elif extractor.leaves_this_computer() and _kept_local(ctx):
+        # An explicit engine with a self-hosted server elsewhere (second
+        # review F1): auto already passed over it for this book.
+        raise IngestRunnerError(
+            _KEPT_LOCAL_FLOW_MESSAGES["glm_ocr_server"], code="kept_local", retryable=False,
+            details={"flow": "glm_ocr_server"},
+        )
     return extractor
+
+
+def _extraction_interrupt(ctx: JobContext, extractor: Any) -> Any:
+    """Checked before each request GLM-OCR sends (every window, every retry;
+    second review F4): a cancelled import stops there, and a book the learner
+    has since kept on this computer sends nothing more off it. A request
+    already under way is not recalled."""
+
+    from learnloop.ai.spend import SpendCancelled
+
+    leaves = bool(getattr(extractor, "leaves_this_computer", lambda: False)())
+    flow = "glm_ocr_upload" if getattr(extractor, "backend", None) == "api" else "glm_ocr_server"
+    cancelled = getattr(ctx, "cancelled", None)
+
+    def interrupt() -> None:
+        if cancelled is not None and cancelled():
+            raise SpendCancelled("The import was cancelled")
+        if leaves and _kept_local_now(ctx):
+            raise IngestRunnerError(
+                _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
+            )
+
+    return interrupt
+
+
+def _kept_local_now(ctx: JobContext) -> bool:
+    """The book's stored choice as it is now (``keep_on_this_computer`` can
+    change it while the import runs), else the choice the job started with."""
+
+    source_id = ctx.job.get("_source_id")
+    repo = getattr(ctx, "repo", None)
+    if source_id and repo is not None:
+        return bool(repo.source_kept_local(source_id))
+    return _kept_local(ctx)
+
+
+class _ModelCheckpoints:
+    """GLM-OCR's paid window answers in ``model_work_checkpoints`` (second
+    review F5), so a retry or a re-read pays only for what is unanswered."""
+
+    def __init__(self, repo: Any) -> None:
+        self._repo = repo
+
+    @classmethod
+    def of(cls, ctx: JobContext) -> "_ModelCheckpoints | None":
+        repo = getattr(ctx, "repo", None)
+        return cls(repo) if repo is not None else None
+
+    def load(self, key: str) -> dict[str, Any] | None:
+        saved = self._repo.model_checkpoint(key)
+        return saved["result"] if saved else None
+
+    def save(self, key: str, result: dict[str, Any]) -> None:
+        self._repo.save_model_checkpoint(key, purpose="glm_ocr_window", result=result)
+
+
+def _upload_allowed(ctx: JobContext, flow: str) -> bool:
+    from learnloop.content.pipeline.add_source import file_upload_allowed
+    from learnloop.vault.loader import load_vault
+
+    return file_upload_allowed(load_vault(ctx.vault_root).config, flow)
 
 
 _UPLOAD_FLOW_MESSAGES = {
@@ -280,7 +370,22 @@ _KEPT_LOCAL_FLOW_MESSAGES = {
     "glm_ocr_upload": (
         "This document is never sent to an AI, and reading it here would send the whole file to z.ai (GLM-OCR)."
     ),
+    "glm_ocr_server": (
+        "This document is never sent to an AI, and reading it here would send it to the text recognition "
+        "server on another computer."
+    ),
+    "glm_ocr_image": (
+        "This image is never sent to an AI, and no text recognition runs on this computer to read it."
+    ),
     "pdf_upload": "This PDF is never sent to an AI, and reading it here would send the whole file to one.",
+}
+# A plain import (`learnloop import`, the Ingest screen) has no card to say OK
+# on: its words say where the OK is given.
+_PLAIN_IMPORT_UPLOAD_MESSAGES = {
+    "glm_ocr_upload": (
+        "Reading this document with GLM-OCR sends the whole file to z.ai, which needs your OK first. "
+        "Add it from the Library to say OK, or choose another PDF engine."
+    ),
 }
 
 
@@ -295,16 +400,15 @@ def _guard_file_upload(ctx: JobContext, flow: str) -> None:
         raise IngestRunnerError(
             _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
         )
-    # GLM-OCR is the default reader, so its upload always asks (not only an
-    # Add's): an import from the Ingest screen gets the same one-time OK.
+    # z.ai's upload always asks (not only an Add's), for its own OK naming
+    # z.ai (second review F3). Under "auto" a plain import never gets here
+    # without it (it reads locally); an explicit glm_ocr engine does.
     if ctx.payload.get("require_upload_ok") or flow == "glm_ocr_upload":
-        from learnloop.content.pipeline.add_source import file_upload_allowed
-        from learnloop.vault.loader import load_vault
-
-        if not file_upload_allowed(load_vault(ctx.vault_root).config):
-            raise IngestRunnerError(
-                _UPLOAD_FLOW_MESSAGES[flow], code="needs_upload_ok", retryable=True, details={"flow": flow}
-            )
+        if not _upload_allowed(ctx, flow):
+            message = _UPLOAD_FLOW_MESSAGES[flow]
+            if not ctx.payload.get("require_upload_ok"):
+                message = _PLAIN_IMPORT_UPLOAD_MESSAGES.get(flow, message)
+            raise IngestRunnerError(message, code="needs_upload_ok", retryable=True, details={"flow": flow})
 
 
 def _extract_pdf_locally(
@@ -358,6 +462,8 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
             revision_id=str(ctx.job.get("_revision_id") or "rev"),
             config={"whole_file_upload_allowed": getattr(extractor, "backend", None) == "api"},
             page_selection=tuple(pages) if pages is not None else None,
+            interrupt=_extraction_interrupt(ctx, extractor),
+            checkpoints=_ModelCheckpoints.of(ctx),
         )
         ir = _extract_pdf_locally(fetched, extractor, pdf_config, context)
         if native_fallback:
@@ -1973,6 +2079,8 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     # brings back a choice the learner has since changed.
     _apply_requested_keep_local(ctx, registered.source_id)
     ctx.job["_keep_local"] = ctx.repo.source_kept_local(registered.source_id)
+    # Read again before each GLM-OCR request (second review F4).
+    ctx.job["_source_id"] = registered.source_id
     # Label the extracted transcript unit by the real video title (not the
     # "<title> — <author>" display form) when the fetch captured one.
     if fetched.title and not ctx.payload.get("title"):
@@ -2000,11 +2108,12 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         ir = ctx.services.extract_ir(fetched, category, ctx)
         # Injected/custom providers may refine the preflight identity. Persist
         # under the actual identity and let subsequent retries hit that key.
+        model_versions = _actual_model_versions(identity, ir)
         actual_hash = extraction_request_hash(
             revision_id=registered.revision_id,
             extractor=ir.extractor,
             extractor_version=ir.extractor_version,
-            model_versions=identity.get("model_versions") or {},
+            model_versions=model_versions,
             config=identity.get("config") or {},
             page_selection=page_selection,
             ir_schema_version=IR_SCHEMA_VERSION,
@@ -2033,7 +2142,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 extractor_version=ir.extractor_version,
                 extraction_request_hash=request_hash,
                 ir_schema_version=IR_SCHEMA_VERSION,
-                model_versions=identity.get("model_versions") or {},
+                model_versions=model_versions,
                 config=identity.get("config") or {},
                 page_selection=page_selection,
                 status="running",
@@ -2065,6 +2174,23 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
             "flagged_pages": ir.health.flagged_pages(),
         },
     }
+
+
+def _actual_model_versions(identity: Mapping[str, Any], ir: Any) -> dict[str, Any]:
+    """The model versions of the extractor that really read the document.
+
+    Under ``auto`` a failing extractor's local stand-in (§2.9) reads it
+    instead; its run records the stand-in's versions and what it stood in
+    for, never the chosen extractor's models (second review F7). The
+    ``fallback_from`` entry also keeps a stand-in's run apart from the same
+    extractor chosen directly."""
+
+    chosen = str(identity.get("extractor") or "")
+    if ir.extractor != chosen and f"{chosen}_failed_{ir.extractor}_fallback" in ir.health.flags:
+        from learnloop.ingest.extractors import fallback_model_versions
+
+        return {**fallback_model_versions(ir.extractor), "fallback_from": chosen}
+    return dict(identity.get("model_versions") or {})
 
 
 def _compose_display_title(title: str | None, authors: Sequence[str]) -> str | None:

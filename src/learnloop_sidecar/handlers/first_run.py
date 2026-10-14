@@ -243,19 +243,22 @@ class SourceActionInput(ParamsModel):
     ]
 
 
-def _allow_file_upload(ctx: SidecarContext) -> None:
+def _allow_file_upload(ctx: SidecarContext, flow: str | None = None) -> None:
     """The separate OK for sending whole files out (spec §6.6, review F1),
-    recorded once with its date like the connection's OK."""
+    recorded once with its date like the connection's OK. ``flow``: the
+    upload the card named; z.ai's (GLM-OCR) is its own record (second
+    review F3)."""
 
     from learnloop.config import global_ai_defaults_path
     from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates, save_ai_settings_to
 
     vault, _repository = ctx.require_vault()
     config_path = vault.root / "learnloop.toml"
+    key = core.upload_consent_key(flow)
     try:
         apply_config_updates(config_path, {
-            ("ai", "consent", core.FILE_UPLOAD_CONSENT, "granted_at"): utc_now_iso(),
-            ("ai", "consent", core.FILE_UPLOAD_CONSENT, "data_flow"): core.FILE_UPLOAD_DATA_FLOW,
+            ("ai", "consent", key, "granted_at"): utc_now_iso(),
+            ("ai", "consent", key, "data_flow"): core.FILE_UPLOAD_DATA_FLOW,
         })
     except SettingsStoreError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
@@ -276,7 +279,7 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         if params.action not in {"retry", "allow_upload"} or not params.batch_id:
             raise SidecarError("source_not_found", "Choose a book first.")
         if params.action == "allow_upload":
-            _allow_file_upload(ctx)
+            _allow_file_upload(ctx, core.pending_upload_flow(repository, batch_id=params.batch_id))
         batch = ctx.ingest_jobs.resume_batch(params.batch_id)
         if batch is None:
             raise SidecarError("ingest_batch_not_found", "That add is no longer in the queue.")
@@ -317,7 +320,7 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
                 batch_id = core.request_auto_build(ctx.ingest_jobs, params.source_id)
         result["batch_id"] = batch_id
     elif params.action == "allow_upload":
-        _allow_file_upload(ctx)
+        _allow_file_upload(ctx, core.pending_upload_flow(repository, source_id=params.source_id))
         batch_id = core.latest_add_batch(repository, params.source_id)
         if batch_id is not None:
             ctx.ingest_jobs.resume_batch(batch_id)

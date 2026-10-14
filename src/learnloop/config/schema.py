@@ -661,7 +661,8 @@ class GlmOcrConfig(BaseModel):
     api_key_env: str = "ZAI_API_KEY"
     # `python -m glmocr.server` (MaaS mode off in its config.yaml).
     local_url: str = "http://127.0.0.1:5002/glmocr/parse"
-    request_timeout_seconds: float = Field(default=180, gt=0, allow_inf_nan=False)
+    # Per request (a window of up to 30 pages); the glmocr SDK's own default.
+    request_timeout_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)
     # The hosted service reads at most 30 pages per request.
     max_pages_per_request: int = Field(default=30, ge=1, le=30)
     # USD per million tokens, input and output alike (z.ai's list price).

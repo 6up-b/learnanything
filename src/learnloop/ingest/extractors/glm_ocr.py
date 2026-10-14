@@ -17,9 +17,10 @@ recognition model:
 No SDK is imported: both backends are plain HTTP (stdlib ``urllib``, like the
 Datalab adapter). Response shapes were taken from the glmocr 0.1.5 SDK source:
 hosted regions carry ``bbox_2d`` in absolute pixels of the provider's own page
-rendering (page sizes in the region's ``width``/``height`` and in
-``data_info.pages``); the self-hosted server normalises ``bbox_2d`` to 0-1000
-and, for several input images, returns one ``[[regions]]`` list per image.
+rendering, and the SDK scales them by ``data_info.pages`` only (a region's own
+``width``/``height`` is a last resort here, when ``data_info`` has no size for
+the page); the self-hosted server normalises ``bbox_2d`` to 0-1000 and, for
+several input images, returns one ``[[regions]]`` list per image.
 Both are mapped to the coordinates the Reader's PDF view uses: PDF points,
 top-left origin, the page's crop box after rotation. API page ids are
 one-based; IR pages stay zero-based like every other extractor. No remote
@@ -29,6 +30,8 @@ image (crop URL) is ever fetched.
 from __future__ import annotations
 
 import base64
+import hashlib
+import http.client
 import io
 import ipaddress
 import json
@@ -257,6 +260,12 @@ class GlmOcrDocumentExtractor:
     def model_versions(self) -> dict[str, str]:
         return {"backend": self.backend, "recognition": RECOGNITION_MODEL, "layout": LAYOUT_MODEL}
 
+    def leaves_this_computer(self) -> bool:
+        """Whether reading sends the document off this computer: always for
+        z.ai, and for a self-hosted server not on a loopback address."""
+
+        return self.backend == "api" or not is_loopback_url(self.default_base_url)
+
     def extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR:
         if self.backend == "api" and not context.config.get("whole_file_upload_allowed"):
             raise GlmOcrConsentRequired(CONSENT_MESSAGE)
@@ -278,9 +287,15 @@ class GlmOcrDocumentExtractor:
             if not windows or page != windows[-1][-1] + 1 or len(windows[-1]) >= limit:
                 windows.append([])
             windows[-1].append(page)
+        # Paid answers are checkpointed per window (by the file's bytes and the
+        # pages), so a failure part-way, or reading it again, pays only for
+        # the windows not yet answered. Local runs cost nothing to repeat.
+        asset = hashlib.sha256(raw_bytes).hexdigest() if self.backend == "api" and context.checkpoints else None
         results: list[tuple[dict, list[int]]] = []
         for window in windows:
-            results.extend(self._window(raw_bytes, mime, reader, window, total_pages=len(sizes)))
+            results.extend(
+                self._window(raw_bytes, mime, reader, window, total_pages=len(sizes), context=context, asset=asset)
+            )
         outline = read_embedded_outline(raw_bytes) if reader is not None else []
         try:
             ir = responses_to_ir(results, sizes=sizes, outline=outline, version=self.version())
@@ -295,11 +310,20 @@ class GlmOcrDocumentExtractor:
 
     # One request per window; a window too big for the hosted file limit splits.
     def _window(
-        self, raw: bytes, mime: str, reader: Any, pages: list[int], *, total_pages: int
+        self, raw: bytes, mime: str, reader: Any, pages: list[int], *, total_pages: int,
+        context: ExtractionContext, asset: str | None = None,
     ) -> list[tuple[dict, list[int]]]:
+        key = self._checkpoint_key(asset, pages) if asset else None
+        saved = context.checkpoints.load(key) if key else None
+        if isinstance(saved, dict):
+            try:
+                _validated(saved, pages)
+                return [(saved, pages)]
+            except GlmOcrExtractionError:
+                pass  # an answer this mapping can't read is asked for again
         if self.backend == "local":
             images = _render_pages(raw, pages) if reader is not None else [_data_uri(mime, raw)]
-            return [(self._request({"images": images}, len(pages)), pages)]
+            return [(self._answer({"images": images}, pages, context), pages)]
         body = raw
         page_range: tuple[int, int] | None = None
         if reader is not None:
@@ -309,8 +333,10 @@ class GlmOcrDocumentExtractor:
                 if len(pages) == 1:
                     raise GlmOcrExtractionError("A single PDF page is larger than GLM-OCR's 50 MB limit")
                 middle = len(pages) // 2
-                return self._window(raw, mime, reader, pages[:middle], total_pages=total_pages) + self._window(
-                    raw, mime, reader, pages[middle:], total_pages=total_pages
+                return self._window(
+                    raw, mime, reader, pages[:middle], total_pages=total_pages, context=context, asset=asset
+                ) + self._window(
+                    raw, mime, reader, pages[middle:], total_pages=total_pages, context=context, asset=asset
                 )
             page_range = (1, len(pages))
         encoded = base64.b64encode(body).decode("ascii")
@@ -323,7 +349,25 @@ class GlmOcrDocumentExtractor:
         }
         if page_range is not None:
             payload["start_page_id"], payload["end_page_id"] = page_range
-        return [(self._request(payload, len(pages)), pages)]
+        result = self._answer(payload, pages, context)
+        if key:
+            context.checkpoints.save(key, result)
+        return [(result, pages)]
+
+    def _answer(self, payload: dict, pages: list[int], context: ExtractionContext) -> dict:
+        """One window's answer, read before the next window is paid for: a
+        layout LearnLoop can't read stops the run here, not after the book."""
+
+        result = self._request(payload, len(pages), interrupt=context.interrupt)
+        _validated(result, pages)
+        return result
+
+    def _checkpoint_key(self, asset: str, pages: list[int]) -> str:
+        # What decides the answer: the file, the pages, the backend and its
+        # models. Endpoint, timeout, price and the mapping never do.
+        identity = {"purpose": "glm_ocr_window", "asset_sha256": asset, "pages": list(pages),
+                    "backend": self.backend, "recognition": RECOGNITION_MODEL, "layout": LAYOUT_MODEL}
+        return "glm_ocr_window:" + hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
 
     def _endpoint(self) -> str:
         url = self.default_base_url.strip().rstrip("/")
@@ -336,7 +380,7 @@ class GlmOcrDocumentExtractor:
             raise GlmOcrExtractionError("Hosted GLM-OCR needs an https address")
         return url
 
-    def _request(self, payload: dict, page_count: int) -> dict:
+    def _request(self, payload: dict, page_count: int, *, interrupt=None) -> dict:
         from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
 
         url = self._endpoint()
@@ -350,11 +394,17 @@ class GlmOcrDocumentExtractor:
         data = json.dumps(payload).encode("utf-8")
         tokens = max(page_count * ESTIMATED_TOKENS_PER_PAGE, 1)
         usd = estimate(page_count, self.config, backend=self.backend)["estimated_usd"]
+        timed_out = False
         for attempt in range(_MAX_ATTEMPTS):
             wait: float | None = None
+            if interrupt is not None:
+                # Before every request, retries too: a cancellation or a book
+                # now kept on this computer stops what has not been sent.
+                interrupt()
             # One admission and one receipt per physical request. No money cap
-            # of its own (owner policy): the shared envelopes (an automatic
-            # build's daily guard) and the metered request gate still apply.
+            # of its own (owner policy). A shared spend envelope or metered
+            # request gate in force around the call would also apply; the
+            # import jobs that run GLM-OCR today install neither.
             budget = SpendBudget(SpendCaps(max_estimated_usd=None, max_total_tokens=tokens))
             with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=usd)) as charge:
                 with model_call(self, purpose="document_layout_recognition", budget=tokens) as receipt:
@@ -389,9 +439,17 @@ class GlmOcrDocumentExtractor:
                             raise GlmOcrExtractionError(f"GLM-OCR HTTP {exc.code}{suffix}") from None
                     except (URLError, TimeoutError, OSError) as exc:
                         reason = getattr(exc, "reason", exc)
-                        if isinstance(reason, TimeoutError):
+                        if not isinstance(reason, TimeoutError):
+                            raise GlmOcrExtractionError("Could not reach GLM-OCR") from None
+                        receipt.update(status="failed", error_type="TimeoutError")
+                        if timed_out or attempt + 1 >= _MAX_ATTEMPTS:
                             raise GlmOcrExtractionError("GLM-OCR did not answer in time") from None
-                        raise GlmOcrExtractionError("Could not reach GLM-OCR") from None
+                        # A slow window is asked once more (a long scanned
+                        # window can outlast one wait), then it fails.
+                        timed_out, wait = True, 0.0
+                    except http.client.HTTPException:
+                        # IncompleteRead, BadStatusLine, LineTooLong: not OSErrors.
+                        raise GlmOcrExtractionError("GLM-OCR's answer was cut off") from None
                     except (ValueError, TypeError):
                         raise GlmOcrExtractionError("GLM-OCR returned invalid JSON or usage") from None
                     finally:
@@ -519,7 +577,12 @@ def _render_pages(raw: bytes, pages: list[int]) -> list[str]:
         raise GlmOcrExtractionError(
             "Local GLM-OCR needs pypdfium2 to show it PDF pages (uv sync --extra glm-ocr)"
         ) from None
-    document = pdfium.PdfDocument(raw)
+    # pdfium's own errors (PdfiumError) are failures to read the document, so
+    # under "auto" they fall back like any other GLM-OCR failure.
+    try:
+        document = pdfium.PdfDocument(raw)
+    except Exception as exc:  # noqa: BLE001
+        raise GlmOcrExtractionError("Could not render the PDF's pages for local GLM-OCR") from exc
     images: list[str] = []
     try:
         for index in pages:
@@ -534,6 +597,8 @@ def _render_pages(raw: bytes, pages: list[int]) -> list[str]:
             finally:
                 page.close()
             images.append(_data_uri("image/png", out.getvalue()))
+    except Exception as exc:  # noqa: BLE001
+        raise GlmOcrExtractionError("Could not render the PDF's pages for local GLM-OCR") from exc
     finally:
         document.close()
     return images
@@ -615,6 +680,19 @@ def _page_regions(result: dict, count: int, page_ids: list[int] | None = None) -
     return pages, shape
 
 
+def _validated(result: dict, pages: list[int]) -> None:
+    """Raise unless ``result`` holds a readable layout for exactly ``pages``."""
+
+    try:
+        _page_regions(result, len(pages), pages)
+    except GlmOcrExtractionError:
+        raise
+    except (ValueError, TypeError, KeyError, AttributeError, IndexError) as exc:
+        raise GlmOcrExtractionError(
+            f"GLM-OCR returned layout details LearnLoop can't read ({type(exc).__name__})"
+        ) from None
+
+
 def _page_dimensions(result: dict) -> list[dict]:
     pages = (result.get("data_info") or {}).get("pages") if isinstance(result.get("data_info"), dict) else None
     return [page if isinstance(page, dict) else {} for page in pages] if isinstance(pages, list) else []
@@ -625,8 +703,10 @@ def _bbox(region: dict, target: tuple[float, float], page: dict) -> list[float] 
 
     Declared spaces win (``coordinate_system``/``bbox_format``: ``0-1``,
     ``0-1000``, ``pixels``). Otherwise: all values <= 1 are fractions; a box
-    with a known page pixel size (hosted: region ``width``/``height`` or
-    ``data_info.pages``) is in pixels; else 0-1000 (the self-hosted SDK)."""
+    with a known page pixel size is in pixels; else 0-1000 (the self-hosted
+    SDK). The page size is ``data_info.pages`` (the only size the SDK scales
+    hosted boxes by); a region's own ``width``/``height`` serves only when
+    that is missing, since it may be the region's size, not the page's."""
 
     raw = region.get("bbox_2d", region.get("bbox"))
     if not isinstance(raw, (list, tuple)) or len(raw) != 4:
@@ -637,8 +717,8 @@ def _bbox(region: dict, target: tuple[float, float], page: dict) -> list[float] 
         return None
     if not all(math.isfinite(value) for value in values):
         return None
-    width = _positive(region.get("width")) or _positive(page.get("width"))
-    height = _positive(region.get("height")) or _positive(page.get("height"))
+    width = _positive(page.get("width")) or _positive(region.get("width"))
+    height = _positive(page.get("height")) or _positive(region.get("height"))
     space = str(region.get("coordinate_system") or region.get("bbox_format") or "").lower()
     if space in {"0-1", "normalized", "normalised", "relative"}:
         scale = (1.0, 1.0)

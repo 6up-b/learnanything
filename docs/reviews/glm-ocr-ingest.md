@@ -142,3 +142,70 @@ These instructions were not executed here (no GPU or model download). Run them i
 4. **Every import using hosted GLM-OCR asks for the whole-file OK,** not only Adds, because GLM-OCR is now the default reader. The OK is once per library.
 5. **Desktop reference validators.** `desktop_validate.py` (an unclassified `copy/denyList.ts` from UX Phase 1) and `module_validate.py` (662 missing module notes) already fail at the base commit. Neither is part of this gate and neither was touched.
 6. **The hand-written template note** (`Reference/Configuration/learnloop.toml.md`) predates several template changes (it still shows `algorithm_version = "mvp-0.9"` and an older layout). Only its `[ingest.pdf]` lines were updated here; regenerating it from `DEFAULT_CONFIG_TEXT` is a separate chore.
+
+## Second review (2026-10-14)
+
+An independent review of `e5f880778..c13ebeca9` (the whole diff, checked against the glmocr 0.1.5 SDK source in `fixtures-local/glmocr-src.mvnJ`) reported nine findings and five claims in this record and the spec that did not hold. Each finding was first reproduced by a fake-only test that failed on `c13ebeca9` for the reported reason, then fixed. The tests are the `test_r2_*` section of `tests/test_glm_ocr.py` (14 tests, no network: `_open` and the local probe are faked). Two were written after their main fix. The F2 card-path test failed until the card showed a re-read's OK request. The F9 kept-local image test was confirmed to fail with its fix taken out.
+
+| # | Finding | Reproduced (before the fix) | Resolution |
+|---|---|---|---|
+| F1 (High) | **A kept-local book went to a "local" server on another computer** under an explicit `glm_ocr` engine. `pdf_extractor_for` retried `selected_backend` without `keep_local`, and the guard covered only `backend == "api"`. | With `backend = "local"`, `local_url = http://gpu-box.invalid:5002/...` and a kept-local book, `default_extraction_identity` and `default_extract` did not raise (the extract would have posted the pages there). | `GlmOcrDocumentExtractor.leaves_this_computer()` (z.ai, or a non-loopback `local_url`). `jobs._document_extractor` refuses a kept-local book with `kept_local` (flow `glm_ocr_server`: "reading it here would send it to the text recognition server on another computer"); the same check runs again before every request (F4). A loopback server still reads kept-local books; a book not kept here may use the owner's server without the OK. |
+| F2 (Medium) | **With a key, `learnloop import` and Ingest-screen imports failed on the OK** and had no way to give it. | A plain `JobSpec("import", {"source": pdf})` under `auto` failed with `needs_upload_ok`, nothing read. | Under `auto`, an import that cannot show an OK card (no `require_upload_ok`: the CLI, the Ingest screen, a repair) and lacks the z.ai OK reads locally (local Marker, else pypdf; never hosted Marker), flagged `glm_ocr_needs_upload_ok`, as the legacy path does. The card says "This is a plainer reading — text recognition can read it better" with "Read it with text recognition", which re-reads through the Add path and asks the OK on the card. The end-to-end test found a second gap: a book that already had a reading never showed its re-read's OK request (the card looked only at the completed reading), so "Read it with text recognition" was a dead end. The card now shows the latest import's `needs_upload_ok`. An explicit `glm_ocr` engine still refuses rather than switch, now saying "Add it from the Library to say OK, or choose another PDF engine". The Ingest screen's preview matches: a PDF under `auto` without the OK previews as the local reader with no upload. **Rejected part:** an OK action on the Ingest screen and the CLI, and finding import jobs through `result`/`_revision_id`. Once `auto` reads locally neither is needed, and both widen the change. |
+| F3 (Medium) | **Any earlier whole-file OK silently covered z.ai.** | A library with `ai.consent.whole_files` (an OK to transcribe a recording, or to send a PDF to "your AI") uploaded to z.ai on Add with no prompt. | z.ai has its own record, `ai.consent.whole_files_zai` (`GLM_OCR_UPLOAD_CONSENT`). `file_upload_allowed(config, flow)` checks the record for the flow, and the guard, the legacy path and the preview use it. The card's OK records the OK that its line named (`pending_upload_flow` reads the waiting import's flow). Neither OK covers the other. |
+| F4 (Medium) | **Cancelling, or "Keep this book on this computer", did not stop the remaining windows.** | With a 65-page book (three windows), a batch cancelled after the first window, or the book kept local after it, still sent all three. | `ExtractionContext.interrupt` (with `checkpoints`, a runtime hook that is never hashed) is called before every request, retries included. The import's hook raises `SpendCancelled` on cancellation (never a fallback; the runner records the job as cancelled), and `kept_local` when `repo.source_kept_local` now says so (`handle_import` keeps `_source_id` for it). A request already under way is not recalled, as `keep_on_this_computer` says. |
+| F5 (Low) | **A failure part-way threw away the paid windows**, timeouts were never retried, and the 180 s default was under the SDK's 300 s. | Window 3 of 3 failing, then "Try again", sent all three windows again (6 requests). A first timeout failed at once. | Hosted windows are checkpointed in `model_work_checkpoints` (purpose `glm_ocr_window`). The key is the file's SHA-256, the pages, the backend and its models; endpoint, timeout, price and mapping are left out. A retry or a re-read sends only the windows not yet answered (4 requests), and a stored answer that no longer reads is asked again. Each window's answer is checked before the next window is sent, so a malformed answer stops at window 1 instead of after the book. A timeout is retried once. `request_timeout_seconds` defaults to 300, the SDK's `MaaSConfig.request_timeout` (`config.py`, `config.yaml`). All fourteen defaults snapshots were recomputed. |
+| F6 (Low) | **`http.client.HTTPException` (IncompleteRead, BadStatusLine, LineTooLong) and pdfium errors escaped the fallback.** | An `IncompleteRead` from `response.read()` raised raw; `_render_pages` on a broken PDF raised `PdfiumError`. | Both become `GlmOcrExtractionError` ("GLM-OCR's answer was cut off" / "Could not render the PDF's pages…"), so under `auto` they fall back. |
+| F7 (Low) | **A stand-in run was stored with GLM-OCR's model versions.** | A GLM failure read by pypdf stored `extractor=pypdf` with `{"backend": "api", "recognition": …, "layout": …}`. | `jobs._actual_model_versions`: when the IR carries `<chosen>_failed_<actual>_fallback`, the run (and its actual request hash) records the stand-in's versions plus `fallback_from` (`extractors.fallback_model_versions`). `fallback_from` also keeps a stand-in run separate from the same extractor chosen directly. This also applies to the older Marker→pypdf fallback: such a run now hashes differently, so re-importing that book reads it once more with pypdf (local, free) instead of reusing the old run. |
+| F8 (Low) | **Region `width`/`height` were preferred over `data_info.pages`.** | A region whose own size was 980×159 on a 1224×1584 page was clamped to `[76.19, 787.02, 612.0, 792.0]`. | `data_info.pages` first (the only size the SDK's `_maas_response_to_pipeline_result` scales by); a region's size only when that is missing. |
+| F9 (Low) | **A kept-local scan said "isn't set up… paste a z.ai API key"** even with a key saved. | The failure line and the health line offered "Set it up" with the key how-to for a kept-local book. | Kept-local books get "This book is never sent to an AI, so only text recognition running on this computer could read the words of a scan", with no action. Like every kept-local line it says "never sent to an AI", not "kept on this computer" (`test_ux_phase1_finish::test_6`; the first full-suite run caught the first wording). A kept-local image that no local reader can read now refuses as `kept_local` ("Never sent to an AI — this image can't be read here") instead of "Text recognition isn't set up". |
+
+**Claims corrected** (the spec's GLM-OCR section is rewritten to match; the lines above in this record stand as written then):
+
+1. **Kept-local books and local servers.** The guard now covers both backends (F1). A local server counts for a kept-local book only on a loopback address, and an explicit `glm_ocr` refuses either backend with `kept_local`.
+2. **"Every import using hosted GLM-OCR asks for the OK, worded with z.ai."** Now true, through its own record (F3). Imports that cannot ask read locally under `auto` until it is given (F2).
+3. **"The shared envelopes and an automatic build's metered request gate still apply."** This was vacuous: GLM-OCR runs only in import jobs, which install neither. The code comment and the spec now say that a gate in force would apply and that none is installed today. Cancellation is now observed (F4).
+4. **"The legacy path's reason is recorded."** It is not. `PdfExtraction.selection_reason` is set, but the legacy ingest (`source_ingestion._pdf_markdown`) keeps only the Markdown and has no health record. The claim is withdrawn and the code is left as it is; adding a health record to the legacy path is outside this change.
+5. **"The SDK documents hosted sizes in the region's width/height and in data_info.pages."** It reads only `data_info.pages` (F8). The module docstring is corrected.
+
+**Changed beyond the findings, because a fix needed it:** the book card shows a re-read's `needs_upload_ok` (F2), and the acquisition preview follows the F2 selection.
+
+### Tests
+
+- `tests/test_glm_ocr.py`: 56 tests (42 before). The new `test_r2_*` tests cover:
+  - F1: a kept-local book with an explicit engine and a server elsewhere; the same server used by a book that is not kept local; loopback still allowed.
+  - F2: a plain import reading locally with its flag and card action; the explicit engine's words; the card's re-read → OK → GLM-OCR path, end to end through the sidecar.
+  - F3: an earlier `whole_files` OK never covering z.ai; the card's OK recording `whole_files_zai`; neither OK covering the other.
+  - F4: cancellation and keep-local mid-book, through `default_extract`.
+  - F5: a timeout retried once; a malformed window stopping the run; checkpointed windows on "Try again" through the durable Add.
+  - F6: `IncompleteRead` and an unrenderable page.
+  - F7: the stored run's model versions.
+  - F8: `data_info.pages` before a region's size.
+  - F9: the kept-local failure and health lines, and a kept-local image.
+- Updated:
+  - the default timeout (300) in the first hosted-request test;
+  - four tests now grant `whole_files_zai`, the OK they rely on;
+  - the preview test (a PDF without the OK previews locally; an image still names the upload).
+
+### Gate (second review)
+
+The suites ran with `TMPDIR=fixtures-local/tmp` under `flock /tmp/learnloop-fullsuite.lock`, on a machine shared with other worktrees' suites.
+
+- `uv run lint-imports --no-cache`: 17 kept, 0 broken.
+- Full suite, first run (`pytest -n auto`): 10663 passed, **1 failed**. `test_ux_phase1_finish::test_6_a_book_never_sent_to_an_ai_says_so_plainly` failed because the two new kept-local sentences said "kept on this computer" or "never sent off this computer". Every kept-local line must say "never sent to an AI" instead (finishing-pass item 6). The sentences and the F9 scan details were reworded.
+- Full suite, rerun on the final code: **10664 passed**.
+- Durability lane (`pytest -m durability`): **99 passed** (10565 deselected).
+- Defaults snapshots: all fourteen recomputed for the 300 s timeout (`test_mvp021_upgrade` passes).
+- References:
+  - `db_generate_reference.py`, then `db_validate_reference.py`: no errors (the config reference now shows `request_timeout_seconds` = 300; no new configuration leaves).
+  - `validate_vault.py`: passed (1102 notes).
+- Unchanged, so not rerun:
+  - the CLI help snapshot (no CLI change);
+  - the frontend and `cargo` (nothing under `apps/` changed).
+- No network was used: every GLM-OCR request in the tests goes to a fake `_open`, and the local probe is faked. No key was read or printed.
+
+### Open questions for the owner (second review)
+
+1. **An OK button for explicit-engine imports.** On the Ingest screen or through `learnloop import`, an explicit `glm_ocr` engine without the z.ai OK refuses and points to the Library, because neither surface can give the OK. `auto` no longer needs one. Should the Ingest screen get an OK of its own?
+2. **OKs given on this branch before the fix** were stored as `whole_files` and no longer cover z.ai, so each such library asks once more. Only scratch libraries made on this branch are affected.
+3. **Window checkpoints are kept indefinitely.** `model_work_checkpoints` has no pruning. A 600-page book keeps 20 window answers, which hold its recognised text (also stored in its extraction). Should old ones be pruned, for example when the book is removed?
+4. **Older Marker→pypdf fallback runs re-read once.** Because of F7, a book whose Marker run fell back to pypdf is read once more by pypdf on its next re-import. This happens locally, costs nothing and is reused from then on.

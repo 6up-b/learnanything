@@ -56,6 +56,8 @@ __all__ = [
     "captions_to_ir",
     "chunk_output_to_ir",
     "extract_with_fallback",
+    "fallback_model_versions",
+    "local_pdf_extractor",
     "markdown_to_ir",
     "marker_available",
     "marker_package_version",
@@ -90,8 +92,9 @@ def pdf_extractor_for(config: dict | None = None, *, keep_local: bool = False) -
     the native-text fallback. ``config["glm_ocr"]`` holds the
     ``[ingest.pdf.glm_ocr]`` settings and, like ``engine``, never reaches a
     provider's options. ``keep_local``: a book kept on this computer never
-    selects hosted GLM-OCR in ``"auto"`` (an explicit ``"glm_ocr"`` still
-    returns it, so the import's upload guard refuses with its own words)."""
+    selects hosted GLM-OCR, or a self-hosted server on another computer, in
+    ``"auto"``; an explicit ``"glm_ocr"`` still returns either, so the
+    import's guard (``jobs._document_extractor``) refuses with its own words."""
 
     settings = dict(config or {})
     engine = str(settings.pop("engine", "") or "auto")
@@ -139,6 +142,25 @@ def pdf_extractor_for(config: dict | None = None, *, keep_local: bool = False) -
     return extractor
 
 
+def local_pdf_extractor(config: dict | None = None) -> DocumentExtractor:
+    """What reads a PDF without it leaving this computer: local Marker when
+    installed, else pypdf (never hosted Marker, which needs its own OK)."""
+
+    options = {k: v for k, v in (config or {}).items() if k not in {"engine", "glm_ocr"}}
+    return MarkerDocumentExtractor(config=options) if marker_available() else PyPdfDocumentExtractor()
+
+
+def fallback_model_versions(extractor_name: str) -> dict[str, str]:
+    """The model versions of the local extractor that stood in for the one
+    chosen (:func:`extract_with_fallback`), for the stored extraction run."""
+
+    if extractor_name == "marker":
+        return MarkerDocumentExtractor().model_versions()
+    if extractor_name == "pypdf":
+        return PyPdfDocumentExtractor().model_versions()
+    return {}
+
+
 def extract_with_fallback(
     raw_bytes: bytes, extractor: DocumentExtractor, config: dict, context: ExtractionContext
 ):
@@ -162,8 +184,7 @@ def extract_with_fallback(
         if str(config.get("engine") or "auto") != "auto" or is_image_document(raw_bytes):
             raise
         if extractor.name == EXTRACTOR_NAME_GLM and isinstance(exc, GlmOcrExtractionError):
-            options = {k: v for k, v in config.items() if k not in {"engine", "glm_ocr"}}
-            fallback = MarkerDocumentExtractor(config=options) if marker_available() else PyPdfDocumentExtractor()
+            fallback = local_pdf_extractor(config)
         elif extractor.name == "marker":
             fallback = PyPdfDocumentExtractor()
         else:
@@ -179,7 +200,8 @@ def extract_with_fallback(
         flag = f"{extractor.name}_failed_{fallback.name}_fallback"
         if flag not in ir.health.flags:
             ir.health.flags.append(flag)
-        return ir
+    # Why this extractor was chosen holds whichever read it in the end (a
+    # local reading while the z.ai OK is missing stays offered an upgrade).
     reason = getattr(extractor, "selection_reason", None)
     if reason and reason not in ir.health.flags:
         ir.health.flags.append(reason)

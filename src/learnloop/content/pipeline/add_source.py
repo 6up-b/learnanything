@@ -70,6 +70,10 @@ DATA_FLOW = "passages_and_answers"
 # service, a whole PDF to a model that reads PDFs (spec §6.6, review F1).
 FILE_UPLOAD_CONSENT = "whole_files"
 FILE_UPLOAD_DATA_FLOW = "whole_files"
+# The OK that named z.ai (GLM-OCR), its own record (second review F3): an
+# earlier OK for "your AI" or an online transcription service never covers
+# sending a whole document to z.ai, nor does this one cover them.
+GLM_OCR_UPLOAD_CONSENT = "whole_files_zai"
 KEPT_LOCAL_BUILD_MESSAGE = "This book is never sent to an AI, so no questions are written for it."
 # Automatic builds' batch ids: ``batch_auto_<planner job id>`` (review F3).
 AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
@@ -525,12 +529,36 @@ def what_leaves(label: str) -> str:
     )
 
 
-def file_upload_allowed(config) -> bool:
-    """The learner's separate OK for sending a whole file out (a recording to
-    be transcribed, a whole PDF to a model that reads PDFs). The connection's
-    OK covers passages and answers only (spec §6.6)."""
+def upload_consent_key(flow: str | None) -> str:
+    """Which recorded OK covers an upload ``flow`` (jobs' guard flows)."""
 
-    return FILE_UPLOAD_CONSENT in config.ai.consent
+    return GLM_OCR_UPLOAD_CONSENT if flow == "glm_ocr_upload" else FILE_UPLOAD_CONSENT
+
+
+def file_upload_allowed(config, flow: str | None = None) -> bool:
+    """The learner's separate OK for sending a whole file out (a recording to
+    be transcribed, a whole PDF to a model that reads PDFs, a document to z.ai
+    for GLM-OCR, which has its own). The connection's OK covers passages and
+    answers only (spec §6.6)."""
+
+    return upload_consent_key(flow) in config.ai.consent
+
+
+def pending_upload_flow(repo, *, source_id: str | None = None, batch_id: str | None = None) -> str | None:
+    """The upload a book's (or an Add's) import is waiting for the OK on, so
+    the OK given is the one its card named."""
+
+    if source_id:
+        jobs = import_jobs(repo, source_id)[:1]  # the import the card speaks for
+    elif batch_id:
+        jobs = [job for job in repo.ingest_jobs_for_batch(batch_id) if job["job_type"] == "import"]
+    else:
+        jobs = []
+    for job in jobs:
+        error = job.get("error") or {}
+        if error.get("code") == "needs_upload_ok":
+            return str((error.get("details") or {}).get("flow") or "") or None
+    return None
 
 
 def authoring_route_for(vault_root: Path, config) -> AuthoringRoute:
@@ -1919,6 +1947,19 @@ _SCAN_DETAILS = (
     + TEXT_RECOGNITION_HOW_TO
     + " The pages still show in the Reader meanwhile."
 )
+# A book kept on this computer: a z.ai key can't help it (second review F9).
+# Its words say "never sent to an AI", as every kept-local line does (UX
+# Phase 1 finishing pass, item 6).
+_SCAN_DETAILS_KEPT_LOCAL = (
+    "This book is never sent to an AI, so only text recognition running on this computer "
+    "could read the words of a scan. The pages still show in the Reader meanwhile."
+)
+
+
+def _scan_unreadable(text: str, keep_local: bool) -> dict[str, Any]:
+    if keep_local:
+        return _line(text, "quiet", None, _SCAN_DETAILS_KEPT_LOCAL)
+    return _line(text, "quiet", ("open_settings", "Set it up"), _SCAN_DETAILS)
 
 
 def _is_scan_failure(lowered: str) -> bool:
@@ -1956,8 +1997,8 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
         # The extractor's own words ("install marker-pdf for OCR support") are
         # not for the learner: the details say how to get it (usability round 2),
         # and Settings, where the z.ai key goes, is one tap away.
-        return _line("This PDF is a scan — LearnLoop can show its pages but can't read them yet", "quiet",
-                     ("open_settings", "Set it up"), _SCAN_DETAILS)
+        return _scan_unreadable("This PDF is a scan — LearnLoop can show its pages but can't read them yet",
+                                keep_local)
     if category in {"web", "arxiv", "youtube"} or any(
         marker in lowered for marker in ("http", "fetch", "connection", "timed out", "timeout", "network", "unreachable")
     ):
@@ -1997,23 +2038,28 @@ def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
     scanned = any(
         "image_only_page" in (page.get("flags") or []) for page in health.get("pages") or [] if isinstance(page, Mapping)
     )
+    keep_local = repo.source_kept_local(source_id)
     if scanned:
-        if text_recognition_available(keep_local=repo.source_kept_local(source_id), config=config):
+        if text_recognition_available(keep_local=keep_local, config=config):
             return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
         # Say so, no dead end (usability round 1, U7): Settings takes the key.
-        return _line("Some pages look scanned — their words can't be read here yet", "quiet",
-                     ("open_settings", "Set it up"), _SCAN_DETAILS)
+        return _scan_unreadable("Some pages look scanned — their words can't be read here yet", keep_local)
     glm_failed = sorted(flag for flag in flags if flag.startswith("glm_ocr_failed_"))
     if glm_failed:
         # GLM-OCR failed at run time (offline, the service busy) and a plainer
         # local reading stands in: one action reads it again.
         action = (
             ("text_recognition", "Read it again")
-            if text_recognition_available(keep_local=repo.source_kept_local(source_id), config=config)
+            if text_recognition_available(keep_local=keep_local, config=config)
             else None
         )
         return _line("Text recognition didn't work this time, so this is a plainer reading", "quiet",
                      action, glm_failed[0])
+    if "glm_ocr_needs_upload_ok" in flags and text_recognition_available(keep_local=keep_local, config=config):
+        # Imported where no OK could be asked (the Ingest screen, `learnloop
+        # import`), so read locally: reading it again asks the OK here.
+        return _line("This is a plainer reading — text recognition can read it better", "quiet",
+                     ("text_recognition", "Read it with text recognition"), "glm_ocr_needs_upload_ok")
     if "marker_failed_pypdf_fallback" in flags:
         return _line("Maths may look rough in the text view", "quiet", ("open_settings", "Fix it"),
                      "marker_failed_pypdf_fallback")
@@ -2102,6 +2148,13 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if latest_import["status"] in {"failed", "blocked", "cancelled"}:
             return _import_failure_line(latest_import, category, keep_local=bool(artifact.get("keep_local")), config=vault.config if vault else None)
         return _line(f"Getting this {noun} ready", "working")
+
+    imports = import_jobs(repo, source_id)
+    if imports and imports[0]["status"] == "failed" and (imports[0].get("error") or {}).get("code") == "needs_upload_ok":
+        # A reading asked for again (text recognition) waits for the OK its
+        # upload needs; the card asks it, or that read never happens.
+        return _import_failure_line(imports[0], category, keep_local=bool(artifact.get("keep_local")),
+                                    config=vault.config if vault else None)
 
     latest, outcome = latest_planner(repo, source_id)
     if latest is None:
@@ -2399,6 +2452,8 @@ __all__ = [
     "ensure_subject",
     "estimate_usd",
     "file_upload_allowed",
+    "pending_upload_flow",
+    "upload_consent_key",
     "keep_ahead_for_reader",
     "keep_on_this_computer",
     "kind_noun",

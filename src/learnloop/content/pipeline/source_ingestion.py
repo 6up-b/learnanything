@@ -2124,7 +2124,7 @@ def _pdf_markdown(root: Path, pdf_bytes: bytes, pdf_config: PdfIngestConfig | No
         extraction = extract_pdf_markdown(
             pdf_bytes, config=pdf_config, cache_dir=cache_dir,
             # Hosted GLM-OCR sends the whole file: only with the learner's
-            # one-time whole-file OK (else auto reads it locally).
+            # one-time OK naming z.ai (else auto reads it locally).
             whole_file_upload_allowed=_whole_file_upload_allowed(root),
         )
     except PdfExtractionError as exc:
@@ -2140,7 +2140,7 @@ def _whole_file_upload_allowed(root: Path) -> bool:
     if not path.is_file():
         return False
     try:
-        return file_upload_allowed(load_config(path))
+        return file_upload_allowed(load_config(path), "glm_ocr_upload")
     except Exception:  # noqa: BLE001 - an unreadable config grants nothing
         return False
 
