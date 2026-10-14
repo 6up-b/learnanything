@@ -94,11 +94,9 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     None (nothing sent) when the attempt is not a graded teach-back, is exam
     or reserved material, or is already summarized; a model failure is logged."""
 
-    from learnloop.ai.execution import record_model_calls
     from learnloop.ai.transport import execute_structured_operation
     from learnloop.daily_plan.router_card import CardGatherer
     from learnloop.daily_plan.router_runtime import LLM, SUMMARY_RECEIPT_OWNER, SpendRefused
-    from learnloop.clock import utc_now_iso
 
     key = CACHE_PREFIX + attempt_id
     if repository.model_checkpoint(key) is not None:
@@ -122,30 +120,26 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     except Exception:  # noqa: BLE001 - not set up: no summary
         return None
     from learnloop.ai.spend import is_subscription_transport
-    from learnloop.daily_plan.router_runtime import _price_per_million, _supports_isolation
+    from learnloop.daily_plan.router_runtime import _supports_isolation
 
     subscription = bool(is_subscription_transport(client=client))
-    usd = 0.0 if subscription else (len(prompt) / 4 + 4096) * _price_per_million(
-        vault.config, getattr(client, "provider_name", None)) / 1_000_000
-    try:
-        handle = runtime.spend.admit(repository, vault.config, usd=usd, subscription=subscription, now_iso=utc_now_iso())
-    except SpendRefused:
-        LOG.info("router R2c: teach-back summary of %s refused by the daily guard", attempt_id)
-        return None
     started = time.monotonic()
     try:
-        with record_model_calls(repository, owner_kind=SUMMARY_RECEIPT_OWNER, owner_id=attempt_id):
+        # Every physical request (a transport retry or a JSON repair included)
+        # is admitted by the router's daily guard in its start receipt.
+        with runtime.spend.metered(repository, vault.config, owner_kind=SUMMARY_RECEIPT_OWNER, owner_id=attempt_id):
             # An isolated turn, as the blind grader reads the same dialogue:
             # no tools, files, memories or MCP servers beside the prompt.
             answer = execute_structured_operation(
                 client, purpose=PURPOSE, prompt=prompt, result_model=TeachBackSummary,  # type: ignore[arg-type]
                 timeout_seconds=TIMEOUT_SECONDS, isolated=_supports_isolation(client),
             )
+    except SpendRefused:
+        LOG.info("router R2c: teach-back summary of %s refused by the daily guard", attempt_id)
+        return None
     except Exception:  # noqa: BLE001 - a summary is context; its failure is logged, never raised
         LOG.warning("router R2c: the teach-back summary of %s failed", attempt_id, exc_info=True)
         return None
-    finally:
-        runtime.spend.release(handle)
     summary = {
         "version": VERSION,
         "attempt_id": str(attempt["id"]),

@@ -8,9 +8,14 @@ Phase 1 substrate under the record kind ``decision/context``.
 
 * **When it embeds.** The current decision's context is embedded at prefetch
   (it is also the query); the vector is written under the decision's id after
-  the decision commits (the ``plan_block`` logger, in its own savepoint).
+  the decision commits (the ``plan_block`` logger, in its own savepoint). The
+  query embedding is a metered request like the models': the router's daily
+  guard admits it before it is sent (``RouterSpend.metered``; Codex review
+  F3), and a refusal is a logged ``unavailable`` (reason ``spend``).
   ``learnloop router embed-decisions`` backfills the decisions that have none
-  (``--dry-run`` first).
+  through the shared embedding backfill (``ops.embedding_backfill``): its own
+  enforced caps (calls, tokens, dollars), a priced ``--dry-run`` first, the
+  embedding switches and lock, and receipts owned by ``embedding_backfill``.
 * **What may be shown** (G5). A past decision qualifies only when its outcome
   had matured before the current decision's time (its R_next or R_cold
   attempt was made earlier), it was made in another session and another
@@ -295,10 +300,15 @@ def prepare(
     text = context_text(card_json)
     digest = content_hash(text)
     model_id = str(getattr(embedding_client, "model_id", "") or "")
+    from learnloop.daily_plan.router_runtime import SpendRefused
+
     try:
         with embedding_request_timeout(EMBEDDING_TIMEOUT_SECONDS):
             vectors = embedding_client.embed([text], TASK_PREFIX)
         vector = [float(value) for value in vectors[0]]
+    except SpendRefused:
+        # The router's daily guard refused the query embedding before it was sent.
+        return {"status": UNAVAILABLE, "reason": "spend", "rate": rate}
     except Exception as exc:  # noqa: BLE001 - retrieval is context; its failure is logged, never blocking
         return {"status": UNAVAILABLE, "reason": type(exc).__name__, "rate": rate}
     context_vector = {
@@ -335,20 +345,37 @@ def prepare(
     }
 
 
-def backfill(vault: Any, repository: Any, embedding_client: Any | None, *, dry_run: bool, limit: int | None = None,
-             batch_size: int = 32) -> dict[str, Any]:
+def backfill(
+    vault: Any,
+    repository: Any,
+    *,
+    caps: Any,
+    dry_run: bool,
+    limit: int | None = None,
+    batch_size: int = 32,
+    price_per_million: float | None = None,
+    client_factory: Any = None,
+    cancelled: Any = None,
+) -> dict[str, Any]:
     """Embed the ``decision/context`` of every logged decision that has no vector yet.
 
-    ``dry_run`` counts and estimates, sends nothing and writes nothing."""
+    Runs through the shared embedding backfill (``ops.embedding_backfill``,
+    Codex review F3): ``caps`` (a ``SpendCaps``) is enforced before each
+    request, ``dry_run`` plans with a priced estimate and sends and writes
+    nothing, paid work needs ``embedding.enabled`` and
+    ``embedding.backfill_enabled``, and receipts are owned by
+    ``embedding_backfill``. ``limit`` embeds at most that many of the
+    decisions still without a vector."""
 
     from learnloop.db.connection import connect
-    from learnloop.db.stores.embedding_vectors import get_vector, put_vector
+    from learnloop.db.stores.embedding_vectors import get_vector
+    from learnloop.ops.embedding_backfill import backfill_embeddings
     import sqlite3
 
+    model_id = str(vault.config.embedding.model)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         connection.row_factory = sqlite3.Row
         records = decision_context_records(connection)
-        model_id = str(getattr(embedding_client, "model_id", "") or vault.config.embedding.model)
         pending = [
             record for record in records
             if get_vector(connection, record_kind=RECORD_KIND, record_id=record.record_id, field=FIELD,
@@ -356,27 +383,13 @@ def backfill(vault: Any, repository: Any, embedding_client: Any | None, *, dry_r
         ]
     if limit is not None:
         pending = pending[: max(int(limit), 0)]
-    tokens = sum(len(record.text.encode("utf-8")) // 4 + 1 for record in pending)
-    report: dict[str, Any] = {
-        "recipe": RECIPE, "model_id": model_id, "decisions": len(records), "pending": len(pending),
-        "estimated_tokens": tokens, "dry_run": dry_run, "embedded": 0,
-    }
-    if dry_run or not pending:
-        return report
-    if embedding_client is None:
-        report["status"] = "unavailable"
-        report["reason"] = "embedding.enabled is off or the embedding route is not ready"
-        return report
-    for offset in range(0, len(pending), batch_size):
-        batch = pending[offset:offset + batch_size]
-        vectors = embedding_client.embed([record.text for record in batch], TASK_PREFIX)
-        with closing(connect(repository.sqlite_path)) as connection, connection:
-            for record, vector in zip(batch, vectors, strict=True):
-                put_vector(connection, record_kind=RECORD_KIND, record_id=record.record_id, field=FIELD,
-                           content_hash=record.content_hash, model_id=model_id, task_prefix=TASK_PREFIX,
-                           vector=vector)
-        report["embedded"] += len(batch)
-    report["status"] = "complete"
+    report = backfill_embeddings(
+        vault, caps=caps, dry_run=dry_run, recipes=(), batch_size=batch_size,
+        price_per_million=price_per_million, cancelled=cancelled, client_factory=client_factory,
+        extra_records=pending, extra_recipes=(RECIPE,),
+    )
+    report["recipe"] = RECIPE
+    report["decisions"] = len(records)
     return report
 
 

@@ -329,25 +329,128 @@ def test_the_daily_guard_refuses_metered_calls_and_never_a_subscription_call(tmp
 def test_the_daily_guard_counts_todays_router_receipts(tmp_path):
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(cost=0.40), llm=FakeLLM()),
                       toml="[router]\nmax_daily_cost_usd = 0.30\n")
-    from learnloop.ai.execution import record_model_calls
+    from learnloop.ai.execution import model_call, record_model_calls, report_call_usage
     from learnloop.daily_plan.router_runtime import RouterSpend, SpendRefused
 
+    class Client:
+        provider_name = "openrouter_decider"
+        provider_type = "decider"
+        model = "m"
+
+        def __init__(self, usd):
+            self.usd = usd
+            self.sent = 0
+
+        def estimated_cost(self, input_tokens):
+            return self.usd
+
+        def send(self):
+            with model_call(self, purpose="router_decision", prompt="x"):
+                self.sent += 1
+                report_call_usage({"cost": self.usd})
+
     with record_model_calls(env.repository, owner_kind="router_decision", owner_id="k"):
-        from learnloop.ai.execution import model_call, report_call_usage
-
-        class Client:
-            provider_name = "openrouter_decider"
-            model = "m"
-
-        with model_call(Client(), purpose="router_decision", prompt="x"):
-            report_call_usage({"cost": 0.29})
+        Client(0.29).send()
     spend = RouterSpend()
     from learnloop.clock import utc_now_iso
 
     assert spend.spent_today(env.repository, env.vault.config, utc_now_iso()) == pytest.approx(0.29)
-    with pytest.raises(SpendRefused):
-        spend.admit(env.repository, env.vault.config, usd=0.02, subscription=False, now_iso=utc_now_iso())
-    assert spend.admit(env.repository, env.vault.config, usd=5.0, subscription=True, now_iso=utc_now_iso()) is None
+    late = Client(0.02)
+    with pytest.raises(SpendRefused), spend.metered(env.repository, env.vault.config,
+                                                    owner_kind="router_decision", owner_id="k2"):
+        late.send()
+    assert late.sent == 0
+
+    class Subscription(Client):
+        provider_type = "codex_sdk"
+
+    paid = Subscription(5.0)
+    with spend.metered(env.repository, env.vault.config, owner_kind="router_decision", owner_id="k3"):
+        paid.send()
+    assert paid.sent == 1
+
+
+def _decider_only(cap: float) -> str:
+    return (f"[router]\nmax_daily_cost_usd = {cap}\n[router.weights]\nstaged = 0.0\ndecider = 1.0\n"
+            "llm = 0.0\n")
+
+
+class _PricedDecider(FakeDecider):
+    """A Decider whose every request is estimated at one cent."""
+
+    def estimated_cost(self, input_tokens):
+        return 0.01
+
+
+def test_an_unfinished_request_keeps_its_reservation_after_a_restart(tmp_path, monkeypatch):
+    # Codex review F5: the process loses a metered request's finish receipt
+    # (it exits, or the write fails) after the request was sent. On restart
+    # the request's start receipt still holds its reservation: unknown usage
+    # is never free, so the next request cannot spend the cap again.
+    from learnloop.daily_plan.policy import policy_for
+    from learnloop.db.repositories import Repository
+
+    from tests.router_model_fakes import first_option
+
+    first = _PricedDecider(choice=first_option)
+    env = mixture_env(tmp_path, fake_runtime(decider=first), toml=_decider_only(0.015))
+    real = Repository.record_model_event
+
+    def finish_lost(self, action, event, **kwargs):
+        if action == "finish":
+            raise sqlite3.OperationalError("disk I/O error")
+        return real(self, action, event, **kwargs)
+
+    monkeypatch.setattr(Repository, "record_model_event", finish_lost)
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    assert len(first.calls) == 1
+    monkeypatch.setattr(Repository, "record_model_event", real)
+    with env.repository.connection() as connection:
+        (status,) = connection.execute(
+            "SELECT status FROM model_call_receipts WHERE owner_kind = 'router_decision'").fetchone()
+    assert status == "started"
+    # A restart: a fresh runtime that remembers nothing in flight.
+    second = _PricedDecider(choice=first_option)
+    env.policy = policy_for(env.vault, env.repository, session_id=env.session_id, clock=env.clock,
+                            runtime=fake_runtime(decider=second), serve=True)
+    run(env)
+    assert second.calls == []
+    later = [row for row in rows(env) if row["policy"] == "router_mixture_v1"][1:]
+    assert later and all(row["detail_json"]["mixture"]["models"]["decider"]["status"] == "spend" for row in later)
+
+
+def test_a_json_repair_is_admitted_as_its_own_request(tmp_path, monkeypatch):
+    # Codex review F4: the production chat provider answers malformed JSON
+    # and its transport asks again (a JSON repair) inside one structured
+    # operation. The repair is a physical request of its own, admitted by
+    # the daily guard: the first request's reservation leaves no room for
+    # it, so it is never sent and the LLM's share goes to the rule.
+    from learnloop.ai.providers import openai_chat
+    from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
+    from learnloop.clock import utc_now_iso
+    from learnloop.config import AIProviderConfig
+    from learnloop.daily_plan.router_runtime import RouterSpend
+
+    from tests.openai_fakes import install_fake_openai
+
+    monkeypatch.setattr(openai_chat, "_sleep", lambda _seconds: None)
+    monkeypatch.setenv("ROUTER_TEST_KEY", "test-key-not-a-credential")
+    fake = install_fake_openai(monkeypatch, "not json", "still not json")
+    client = OpenAIChatProviderClient(
+        "metered_chat",
+        AIProviderConfig(type="openai_chat", model="m", base_url="https://example.invalid",
+                         api_key_env="ROUTER_TEST_KEY"),
+    )
+    # $1 a million tokens: a request (its prompt plus 16,384 output tokens)
+    # reserves about $0.02, so the cap holds one request, not two.
+    toml = ("[router]\nmax_daily_cost_usd = 0.03\n[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n"
+            "[ingest.cost_pause.prices]\nmetered_chat = 1.0\n")
+    env = mixture_env(tmp_path, fake_runtime(llm=client), toml=toml)
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    assert sum(len(instance.requests) for instance in fake.instances) == 1
+    (row,) = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
+    assert row["detail_json"]["mixture"]["models"]["llm"]["status"] == "spend"
+    assert RouterSpend().spent_today(env.repository, env.vault.config, utc_now_iso()) <= 0.03
 
 
 # -- the why ---------------------------------------------------------------------------------------

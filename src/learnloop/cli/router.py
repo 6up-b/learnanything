@@ -6,9 +6,10 @@ database is opened read-only, never migrated, and no model is called.
 Outcomes are derived on the fly from the ledgers (the same derivation the
 ``router_outcomes`` replayer caches), so the listing is current even when the
 cache was last rebuilt days ago. ``embed-decisions`` (router R2c) backfills
-the ``decision/context`` vectors of logged decisions that have none: a paid
-embedding call behind ``embedding.enabled``, with ``--dry-run`` to count and
-estimate first.
+the ``decision/context`` vectors of logged decisions that have none: paid,
+metered embedding calls through the shared embedding backfill, under its
+enforced caps (``--max-cost-usd`` and the rest) and both embedding switches,
+with a priced ``--dry-run`` first.
 """
 from __future__ import annotations
 
@@ -237,45 +238,54 @@ def router_card(
 def router_embed_decisions(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Count the decisions without a vector and estimate; send and write nothing.")
+        bool, typer.Option("--dry-run", help="Count the decisions without a vector and estimate calls, tokens and "
+                                             "cost; send and write nothing.")
     ] = False,
     limit: Annotated[int | None, typer.Option("--limit", min=1, help="Embed at most this many decisions.")] = None,
+    batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
+    max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 2_000,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 100,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 2,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 2_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 0.25,
+    price_per_million: Annotated[float | None, typer.Option(
+        "--price-per-million", min=0,
+        help="Positive USD input-token estimate for an unknown/changed model price; still subject to the cost cap.",
+    )] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Backfill the decision/context vectors similar-decision retrieval reads (router R2c).
 
     Each logged plan decision whose learner-state card is still stored gets
-    the embedding of its canonical context. Needs embedding.enabled (a paid,
-    metered call on the embedding route); --dry-run first."""
+    the embedding of its canonical context. A paid, metered call on the
+    embedding route, through the shared embedding backfill: the caps are
+    enforced before each request, and paid work needs embedding.enabled and
+    embedding.backfill_enabled. --dry-run first: it prices the run."""
 
+    from learnloop.ai.spend import SpendCaps
     from learnloop.daily_plan import router_retrieval
     from learnloop.db.repositories import Repository
 
     try:
         if not (vault / "learnloop.toml").is_file():
             raise ValueError("--vault must contain learnloop.toml")
+        caps = SpendCaps(
+            max_candidates=max_candidates, max_pairs=0, max_retries=max_retries, max_calls=max_calls,
+            max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
         loaded = load_vault(vault, load_environment=not dry_run)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
         if not path.exists():
             raise ValueError("the vault has no state database")
-        repository = Repository.attach(path)
-        client = None
-        if not dry_run and loaded.config.embedding.enabled:
-            from learnloop.ai.execution import record_model_calls
-            from learnloop.ai.routing import ready_client_for_task
-            from learnloop.ids import new_ulid
-
-            resolved = ready_client_for_task(loaded.root, loaded.config, "embedding")
-            client = resolved.client if resolved.ready else None
-            with record_model_calls(repository, owner_kind="cli", owner_id=f"router_embed_decisions:{new_ulid()}"):
-                report = router_retrieval.backfill(loaded, repository, client, dry_run=False, limit=limit)
-        else:
-            report = router_retrieval.backfill(loaded, repository, None, dry_run=True, limit=limit)
-            if not dry_run:
-                report["status"] = "disabled"
-                report["reason"] = "embedding.enabled is off: nothing was sent"
-        report["embedding_enabled"] = bool(loaded.config.embedding.enabled)
-        _emit(report, json_output)
+        report = router_retrieval.backfill(
+            loaded, Repository.attach(path), caps=caps, dry_run=dry_run, limit=limit, batch_size=batch_size,
+            price_per_million=price_per_million,
+        )
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc
+    _emit(report, json_output)
+    if report.get("status") == "cancelled":
+        raise typer.Exit(code=130)
+    if report.get("status") not in {"dry_run", "complete"}:
+        raise typer.Exit(code=1)

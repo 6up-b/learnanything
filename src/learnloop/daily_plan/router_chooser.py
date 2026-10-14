@@ -235,13 +235,14 @@ def _run_components(runtime: RouterRuntime, entry: Prefetch, vault: Any, reposit
 
 def _block_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None,
                plan_id: str | None) -> None:
-    from learnloop.ai.execution import record_model_calls
     from learnloop.daily_plan import router_retrieval
     from learnloop.db.repositories import Repository
 
     material = entry.material
     repository = Repository.attach(sqlite_path)
-    with record_model_calls(repository, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+    # Every physical request of the decision (the query embedding, both
+    # models, a retry or a repair) is admitted by the daily guard (F3, F4).
+    with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
         embedding = None
         try:
             embedding = runtime.models.embedding_client(vault)
@@ -266,12 +267,11 @@ def _block_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_pa
 
 
 def _restraint_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None:
-    from learnloop.ai.execution import record_model_calls
     from learnloop.db.repositories import Repository
 
     material = entry.material
     repository = Repository.attach(sqlite_path)
-    with record_model_calls(repository, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+    with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
         request = rq.RestraintRequest(topic=material["topic"], state=material["state"])
         entry.request = request
         _run_components(

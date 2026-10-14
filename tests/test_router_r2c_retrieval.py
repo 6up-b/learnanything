@@ -112,13 +112,14 @@ def test_without_embeddings_retrieval_is_a_logged_no_op(tmp_path):
         assert connection.execute("SELECT COUNT(*) FROM embedding_vectors").fetchone()[0] == 0
 
 
-def _embedded_env(tmp_path, *, rate: float, llm=None, embedding=None):
+def _embedded_env(tmp_path, *, rate: float, llm=None, embedding=None, router: str = ""):
     from tests.router_model_fakes import first_option, seed_with_first_uniform
 
     env = mixture_env(
         tmp_path, fake_runtime(decider=FakeDecider(choice=first_option), llm=llm or FakeLLM(),
                                embedding=embedding or FakeEmbedding(), seed=seed_with_first_uniform(at_least=0.2)),
-        toml=f"[router]\nsimilar_include_rate = {rate}\n[router.weights]\nstaged = 0.5\ndecider = 0.5\nllm = 0.0\n",
+        toml=f"[router]\nsimilar_include_rate = {rate}\n{router}[router.weights]\nstaged = 0.5\ndecider = 0.5\n"
+             "llm = 0.0\n",
     )
     enable_embeddings(env.vault.root)
     from learnloop.daily_plan.policy import policy_for
@@ -185,6 +186,24 @@ def test_replay_never_needs_a_vector(tmp_path):
     assert [row["similar_decision_ids_json"] for row in rows(env)] == shown
 
 
+def test_the_query_embedding_is_admitted_by_the_daily_guard(tmp_path):
+    # Codex review F3: the prefetch's query embedding is a metered request
+    # like the models'. With no money left today it is refused before it is
+    # sent, and retrieval is a logged "unavailable" (reason: spend).
+    from learnloop.clock import utc_now_iso
+    from learnloop.daily_plan.router_runtime import RouterSpend
+
+    embedding = FakeEmbedding()
+    env = _embedded_env(tmp_path, rate=1.0, embedding=embedding, router="max_daily_cost_usd = 0.0\n")
+    run(env)
+    decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
+    assert decisions and embedding.calls == []
+    for row in decisions:
+        assert row["detail_json"]["mixture"]["similar"] == {"status": "unavailable", "reason": "spend", "rate": 1.0}
+        assert row["detail_json"]["mixture"]["models"]["decider"]["status"] == "spend"
+    assert RouterSpend().spent_today(env.repository, env.vault.config, utc_now_iso()) == 0.0
+
+
 def test_the_backfill_dry_runs_and_then_embeds_what_is_missing(tmp_path, monkeypatch):
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
     run(env)
@@ -193,24 +212,56 @@ def test_the_backfill_dry_runs_and_then_embeds_what_is_missing(tmp_path, monkeyp
     assert result.exit_code == 0, result.output
     report = json.loads(result.output)
     assert report["dry_run"] is True and report["pending"] == report["decisions"] > 0 and report["embedded"] == 0
+    # Codex review F3: the dry run prices the work and names the caps it would run under.
+    assert report["estimate"]["estimated_usd"] > 0 and report["caps"]["max_estimated_usd"] == 0.25
     with env.repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM embedding_vectors").fetchone()[0] == 0
     # Off: nothing is sent.
     result = CliRunner().invoke(app, ["router", "embed-decisions", "--vault", str(root), "--json"])
-    assert json.loads(result.output)["status"] == "disabled"
+    assert json.loads(result.output)["status"] == "disabled" and result.exit_code == 1
     # On, with a fake embedding client: every decision with a stored card gets its vector.
+    from learnloop.ai.spend import SpendCaps
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
 
     enable_embeddings(root)
     vault = load_vault(root)
-    report = rr.backfill(vault, Repository.attach(env.repository.sqlite_path), FakeEmbedding(), dry_run=False)
-    assert report["embedded"] == report["pending"] > 0
-    again = rr.backfill(vault, Repository.attach(env.repository.sqlite_path), FakeEmbedding(), dry_run=True)
+    vault.config.embedding.model, vault.config.embedding.dimensions = "fake-embed", 8
+    repository = Repository.attach(env.repository.sqlite_path)
+    report = rr.backfill(vault, repository, caps=SpendCaps(max_candidates=1_000), dry_run=False,
+                         price_per_million=0.01, client_factory=FakeEmbedding)
+    assert report["status"] == "complete" and report["embedded"] == report["pending"] > 0
+    again = rr.backfill(vault, repository, caps=SpendCaps(), dry_run=True, price_per_million=0.01)
     assert again["pending"] == 0
     with sqlite3.connect(env.repository.sqlite_path) as connection:
         assert connection.execute(
             "SELECT COUNT(*) FROM embedding_vectors WHERE record_kind = 'decision'").fetchone()[0] == report["embedded"]
+        owners = {row[0] for row in connection.execute("SELECT DISTINCT owner_kind FROM model_call_receipts "
+                                                       "WHERE purpose = 'embedding'")}
+    assert owners == {"embedding_backfill"}
+
+
+def test_the_backfill_is_held_to_its_money_cap(tmp_path):
+    # Codex review F3: the backfill runs under an enforced budget: a cap
+    # below the priced estimate refuses the run before any request is sent.
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    run(env)
+    enable_embeddings(env.vault.root)
+    vault = load_vault(env.vault.root)
+    vault.config.embedding.model, vault.config.embedding.dimensions = "fake-embed", 8
+    repository = Repository.attach(env.repository.sqlite_path)
+    planned = rr.backfill(vault, repository, caps=SpendCaps(max_candidates=1_000), dry_run=True,
+                          price_per_million=0.01)
+    usd = planned["estimate"]["estimated_usd"]
+    assert planned["status"] == "dry_run" and usd > 0
+    embedding = FakeEmbedding()
+    refused = rr.backfill(vault, repository, caps=SpendCaps(max_candidates=1_000, max_estimated_usd=usd / 2),
+                          dry_run=False, price_per_million=0.01, client_factory=lambda: embedding)
+    assert refused["status"] == "over_budget" and refused["embedded"] == 0 and embedding.calls == []
 
 
 def _graded_run(env, *, steps: int = 30):

@@ -964,8 +964,8 @@
     "sha256": "e843e15abfdf9ee8485071bf17303c9dca69fc4ae34bd5df86213927c8cbdcc6"
   },
   "router embed-decisions": {
-    "bytes": 1870,
-    "sha256": "78732bd90b27e80bda861622e258b99f2b862d165885a40039c3635b37aee1a3"
+    "bytes": 3477,
+    "sha256": "45c860f666385d9012ae12895a2a5c52fbcd3a3c019e9a3718f9280d5df4cdb9"
   },
   "router log": {
     "bytes": 2145,

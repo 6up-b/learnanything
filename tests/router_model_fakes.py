@@ -4,11 +4,17 @@ No network, no key: the router's model source is replaced by
 :class:`FakeModels`, which says which fakes are "set up" and hands them to the
 runtime. Each fake records what it was asked, can block on an event (a slow
 model, G7) and can fail on demand.
+
+Each fake's request is one physical request, as a real provider's is
+(``ai.execution.model_call`` with its usage reported): the router's daily
+guard admits it in its start receipt, so a refused request never reaches
+the fake (Codex review F3-F5), and its receipt is written like a real one.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+import json
 import re
 import threading
 from typing import Any
@@ -71,12 +77,23 @@ class FakeDecider:
         return input_tokens * 0.02 / 1_000_000
 
     def decide(self, state, questions, *, purpose: str, timeout_seconds: float | None = None) -> DecisionResult:
+        from learnloop.ai.decisions import request_body
+        from learnloop.ai.execution import model_call
+
+        body = json.dumps(request_body(self.model, state, questions), sort_keys=True, default=str)
+        with model_call(self, purpose=purpose, prompt=body):
+            return self._decide(state, questions, purpose=purpose, timeout_seconds=timeout_seconds)
+
+    def _decide(self, state, questions, *, purpose: str, timeout_seconds: float | None) -> DecisionResult:
+        from learnloop.ai.execution import report_call_usage
+
         self.calls.append({"state": state, "questions": dict(questions), "purpose": purpose,
                            "timeout_seconds": timeout_seconds})
         if self.gate is not None:
             self.gate.wait(30)
         if self.error is not None:
             raise self.error
+        report_call_usage({"input_tokens": 1200, "output_tokens": 16, "cost": self.cost})
         answers: dict[str, Any] = {}
         for name, question in questions.items():
             if isinstance(question, ChoiceQuestion):
@@ -133,31 +150,41 @@ class FakeLLM:
     def complete(self, request: Any) -> Any:
         # Every real structured transport sends the result model's strict
         # schema, which only a WireModel has (the live R2bc session's finding).
+        from learnloop.ai.execution import model_call, report_call_usage
         from learnloop.ai.strict_schema import strict_output_schema
 
         strict_output_schema(request.result_model)
-        self.requests.append(request)
-        if self.gate is not None:
-            self.gate.wait(30)
-        if self.error is not None:
-            raise self.error
-        return request.result_model.model_validate(dict(self.answer(request)))
+        with model_call(self, purpose="chat_request", prompt=request.prompt, budget=request.output_budget_tokens):
+            self.requests.append(request)
+            if self.gate is not None:
+                self.gate.wait(30)
+            if self.error is not None:
+                raise self.error
+            report_call_usage({"input_tokens": max(1, len(request.prompt) // 4), "output_tokens": 200})
+            return request.result_model.model_validate(dict(self.answer(request)))
 
 
 class FakeEmbedding:
-    model_id = "fake-embed"
+    model_id = model = "fake-embed"
+    provider_name = "fake_embedding"
     dims = 8
+    modalities = frozenset({"text"})
+    max_input_tokens = 32_768
 
     def __init__(self) -> None:
         self.calls: list[list[str]] = []
 
     def embed(self, inputs: list[str], task_prefix: str) -> list[list[float]]:
-        self.calls.append(list(inputs))
-        out = []
-        for text in inputs:
-            seed = sum(ord(char) for char in text)
-            out.append([((seed * (index + 3)) % 97) / 97.0 + (0.01 * index) for index in range(self.dims)])
-        return out
+        from learnloop.ai.execution import model_call, report_call_usage
+
+        with model_call(self, purpose="embedding", prompt=list(inputs)):
+            self.calls.append(list(inputs))
+            report_call_usage({"input_tokens": sum(len(text) // 4 + 1 for text in inputs), "output_tokens": 0})
+            out = []
+            for text in inputs:
+                seed = sum(ord(char) for char in text)
+                out.append([((seed * (index + 3)) % 97) / 97.0 + (0.01 * index) for index in range(self.dims)])
+            return out
 
 
 class FakeModels:
