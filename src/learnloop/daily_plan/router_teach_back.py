@@ -13,9 +13,18 @@ both router models read it at the next boundary.
   topic's title and the grade's result word. Never the rubric, a reference
   answer or source text; a dialogue on exam or reserved material is never
   summarized (the card's own withholding rule).
-* **Storage.** One ``model_work_checkpoints`` row per attempt (WORKFLOW:
-  model work kept so it is never paid twice; key
-  ``router_teach_back_summary:v1:<attempt>``). Replay never reads it.
+* **Held grades** (Codex review F2). A grade held for review (THE predicate,
+  ``learnloop.held_grades``) is no evidence anywhere: a held teach-back is
+  never summarized, and a summary whose attempt is held now (a later regrade
+  put it on hold) is never read into a card.
+* **Bound to its grade.** Each summary records the attempt's grading
+  revision (its score, its latest blind grade record and its live grading
+  evidence) and is read only while that revision is current: a regrade
+  leaves a stale summary out of the card instead of keeping it authoritative.
+* **Storage.** One ``model_work_checkpoints`` row per attempt and grading
+  revision (WORKFLOW: model work kept so it is never paid twice; key
+  ``router_teach_back_summary:v1:<attempt>:<revision>``). Replay never reads
+  it.
 * **Route and spend.** The router LLM's route (``router_llm``), under the
   router's daily guard (owner ``router_teach_back_summary``); subscription
   routes uncapped.
@@ -26,6 +35,7 @@ both router models read it at the next boundary.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import hashlib
 import json
 import logging
 import threading
@@ -88,25 +98,58 @@ def _result_word(correctness: Any) -> str:
     return "correct" if value >= 0.999 else "incorrect" if value <= 0.001 else "partly correct"
 
 
+def grading_revision(connection: Any, attempt_id: str) -> str | None:
+    """A fingerprint of the attempt's grade as it stands: its score, its latest
+    blind grade record and its live (non-superseded) grading evidence. Any
+    regrade changes it. None for an unknown attempt."""
+
+    row = connection.execute("SELECT correctness FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone()
+    if row is None:
+        return None
+    blind = None
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+    ).fetchone() is not None:
+        latest = connection.execute(
+            "SELECT id FROM blind_grade_records WHERE attempt_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+            (attempt_id,),
+        ).fetchone()
+        blind = latest[0] if latest is not None else None
+    evidence = sorted(
+        str(value[0]) for value in connection.execute(
+            "SELECT id FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL", (attempt_id,)
+        )
+    )
+    payload = json.dumps([row[0], blind, evidence], sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
 def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> dict[str, Any] | None:
     """Summarize one graded teach-back attempt and store it; returns the stored summary.
 
-    None (nothing sent) when the attempt is not a graded teach-back, is exam
-    or reserved material, or is already summarized; a model failure is logged."""
+    None (nothing sent) when the attempt is not a graded teach-back, its grade
+    is held for review (Codex review F2), it is exam or reserved material, or
+    its current grade is already summarized; a model failure is logged."""
 
     from learnloop.ai.transport import execute_structured_operation
     from learnloop.daily_plan.router_card import CardGatherer
     from learnloop.daily_plan.router_runtime import LLM, SUMMARY_RECEIPT_OWNER, SpendRefused
+    from learnloop.held_grades import attempt_grade_held
 
-    key = CACHE_PREFIX + attempt_id
-    if repository.model_checkpoint(key) is not None:
-        return None
     with repository.connection() as connection:
         attempt = connection.execute(
             "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, learner_answer_md, created_at "
             "FROM practice_attempts WHERE id = ?", (attempt_id,),
         ).fetchone()
+        revision = grading_revision(connection, attempt_id)
     if attempt is None or attempt["attempt_type"] != "teach_back" or not (attempt["learner_answer_md"] or "").strip():
+        return None
+    # A grade held for review is no evidence: its dialogue's conclusions are
+    # never summarized into a card (THE predicate, held_grades).
+    if attempt_grade_held(repository, attempt_id):
+        return None
+    key = f"{CACHE_PREFIX}{attempt_id}:{revision}"
+    if repository.model_checkpoint(key) is not None:
         return None
     unknowns: list[str] = []
     withheld = CardGatherer(vault, repository)._withheld_items(unknowns)
@@ -143,6 +186,7 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     summary = {
         "version": VERSION,
         "attempt_id": str(attempt["id"]),
+        "grading_revision": revision,
         "practice_item_id": str(attempt["practice_item_id"]),
         "learning_object_id": str(attempt["learning_object_id"]),
         "at": str(attempt["created_at"]),
@@ -193,12 +237,19 @@ def schedule(vault: Any, sqlite_path: Any, attempt_id: str, *, runtime: Any = No
 
 def summaries_for(connection: Any, learning_object_ids: Sequence[str], *, before: str,
                   withheld: frozenset[str] | None, titles: Mapping[str, str]) -> list[dict[str, Any]]:
-    """The card's typed evidence: summaries of teach-backs on these topics, made before ``before``."""
+    """The card's typed evidence: summaries of teach-backs on these topics, made before ``before``.
+
+    A summary is read only while its attempt's grade is not held for review
+    (THE predicate, ``held_grades``) and its grading revision is the
+    attempt's current one (Codex review F2): a regrade, into a hold or not,
+    leaves the old summary out."""
+
+    from learnloop.held_grades import held_for_review_attempts
 
     if not learning_object_ids or withheld is None:
         return []
     wanted = set(learning_object_ids)
-    out = []
+    found = []
     for row in connection.execute(
         "SELECT result_json FROM model_work_checkpoints WHERE purpose = ? ORDER BY created_at DESC", (PURPOSE,)
     ):
@@ -209,6 +260,16 @@ def summaries_for(connection: Any, learning_object_ids: Sequence[str], *, before
         if summary.get("learning_object_id") not in wanted or str(summary.get("at") or "") >= before:
             continue
         if str(summary.get("practice_item_id")) in withheld:
+            continue
+        found.append(summary)
+    held = held_for_review_attempts(connection, [str(summary.get("attempt_id")) for summary in found])
+    out = []
+    for summary in found:
+        attempt_id = str(summary.get("attempt_id"))
+        if attempt_id in held:
+            continue
+        revision = summary.get("grading_revision")
+        if revision is None or revision != grading_revision(connection, attempt_id):
             continue
         out.append({
             "attempt_id": summary.get("attempt_id"),
@@ -229,6 +290,7 @@ __all__ = [
     "PURPOSE",
     "SECTION",
     "TeachBackSummary",
+    "grading_revision",
     "schedule",
     "summaries_active",
     "summaries_for",
