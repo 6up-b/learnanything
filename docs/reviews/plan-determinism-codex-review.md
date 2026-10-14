@@ -122,3 +122,70 @@ Run in this worktree at `bba3c569f` (the fix and its references; this record cha
 2. **The full list in a staged vault.** Today's full list (one key from the plan) keeps the per-session pair order, so it can show a pair in the other order from the plan. The serving row is first-wins per item and session, and the plan builds first on Today, so the recorded order is the plan's. Recommended: leave it. A learner pick from the list is the learner's own order, as before.
 3. **The successor (F2).** Rejected under the standing ruling, with the kill switch it requires. The owner may still ask for a tag at the checkpoint; it would then be folded into R2b + R2c's successor at its landing rather than minted separately.
 4. **Past staged rows** (the stage's open question 2) stands. Before this branch, staged `plan_block` rows whose pool was drawn logged propensity 1. Pools reordered by a contrast pair's per-session draw are a second such case. They can be found from the same build's serving rows (a seed that names the session).
+
+## Re-review (Codex job `20261014-125619-vXT7lT`)
+
+**Status:** the re-review reopened F1 and confirmed F2 fixed under the owner's standing ruling. F1 reproduced, and it is fixed. It reported no new defects in `73b2a9e9f..fix/plan-determinism`.
+
+**Commits:** `1be65010a` (the fix and its tests), `906064c98` (references regenerated), and this record.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | REOPENED: Start's sessionless staged build skips the pair's deterministic order | **fixed** | `1be65010a` | `test_plan_determinism.py::test_a_contrast_pair_plans_the_same_staged_block_in_every_session[both_fit]` and `[one_fits]` now include Start's sessionless build. Both failed `assert 2 == 1` without the scheduler change. `test_the_same_vault_state_plans_the_same_staged_blocks_in_every_session` also includes Start, and `test_with_the_switch_off_a_contrast_pair_follows_the_session_again` pins Start's rollback order |
+| F2 | Medium | Kill switch, rollback parity, no successor | **confirmed fixed** by the re-review (no change) | — | The reviewer independently verified the rollback session settings and all fifteen defaults fingerprints. This fix leaves the switch-off path as it was; the sessionless parity run below covers it |
+
+### F1: Start's build has no session
+
+**Reproduction.** As reported:
+
+- Start calls `useDailyPlan(null)` (`StartScreen.tsx`), which builds and persists the daily plan through `get_daily_plan` with no session.
+- `_apply_contrast_pair_order` (`scheduling/scheduler.py`) returned a sessionless queue before any draw. So Start's pool kept the greedy order, while every named session's pool took the pair's own draw.
+- On the two regressions with Start added, without the scheduler change:
+  - **both fit:** Start planned `[pi_pair_a, pi_pair_b]`; the thirty sessions planned `[pi_pair_b, pi_pair_a]`;
+  - **only one fits:** Start chose `pi_pair_a`; the sessions chose `pi_pair_b`.
+  - Both failed `assert 2 == 1`.
+
+**A second effect: the A4 record contradicted the plan.** The probe ran Start's build and then Begin (session `s_begin`) on one vault, on the branch before this fix. Begin kept the block Start had planned, `[pi_pair_a, pi_pair_b]` (or `pi_pair_a` alone). The session's serving row, written by Begin's pool build with the pair's seed, recorded `pi_pair_b` first. A4's order-effect check would therefore have read an order the learner was never served.
+
+**Fix (`1be65010a`).**
+
+- **Sessionless builds take the pair's draw.** A per-pair draw (`contrast_order_seed == "pair"`, set only on the staged plan's pool where `staged_plans_deterministic` holds) is seeded on the pair alone, so it needs no session. `_apply_contrast_pair_order` now applies it to a sessionless queue as well.
+- **No serving row without a session.** A sessionless build still writes none, because there is no session to key the idempotent row on. The receipt write is suppressed on the same path as the R1 counterfactual composition (`record=False`).
+- **The per-session draw is unchanged.** With no session it still leaves the queue untouched. That covers the switch off, DL1's plan and every other queue build, so they behave as before.
+- **One docstring.** `plan_scheduler_session` (this stage's function in `daily_plan/engine.py`) gains a sentence saying the guarantee covers a build with no session.
+
+**Tests.**
+
+- **Both fit cases.** Start's sessionless build joins the thirty named sessions' shapes: one plan, with the same blocks, decisions and projection. The tests also assert that:
+  - Start writes no serving row;
+  - Begin on Start's plan keeps Start's block;
+  - Begin's serving row records the pair's own order and seed.
+- **The general test.** `test_the_same_vault_state_plans_the_same_staged_blocks_in_every_session` adds Start to its thirty sessions.
+- **Rollback.** With the switch off, Start's sessionless build keeps the greedy order `[pi_pair_a, pi_pair_b]` and records nothing. That was the base behaviour.
+
+**Sessionless parity (run).**
+
+- **Setup.** The probe ran Start's build and then Begin on three worlds at `mvp-0.23` with the router on: R1's near-ties, and the contrast pair with both members fitting and with only one fitting. It used test vaults under `fixtures-local/pd-rereview/`, `SystemClock` frozen, manual grading and an empty `LEARNLOOP_CONFIG_DIR`. It recorded the blocks, the `plan_block` decisions, the projection, the serving rows and the slate candidates.
+- **Base and switch off.** The base export (`git archive 6dabbc33c` under `fixtures-local/archive-base`, asserted to be the `learnloop` loaded) and the branch with `plan.deterministic_staged_plans = false` matched in **all 6 cases**, on every field.
+- **Switch on.**
+  - Start and Begin plan the same blocks in every world.
+  - The pair is `[pi_pair_b, pi_pair_a]` (or `pi_pair_b` alone).
+  - Begin's serving row records `pi_pair_b` first with seed `pair|pi_pair_a|pi_pair_b`.
+  - The near-tie world's Start block is the base's. Only Begin's slate and projection differ, because the base's session explored there (R1).
+
+**Composition with router R2b + R2c.** The change is in `scheduling/scheduler.py`, which `router/r2bc` does not touch, plus one docstring sentence inside `plan_scheduler_session`. It is still small and local.
+
+### Gate (re-review)
+
+Run in this worktree at `906064c98` (the fix and its references; this record changes only `docs/reviews/`), with `TMPDIR=<worktree>/fixtures-local/tmp`. The two pytest runs added `-q -p no:cacheprovider` (output and cache only). A full suite started before the Claude Code restart (at `1be65010a`, 10,908 passed) is superseded by this run on the final tree; its durability lane never ran.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install restores 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,908 passed**, 0 failed, 48 warnings (11 min 25 s). The count is unchanged: the fix extends existing tests and adds none |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,808 deselected, 1 warning (1 min 48 s) |
+| Targeted, before the gate | `test_plan_determinism.py` **14 passed** |
+| References | regenerated in `906064c98` (provenance and moved line citations only). Rerun on `906064c98`: `db_generate_reference.py` changes only the `source_commit` provenance lines, so that churn was not kept; `db_validate_reference.py` reports `errors: []` |
+| Schema, config, defaults snapshots, CLI help | unchanged (no migration, no config key, no CLI option) |
+| Frontend, `src-tauri` | unchanged, so the npm and cargo checks do not apply |
