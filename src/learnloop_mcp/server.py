@@ -204,6 +204,12 @@ class ToolCalls:
         return outcome.result
 
 
+def _checked(model: type[_Out], result: dict[str, Any]) -> dict[str, Any]:
+    """The result as its output schema has it, checked before the call is recorded."""
+
+    return model.model_validate(result).model_dump()
+
+
 def _context_summary(result: dict[str, Any]) -> dict[str, Any]:
     return {key: len(result.get(key) or []) for key in (
         "misconceptions", "misconception_candidates", "open_hypotheses", "recurrence_groups",
@@ -226,7 +232,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
         annotations=ToolAnnotations(title="LearnLoop status", **READ_ONLY), structured_output=True,
     )
     def status(ctx: Context) -> StatusOut:
-        result = calls.run("status", {}, ctx, lambda _call: Outcome(views.status(runtime)))
+        result = calls.run("status", {}, ctx, lambda _call: Outcome(_checked(StatusOut, views.status(runtime))))
         return StatusOut.model_validate(result)
 
     @server.tool(
@@ -238,7 +244,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
     )
     def today(ctx: Context) -> TodayOut:
         def body(_call: str) -> Outcome:
-            result = views.today(runtime, clock=clock)
+            result = _checked(TodayOut, views.today(runtime, clock=clock))
             plan = result.get("plan") or {}
             return Outcome(result, summary={"plan": bool(plan), "blocks": len(plan.get("blocks") or []),
                                             "due_now": result.get("due_now")})
@@ -255,7 +261,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
     )
     def progress(ctx: Context, goal_id: str | None = Field(default=None, max_length=200)) -> ProgressOut:
         def body(_call: str) -> Outcome:
-            result = views.progress(runtime, goal_id=goal_id, clock=clock)
+            result = _checked(ProgressOut, views.progress(runtime, goal_id=goal_id, clock=clock))
             los = [topic["learning_object_id"] for goal in result["goals"]
                    for topic in ((goal.get("report") or {}).get("topics") or [])]
             return Outcome(result, summary={"goals": len(result["goals"]), "risks": len(result["retention_risks"])},
@@ -272,7 +278,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
     def library(ctx: Context, query: str | None = Field(default=None, max_length=200),
                 limit: int = Field(default=30, ge=1, le=100)) -> LibraryOut:
         def body(_call: str) -> Outcome:
-            result = views.library(runtime, query=query, limit=limit)
+            result = _checked(LibraryOut, views.library(runtime, query=query, limit=limit))
             return Outcome(result, summary={"matched": result["matched"], "returned": len(result["sources"])})
 
         return LibraryOut.model_validate(calls.run("library", {"query": query, "limit": limit}, ctx, body))
@@ -313,7 +319,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
             # Exposure first, always: the passages count as read before they are returned.
             exposures = record_shown_passages(runtime.repository, found.shown_keys, call_id=call_id,
                                               source_versions=found.source_versions, clock=clock)
-            return Outcome(found.payload, summary={"passages": len(found.payload["passages"]),
+            return Outcome(_checked(SourcesOut, found.payload), summary={"passages": len(found.payload["passages"]),
                                                     "withheld": found.payload["withheld"], "intent": intent},
                            learning_object_ids=found.learning_object_ids, exposure_event_ids=exposures)
 
@@ -342,7 +348,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
             result = learning_context(vault, runtime.read_repository(), learning_object_ids=learning_object_ids,
                                       topic=topic, limits=ContextLimits(traces=max_traces),
                                       now=clock.now() if clock is not None else None)
-            return Outcome(result, summary=_context_summary(result),
+            return Outcome(_checked(ContextOut, result), summary=_context_summary(result),
                            learning_object_ids=list(result["scope"].get("learning_object_ids") or [])[:50])
 
         return ContextOut.model_validate(calls.run("learning_context", arguments, ctx, body))
