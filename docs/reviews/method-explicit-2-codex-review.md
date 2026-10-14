@@ -695,3 +695,327 @@ to historical contracts. New:
 7. **A resumed PF job's publication order is approximate.** It sorts by the
    selection judge's rank, else the MMR rank: the judge's own `selected`
    order is not persisted. Only the daily cap's cut-off can differ.
+
+## Round 3 (stage `method-explicit-3`): finished by design
+
+The final verify of the re-review (Codex job `20261014-113512-OQ2Gd7`,
+read-only, `444f5ba95..e96075e94`) returned **REOPENED**:
+
+- F15 and F16 were confirmed fixed.
+- F14, F18, F13/F19 and F17/F20 were reopened.
+- F21 and F22 are new.
+
+The text findings had one cause. The canonical sentence lived inside the
+item's stored statement, so code had to find, keep or remove it by matching
+text, and each matcher was defeated by the statement's own words:
+
+- a quotation of the sentence was adopted as the instruction (F14);
+- removal deleted a sentence inside a quotation (F18, F21).
+
+Round 3 applies the design Codex proposed instead of a fourth matcher. Every
+reproduction in the verify reproduced and is fixed. No finding was rejected.
+
+| Commit | What |
+|---|---|
+| `7efb7664b` | the redesign and its tests |
+| `7beb18d2c` | regenerated architecture references (citations and source-commit stamps only) |
+| (this commit) | this record |
+
+### Findings
+
+| ID | Severity | Title | Verdict | Test |
+|---|---|---|---|---|
+| F14 | High (reopened) | A generated update's quotation of the sentence was adopted as the instruction | fixed by design: the instruction is rendered from the field | `test_f14_*` (2), the surface tests (3) |
+| F21 | Medium (new; F18 reopened) | Clearing or renaming deleted sentences inside quotations | fixed by design: the statement is never edited | `test_f21_*` (2) |
+| F18 | Medium (reopened) | Clearing or renaming a legacy method left its instruction behind | superseded: nothing is removed by text; a legacy sentence stays as written (open question 8) | `test_f21_*[legacy_block]` |
+| F13 / F19 | Medium (reopened) | A changed inherited default defeats historical ambiguity handling | fixed: the binding fails closed | `test_f19_a_changed_inherited_default_*` (4) |
+| F17 / F20 | Medium (reopened) | Recovery still requires a full-pipeline budget | fixed: resumable jobs are planned as their unfinished work | `test_f20_*` (2) |
+| F22 | Medium (new) | Partial selection persistence is mistaken for completed selection | fixed: the selection is persisted whole, with a completion marker | `test_f22_*` (2) |
+| F15, F16 | High, Medium | (unchanged) | confirmed fixed by the verify; kept as they are | unchanged |
+
+F1 and F11 are kept as they are too. The successor placeholder
+(`mvp-0.22-placeholder`) and the kill switch (`[required_method] enabled`)
+stay. The new tests are in `tests/test_required_method_round3.py` (15
+cases).
+
+### 1. The instruction is rendered from the field, never stored (F14, F18, F21)
+
+**Reproductions.**
+
+- F14: an update of a generated cofactor-expansion item whose new prompt is
+  `Compute det(B). The previous exercise said:`, a blank line, then
+  `Use cofactor expansion in your answer.` The update writer kept it
+  unchanged (the unchanged-method shortcut took the quotation for the
+  writer's block), validation reported nothing, and grading enforced the
+  method.
+- F21: a stored body `Read the old rule: "Compute det(A). Use cofactor
+  expansion in your answer. Then check your work." Compute det(B).`, with or
+  without the writer's block after it. `override_payload(clear=True)` and a
+  rename both cut the sentence out of the quotation.
+
+**Design.** The stored statement never contains the instruction, and nothing
+reads or edits the statement for it.
+
+- **`learnloop.vault.required_method`.** `render_method_instruction`,
+  `has_method_instruction`, `strip_method_instruction`,
+  `restate_method_instruction` and the legacy-span matcher are deleted. Two
+  functions replace them:
+  - `method_instruction(method)`: "Use {name} in your answer.", from the
+    item's field or the mapping a contract froze;
+  - `presented_prompt(statement, method)`: the statement verbatim, then the
+    sentence as its own paragraph. Without a method it is the statement
+    exactly, so every other item's prompt and hash is unchanged.
+- **Writers store the text as generated and change only the field.**
+  - `normalize_required_method` notes `required_method:kept` (no
+    `instruction_added`; the `render_instruction` parameter is gone);
+  - `inherit_required_method` (PF variants) copies the field only;
+  - the proposal writer (`_hold_required_method_to_rule`) keeps a revised
+    prompt exactly as generated, whatever it quotes;
+  - the owner's override (`override_payload`) never carries a `prompt` key
+    (`prompt_changed` is gone from its audit and the CLI result);
+  - the method-phrasing repair sets the field only;
+  - synthesis, likewise.
+
+  F15's rule is unchanged: a source statement is never rewritten.
+- **Validation.** `required_method:not_stated` is gone, from doctor and the
+  gold-set loader. What remains: `undecided`, `unknown_criterion`,
+  `not_a_method_target`, and the advisory flags.
+- **Every surface renders it.**
+
+  | Surface | How |
+  |---|---|
+  | Desktop practice, exams, golden path (`item_presentation`) | a `required_method_instruction` block after the `prompt` block (`PRESENTATION_BLOCK_KINDS`, `dto.ts`) |
+  | Desktop Today's queue detail | now renders the shared `ItemPresentation` (it showed `detail.prompt`) |
+  | Terminal practice and Today screens | `presented_prompt` |
+  | Reader's placed quick check (`reader_guidance`) | `presented_prompt` |
+  | Exam review fields, adjudication case, guided redo | `presented_prompt` |
+  | Tutor (`tutor_qa`, the source tutor's span provider, `find_sources`), the tutor's typed practice tool (`instructional/tools`) | `presented_prompt` |
+  | Diagnoser (split context and history), learner-text gap sources | `presented_prompt` |
+  | The grader (`build_grading_context`; the blind context and the hard-case harness build on it) | `presented_prompt(contract statement, contract required_method)`: the instruction the learner saw, from the frozen contract; without a contract, the item as presented now |
+
+  There is no MCP read path on this branch.
+- **Legacy statements are left as written.** A statement written under the
+  earlier rules may still end with the sentence. It is not edited, so the
+  learner and the grader see the sentence twice. Grading is unaffected: it
+  reads the field. There is no display de-duplication and no doctor cleanup
+  (open question 8).
+- **The generation guidance and prompt versions are unchanged.** "LearnLoop
+  appends 'Use {name} in your answer.' … itself: never write, quote or
+  contradict it" is still what the learner sees. The schema docstrings a
+  model may read are untouched too.
+
+**Tests.**
+
+- F14 (2): the verify's update is stored verbatim, presented as the
+  quotation then the writer's block, and sent to the grader that way;
+  validation reports nothing. A regrade's grader question renders the
+  method the frozen contract presented after the item's field is cleared.
+- Surfaces (3): the presentation block, the exam review, the Reader quick
+  check and the tutor's practice tool render the sentence for a method item
+  only; a published PF variant's stem carries no sentence and is presented
+  with the parent's.
+- F21 (2, the verify's body with and without a legacy block): clear and
+  rename carry no `prompt`, and an accepted clear leaves the statement
+  byte-identical, quotation included.
+
+**Existing tests changed.** These exercised the deleted matchers, so they
+are retired:
+
+- the re-review's F14 and F18 tests in `test_required_method_rereview.py`
+  (26 cases; 33 to 7);
+- the second review's F14 tests in `test_required_method_reopened.py`
+  (13 cases; 28 to 15). The guidance-version test stays. Assertions that a written
+prompt ends with the block now assert the prompt is stored verbatim and
+`presented_prompt` ends with the sentence:
+
+- `test_required_method_items.py`, `test_required_method_authority.py` and
+  `test_required_method_reopened.py` (F15's generated-item cases);
+- `test_method_phrasing_report.py`, `test_required_method_grading.py` and
+  `test_grading_hardcases.py`. The loader's `not_stated` refusal case is
+  removed, and the cell-5 pair asserts the grader's rendered question.
+
+The CLI help snapshot moved for `grading required-method`, whose help text
+changed.
+
+### 2. Historical reconstruction fails closed (F13/F19)
+
+**Reproduction.** A historical contract (no `reference_content_hash`) was
+graded under the inherited rubric R, and its exact item snapshot was
+preserved. Then:
+
+- the default rubric was changed to R2;
+- the item was edited, and R written inline;
+- the inline-R twin of the graded statement was checked verified;
+- the revision actually graded was disputed.
+
+The reconstruction resolved the inherited revision with today's R2, so that
+revision no longer matched. The inline twin was returned as `frozen`, and
+the attempt stayed **verified**.
+
+**Fix.** `GradedContract.graded_reference_contents` reads only an inline
+rubric exactly. An inherited one resolved to the default at the time, which
+nothing records. When both hold:
+
+- the item is known to have inherited a default (its current rubric or a
+  recorded snapshot's is `None`);
+- today's default does not reproduce the frozen rubric hash;
+
+then the default the answer was graded under cannot be recovered. The
+binding returns the inherited revision first, then whatever else matched,
+as `ambiguous_default` (`AMBIGUOUS_DEFAULT_REVISION`). `bind_replacement_grade`
+lowers the attempt to `unverified` whatever the candidates' statuses: it is
+never `frozen`, and never verified from today's default.
+
+A method contract that recorded its hash binds exactly as before. A
+historical contract whose inherited default is still today's keeps the
+`frozen` and `ambiguous` handling.
+
+**Tests (4).**
+
+- Historical: lowered whether the graded revision is disputed or not
+  (`graded_revision=ambiguous_default`).
+- Recorded: lowered only when the graded revision is disputed
+  (`graded_revision=frozen`), else verified with no binding.
+
+The earlier F13 and F19 tests pass unchanged.
+
+### 3. PF resume (F17/F20/F22)
+
+**Reproductions.**
+
+- F20: a partially published two-candidate request with one missing
+  judgment, retried with `max_calls = 1` and generous caps. Preflight
+  estimated the whole pipeline (67 calls) and refused `over_budget` before
+  the resume check ran.
+- F22: selection persisted candidate by candidate. An interruption after the
+  first commit left one `selected` row with `selection_json` and the other
+  chosen candidate a survivor without it. The rerun took that for a finished
+  selection, judged one candidate and admitted the request, stranding the
+  other.
+
+**Fix.**
+
+- **Atomic selection.** `_select` writes every survivor's status and
+  `selection_json` in ONE transaction (`_persist_all`). Each
+  `selection_json` carries the complete selected order (`selected_order`)
+  and a completion marker (`selection_complete`).
+- **Resume by stage.** `selection_state` reads the persisted rows:
+  - the marker exists: the selection finished, and the rerun resumes at the
+    judgment and publication step with exactly that order;
+  - a selection without the marker: the selection never finished. The rerun
+    loads the survivors back as survivors and finishes the selection first
+    (its judge's request is the checkpointed one), then judges and
+    publishes;
+  - no selection: the pipeline runs from its checkpoints.
+- **Detected before routes and budget.** `generate_practice` calls
+  `_resumable_job` for each target. It finds the claimable request of the
+  same angle and versions whose candidates are not stale and whose
+  selection started, and counts the selected candidates with no ledgered
+  verdict. This runs before any route is resolved or budget planned.
+- **Only the unfinished work is planned.** `_plan_resume` plans:
+  - at the judgment stage, only the missing judgments (publication makes no
+    call);
+  - at the selection stage, the selection judge's one call (ensemble) and up
+    to one judgment per slot.
+
+  Only the jobs that run the pipeline need its routes. A resumable job
+  resolves none (the selection route, for an ensemble selection-stage
+  resume).
+- **No unplanned spend.** A job planned as a resume that finds nothing to
+  resume when it runs releases its request and reports
+  `resume_unavailable`.
+- **Order.** The re-review's approximate publication order
+  (`_selection_rank`, open question 7) is gone: the order is the one
+  persisted.
+
+**Tests.**
+
+- F20 (2): the verify's reproduction plans exactly 1 call under
+  `max_calls = 1`. The retry makes one judgment call and no other call,
+  publishes the waiting variant, and admits the request. A resumable job's
+  dry run plans no pipeline role, candidate or freshness pair, and resolves
+  no route.
+- F22 (2):
+  - the verify's interruption (the second selection write raises) leaves no
+    partial selection; the rerun judges and publishes both chosen
+    candidates and admits the request;
+  - the partial state written directly is resumed as `selection` with no
+    upstream call: two judgments, two publications, no stranded survivor.
+
+### Fail-first
+
+The base `e96075e94` was exported (`src`, `tests`, `pyproject.toml`) to
+`fixtures-local/tmp/base_e96075e94`, with `migrations` linked in. No tracked
+vault was linked. The final `tests/test_required_method_round3.py` ran
+against it (`pytest -o pythonpath=src`; tracebacks confirm the export's
+modules).
+
+**13 failed, 2 passed.** Every failure is behavioural, none an import error:
+
+| Finding | Failed on the base | What the base did |
+|---|---|---|
+| F14 | 2 | adopted the quoted sentence as the block (no instruction block after it); the grader's question for a frozen method after the field was cleared had no sentence |
+| Surfaces | 3 | no `required_method_instruction` block kind; the Reader quick check and the tutor's tool showed the bare statement; the PF variant's stem stored the sentence |
+| F21 | 2 | clear and rename cut the sentence out of the quotation |
+| F19 | 2 | the historical regrade stayed `verified` (disputed and undisputed) |
+| F20 | 2 | the dry run was `over_budget` (calls exceeds max_calls); the resumable job's plan resolved and planned the pipeline's roles |
+| F22 | 2 | the interruption left one candidate's selection persisted; the partial state resumed as `required_method_judgment`, not `selection` |
+
+The 2 that pass on the base are the intended controls: the recorded
+contract, disputed and undisputed.
+
+### Gate
+
+The gate ran on the tree at `7beb18d2c`. The only uncommitted changes were
+this record and the pointer in `method-explicit-items.md`. `TMPDIR` was the
+worktree's `fixtures-local/tmp`. The full suite and the durability lane each
+ran under `/tmp/learnloop-fullsuite.lock`, one after the other. This step
+was interrupted by a restart: it resumed from 41 uncommitted files and no
+commits since `e96075e94`, and every gate step below was run after the
+restart, on the final tree.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Targeted run before the commit (the 132 test files touching the changed modules, plus the CLI-help and assessment characterization tests) | **2517 passed** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10559 passed**, 0 failed, 0 skipped (48 warnings, 581.31s). That is 10584 − 40 retired + 15 new |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10460 deselected, 0 failed (1 warning, 104.71s) |
+| Frontend (`apps/learnloop-tauri`): `npm install`, `npm run typecheck`, `npm test`, `npm run frontend:build` | typecheck clean; vitest **74 files, 479 tests passed** (the new `ItemPresentation.test.tsx` included); build succeeded |
+| Cargo | not applicable: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: schema head 199, 318 table notes. Only citations and source-commit stamps moved (`7beb18d2c`) |
+| `validate_vault.py` | passed (1,099 notes, 22,001 links) |
+| CLI help snapshot | `grading required-method` moved, because its help text changed (`test_cli_help_snapshot.py` passes) |
+| Defaults and template snapshots | unchanged (no configuration key) |
+
+There were no paid calls and no live check: no external interface changed,
+and the generation prompts and their versions are unchanged. No key, env
+file or vault database was read, and no tracked vault was opened. Main was
+not merged in.
+
+### Not changed, and open questions
+
+Open questions 1, 3 and 4 still stand. Question 2 is now settled as
+fail-closed for an unrecoverable inherited default. Questions 5 and 6 (a
+model-written duplicate, a stored-prompt check's author) no longer apply,
+since nothing reads the statement for the instruction, and question 7 is
+closed by the persisted order. New:
+
+8. **Legacy statements show the sentence twice.** A statement written under
+   the earlier rules (the branch's own writers, before round 3) may end with
+   "Use X in your answer.", and the rendered block repeats it. Nothing
+   removes it: text surgery is what this round retires. If the owner wants
+   it gone, the options are a display-only de-duplication that never
+   reaches grading, or a one-time doctor-proposed cleanup the owner
+   confirms. Neither is built. These statements exist only in vaults that
+   ran this unmerged branch.
+9. **An inherited default nobody can recover lowers every historical
+   regrade of that item.** This is the fail-closed rule the task asks for.
+   A changed default, together with an item known to have inherited it,
+   makes every historical regrade unverified, even one whose graded
+   revision was verified. Contracts frozen from now on record the revision
+   and are unaffected.
+10. **A pre-round-3 complete selection resumes as `selection`.** Rows that
+    this branch wrote before round 3 carry no completion marker, so their
+    selection is redone, possibly with a fresh selection call when the
+    survivors changed. That is honest, and planned under the caps.

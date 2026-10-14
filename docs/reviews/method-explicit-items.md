@@ -26,6 +26,18 @@ to 199, head fixture `migration_head_199`).
 > legacy inline instruction too. A method contract records the presented
 > revision's key hash, and a PF job resumes at its judgment step. See
 > "Re-review" in `docs/reviews/method-explicit-2-codex-review.md`.
+>
+> **Round 3 (2026-10-14).** The instruction is no longer stored in the
+> statement: "Use {method} in your answer." is rendered from the
+> `required_method` field as its own block wherever the item is shown, and
+> into the grader's question from the frozen contract. No writer appends it,
+> no validation looks for it (`required_method:not_stated` is gone), and
+> nothing edits a statement to add or remove it, so §1's instruction and
+> writer-check bullets and §2's "instruction appended" are historical. A
+> historical regrade whose inherited default rubric cannot be recovered
+> binds unverified. A PF job persists its selection whole, with a
+> completion marker, and a rerun plans only its unfinished work. See
+> "Round 3" in `docs/reviews/method-explicit-2-codex-review.md`.
 
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor
