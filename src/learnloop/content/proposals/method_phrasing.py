@@ -128,8 +128,6 @@ DECIDER_OPTIONS = {
 }
 #: A Decider answer counts as method phrasing at this probability or more.
 DECIDER_METHOD_THRESHOLD = 0.5
-#: Tokens one Decider question adds to the state (instructions and options).
-DECIDER_QUESTION_TOKENS = 120
 LLM_OUTPUT_TOKENS = 2_000
 
 
@@ -142,7 +140,18 @@ def default_caps(items: int) -> SpendCaps:
 
 
 def _estimate_tokens(text: str) -> int:
-    return (len(text.encode("utf-8")) + 3) // 4
+    """An upper bound on the input tokens of ``text``: its UTF-8 bytes (the
+    PF convention, ``learnloop.ops.pf_calls.estimate_tokens``).
+
+    Admission and the dry run both use it, so an estimate bounds what a
+    request may cost. The earlier bytes/4 estimate under-ran the
+    provider-reported usage on the 2026-10-13 live run on a linear-algebra
+    copy (review F7): the Haiku 5.5 writer reported 1,638 input tokens per
+    call against 783 estimated, the Decider 42,866 for 59 requests against
+    26,377.
+    """
+
+    return len(text.encode("utf-8"))
 
 
 # -- the LLM judge's contract -------------------------------------------------------
@@ -566,7 +575,7 @@ def llm_readings(item: PracticeItem, targets: Sequence[MethodTarget], client: An
     prompt = judge_prompt(item, item.grading_rubric, targets)
     budget.register_llm(client)
     with budget.spend.collector.observing():
-        with budget.spend.request(ROUTE, LLM_PURPOSE, input_tokens=_estimate_tokens(prompt),
+        with budget.spend.request(ROUTE, LLM_PURPOSE, input_tokens=_llm_tokens(prompt),
                                   output_tokens=LLM_OUTPUT_TOKENS):
             result = execute_structured_operation(
                 client, purpose=LLM_PURPOSE, prompt=prompt, result_model=RubricPhrasingReading, isolated=True,
@@ -633,9 +642,21 @@ def _judged_criteria(item: PracticeItem) -> int:
 
 
 def _decider_tokens(item: PracticeItem) -> int:
-    """The input tokens one Decider request for ``item`` is admitted with."""
+    """The input tokens one Decider request for ``item`` is admitted with (an
+    upper bound: the state and every question's instructions and options)."""
 
-    return _estimate_tokens(decider_state(item, item.grading_rubric)) + DECIDER_QUESTION_TOKENS * _judged_criteria(item)
+    questions = [decider_question(criterion) for criterion in item.grading_rubric.criteria
+                 if criterion.id not in _required_ids(item)]
+    return _estimate_tokens(decider_state(item, item.grading_rubric)) + sum(
+        _estimate_tokens(question.instructions + json.dumps(question.options, sort_keys=True)) for question in questions
+    )
+
+
+def _llm_tokens(prompt: str) -> int:
+    """The input tokens one LLM judge or writer request is admitted with (an
+    upper bound: the prompt and the result schema the transport sends)."""
+
+    return _estimate_tokens(prompt) + _estimate_tokens(json.dumps(RubricPhrasingReading.model_json_schema()))
 
 
 # -- repairs ------------------------------------------------------------------------
@@ -860,7 +881,7 @@ def plan_dry_run(
             max_tokens=getattr(profile, "max_tokens", None),
         )
         population = judged if step == "rewrite" else list(items)
-        input_tokens = sum(_estimate_tokens(judge_prompt(item, item.grading_rubric, targets_of(item)))
+        input_tokens = sum(_llm_tokens(judge_prompt(item, item.grading_rubric, targets_of(item)))
                            for item in population)
         return _priced_step(spend, info, step, count_key, len(population), input_tokens,
                             LLM_OUTPUT_TOKENS * len(population), price_per_million, refused)
