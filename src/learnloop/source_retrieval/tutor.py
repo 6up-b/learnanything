@@ -60,6 +60,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
+from learnloop.ingest.block_roles import lead_role
 from learnloop.source_retrieval.corpus import Scope, exam_withheld, teaching_scope
 from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
@@ -121,12 +122,22 @@ def span_context(hit: SpanHit, *, complete: bool = True) -> dict[str, Any]:
     }
 
 
+#: Lead roles a cited block (or a block continuing it) never has while an item
+#: is being practised, whatever its role hint says (Codex re-review F7).
+ITEM_BOUND_LEAD_ROLES = frozenset({"exercise", "solution"})
+
+
 def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *,
                      item: PracticeItem | None) -> BlockFilter:
-    """The rules a cited numbered block passes to join a retrieved or pinned
-    span: inside the span's scope (an item-bound scope already leaves out the
-    item's passages, exercises and solutions), never exam material, never a
-    passage that reproduces the practised item's answer."""
+    """The rules a cited numbered block passes to join a retrieved, pinned or
+    linked span: inside the span's scope (an item-bound scope already leaves
+    out the item's passages and the exercise and solution blocks its role hints
+    name), never exam material, and with an ``item`` (practice, feedback) never
+    a block whose own lead names an exercise or a solution ("Exercise 3.2",
+    "Problem 3.2.", "Solution:") nor a passage that reproduces the item's
+    answer. The lead guard covers what role hints miss: a transcript's
+    captions are all ``ordinary_prose``, and an extraction's hints may be
+    missing or wrong (Codex re-review F7)."""
 
     exam: list[Any] = []
 
@@ -137,7 +148,11 @@ def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *
             exam.append(exam_material(vault, repository))
         if exam[0].covers(extraction_id, str(block.span_id)):
             return "exam material"
-        if item is not None and span_leaks_expected(block.text, item.expected_answer):
+        if item is None:
+            return None
+        if lead_role(block.text) in ITEM_BOUND_LEAD_ROLES:
+            return "an exercise or solution, while the item is being practised"
+        if span_leaks_expected(block.text, item.expected_answer):
             return "it reproduces the answer to the item being practised"
         return None
 
@@ -156,9 +171,11 @@ def linked_reference_filter(vault: LoadedVault, repository: Repository, *, conte
     feedback context also every passage linked to the item (its
     ``entity_source_links`` of any relation and its provenance refs, the same
     text in the source's other extractions, the worked example, exercise or
-    solution body such a passage leads) and every exercise and solution block
-    with its region's body (Codex review F1, tutor delivery fixes). The scope
-    is built on the first block asked about."""
+    solution body such a passage leads), every exercise and solution block
+    with its region's body (Codex review F1, tutor delivery fixes), and,
+    whatever its role hint, a block whose own lead names an exercise or a
+    solution (Codex re-review F7: a caption, or a missing or wrong hint). The
+    scope is built on the first block asked about."""
 
     item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
     built: list[BlockFilter] = []
@@ -504,6 +521,7 @@ class PinnedSpanProvider:
 
 __all__ = [
     "ITEM_BOUND_CONTEXTS",
+    "ITEM_BOUND_LEAD_ROLES",
     "PROVENANCE_SPANS_PER_LO",
     "PinnedSpanProvider",
     "SPAN_TEXT_CAP",

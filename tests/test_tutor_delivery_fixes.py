@@ -22,6 +22,7 @@ from learnloop.clock import FrozenClock
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.db.repositories import Repository
 from learnloop.reader import reader_dialogue as RD
+from learnloop.tutor.context_delivery import BlockSource, follow_references
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_basic_vault
@@ -796,3 +797,156 @@ def test_the_complete_passages_kill_switch_restores_the_judges_900_characters(tm
     assert predecessor in labelled
     assert report["results"]["passages"]["complete"] is False
     assert report["manifest"]["benchmark"]["version"] == "t6-eval-v2"
+
+
+# -- Codex re-review F7: the exercise and solution lead guard survives F1 ------------
+#
+# The teaching scope drops exercise and solution blocks by their role hints. A
+# lecture transcript's captions all carry ``ordinary_prose`` (the caption
+# normalizer cannot tell), and a Marker block may carry no hint or a wrong one:
+# the block's own lead ("Exercise 3.2", "Problem 3.2.", "Solution:") still keeps
+# it from an item-bound tutor, as the predecessor's linked-span filter did.
+
+EXERCISE_CAPTION = "Exercise 3.2: show that every real symmetric matrix has real eigenvalues."
+CITING_CAPTION = "As Exercise 3.2 asks, the eigenvalues of a symmetric matrix are real numbers."
+LEAD_REFUSED = "an exercise or solution, while the item is being practised"
+
+
+def _seed_ir(repository, ir, *, source_id: str, revision_id: str, extraction_id: str) -> None:
+    from tests.test_source_inventory import _persist
+
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, display_title, "
+            "current_revision_id, reader_enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+            (source_id, "transcript", f"file:///{source_id}.vtt", "Lecture 3", revision_id, 1,
+             "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"))
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
+            (revision_id, source_id, f"sha256:{source_id}", None, "2026-01-01T00:00:00Z"))
+        connection.commit()
+    _persist(repository, ir, revision_id=revision_id, extraction_id=extraction_id)
+
+
+def _linked_ir_vault(tmp_path, ir, *, teaching_span: str):
+    """The retrieval vault plus a teaching source ``src_lecture`` (``ext_lecture``)
+    built from ``ir``, whose ``teaching_span`` is lo_matrices' linked passage."""
+
+    from learnloop.vault.writer import upsert_source_set
+    from tests.source_retrieval_fakes import build_retrieval_vault
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault", embeddings=False)
+    _seed_ir(repository, ir, source_id="src_lecture", revision_id="rev_lecture", extraction_id="ext_lecture")
+    upsert_source_set(paths.root, {
+        "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
+        "members": [
+            {"source_id": "src_book", "revision_id": "rev_book", "default_role": "primary_textbook"},
+            {"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"},
+            {"source_id": "src_lecture", "revision_id": "rev_lecture", "default_role": "primary_textbook"},
+        ],
+    })
+    repository.insert_entity_source_link(
+        entity_type="learning_object", entity_id="lo_matrices", locator=f"span:ext_lecture/{teaching_span}",
+        relation="primary", source_id="src_lecture", revision_id="rev_lecture", extraction_id="ext_lecture")
+    return paths, repository
+
+
+def _caption_vault(tmp_path):
+    from learnloop.ingest.extractors.normalizers import captions_to_ir
+
+    ir = captions_to_ir([
+        {"start": 0.0, "end": 4.0, "text": "Today we look at symmetric matrices."},
+        {"start": 4.0, "end": 9.0, "text": EXERCISE_CAPTION},
+        {"start": 9.0, "end": 14.0, "text": CITING_CAPTION},
+    ], title="Lecture 3")
+    assert {block.role_hint for block in ir.blocks} == {"ordinary_prose"}  # the normalizer cannot tell
+    return _linked_ir_vault(tmp_path, ir, teaching_span="s3")
+
+
+def _hinted_ir(rows: list[tuple[str, str, str | None]]):
+    """A Marker chapter (header s1, then ``rows`` as s2, s3, ...) whose blocks
+    carry exactly the given role hints (None: an extraction without hints)."""
+
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+
+    header, ref = "Chapter 3 Eigenvalues", "/page/1/SectionHeader/1"
+    blocks = [DocumentBlock.build(span_id="s1", block_type="SectionHeader", text=header, ordinal=1, page=1,
+                                  section_path=[ref], extractor_block_id=ref)]
+    for index, (text, block_type, hint) in enumerate(rows, start=2):
+        blocks.append(DocumentBlock.build(span_id=f"s{index}", block_type=block_type, text=text, ordinal=index,
+                                          page=1, section_path=[ref], role_hint=hint))
+    unit = DocumentUnit(unit_id="ch3", label=header, ordinal=0, semantic_hash="sha256:ext_lecture",
+                        page_start=1, page_end=1, span_ids=[block.span_id for block in blocks])
+    return DocumentIR(extractor="marker", extractor_version="ext_lecture", units=[unit], blocks=blocks, assets=[],
+                      health=ExtractionHealth())
+
+
+def _unresolved(delivery) -> list[tuple[str, str, str]]:
+    return [(entry["reference"], entry["span_id"], entry["reason"])
+            for entry in delivery["references"]["unresolved"]]
+
+
+def test_a_linked_captions_reference_to_an_exercise_caption_is_refused_while_practising(tmp_path):
+    paths, repository = _caption_vault(tmp_path)
+    spans, delivery = _ask_linked(paths, repository)
+    assert [span["text"] for span in spans] == [CITING_CAPTION]
+    assert EXERCISE_CAPTION not in {span["text"] for span in spans}
+    assert _unresolved(delivery) == [("Exercise 3.2", "s2", LEAD_REFUSED)]
+
+
+@pytest.mark.parametrize("hint", [None, "ordinary_prose", "theorem"])
+def test_a_linked_spans_reference_to_an_exercise_with_a_missing_or_wrong_hint_is_refused(tmp_path, hint):
+    exercise = "Problem 3.2. Show that every real symmetric matrix has real eigenvalues."
+    citing = "By Problem 3.2, the eigenvalues of a real symmetric matrix are real numbers."
+    paths, repository = _linked_ir_vault(
+        tmp_path, _hinted_ir([(exercise, "Text", hint), (citing, "Text", "ordinary_prose")]), teaching_span="s3")
+    spans, delivery = _ask_linked(paths, repository)
+    assert [span["text"] for span in spans] == [citing]
+    assert _unresolved(delivery) == [("Problem 3.2", "s2", LEAD_REFUSED)]
+
+
+def test_an_exercise_continuing_a_cited_theorem_is_cut_while_practising(tmp_path):
+    theorem = "Theorem 3.5. Every real symmetric matrix has real eigenvalues and"
+    rest = "an orthonormal basis of eigenvectors, as the page goes on to check in"  # an open sentence
+    exercise = "Exercise: verify the theorem for the matrix [[2, 1], [1, 2]] and find its eigenvalues"
+    citing = "By Theorem 3.5, a symmetric matrix can be diagonalized by an orthogonal matrix."
+    paths, repository = _linked_ir_vault(tmp_path, _hinted_ir([
+        (theorem, "Text", "theorem"), (rest, "Text", "ordinary_prose"), (exercise, "Text", "ordinary_prose"),
+        ("Section 3.6 turns to Hermitian matrices", "Text", "ordinary_prose"), (citing, "Text", "ordinary_prose"),
+    ]), teaching_span="s6")
+    spans, delivery = _ask_linked(paths, repository)
+    referenced = [span["text"] for span in spans if span["relation"] == "referenced"]
+    assert referenced == [theorem, rest]  # the statement, never the exercise that continues the page
+    assert [entry["reference"] for entry in delivery["references"]["resolved"]] == ["Theorem 3.5"]
+    # Another context than practice or feedback keeps the predecessor's rule: the lead guard is item-bound.
+    from learnloop.source_retrieval.tutor import reference_filter, tutor_scope
+    from tests.source_retrieval_fakes import loaded
+
+    vault = loaded(paths)
+    item = vault.practice_items["pi_eigen_1"]
+    block = BlockSource(repository.sqlite_path).block("ext_lecture", "s4")
+    bound = reference_filter(vault, repository, tutor_scope(vault, repository, context="practice",
+                                                            learning_object_ids=["lo_matrices"], item=item),
+                             item=item)
+    library = reference_filter(vault, repository, tutor_scope(vault, repository, context="library",
+                                                              learning_object_ids=["lo_matrices"], item=None),
+                               item=None)
+    assert bound("ext_lecture", block) == LEAD_REFUSED
+    assert library("ext_lecture", block) is None
+
+
+def test_a_retrieved_spans_reference_to_an_exercise_caption_is_refused_while_practising(tmp_path):
+    # The retrieved and pinned providers share reference_filter with the linked fallback.
+    from learnloop.source_retrieval.tutor import reference_filter, tutor_scope
+    from tests.source_retrieval_fakes import loaded
+
+    paths, repository = _caption_vault(tmp_path)
+    vault = loaded(paths)
+    item = vault.practice_items["pi_eigen_1"]
+    scope = tutor_scope(vault, repository, context="practice", learning_object_ids=["lo_matrices"], item=item)
+    found = follow_references(
+        BlockSource(repository.sqlite_path),
+        [{"extraction_id": "ext_lecture", "span_id": "s3", "text": CITING_CAPTION}],
+        allow=reference_filter(vault, repository, scope, item=item), delivered={("ext_lecture", "s3")})
+    assert found.spans == []
+    assert [(entry["span_id"], entry["reason"]) for entry in found.unresolved] == [("s2", LEAD_REFUSED)]
