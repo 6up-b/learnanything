@@ -10,8 +10,9 @@ the receipt chain through the sidecar, G6 (replay) and order parity.
   (ids aside), on the owner's working vaults' backup-API copies.
 * **Order parity** (owner Q1): where no constraint refuses anything, the
   staged frame's blocks are DL1's blocks in DL1's order.
-* **G9**: a learner pick wins with no propensity and no router decision; a
-  proposal pick's delivery keeps naming its block's decision.
+* **G9**: a learner pick wins with no propensity and logs its own
+  ``learner_pick`` decision; a proposal pick's delivery names its block's
+  decision, a new pick block's included.
 * **The receipt chain** through the RPCs: the served step's presentation id,
   sent with the answer, binds the attempt; a wrong, foreign or used id never
   fails the submit.
@@ -175,17 +176,67 @@ def test_an_irreversible_block_is_only_the_rules_deterministic_pick(tmp_path):
 # -- G9: learner picks ---------------------------------------------------------------
 
 
-def test_a_learner_pick_wins_with_no_propensity_and_no_router_decision(tmp_path):
+def test_a_learner_pick_wins_with_no_propensity_and_logs_its_own_decision(tmp_path):
+    """G9 (plan §8.2): a pick logs ``learner_pick`` with no propensity. A pick
+    outside the planned blocks is its own one-item block whose ``plan_block``
+    decision is written in the block's transaction and named by the block
+    (``decision_ref``) and by its presentation, so the exact chain decision ->
+    presentation -> attempt holds for picks too (Codex review F4)."""
+
     env = _routed_env(tmp_path)
     build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
-    before = len(_plan_rows(env))
+    before = _plan_rows(env)
     record, pick = learner_pick(env, "pi_p1b")
     block = next(block for block in record.blocks if block.id == pick["block_id"])
-    assert (block.chosen_by, block.chosen["propensity"], block.decision_ref) == ("learner_pick", None, None)
-    assert len(_plan_rows(env)) == before
+    assert (block.chosen_by, block.chosen["propensity"]) == ("learner_pick", None)
+    [row] = [row for row in _plan_rows(env) if row["id"] not in {r["id"] for r in before}]
+    assert block.decision_ref == row["id"]
+    assert (row["learner_pick"], row["propensity"], row["propensity_kind"], row["policy"]) == (1, None, "none", "learner")
+    assert (row["chosen_ref"], row["chosen_practice_item_id"]) == ("pick:pi_p1b", "pi_p1b")
+    assert row["receipt_key"] == f"plan_block:{block.id}"
     with env.repository.connection() as connection:
-        row = connection.execute("SELECT * FROM plan_presentations WHERE id = ?", (pick["presentation_id"],)).fetchone()
-    assert (row["origin"], row["router_decision_id"]) == ("learner_pick", None)
+        presentation = connection.execute(
+            "SELECT * FROM plan_presentations WHERE id = ?", (pick["presentation_id"],)
+        ).fetchone()
+    assert (presentation["origin"], presentation["router_decision_id"]) == ("learner_pick", row["id"])
+
+
+def test_an_unplanned_proposal_pick_delivers_with_its_blocks_decision(tmp_path, monkeypatch):
+    """F4 through the RPC: a proposal's item outside every planned block is
+    picked; its delivery names the pick block's own logged decision."""
+
+    from learnloop.db.stores.practice_index import insert_proposal
+    from learnloop.db.stores.source_service import interventions
+
+    paths, ctx = _rpc_vault(tmp_path, monkeypatch)
+    _vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    view = _call(ctx, "get_daily_plan", {"sessionId": session_id})
+    planned = {item["practiceItemId"] for block in view["plan"]["blocks"] for item in block["items"]}
+    unplanned = next(item for item in sorted(_vault.practice_items) if item not in planned)
+    with repository.connection() as connection:
+        insert_proposal(connection, id="pp_unplanned", created_at="2026-10-12T09:00:00Z", origin="rpc",
+                        query_id="q", query_text="more practice", constraints={}, path="direct",
+                        path_reason="test", signals={}, reranked=False, rerank_status="disabled",
+                        rerank_model=None,
+                        proposed=[{"practice_item_id": unplanned, "rank": 1, "relevance": None,
+                                   "kind": "item", "rationale": "fits"}],
+                        exclusions={}, manifest={}, algorithm_version=A,
+                        caller="tutor", caller_ref="qe_1", intent="practice")
+    result = _call(ctx, "plan_learner_pick", {"practiceItemId": unplanned, "sessionId": session_id,
+                                              "proposalId": "pp_unplanned"})
+    step = result["step"]
+    with repository.connection() as connection:
+        [delivery] = interventions(connection)
+        decision = connection.execute("SELECT * FROM router_decisions WHERE id = ?",
+                                      (delivery["router_decision_id"],)).fetchone()
+        presentation = connection.execute("SELECT * FROM plan_presentations WHERE id = ?",
+                                          (step["presentationId"],)).fetchone()
+    assert decision is not None, "the pick block's decision is logged before it is served"
+    assert (decision["decision_kind"], decision["learner_pick"], decision["propensity"]) == ("plan_block", 1, None)
+    assert decision["receipt_key"] == f"plan_block:{step['blockId']}"
+    assert presentation["router_decision_id"] == decision["id"]
+    assert result["proposalPick"]["routerDecisionId"] == decision["id"]
 
 
 # -- the receipt chain through the RPCs ----------------------------------------------

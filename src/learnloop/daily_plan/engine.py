@@ -2552,7 +2552,45 @@ def learner_pick(
         if need > _EPS:
             overrun, displaced = _displace_tail(env, connection, record, need, by=practice_item_id)
         action, subtype = LANE_ACTIONS.get(lane or "maintain", ("maintain", None))
-        block_id = _persist_block(
+        detail: dict[str, Any] = {
+            "source": "learner",
+            "chooser": "learner",
+            "chosen_by": "learner_pick",
+            "candidate_id": f"pick:{practice_item_id}",
+            "propensity": None,
+            "why": "you picked this from the full list",
+            "why_kind": "computed",
+            "fallback": False,
+            "deductions": deductions,
+            "displaced": displaced,
+            # L3 wins: a pick larger than everything still displaceable is
+            # served anyway; this is how far it runs past the budget.
+            "overrun_minutes": round(max(overrun, 0.0), 4),
+            "candidate_set": [],
+            "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
+        }
+        # Router R2a (G9; Codex review F4): the pick is the learner's own block
+        # decision, logged (no propensity) in this block's transaction before
+        # it is served, so its presentation and a proposal's delivery name it.
+        block_id = new_ulid()
+        decision_ref = _log_plan_decision(
+            connection,
+            PlanBlockDecision(
+                plan_id=record.id,
+                plan_kind=record.kind,
+                local_date=str(record.row.get("local_date") or ""),
+                block_id=block_id,
+                session_id=env.session_id,
+                detail=detail,
+                chosen_by="learner_pick",
+                items=((practice_item_id, lo_id),),
+                decided_at=env.now_iso(),
+                config=vault.config,
+            ),
+        )
+        if decision_ref is not None:
+            detail["decision_ref"] = decision_ref
+        _persist_block(
             env,
             connection,
             record,
@@ -2564,24 +2602,10 @@ def learner_pick(
             reading=None,
             reading_full=None,
             learning_object_ids=[lo_id],
-            detail={
-                "source": "learner",
-                "chooser": "learner",
-                "chosen_by": "learner_pick",
-                "candidate_id": f"pick:{practice_item_id}",
-                "propensity": None,
-                "why": "you picked this from the full list",
-                "why_kind": "computed",
-                "fallback": False,
-                "deductions": deductions,
-                "displaced": displaced,
-                # L3 wins: a pick larger than everything still displaceable is
-                # served anyway; this is how far it runs past the budget.
-                "overrun_minutes": round(max(overrun, 0.0), 4),
-                "candidate_set": [],
-                "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
-            },
+            detail=detail,
             items=[(item, ORIGIN_LEARNER_PICK)],
+            decision_ref=decision_ref,
+            block_id=block_id,
         )
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)

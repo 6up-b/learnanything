@@ -22,6 +22,9 @@ The row (spec_action_router_v1 §9; R1's DL1 checklist):
   (no propensity); follow-ups the rules place are deterministic. A stop is
   ``stop_for_today``. A fallback names the chooser's refused pick in
   ``fallback`` (``Decision.fallback_from``) and its reason in the detail.
+  A pick from the full list (DL1's ``learner_pick``: a one-item block outside
+  the source's candidates) is chosen as ``pick:<item>``, a learner pick with
+  no propensity (R2a, G9).
 * **the action** an outcome follows is the block's first planned item
   (forced items first), attempted at or after the decision in its session.
 
@@ -68,6 +71,8 @@ SURFACE = "daily_plan"
 MODE = "daily_plan"
 CONTINUE_REF = "continue_current"
 STOP_REF = "stop_for_today"
+#: A learner pick's candidate id (``pick:<practice item>``, DL1's learner_pick).
+PICK_PREFIX = "pick:"
 #: DL1's rule 2: a chooser whose choice cannot stand falls back to lane quota.
 FALLBACK_POLICY = "lane_quota_v1"
 #: A chooser's choices are probabilities within this of 1 are deterministic.
@@ -123,16 +128,21 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
     items = [(str(item), str(lo)) for item, lo in (getattr(decision, "items", ()) or ())]
 
     candidate_rows = [dict(row) for row in detail.get("candidate_set") or ()]
+    learner_pick = chosen_by == "learner_pick"
+    picked = learner_pick and choice_id.startswith(PICK_PREFIX) and not stop
     if stop:
         chosen_ref = STOP_REF
     elif choice_id in feasible_ids:
+        chosen_ref = choice_id
+    elif picked:
+        # R2a (G9): a pick from the full list is its own one-item block, the
+        # learner's choice outside the source's candidates.
         chosen_ref = choice_id
     else:
         # Nothing feasible: the block is the requested or follow-up items the
         # container places whatever is chosen (DL1's _boundary).
         origin = str(forced[0].get("origin")) if forced else "forced"
         chosen_ref = f"forced:{origin}"
-    learner_pick = chosen_by == "learner_pick"
     if learner_pick:
         propensity, propensity_kind = None, "none"
     else:
@@ -172,6 +182,17 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
             # reason code).
             entry["annotations"] = dict(row["annotations"])
         candidates.append(entry)
+    if picked:
+        candidates.append(
+            {
+                "ref": chosen_ref,
+                "kind": "pick",
+                "item_ids": [item for item, _lo in items],
+                "learning_object_ids": [lo for _item, lo in items],
+                "feasible": True,
+                "propensity": candidate_propensity(chosen_ref),
+            }
+        )
     if chosen_ref.startswith("forced:"):
         candidates.append(
             {

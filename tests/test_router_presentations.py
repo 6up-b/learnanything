@@ -166,7 +166,13 @@ def test_a_learner_pick_and_an_open_list_pick_get_their_own_presentations(tmp_pa
     with env.repository.connection() as connection:
         row = connection.execute("SELECT * FROM plan_presentations WHERE id = ?", (pick["presentation_id"],)).fetchone()
     assert row["origin"] == "learner_pick" and row["practice_item_id"] == "pi_m1c"
-    assert row["router_decision_id"] is None  # a pick is the learner's own choice, not a router decision
+    # A pick is the learner's own choice, logged as such (no propensity) and
+    # named by its presentation (G9; Codex review F4).
+    with env.repository.connection() as connection:
+        decision = connection.execute("SELECT * FROM router_decisions WHERE id = ?",
+                                      (row["router_decision_id"],)).fetchone()
+    assert decision is not None
+    assert (decision["learner_pick"], decision["propensity"], decision["chosen_practice_item_id"]) == (1, None, "pi_m1c")
 
 
 def test_the_session_rule_stays_the_labelled_fallback_for_an_unbound_attempt(tmp_path):
@@ -210,6 +216,6 @@ def test_the_session_rule_never_takes_an_attempt_bound_to_another_presentation(t
     outcome_a = _outcome_for_block(env, block_a)
     assert outcome_a["action_attempt_id"] is None, "A never served what this attempt answered"
     assert outcome_a["action_status"] != "taken"
-    with connect(env.repository.sqlite_path, read_only=True) as connection:
-        rows = list(derive_router_outcomes(connection))
-    assert [row["action_attempt_id"] for row in rows].count(picked) <= 1
+    # The pick block's own decision (G9) takes it, exactly.
+    outcome_b = _outcome_for_block(env, pick["block_id"])
+    assert (outcome_b["action_attempt_id"], outcome_b["action_binding"]) == (picked, "presentation")
