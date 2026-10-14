@@ -128,6 +128,13 @@ What the predicate adds on these paths, against main's composition (each test fa
 
 Not an exam test (unchanged): Add's "past exam or problem set" option. It sets the book's `reader_enabled = false` and the automatic build skips the book (`problem_set`): the learner's own content choice, which cannot tell an exam from a problem set and marks neither. Such a book is outside the library scope (`library_scope` reads reader-enabled sources only) and has no role for the teaching scopes (`teaching_scope` excludes role-less sources), so no model context reads it. Route rules (`mvp-0.20`, the grader's own-route rules) and value-of-information stopping (`mvp-0.21`) read no source text: they change how an answer is graded and how many probes, follow-ups, teach-backs and project probes are served, never which source material a model sees. Their serves go through the same doors (§2.3, `refuse_held_out_item`; the routine exclusions).
 
+Tier 1, the Decider migration (`mvp-0.22`, landed on main before this stage; composed in phase 2 of §10), adds two readers of source text:
+
+| Caller | Via | What it does |
+|---|---|---|
+| `content/facet_identity/span_support.check` (the Decider's span-support question on a model-proposed facet reword; attached by `ProposalAuthority.for_proposal` through `CitationResolver.with_span_support`) | the resolver: `CitationResolver.excerpt` → `is_exam` (`exam_material` over every source set of the vault) | only supporting citations reach the question, and an exam or held-out span resolves to the role `exam`, which never supports; the span text is read through `excerpt`, which refuses whatever the predicate names (a refused excerpt makes the check unreadable, so nothing is sent and the reword waits for the confirm). A reword resting on exam or held-out text alone is refused before any Decider call (`exam_authority`). No separate exam test |
+| `ops/contamination/decider` (the Decider's leak and reveal verdicts in the contamination report) | the report's requests, built from `held_out_spans` (§2.2) | the same two-text leak question the LLM judge is asked: a leakage check of a generated item against the held-out partition, never teaching |
+
 ## 3. The five gaps
 
 | Gap | Before (base) | Fix | Test (failed on the base) |
@@ -212,13 +219,13 @@ The implement step was interrupted by a machine reboot after `7c495260f`, with t
 
 ## 10. Landing onto main
 
-**Branch:** `merge/exam-onto-main` (worktree `learnanything-merge4`), from main `21440c9cf` (`mvp-0.21`, migrations to 201, head fixture `fixtures/migration_head_201`). **Phase 1 commits:** `389d9e0b2` the `--no-ff` merge of `sources/exam-protection` (`6ab938e33`, not modified) with the conflict resolution and the two semantic-conflict fixes the merge needs to run · `a997d9ca9` UX Phase 1's exam paths composed, with three landing tests · `a5300a0ac` F7 · `9b36e4f0e` the regenerated references · this section. **Phase 2** (pending): main again once the Decider migration (`mvp-0.22`) lands, the full gate and parity.
+**Branch:** `merge/exam-onto-main` (worktree `learnanything-merge4`), from main `21440c9cf` (`mvp-0.21`, migrations to 201, head fixture `fixtures/migration_head_201`). **Phase 1 commits:** `389d9e0b2` the `--no-ff` merge of `sources/exam-protection` (`6ab938e33`, not modified) with the conflict resolution and the two semantic-conflict fixes the merge needs to run · `a997d9ca9` UX Phase 1's exam paths composed, with three landing tests · `a5300a0ac` F7 · `9b36e4f0e` the regenerated references · `9d99f2708` this section. **Phase 2 commits:** `0ff198f1a` the merge of main `f2bfa2928` (the Decider migration, `mvp-0.22`) · `a64dc1851` the regenerated references · this update.
 
 Main had gained, since the branch's base `e8d261405`: UX Phase 1 (migrations 198-199: automatic builds, `corpus.source_exam_exclusions`, the reading step's exam skip, consent), the route rules in the grader (`mvp-0.20`; the separate proof check deleted), the EVSI multi-family study (offline) and value-of-information stopping with voi-v2 (`mvp-0.21`, migrations 200-201, head fixture `migration_head_201`).
 
 ### Versioning
 
-No migration and no successor, as on the branch (§6, Codex F6): `goals.held_out_selection` is a live switch at every version, `mvp-0.20` and `mvp-0.21` included. `SUCCESSOR_CHAIN` is main's (latest `mvp-0.21`).
+No migration and no successor, as on the branch (§6, Codex F6): `goals.held_out_selection` is a live switch at every version, `mvp-0.20`, `mvp-0.21` and `mvp-0.22` included. `SUCCESSOR_CHAIN` is main's (latest `mvp-0.22` after phase 2).
 
 ### Conflicts and how they were composed
 
@@ -250,6 +257,40 @@ Semantic conflicts, fixed in the merge commit:
 - `uv run lint-imports --no-cache`: 17 contracts kept, 0 broken.
 - References: `db_generate_reference.py` at head 201 (319 table notes, 805 leaves in 48 sections; prose counts 804 → 805 by hand); `db_validate_reference.py` errors `[]`; `validate_vault.py` passed (1100 notes). `git diff --check` clean.
 
-### Phase 2
+### Phase 2: main's Decider migration, the gate, parity
 
-Pending: merge the then-current main (the Decider migration, `mvp-0.22`), the full gate (lint-imports, `pytest -n auto`, the durability lane, frontend and cargo only if `apps/` differs from main) and parity on backup-API copies of `fixtures/linear_algebra` and `fixtures/probability` (main against the merge, each migrated by its own code: `rebuild --shadow --json`, `doctor`).
+**Merge** (`0ff198f1a`). Main `f2bfa2928`: Tier 1, the Decider migration, as `mvp-0.22` (`decider_upgrade.upgrade_to_mvp022`), no new migration (head 201), the span-support check on model-proposed facet rewords with its keep-local guard, and a Decider sentence in the AI connect consent text.
+
+| Where | Resolution |
+|---|---|
+| `config/template.py` | Main's narrative (Tier 1) plus the exam-protection note on every version, `mvp-0.22` included. All fourteen snapshots (`mvp-0.9`..`mvp-0.22`) recomputed from the composed defaults, the template's `.pyc` cleared |
+| `content/facet_identity/authority.py` (`ProposalAuthority.for_proposal`) | Both: the resolver reads exam material over every source set of the vault (`exam_source_sets=vault.source_sets`, the one predicate) and carries main's span-support check (`with_span_support`) |
+| Generated references (371 files) | Main's in the merge, regenerated after (`a64dc1851`) |
+
+**The span-support check and the one predicate** (§2.8). It already excluded exam text by construction and has no exam test of its own: it reads only supporting citations, and their text only through `CitationResolver.excerpt`, which since this stage asks `is_exam` (the one predicate, read over every source set; every resolver construction sets it). Two guards in `tests/test_exam_protection_landing.py` pin it: a reword citing a held-out textbook span beside an explanatory one sends only the explanatory text to the Decider (`test_the_span_support_check_never_sends_held_out_text_to_the_decider`); one resting on held-out text alone is refused before any Decider call and writes no check row (`test_a_reword_resting_only_on_held_out_text_never_reaches_the_decider`). Both pass on main's code too (main's resolver withheld held-out units precisely): guards, not regressions. The contamination report's Decider verdicts read the held-out partition as a leak check (§2.8). The keep-local guard and the consent sentence do not touch exam material.
+
+**Defaults and references.** One new effective leaf over main's: 814 leaves in 49 sections (prose counts 813 → 814 by hand); 319 table notes at head 201; `db_validate_reference.py` errors `[]`; `validate_vault.py` passed (1101 notes). CLI help: `--write` left main's snapshot as it was. `git diff --check` clean.
+
+**Gate** (on `a64dc1851`, `TMPDIR` the worktree's `fixtures-local/tmp`):
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (phase 1) |
+| `uv run lint-imports --no-cache` | 17 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,603 passed**, 0 failed, 0 skipped (9 min 38 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10,504 deselected (2 min 14 s) |
+| `tests/test_exam_protection_landing.py` alone | 5 passed |
+| frontend (`npm ...`), `cargo check` | not run: `apps/` is identical to main's (`git diff main -- apps` empty) |
+
+**Parity.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (migration 155, `mvp-0.8`) in `fixtures-local/parity-exam`. Each copy was migrated by its own code (`migration_coordinator.migrate_vault`): main `f2bfa2928` exported with `git archive` and run on `PYTHONPATH` (a probe confirmed the modules and the migrations directory came from the archive), and the merge's; 46 migrations each, to 201. On each copy `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+The merge's outputs match main's exactly: **0 differences** on all four outputs, once ULIDs, timestamps, 64-hex hashes and the copy's path are set aside.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, as at the previous landings. `live_database.unchanged` is true on every run. Doctor exits 1 on both sides, as on main. The tracked fixtures were only copied: `git status` is clean.
+
+**Phase 1's other checks stand:** the UX composition and F7 (above) are unchanged by phase 2's merge, and the full suite above includes their tests.
