@@ -530,6 +530,7 @@ fn main() {
             reader_prompt_contract,
             reader_render_view,
             reader_guide_plan,
+            reader_saved_place,
             reader_pdf_view,
             reader_watch_plan,
             reader_author_section_question,

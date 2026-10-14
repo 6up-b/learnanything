@@ -10,6 +10,7 @@ import { ReaderScreen } from "./ReaderScreen";
 import { readerRenderViewFixture as view } from "../fixtures/readerRenderView";
 import type { ReaderRenderViewDto, SourceLibraryCard } from "../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "./reader/activity";
+import { encodeReadingPlace } from "./reader/useReadingProgress";
 
 const api = vi.hoisted(() => ({
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
@@ -347,14 +348,14 @@ it("with the switch off, a search into another passage of a source left earlier 
   stableGeometry();
   render(<ReaderScreen initialSource={{ card: cardA, spanId: "span_symmetric_prose" }} onError={vi.fn()} />);
   await screen.findAllByText(view.blocks[1].markdown);
-  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe("span_symmetric_prose"));
+  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe(encodeReadingPlace(view.extractionId, "span_symmetric_prose")));
   fireEvent.click(screen.getByText("← Library"));
   await searchAndOpen("eigen", { sourceId: "src_b", sourceTitle: "Book B", extractionId: "ext_b", spanId: "b1", snippet: "another way" });
   await screen.findAllByText("Book B explains eigenvalues another way.");
   fireEvent.click(screen.getByText("← Library"));
   await searchAndOpen("spectral", { sourceId: view.sourceId, sourceTitle: "Matrices", extractionId: view.extractionId, spanId: "span_spectral_worked", snippet: "the spectral hit" });
   await screen.findAllByText(view.blocks[2].markdown);
-  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe("span_spectral_worked"));
+  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe(encodeReadingPlace(view.extractionId, "span_spectral_worked")));
   expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
   expect(api.readerLogActivity).not.toHaveBeenCalled();
 });

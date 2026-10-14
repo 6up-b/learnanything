@@ -438,7 +438,48 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     # Opening a source is the natural moment to resume draining any synthesis
     # requests left queued by a previous session (spec §6.4).
     ctx.ingest_jobs.kick_reader_drain()
-    return versioned(RV.render_payload(repository, view["id"]))
+    payload = RV.render_payload(repository, view["id"])
+    # Re-read safety: the readings whose spans have aliases into this one, so
+    # the Reader knows a saved place from before a re-read needs translating
+    # (``reader.saved_place``) while one saved on this reading is used as is.
+    payload["aliased_from"] = repository.span_reanchor_origins(resolved)
+    return versioned(payload)
+
+
+class ReaderSavedPlaceInput(ParamsModel):
+    source_id: str
+    span_id: str
+    # The reading the place was saved on; None for a place saved before the
+    # Reader recorded it (a bare span id).
+    extraction_id: str | None = None
+
+
+@method("reader.saved_place", ReaderSavedPlaceInput)
+def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> dict[str, Any]:
+    """Where a saved reading place lands on the book's current reading.
+
+    Re-read safety (2026-10-14): a place saved on another reading is
+    translated through the one alias authority (``span_aliases``): ``current``
+    is the same text, ``needs_reanchor`` the same place with changed text (the
+    Reader says the place is approximate), ``stale`` no place (the Reader
+    falls back to the reading history). A bare span id saved before places
+    recorded their reading is taken to be on the reading the current one was
+    read from again, or on the current one when it was never re-read."""
+
+    from learnloop.content.sources.span_aliases import resolve_span
+
+    _vault, repository = _require_reader(ctx)
+    current = resolve_extraction_id(repository, params.source_id)
+    if current is None:
+        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.source_id!r}.")
+    origin = params.extraction_id
+    if not origin:
+        origins = repository.span_reanchor_origins(current)
+        origin = origins[0] if origins else current
+    elif _source_id_for_extraction(repository, origin) != _source_id_for_extraction(repository, current):
+        raise SidecarError("validation_error", "That place was saved on another book.")
+    resolution = resolve_span(repository, origin, params.span_id, current)
+    return versioned({"source_id": params.source_id, **resolution.as_dict()})
 
 
 class ReaderGuidePlanInput(ParamsModel):

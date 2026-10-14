@@ -92,10 +92,15 @@ def learning_objects_for_section(
     section_spans = set(section["span_ids"])
     blocks = [block_by_span[span_id] for span_id in section["span_ids"] if span_id in block_by_span]
 
+    from learnloop.content.sources.span_aliases import SpanTranslator
     from learnloop.reader.reader_guidance import _canonical_note_ids
 
     artifact = repository.get_source_artifact(source_id) or {}
     note_ids = _canonical_note_ids(vault, artifact)
+    # Refs made on an earlier reading of the book resolve through the one
+    # alias authority (re-read safety): the same place counts for which LOs a
+    # section holds, even when its text changed.
+    translator = SpanTranslator(repository, extraction_id)
 
     matched: set[str] = set()
     for learning_object in vault.learning_objects.values():
@@ -113,6 +118,8 @@ def learning_objects_for_section(
                 extraction_id=extraction_id,
                 note_ids=note_ids,
                 blocks=blocks,
+                translator=translator,
+                accept_moved=True,
             )
             if span_id is not None and span_id in section_spans:
                 matched.add(learning_object.id)
@@ -226,10 +233,14 @@ def source_refs_for_section(
     blocks = [block_by_span[span_id] for span_id in ordered_spans]
     index_by_span = {span_id: index for index, span_id in enumerate(ordered_spans)}
 
+    from learnloop.content.sources.span_aliases import SpanTranslator
     from learnloop.reader.reader_guidance import _canonical_note_ids
 
     artifact = repository.get_source_artifact(source_id) or {}
     note_ids = _canonical_note_ids(vault, artifact)
+    # Grounding cites the same text only: a ref on an earlier reading counts
+    # here when its alias is exact (re-read safety).
+    translator = SpanTranslator(repository, extraction_id)
     raw_path = VaultPaths(vault.root, vault.config).canonical_source_raw_path(
         str(revision.get("asset_hash") or "")
     )
@@ -258,6 +269,7 @@ def source_refs_for_section(
                 extraction_id=extraction_id,
                 note_ids=note_ids,
                 blocks=blocks,
+                translator=translator,
             )
             if span_id is None or span_id not in index_by_span:
                 continue

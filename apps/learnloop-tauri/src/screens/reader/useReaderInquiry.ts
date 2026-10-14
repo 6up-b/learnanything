@@ -45,7 +45,7 @@ import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
-import { readingPositionKey } from "./useReadingProgress";
+import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
 import {
   back as stackBack,
@@ -357,7 +357,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null;
     const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan;
     try {
-      window.localStorage.setItem(readingPositionKey(render.sourceId), saved);
+      // The reading travels with the place (re-read safety).
+      window.localStorage.setItem(readingPositionKey(render.sourceId), encodeReadingPlace(render.extractionId, saved));
     } catch {
       /* Reading-position persistence is best-effort. */
     }

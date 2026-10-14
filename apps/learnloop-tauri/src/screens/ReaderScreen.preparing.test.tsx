@@ -9,6 +9,7 @@ import type { SourceLibraryCard } from "../api/dto";
 import { clear } from "../api/queryCache";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { ReaderScreen } from "./ReaderScreen";
+import { encodeReadingPlace } from "./reader/useReadingProgress";
 
 const { invoke, scrolls } = vi.hoisted(() => ({ invoke: vi.fn(), scrolls: [] as Array<[number, number | undefined]> }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke, convertFileSrc: (path: string) => path }));
@@ -170,6 +171,7 @@ it("opens the full Reader where the learner had scrolled to in the original (rev
   expect(backend.calls).toContain("reader_render_view");
   expect(scrolls).toEqual([[19, 0.375]]);
   // The passage there becomes the reading position, so the book reopens there too.
-  expect(stored.get("learnloop.reader.position.src_new")).toBe("s_p19_mid");
+  // Saved with its reading (re-read safety).
+  expect(stored.get("learnloop.reader.position.src_new")).toBe(encodeReadingPlace(readerRenderViewFixture.extractionId, "s_p19_mid"));
   vi.unstubAllGlobals();
 });

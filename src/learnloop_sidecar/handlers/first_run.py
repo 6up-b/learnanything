@@ -238,8 +238,13 @@ class SourceActionInput(ParamsModel):
     batch_id: str | None = None
     action: Literal[
         "undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
-        "allow_upload",
+        "allow_upload", "restore_reading",
     ]
+    # Re-read safety: reading a book again that the learner already studies
+    # (or that z.ai would read at a cost no OK line shows) first returns the
+    # confirmation (pages, cost, what moves to the new reading); the card
+    # calls again with ``confirmed`` once the learner says so.
+    confirmed: bool = False
 
 
 def _allow_file_upload(ctx: SidecarContext, flow: str | None = None) -> None:
@@ -324,6 +329,12 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         if batch_id is not None:
             ctx.ingest_jobs.resume_batch(batch_id)
         result["batch_id"] = batch_id
+    elif params.action == "restore_reading":
+        # Re-read safety E1: the one-tap repair of a book whose current
+        # revision has no reading (nothing is deleted).
+        from learnloop.content.pipeline.reread import restore_readable_revision
+
+        result["restored_revision_id"] = restore_readable_revision(repository, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
         if not core.text_recognition_available(config=vault.config):
             # Plain words and how to get it (usability round 2); the shelf
@@ -337,10 +348,45 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         # A book that never had text (a scan) gets its questions once it is
         # read (usability round 1, U7); one already read keeps the ones it has.
         never_read = core._completed_extraction(repository, params.source_id) is None
+        if never_read:
+            pages = _latest_import_pages(repository, params.source_id)
+        else:
+            plan = _reread_plan(ctx, vault, repository, params.source_id, artifact)
+            if plan["needs_confirmation"] and not params.confirmed:
+                return versioned({**result, "needs_confirmation": True, "confirmation": plan})
+            # The same pages as the reading it replaces (re-read safety item 2).
+            pages = plan["page_selection"]
         result["batch_id"] = ctx.ingest_jobs.enqueue_add_source(
             source,
             source_id=params.source_id,
-            options=core.AddSourceOptions(text_recognition=True),
+            options=core.AddSourceOptions(text_recognition=True, page_selection=tuple(pages) if pages else None),
             auto_build=never_read,
         )
     return versioned(result)
+
+
+def _latest_import_pages(repository, source_id: str) -> list[int] | None:
+    imports = core.import_jobs(repository, source_id)
+    pages = ((imports[0].get("payload") or {}).get("page_selection") if imports else None) or None
+    return [int(page) for page in pages] if pages else None
+
+
+def _reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]:
+    """What reading this book again reads, costs and carries; refuses at once
+    when its original file changed or went missing (re-read safety E1)."""
+
+    from learnloop.content.pipeline import reread
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from learnloop.ingest.extractors.glm_ocr import selected_backend
+
+    try:
+        reread.original_bytes(repository, vault.root, source_id)
+    except IngestRunnerError as exc:
+        raise SidecarError(exc.code, str(exc), details=dict(exc.details)) from exc
+    glm = selected_backend(vault.config.ingest.pdf.glm_ocr.model_dump()) is not None
+    revision = repository.get_source_revision(str(artifact.get("current_revision_id") or "")) or None
+    return reread.reread_plan(
+        vault, repository, source_id, glm=glm,
+        upload_ok=core.file_upload_allowed(vault.config, "glm_ocr_upload"),
+        title=f"“{core.learner_title(artifact, revision)}”",
+    )

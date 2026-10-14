@@ -48,7 +48,11 @@ def register_source_revision(
     """Register (or reuse) the artifact/revision rows for one acquisition.
 
     Idempotent: identical artifact identity + identical bytes reuse the same
-    revision; changed bytes link a new revision to the same artifact.
+    revision; changed bytes link a new revision to the same artifact. A new
+    revision becomes the artifact's current one at once only while the
+    artifact has no completed reading; otherwise the import adopts it once
+    its reading completes (``content.pipeline.reread.adopt_revision``), so a
+    failed import never leaves a book without a reading (re-read safety E1).
 
     When ``vault_root`` is given, the raw bytes are also retained in the
     vault's content-addressed originals store (``canonical-sources/raw/``) so
@@ -118,7 +122,11 @@ def register_source_revision(
             supersedes_revision_id=supersedes,
             clock=clock,
         )
-        repo.set_source_current_revision(source_id, revision_id, clock=clock)
+        # A book that has a reading keeps its current revision until the new
+        # one has a completed reading (the import adopts it then): a failed
+        # import never leaves the book unopenable (re-read safety E1).
+        if not _has_completed_reading(repo, source_id):
+            repo.set_source_current_revision(source_id, revision_id, clock=clock)
         return RegisteredRevision(
             source_id=source_id,
             revision_id=revision_id,
@@ -126,6 +134,14 @@ def register_source_revision(
             reused_revision=False,
             reused_artifact=reused_artifact,
         )
+
+
+def _has_completed_reading(repo: Repository, source_id: str) -> bool:
+    return any(
+        run.get("status") == "completed" and run.get("parent_extraction_id") is None
+        for revision in repo.source_revisions_for(source_id)
+        for run in repo.extraction_runs_for_revision(revision["id"])
+    )
 
 
 def index_legacy_note(

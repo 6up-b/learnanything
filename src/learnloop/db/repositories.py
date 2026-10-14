@@ -13082,6 +13082,49 @@ class Repository(
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def carry_reader_section_progress(
+        self, extraction_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None = None
+    ) -> int:
+        """Carry section progress onto a new reading of the same book (re-read
+        safety, 2026-10-14). Each row names ``section_id``, ``spans_seen``,
+        ``span_count``, ``revealed_at``, ``completed_at`` and
+        ``generation_batch_id``; the same monotone rules as
+        :meth:`upsert_reader_section_progress` apply, and a carried generation
+        stamp keeps a section from building its questions twice."""
+
+        now = utc_now_iso(clock)
+        values = [
+            (
+                extraction_id, str(row["section_id"]), int(row.get("spans_seen") or 0),
+                int(row.get("span_count") or 0), row.get("revealed_at"), row.get("completed_at"),
+                row.get("generation_batch_id"), now,
+            )
+            for row in rows
+        ]
+        if not values:
+            return 0
+        with self.connection() as connection:
+            connection.executemany(
+                """
+                INSERT INTO reader_section_progress(
+                  extraction_id, section_id, spans_seen, span_count,
+                  revealed_at, completed_at, generation_batch_id, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(extraction_id, section_id) DO UPDATE SET
+                  spans_seen = MAX(reader_section_progress.spans_seen, excluded.spans_seen),
+                  span_count = MAX(reader_section_progress.span_count, excluded.span_count),
+                  revealed_at = COALESCE(reader_section_progress.revealed_at, excluded.revealed_at),
+                  completed_at = COALESCE(reader_section_progress.completed_at, excluded.completed_at),
+                  generation_batch_id = COALESCE(reader_section_progress.generation_batch_id,
+                                                 excluded.generation_batch_id),
+                  updated_at = excluded.updated_at
+                """,
+                values,
+            )
+            connection.commit()
+        return len(values)
+
     def mark_section_generation(
         self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None = None
     ) -> bool:
@@ -19262,6 +19305,61 @@ class Repository(
                 (from_extraction_id,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def record_span_reanchors(
+        self,
+        from_extraction_id: str,
+        to_extraction_id: str,
+        aliases: Iterable[tuple[str, str, str, float | None]],
+        *,
+        clock: Clock | None = None,
+    ) -> int:
+        """Persist one re-read's span aliases ``(from span, to span, match
+        kind, confidence)`` in one transaction. Idempotent on the primary key:
+        an alias already recorded is kept as it was (re-read safety, 2026-10-14)."""
+
+        now = utc_now_iso(clock)
+        rows = [
+            (from_extraction_id, str(from_span), to_extraction_id, str(to_span), str(kind), confidence, now)
+            for from_span, to_span, kind, confidence in aliases
+        ]
+        if not rows:
+            return 0
+        with self.connection() as connection:
+            before = connection.total_changes
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO source_span_reanchors(
+                  from_extraction_id, from_span_id, to_extraction_id, to_span_id,
+                  match_kind, confidence, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            connection.commit()
+            return connection.total_changes - before
+
+    def span_reanchors_between(self, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_span_reanchors WHERE from_extraction_id = ? AND to_extraction_id = ? "
+                "ORDER BY from_span_id",
+                (from_extraction_id, to_extraction_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def span_reanchor_origins(self, to_extraction_id: str) -> list[str]:
+        """The readings with recorded aliases into ``to_extraction_id``, the
+        most recently recorded first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT from_extraction_id, MAX(created_at) AS at FROM source_span_reanchors "
+                "WHERE to_extraction_id = ? GROUP BY from_extraction_id ORDER BY at DESC, from_extraction_id DESC",
+                (to_extraction_id,),
+            ).fetchall()
+        return [str(row["from_extraction_id"]) for row in rows]
 
     def backfill_locator_schemes(
         self, locators: Iterable[str], *, clock: Clock | None = None

@@ -228,6 +228,14 @@ UX_PHASE1_EXTENDED_RPCS = ("initialize", "get_source_library", "reader.pdf_view"
 # (the glm_ocr engine). A machine credential: desktop only.
 GLM_OCR_RPCS = ("set_text_recognition_api_key",)
 GLM_OCR_EXTENDED_RPCS = ("update_ingest_settings", "start_ingest", "start_import_batch")
+# Re-read safety (docs/reviews/reread-safety.md) adds reader.saved_place (a
+# saved reading place translated onto the book's current reading) and extends
+# source_action (the re-read's confirmation, its page scope and the one-tap
+# restore_reading, pinned above), get_source_library (the E1 line and the z.ai
+# OK line's pages and cost, pinned above), reader.render_view (aliased_from)
+# and reader.guide_plan (a flagged passage's anchor). Desktop only.
+REREAD_SAFETY_RPCS = ("reader.saved_place",)
+REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
 
 # Router R2a (mvp-0.23) adds no RPC. It extends these: a served plan step
 # names its presentation (next_plan_item, plan_learner_pick and the plan reads
@@ -263,7 +271,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
     + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
-    + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS,
+    + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

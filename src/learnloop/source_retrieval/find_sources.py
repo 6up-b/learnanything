@@ -39,6 +39,7 @@ from learnloop.content.authoring.practice_leakage import build_cross_source_span
 from learnloop.content.sources.exam_material import exam_material
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.content.sources.source_outline import resolve_extraction_id
+from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import search_blocks
@@ -200,7 +201,10 @@ def scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope:
 
 
 def _provenance_list(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str]) -> list[SpanKey]:
-    return [(span.extraction_id, span.span_id) for lo_id in lo_ids
+    # A span cited on an earlier reading of its book lands on the current one
+    # through an exact alias only (re-read safety).
+    current = CurrentKeys(repository)
+    return [current.key(span.extraction_id, span.span_id) for lo_id in lo_ids
             for span in build_cross_source_spans(vault, repository, lo_id, max_spans_per_item=PROVENANCE_SPANS_PER_LO)]
 
 
@@ -228,6 +232,7 @@ def facet_lists(vault: LoadedVault, repository: Repository,
     verification context. Unknown facets contribute nothing."""
 
     order = {relation: index for index, relation in enumerate(FACET_LINK_RELATIONS)}
+    current = CurrentKeys(repository)
     keys: list[tuple[int, SpanKey]] = []
     labels: list[dict[str, str]] = []
     for value in dict.fromkeys(facet_ids):
@@ -242,7 +247,9 @@ def facet_lists(vault: LoadedVault, repository: Repository,
                 continue
             span_id = _locator_span_id(link.get("locator"))
             if link.get("extraction_id") and span_id:
-                keys.append((order[relation], (str(link["extraction_id"]), str(span_id))))
+                # A link made on an earlier reading lands on the current one
+                # through an exact alias, else stays where it was made.
+                keys.append((order[relation], current.key(str(link["extraction_id"]), str(span_id))))
     ranked = [key for _rank, key in sorted(keys, key=lambda entry: entry[0])]
     return ({"facets": list(dict.fromkeys(ranked))} if ranked else {}), labels
 
@@ -282,13 +289,14 @@ def correction_lists(vault: LoadedVault, repository: Repository, misconception: 
     lists: dict[str, list[SpanKey]] = {}
     report: dict[str, Any] = {"misconception_id": getattr(misconception, "id", None)}
     facet_keys: list[SpanKey] = []
+    current = CurrentKeys(repository)
     for facet_id in (getattr(misconception, "target_facet", None), getattr(misconception, "confused_with_facet", None)):
         if not facet_id:
             continue
         for link in get_entity_provenance(repository, "facet", str(facet_id)).get("semantic_sources") or []:
             parsed = parse_block_span(str(link.get("locator") or ""))
             if parsed is not None:
-                facet_keys.append((parsed[0], parsed[1]))
+                facet_keys.append(current.key(parsed[0], parsed[1]))
     if facet_keys:
         lists["correction_facets"] = facet_keys
     source_ids = [str(value) for value in getattr(misconception, "correction_source_span_ids", None) or ()]
@@ -334,20 +342,25 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
         if not exists:
             return {}
         rows = connection.execute(
-            "SELECT v.object_type, v.authorial_role, v.content_json, c.revision_id, c.span_id "
+            "SELECT v.object_type, v.authorial_role, v.content_json, c.revision_id, c.span_id, "
+            "c.block_content_hash, c.created_at "
             "FROM source_object_versions v JOIN source_object_citations c ON c.source_object_version_id = v.id "
             "WHERE v.status IN ('proposed', 'reviewed') ORDER BY v.created_at, c.citation_ordinal").fetchall()
     strong: list[SpanKey] = []
     weak: list[SpanKey] = []
-    for object_type, role, content_json, revision_id, span_id in rows:
-        extraction_id = resolve_extraction_id(repository, str(revision_id))
-        if extraction_id is None or extraction_id not in wanted_extractions:
-            continue
-        confidence = (json.loads(content_json or "{}") or {}).get("confidence") if content_json else None
+    # Each citation on the reading it was made on, moved to the current one
+    # only through an exact alias (re-read safety; one alias authority).
+    citations = CitationResolver(repository)
+    for object_type, role, content_json, revision_id, span_id, block_content_hash, created_at in rows:
         matched = object_type in types or (role or "") in roles
         if not matched:
             continue
-        (weak if confidence == "low" else strong).append((extraction_id, str(span_id)))
+        key = citations.current_key({"revision_id": revision_id, "span_id": span_id,
+                                     "block_content_hash": block_content_hash, "created_at": created_at})
+        if key is None or key[0] not in wanted_extractions:
+            continue
+        confidence = (json.loads(content_json or "{}") or {}).get("confidence") if content_json else None
+        (weak if confidence == "low" else strong).append(key)
     keys = list(dict.fromkeys(strong + weak))
     if keys:
         lists["source_objects"] = keys

@@ -709,7 +709,8 @@ def test_a_book_carrying_the_retired_keep_local_choice_is_read_like_any_other(mo
 
     assert the_import()["error"]["code"] == "needs_upload_ok" and sent == []
     line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Reading this document sends the whole file to z.ai (GLM-OCR)"
+    # Pages and the estimated cost where the OK is asked (re-read safety item 5).
+    assert line["text"] == "Reading this document (1 page, less than $0.01) sends the whole file to z.ai (GLM-OCR)"
     assert line["action"] == {"kind": "allow_upload", "label": "OK"}
 
     grant_consent(root, "whole_files_zai")  # the OK naming z.ai
@@ -998,7 +999,8 @@ def test_r2_f2_the_card_reads_it_again_with_text_recognition_after_the_ok(monkey
     assert card()["statusLine"]["action"] == {"kind": "text_recognition", "label": "Read it with text recognition"}
     call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})
     assert sent == []
-    assert card()["statusLine"]["text"] == "Reading this document sends the whole file to z.ai (GLM-OCR)"
+    assert card()["statusLine"]["text"] == (
+        "Reading this document (2 pages, less than $0.01) sends the whole file to z.ai (GLM-OCR)")
     call(ctx, "source_action", {"sourceId": source_id, "action": "allow_upload"})
     assert len(sent) == 1
     latest = ctx.repository.ingest_jobs_for_source(("import",), source_id)[0]
@@ -1023,7 +1025,8 @@ def test_r2_f3_an_earlier_whole_file_ok_never_covers_z_ai(monkeypatch, tmp_path)
     item = call(ctx, "add_source", {"sources": [str(path)]})["items"][0]
     assert sent == []
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
-    assert card["statusLine"]["text"] == "Reading this document sends the whole file to z.ai (GLM-OCR)"
+    assert card["statusLine"]["text"] == (
+        "Reading this document (2 pages, less than $0.01) sends the whole file to z.ai (GLM-OCR)")
     assert card["statusLine"]["action"] == {"kind": "allow_upload", "label": "OK"}
 
     call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "allow_upload"})
@@ -1342,7 +1345,9 @@ def test_r3_f2_a_scan_or_image_imported_without_the_ok_asks_for_it_on_its_card(m
     batch = ctx.ingest_jobs._require_runner().enqueue_batch("import", [JobSpec("import", {"source": str(path)})])
     ctx.ingest_jobs.drain_foreground()
     (job,) = ctx.repository.ingest_jobs_for_batch(batch)
-    assert job["error"]["code"] == "needs_upload_ok" and job["error"]["details"] == {"flow": "glm_ocr_upload"}
+    assert job["error"]["code"] == "needs_upload_ok" and job["error"]["details"]["flow"] == "glm_ocr_upload"
+    # The pages and cost the card's OK line shows (re-read safety item 5).
+    assert job["error"]["details"]["pages"] == (1 if image else 2)
     message = job["error"]["message"]
     assert "z.ai" in message and "card in the Library" in message and "marker-pdf" not in message
     assert ("PDF engine" in message) is False

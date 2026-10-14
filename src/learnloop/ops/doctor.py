@@ -206,6 +206,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     if repository is not None:
         _merge_mvp06_facet_recall_aliases(vault, repository, database_tables, fix_state=fix_state)
         _check_database_state(vault, repository, database_tables, issues)
+        if _has_tables(database_tables, "source_artifacts", "source_revisions", "source_extraction_runs"):
+            _check_reread_state(vault, repository, database_tables, issues, fix_state=fix_state)
     _check_criterion_facet_maps(vault, issues)
     _check_registered_facets(vault, issues)
     _check_facet_contract_completeness(vault, issues)
@@ -376,6 +378,124 @@ def _check_database_state(
         _check_post_attempt_jobs(repository, issues)
     if _has_tables(database_tables, "source_block_fts", "source_document_blocks"):
         _check_source_block_fts(repository, issues)
+
+
+def _book_title(repository: Repository, source_id: str) -> str:
+    artifact = repository.get_source_artifact(source_id) or {}
+    return str(artifact.get("display_title") or artifact.get("canonical_uri") or source_id)
+
+
+def _check_reread_state(
+    vault: LoadedVault,
+    repository: Repository,
+    database_tables: set[str],
+    issues: list[HealthIssue],
+    *,
+    fix_state: bool,
+) -> None:
+    """Re-read safety (docs/reviews/reread-safety.md): what reading a book
+    again can leave behind.
+
+    * an error when a book's current revision has no completed reading while
+      an older one has (the E1 state: the book shows no reading), fixed by
+      ``--fix-state`` (the card's "Open the reading you had" does the same);
+    * a warning for source-object citations whose text on the book's current
+      reading differs from the reading they cite (or whose reading is unknown);
+    * a warning for links (and YAML source refs) pinned to a reading that is
+      no longer current and that do not resolve to the same text on it.
+    Both warnings read through the one alias authority (``span_aliases``)."""
+
+    from learnloop.content.pipeline.reread import restore_readable_revision, unread_current_revisions
+    from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys, reading_source
+
+    for state in unread_current_revisions(repository):
+        if fix_state:
+            restore_readable_revision(repository, state["source_id"])
+            continue
+        title = _book_title(repository, state["source_id"])
+        issues.append(_issue(
+            "error",
+            "source:current_revision_unread",
+            f"'{title}' shows no reading: its current revision has none while an earlier one does (a re-read "
+            "of a file that had changed). Fix: `learnloop doctor --fix-state`, or 'Open the reading you had' "
+            "on its card in the Library. Nothing is lost.",
+            entity_id=state["source_id"],
+            details={**state, "fix": "doctor --fix-state"},
+        ))
+
+    current = CurrentKeys(repository)
+    if "source_object_citations" in database_tables:
+        resolver = CitationResolver(repository)
+        changed: dict[str, dict[str, int]] = {}
+        with repository.connection() as connection:
+            rows = [dict(row) for row in connection.execute(
+                "SELECT c.id, c.revision_id, c.span_id, c.block_content_hash, c.created_at, r.source_id "
+                "FROM source_object_citations c JOIN source_revisions r ON r.id = c.revision_id"
+            ).fetchall()]
+        for row in rows:
+            resolution = resolver.resolve(row)
+            status = "unknown_reading" if resolution is None else resolution.status
+            if status == "current":
+                continue
+            changed.setdefault(str(row["source_id"]), {}).setdefault(status, 0)
+            changed[str(row["source_id"])][status] += 1
+        for source_id, counts in sorted(changed.items()):
+            issues.append(_issue(
+                "warning",
+                "source:citation_text_changed",
+                f"{sum(counts.values())} source-object citation(s) on '{_book_title(repository, source_id)}' name "
+                "text that differs on its current reading (it was read again); the Reader shows them flagged "
+                "until they are placed again.",
+                entity_id=source_id,
+                details={"by_status": counts},
+            ))
+
+    pinned: dict[str, dict[str, int]] = {}
+    seen: set[tuple[str, str]] = set()
+
+    def note(extraction_id: str, span_id: str) -> None:
+        key = (extraction_id, span_id)
+        if key in seen:
+            return
+        seen.add(key)
+        reading = current.current_of(extraction_id)
+        if reading is None or reading == extraction_id:
+            return
+        resolution = current.resolve(extraction_id, span_id)
+        if resolution.exact:
+            return
+        source_id = reading_source(repository, extraction_id) or ""
+        pinned.setdefault(source_id, {}).setdefault(resolution.status, 0)
+        pinned[source_id][resolution.status] += 1
+
+    from learnloop.ingest.locators import parse_block_span
+
+    if "entity_source_links" in database_tables:
+        with repository.connection() as connection:
+            links = [dict(row) for row in connection.execute(
+                "SELECT extraction_id, locator FROM entity_source_links "
+                "WHERE extraction_id IS NOT NULL AND status IN ('current', 'needs_reanchor')"
+            ).fetchall()]
+        for link in links:
+            parsed = parse_block_span(str(link.get("locator") or ""))
+            if parsed is not None:
+                note(parsed[0], parsed[1])
+    entities = [*vault.learning_objects.values(), *vault.evidence_facets.values(), *vault.practice_items.values()]
+    for entity in entities:
+        for ref in getattr(getattr(entity, "provenance", None), "source_refs", None) or []:
+            parsed = parse_block_span(str(getattr(ref, "locator", "") or ""))
+            if parsed is not None and repository.get_extraction_run(parsed[0]) is not None:
+                note(parsed[0], parsed[1])
+    for source_id, counts in sorted(pinned.items()):
+        issues.append(_issue(
+            "warning",
+            "source:links_on_old_reading",
+            f"{sum(counts.values())} link(s) to '{_book_title(repository, source_id)}' are pinned to a reading "
+            "that is no longer current and don't match the same text on the current one; the Reader shows them "
+            "flagged (needs_reanchor) or not at all (stale) until they are placed again.",
+            entity_id=source_id or None,
+            details={"by_status": counts},
+        ))
 
 
 def _check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None:

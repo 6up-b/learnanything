@@ -318,6 +318,11 @@ def _land_proposals(
     source object + canonical mapping proposal (+ commitment mapping for
     commit-class presets). Never auto-admitted."""
 
+    # Each citation records its block's content hash, so it resolves against
+    # the reading it was made on after the book is read again (re-read
+    # safety: never "the latest reading + this span id").
+    ir = repository.load_document_ir(str(request.get("extraction_id") or "")) if request.get("extraction_id") else None
+    hashes = {block.span_id: block.content_hash for block in (ir.blocks if ir is not None else [])}
     authored = SO.author_source_object(
         repository,
         source_id=request["source_id"],
@@ -325,7 +330,8 @@ def _land_proposals(
         object_type=object_type,
         exact_text=exact_text,
         content=dict(content),
-        citations=[{"revision_id": request["revision_id"], "span_id": sid} for sid in span_ids],
+        citations=[{"revision_id": request["revision_id"], "span_id": sid, "block_content_hash": hashes.get(sid)}
+                   for sid in span_ids],
         authorship="ai",
         status="proposed",
         model_provenance=dict(model_provenance),

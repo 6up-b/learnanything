@@ -1269,6 +1269,7 @@ sidecar_passthrough!(reader_prompt_contract, "reader.prompt_contract");
 // reader.* (P3 slice 1: render views, block health, annotations, capture/outbox)
 sidecar_passthrough!(reader_render_view, "reader.render_view");
 sidecar_passthrough!(reader_guide_plan, "reader.guide_plan");
+sidecar_passthrough!(reader_saved_place, "reader.saved_place");
 sidecar_passthrough!(reader_pdf_view, "reader.pdf_view");
 sidecar_passthrough!(reader_watch_plan, "reader.watch_plan");
 sidecar_passthrough!(

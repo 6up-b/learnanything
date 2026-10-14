@@ -357,6 +357,7 @@ export function MaintenanceScreen({
                 revision={c.leftRevisionId}
                 locator={c.leftLocator}
                 extractionId={c.leftExtractionId}
+                spanId={c.leftSpanId}
                 onOpen={(extractionId, spanId) =>
                   setOpenSpan({ extractionId, spanId, entityType: c.entityType, entityId: c.entityId })
                 }
@@ -367,6 +368,7 @@ export function MaintenanceScreen({
                 revision={c.rightRevisionId}
                 locator={c.rightLocator}
                 extractionId={c.rightExtractionId}
+                spanId={c.rightSpanId}
                 onOpen={(extractionId, spanId) =>
                   setOpenSpan({ extractionId, spanId, entityType: c.entityType, entityId: c.entityId })
                 }
@@ -1026,6 +1028,7 @@ function ConflictSide({
   revision,
   locator,
   extractionId,
+  spanId: resolvedSpanId,
   onOpen
 }: {
   label: string;
@@ -1033,9 +1036,12 @@ function ConflictSide({
   revision: string | null;
   locator: string | null;
   extractionId: string | null;
+  /** The sidecar's span on extractionId (re-read safety); undefined from an
+   *  older sidecar, which leaves the locator's own span. */
+  spanId?: string | null;
   onOpen: (extractionId: string, spanId: string) => void;
 }) {
-  const spanId = spanIdFromLocator(locator);
+  const spanId = resolvedSpanId !== undefined ? resolvedSpanId : spanIdFromLocator(locator);
   const openable = extractionId != null && spanId != null;
   return (
     <div style={{ border: `1px solid ${COLOR.border}`, borderRadius: 2, padding: "6px 8px", background: COLOR.bgInput }}>

@@ -19,7 +19,7 @@ const NO_SPANS = new Set<string>();
 // The actions a status line can offer that run on the book itself; the ones
 // that open another place (connect, settings, changes) stay on its card.
 const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([
-  "retry", "text_recognition", "allow_upload", "build_now"
+  "retry", "text_recognition", "allow_upload", "build_now", "restore_reading"
 ]);
 
 export function PreparingView({
@@ -88,7 +88,18 @@ export function PreparingView({
   const working = !current.statusLine || current.statusLine.tone === "working";
   const statusLine = current.statusLine;
   const runAction = (kind: SourceActionKind) => {
-    void api.sourceAction({ sourceId: current.sourceId, action: kind }).catch((error: unknown) => onError(errorMessage(error)));
+    void api
+      .sourceAction({ sourceId: current.sourceId, action: kind })
+      .then((result) => {
+        // A book with study state is read again only after the learner says
+        // so, with the pages and cost named (re-read safety).
+        const confirmation = result.needsConfirmation ? result.confirmation : undefined;
+        if (confirmation && window.confirm([confirmation.title, ...confirmation.lines].join("\n"))) {
+          return api.sourceAction({ sourceId: current.sourceId, action: kind, confirmed: true });
+        }
+        return undefined;
+      })
+      .catch((error: unknown) => onError(errorMessage(error)));
   };
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>

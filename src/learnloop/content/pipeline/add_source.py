@@ -2164,8 +2164,16 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, config
         if flow == "audio_transcription" or category == "audio":
             return _line("Transcribing this recording sends it to an online service", "quiet",
                          ("allow_upload", "OK"), message or None)
-        return _line("Reading this document sends the whole file to z.ai (GLM-OCR)" if flow == "glm_ocr_upload" else "Reading this PDF sends the whole file to your AI", "quiet",
+        if flow == "glm_ocr_upload":
+            # Pages and the estimated cost where the OK is asked, as the
+            # Ingest screen shows them (re-read safety item 5).
+            return _line(f"Reading this document{glm_estimate_phrase(error.get('details') or {})} sends the whole "
+                         "file to z.ai (GLM-OCR)", "quiet", ("allow_upload", "OK"), message or None)
+        return _line("Reading this PDF sends the whole file to your AI", "quiet",
                      ("allow_upload", "OK"), message or None)
+    if code == "original_changed":
+        return _line("Its original file changed or is missing, so it can't be read again", "problem", None,
+                     message or None)
     if code == "kept_local":
         # Refused under the retired "Keep this book on this computer" (owner,
         # 2026-10-13): nothing refuses it now, so trying again reads it.
@@ -2191,6 +2199,42 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, config
     if category == "pdf":
         return _line("Couldn't read this PDF", "problem", retry, message or None)
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
+
+
+_RESTORE_READING_DETAILS = (
+    "Reading it again read a file that has changed since (or is missing), so the book showed no reading. "
+    "The reading you had is still here: this opens it again."
+)
+
+
+def glm_estimate_phrase(details: Mapping[str, Any]) -> str:
+    """" (404 pages, about $0.07)" from a z.ai OK's estimate, or "" without one."""
+
+    from learnloop.content.pipeline.reread import cost_phrase
+
+    pages = details.get("pages")
+    if not isinstance(pages, int) or pages <= 0:
+        return ""
+    usd = details.get("estimated_usd")
+    cost = cost_phrase(float(usd)) if isinstance(usd, (int, float)) else None
+    noun = "page" if pages == 1 else "pages"
+    return f" ({pages} {noun}, {cost})" if cost else f" ({pages} {noun})"
+
+
+def _reread_refused(repo, source_id: str) -> dict[str, Any] | None:
+    """A book that has a reading whose latest import (a re-read) refused
+    because its original file changed: one plain line, no action that
+    cannot help (re-read safety E1)."""
+
+    imports = import_jobs(repo, source_id)
+    latest = imports[0] if imports else None
+    if latest is None or latest["status"] != "failed":
+        return None
+    error = latest.get("error") or {}
+    if error.get("code") != "original_changed":
+        return None
+    return _line("Couldn't read it again: its original file changed or is missing", "quiet", None,
+                 str(error.get("message") or "") or None)
 
 
 def text_recognition_available(*, config=None) -> bool:
@@ -2330,7 +2374,19 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return None
     category = artifact.get("acquisition_kind")
     noun = source_kind_noun(repo, source_id, category)
+    from learnloop.content.pipeline.reread import unread_current_revision
+
+    if unread_current_revision(repo, source_id) is not None:
+        # Re-read safety E1: a revision with no reading was made current (an
+        # older re-read read a changed file). One tap opens the reading the
+        # learner had; nothing was lost.
+        return _line(f"This {noun}'s file changed after it was read", "problem",
+                     ("restore_reading", "Open the reading you had"), _RESTORE_READING_DETAILS)
     has_text = _completed_extraction(repo, source_id) is not None
+    if has_text:
+        refused = _reread_refused(repo, source_id)
+        if refused is not None:
+            return refused
     if not has_text:
         imports = import_jobs(repo, source_id)
         latest_import = imports[0] if imports else None

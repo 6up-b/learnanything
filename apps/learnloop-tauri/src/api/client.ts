@@ -257,6 +257,7 @@ import type {
   ReaderDisposition,
   ReaderDispositionResultDto,
   ReaderRenderViewDto,
+  ReaderSavedPlaceDto,
   ReaderPdfViewDto,
   ReaderWatchPlanDto,
   ReaderTranslateSelectionInput,
@@ -669,7 +670,7 @@ export const api = {
   // the book card's one action, and connect-once / consent-once.
   addSource: (input: AddSourceInput) =>
     mutating([...INGEST_TAGS, TAG.vault], call<AddSourceResultDto>("add_source", { input })),
-  sourceAction: (input: { sourceId?: string | null; batchId?: string | null; action: SourceActionKind }) =>
+  sourceAction: (input: { sourceId?: string | null; batchId?: string | null; action: SourceActionKind; confirmed?: boolean }) =>
     mutating([...INGEST_TAGS, TAG.vault, TAG.queue, TAG.graph, TAG.proposals], call<SourceActionResultDto>("source_action", { input })),
   getAiConnection: () => call<AiConnectionDto>("get_ai_connection", { input: {} }),
   connectAi: (input: { provider: "chatgpt" | "openrouter" | "current"; model?: string | null }) =>
@@ -1267,6 +1268,9 @@ export const api = {
     call<ReaderRenderViewDto>("reader_render_view", { input }),
   readerGuidePlan: (input: { extractionId: string }) =>
     call<ReaderGuidePlanDto>("reader_guide_plan", { input }),
+  // Re-read safety: a reading place saved on another reading of the book.
+  readerSavedPlace: (input: { sourceId: string; spanId: string; extractionId: string | null }) =>
+    call<ReaderSavedPlaceDto>("reader_saved_place", { input }),
   readerPdfView: (input: { extractionId: string }) =>
     call<ReaderPdfViewDto>("reader_pdf_view", { input }),
   // reader quick-check producer: enqueue authoring for a section; act on the result.

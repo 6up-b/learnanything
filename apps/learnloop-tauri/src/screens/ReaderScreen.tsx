@@ -634,7 +634,7 @@ export function ReaderScreen({
         onSourceChange?.({ card, spanId: null });
         // The saved place, a search hit's passage over it, or (with neither)
         // the reading history once it is read (useReadingProgress).
-        placeAtOpen(view.sourceId, jumpSpan, handoff);
+        placeAtOpen(view.sourceId, jumpSpan, handoff, { extractionId: view.extractionId, aliasedFrom: view.aliasedFrom ?? [] });
         setGuideLoading(true);
         readGuidePlan(card.sourceId, view.extractionId)
           .then(setGuidePlan)
@@ -1850,6 +1850,11 @@ export function ReaderScreen({
           </button>
           <Meta>{sourceTitle ?? "Untitled source"}</Meta>
           {offline ? <Pill color="amber">offline demo</Pill> : null}
+          {progress.placeApproximate && !offline ? (
+            // Re-read safety: the saved place was on an earlier reading whose
+            // words changed there.
+            <Faint style={{ fontSize: 11 }}>This book was read again: you're near where you left off.</Faint>
+          ) : null}
           {pdfView && !offline ? (
             <span
               onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}

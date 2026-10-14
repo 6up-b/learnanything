@@ -428,11 +428,15 @@ def reanchor_annotation(
     annotation_id: str,
     new_extraction_id: str,
     clock: Clock | None = None,
+    block_results: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Re-anchor an annotation's segments onto a new extraction. Reuses the
     deterministic block reanchor, then a sub-block quote match; a candidate below
     ``SUBBLOCK_CONFIDENCE_MIN`` is never auto-accepted (-> needs_reanchor). Appends a
-    successor anchor and preserves the old anchor + learner content untouched."""
+    successor anchor and preserves the old anchor + learner content untouched.
+
+    ``block_results``: a cache of block re-anchors by source extraction, so a
+    book's annotations re-anchor with one block pass per reading."""
 
     head = repository.annotation_head(annotation_id)
     if head is None or head["anchor"] is None:
@@ -444,7 +448,10 @@ def reanchor_annotation(
     if from_ir is None or to_ir is None:
         raise AnnotationError("cannot reanchor: extraction IR missing")
 
-    block_result = reanchor_spans(from_ir, to_ir)
+    cached = (block_results or {}).get(from_extraction_id)
+    block_result = cached if cached is not None else reanchor_spans(from_ir, to_ir)
+    if block_results is not None:
+        block_results[from_extraction_id] = block_result
     run = repository.get_extraction_run(new_extraction_id) or {}
     revision_id = run.get("revision_id", prev_anchor["revision_id"])
     source_id = prev_anchor["source_id"]

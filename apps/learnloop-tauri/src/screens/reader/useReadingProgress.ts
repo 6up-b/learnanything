@@ -114,6 +114,41 @@ export function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
 }
 
+/** A saved reading place: the passage, and the reading it was saved on (null
+ *  for a place saved before places recorded their reading: a bare span id). */
+export interface SavedReadingPlace {
+  extractionId: string | null;
+  spanId: string;
+}
+
+/** The stored form of a reading place (re-read safety): the reading travels
+ *  with the span, so a place saved before the book was read again is
+ *  translated, never taken as a span of the new reading. */
+export function encodeReadingPlace(extractionId: string, spanId: string): string {
+  return JSON.stringify({ extractionId, spanId });
+}
+
+export function decodeReadingPlace(value: string | null): SavedReadingPlace | null {
+  if (!value) return null;
+  if (value.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(value) as { extractionId?: unknown; spanId?: unknown };
+      if (typeof parsed.spanId !== "string" || !parsed.spanId) return null;
+      return { extractionId: typeof parsed.extractionId === "string" ? parsed.extractionId : null, spanId: parsed.spanId };
+    } catch {
+      return null;
+    }
+  }
+  return { extractionId: null, spanId: value };
+}
+
+/** The reading a source opened on, as placing the saved position needs it. */
+export interface OpenedReading {
+  extractionId: string;
+  /** Readings with aliases into this one (reader.render_view's aliasedFrom). */
+  aliasedFrom?: string[];
+}
+
 /** Imperative handle of the watch panel the jumps seek. */
 export interface WatchSeekHandle {
   seekToSpan: (spanId: string) => boolean;
@@ -218,7 +253,12 @@ export interface ReadingProgress {
   /** Place the reading position a source opens at: the saved place, or a
    *  search hit's passage over it; with neither (and no hand-over) the
    *  reading history decides once it is read. */
-  placeAtOpen: (sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null) => void;
+  placeAtOpen: (
+    sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+  ) => void;
+  /** The saved place was translated onto a reading whose text changed there
+   *  (re-read safety): the Reader says the place is approximate. */
+  placeApproximate: boolean;
   /** Hydrate durable reading progress so reveal/completion survive restarts. */
   hydrateProgress: (extractionId: string, progress: ReaderProgressListDto) => void;
   /** Per-source reset; leaving a book saves what was read in it first. */
@@ -258,6 +298,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // where a book with no saved place reopens.
   const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
   const historyResumeRef = useRef(false);
+  // Re-read safety: a place saved on an earlier reading of the book, once the
+  // sidecar has translated it (null: none waiting), and a nudge for the
+  // history resume when it could not be.
+  const [translatedPlace, setTranslatedPlace] = useState<{ spanId: string; approximate: boolean } | null>(null);
+  const [placeApproximate, setPlaceApproximate] = useState(false);
+  const [historyKick, setHistoryKick] = useState(0);
+  const placeRequestRef = useRef(0);
   // Quick checks the learner answered this visit: the guide stops calling them
   // "ready, just below" (usability round 2).
   const [answeredSections, setAnsweredSections] = useState<string[]>([]);
@@ -338,6 +385,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
     historyResumeRef.current = false;
+    placeRequestRef.current += 1;
+    setTranslatedPlace(null);
+    setPlaceApproximate(false);
     setAnsweredSections([]);
     setRevealedSections([]);
     setDismissedSections([]);
@@ -352,15 +402,44 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
   }, []);
 
-  const placeAtOpen = useCallback((sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null) => {
+  const placeAtOpen = useCallback((
+    sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+  ) => {
     let placed = Boolean(handoff);
+    let translating = false;
     try {
-      const savedSpan = window.localStorage.getItem(readingPositionKey(sourceId));
-      if (savedSpan) {
-        setReadingSpan(savedSpan);
-        setActiveSpan(savedSpan);
-        setRestoredSpan(savedSpan);
+      const saved = decodeReadingPlace(window.localStorage.getItem(readingPositionKey(sourceId)));
+      // Saved on this reading (a bare span id counts as this reading while the
+      // book was never read again): used as it is.
+      const here = saved !== null && (!reading || (saved.extractionId
+        ? saved.extractionId === reading.extractionId
+        : (reading.aliasedFrom ?? []).length === 0));
+      if (saved && here) {
+        setReadingSpan(saved.spanId);
+        setActiveSpan(saved.spanId);
+        setRestoredSpan(saved.spanId);
         placed = true;
+      } else if (saved && !handoff && !jumpSpan) {
+        // Saved on another reading: translated through the re-read's aliases,
+        // never taken as a span of this one (re-read safety).
+        translating = true;
+        const request = ++placeRequestRef.current;
+        api
+          .readerSavedPlace({ sourceId, spanId: saved.spanId, extractionId: saved.extractionId })
+          .then((landed) => {
+            if (placeRequestRef.current !== request) return;
+            if (landed.spanId && landed.status !== "stale") {
+              setTranslatedPlace({ spanId: landed.spanId, approximate: landed.status === "needs_reanchor" });
+            } else {
+              historyResumeRef.current = true;
+              setHistoryKick((value) => value + 1);
+            }
+          })
+          .catch(() => {
+            if (placeRequestRef.current !== request) return;
+            historyResumeRef.current = true;
+            setHistoryKick((value) => value + 1);
+          });
       }
     } catch {
       /* Reading still works when storage is unavailable. */
@@ -374,7 +453,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       placed = true;
     }
     // No saved place: the reading history decides, once it is read (below).
-    historyResumeRef.current = !placed;
+    historyResumeRef.current = !placed && !translating;
   }, [setActiveSpan]);
 
   const hydrateProgress = useCallback((extractionId: string, progress: ReaderProgressListDto) => {
@@ -885,7 +964,17 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       setRestoredSpan(spanId);
       jumpToSpan(spanId, "start");
     }
-  }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
+  }, [render, offline, guidePlan, readingHistory, jumpToSpan, historyKick]);
+
+  // A saved place translated from an earlier reading (re-read safety): the
+  // Reader goes there once, saying so when the words there changed.
+  useEffect(() => {
+    if (!translatedPlace || !render || offline) return;
+    setTranslatedPlace(null);
+    setPlaceApproximate(translatedPlace.approximate);
+    setRestoredSpan(translatedPlace.spanId);
+    jumpToSpan(translatedPlace.spanId, "start");
+  }, [translatedPlace, render, offline, jumpToSpan]);
 
   // The learner's own hand on the page: what makes a scroll reading (round 2).
   const noteUserScroll = useCallback(() => {
@@ -984,6 +1073,6 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
     readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
-    settleOpening, placeAtOpen, hydrateProgress, resetProgress,
+    settleOpening, placeAtOpen, placeApproximate, hydrateProgress, resetProgress,
   };
 }
