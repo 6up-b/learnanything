@@ -65,7 +65,7 @@
   - `CUE_COPY`, every fixed string a cue surface shows.
 - **`useReaderCues.ts`**:
   - **When placement runs:** in a layout effect, only when the text's layout key, the marks, skim, the restored passage, the surface, the PDF page width or the window size change. Never on scroll, so nothing appears or disappears while reading.
-  - **Impressions:** each mark shown is logged once per visit as `cue_shown` (`element: margin_mark`).
+  - **Impressions:** each mark shown is logged once per visit as `cue_shown` (`element: margin_mark`); since the Codex review (F6), once it is in view.
   - **Alt+↓ / Alt+↑** move focus between marks in reading order, starting from the reading position when no mark has focus. If the target's PDF page is not drawn yet, the Reader jumps there first and then focuses the mark.
   - **The popover's actions** each come with a receipt and an **undo until the learner leaves the source** (the receipt resets with the extraction).
 - **`MarginMark.tsx`**:
@@ -116,8 +116,8 @@
 1. **Check me opens on the practice screen, not in the Reader's working posture.** The spec (§6.1, D40) and UX (S7) want the item in the Reader's working posture with the book hidden, which RW2a builds. Until then the practice screen gives the same two guarantees: the book is out of view, and Esc after feedback returns to the passage. RW2a should swap the destination and keep the learner-pick call (friction note 3).
 2. **"Marks off everywhere" sets the density to off.** The spec says "off is 'cues off'". It is reversible from the Guide's footer and from Settings. The kill switch `cues.enabled` stays the owner's switch, not the learner's.
 3. **The note's wording.** The spec's example ("Connects to a distinction you worked on: density vs cumulative probability. Not yet checked on your own since.") assumes a named distinction and a since-check that RW3a does not compute. RW3a's template names the Learning Object the Guide cites, and the diagnoser's statement (model text) stays behind *open*, in the model's voice. The note never claims "not yet checked", because RW3a reads no evidence to back it.
-4. **Impressions are events, not a table.** RW3a has no table (spec §6.3). A mark shown is a `cue_shown` event once per visit. A cue suppressed by spacing, the restored line or skim is not logged: `suppressed_reason` belongs to RW3b's `reader_cue_impressions`. The client computes the reason (`CuePlacement.suppressed`), so RW3b can send it.
-5. **The original PDF's spacing uses a page model.** It assumes letter pages at the pane's width, not the drawn pages, so spacing never depends on which pages have been drawn yet. For A4 and similar pages the error is a few percent of a page.
+4. **Impressions are events, not a table.** RW3a has no table (spec §6.3). A mark shown is a `cue_shown` event once per visit (since the Codex review, F6: a mark in the learner's view, not a mark placed; `reader-hook-rw3a-codex-review.md`). A cue suppressed by spacing, the restored line or skim is not logged: `suppressed_reason` belongs to RW3b's `reader_cue_impressions`. The client computes the reason (`CuePlacement.suppressed`), so RW3b can send it.
+5. **The original PDF's spacing uses a page model.** It assumes letter pages at the pane's width, not the drawn pages, so spacing never depends on which pages have been drawn yet. For A4 and similar pages the error is a few percent of a page. *Superseded by the Codex review (F5): landscape pages broke the rule; the spacing now reads each page's own size, loaded with the document and still independent of drawing.*
 6. **No `●┆` marks yet.** UX U6 ("a week of only `◌` marks fails") is met by RW3b's "new application" kind. RW3a has the one kind, *revisit*.
 
 ## Friction notes for the next phases (RW6a, RW2a, RW1b, RW2b with adaptive hints)
