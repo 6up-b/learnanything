@@ -67,7 +67,10 @@ a method target) is a content change, and existing method-phrased criteria are
 flagged (`criterion:method_phrased`) and repaired only through proposals the
 owner confirms, never rewritten. An answer is graded under the required
 method its assessment contract froze when the item was presented, never one
-the item gained later (grading and regrading alike). See
+the item gained later (grading and regrading alike); while the rules are on, a
+regrade of a required-method item also reads the statement and rubric from
+that contract, and its rows cite it, so a content edit never changes how a
+past answer's method is enforced. See
 `docs/reviews/method-explicit-items.md` and
 `docs/reviews/method-explicit-items-codex-review.md`.
 
