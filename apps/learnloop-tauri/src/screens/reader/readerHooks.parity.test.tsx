@@ -171,6 +171,27 @@ it("useReadingProgress: an arrow key is the learner's own scroll; Alt+↓ to a m
   expect(result.current.readingMoved).toBe(true);
 });
 
+it("useReadingProgress (RW3a review F1): a placement without a jump resets the learner's movement, like a jump", async () => {
+  const { result } = renderHook(() => useProgressHarness());
+  act(() => result.current.placeAtOpen(view.sourceId, SPANS[0], null));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+    result.current.noteUserScroll();
+    result.current.onReadingScroll();
+    await vi.advanceTimersByTimeAsync(20);
+  });
+  expect(result.current.readingMoved).toBe(true);
+  // A transcript's margin mark focused in place: the scroll it causes is not reading.
+  act(() => result.current.notePlacement());
+  expect(result.current.readingMoved).toBe(false);
+  await act(async () => {
+    result.current.onReadingScroll();
+    await vi.advanceTimersByTimeAsync(20);
+  });
+  expect(result.current.readingMoved).toBe(false);
+  expect(result.current.readingSpan).toBe(SPANS[0]);
+});
+
 it("useReadingProgress (RW3a): the passage the Reader placed the learner at is the restored one; a walk back names its own", () => {
   const { result } = renderHook(() => useProgressHarness());
   expect(result.current.restoredSpan).toBeNull();

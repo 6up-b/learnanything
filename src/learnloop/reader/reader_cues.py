@@ -84,6 +84,8 @@ LABEL_TEMPLATE = "Note on this paragraph: {note} {because}"
 CUE_TEMPLATES: tuple[str, ...] = (NOTE_TEMPLATE, BECAUSE_TEMPLATE, BECAUSE_UNDATED, LABEL_TEMPLATE)
 
 MAX_PROMPT_CHARS = 220
+#: The learner's answer "Open" shows, clipped for the popover (line breaks kept).
+MAX_ANSWER_CHARS = 600
 MAX_NOT_RELEVANT_CHARS = 1000
 
 
@@ -170,6 +172,16 @@ def _clip(text: str | None, limit: int) -> str | None:
     return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
 
 
+def _clip_answer(text: str | None, limit: int = MAX_ANSWER_CHARS) -> str | None:
+    """The learner's own words, verbatim but for surrounding blank space and a
+    clip at ``limit`` (line breaks kept: an answer's shape is part of it)."""
+
+    if not text or not str(text).strip():
+        return None
+    words = str(text).strip()
+    return words if len(words) <= limit else words[: limit - 1].rstrip() + "…"
+
+
 def _strongest_error(repository: Repository, learning_object_id: str) -> Any | None:
     """The error the Guide's reason names: the same choice ``_learner_signal``
     makes over the diagnoser's overlay (highest severity, then newest)."""
@@ -181,8 +193,9 @@ def _strongest_error(repository: Repository, learning_object_id: str) -> Any | N
 
 
 def _earlier_work(vault: Any, repository: Repository, error: Any, pending: set[str]) -> dict[str, Any]:
-    """What "Open" shows: when the learner answered, on which question, and
-    LearnLoop's model's reading of that answer once it has one."""
+    """What "Open" shows (spec §6.1, "the cited attempt, its diagnosis"): when
+    the learner answered, on which question, the answer itself in their own
+    words, and LearnLoop's model's reading of that answer once it has one."""
 
     attempt = repository.fetch_practice_attempt(error.attempt_id) if error.attempt_id else None
     item_id = str((attempt or {}).get("practice_item_id") or "") or None
@@ -192,6 +205,7 @@ def _earlier_work(vault: Any, repository: Repository, error: Any, pending: set[s
         "attempt_id": error.attempt_id,
         "practice_item_id": item_id,
         "prompt": _clip(getattr(item, "prompt", None), MAX_PROMPT_CHARS),
+        "answer": _clip_answer((attempt or {}).get("learner_answer_md")),
         "answered_at": answered_at,
         "answered_on": _day(answered_at),
         "statement": (error.misconception_statement or None),
@@ -524,6 +538,7 @@ __all__ = [
     "DENSITIES",
     "DENSITY_BUDGET",
     "LABEL_TEMPLATE",
+    "MAX_ANSWER_CHARS",
     "NOTE_TEMPLATE",
     "PREFERENCE_VIA",
     "SERVER_CUE_EVENTS",

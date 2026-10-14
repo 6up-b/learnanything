@@ -38,6 +38,7 @@ export const CUE_COPY = {
   answeredOn: "You answered a question on this on",
   answeredUndated: "You answered a question on this earlier.",
   question: "the question",
+  yourAnswer: "your answer",
   readingNote: "its reading of that answer",
   readingPending: "LearnLoop's model is still reading that answer.",
   checkMe: "check me",
@@ -130,16 +131,55 @@ export function stepMark(count: number, fromIndex: number, direction: 1 | -1): n
   return next >= 0 && next < count ? next : null;
 }
 
-/** US letter: the page model the original PDF's spacing assumes (points). */
-export const PDF_PAGE_POINTS = { width: 612, height: 792 };
 /** The pane's gap between pages, in pixels. */
 export const PDF_PAGE_GAP_PX = 14;
+/** The pane's "pages left out" line above a page whose predecessors in the
+ *  original are not in the extraction (10px type, 2px + 12px padding). */
+export const PDF_LEFT_OUT_LINE_PX = 28;
+
+/** One page of the original as the pane shows it: its own size in points
+ *  (pdf.js, scale 1), and whether a "pages left out" line sits above it. */
+export interface PdfPageSize {
+  page: number;
+  widthPoints: number;
+  heightPoints: number;
+  leftOutBefore?: boolean;
+}
+
+/** The original's pages in the order the pane shows them, every one drawn at
+ *  ``widthPx``. The sizes are read with the document, not from drawing, so
+ *  the layout is known before a page is drawn and stays put while the
+ *  learner scrolls (review F5: a letter-page model let two marks share a
+ *  screenful on landscape pages). */
+export interface PdfPageLayout {
+  widthPx: number;
+  pages: readonly PdfPageSize[];
+}
+
+/** Each shown page's top, in pixels from the first page's top, and its scale
+ *  (pixels per point): the pages' own heights at the pane's width, plus the
+ *  gap between pages and any "pages left out" line. */
+export function pdfPageTops(layout: PdfPageLayout): Map<number, { top: number; scale: number }> {
+  const tops = new Map<number, { top: number; scale: number }>();
+  let top = 0;
+  layout.pages.forEach((entry, index) => {
+    if (index > 0) top += PDF_PAGE_GAP_PX;
+    if (entry.leftOutBefore) top += PDF_LEFT_OUT_LINE_PX;
+    const scale = entry.widthPoints > 0 ? layout.widthPx / entry.widthPoints : 0;
+    tops.set(entry.page, { top, scale });
+    top += entry.heightPoints * scale;
+  });
+  return tops;
+}
 
 /** Where a passage with a box sits on the original PDF, in pixels from the
- *  first page's top: a stable page model (letter pages at the pane's width),
- *  so spacing never changes as pages are drawn while the learner scrolls. */
-export function pdfPassageTop(page: number, bboxTop: number, pageWidthPx: number): number {
-  const scale = pageWidthPx / PDF_PAGE_POINTS.width;
-  const pageHeight = PDF_PAGE_POINTS.height * scale + PDF_PAGE_GAP_PX;
-  return page * pageHeight + bboxTop * scale;
+ *  first page's top; null for a page the pane does not show (or whose size
+ *  is not known yet), which has no place to draw a mark. */
+export function pdfPassageTop(
+  tops: ReadonlyMap<number, { top: number; scale: number }>,
+  page: number,
+  bboxTop: number,
+): number | null {
+  const entry = tops.get(page);
+  return entry ? entry.top + bboxTop * entry.scale : null;
 }

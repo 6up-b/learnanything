@@ -51,7 +51,7 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "reconnect_shown",    # the reconnect line appeared (inline or in the rail)
     "proactive_shown",    # another element LearnLoop started (a waiting quick check, ...)
     "back_to_reading",    # the first touch of the source after a usable result
-    "cue_shown",          # RW3a: a margin mark shown (once per visit; spec §11)
+    "cue_shown",          # RW3a: a margin mark in the learner's view (once per visit; spec §11)
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (

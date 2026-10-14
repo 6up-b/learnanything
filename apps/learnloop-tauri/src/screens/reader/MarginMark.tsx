@@ -8,11 +8,16 @@
 // me, not relevant…, fewer marks like this and marks off. Esc closes it and
 // returns focus to the mark. Every action is the learner's; a switched-off
 // action is absent, never disabled.
+//
+// A mark counts as shown when the learner could see it (review F6): once at
+// least half of it is in the reading area (the webview's intersection, so a
+// mark below the fold, or on a page not reached, is never "shown"), or when
+// the learner hovers, focuses or opens it.
 import { useEffect, useRef, useState } from "react";
 import type { CueDensity, ReaderCueDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { CUE_COPY, CUE_DENSITIES } from "./cues";
-import { MeaningLabel, ModelVoice } from "./voices";
+import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
 export type CueCheckPhase = "idle" | "finding" | "none" | "failed";
 
@@ -32,7 +37,13 @@ export interface MarginMarkProps {
   onFewer: () => void;
   onOffBook: () => void;
   onOffEverywhere: () => void;
+  /** The mark came into the learner's view (or was hovered, focused or
+   *  opened); the controller counts it once per visit. */
+  onSeen?: () => void;
 }
+
+/** At least this share of the mark in view counts as seen. */
+const SEEN_THRESHOLD = 0.5;
 
 const ACTION_STYLE = {
   border: 0,
@@ -58,6 +69,7 @@ export function MarginMark({
   onFewer,
   onOffBook,
   onOffEverywhere,
+  onSeen,
 }: MarginMarkProps) {
   const markRef = useRef<HTMLButtonElement | null>(null);
   const firstActionRef = useRef<HTMLButtonElement | null>(null);
@@ -65,6 +77,27 @@ export function MarginMark({
   const [earlierShown, setEarlierShown] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
   const [why, setWhy] = useState("");
+  const onSeenRef = useRef(onSeen);
+  onSeenRef.current = onSeen;
+  const seen = () => onSeenRef.current?.();
+
+  // Shown means seen: the mark's own visibility in the reading area, not its
+  // placement (review F6). Without IntersectionObserver only the learner's
+  // hover, focus or click counts.
+  useEffect(() => {
+    const node = markRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
+        observer.disconnect();
+        onSeenRef.current?.();
+      },
+      { threshold: SEEN_THRESHOLD },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [cue.cueId]);
 
   // The learner opened it: their act, so focus goes into the popover.
   useEffect(() => {
@@ -104,10 +137,19 @@ export function MarginMark({
         aria-label={cue.label}
         aria-expanded={open}
         className="ll-reader-cue-mark"
-        onClick={() => onOpenChange(!open)}
-        onFocus={() => setNoteShown(true)}
+        onClick={() => {
+          seen();
+          onOpenChange(!open);
+        }}
+        onFocus={() => {
+          seen();
+          setNoteShown(true);
+        }}
         onBlur={() => setNoteShown(false)}
-        onMouseEnter={() => setNoteShown(true)}
+        onMouseEnter={() => {
+          seen();
+          setNoteShown(true);
+        }}
         onMouseLeave={() => setNoteShown(false)}
         onKeyDown={(event) => {
           if (event.key === "Escape" && open) {
@@ -205,6 +247,11 @@ export function MarginMark({
                   {CUE_COPY.question}: “{earlier.prompt}”
                 </span>
               ) : null}
+              {earlier.answer ? (
+                <LearnerVoice label={CUE_COPY.yourAnswer}>
+                  <span style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{earlier.answer}</span>
+                </LearnerVoice>
+              ) : null}
               {earlier.statement ? (
                 <ModelVoice note={CUE_COPY.readingNote}>{earlier.statement}</ModelVoice>
               ) : earlier.statementPending ? (
@@ -270,21 +317,27 @@ export function MarginMark({
 }
 
 export interface CueReceipt {
+  /** Stable per receipt: a mark set aside is keyed by its cue. */
+  id: string;
   label: string;
+  /** What it was about, when the label alone would not say (a mark's topic). */
+  detail?: string | null;
   onUndo: () => void;
 }
 
-/** The Guide's footer: the marks' density, the legend and the last receipt. */
+/** The Guide's footer: the marks' density, the legend and the receipts, each
+ *  with its undo (a mark set aside keeps its own until the learner leaves the
+ *  book; a preference's is the latest one). */
 export function CueFooter({
   density,
   bookOff,
-  receipt,
+  receipts,
   onDensity,
   onTurnOnBook,
 }: {
   density: CueDensity;
   bookOff: boolean;
-  receipt: CueReceipt | null;
+  receipts: readonly CueReceipt[];
   onDensity: (density: CueDensity) => void;
   onTurnOnBook: () => void;
 }) {
@@ -314,12 +367,13 @@ export function CueFooter({
           <button type="button" onClick={onTurnOnBook} style={{ ...ACTION_STYLE, fontSize: 10, display: "inline" }}>{CUE_COPY.turnOn}</button>
         </MeaningLabel>
       ) : null}
-      {receipt ? (
-        <MeaningLabel>
-          <span data-cue-receipt="">{receipt.label}</span>{" "}
+      {receipts.map((receipt) => (
+        <MeaningLabel key={receipt.id}>
+          <span data-cue-receipt="">{receipt.label}</span>
+          {receipt.detail ? <span> · {receipt.detail}</span> : null}{" "}
           <button type="button" onClick={receipt.onUndo} style={{ ...ACTION_STYLE, fontSize: 10, display: "inline" }}>{CUE_COPY.undo}</button>
         </MeaningLabel>
-      ) : null}
+      ))}
       <button type="button" aria-expanded={legend} onClick={() => setLegend((value) => !value)} style={{ ...ACTION_STYLE, fontSize: 10 }}>
         {CUE_COPY.legendToggle} {legend ? "▾" : "▸"}
       </button>

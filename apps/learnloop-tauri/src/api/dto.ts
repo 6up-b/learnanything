@@ -6780,6 +6780,9 @@ export interface ReaderCueEarlierDto {
   practiceItemId: string | null;
   /** The question answered, clipped. */
   prompt: string | null;
+  /** The cited attempt's answer, in the learner's own words (clipped, line
+   *  breaks kept); null when the error names no attempt or it has no text. */
+  answer: string | null;
   answeredAt: string | null;
   /** "2 Oct". */
   answeredOn: string | null;

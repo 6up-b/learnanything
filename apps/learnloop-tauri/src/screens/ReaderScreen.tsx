@@ -55,7 +55,8 @@ import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
 import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
-import { useReaderCues, type CueCheckMeRequest } from "./reader/useReaderCues";
+import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
+import type { PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
 import type { ReaderCueDto } from "../api/dto";
 
@@ -391,15 +392,23 @@ export function ReaderScreen({
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
-  const [pdfPageWidth, setPdfPageWidth] = useState<number | null>(null);
+  // The original's pages as its pane lays them out (each page's own size).
+  const [pdfLayout, setPdfLayout] = useState<PdfPageLayout | null>(null);
   const openCardRef = useRef<SourceLibraryCard | null>(null);
+  // The source open now, for answers that arrive late (RW3a review F3).
+  const openExtractionRef = useRef<string | null>(null);
+  openExtractionRef.current = render && !offline ? render.extractionId : null;
   const reloadGuidePlan = useCallback(async () => {
     if (!render || offline) return;
     const extractionId = render.extractionId;
     try {
       const plan = await readGuidePlan(render.sourceId, extractionId, { force: true });
+      // Only for the source still open: a re-read for a book the learner has
+      // left never replaces the open book's plan (review F3).
+      if (openExtractionRef.current !== extractionId || plan.extractionId !== extractionId) return;
+      if (openCardRef.current && openCardRef.current.sourceId !== render.sourceId) return;
       setGuidePlan((current) => {
-        if (plan.extractionId !== extractionId) return current;
+        if (current && current.extractionId && current.extractionId !== extractionId) return current;
         return current && current.sections.length > 0 && plan.sections.length === 0 ? current : plan;
       });
     } catch {
@@ -411,15 +420,19 @@ export function ReaderScreen({
     [blocks],
   );
   const cueSurface = watch ? "watch" : pdfView && surface === "pdf" && !offline ? "pdf" : render && !watchLoading ? "text" : "none";
-  const checkMeFromCue = useCallback((request: CueCheckMeRequest) => {
+  // The card that goes with a check me is the card of the source it was asked
+  // on, and only while that source is still the one open (review F3).
+  const checkMeFromCue = useCallback((request: CueCheckMeRequest, origin: CueRequestOrigin) => {
     const card = openCardRef.current;
-    if (card && onCheckMe) onCheckMe({ ...request, card });
+    if (!card || !onCheckMe) return;
+    if (card.sourceId !== origin.sourceId || openExtractionRef.current !== origin.extractionId) return;
+    onCheckMe({ ...request, card });
   }, [onCheckMe]);
   const cueCtl = useReaderCues({
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
-    surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfPageWidth, bodyRef,
+    surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfLayout, bodyRef,
     layoutKey: `${render?.renderViewId ?? ""}:${surface}:${guidePlan?.extractionId ?? ""}:${blocks.length}:${railCollapsed ? 1 : 0}`,
-    spanOrder, readingSpan, visitPayload, jumpToSpan,
+    spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement: progress.notePlacement,
     onCheckMe: onCheckMe ? checkMeFromCue : undefined, onError,
   });
   const renderMark = (cue: ReaderCueDto, markSurface: "text" | "pdf" | "watch") => (
@@ -437,6 +450,7 @@ export function ReaderScreen({
       onFewer={cueCtl.fewer}
       onOffBook={cueCtl.offBook}
       onOffEverywhere={cueCtl.offEverywhere}
+      onSeen={() => cueCtl.noteSeen(cue)}
     />
   );
   const cueMarksFor = (markSurface: "pdf" | "watch") =>
@@ -535,6 +549,8 @@ export function ReaderScreen({
     // Leaving a book for another (or for the Library) saves what was read in
     // it first, as closing the Reader does (useReadingProgress).
     resetProgress();
+    // The next original reports its own pages (RW3a review F5).
+    setPdfLayout(null);
     // The Ask, its history and RW1a's per-source state (the return stack
     // itself survives a detour into another source; openSource decides).
     resetInquiryState();
@@ -1987,7 +2003,7 @@ export function ReaderScreen({
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("pdf")}
-              onPageWidth={setPdfPageWidth}
+              onPageLayout={setPdfLayout}
             />
           ) : null}
           {pdfOfferSection ? (
@@ -2205,7 +2221,7 @@ export function ReaderScreen({
               <CueFooter
                 density={cueCtl.cues.density}
                 bookOff={cueCtl.cues.sourceOff}
-                receipt={cueCtl.receipt}
+                receipts={cueCtl.receipts}
                 onDensity={cueCtl.setDensity}
                 onTurnOnBook={cueCtl.turnOnBook}
               />

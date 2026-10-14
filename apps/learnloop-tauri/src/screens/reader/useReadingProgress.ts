@@ -198,6 +198,10 @@ export interface ReadingProgress {
   revealSection: (sectionId: string) => void;
   completeSection: (sectionId: string) => void;
   jumpToSpan: (spanId: string, align?: PassageAlign) => void;
+  /** The view is about to move without a jump (focus brings a transcript's
+   *  margin mark into view): a placement, like a jump -- the learner's
+   *  movement resets and nothing it passes counts as read (RW3a review F1). */
+  notePlacement: () => void;
   revealSegment: (page: number, spanId: string, align?: PassageAlign) => void;
   onReadingScroll: () => void;
   noteUserScroll: () => void;
@@ -861,6 +865,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     [pdfView, surface, offline, pageOfSpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
   );
 
+  const notePlacement = useCallback(() => {
+    jumpGuardRef.current = Date.now() + 1200;
+    settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+    setReadingMoved(false);
+    movedPendingRef.current = false;
+  }, []);
+
   // A book with no saved place but reading history from before the Reader
   // saved places reopens where that history leaves off, as Today's reading
   // step does (usability round 2: Axler, read for months, opened at its first
@@ -971,7 +982,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     boundaryChecksAvailable, authoringSections, timedOutSections, guideSectionBySpan, guideSectionByEnd,
     currentGuideSection, currentSectionProgress, currentSectionRead, pdfSurfaceActive, pageMode, checkSurface,
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
-    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, revealSegment,
+    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
     settleOpening, placeAtOpen, hydrateProgress, resetProgress,
   };
