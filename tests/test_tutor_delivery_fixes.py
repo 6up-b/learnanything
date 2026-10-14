@@ -262,7 +262,8 @@ SPECTRAL = ("Theorem 7.1 (Spectral theorem). Every self-adjoint operator on a fi
             "product space is diagonalizable by an orthonormal basis.")
 
 
-def _retrieval_vault(tmp_path, *, hold_out_theorem: bool = False):
+def _retrieval_vault(tmp_path, *, hold_out_theorem: bool = False, long_text: str = EIGEN_LONG,
+                     config: str | None = None):
     from learnloop.ai.spend import SpendCaps
     from learnloop.ops.embedding_backfill import backfill_embeddings
     from learnloop.source_retrieval.recipes import SOURCE_RETRIEVAL_RECIPES
@@ -270,10 +271,12 @@ def _retrieval_vault(tmp_path, *, hold_out_theorem: bool = False):
     from tests.source_retrieval_fakes import HashingEmbedder, build_retrieval_vault, loaded
 
     paths, repository = build_retrieval_vault(tmp_path / "vault")
+    if config:
+        append_config_toml(paths.root, config)
     seed_source(repository, source_id="src_spec", revision_id="rev_spec", extraction_id="ext_spec",
                 title="Spectral notes", units={
                     "ch_thm": ("Chapter 7 Spectral theory", [(SPECTRAL, 7), ("Proof. Induct on the dimension.", 7)]),
-                    "ch_why": ("Chapter 8 Why symmetric matrices have real eigenvalues", [(EIGEN_LONG, 8)]),
+                    "ch_why": ("Chapter 8 Why symmetric matrices have real eigenvalues", [(long_text, 8)]),
                 })
     upsert_source_set(paths.root, {
         "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
@@ -347,7 +350,9 @@ def test_judge_passages_are_complete_blocks_trimmed_only_past_the_budget():
     assert trimmed and passage.endswith("…") and len(passage) <= 1_000
 
 
-def test_the_t6_labeller_reads_complete_blocks(tmp_path):
+def _labelled_passages(paths) -> tuple[list[str], dict]:
+    """Run the T6 report on fakes; the passages the labeller read, and the results."""
+
     from learnloop.ai.spend import SpendCaps
     from learnloop.ops.embedding_compare import SUITES, CompareRequest, run_compare
     from learnloop.ops.pf_calls import ROLE_TASKS
@@ -356,7 +361,6 @@ def test_the_t6_labeller_reads_complete_blocks(tmp_path):
     from tests.source_retrieval_fakes import FakeSourceLLM, HashingEmbedder, loaded
 
     register_suites(SUITES, role_tasks=ROLE_TASKS)
-    paths, repository = _retrieval_vault(tmp_path)
     llm = FakeSourceLLM()
     labelled: list[str] = []
     original = llm.complete
@@ -371,17 +375,65 @@ def test_the_t6_labeller_reads_complete_blocks(tmp_path):
     llm.complete = complete
     caps = SpendCaps(max_candidates=10_000, max_pairs=10_000, max_calls=5_000, max_total_tokens=10**9,
                      max_estimated_usd=10**4)
-    request = CompareRequest(suite="source_retrieval", output_dir=tmp_path / "out", max_cases=6,
+    request = CompareRequest(suite="source_retrieval", output_dir=paths.root.parent / "out", max_cases=6,
                              views=("substring", "keyword"))
     report = run_compare(loaded(paths), request=request, caps=caps, price_per_million=1.0,
                          clients={"source_question_writer": llm, "source_relevance": llm, "source_rewrite": llm,
                                   "source_verify": llm},
                          embedding_clients={"qwen/qwen3-embedding-8b": HashingEmbedder()})
     assert report["status"] == "complete", report.get("reason")
-    # The labeller reads the embedded recipe text ("Section: ..." then the
-    # block): the whole block, 2,000+ characters, not 900.
+    return labelled, report
+
+
+def test_the_t6_labeller_reads_complete_blocks(tmp_path):
+    paths, _repository = _retrieval_vault(tmp_path)
+    labelled, report = _labelled_passages(paths)
+    # The labeller reads "Section: ..." then the block: the whole block,
+    # 2,000+ characters, not 900.
     assert any(passage.endswith(" ".join(EIGEN_LONG.split())) for passage in labelled)
     assert report["results"]["passages"]["label_trimmed"] == 0
+
+
+#: Codex review F2: a passage past the embedding recipe's 6,000-character cap
+#: whose decisive assumption comes last.
+ASSUMPTION = "All of this assumes the matrix is real and symmetric; a complex matrix needs the Hermitian version."
+PAST_RECIPE_CAP = (
+    "Why the eigenvalues of a real symmetric matrix are real: by Theorem 7.1 every eigenvalue is real. "
+    + "The quadratic form argument gives t = conj(t) for each eigenvector of the symmetric matrix. " * 70
+)[:6_400] + " " + ASSUMPTION
+
+
+def test_the_t6_labeller_reads_a_block_past_the_embedding_recipes_cap_whole(tmp_path):
+    assert len(PAST_RECIPE_CAP) > 6_000 and PAST_RECIPE_CAP.index(ASSUMPTION) > 6_000
+    paths, _repository = _retrieval_vault(tmp_path, long_text=PAST_RECIPE_CAP)
+    labelled, report = _labelled_passages(paths)
+    long_passages = [passage for passage in labelled if "quadratic form argument" in passage]
+    assert long_passages and all(passage.endswith(ASSUMPTION) for passage in long_passages)
+    assert report["results"]["passages"]["label_trimmed"] == 0
+
+
+def test_a_trim_between_the_recipe_cap_and_the_block_length_is_counted(tmp_path):
+    # 1,600 tokens = 6,400 characters: past the recipe's 6,000, short of the block.
+    paths, _repository = _retrieval_vault(tmp_path, long_text=PAST_RECIPE_CAP,
+                                          config="[source_retrieval]\npassage_token_budget = 1600")
+    labelled, report = _labelled_passages(paths)
+    from learnloop.source_retrieval.evaluation import LABEL_PROMPT_VERSIONS
+
+    long_passages = [passage for passage in labelled if "quadratic form argument" in passage]
+    assert long_passages and all(6_000 < len(passage) <= 6_400 for passage in long_passages)
+    assert report["results"]["passages"]["label_trimmed"] * len(LABEL_PROMPT_VERSIONS) == len(long_passages)
+
+
+def test_the_t6_labeller_counts_a_trim_at_the_passage_budget(tmp_path):
+    paths, _repository = _retrieval_vault(tmp_path, long_text=PAST_RECIPE_CAP,
+                                          config="[source_retrieval]\npassage_token_budget = 1000")
+    labelled, report = _labelled_passages(paths)
+    long_passages = [passage for passage in labelled if "quadratic form argument" in passage]
+    assert long_passages and all(len(passage) <= 4_000 and passage.endswith("…") for passage in long_passages)
+    # Counted once per candidate, though both labelling passes read it.
+    from learnloop.source_retrieval.evaluation import LABEL_PROMPT_VERSIONS
+
+    assert report["results"]["passages"]["label_trimmed"] * len(LABEL_PROMPT_VERSIONS) == len(long_passages)
 
 
 def test_a_pinned_passage_arrives_whole_with_the_theorem_it_cites(tmp_path):

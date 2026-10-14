@@ -52,6 +52,9 @@ agreement reported").
   (``verify.judge_passage`` at ``source_retrieval.passage_token_budget``;
   tutor delivery fixes, t6-eval-v3: it read 900 characters before), and the
   report counts the passages trimmed at the budget (``trimmed_passages``).
+  The block is its canonical text after the recipe's "Section:" line
+  (``recipes.source_block_passage``), never the embedded text, whose body
+  the recipe caps at 6,000 characters without counting it (Codex review F2).
 
 Reports are aggregate only; every verdict is in ``judgment_ledger``.
 """
@@ -95,7 +98,7 @@ from learnloop.source_retrieval.queries import (
 from learnloop.source_retrieval.recipes import (
     block_record_id,
     embeddable,
-    source_block_text,
+    source_block_passage,
     split_record_id,
 )
 from learnloop.source_retrieval.search import (
@@ -919,7 +922,9 @@ class SourceRetrievalSuite:
             rows = blocks_by_key(connection, [split_record_id(key) for key in keys])
             titles = {extraction_id: section_header_titles(connection, extraction_id)
                       for extraction_id in sorted({key[0] for key in rows})}
-        return {block_record_id(*key): source_block_text(block, titles[key[0]]) for key, block in rows.items()}
+        # The complete block (Codex review F2): the embedding recipe's text
+        # caps the body at 6,000 characters, uncounted.
+        return {block_record_id(*key): source_block_passage(block, titles[key[0]]) for key, block in rows.items()}
 
     def markdown_lines(self, results: dict[str, Any]) -> list[str]:
         types = results.get("question_types") or {}

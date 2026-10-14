@@ -99,6 +99,21 @@ def source_block_text(block: BlockRow, titles: Mapping[str, str]) -> str:
     return ("Section: " + " > ".join(path) + "\n" + body) if path else body
 
 
+def source_block_passage(block: BlockRow, titles: Mapping[str, str]) -> str:
+    """One block as a relevance labeller reads it: the recipe's "Section:
+    <path>" line, then the complete canonical block text.
+
+    Not the embedded text: the recipe caps the body at ``MAX_BLOCK_CHARS``
+    (an embedding input bound), which would hide the end of a long block from
+    the judge without counting the cut (tutor delivery fixes, Codex review
+    F2). The judge's own passage budget (``verify.judge_passage``) is the only
+    bound, applied once and counted.
+    """
+
+    path = section_path(block, titles)
+    return ("Section: " + " > ".join(path) + "\n" + block.text) if path else block.text
+
+
 def _source_block_texts(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     if not sqlite_path.exists():
@@ -178,6 +193,7 @@ __all__ = [
     "extraction_manifest",
     "scope_manifest",
     "section_path",
+    "source_block_passage",
     "source_block_text",
     "split_record_id",
 ]
