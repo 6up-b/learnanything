@@ -569,3 +569,48 @@ def test_an_imported_exercise_keeps_a_required_method_only_when_its_statement_st
     else:
         assert item.required_method is None
         assert any(note in warning for warning in result.get("warnings", []) + summary.get("warnings", []))
+
+
+def test_synthesis_publishes_a_required_method_only_with_an_affirmative_instruction(tmp_path):
+    """The study-map writer end to end (normalization, gates, apply): on a
+    method target, an item whose prompt only mentions the method is published
+    with the explicit instruction; one whose prompt leaves it optional loses
+    the requirement, with a review diagnostic (review F2)."""
+
+    from learnloop.content.synthesis.ai_contracts import SynthRequiredMethod
+    from learnloop.content.synthesis.source_set_synthesis import create_study_map
+
+    from tests.test_source_set_synthesis import _CLOCK, FakeSynthesisClient, _default_payload, _setup
+
+    def builder(context, _calls):
+        payload = _default_payload(context)
+        concepts = [concept.model_copy(update={"type": "procedure", "title": "Orthogonal diagonalization"})
+                    for concept in payload.concepts]
+        mentioned, optional = payload.practice_items
+        mentioned = mentioned.model_copy(update={
+            "prompt": "Explain how orthogonal diagonalization applies to A.",
+            "required_method": SynthRequiredMethod(name="orthogonal diagonalization",
+                                                   criterion_ids=["identifies_symmetry"]),
+        })
+        optional = optional.model_copy(update={
+            "prompt": "Diagonalize A; you may use orthogonal diagonalization or any other method.",
+            "required_method": SynthRequiredMethod(name="orthogonal diagonalization",
+                                                   criterion_ids=["selects_spectral"]),
+        })
+        return payload.model_copy(update={"concepts": concepts, "practice_items": [mentioned, optional]})
+
+    root, repo = _setup(tmp_path)
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=builder), brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+    assert result.applied is True
+    vault = load_vault(root)
+    published = vault.practice_items["pi_identify_symmetry"]
+    assert published.required_method is not None
+    assert published.required_method.criterion_ids == ["identifies_symmetry"]
+    assert published.prompt.endswith("\n\nUse orthogonal diagonalization in your answer.")
+    assert prompt_requires_method(published.prompt, published.required_method.name)
+    dropped = vault.practice_items["pi_select_spectral"]
+    assert dropped.required_method is None
+    assert dropped.prompt == "Diagonalize A; you may use orthogonal diagonalization or any other method."
+    assert any(d["gate"] == "required_method" and "dropped_prompt_contradicts_it" in d["message"]
+               for d in result.gate_diagnostics)
