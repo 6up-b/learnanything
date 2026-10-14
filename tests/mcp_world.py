@@ -179,6 +179,15 @@ def build_world(root: Path) -> World:
             "'pi_cold', ?, ?)",
             ("2026-10-30T00:00:00Z", NOW_ISO, NOW_ISO),
         )
+        # The recorded misconception was normalized out of two error events of
+        # the pinned answer att_own (its provenance: F4 round 3).
+        for event_id in ("e1", "e2"):
+            connection.execute(
+                "INSERT INTO error_events(id, attempt_id, learning_object_id, error_type, severity, "
+                "is_misconception, status, created_at, misconception_id, misconception_statement) "
+                "VALUES (?, 'att_own', ?, 'misconception', 0.7, 1, 'active', ?, 'mc_swap', ?)",
+                (event_id, LO, NOW_ISO, MISCONCEPTION),
+            )
         connection.execute(
             "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, "
             "source_error_event_ids_json, correction_statement, created_at, updated_at) "
@@ -227,13 +236,15 @@ def build_world(root: Path) -> World:
                 "INSERT INTO hypothesis_recurrence_groups(episode_key, statement_normalized, group_key, "
                 "root_episode_key, class_count, joined_by, builder_version) VALUES (?, ?, 'grp_cold', 'ep_cold', 2, "
                 "?, 'test')", (episode, statement.lower(), joined))
+        # Questions asked during the pinned answer att_own; they created the
+        # candidate mcand_row (its provenance: F4 round 3).
         for gap_id, text in (("gap_open", GAP_TEXT), ("gap_reversed", REVERSED_GAP_TEXT)):
             connection.execute(
-                "INSERT INTO learner_text_gaps(id, source_kind, source_id, practice_item_id, "
+                "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
                 "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, "
                 "target_id, algorithm_version, pipeline_version, created_at) VALUES (?, 'tutor_question', ?, "
-                "'pi_own', ?, ?, 'decider', 'tutor', 'misconception', 'belief_candidate', 'candidate', 'mcand_row', "
-                "'test', 'test', ?)", (gap_id, f"q_{gap_id}", LO, text, NOW_ISO))
+                "'att_own', 'pi_own', ?, ?, 'decider', 'tutor', 'misconception', 'belief_candidate', 'candidate', "
+                "'mcand_row', 'test', 'test', ?)", (gap_id, f"q_{gap_id}", LO, text, NOW_ISO))
         connection.execute(
             "INSERT INTO learner_text_gap_reversals(id, gap_id, reversal, actor, created_at) "
             "VALUES ('rev1', 'gap_reversed', 'not_this_belief', 'learner', ?)", (NOW_ISO,))

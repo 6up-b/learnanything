@@ -28,28 +28,58 @@ The re-review (``26dc3da33..e0fdfef36``):
   encoding, and the retry;
 * F12: diagnosed and unresolved causes share the one hypotheses limit, and an
   LO with only unresolved causes keeps its entry.
+
+F4 round 3 (the second re-review's verify, ``4493140a2``):
+
+* every answer-derived text (misconception statements and corrections,
+  candidate statements, learner-text gaps' words and targets, hypothesis,
+  group, answer and diagnosis text) is released by the one guarded renderer,
+  which follows its provenance to the answers behind it and applies the
+  answers' own protection and revision check: an unpinned historical answer's
+  key, propagated anywhere, is withheld, the entry and its counts kept;
+* a link that cannot be followed (an error event not on record, an
+  unreadable id list, a diagnosis with no context receipt, a belief with no
+  provenance at all) withholds the text too;
+* every text field of the output schema is either released by that renderer
+  (a ``GuardedText``) or not drawn from an answer by construction.
 """
 
 from __future__ import annotations
 
+import ast
+import inspect
 import os
+import re
 from typing import Any
 
 import anyio
 import pytest
 from mcp import Client
 
-from learnloop.learner_context import WITHHELD_UNKNOWN_ITEM, WITHHELD_UNREADABLE, ContextLimits, learning_context
+from learnloop.learner_context import (
+    ANSWER_DERIVED_FIELDS,
+    NON_ANSWER_FIELDS,
+    PROVENANCE_MISSING,
+    PROVENANCE_UNKNOWN,
+    WITHHELD_UNKNOWN_ITEM,
+    WITHHELD_UNREADABLE,
+    ContextLimits,
+    GuardedText,
+    learning_context,
+)
 from learnloop.remote.runtime import RemoteRuntime
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
-from learnloop_mcp.server import build_server
+from learnloop_mcp.server import ContextOut, build_server
 from tests.helpers import NOW_ISO
 from tests.mcp_world import (
+    CANDIDATE,
     EDITED_OLD_PROMPT,
+    GAP_TEXT,
     HISTORICAL_KEY,
     HYPOTHESIS,
     HYPOTHESIS_COLD,
+    MISCONCEPTION,
     OWN_ANSWER,
     PROTECTED,
     build_world,
@@ -547,3 +577,280 @@ def test_open_hypotheses_share_one_limit_and_keep_unresolved_only_causes(world):
             # The LO with only an unresolved cause keeps its entry; diagnosed causes keep theirs.
             assert any(e["kind"] == "unresolved_cause" and e["learning_object_id"] == "lo_vectors" for e in entries)
             assert any(e["kind"] == "diagnosed_cause" for e in entries)
+
+
+# -- F4 round 3 ----------------------------------------------------------------------------
+
+
+def _error_event(connection, event_id: str, attempt_id: str | None, statement: str,
+                 misconception_id: str | None = None) -> None:
+    connection.execute(
+        "INSERT INTO error_events(id, attempt_id, learning_object_id, error_type, severity, is_misconception, status, "
+        "created_at, misconception_id, misconception_statement) VALUES (?, ?, 'lo_matrices', 'misconception', 0.6, 1, "
+        "'active', ?, ?, ?)", (event_id, attempt_id, NOW_ISO, misconception_id, statement))
+
+
+def _gap(connection, gap_id: str, *, source_kind: str, source_id: str, attempt_id: str | None, item_id: str | None,
+         text: str, target_kind: str | None, target_id: str | None, action: str = "belief_sighting") -> None:
+    connection.execute(
+        "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
+        "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, target_id, "
+        "algorithm_version, pipeline_version, created_at) VALUES (?, ?, ?, ?, ?, 'lo_matrices', ?, 'decider', ?, "
+        "'misconception', ?, ?, ?, 'test', 'test', ?)",
+        (gap_id, source_kind, source_id, attempt_id, item_id, text,
+         "tutor" if source_kind == "tutor_question" else "diagnoser" if source_kind == "diagnosis" else "gap_reader",
+         action, target_kind, target_id, NOW_ISO))
+
+
+def _misconception(connection, misconception_id: str, statement: str, events: str, correction: str | None) -> None:
+    connection.execute(
+        "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, source_error_event_ids_json, "
+        "correction_statement, created_at, updated_at) VALUES (?, 'lo_matrices', ?, 0.9, 'active', ?, ?, ?, ?)",
+        (misconception_id, statement, events, correction, NOW_ISO, NOW_ISO))
+
+
+def _candidate(connection, candidate_id: str, statement: str, *, events: str = "[]", items: str = "[]",
+               count: int = 1, status: str = "candidate", promoted: str | None = None) -> None:
+    connection.execute(
+        "INSERT INTO misconception_candidates(id, learning_object_id, statement, statement_normalized, "
+        "source_error_event_ids_json, item_ids_json, occurrence_count, status, promoted_misconception_id, created_at, "
+        "updated_at) VALUES (?, 'lo_matrices', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (candidate_id, statement, statement.lower(), events, items, count, status, promoted, NOW_ISO, NOW_ISO))
+
+
+def _diagnose(repository, attempt_id: str, analysis: str, *, failures: list[str] | None = None,
+              receipt: bool = True) -> None:
+    repository.insert_attempt_diagnosis(
+        attempt_id=attempt_id, diagnosis_prompt_version="test", mode="live", history_mode="exact",
+        status="completed", proposal={"analysis_md": analysis}, causal_view=None, validation_report=None,
+        receipt={"failure_attempt_ids": failures or []} if receipt else None)
+
+
+def _legacy_world(world) -> None:
+    """The verify's reproduction: an unpinned historical answer stating a key
+    nothing records any more (``att_legacy``), propagated into a recorded
+    misconception (its statement and correction, through an error event), a
+    candidate (through the same event and its item), the learner-text gaps
+    drawn from that answer (its diagnosis and its stuck text) and the beliefs
+    they were matched to; plus the indirect paths to the same answer: a
+    candidate a gap on it created, a misconception promoted from a candidate
+    drawn from it, a pinned answer's diagnosis whose context showed it, and a
+    question asked on its item outside any attempt."""
+
+    payload = _item("pi_rewritten", "lo_matrices", "What does a row swap do to det (rewritten)?",
+                    ["facet_determinant"])
+    payload["expected_answer"] = "it multiplies the determinant by minus one"
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_rewritten"), payload)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_legacy', 'pi_rewritten', 'lo_matrices', 'short_answer', 'independent_attempt', ?, 0.0, 0, "
+            "'2026-09-19T09:00:00Z', 'old', 'human', 'desktop_practice')", (f"I wrote: {LEGACY_KEY}",))
+        _error_event(connection, "ev_legacy", "att_legacy", f"Believes {LEGACY_KEY} in every case", "mc_legacy")
+        _misconception(connection, "mc_legacy", f"Believes {LEGACY_KEY} in every case", '["ev_legacy"]',
+                       f"Correct: {LEGACY_KEY} only for one swap")
+        _candidate(connection, "mcand_legacy", f"Thinks {LEGACY_KEY} twice", events='["ev_legacy"]',
+                   items='["pi_rewritten"]', count=3)
+        _gap(connection, "gap_legacy_diag", source_kind="diagnosis", source_id="diag_legacy", attempt_id="att_legacy",
+             item_id="pi_rewritten", text=f"I wrote: {LEGACY_KEY}", target_kind="durable", target_id="mc_legacy")
+        _gap(connection, "gap_legacy_stuck", source_kind="stuck_answer", source_id="att_legacy",
+             attempt_id="att_legacy", item_id="pi_rewritten", text=f"stuck: is it {LEGACY_KEY}?",
+             target_kind="candidate", target_id="mcand_legacy")
+        _gap(connection, "gap_item_question", source_kind="tutor_question", source_id="q_item", attempt_id=None,
+             item_id="pi_rewritten", text=f"why is it {LEGACY_KEY}?", target_kind="candidate",
+             target_id="mcand_legacy")
+        # A candidate a gap on the unpinned answer created (no event, no item of its own).
+        _gap(connection, "gap_legacy_created", source_kind="tutor_question", source_id="q_created",
+             attempt_id="att_legacy", item_id="pi_rewritten", text="is the sign rule the same for columns?",
+             target_kind="candidate", target_id="mcand_from_gap", action="belief_candidate")
+        _candidate(connection, "mcand_from_gap", f"Thinks the sign rule is {LEGACY_KEY}")
+        # A misconception promoted from a candidate drawn from the unpinned answer.
+        _candidate(connection, "mcand_promoted", f"Expects {LEGACY_KEY} for columns too", events='["ev_legacy"]',
+                   items='["pi_rewritten"]', status="promoted", promoted="mc_promoted")
+        _misconception(connection, "mc_promoted", f"Expects {LEGACY_KEY} for columns too", "[]", None)
+        connection.commit()
+    # A pinned answer's diagnosis whose context showed the unpinned answer.
+    _diagnose(world.repository, "att_own", f"As before, the learner wrote {LEGACY_KEY}.", failures=["att_legacy"])
+
+
+def test_text_drawn_from_an_unpinned_answer_is_withheld_in_every_section(world):
+    _legacy_world(world)
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    context = result.structured_content
+    assert LEGACY_KEY not in _text(result)
+    # The misconceptions and candidates are still listed, with their counts and status; their text is not.
+    misconceptions = {m["misconception_id"]: m for m in context["misconceptions"]}
+    for misconception_id in ("mc_legacy", "mc_promoted"):
+        entry = misconceptions[misconception_id]
+        assert entry["statement"] is None and "revision" in entry["statement_note"], misconception_id
+        assert entry["status"] == "active"
+    legacy = misconceptions["mc_legacy"]
+    assert legacy["correction"] is None and "revision" in legacy["correction_note"]
+    assert legacy["evidence_count"] == 1
+    candidates = {c["candidate_id"]: c for c in context["misconception_candidates"]}
+    for candidate_id in ("mcand_legacy", "mcand_from_gap"):
+        entry = candidates[candidate_id]
+        assert entry["statement"] is None and "revision" in entry["statement_note"], candidate_id
+    assert candidates["mcand_legacy"]["evidence_count"] == 3
+    gaps = {gap["gap_id"]: gap for gap in context["open_learner_text_gaps"]}
+    for gap_id in ("gap_legacy_diag", "gap_legacy_stuck", "gap_item_question"):
+        gap = gaps[gap_id]
+        assert gap["learner_text"] is None and "revision" in gap["learner_text_note"], gap_id
+        # The gap's target (the recorded belief or the candidate) goes through the same renderer.
+        assert gap["target"] is None and "revision" in gap["target_note"], gap_id
+        assert gap["target_topic"], gap_id
+    # The pinned answer's own words still show; its diagnosis, drawn also from the unpinned answer, does not.
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER
+    assert own["diagnosis"]["summary"] is None and "revision" in own["diagnosis"]["summary_note"]
+    # A pinned answer's belief still shows, through the same rule.
+    assert misconceptions["mc_swap"]["statement"] == MISCONCEPTION
+    _no_protected([result])
+
+
+def test_text_whose_provenance_cannot_be_followed_is_withheld(world):
+    with world.repository.connection() as connection:
+        # Error events not on record (replaced, or never written).
+        _misconception(connection, "mc_dangling", "Thinks a row swap is a scaling", '["ev_gone"]', None)
+        _misconception(connection, "mc_unreadable", "Thinks a row swap is a shear", "not json", None)
+        # No error event, item, error hunt or gap behind it.
+        _candidate(connection, "mcand_orphan", "Thinks a row swap is a transpose")
+        connection.commit()
+    # A pinned answer's diagnosis with no context receipt: what it was shown is not recorded.
+    _diagnose(world.repository, "att_own", "The learner expanded along one row only.", receipt=False)
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    misconceptions = {m["misconception_id"]: m for m in context["misconceptions"]}
+    for misconception_id in ("mc_dangling", "mc_unreadable"):
+        entry = misconceptions[misconception_id]
+        assert entry["statement"] is None and entry["statement_note"] == PROVENANCE_MISSING, misconception_id
+    assert misconceptions["mc_dangling"]["evidence_count"] == 1
+    orphan = next(c for c in context["misconception_candidates"] if c["candidate_id"] == "mcand_orphan")
+    assert orphan["statement"] is None and orphan["statement_note"] == PROVENANCE_UNKNOWN
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER and own["diagnosis"]["status"] == "done"
+    assert own["diagnosis"]["summary"] is None and own["diagnosis"]["summary_note"] == PROVENANCE_MISSING
+
+
+def _schema_text_fields(schema: dict) -> set[str]:
+    """Every string field of a JSON schema, by path (``a[].b``; a union entry
+    of a list by its ``kind``: ``a[kind].b``). Every object must be closed and
+    every leaf typed, so no text field can hide in an open dict."""
+
+    defs = schema.get("$defs", {})
+
+    def resolve(node: dict) -> dict:
+        while "$ref" in node:
+            node = defs[node["$ref"].rsplit("/", 1)[-1]]
+        return node
+
+    found: set[str] = set()
+
+    def walk(node: dict, path: str) -> None:
+        node = resolve(node)
+        branches = node.get("anyOf") or node.get("oneOf")
+        if branches:
+            objects = [resolve(branch) for branch in branches if resolve(branch).get("type") == "object"]
+            if len(objects) > 1:
+                base = path[:-2] if path.endswith("[]") else path
+                for branch in objects:
+                    walk(branch, f"{base}[{branch['properties']['kind']['const']}]")
+                return
+            for branch in branches:
+                walk(branch, path)
+            return
+        kind = node.get("type")
+        if kind == "string":
+            found.add(path)
+        elif kind == "array":
+            walk(node["items"], f"{path}[]")
+        elif kind == "object":
+            assert node.get("additionalProperties") is False and node.get("properties"), f"open object at {path!r}"
+            for name, child in node["properties"].items():
+                walk(child, f"{path}.{name}" if path else name)
+        else:
+            assert kind in ("integer", "number", "boolean", "null"), f"untyped field at {path!r}: {node}"
+
+    walk(schema, "")
+    return found
+
+
+def _output_leaves(value: Any, path: str, unions: set[str], out: list[tuple[str, Any]]) -> None:
+    if isinstance(value, dict):
+        for name, child in value.items():
+            _output_leaves(child, f"{path}.{name}" if path else name, unions, out)
+    elif isinstance(value, list):
+        for child in value:
+            label = f"{path}[{child['kind']}]" if path in unions and isinstance(child, dict) else f"{path}[]"
+            _output_leaves(child, label, unions, out)
+    elif isinstance(value, str):
+        out.append((path, value))
+
+
+def _guarded_everywhere(world) -> list[str]:
+    """Every answer-derived field released at least once: a second belief with
+    a correction, a diagnosis with its context receipt, an unresolved cause.
+    Returns the answer-derived texts planted."""
+
+    correction = "Swapping two rows multiplies the determinant by one sign change"
+    summary = "The learner expanded along a single row and lost track of signs."
+    with world.repository.connection() as connection:
+        _error_event(connection, "ev_scale", "att_own", "Thinks scaling a row leaves det fixed", "mc_scale")
+        _misconception(connection, "mc_scale", "Thinks scaling a row leaves det fixed", '["ev_scale"]', correction)
+        connection.execute(
+            "INSERT INTO unresolved_cause_factors(id, attempt_id, candidate_causes_json, status, algorithm_version, "
+            "created_at, updated_at) VALUES ('ucf_own', 'att_own', '[]', 'open', 'test', ?, ?)", (NOW_ISO, NOW_ISO))
+        connection.commit()
+    _diagnose(world.repository, "att_own", summary, failures=["att_own"])
+    return [OWN_ANSWER, MISCONCEPTION, CANDIDATE, HYPOTHESIS, GAP_TEXT, correction, summary,
+            "Thinks scaling a row leaves det fixed"]
+
+
+def test_every_text_field_of_the_output_is_guarded_or_not_answer_derived(world, server):
+    """F4 round 3's one rule, checked against the output schema itself: each
+    text field of ``learning_context`` is released only by the guarded renderer
+    (a ``GuardedText``) or is not drawn from an answer by construction."""
+
+    async def advertised():
+        async with Client(server) as client:
+            return {tool.name: tool for tool in (await client.list_tools()).tools}
+
+    schema = anyio.run(advertised)["learning_context"].output_schema
+    fields = _schema_text_fields(schema)
+    assert fields == _schema_text_fields(ContextOut.model_json_schema())
+    assert not ANSWER_DERIVED_FIELDS & set(NON_ANSWER_FIELDS)
+    assert fields == ANSWER_DERIVED_FIELDS | set(NON_ANSWER_FIELDS), (
+        sorted(fields - ANSWER_DERIVED_FIELDS - set(NON_ANSWER_FIELDS)),
+        sorted((ANSWER_DERIVED_FIELDS | set(NON_ANSWER_FIELDS)) - fields))
+
+    planted = _guarded_everywhere(world)
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    unions = {path.split("[", 1)[0] for path in fields if re.match(r"^\w+\[[a-z_]+\]\.", path)}
+    leaves: list[tuple[str, Any]] = []
+    _output_leaves(context, "", unions, leaves)
+    released: set[str] = set()
+    for path, value in leaves:
+        assert path in fields, path
+        if path in ANSWER_DERIVED_FIELDS:
+            assert isinstance(value, GuardedText), (path, value)
+            released.add(path)
+        else:
+            assert not isinstance(value, GuardedText), path
+            assert not [text for text in planted if text in value], (path, value)
+    # Every renderer-owned field was exercised (released at least once on this world).
+    assert released == ANSWER_DERIVED_FIELDS, sorted(ANSWER_DERIVED_FIELDS - released)
+    # The output is checked against that schema before it is recorded, and reaches the host unchanged.
+    ContextOut.model_validate(context)
+
+
+def test_only_the_renderer_releases_answer_derived_text():
+    with pytest.raises(TypeError):
+        GuardedText("an answer", object())
+    import learnloop.learner_context as module
+
+    tree = ast.parse(inspect.getsource(module))
+    calls = [node for node in ast.walk(tree)
+             if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "GuardedText"]
+    render = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "render")
+    assert calls and all(any(call is node for node in ast.walk(render)) for call in calls)

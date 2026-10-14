@@ -24,7 +24,7 @@ import time
 from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import anyio.to_thread
 from mcp.server.mcpserver import Context, MCPServer
@@ -119,19 +119,195 @@ class SourcesOut(_Out):
     plan: dict[str, Any] | None = None
 
 
+# -- learning_context: every field typed and closed (F4 round 3) ---------------------
+#
+# The output schema names every field, so each text field is either released by
+# the read model's one guarded renderer (``learner_context.ANSWER_DERIVED_FIELDS``)
+# or not drawn from an answer by construction (``NON_ANSWER_FIELDS``); a test
+# checks the two lists against this schema. ``extra="forbid"`` everywhere: a new
+# field cannot reach a host without being declared, and so classified.
+
+
+class ContextScope(_Out):
+    learning_object_ids: list[str]
+    matched_by: str
+    learning_object_count: int
+    unknown_ids: list[str] | None = None
+    topic: str | None = None
+
+
+class MisconceptionEntry(_Out):
+    misconception_id: str
+    learning_object_id: str
+    topic: str | None
+    status: str
+    statement: str | None
+    statement_note: str | None
+    correction: str | None
+    correction_note: str | None
+    severity: float
+    evidence_count: int
+    since: str | None
+    updated_at: str | None
+
+
+class CandidateEntry(_Out):
+    candidate_id: str
+    learning_object_id: str
+    topic: str | None
+    status: str
+    statement: str | None
+    statement_note: str | None
+    evidence_count: int
+    note: str
+    since: str | None
+    updated_at: str | None
+
+
+class EvidenceFor(_Out):
+    answers_in_episode: int
+    recurrence_class_count: int
+    learner_confirmed: int
+    cold_checks_failed: int
+
+
+class EvidenceAgainst(_Out):
+    learner_disputed: int
+    cold_checks_passed: int
+
+
+class RepairTried(_Out):
+    episode_id: str
+    state: str | None
+    started_at: str | None
+    completed_at: str | None
+
+
+class DiagnosedCause(_Out):
+    kind: Literal["diagnosed_cause"]
+    learning_object_id: str
+    topic: str | None
+    status: str
+    since: str | None
+    statement: str | None
+    statement_note: str | None
+    hypothesis_id: str
+    attempt_id: str | None
+    error_event_id: str | None
+    promoted_misconception_id: str | None
+    label: str
+    evidence_for: EvidenceFor
+    evidence_against: EvidenceAgainst
+    repairs_tried: list[RepairTried]
+
+
+class UnresolvedCause(_Out):
+    kind: Literal["unresolved_cause"]
+    learning_object_id: str
+    topic: str | None
+    status: str
+    since: str | None
+    statement: str
+
+
+class RecurrenceGroup(_Out):
+    group_key: str
+    statement: str | None
+    statement_note: str | None
+    episodes: int
+    class_count: int
+    joined_by: list[str]
+    learning_object_ids: list[str]
+    topics: list[str]
+    label: str
+
+
+class ColdCheck(_Out):
+    lane: str | None
+    qualified: bool | None
+
+
+class TraceDiagnosis(_Out):
+    status: str | None
+    summary: str | None = None
+    summary_note: str | None = None
+    hypotheses: list[str] = Field(default_factory=list)
+    hypotheses_note: str | None = None
+
+
+class AnswerTrace(_Out):
+    attempt_id: str
+    at: str | None
+    learning_object_id: str
+    topic: str | None
+    kind: str | None
+    attempt_type: str | None
+    result: str
+    graded_by: str
+    hints_used: int
+    assisted: bool
+    revealed_before: bool
+    declared_stuck: bool
+    said_dont_know: bool
+    cold_check: ColdCheck | None
+    entry_surface: str | None
+    evidence_origin: str | None
+    key_status: str | None
+    withheld: str | None
+    stem: str | None
+    stem_note: str | None
+    answer: str | None
+    answer_note: str | None
+    diagnosis: TraceDiagnosis
+
+
+class LearnerTextGap(_Out):
+    gap_id: str
+    kind: str
+    action: str
+    learning_object_id: str | None
+    topic: str | None
+    target_kind: str | None
+    target_topic: str | None
+    target: str | None
+    target_note: str | None
+    learner_text: str | None
+    learner_text_note: str | None
+    source: str
+    since: str | None
+    label: str
+
+
+class RetentionRisk(_Out):
+    learning_object_id: str
+    topic: str | None
+    recall_now: float
+    items_below_target: int
+    items_due_now: int
+    items_tracked: int
+    next_due_at: str | None
+
+
+class ContextLabels(_Out):
+    evidence: str
+    hypotheses: str
+    held_for_review: str
+    recall_now: str
+
+
 class ContextOut(_Out):
     context_version: str
     as_of: str
-    scope: dict[str, Any]
-    misconceptions: list[dict[str, Any]]
-    misconception_candidates: list[dict[str, Any]]
-    open_hypotheses: list[dict[str, Any]]
-    recurrence_groups: list[dict[str, Any]]
-    recent_answer_traces: list[dict[str, Any]]
-    open_learner_text_gaps: list[dict[str, Any]]
-    retention_risks: list[dict[str, Any]]
+    scope: ContextScope
+    misconceptions: list[MisconceptionEntry]
+    misconception_candidates: list[CandidateEntry]
+    open_hypotheses: list[Annotated[DiagnosedCause | UnresolvedCause, Field(discriminator="kind")]]
+    recurrence_groups: list[RecurrenceGroup]
+    recent_answer_traces: list[AnswerTrace]
+    open_learner_text_gaps: list[LearnerTextGap]
+    retention_risks: list[RetentionRisk]
     unknowns: list[str]
-    labels: dict[str, str]
+    labels: ContextLabels
 
 
 @dataclass

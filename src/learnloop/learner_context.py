@@ -19,18 +19,27 @@ function R2a reads).
 **Leakage rules (the card's G5, applied to every output):**
 
 * no answer key, reference solution, rubric or hint is ever read into the
-  output; free text that could quote a key (a diagnosis summary, a
-  hypothesis or misconception statement, a correction, the learner's own
-  answer) is dropped when it reproduces any key its item is known to have had
-  (today's YAML, every assessment-contract and practice-item snapshot, so the key an attempt
-  was graded against counts after the item is edited: :class:`KeyBook`;
-  ``tutor_qa.span_leaks_expected``, the tutor's own filter), and says so;
-* an answer is shown only with affirmative evidence of the question revision
-  it was graded against (exactly one pinned assessment contract, on its own
-  item): an older answer with no pinned contract may restate a key nothing
-  records any more, so its text, its diagnosis and every hypothesis or
-  recurrence-group statement drawn from it are withheld (the absence of a
-  recorded change does not establish the revision);
+  output;
+* **answer-derived text has one renderer** (:meth:`AnswerTextGuard.render`,
+  F4 round 3): every text drawn from an answer or an error event, directly or
+  through a diagnosis, a hypothesis, a recurrence group, a recorded
+  misconception (statement and correction), a candidate, or a learner-text
+  gap (its words and its target), is released only by it, as a
+  :class:`GuardedText`, and :data:`ANSWER_DERIVED_FIELDS` names every such
+  field of the output. It follows the text's provenance (:class:`Origin`: the
+  answers behind it, through error events, hypothesis episodes, promotions,
+  error hunts, gaps and a diagnosis's context receipt) and releases it only
+  when every answer behind it
+  passes the answers' own protection check (:meth:`AnswerTextGuard.attempt_reason`)
+  and was graded against exactly one pinned assessment contract on its own
+  item (the affirmative record of the question revision: an older answer may
+  restate a key nothing records any more, and the absence of a recorded
+  change does not establish the revision), and the text reproduces no key its
+  items or topics are known to have had (today's YAML, every
+  assessment-contract and practice-item snapshot: :class:`KeyBook`;
+  ``tutor_qa.span_leaks_expected``, the tutor's own filter). A link it cannot
+  follow, or text about an item with no graded answer behind it, is withheld
+  too. A withheld text keeps its entry, counts and status, and says why;
 * exam and held-out material (``exam_material.item_exam_status``, every
   provenance form), items reserved for an assessment or a held-out exam,
   items held by an open cold check or a repair's cold retry, and diagnostic
@@ -56,7 +65,7 @@ import json
 import logging
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -83,6 +92,12 @@ KEY_WITHHELD = "withheld: it states the answer key"
 KEYS_UNREADABLE = "withheld: the answer keys could not be read"
 REVISION_UNKNOWN = "withheld: the question revision this answer was graded against is not recorded"
 REVISION_UNKNOWN_BEHIND = "withheld: the question revision an answer behind it was graded against is not recorded"
+REVISION_UNKNOWN_ASKED = ("withheld: it was written about a question with no graded answer behind it, so the "
+                          "question revision is not recorded")
+PROVENANCE_MISSING = ("withheld: a record it was drawn from (an answer, an error event or a diagnosis's context) "
+                      "is not on record")
+PROVENANCE_UNKNOWN = "withheld: what it was drawn from is not recorded"
+ANSWER_UNRECORDED = "an answer it was drawn from is not on record"
 PINS_UNREADABLE = ("the question revisions past answers were graded against could not be read: no question, answer "
                    "or statement drawn from one is shown")
 #: A loader issue the remote runtime adds when the vault's files changed while
@@ -364,29 +379,6 @@ def leaks_key(text: str, expected_answers: Iterable[Any]) -> bool:
     return False
 
 
-def _guarded(text: Any, keys: Iterable[Any], limit: int, *, book: KeyBook | None = None) -> tuple[str | None, str | None]:
-    """``(excerpt, note)``: the text, or None with why it is withheld."""
-
-    if not text or not str(text).strip():
-        return None, None
-    if book is not None and book.unreadable:
-        return None, KEYS_UNREADABLE
-    if leaks_key(str(text), keys):
-        return None, KEY_WITHHELD
-    return excerpt(text, limit), None
-
-
-def _guarded_pinned(text: Any, keys: Iterable[Any], limit: int, *, book: KeyBook, pinned: bool,
-                    unpinned_note: str = REVISION_UNKNOWN) -> tuple[str | None, str | None]:
-    """:func:`_guarded`, and withheld too unless the answer(s) the text is drawn
-    from have a pinned contract (the revision they were graded against)."""
-
-    shown, note = _guarded(text, keys, limit, book=book)
-    if shown is not None and not pinned:
-        return None, unpinned_note
-    return shown, note
-
-
 def _pins(connection: Any, items: Mapping[str, Any], unknowns: list[str]) -> dict[str, Any]:
     """``{attempt id: its pinned contract's prompt or None}`` for the attempts
     (``{attempt id: practice item}``) graded against exactly one assessment
@@ -432,35 +424,520 @@ def _pins(connection: Any, items: Mapping[str, Any], unknowns: list[str]) -> dic
     return pinned
 
 
-def _attempt_items(connection: Any, attempt_ids: Iterable[Any]) -> dict[str, str | None]:
-    """``{attempt id: its practice item}``; an attempt not on record maps to None."""
-
-    ids = sorted({str(attempt_id) for attempt_id in attempt_ids if attempt_id})
-    found: dict[str, str | None] = dict.fromkeys(ids)
-    for start in range(0, len(ids), 500):
-        chunk = ids[start:start + 500]
-        for attempt_id, item_id in connection.execute(
-            f"SELECT id, practice_item_id FROM practice_attempts WHERE id IN ({_marks(chunk)})", chunk,
-        ):
-            found[str(attempt_id)] = None if item_id is None else str(item_id)
-    return found
+# -- answer-derived text: the one guarded renderer (F4 round 3) --------------------
 
 
-def _withheld_for_attempts(withheld: Withheld, items: Mapping[str, str | None],
-                           attempt_ids: Iterable[Any]) -> str | None:
-    """Why text drawn from these answers is withheld: the first protected (or
-    unrecorded) answer's reason, or None when every answer may be shown."""
+_RELEASE = object()
+#: Gap sources whose words are an answer itself (``learner_text_gaps.source_kind``).
+_ANSWER_SOURCES = frozenset({"diagnosis", "stuck_answer"})
+#: A record id as the diagnoser writes it (``diagnosis.split.card``'s ULID form).
+_RECORD_ID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
+_CHUNK = 500
 
-    for attempt_id in sorted({str(value) for value in attempt_ids if value}):
-        if attempt_id not in items:
-            continue
-        item_id = items[attempt_id]
-        reason = withheld.reason(item_id) if item_id else WITHHELD_UNKNOWN_ITEM
+
+class GuardedText(str):
+    """Answer-derived text :meth:`AnswerTextGuard.render` released, and only
+    it: the constructor takes a module-private token. The output-schema test
+    checks that every field in :data:`ANSWER_DERIVED_FIELDS` holds one of these
+    or nothing. Copies and pickles are plain ``str``."""
+
+    __slots__ = ()
+
+    def __new__(cls, value: str, token: object) -> GuardedText:
+        if token is not _RELEASE:
+            raise TypeError("answer-derived text is released only by AnswerTextGuard.render")
+        return super().__new__(cls, value)
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (str, (str(self),))
+
+
+@dataclass(frozen=True)
+class Origin:
+    """What a piece of answer-derived text was drawn from.
+
+    ``attempts``: the answers behind it (directly, or through an error event, a
+    hypothesis episode, a promotion, an error hunt, a gap or a diagnosis's
+    context); ``items``: items it is about, each needing a pinned answer of its
+    own behind it; ``los``: topics whose keys also filter it (a statement's, or
+    the topic of words tied to no item); ``missing``: a
+    link that could not be followed (an error event or answer not on record,
+    an id list that cannot be read, a diagnosis with no context receipt);
+    ``unattached``: text about no item and no answer (a question asked in the
+    Reader or the library), to which no revision applies; ``direct``: the text
+    is the answer itself or its own diagnosis (the note then names "this
+    answer")."""
+
+    attempts: frozenset[str] = frozenset()
+    items: frozenset[str] = frozenset()
+    los: frozenset[str] = frozenset()
+    missing: bool = False
+    unattached: bool = False
+    direct: bool = False
+
+    def __or__(self, other: Origin) -> Origin:
+        return Origin(self.attempts | other.attempts, self.items | other.items, self.los | other.los,
+                      self.missing or other.missing, self.unattached or other.unattached, False)
+
+    def about(self, *los: Any) -> Origin:
+        return replace(self, los=self.los | _ids(los))
+
+
+def _ids(values: Iterable[Any]) -> frozenset[str]:
+    return frozenset(str(value) for value in values if value)
+
+
+def _id_list(value: Any) -> list[str] | None:
+    """A stored JSON id list; ``[]`` when absent, None when it cannot be read."""
+
+    if value in (None, ""):
+        return []
+    try:
+        loaded = json.loads(value) if isinstance(value, str) else value
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(loaded, list):
+        return None
+    return [str(entry) for entry in loaded if entry]
+
+
+class AnswerTextGuard:
+    """THE renderer of answer-derived text (spec §4.7 rule 1; F4 round 3).
+
+    One rule for every section: :meth:`render` follows the text's
+    :class:`Origin` and releases it (a :class:`GuardedText`) only when
+
+    1. every answer behind it passes the answers' own protection check
+       (:meth:`attempt_reason`: exam, reserved, cold-check and probe items, an
+       exam or probe attempt, an item the vault cannot read, protection
+       unreadable), and so does every item it is about;
+    2. the answer keys could be read and the text reproduces none its items
+       and topics are known to have had (:class:`KeyBook`);
+    3. every answer behind it was graded against exactly one pinned contract
+       on its own item (:func:`_pins`), and every item it is about has such an
+       answer behind it: the revision is established, not assumed;
+    4. every link to those answers could be followed, and there is at least
+       one (or the text is about no item at all).
+
+    Otherwise it returns None and the first reason, in that order. Lookups are
+    cached for one read; nothing is written."""
+
+    def __init__(self, connection: Any, withheld: Withheld, book: KeyBook, unknowns: list[str]) -> None:
+        self._connection = connection
+        self.withheld = withheld
+        self.book = book
+        self._unknowns = unknowns
+        self._attempts: dict[str, dict[str, Any] | None] = {}
+        self._pinned: dict[str, Any] = {}
+        self._events: dict[str, str | None] = {}
+        self._episodes: dict[str, Origin] = {}
+        self._hypotheses: dict[str, Origin] = {}
+        self._registry: dict[tuple[str | None, str], tuple[Any, Any, Origin] | None] = {}
+        self._maps: dict[str, dict[str, list[Any]]] = {}
+        self._tables: dict[str, bool] = {}
+
+    def _has(self, table: str) -> bool:
+        if table not in self._tables:
+            self._tables[table] = _table(self._connection, table)
+        return self._tables[table]
+
+    # -- answers ---------------------------------------------------------------
+
+    def _load(self, attempt_ids: Iterable[Any]) -> None:
+        wanted = sorted(attempt for attempt in _ids(attempt_ids) if attempt not in self._attempts)
+        if not wanted:
+            return
+        found: dict[str, dict[str, Any] | None] = dict.fromkeys(wanted)
+        for start in range(0, len(wanted), _CHUNK):
+            chunk = wanted[start:start + _CHUNK]
+            for row in self._connection.execute(
+                f"SELECT id, practice_item_id, attempt_type, probe_presentation_id "
+                f"FROM practice_attempts WHERE id IN ({_marks(chunk)})", chunk,
+            ):
+                found[str(row[0])] = {"item": None if row[1] is None else str(row[1]), "type": row[2],
+                                      "probe": row[3]}
+        self._attempts.update(found)
+        self._pinned.update(_pins(self._connection, {attempt: row["item"] for attempt, row in found.items() if row},
+                                  self._unknowns))
+
+    def attempt_reason(self, attempt_id: Any) -> str | None:
+        """Why this answer, and everything drawn from it, is protected (the
+        answers' own check, for every section), or None."""
+
+        if not self.withheld.available:
+            return WITHHELD_UNREADABLE
+        self._load([attempt_id])
+        row = self._attempts.get(str(attempt_id))
+        if row is None:
+            return ANSWER_UNRECORDED
+        if not row["item"]:
+            return WITHHELD_UNKNOWN_ITEM
+        reason = self.withheld.reason(row["item"])
         if reason:
             return reason
-    if not withheld.available:
-        return WITHHELD_UNREADABLE
-    return None
+        if row["type"] in _EXAM_ATTEMPT_TYPES:
+            return WITHHELD_EXAM
+        if row["type"] == "diagnostic_probe" or row["probe"]:
+            return WITHHELD_PROBE
+        return None
+
+    def pinned_prompt(self, attempt_id: Any) -> str | None:
+        """The prompt of the contract this answer was graded against (the
+        question as graded), or None."""
+
+        self._load([attempt_id])
+        return self._pinned.get(str(attempt_id))
+
+    # -- the renderer ----------------------------------------------------------
+
+    def render(self, text: Any, origin: Origin, limit: int) -> tuple[GuardedText | None, str | None]:
+        """``(text, None)`` released, or ``(None, why)``; ``(None, None)`` for no text."""
+
+        if text is None or not str(text).strip():
+            return None, None
+        self._load(origin.attempts)
+        for attempt_id in sorted(origin.attempts):
+            reason = self.attempt_reason(attempt_id)
+            if reason:
+                return None, f"withheld: {reason}"
+        for item_id in sorted(origin.items):
+            reason = self.withheld.reason(item_id)
+            if reason:
+                return None, f"withheld: {reason}"
+        if not self.withheld.available:
+            return None, f"withheld: {WITHHELD_UNREADABLE}"
+        if self.book.unreadable:
+            return None, KEYS_UNREADABLE
+        if leaks_key(str(text), self._keys(origin)):
+            return None, KEY_WITHHELD
+        if any(attempt_id not in self._pinned for attempt_id in origin.attempts):
+            return None, REVISION_UNKNOWN if origin.direct else REVISION_UNKNOWN_BEHIND
+        graded = {self._attempts[attempt_id]["item"] for attempt_id in origin.attempts}
+        if origin.items - graded:
+            return None, REVISION_UNKNOWN_BEHIND if origin.attempts else REVISION_UNKNOWN_ASKED
+        if origin.missing:
+            return None, PROVENANCE_MISSING
+        if not (origin.attempts or origin.items or origin.unattached):
+            return None, PROVENANCE_UNKNOWN
+        return GuardedText(excerpt(text, limit), _RELEASE), None
+
+    def _keys(self, origin: Origin) -> list[Any]:
+        """Every key of every item behind the text (its answers' items and the
+        items it is about), and of every topic it is about: a statement may
+        restate any key of its topic, an answer (and the learner's own words
+        about one item) is checked against its item's keys, as before."""
+
+        rows = [row for attempt_id in sorted(origin.attempts) if (row := self._attempts.get(attempt_id))]
+        items = sorted(set(origin.items) | {row["item"] for row in rows if row["item"]})
+        return [key for item_id in items for key in self.book.item(item_id)] + self.book.los(sorted(origin.los))
+
+    # -- provenance --------------------------------------------------------------
+
+    def answer(self, attempt_id: Any) -> Origin:
+        """An answer's own text."""
+
+        return Origin(attempts=_ids([attempt_id]), missing=not attempt_id, direct=True)
+
+    def _event_answers(self, event_ids: Iterable[Any]) -> tuple[frozenset[str], bool]:
+        """The answers behind error events, and whether any event is not on
+        record or names no answer."""
+
+        ids = sorted(_ids(event_ids))
+        wanted = [event_id for event_id in ids if event_id not in self._events]
+        if wanted:
+            found: dict[str, str | None] = dict.fromkeys(wanted)
+            if self._has("error_events"):
+                for start in range(0, len(wanted), _CHUNK):
+                    chunk = wanted[start:start + _CHUNK]
+                    for event_id, attempt_id in self._connection.execute(
+                        f"SELECT id, attempt_id FROM error_events WHERE id IN ({_marks(chunk)})", chunk,
+                    ):
+                        found[str(event_id)] = str(attempt_id) if attempt_id else None
+            self._events.update(found)
+        answers = [self._events[event_id] for event_id in ids]
+        return _ids(answers), any(answer is None for answer in answers)
+
+    def error_events(self, event_ids: Iterable[Any]) -> Origin:
+        """The answers behind error events; an event not on record, or naming
+        no answer, is a missing link."""
+
+        answers, missing = self._event_answers(event_ids)
+        return Origin(attempts=answers, missing=missing)
+
+    def episode(self, episode_key: Any) -> Origin:
+        """Every answer of a hypothesis episode (every version), and the
+        answers of their error events that are on record."""
+
+        key = str(episode_key or "")
+        if key not in self._episodes:
+            rows = list(self._connection.execute(
+                "SELECT attempt_id, error_event_id FROM causal_hypotheses WHERE episode_key = ?", (key,),
+            )) if key and self._has("causal_hypotheses") else []
+            events, _replaced = self._event_answers(row[1] for row in rows if row[1])
+            self._episodes[key] = Origin(attempts=_ids(row[0] for row in rows) | events,
+                                         missing=not rows or any(not row[0] for row in rows))
+        return self._episodes[key]
+
+    def hypothesis(self, attempt_id: Any, error_event_id: Any, episode_key: Any) -> Origin:
+        """A hypothesis statement: its answer and its whole episode.
+
+        A hypothesis records its answer itself and is minted from that
+        answer's own error event (``causal_attribution``: the episode key is
+        ``<attempt>:event:<event>:...``), so the event is followed when it is
+        on record (any answer it names joins the origin) and one a regrade
+        replaced takes no provenance with it."""
+
+        events, _replaced = self._event_answers([error_event_id] if error_event_id else [])
+        origin = Origin(attempts=_ids([attempt_id]) | events, missing=not attempt_id)
+        return origin | self.episode(episode_key)
+
+    def hypothesis_by_id(self, hypothesis_id: Any) -> Origin:
+        key = str(hypothesis_id or "")
+        if key not in self._hypotheses:
+            row = self._connection.execute(
+                "SELECT attempt_id, error_event_id, episode_key, learning_object_id FROM causal_hypotheses "
+                "WHERE id = ?", (key,),
+            ).fetchone() if key and self._has("causal_hypotheses") else None
+            self._hypotheses[key] = Origin(missing=True) if row is None else self.hypothesis(
+                row[0], row[1], row[2]).about(row[3])
+        return self._hypotheses[key]
+
+    def diagnosis(self, attempt_id: Any, diagnosis_id: Any, analysis: str) -> Origin:
+        """A diagnosis of one answer: that answer, everything its context
+        receipt says the diagnoser was shown (the answers it saw or cited, the
+        hypotheses and recorded beliefs it was given), and every answer its
+        text names. No receipt, or one that cannot be read: what it saw is not
+        recorded (a missing link)."""
+
+        origin = self.answer(attempt_id)
+        receipt = None
+        if diagnosis_id and self._has("diagnosis_context_receipts"):
+            receipt = self._connection.execute(
+                "SELECT failure_attempt_ids_json, success_attempt_ids_json, hypothesis_ids_json, "
+                "registry_candidate_ids_json, validated_citations_json, retrieval_json "
+                "FROM diagnosis_context_receipts WHERE diagnosis_id = ?", (str(diagnosis_id),),
+            ).fetchone()
+        if receipt is None:
+            return replace(origin, missing=True)
+        lists = [_id_list(receipt[index]) for index in range(4)]
+        citations = _loads(receipt[4], None)
+        retrieval = _loads(receipt[5], None)
+        history = _id_list(retrieval.get("history_attempt_ids")) if isinstance(retrieval, Mapping) else None
+        if any(listed is None for listed in lists) or history is None or not isinstance(citations, list):
+            return replace(origin, missing=True)
+        failures, successes, hypotheses, registry = (listed or [] for listed in lists)
+        answers = [*failures, *successes, *history]
+        answers += [str(c["attempt_id"]) for c in citations if isinstance(c, Mapping) and c.get("attempt_id")]
+        named = set(_RECORD_ID.findall(analysis or ""))
+        self._load(named)
+        answers += [record for record in named if self._attempts.get(record) is not None]
+        context = Origin(attempts=_ids(answers))
+        for hypothesis_id in hypotheses:
+            context = context | self.hypothesis_by_id(hypothesis_id)
+        for record_id in registry:
+            found = self.registry(None, record_id)
+            context = context | (found[2] if found is not None else Origin(missing=True))
+        if not (context.attempts - origin.attempts or context.items or context.missing):
+            return replace(origin, los=origin.los | context.los)
+        return origin | context
+
+    def _map(self, name: str) -> dict[str, list[Any]]:
+        """One-query reverse links, read once: which error events, candidates
+        and hypotheses a misconception was promoted from or normalized out
+        of, which error hunts and gaps created a candidate."""
+
+        if name in self._maps:
+            return self._maps[name]
+        found: dict[str, list[Any]] = {}
+        connection = self._connection
+        if name == "events_by_misconception" and self._has("error_events"):
+            for misconception_id, event_id in connection.execute(
+                "SELECT misconception_id, id FROM error_events WHERE misconception_id IS NOT NULL"
+            ):
+                found.setdefault(str(misconception_id), []).append(str(event_id))
+        elif name == "candidates_by_promotion" and self._has("misconception_candidates"):
+            for row in connection.execute(
+                "SELECT * FROM misconception_candidates WHERE promoted_misconception_id IS NOT NULL"
+            ):
+                found.setdefault(str(row["promoted_misconception_id"]), []).append(dict(row))
+        elif name == "hypotheses_by_promotion" and self._has("causal_hypotheses"):
+            for attempt_id, event_id, episode_key, lo_id, evidence in connection.execute(
+                "SELECT attempt_id, error_event_id, episode_key, learning_object_id, evidence_json "
+                "FROM causal_hypotheses WHERE evidence_json LIKE '%promoted_misconception_id%'"
+            ):
+                promoted = _loads(evidence, None)
+                if not isinstance(promoted, Mapping):
+                    # A promotion that cannot be read: any belief on its topic
+                    # may be drawn from it (a missing link for each of them).
+                    found.setdefault(f"*{lo_id}", []).append((attempt_id, event_id, episode_key))
+                elif promoted.get("promoted_misconception_id"):
+                    found.setdefault(str(promoted["promoted_misconception_id"]), []).append(
+                        (attempt_id, event_id, episode_key))
+        elif name == "hunts_by_candidate" and self._has("error_hunt_outcomes"):
+            for candidate_id, attempt_id in connection.execute(
+                "SELECT misconception_candidate_id, attempt_id FROM error_hunt_outcomes "
+                "WHERE misconception_candidate_id IS NOT NULL"
+            ):
+                found.setdefault(str(candidate_id), []).append(attempt_id)
+        elif name == "gaps_by_candidate" and self._has("learner_text_gaps"):
+            for row in connection.execute(
+                "SELECT source_kind, attempt_id, practice_item_id, anchor_learning_object_id, target_id "
+                "FROM learner_text_gaps WHERE target_kind = 'candidate' AND action = 'belief_candidate'"
+            ):
+                found.setdefault(str(row["target_id"]), []).append(dict(row))
+        self._maps[name] = found
+        return found
+
+    def misconception(self, row: Mapping[str, Any]) -> Origin:
+        """A recorded misconception (statement and correction): the error
+        events it was normalized from or linked to, and the candidates and
+        hypotheses promoted into it."""
+
+        misconception_id = str(row["id"])
+        lo_id = row.get("learning_object_id")
+        listed = _id_list(row.get("source_error_event_ids_json"))
+        origin = Origin(missing=listed is None or f"*{lo_id}" in self._map("hypotheses_by_promotion"))
+        origin = origin | self.error_events([*(listed or ()),
+                                             *self._map("events_by_misconception").get(misconception_id, ())])
+        for candidate in self._map("candidates_by_promotion").get(misconception_id, ()):
+            origin = origin | self.candidate(candidate)
+        for attempt_id, event_id, episode_key in self._map("hypotheses_by_promotion").get(misconception_id, ()):
+            origin = origin | self.hypothesis(attempt_id, event_id, episode_key)
+        return origin.about(lo_id)
+
+    def candidate(self, row: Mapping[str, Any]) -> Origin:
+        """A candidate belief: its error events, the items it was seen on, the
+        error hunts that minted or counted it, the gaps that created it."""
+
+        candidate_id = str(row["id"])
+        events = _id_list(row.get("source_error_event_ids_json"))
+        items = _id_list(row.get("item_ids_json"))
+        origin = Origin(items=_ids(items or ()), missing=events is None or items is None)
+        origin = origin | self.error_events(events or ())
+        hunts = self._map("hunts_by_candidate").get(candidate_id, ())
+        if hunts:
+            origin = origin | Origin(attempts=_ids(hunts), missing=not all(hunts))
+        for gap in self._map("gaps_by_candidate").get(candidate_id, ()):
+            origin = origin | self.gap(gap)
+        return origin.about(row.get("learning_object_id"))
+
+    def gap(self, row: Mapping[str, Any]) -> Origin:
+        """A learner-text gap's words: the answer they are (a diagnosis or a
+        stuck answer) or were asked during, else the item they are about (no
+        graded answer behind them), else nothing (a Reader or library
+        question)."""
+
+        attempt_id, item_id = row.get("attempt_id"), row.get("practice_item_id")
+        answer = row.get("source_kind") in _ANSWER_SOURCES
+        if attempt_id:
+            return Origin(attempts=_ids([attempt_id]), items=_ids([item_id]), direct=answer)
+        if answer:
+            return Origin(items=_ids([item_id]), missing=True)
+        if item_id:
+            return Origin(items=_ids([item_id]))
+        # Words tied to no item: filtered by every key of their topic.
+        return Origin(unattached=True).about(row.get("anchor_learning_object_id"))
+
+    def registry(self, kind: str | None, record_id: Any) -> tuple[Any, Any, Origin] | None:
+        """A belief by id, ``(statement, its topic, origin)``: a recorded misconception
+        (``durable``), a candidate in the holding pen or a hypothesis it
+        projects as one (``candidate``), or any of them (None, as a
+        diagnosis's context lists them). None when it is not on record."""
+
+        key = (kind, str(record_id or ""))
+        if key in self._registry:
+            return self._registry[key]
+        connection = self._connection
+        found: tuple[Any, Any, Origin] | None = None
+        if key[1] and kind in ("durable", None) and self._has("misconceptions"):
+            row = connection.execute("SELECT * FROM misconceptions WHERE id = ?", (key[1],)).fetchone()
+            if row is not None:
+                found = row["statement"], row["learning_object_id"], self.misconception(dict(row))
+        if found is None and key[1] and kind in ("candidate", None):
+            if self._has("misconception_candidates"):
+                row = connection.execute("SELECT * FROM misconception_candidates WHERE id = ?", (key[1],)).fetchone()
+                if row is not None:
+                    found = row["statement"], row["learning_object_id"], self.candidate(dict(row))
+            if found is None and self._has("causal_hypotheses"):
+                row = connection.execute("SELECT statement, learning_object_id FROM causal_hypotheses WHERE id = ?",
+                                         (key[1],)).fetchone()
+                if row is not None:
+                    found = row["statement"], row["learning_object_id"], self.hypothesis_by_id(key[1])
+        self._registry[key] = found
+        return found
+
+
+#: Every text field of ``learning_context``'s output (``ContextOut`` in
+#: ``learnloop_mcp.server``), by path: ``section[].field``, ``[]`` for a list,
+#: a union entry by its kind (``open_hypotheses[diagnosed_cause].statement``).
+#: These are drawn from an answer or an error event and are released only by
+#: :meth:`AnswerTextGuard.render` (a :class:`GuardedText` or None).
+ANSWER_DERIVED_FIELDS: frozenset[str] = frozenset({
+    "misconceptions[].statement",
+    "misconceptions[].correction",
+    "misconception_candidates[].statement",
+    "open_hypotheses[diagnosed_cause].statement",
+    "recurrence_groups[].statement",
+    "recent_answer_traces[].answer",
+    "recent_answer_traces[].diagnosis.summary",
+    "recent_answer_traces[].diagnosis.hypotheses[]",
+    "open_learner_text_gaps[].learner_text",
+    "open_learner_text_gaps[].target",
+})
+_ID, _TIME, _ENUM, _TITLE, _NOTE = ("a record id", "a timestamp", "a stored code (an enumeration)",
+                                    "a title from the vault", "a fixed note")
+#: Every other text field, and why it is not answer-derived by construction.
+NON_ANSWER_FIELDS: Mapping[str, str] = {
+    "context_version": _NOTE, "as_of": _TIME, "unknowns[]": _NOTE,
+    "scope.learning_object_ids[]": _ID, "scope.matched_by": _ENUM, "scope.unknown_ids[]": "the request's own ids",
+    "scope.topic": "the request's own words",
+    "labels.evidence": _NOTE, "labels.hypotheses": _NOTE, "labels.held_for_review": _NOTE,
+    "labels.recall_now": _NOTE,
+    "misconceptions[].misconception_id": _ID, "misconceptions[].learning_object_id": _ID,
+    "misconceptions[].topic": _TITLE, "misconceptions[].status": _ENUM, "misconceptions[].statement_note": _NOTE,
+    "misconceptions[].correction_note": _NOTE, "misconceptions[].since": _TIME, "misconceptions[].updated_at": _TIME,
+    "misconception_candidates[].candidate_id": _ID, "misconception_candidates[].learning_object_id": _ID,
+    "misconception_candidates[].topic": _TITLE, "misconception_candidates[].status": _ENUM,
+    "misconception_candidates[].statement_note": _NOTE, "misconception_candidates[].note": _NOTE,
+    "misconception_candidates[].since": _TIME, "misconception_candidates[].updated_at": _TIME,
+    "open_hypotheses[diagnosed_cause].kind": _ENUM, "open_hypotheses[diagnosed_cause].learning_object_id": _ID,
+    "open_hypotheses[diagnosed_cause].topic": _TITLE, "open_hypotheses[diagnosed_cause].status": _ENUM,
+    "open_hypotheses[diagnosed_cause].since": _TIME, "open_hypotheses[diagnosed_cause].statement_note": _NOTE,
+    "open_hypotheses[diagnosed_cause].hypothesis_id": _ID, "open_hypotheses[diagnosed_cause].attempt_id": _ID,
+    "open_hypotheses[diagnosed_cause].error_event_id": _ID,
+    "open_hypotheses[diagnosed_cause].promoted_misconception_id": _ID,
+    "open_hypotheses[diagnosed_cause].label": _NOTE,
+    "open_hypotheses[diagnosed_cause].repairs_tried[].episode_id": _ID,
+    "open_hypotheses[diagnosed_cause].repairs_tried[].state": _ENUM,
+    "open_hypotheses[diagnosed_cause].repairs_tried[].started_at": _TIME,
+    "open_hypotheses[diagnosed_cause].repairs_tried[].completed_at": _TIME,
+    "open_hypotheses[unresolved_cause].kind": _ENUM, "open_hypotheses[unresolved_cause].learning_object_id": _ID,
+    "open_hypotheses[unresolved_cause].topic": _TITLE, "open_hypotheses[unresolved_cause].status": _ENUM,
+    "open_hypotheses[unresolved_cause].since": _TIME,
+    "open_hypotheses[unresolved_cause].statement": "a fixed note with a count",
+    "recurrence_groups[].group_key": _ID, "recurrence_groups[].statement_note": _NOTE,
+    "recurrence_groups[].joined_by[]": _ENUM, "recurrence_groups[].learning_object_ids[]": _ID,
+    "recurrence_groups[].topics[]": _TITLE, "recurrence_groups[].label": _NOTE,
+    "recent_answer_traces[].attempt_id": _ID, "recent_answer_traces[].at": _TIME,
+    "recent_answer_traces[].learning_object_id": _ID, "recent_answer_traces[].topic": _TITLE,
+    "recent_answer_traces[].kind": _ENUM, "recent_answer_traces[].attempt_type": _ENUM,
+    "recent_answer_traces[].result": _ENUM, "recent_answer_traces[].graded_by": _ENUM,
+    "recent_answer_traces[].cold_check.lane": _ENUM, "recent_answer_traces[].entry_surface": _ENUM,
+    "recent_answer_traces[].evidence_origin": _ENUM, "recent_answer_traces[].key_status": _ENUM,
+    "recent_answer_traces[].withheld": _NOTE,
+    "recent_answer_traces[].stem": "the question as graded (its pinned contract's prompt), never an answer",
+    "recent_answer_traces[].stem_note": _NOTE, "recent_answer_traces[].answer_note": _NOTE,
+    "recent_answer_traces[].diagnosis.status": _ENUM, "recent_answer_traces[].diagnosis.summary_note": _NOTE,
+    "recent_answer_traces[].diagnosis.hypotheses_note": _NOTE,
+    "open_learner_text_gaps[].gap_id": _ID, "open_learner_text_gaps[].kind": _ENUM,
+    "open_learner_text_gaps[].action": _ENUM, "open_learner_text_gaps[].learning_object_id": _ID,
+    "open_learner_text_gaps[].topic": _TITLE, "open_learner_text_gaps[].target_kind": _ENUM,
+    "open_learner_text_gaps[].target_topic": _TITLE, "open_learner_text_gaps[].target_note": _NOTE,
+    "open_learner_text_gaps[].learner_text_note": _NOTE, "open_learner_text_gaps[].source": _ENUM,
+    "open_learner_text_gaps[].since": _TIME, "open_learner_text_gaps[].label": _NOTE,
+    "retention_risks[].learning_object_id": _ID, "retention_risks[].topic": _TITLE,
+    "retention_risks[].next_due_at": _TIME,
+}
 
 
 # -- scope -------------------------------------------------------------------------
@@ -514,9 +991,8 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
 # -- sections ----------------------------------------------------------------------
 
 
-def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-                    limits: ContextLimits, book: KeyBook,
-                    unknowns: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _misconceptions(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+                    guard: AnswerTextGuard, unknowns: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     registry: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
     if not los:
@@ -535,20 +1011,19 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
             ):
                 if str(row["id"]) in demoted:
                     continue
-                keys = book.lo(row["learning_object_id"])
-                statement, note = _guarded(row["statement"], keys, STATEMENT_LIMIT, book=book)
-                correction, correction_note = _guarded(
-                    row["correction_statement"] if "correction_statement" in row.keys() else None,
-                    keys, STATEMENT_LIMIT, book=book)
-                sightings = _loads(row["source_error_event_ids_json"], [])
+                values = dict(row)
+                origin = guard.misconception(values)
+                statement, note = guard.render(values["statement"], origin, STATEMENT_LIMIT)
+                correction, correction_note = guard.render(values.get("correction_statement"), origin, STATEMENT_LIMIT)
+                sightings = _loads(values["source_error_event_ids_json"], [])
                 registry.append({
-                    "misconception_id": row["id"], "learning_object_id": row["learning_object_id"],
-                    "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
-                    "status": row["status"], "statement": statement, "statement_note": note,
+                    "misconception_id": values["id"], "learning_object_id": values["learning_object_id"],
+                    "topic": titles.get(values["learning_object_id"], values["learning_object_id"]),
+                    "status": values["status"], "statement": statement, "statement_note": note,
                     "correction": correction, "correction_note": correction_note,
-                    "severity": round(float(row["severity"] or 0.0), 3),
+                    "severity": round(float(values["severity"] or 0.0), 3),
                     "evidence_count": len(sightings) if isinstance(sightings, list) else 0,
-                    "since": row["created_at"], "updated_at": row["updated_at"],
+                    "since": values["created_at"], "updated_at": values["updated_at"],
                 })
         if _table(connection, "misconception_candidates"):
             for row in connection.execute(
@@ -556,15 +1031,15 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
                 f"AND learning_object_id IN ({_marks(scope)}) ORDER BY occurrence_count DESC, updated_at DESC, id",
                 scope,
             ):
-                statement, note = _guarded(row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT,
-                                           book=book)
+                values = dict(row)
+                statement, note = guard.render(values["statement"], guard.candidate(values), STATEMENT_LIMIT)
                 candidates.append({
-                    "candidate_id": row["id"], "learning_object_id": row["learning_object_id"],
-                    "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
+                    "candidate_id": values["id"], "learning_object_id": values["learning_object_id"],
+                    "topic": titles.get(values["learning_object_id"], values["learning_object_id"]),
                     "status": "candidate", "statement": statement, "statement_note": note,
-                    "evidence_count": int(row["occurrence_count"] or 0),
+                    "evidence_count": int(values["occurrence_count"] or 0),
                     "note": "held until it recurs; not yet a recorded misconception",
-                    "since": row["created_at"], "updated_at": row["updated_at"],
+                    "since": values["created_at"], "updated_at": values["updated_at"],
                 })
     except Exception:  # noqa: BLE001 - named as unknown
         _LOG.warning("learner context: misconceptions not read", exc_info=True)
@@ -572,16 +1047,15 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
     return registry[: limits.misconceptions], candidates[: limits.candidates]
 
 
-def _hypotheses(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-                limits: ContextLimits, withheld: Withheld, book: KeyBook,
-                unknowns: list[str]) -> list[dict[str, Any]]:
+def _hypotheses(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+                guard: AnswerTextGuard, unknowns: list[str]) -> list[dict[str, Any]]:
     """Open hypotheses: the diagnosed causes, then the unresolved causes (each
     read on its own, so an LO with unresolved causes and no named hypothesis
     still shows them)."""
 
     if not los:
         return []
-    return _share_limit(_diagnosed_causes(connection, los, titles, limits, withheld, book, unknowns),
+    return _share_limit(_diagnosed_causes(connection, los, titles, limits, guard, unknowns),
                         _unresolved_causes(connection, los, titles, unknowns), limits.hypotheses)
 
 
@@ -603,7 +1077,7 @@ def _share_limit(diagnosed: list[dict[str, Any]], unresolved: list[dict[str, Any
 
 
 def _diagnosed_causes(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
-                      withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
+                      guard: AnswerTextGuard, unknowns: list[str]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     try:
         if not _table(connection, "causal_hypotheses"):
@@ -624,8 +1098,6 @@ def _diagnosed_causes(connection: Any, los: set[str], titles: Mapping[str, str],
         ):
             versions.setdefault(str(row["episode_key"]), []).append(dict(row))
         attempt_ids = sorted({str(v["attempt_id"]) for rows_ in versions.values() for v in rows_ if v["attempt_id"]})
-        attempt_items = _attempt_items(connection, [*attempt_ids, *(row["attempt_id"] for row in rows)])
-        pinned = _pins(connection, attempt_items, unknowns)
         feedback: dict[str, list[str]] = {}
         if attempt_ids and _table(connection, "diagnosis_feedback"):
             for row in connection.execute(
@@ -665,17 +1137,10 @@ def _diagnosed_causes(connection: Any, los: set[str], titles: Mapping[str, str],
             tried = (repairs.get(str(row["id"]), []) + repairs.get(episode, [])
                      + repairs.get(str(row.get("promoted_misconception_id") or ""), []))
             outcomes = verifications.get(str(row["id"]), [])
-            # The statement is drawn from every answer of its episode: one
-            # protected (or unreadable) answer withholds it, and so does one
-            # whose graded revision is not recorded (its key may be unknown).
-            behind = [*episode_attempts, row.get("attempt_id")]
-            reason = _withheld_for_attempts(withheld, attempt_items, behind)
-            if reason:
-                statement, note = None, f"withheld: {reason}"
-            else:
-                statement, note = _guarded_pinned(
-                    row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT, book=book,
-                    pinned=all(str(a) in pinned for a in behind if a), unpinned_note=REVISION_UNKNOWN_BEHIND)
+            # Drawn from every answer of its episode (every version).
+            origin = guard.hypothesis(row.get("attempt_id"), row.get("error_event_id"), episode).about(
+                row["learning_object_id"])
+            statement, note = guard.render(row["statement"], origin, STATEMENT_LIMIT)
             entries.append({
                 "kind": "diagnosed_cause", "learning_object_id": row["learning_object_id"],
                 "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
@@ -734,11 +1199,11 @@ def _unresolved_causes(connection: Any, los: set[str], titles: Mapping[str, str]
 
 
 def _recurrence_groups(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
-                       withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
+                       guard: AnswerTextGuard, unknowns: list[str]) -> list[dict[str, Any]]:
     """Groups touching the scope's LOs. An empty scope has none (a topic or
     ids that matched nothing is not a whole-learner request: that scope is
-    every active LO). A group's statement is its root's; it is withheld when
-    any answer behind any member is protected or unreadable."""
+    every active LO). A group's statement is its root's; it is drawn from
+    every answer behind every member episode."""
 
     groups: list[dict[str, Any]] = []
     if not los:
@@ -758,28 +1223,13 @@ def _recurrence_groups(connection: Any, los: set[str], titles: Mapping[str, str]
             members.setdefault(str(row["group_key"]), []).append(dict(row))
         selected = {key: rows for key, rows in members.items()
                     if {str(row["learning_object_id"]) for row in rows} & los}
-        episodes = sorted({str(row["episode_key"]) for rows in selected.values() for row in rows})
-        attempts: dict[str, set[str]] = {}
-        for start in range(0, len(episodes), 500):
-            chunk = episodes[start:start + 500]
-            for episode, attempt_id in connection.execute(
-                f"SELECT episode_key, attempt_id FROM causal_hypotheses WHERE episode_key IN ({_marks(chunk)})", chunk,
-            ):
-                if attempt_id:
-                    attempts.setdefault(str(episode), set()).add(str(attempt_id))
-        attempt_items = _attempt_items(connection, [a for values in attempts.values() for a in values])
-        pinned = _pins(connection, attempt_items, unknowns)
         for group_key, rows in selected.items():
             lo_ids = sorted({str(row["learning_object_id"]) for row in rows})
             root = next((row for row in rows if row["episode_key"] == row["root_episode_key"]), rows[0])
-            behind = [attempt for row in rows for attempt in attempts.get(str(row["episode_key"]), ())]
-            reason = _withheld_for_attempts(withheld, attempt_items, behind)
-            if reason:
-                statement, note = None, f"withheld: {reason}"
-            else:
-                statement, note = _guarded_pinned(root["statement"], book.los(lo_ids), STATEMENT_LIMIT, book=book,
-                                                  pinned=all(a in pinned for a in behind),
-                                                  unpinned_note=REVISION_UNKNOWN_BEHIND)
+            origin = Origin()
+            for row in rows:
+                origin = origin | guard.episode(row["episode_key"])
+            statement, note = guard.render(root["statement"], origin.about(*lo_ids), STATEMENT_LIMIT)
             groups.append({
                 "group_key": group_key, "statement": statement, "statement_note": note,
                 "episodes": len(rows), "class_count": max(int(row["class_count"]) for row in rows),
@@ -795,7 +1245,7 @@ def _recurrence_groups(connection: Any, los: set[str], titles: Mapping[str, str]
 
 
 def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
-            withheld: Withheld, book: KeyBook, unknowns: list[str], now_iso: str) -> list[dict[str, Any]]:
+            guard: AnswerTextGuard, now_iso: str) -> list[dict[str, Any]]:
     from learnloop.held_grades import held_for_review_attempts
 
     if not los:
@@ -818,7 +1268,6 @@ def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str
         return []
     ids = [row["id"] for row in rows]
     held = held_for_review_attempts(connection, ids)
-    pinned = _pins(connection, {str(row["id"]): row.get("practice_item_id") for row in rows}, unknowns)
     blind = set()
     if _table(connection, "blind_grade_records"):
         blind = {str(row[0]) for row in connection.execute(
@@ -832,13 +1281,14 @@ def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str
             derived = _loads(row["derived_json"], {}) or {}
             cold[str(row["cold_attempt_id"])] = {"lane": row["lane"],
                                                  "qualified": derived.get("qualifies_as_cold_retrieval")}
-    hypotheses: dict[str, list[str]] = {}
+    hypotheses: dict[str, list[dict[str, Any]]] = {}
     if _table(connection, "causal_hypotheses"):
         for row in connection.execute(
-            f"SELECT attempt_id, statement FROM causal_hypotheses WHERE cause_scope = 'learner_state' "
-            f"AND status IN ('candidate', 'validated') AND attempt_id IN ({_marks(ids)}) ORDER BY created_at", ids,
+            f"SELECT attempt_id, statement, error_event_id, episode_key, learning_object_id FROM causal_hypotheses "
+            f"WHERE cause_scope = 'learner_state' AND status IN ('candidate', 'validated') "
+            f"AND attempt_id IN ({_marks(ids)}) ORDER BY created_at", ids,
         ):
-            hypotheses.setdefault(str(row["attempt_id"]), []).append(str(row["statement"]))
+            hypotheses.setdefault(str(row["attempt_id"]), []).append(dict(row))
     reveals: dict[str, int] = {}
     if _table(connection, "reveal_events"):
         for row in rows:
@@ -850,25 +1300,15 @@ def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str
     traces: list[dict[str, Any]] = []
     for row in rows:
         attempt_id = str(row["id"])
-        item_id = row["practice_item_id"]
-        reason = withheld.reason(item_id)
-        if reason is None and row.get("attempt_type") in _EXAM_ATTEMPT_TYPES:
-            reason = WITHHELD_EXAM
-        if reason is None and (row.get("attempt_type") == "diagnostic_probe" or row.get("probe_presentation_id")):
-            reason = WITHHELD_PROBE
-        # Every key the item is known to have had, the pinned one among them.
-        # Only a pin records which revision (and key) this answer was graded
-        # against; without one its text is withheld (fail closed): a key
-        # nothing records any more is not in the book to filter it out.
-        keys = book.item(item_id)
-        revision_known = attempt_id in pinned
+        # The answers' protection check; the answer itself, like every text
+        # drawn from it, goes through the one renderer (pinned revision, keys).
+        reason = guard.attempt_reason(attempt_id)
         answer = answer_note = None
         if reason is None:
-            answer, answer_note = _guarded_pinned(row.get("learner_answer_md"), keys, EXCERPT_LIMIT, book=book,
-                                                  pinned=revision_known)
-        stem = None if reason else pinned.get(attempt_id)
-        diagnosis = _diagnosis(repository, attempt_id, keys, book, hidden=reason is not None,
-                               revision_known=revision_known, statements=hypotheses.get(attempt_id, []))
+            answer, answer_note = guard.render(row.get("learner_answer_md"), guard.answer(attempt_id), EXCERPT_LIMIT)
+        stem = None if reason else guard.pinned_prompt(attempt_id)
+        diagnosis = _diagnosis(repository, guard, attempt_id, hidden=reason is not None,
+                               hypotheses=hypotheses.get(attempt_id, []))
         status = row.get("reference_status")
         traces.append({
             "attempt_id": attempt_id, "at": row["created_at"], "learning_object_id": row["learning_object_id"],
@@ -891,8 +1331,8 @@ def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str
     return traces
 
 
-def _diagnosis(repository: Any, attempt_id: str, keys: Sequence[Any], book: KeyBook, *, hidden: bool,
-               revision_known: bool, statements: Sequence[str]) -> dict[str, Any]:
+def _diagnosis(repository: Any, guard: AnswerTextGuard, attempt_id: str, *, hidden: bool,
+               hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     from learnloop.diagnosis.split.card import plain_summary
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
 
@@ -905,42 +1345,29 @@ def _diagnosis(repository: Any, attempt_id: str, keys: Sequence[Any], book: KeyB
         return entry
     summary = None
     if status.get("status") == DONE and status.get("diagnosis_id"):
-        diagnosis = repository.attempt_diagnosis(str(status["diagnosis_id"])) or {}
+        diagnosis_id = str(status["diagnosis_id"])
+        diagnosis = repository.attempt_diagnosis(diagnosis_id) or {}
         analysis = str((diagnosis.get("proposal") or {}).get("analysis_md") or "")
         if analysis:
-            summary, note = _guarded_pinned(plain_summary(repository, analysis), keys, STATEMENT_LIMIT, book=book,
-                                            pinned=revision_known)
+            summary, note = guard.render(plain_summary(repository, analysis),
+                                         guard.diagnosis(attempt_id, diagnosis_id, analysis), STATEMENT_LIMIT)
             if note:
                 entry["summary_note"] = note
     entry["summary"] = summary
-    guarded = [_guarded_pinned(text, keys, STATEMENT_LIMIT, book=book, pinned=revision_known) for text in statements]
-    entry["hypotheses"] = [text for text, _note in guarded if text]
-    notes = [note for _text, note in guarded if note]
+    rendered = [
+        guard.render(row["statement"], guard.hypothesis(attempt_id, row.get("error_event_id"), row.get("episode_key"))
+                     .about(row.get("learning_object_id")), STATEMENT_LIMIT)
+        for row in hypotheses
+    ]
+    entry["hypotheses"] = [text for text, _note in rendered if text]
+    notes = [note for _text, note in rendered if note]
     if notes:
         entry["hypotheses_note"] = notes[0]
     return entry
 
 
-def _gap_target(connection: Any, kind: str | None, target_id: str | None, titles: Mapping[str, str],
-                book: KeyBook) -> str | None:
-    """What a gap was matched to, in words: a topic, a recorded misconception or a candidate."""
-
-    if not kind or not target_id:
-        return None
-    if kind == "learning_object":
-        return titles.get(target_id, target_id)
-    table = {"durable": "misconceptions", "candidate": "misconception_candidates"}.get(kind)
-    if table is None or not _table(connection, table):
-        return None
-    row = connection.execute(f"SELECT learning_object_id, statement FROM {table} WHERE id = ?", (target_id,)).fetchone()
-    if row is None:
-        return None
-    statement, _note = _guarded(row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT, book=book)
-    return statement
-
-
 def _gaps(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
-          withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
+          guard: AnswerTextGuard, unknowns: list[str]) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
     if not los:
         return gaps
@@ -952,8 +1379,8 @@ def _gaps(connection: Any, los: set[str], titles: Mapping[str, str], limits: Con
             reversed_ids = {str(row[0]) for row in connection.execute("SELECT gap_id FROM learner_text_gap_reversals")}
         scope = sorted(los)
         for row in connection.execute(
-            f"""SELECT id, source_kind, practice_item_id, anchor_learning_object_id, target_kind, target_id, kind,
-                       action, learner_text, created_at
+            f"""SELECT id, source_kind, attempt_id, practice_item_id, anchor_learning_object_id, target_kind,
+                       target_id, kind, action, learner_text, created_at
                   FROM learner_text_gaps
                  WHERE kind IN ('prerequisite', 'misconception')
                    AND (anchor_learning_object_id IN ({_marks(scope)})
@@ -963,24 +1390,42 @@ def _gaps(connection: Any, los: set[str], titles: Mapping[str, str], limits: Con
         ):
             if str(row["id"]) in reversed_ids:
                 continue
-            lo = row["target_id"] if row["target_kind"] == "learning_object" and row["target_id"] in los \
-                else row["anchor_learning_object_id"]
-            reason = withheld.reason(row["practice_item_id"]) if row["practice_item_id"] else (
-                None if withheld.available else WITHHELD_UNREADABLE)
-            text, note = (None, f"withheld: {reason}") if reason else _guarded(
-                row["learner_text"], book.item(row["practice_item_id"]), STATEMENT_LIMIT, book=book)
-            target = _gap_target(connection, row["target_kind"], row["target_id"], titles, book)
+            values = dict(row)
+            lo = values["target_id"] if values["target_kind"] == "learning_object" and values["target_id"] in los \
+                else values["anchor_learning_object_id"]
+            text, note = guard.render(values["learner_text"], guard.gap(values), STATEMENT_LIMIT)
+            target, target_note, target_topic = _gap_target(guard, values["target_kind"], values["target_id"], titles)
             gaps.append({
-                "gap_id": row["id"], "kind": row["kind"], "action": row["action"],
-                "learning_object_id": lo, "topic": titles.get(lo, lo), "target": target,
-                "learner_text": text, "learner_text_note": note, "source": row["source_kind"],
-                "since": row["created_at"],
+                "gap_id": values["id"], "kind": values["kind"], "action": values["action"],
+                "learning_object_id": lo, "topic": titles.get(lo, lo),
+                "target_kind": values["target_kind"], "target_topic": target_topic,
+                "target": target, "target_note": target_note,
+                "learner_text": text, "learner_text_note": note, "source": values["source_kind"],
+                "since": values["created_at"],
                 "label": "named from the learner's own words; reversible with 'not this'",
             })
     except Exception:  # noqa: BLE001 - named as unknown
         _LOG.warning("learner context: learner-text gaps not read", exc_info=True)
         unknowns.append("open learner-text gaps could not be read")
     return gaps[: limits.gaps]
+
+
+def _gap_target(guard: AnswerTextGuard, kind: Any, target_id: Any,
+                titles: Mapping[str, str]) -> tuple[GuardedText | None, str | None, str | None]:
+    """What a gap was matched to: ``(statement, note, topic)``. A topic is a
+    title; a recorded misconception or a candidate is a statement, released by
+    the same renderer as every other (its own origin)."""
+
+    if not kind or not target_id:
+        return None, None, None
+    if kind == "learning_object":
+        return None, None, titles.get(str(target_id), str(target_id))
+    found = guard.registry(str(kind), target_id) if kind in ("durable", "candidate") else None
+    if found is None:
+        return None, "the belief it was matched to is not on record", None
+    statement, lo_id, origin = found
+    shown, note = guard.render(statement, origin, STATEMENT_LIMIT)
+    return shown, note, titles.get(str(lo_id), str(lo_id)) if lo_id else None
 
 
 def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: datetime, limit: int = 15,
@@ -1063,17 +1508,18 @@ def learning_context(
     withheld = withheld if withheld is not None else withheld_items(vault, repository)
     unknowns.extend(withheld.unknowns)
     with repository.connection() as connection:
-        book = key_book(connection, vault, unknowns)
-        misconceptions, candidates = _misconceptions(connection, vault, los, titles, limits, book, unknowns)
-        hypotheses = _hypotheses(connection, vault, los, titles, limits, withheld, book, unknowns)
-        groups = _recurrence_groups(connection, los, titles, limits, withheld, book, unknowns)
+        # Every answer-derived text below is released by this one guard.
+        guard = AnswerTextGuard(connection, withheld, key_book(connection, vault, unknowns), unknowns)
+        misconceptions, candidates = _misconceptions(connection, los, titles, limits, guard, unknowns)
+        hypotheses = _hypotheses(connection, los, titles, limits, guard, unknowns)
+        groups = _recurrence_groups(connection, los, titles, limits, guard, unknowns)
         try:
-            traces = _traces(connection, repository, los, titles, limits, withheld, book, unknowns, now_iso)
+            traces = _traces(connection, repository, los, titles, limits, guard, now_iso)
         except Exception:  # noqa: BLE001 - named as unknown
             _LOG.warning("learner context: answer traces not read", exc_info=True)
             unknowns.append("recent answer traces could not be read")
             traces = []
-        gaps = _gaps(connection, los, titles, limits, withheld, book, unknowns)
+        gaps = _gaps(connection, los, titles, limits, guard, unknowns)
     risks = retention_risks(vault, repository, los, now=moment, limit=limits.risks, unknowns=unknowns)
     if scope["matched_by"] == "topic" and not los:
         unknowns.append("no topic in the vault matched; LearnLoop has no record about it")
@@ -1101,10 +1547,15 @@ def learning_context(
 
 
 __all__ = [
+    "ANSWER_DERIVED_FIELDS",
     "CONTEXT_VERSION",
+    "AnswerTextGuard",
     "ContextLimits",
+    "GuardedText",
     "KEY_WITHHELD",
     "KeyBook",
+    "NON_ANSWER_FIELDS",
+    "Origin",
     "PROTECTION_UNKNOWN",
     "RETENTION_TARGET",
     "SNAPSHOT_UNSETTLED",

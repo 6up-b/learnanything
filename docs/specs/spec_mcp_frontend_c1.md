@@ -171,7 +171,10 @@ the episode, recurrence class count, learner confirmations, failed cold checks) 
 disputes, passed cold checks) and the repairs tried; recurrence groups; recent answer traces (the pinned
 question, the learner's answer excerpt, the blind grade class, the diagnosis status and summary, held,
 hints, primed, revealed-before, stuck, cold-check and entry-surface labels); open learner-text gaps (the
-learner's own words, minus reversed ones); retention risks (FSRS recall now below 0.8, or due).
+learner's own words and what they were matched to, minus reversed ones); retention risks (FSRS recall now
+below 0.8, or due). The output schema types and closes every field (F4 round 3), so each text field is
+either answer-derived (`learner_context.ANSWER_DERIVED_FIELDS`, released only by the guarded renderer of
+§4.7 rule 1) or not drawn from an answer by construction (`NON_ANSWER_FIELDS`), checked by a test.
 Diagnosed and unresolved causes share the one `open_hypotheses` limit; when they overflow it, the
 unresolved causes keep up to half of it (an LO with no diagnosed cause shown first), so an LO whose only
 open problem is unsettled stays visible (re-review F12).
@@ -191,7 +194,17 @@ sections from this module (one predicate set, one leakage rule set).
    and says so. Answer and diagnosis text needs affirmative evidence of the revision it was graded against
    (exactly one pinned contract on its own item): an answer with no pinned contract shows no answer,
    diagnosis summary or hypothesis text, and a hypothesis or recurrence-group statement drawn from one is
-   withheld too, since a key nothing records any more cannot be filtered (re-review F4). Chat adds this rule for the learner's own answer (a correct answer that states the key is
+   withheld too, since a key nothing records any more cannot be filtered (re-review F4). **One renderer
+   (F4 round 3):** every text drawn from an answer or an error event (misconception statements and
+   corrections, candidate statements, a learner-text gap's words and the belief it was matched to,
+   hypothesis and recurrence-group statements, answers, diagnosis summaries) is released only by
+   `learner_context.AnswerTextGuard.render`. It follows the text's provenance to the answers behind it
+   (error events, hypothesis episodes, promotions, error hunts, the gaps that created a candidate, a
+   diagnosis's context receipt) and applies the answers' own protection and revision check to every one
+   of them; a link it cannot follow (an error event not on record, an id list that cannot be read, a
+   diagnosis with no context receipt, a belief with no provenance at all), or words about an item with no
+   graded answer behind them, withhold the text too. A withheld text keeps its entry, counts and status,
+   and says why. Chat adds this rule for the learner's own answer (a correct answer that states the key is
    withheld); the card shows it.
 2. Exam and held-out material (`exam_material.item_exam_status`: the canonical exercise and every
    provenance form, block locators and namespaced span ids included), items reserved for an assessment or
