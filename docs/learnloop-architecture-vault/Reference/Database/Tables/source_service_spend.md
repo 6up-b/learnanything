@@ -3,8 +3,8 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
+source_commit_timestamp: "2026-10-13T20:06:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_exam_protection.py`
 - `tests/test_source_service_spend_accounting.py`
 - `tests/test_source_service_spend_envelopes.py`
 

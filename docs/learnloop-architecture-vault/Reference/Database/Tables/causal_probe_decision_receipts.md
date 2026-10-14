@@ -3,8 +3,8 @@ title: "causal_probe_decision_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
+source_commit_timestamp: "2026-10-13T20:06:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_probe_decision_receipts"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/scoreboard.py"
+  - "src/learnloop/instructional/needs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -114,6 +115,7 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/instructional/needs.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -126,6 +128,7 @@ Database triggers:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_probe_block_end.py`
 - `tests/test_scoreboard.py`
+- `tests/test_exam_protection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

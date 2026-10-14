@@ -3,8 +3,8 @@ title: "source_unit_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "0ff198f1a51161b70a9ec563d096d6e63b552059"
+source_commit_timestamp: "2026-10-13T20:06:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_selections"
@@ -19,9 +19,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/040_source_unit_selections.sql"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -97,6 +97,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 
 ### Direct SQL writers
@@ -106,15 +107,14 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
-- `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
-- `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
 
 > [!note] Static-reference boundary
