@@ -820,6 +820,19 @@ pub async fn set_transcription_api_key(
 }
 
 #[tauri::command]
+pub async fn set_text_recognition_api_key(
+    api_key: String,
+    sidecar: State<'_, SidecarManager>,
+) -> Result<Value, CommandError> {
+    blocking_sidecar_call(
+        sidecar,
+        "set_text_recognition_api_key",
+        json!({ "apiKey": api_key }),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn get_animation_runtime(
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
