@@ -7,7 +7,7 @@ from typing import Any
 from learnloop.ai.errors import CodexUnavailable
 from pydantic import Field
 
-from learnloop.source_retrieval.tutor import PinnedSpanProvider, TutorSpanProvider
+from learnloop.source_retrieval.tutor import PinnedSpanProvider, TutorSpanProvider, linked_reference_filter
 from learnloop.tutor import question_queue as QQ
 from learnloop.tutor.question_queue import QuestionQueueError
 from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -248,6 +248,9 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             # S4's "Explain this with my work" pins the learner's chosen spans.
             source_span_provider=_span_provider(vault, repository, params),
             learner_draft_md=params.learner_draft_md,
+            # Tutor delivery fixes (Codex review F1): the numbered blocks a
+            # linked span cites pass the teaching scope's item exclusions.
+            linked_reference_filter=linked_reference_filter,
             # Canonical sources S4: the answer's typed tool requests (None when
             # source_service.tutor_tools is off: S0's tutor byte for byte).
             tool_request_handler=_tool_request_handler(vault),
@@ -388,7 +391,8 @@ def preview_tutor_opening(ctx: SidecarContext, params: PreviewTutorOpeningInput)
         return versioned({"opening_md": None})
     try:
         opening_md = build_tutor_opening(
-            vault, repository, client, practice_item_id=params.practice_item_id
+            vault, repository, client, practice_item_id=params.practice_item_id,
+            linked_reference_filter=linked_reference_filter,
         )
     except (CodexUnavailable, TimeoutError):
         return versioned({"opening_md": None})

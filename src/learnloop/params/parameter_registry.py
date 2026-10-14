@@ -950,6 +950,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "passage quick checks per UTC day / per-check dollar cap on a metered route / owner price for "
         "metered routes; spend bounds, no measurement authority."),
+    # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
+    # (a context-size bound) and one automatic source-block backfill's spend.
+    _ConfigRule(_exact(
+        "tutor_qa.context_token_budget",
+        "embedding.source_backfill_max_cost_usd",
+    ), "structural", "operational",
+        "tutor context token budget / automatic source-block embedding backfill dollar cap; context and "
+        "spend bounds, no measurement authority (delivery is context for one answer; vectors rank retrieval "
+        "candidates only)."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "

@@ -188,6 +188,20 @@ def _covering_rows(connection, *, model_id: str, extraction_id: str,
     return found
 
 
+def extraction_coverage(connection, sqlite_path: Path, model_id: str, extraction_id: str) -> tuple[int, int]:
+    """``(covered, embeddable)`` blocks of one extraction for ``model_id`` (no vector bytes read)."""
+
+    manifest = extraction_manifest(connection, sqlite_path, extraction_id)
+    if not manifest:
+        return 0, 0
+    if not connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'embedding_vectors'"
+    ).fetchone():
+        return 0, len(manifest)  # a database before the vector store: nothing embedded
+    return len(_covering_rows(connection, model_id=model_id, extraction_id=extraction_id,
+                              manifest=manifest)), len(manifest)
+
+
 def _remember(cheap: tuple[Any, ...], coverage: _Coverage | None,
               key: tuple[Any, ...]) -> tuple[_Coverage | None, tuple[Any, ...]]:
     with _CACHE_LOCK:
@@ -321,5 +335,5 @@ def record_keys(record_id: str) -> tuple[str, str]:
     return split_record_id(record_id)
 
 
-__all__ = ["BACKFILL_HINT", "USABLE", "DenseIndex", "clear_cache", "dense_coverage", "load_dense_index",
-           "record_keys"]
+__all__ = ["BACKFILL_HINT", "USABLE", "DenseIndex", "clear_cache", "dense_coverage", "extraction_coverage",
+           "load_dense_index", "record_keys"]

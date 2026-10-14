@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e7bda6662d5d4fb000d01967059c09754168c239"
-source_commit_timestamp: "2026-10-14T01:25:18-04:00"
+source_commit: "56579d271adf3712ac8de4e63658653bc4382bec"
+source_commit_timestamp: "2026-10-14T02:41:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -154,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_span_view.py`
 - `tests/test_t6_followup_rereview.py`
+- `tests/test_tutor_delivery_fixes.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/test_source_layer.py`
 

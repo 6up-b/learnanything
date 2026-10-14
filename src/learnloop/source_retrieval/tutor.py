@@ -37,6 +37,13 @@ as before, and the question records why (``source_context.source_retrieval``,
 with the span keys it saw, never their text). Spans are context: nothing here
 touches evidence, the facet -> LO mapping or scheduling (cited spans are
 reveal-accounted by ``tutor_qa``).
+
+Delivery (tutor delivery fixes, 2026-10-13): a picked or pinned span reaches
+the tutor as its complete canonical block (``span_context``; no 600-character
+cut), and the numbered blocks it cites ("by Theorem 3.2") join it as
+``referenced`` spans when they pass the same rules a retrieved span passes (the
+scope, exam material, the item's answer; ``tutor_qa.resolve_references``).
+``tutor_qa.context_token_budget`` bounds the whole delivery.
 """
 from __future__ import annotations
 
@@ -48,19 +55,21 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.content.authoring.practice_leakage import build_cross_source_spans
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
+from learnloop.ingest.block_roles import lead_role
 from learnloop.source_retrieval.corpus import Scope, exam_withheld, teaching_scope
 from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
 from learnloop.source_retrieval.verify import verification_route, verify_spans
+from learnloop.tutor.context_delivery import SPAN_CHARS, BlockFilter, BlockSource, follow_references, predecessor_cut
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
-SPAN_TEXT_CAP = 600
 PROVENANCE_SPANS_PER_LO = 8
 #: Contexts bound to a practice item: its answer must never be retrieved.
 ITEM_BOUND_CONTEXTS = frozenset({"practice", "feedback"})
@@ -90,11 +99,18 @@ def over_soft_deadline(timings: dict[str, int], seconds: float) -> list[str]:
     return [step for step in TIMED_STEPS if timings.get(step, 0) > seconds * 1000]
 
 
-def span_context(hit: SpanHit) -> dict[str, Any]:
-    """A verified span in the tutor's ``source_spans`` shape."""
+#: The predecessor's cut of a retrieved or pinned span (whitespace collapsed),
+#: restored by ``tutor_qa.expanded_delivery = false`` (Codex review F5).
+SPAN_TEXT_CAP = SPAN_CHARS
+
+
+def span_context(hit: SpanHit, *, complete: bool = True) -> dict[str, Any]:
+    """A verified span in the tutor's ``source_spans`` shape: the complete
+    canonical block (``tutor_qa.context_token_budget`` is the only bound), or
+    with ``complete`` false (``tutor_qa.expanded_delivery``, the kill switch)
+    the predecessor's ``SPAN_TEXT_CAP`` characters of its collapsed text."""
 
     label = hit.source_title if not hit.section else f"{hit.source_title} · {hit.section}"
-    text = " ".join(hit.text.split())
     return {
         "extraction_id": hit.extraction_id,
         "span_id": hit.span_id,
@@ -102,8 +118,98 @@ def span_context(hit: SpanHit) -> dict[str, Any]:
         "semantic_authority": False,
         "source_id": hit.source_id,
         "label": label[:120],
-        "text": text[:SPAN_TEXT_CAP],
+        "text": hit.text if complete else " ".join(hit.text.split())[:SPAN_TEXT_CAP],
     }
+
+
+#: Lead roles a cited block (or a block continuing it) never has while an item
+#: is being practised, whatever its role hint says (Codex re-review F7).
+ITEM_BOUND_LEAD_ROLES = frozenset({"exercise", "solution"})
+
+
+def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *,
+                     item: PracticeItem | None) -> BlockFilter:
+    """The rules a cited numbered block passes to join a retrieved, pinned or
+    linked span: inside the span's scope (an item-bound scope already leaves
+    out the item's passages and the exercise and solution blocks its role hints
+    name), never exam material, and with an ``item`` (practice, feedback) never
+    a block whose own lead names an exercise or a solution ("Exercise 3.2",
+    "Problem 3.2.", "Solution:") nor a passage that reproduces the item's
+    answer. The lead guard covers what role hints miss: a transcript's
+    captions are all ``ordinary_prose``, and an extraction's hints may be
+    missing or wrong (Codex re-review F7)."""
+
+    exam: list[Any] = []
+
+    def allow(extraction_id: str, block: Any) -> str | None:
+        if not scope.allows(extraction_id, str(block.span_id)):
+            return "outside the tutor's sources for this question"
+        if not exam:
+            exam.append(exam_material(vault, repository))
+        if exam[0].covers(extraction_id, str(block.span_id)):
+            return "exam material"
+        if item is None:
+            return None
+        if lead_role(block.text) in ITEM_BOUND_LEAD_ROLES:
+            return "an exercise or solution, while the item is being practised"
+        if span_leaks_expected(block.text, item.expected_answer):
+            return "it reproduces the answer to the item being practised"
+        return None
+
+    return allow
+
+
+def linked_reference_filter(vault: LoadedVault, repository: Repository, *, context: str,
+                            learning_object_ids: Sequence[str], item: PracticeItem | None) -> BlockFilter:
+    """The rules a numbered block cited by a learning object's linked span
+    passes (the tutor's fallback when retrieval keeps the linked spans;
+    injected by the adapter as ``ask_question(linked_reference_filter=...)``).
+
+    Exactly a retrieved span's rules (:func:`reference_filter`) over the
+    question's own teaching scope (:func:`tutor_scope`): material without
+    teaching authority and assessment-linked spans never; in a practice or
+    feedback context also every passage linked to the item (its
+    ``entity_source_links`` of any relation and its provenance refs, the same
+    text in the source's other extractions, the worked example, exercise or
+    solution body such a passage leads), every exercise and solution block
+    with its region's body (Codex review F1, tutor delivery fixes), and,
+    whatever its role hint, a block whose own lead names an exercise or a
+    solution (Codex re-review F7: a caption, or a missing or wrong hint). The
+    scope is built on the first block asked about."""
+
+    item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+    built: list[BlockFilter] = []
+
+    def allow(extraction_id: str, block: Any) -> str | None:
+        if not built:
+            scope = tutor_scope(vault, repository, context=context, learning_object_ids=learning_object_ids,
+                                item=item)
+            built.append(reference_filter(vault, repository, scope, item=item if item_bound else None))
+        return built[0](extraction_id, block)
+
+    return allow
+
+
+def with_references(vault: LoadedVault, repository: Repository, spans: list[dict[str, Any]], scope: Scope, *,
+                    item: PracticeItem | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """``spans`` and the numbered blocks they cite (``referenced``), with what
+    was followed for the manifest (None when nothing was cited or the
+    ``tutor_qa.resolve_references`` kill switch is off)."""
+
+    if not spans or not vault.config.tutor_qa.resolve_references:
+        return spans, None
+
+    def extra(extraction_id: str, _block: Any) -> dict[str, Any]:
+        found = scope.extractions.get(extraction_id)
+        return {"semantic_authority": False, "source_id": found.source_id if found else None}
+
+    found = follow_references(
+        BlockSource(repository.sqlite_path), spans, allow=reference_filter(vault, repository, scope, item=item),
+        delivered={(str(span["extraction_id"]), str(span["span_id"])) for span in spans}, span_extra=extra,
+    )
+    cited = found.spans if vault.config.tutor_qa.expanded_delivery else [
+        predecessor_cut(span, SPAN_TEXT_CAP, collapse=True) for span in found.spans]
+    return spans + cited, (None if found.empty else found.describe())
 
 
 @dataclass
@@ -271,7 +377,8 @@ class TutorSpanProvider:
         if intent and intent.get("intent") == "remediate" and pool:
             return self._remediate(vault, repository, question_md=question_md, pool=pool, intent=intent,
                                    item=item if item_bound else None, search=search, withheld=withheld,
-                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started)
+                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started,
+                                   scope=scope)
         verify_started = time.monotonic()
         verification = verify_spans(
             vault, repository, question=question_md, pool=pool, pick_at_most=config.tutor_spans,
@@ -295,13 +402,17 @@ class TutorSpanProvider:
         if not verification.ran:
             return None, {**manifest, "basis": "lo_provenance",
                           "reason": f"verification {verification.status}"}
-        spans = [span_context(hit) for hit in verification.picks]
-        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
-                       "span_keys": [hit.record_id for hit in verification.picks]}
+        complete = vault.config.tutor_qa.expanded_delivery
+        spans = [span_context(hit, complete=complete) for hit in verification.picks]
+        spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(verification.picks),
+                       "span_keys": [hit.record_id for hit in verification.picks],
+                       **({"references": references} if references else {})}
 
     def _remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit],
                    intent: dict[str, Any], item: PracticeItem | None, search: SpanSearch, withheld: list[str],
-                   owner_id: str, ready: Any, deadline: float | None, started: float) -> tuple[Any, dict[str, Any]]:
+                   owner_id: str, ready: Any, deadline: float | None, started: float,
+                   scope: Scope) -> tuple[Any, dict[str, Any]]:
         """The remediate intent: same retrieval, the intent's verification prompt (no extra call).
 
         Its receipt carries the same timing fields as an explain question's
@@ -340,9 +451,13 @@ class TutorSpanProvider:
             return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
         by_key = {hit.key: hit for hit in pool}
         chosen = [by_key[key] for key in picks if key in by_key]
-        spans = [span_context(hit) for hit in chosen]
-        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
-                       "span_keys": [hit.record_id for hit in chosen]}
+        complete = vault.config.tutor_qa.expanded_delivery
+        spans, references = with_references(vault, repository,
+                                             [span_context(hit, complete=complete) for hit in chosen], scope,
+                                             item=item)
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(chosen),
+                       "span_keys": [hit.record_id for hit in chosen],
+                       **({"references": references} if references else {})}
 
 
 class PinnedSpanProvider:
@@ -395,14 +510,18 @@ class PinnedSpanProvider:
             spans.append(span_context(SpanHit(
                 extraction_id=key[0], span_id=key[1], source_id=extraction.source_id,
                 source_title=extraction.title, text=block.text, block_type=block.block_type, section_path=[],
-                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})))
-        return spans, {"basis": "pinned", "policy": policy, "spans": len(spans),
-                       "span_keys": [f"{s['extraction_id']}:{s['span_id']}" for s in spans],
-                       "dropped_pins": dropped}
+                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1}),
+                complete=vault.config.tutor_qa.expanded_delivery))
+        pinned_keys = [f"{s['extraction_id']}:{s['span_id']}" for s in spans]
+        pinned = len(spans)
+        spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
+        return spans, {"basis": "pinned", "policy": policy, "spans": pinned, "span_keys": pinned_keys,
+                       "dropped_pins": dropped, **({"references": references} if references else {})}
 
 
 __all__ = [
     "ITEM_BOUND_CONTEXTS",
+    "ITEM_BOUND_LEAD_ROLES",
     "PROVENANCE_SPANS_PER_LO",
     "PinnedSpanProvider",
     "SPAN_TEXT_CAP",
@@ -410,9 +529,12 @@ __all__ = [
     "TutorPool",
     "TutorSpanProvider",
     "WITHHOLD_SPARE",
+    "linked_reference_filter",
     "over_soft_deadline",
+    "reference_filter",
     "span_context",
     "step_timings",
     "tutor_pool",
     "tutor_scope",
+    "with_references",
 ]

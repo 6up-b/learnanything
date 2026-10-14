@@ -1113,7 +1113,26 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # effective config gains the section; all fourteen were recomputed
     # (defaults_fingerprint_for_version) on its branch, and all fifteen
     # again from the composed defaults when it landed after router R2a.
-    "mvp-0.9": "d8d15b215bba78994b1c8527633877f49d0959890c7c28e2b4dee7f81ec8aa42",
+    # Tutor delivery fixes (owner-approved 2026-10-13; docs/reviews/
+    # tutor-delivery-fixes.md) add tutor_qa.context_token_budget = 24000 and
+    # tutor_qa.resolve_references = true (complete blocks within one budget,
+    # cited numbered blocks followed), source_retrieval.passage_token_budget =
+    # 4000 (complete passages for the relevance judges) and
+    # embedding.backfill_sources_on_extract = true with
+    # embedding.source_backfill_max_cost_usd = 1.0 (a completed extraction
+    # queues its source's block-vector backfill, only when both embedding
+    # switches are on), and (Codex review F5) the kill switches
+    # tutor_qa.expanded_delivery = true and source_retrieval.complete_passages
+    # = true (false restores the predecessor's passages). Modelled defaults,
+    # left out of the decision-only template. Context delivery and retrieval
+    # evaluation only: no scoring, scheduling, projection, evidence or serving
+    # change, and replay reads none of it, so no successor; each has its kill
+    # switch or bound. Every
+    # snapshot moves only because the effective config gains the keys; all
+    # fourteen were recomputed (defaults_fingerprint_for_version) on its
+    # branch, and all fifteen again from the composed defaults when it landed
+    # after router R2a and RW3a.
+    "mvp-0.9": "72ec9b8bf05e645569c6a34c1a8938ae3fe12bc1c4a809507192659a0bf5e98d",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1144,7 +1163,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.10": "bee6964e9d680565dc392d3a77df1949241f014b075ca489fe6c9dcdaf7afbde",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.10": "b15b4d63a9646b8ee2aa802faec809dd03e8d8858773e85f7ab87fea1b5fb217",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1183,7 +1203,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.11": "e626da8c81fbcb37df0708d2836ef176f3df685a4290a1a32e7ce8f1a12d737f",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.11": "9ce34e78cf67a0273dbc156e07b7863f563659d5d881bfa328c4fc8406c7f4f6",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1216,7 +1237,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.12": "2fc102ba6eb1c7f79cd7ea91268b59b038c15515acf4a42e3b700601d653776a",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.12": "171d640d52956b029c70239c1faa23af1bf0d71ca7b57deda6fd695dc99d6c4c",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1244,7 +1266,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.13": "169e91574df90ea53ad34147d7cc66811221aa9d70debcf11af6b20e5b881ffd",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.13": "4606c711599a2750aa510a8e443d93efb54f9035bf061c575e9d7e2c0af3596f",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1271,7 +1294,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.14": "3c22191ab706f16925963629a70df952707def439b27b6e147d0b535c9b99bb6",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.14": "5071a7dce6c4e80eb955c7f0920aef323c8f74dc5b18311528ee5bec48438f7e",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1296,7 +1320,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.15": "02825d28c7fec0ea71be5a838d0f5a61c1345562dc364b5d997c77e248787e26",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.15": "6502062148dc9a8a04b5c8a2c6a1c0d3494add90192da04ef62ea7760954141a",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1328,7 +1353,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.16": "f395d7a0d3904da290323bb6e55ce2094493b0c8507dea161b44f6061479f180",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.16": "ae3a714932dacc04ae3d369dcef2fdab05285705c248103e87532d14364b62ce",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1356,7 +1382,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.17": "ea281f4d56ed2926b456dedbe3e290f79e3c447086bb623452f5ed631182ba62",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.17": "1face10eb3fed6ebfd169f9714ab84ee212d306c7a6bff494dd1ba771b27a5a9",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1377,7 +1404,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.18": "c7d5d00193647f5b1867560b0df297dcdcd61edf52486503e46a50be77af5d77",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.18": "5c7a789c4bca4dc11fd7cb52e5c3124935aa25f2e55f7cd0c5dc634f892682dc",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1398,7 +1426,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.19": "d30e1474aa7367dbc8e8f50370076e980834ef9dd716f88b33a5997dba55ec01",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.19": "05209899fe3ffce0526a2f5c50c82425144be117660377485726f7e2367803ec",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1415,7 +1444,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.20": "f77ed55f5c9f01957a07651974ab5fb2567578a3556e4a65c92ab213a4723d79",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.20": "960d82e6f510d2ddf6a7b07e151c9ff7fde37b01b31ad6ce73bfa1f0ea6a600b",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1441,7 +1471,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.21": "a1bb6aec974dcdb118ec2b2d3c8458de975e6c6928ee8617d663269487fe3b64",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.21": "a295846441f95459901b0bb6b7b9dbf131d9d8ac244b95ca2d5924ed1c953096",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1459,7 +1490,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # owner decision 2026-10-12) until mvp-0.23 merged.
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
-    "mvp-0.22": "eb5f0c7fc4940f2699819e9d3b2ab25dae579491967553f396950295d396ed79",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.22": "0bcf247dd92d0b0c77159a60bff82fd36df2f0bd5a0c3bb4b3bf409ac246a432",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1472,7 +1504,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # New vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
     # decision 2026-10-12).
     # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
-    "mvp-0.23": "e6c6411c4d70c1568eac13e2c05fdac13b88d90664b2d6abdf8466c1da43df4c",
+    # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
+    "mvp-0.23": "9148ded0776f224ef762e8f1ffae31d74d443a9b35e125b245b472833ee750be",
 }
 
 

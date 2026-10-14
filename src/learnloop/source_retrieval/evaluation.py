@@ -47,7 +47,17 @@ agreement reported").
   unavailable and its verdicts are blocked.
 * **Labels and metrics** as in ``bench``: two LLM passes over the union of
   every system's top 10 and every verification pool, agreement, nDCG@10,
-  Recall@10, MRR, paired bootstrap intervals, all also per query type.
+  Recall@10, MRR, paired bootstrap intervals, all also per query type. The
+  labeller reads each candidate's complete block, as the verifier does
+  (``verify.judge_passage`` at ``source_retrieval.passage_token_budget``;
+  tutor delivery fixes, t6-eval-v3: it read 900 characters before), and the
+  report counts the passages trimmed at the budget (``trimmed_passages``).
+  The block is its canonical text after the recipe's "Section:" line
+  (``recipes.source_block_passage``), never the embedded text, whose body
+  the recipe caps at 6,000 characters without counting it (Codex review F2).
+  ``source_retrieval.complete_passages = false`` (the kill switch, Codex
+  review F5) restores the predecessor's labelling: the embedded text clipped
+  at 900 characters, reported as t6-eval-v2.
 
 Reports are aggregate only; every verdict is in ``judgment_ledger``.
 """
@@ -91,6 +101,7 @@ from learnloop.source_retrieval.queries import (
 from learnloop.source_retrieval.recipes import (
     block_record_id,
     embeddable,
+    source_block_passage,
     source_block_text,
     split_record_id,
 )
@@ -101,7 +112,7 @@ from learnloop.source_retrieval.search import (
     search_spans,
 )
 from learnloop.source_retrieval.tutor import ITEM_BOUND_CONTEXTS, TutorPool, tutor_pool, tutor_scope
-from learnloop.source_retrieval.verify import PASSAGE_CHARS, verify_prompt, verify_spans
+from learnloop.source_retrieval.verify import judged_passage, passage_limit, verify_prompt, verify_spans
 from learnloop.vault.models import LoadedVault
 
 DISPLAY_SYSTEMS = ("substring", "keyword", "meaning", "hybrid", "hybrid_rewrite", "pool_rewrite")
@@ -128,7 +139,6 @@ SEED_MIN_CHARS = 60
 SEED_CHARS = 1200
 #: A compositional pair's two blocks are at least this many blocks apart.
 PAIR_MIN_DISTANCE = 3
-LABEL_PASSAGE_CHARS = 900
 EMBED_BATCH = 32
 COMPARISONS = (("keyword", "substring"), ("meaning", "substring"), ("hybrid", "substring"),
                ("hybrid_rewrite", "substring"), ("hybrid", "keyword"), ("hybrid", "meaning"),
@@ -428,15 +438,39 @@ class SourceRetrievalSuite:
         revision = content_key({"seeds": [[seed.qtype, *seed.keys] for seed in seeds],
                                 "logged": [entry.text for entry in logged], "scope": sorted(scope.extractions)})
         query_types = {qtype: sum(1 for seed in seeds if seed.qtype == qtype) for qtype in QUERY_TYPES}
-        manifest = {"name": "source_retrieval", "version": "t6-eval-v2",
+        # t6-eval-v3 labels read complete passages; the kill switch restores v2's.
+        version = "t6-eval-v3" if vault.config.source_retrieval.complete_passages else "t6-eval-v2"
+        manifest = {"name": "source_retrieval", "version": version,
                     "sources": [{"name": "vault library scope", "version": revision[:16],
                                  "licence": "owner's own sources"}],
                     "scope": scope.describe(), "query_types": {**query_types, LOGGED_TYPE: len(logged)}}
         return EvalData(manifest, scope, seeds, logged, systems, revision, dense)
 
+    @staticmethod
+    def passage_bound(vault: LoadedVault, scope: Scope) -> int:
+        """The most characters one judged passage can have here: the passage
+        budget, or the scope's longest block when that is shorter."""
+
+        budget = passage_limit(vault)
+        extractions = sorted(scope.extractions)
+        if not extractions:
+            return 0
+        repository = bench.read_only_repository(vault)
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            longest = max(
+                (int(connection.execute(
+                    f"SELECT COALESCE(MAX(LENGTH(text)), 0) FROM source_document_blocks WHERE extraction_id IN "
+                    f"({', '.join('?' for _ in chunk)})", chunk).fetchone()[0])
+                 for chunk in (extractions[start:start + 500] for start in range(0, len(extractions), 500))),
+                default=0)
+        return min(budget, longest)
+
     def plan(self, vault: LoadedVault, data: EvalData, request: Any) -> dict[str, Any]:
         config = vault.config.source_retrieval
         questions = len(data.seeds) + len(data.logged)
+        # Complete blocks (tutor delivery fixes): a passage is bounded by the
+        # budget, or by the longest block in scope (an upper bound either way).
+        passage = max(1, self.passage_bound(vault, data.scope))
         plan: dict[str, Any] = {"questions": questions, "seeded": len(data.seeds),
                                 "logged": len(data.logged), "systems": list(data.systems),
                                 "query_types": data.manifest.get("query_types"),
@@ -460,14 +494,14 @@ class SourceRetrievalSuite:
                                                       bench.role_budget(vault, bench.REWRITE_ROLE))}
         plan["roles"][bench.LABEL_ROLE] = bench.plan_label_calls(
             questions, self.label_pool_bound(data.systems, config), LABEL_BATCH, LABEL_PROMPT_VERSIONS,
-            {"source": "x" * 120, "section": "x" * 200, "passage": "x" * LABEL_PASSAGE_CHARS},
+            {"source": "x" * 120, "section": "x" * 200, "passage": "x" * passage},
             bench.role_budget(vault, bench.LABEL_ROLE))
         verifying = [system for system in data.systems if system in VERIFY_SYSTEMS]
         if verifying:
             # A verification charges one candidate and one pair per pool member.
             bounds = [self.verify_pool_bound(system, config) for system in verifying]
             sample = verify_prompt("x" * 400, "x" * 700, config.tutor_spans, [
-                {"ref": f"p{index}", "source": "x" * 120, "section": "x" * 200, "passage": "x" * PASSAGE_CHARS}
+                {"ref": f"p{index}", "source": "x" * 120, "section": "x" * 200, "passage": "x" * passage}
                 for index in range(1, max(bounds) + 1)])
             calls = questions * len(verifying)
             plan["roles"][bench.VERIFY_ROLE] = {
@@ -605,6 +639,11 @@ class SourceRetrievalSuite:
         not_dense: dict[str, dict[str, int]] = {}
         tutor_contexts: dict[str, int] = {}
         verify_truncations: list[dict[str, Any]] = []
+        # Judged passages are complete blocks, trimmed only past the budget
+        # (or the predecessor's 900 characters with complete_passages off).
+        complete = vault.config.source_retrieval.complete_passages
+        trimmed_passages = 0
+        verify_trimmed = 0
         for question in questions:
             text = question["text"]
             # The library's display lists rank by meaning only over a complete
@@ -638,14 +677,16 @@ class SourceRetrievalSuite:
             keys = {key for ranked in rankings.values() for key in ranked[: bench.TOP_K]}
             keys |= {hit.record_id for built in pools.values() for hit in built.pool}
             pool = sorted(keys)
-            blocks = self._blocks(repository, pool)
+            blocks = self._blocks(repository, pool, complete=complete)
             titles = {hit.record_id: hit.source_title for built in pools.values() for hit in built.pool}
-            candidates = {
-                key: {"source": bench.clip(titles.get(key) or data.scope.extractions[split_record_id(key)[0]].title,
-                                           120),
-                      "passage": bench.clip(blocks.get(key, ""), LABEL_PASSAGE_CHARS)}
-                for key in pool
-            }
+            candidates: dict[str, dict[str, str]] = {}
+            for key in pool:
+                passage, cut = judged_passage(vault, blocks.get(key, ""))
+                trimmed_passages += cut
+                candidates[key] = {
+                    "source": bench.clip(titles.get(key) or data.scope.extractions[split_record_id(key)[0]].title,
+                                         120),
+                    "passage": passage}
             labels, models = bench.label_pool(
                 ctx, question=text, candidates=candidates, versions=LABEL_PROMPT_VERSIONS,
                 batch=LABEL_BATCH, left_kind="source_query", right_kind="source_span",
@@ -658,6 +699,7 @@ class SourceRetrievalSuite:
                 statuses[system][outcome.status] = statuses[system].get(outcome.status, 0) + 1
                 coverage[system]["questions"] += 1
                 verify_truncations += list(((outcome.usage or {}).get("usage") or {}).get("truncations") or [])
+                verify_trimmed += outcome.trimmed_passages
                 if outcome.status == "verified":
                     latency[system].append(seconds)
                 pool_ids = [hit.record_id for hit in built.pool]
@@ -730,6 +772,8 @@ class SourceRetrievalSuite:
             "label_agreement": bench.label_agreement(all_labels),
             "label_models": label_models,
             "truncations": list(ctx.caller.truncations) + verify_truncations,
+            "passages": {"token_budget": config.passage_token_budget, "complete": complete,
+                         "label_trimmed": trimmed_passages, "verify_trimmed": verify_trimmed},
             "mean_pool": (sum(q["pool"] for q in per_question) / len(per_question)) if per_question else None,
             "mean_relevant": (sum(q["relevant"] for q in per_question) / len(per_question)) if per_question else None,
             "method": {
@@ -880,12 +924,16 @@ class SourceRetrievalSuite:
             ctx.caller.cached_by_role[bench.VERIFY_ROLE] += 1
         return outcome, seconds
 
-    def _blocks(self, repository: Repository, keys: list[str]) -> dict[str, str]:
+    def _blocks(self, repository: Repository, keys: list[str], *, complete: bool = True) -> dict[str, str]:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             rows = blocks_by_key(connection, [split_record_id(key) for key in keys])
             titles = {extraction_id: section_header_titles(connection, extraction_id)
                       for extraction_id in sorted({key[0] for key in rows})}
-        return {block_record_id(*key): source_block_text(block, titles[key[0]]) for key, block in rows.items()}
+        # The complete block (Codex review F2): the embedding recipe's text
+        # caps the body at 6,000 characters, uncounted. The predecessor read
+        # that embedded text (complete_passages off: clipped at 900 anyway).
+        text_of = source_block_passage if complete else source_block_text
+        return {block_record_id(*key): text_of(block, titles[key[0]]) for key, block in rows.items()}
 
     def markdown_lines(self, results: dict[str, Any]) -> list[str]:
         types = results.get("question_types") or {}

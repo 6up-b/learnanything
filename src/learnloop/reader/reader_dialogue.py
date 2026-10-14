@@ -220,6 +220,10 @@ def build_reader_manifest(
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
     prior_exchanges: Sequence[Mapping[str, Any]] | None = None,
+    withheld: Any = None,
+    budget_tokens: int | None = None,
+    resolve_references: bool = True,
+    expanded_delivery: bool = True,
 ) -> dict[str, Any]:
     """The exact bounded context handed to the reader tutor (design A.2).
 
@@ -229,7 +233,13 @@ def build_reader_manifest(
     deliberately carries NO ability estimate and NO assessment-reserved content.
 
     ``prior_exchanges`` (RW1a branches) replaces the same-span history with a
-    follow-up's resolved ancestors; an empty sequence is a new root."""
+    follow-up's resolved ancestors; an empty sequence is a new root.
+
+    ``withheld``, ``budget_tokens``, ``resolve_references`` and
+    ``expanded_delivery`` are the tutor's own delivery inputs (the held-out
+    material, ``tutor_qa.context_token_budget``, ``tutor_qa.resolve_references``
+    and ``tutor_qa.expanded_delivery``), so the manifest's spans are exactly
+    the ones the tutor is given."""
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
     source_spans = tutor_qa._reader_source_spans(
@@ -238,6 +248,10 @@ def build_reader_manifest(
         span_id,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        withheld=withheld,
+        budget_tokens=tutor_qa.DEFAULT_CONTEXT_TOKEN_BUDGET if budget_tokens is None else budget_tokens,
+        resolve_references=resolve_references,
+        expanded=expanded_delivery,
     )
     prior = prior_exchanges if prior_exchanges is not None else repository.question_events(
         context="reader", note_id=span_key, answer_status="answered"
@@ -563,6 +577,7 @@ def ask(
         ]
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
+    held_out = held_out_material(vault, repository)
     manifest = build_reader_manifest(
         repository,
         extraction_id=extraction_id,
@@ -573,6 +588,10 @@ def ask(
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
         prior_exchanges=thread,
+        withheld=held_out,
+        budget_tokens=vault.config.tutor_qa.context_token_budget,
+        resolve_references=vault.config.tutor_qa.resolve_references,
+        expanded_delivery=vault.config.tutor_qa.expanded_delivery,
     )
     if branches:
         if ancestors and not manifest["source_spans"]:
@@ -589,7 +608,7 @@ def ask(
     # Exam protection (2026-10-13): a question about held-out material is
     # refused before any signal lands (the tutor refuses it too, before any
     # call: ``tutor_qa.HeldOutMaterialRefused``).
-    if held_out_among(held_out_material(vault, repository), extraction_id, [span_id, *selection_span_ids]):
+    if held_out_among(held_out, extraction_id, [span_id, *selection_span_ids]):
         raise tutor_qa.HeldOutMaterialRefused(HELD_OUT_REFUSAL)
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.

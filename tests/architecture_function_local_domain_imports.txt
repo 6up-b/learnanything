@@ -167,4 +167,3 @@ learnloop.tutor.tutor_qa -> learnloop.content.authoring.practice_leakage
 learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_attribution
 learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_orchestrator
 learnloop.tutor.tutor_qa -> learnloop.reader.reader_progression
-learnloop.tutor.tutor_qa -> learnloop.reader.span_view

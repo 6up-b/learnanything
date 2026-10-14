@@ -63,9 +63,28 @@ from learnloop.tutor.ai_contracts import (
     TutorQAContext,
     tutor_qa_prompt,
 )
+from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
+from learnloop.tutor.context_delivery import (
+    MAX_REFERENCES,
+    NEIGHBOUR_RADIUS,
+    PREDECESSOR_RADIUS,
+    PREVIEW_CHARS,
+    SPAN_CHARS,
+    BlockFilter,
+    BlockSource,
+    References,
+    apply_budget,
+    follow_references,
+    hydrate,
+    neighbour_order,
+    notable,
+    passage_label,
+    predecessor_cut,
+    predecessor_window,
+)
 from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
@@ -80,6 +99,13 @@ QUESTION_CONTEXTS = ("library", "practice", "feedback", "reader")
 # None); a suggester returns labelled LO suggestions for a reader span.
 SourceSpanProvider = Callable[..., tuple[list[dict[str, Any]] | None, dict[str, Any] | None]]
 LearningObjectSuggester = Callable[..., list[dict[str, Any]]]
+# Tutor delivery fixes (Codex review F1): the rules a numbered block cited by a
+# learning object's linked span passes, built per question as
+# ``(vault, repository, *, context, learning_object_ids, item) -> BlockFilter``
+# (``source_retrieval.tutor.linked_reference_filter``: the teaching scope with
+# the item's exclusions). Without it a linked span's references are not
+# followed (fail closed).
+LinkedReferenceFilter = Callable[..., BlockFilter]
 
 # U-033 (§7.6): per-ask reader answer modes. answer_directly is the launch default.
 READER_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
@@ -130,6 +156,8 @@ _MAX_CITATION_SPANS = 4
 # neighbour-window citation cap — bounded separately so a selected exercise
 # list arrives whole without unbounding the manifest.
 _MAX_SELECTION_SPANS = 8
+#: ``tutor_qa.context_token_budget``'s default, for callers without a vault config.
+DEFAULT_CONTEXT_TOKEN_BUDGET: int = TutorQAConfig.model_fields["context_token_budget"].default
 
 
 class TutorQAError(ValueError):
@@ -324,6 +352,7 @@ def ask_question(
     reader_thread: Sequence[Mapping[str, Any]] | None = None,
     tool_request_handler: Callable[..., list[dict[str, Any]]] | None = None,
     learner_draft_md: str | None = None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -338,6 +367,9 @@ def ask_question(
     learning object's linked spans), and ``learning_object_suggester`` records a
     labelled nearest-LO suggestion for a reader span without provenance. Neither
     changes the facet -> LO mapping, the candidate LOs or any evidence.
+    ``linked_reference_filter`` (tutor delivery fixes, Codex review F1) is the
+    teaching scope's rule for the numbered blocks a linked span cites; None
+    follows none of them.
 
     Canonical sources S4, injected by the adapter: ``tool_request_handler``
     turns on the answer's ``tool_requests`` field (prompt and contract) and
@@ -460,6 +492,9 @@ def ask_question(
     }
     source_context: dict[str, Any] | None = None
     provided_spans: list[dict[str, Any]] | None = None
+    # What the source delivery recorded (a trim, a drop, a reference followed
+    # or not), persisted on the question's source_context.delivery.
+    delivery: dict[str, Any] = {}
 
     def build_context() -> TutorQAContext:
         return _build_context(
@@ -481,6 +516,8 @@ def ask_question(
             provided_source_spans=provided_spans,
             learner_draft_md=learner_draft_md,
             reader_withheld=reader_held_out,
+            delivery_receipt=delivery,
+            linked_reference_filter=linked_reference_filter,
         )
 
     if context == "reader":
@@ -508,6 +545,8 @@ def ask_question(
                     # Labelled suggestions, never candidates: promotion, the learner
                     # field and filing read only candidate_learning_object_ids.
                     source_context["suggested_learning_objects"] = suggestions
+            if delivery:
+                source_context["delivery"] = dict(delivery)
         event_id = repository.insert_question_event(
             {**question_row, "source_context": source_context}, clock=clock,
         )
@@ -525,6 +564,8 @@ def ask_question(
                 if retrieval_manifest is not None:
                     source_context = {"source_retrieval": retrieval_manifest}
             ai_context = build_context()
+            if delivery:
+                source_context = {**(source_context or {}), "delivery": dict(delivery)}
         except Exception as exc:
             repository.update_question_event_answer(
                 event_id,
@@ -785,6 +826,7 @@ def build_tutor_opening(
     client: Any,
     *,
     practice_item_id: str,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
 ) -> str | None:
     """A proactive tutor opening for a just-closed diagnostic block (§12.1).
 
@@ -813,6 +855,7 @@ def build_tutor_opening(
         attempt=None,
         note=None,
         note_id=None,
+        linked_reference_filter=linked_reference_filter,
     )
     answer = request_tutor_answer(client, ai_context)
     return answer.answer_md
@@ -1213,7 +1256,14 @@ def _build_context(
     provided_source_spans: list[dict[str, Any]] | None = None,
     learner_draft_md: str | None = None,
     reader_withheld: Any = None,
+    delivery_receipt: dict[str, Any] | None = None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
 ) -> TutorQAContext:
+    """The tutor's context. ``delivery_receipt`` (when given) receives the
+    source delivery's receipt when it records something: a trim or drop at
+    ``tutor_qa.context_token_budget``, or a reference followed or not."""
+
+    settings = vault.config.tutor_qa
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
         # (the learner's selection + neighbours) + the question + the chosen
@@ -1221,19 +1271,25 @@ def _build_context(
         # assessment-reserved surface's statement/rubric, or any cold in-flight
         # response -- so no note body, no rubric, no expected answer, no
         # diagnostic decision, no candidate facets.
+        reader_spans, receipt = _reader_delivery(
+            repository,
+            extraction_id,
+            span_id,
+            selection_span_ids=selection_span_ids,
+            selection_quote_md=selection_quote_md,
+            withheld=reader_withheld,
+            budget_tokens=settings.context_token_budget,
+            resolve_references=settings.resolve_references,
+            expanded=settings.expanded_delivery,
+        )
+        if delivery_receipt is not None and notable(receipt):
+            delivery_receipt.update(receipt)
         return TutorQAContext(
             context="reader",
             question_md=question_md,
             candidate_facets=[],
             thread=thread,
-            source_spans=_reader_source_spans(
-                repository,
-                extraction_id,
-                span_id,
-                selection_span_ids=selection_span_ids,
-                selection_quote_md=selection_quote_md,
-                withheld=reader_withheld,
-            ),
+            source_spans=reader_spans,
             answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
         )
 
@@ -1248,10 +1304,10 @@ def _build_context(
         if lo is not None:
             lo_summaries.append({"id": lo.id, "title": lo.title, "summary": lo.summary})
 
-    # ING M8 §9.2: provided spans obey the same total bound as linked ones.
-    source_spans = (
-        list(provided_source_spans)[:_MAX_CITATION_SPANS] if provided_source_spans is not None
-        else _source_spans(vault, repository, lo_ids)
+    source_spans = _delivered_source_spans(
+        vault, repository, context=context, item=item, lo_ids=lo_ids,
+        provided_source_spans=provided_source_spans, delivery_receipt=delivery_receipt,
+        linked_reference_filter=linked_reference_filter,
     )
 
     rubric = vault.rubric_for_item(item) if item is not None else None
@@ -1302,6 +1358,65 @@ def _build_context(
         diagnostic_decision=_diagnostic_decision_for(vault, repository, item, context),
         source_spans=source_spans,
     )
+
+
+def _delivered_source_spans(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    context: str,
+    item: PracticeItem | None,
+    lo_ids: list[str],
+    provided_source_spans: list[dict[str, Any]] | None,
+    delivery_receipt: dict[str, Any] | None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
+) -> list[dict[str, Any]]:
+    """A practice, feedback or library turn's source spans, as delivered.
+
+    ING M8 §9.2: at most ``_MAX_CITATION_SPANS`` chosen spans (the provider's
+    picks or pins, else the learning objects' linked spans), each its complete
+    canonical block (the linked spans arrive cut at 600 characters), plus the
+    numbered blocks they cite (``referenced``: the provider resolves its own
+    within its scope; a linked span's under the injected
+    ``linked_reference_filter``, the same teaching scope and item exclusions,
+    and none without it), all within ``tutor_qa.context_token_budget``.
+
+    ``tutor_qa.expanded_delivery = false`` (the kill switch, Codex review F5)
+    restores the predecessor's passages: the provider's spans as it cut them
+    (600 characters, ``source_retrieval.tutor.span_context``) and the linked
+    spans at their 600-character cut, not completed; a referenced block is
+    cut the same way."""
+
+    settings = vault.config.tutor_qa
+    expanded = settings.expanded_delivery
+    source = BlockSource(repository.sqlite_path)
+    references = References()
+    if provided_source_spans is not None:
+        provided = [dict(span) for span in provided_source_spans]
+        chosen = [span for span in provided if span.get("relation") != "referenced"][:_MAX_CITATION_SPANS]
+        keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
+        cited = [span for span in provided if span.get("relation") == "referenced"
+                 and tuple(str(part) for part in span.get("referenced_from") or ()) in keys]
+        chosen, completed = hydrate(source, chosen) if expanded else (chosen, 0)
+        candidates = chosen + cited
+    else:
+        linked = _source_spans(vault, repository, lo_ids)
+        chosen, completed = hydrate(source, linked) if expanded else (linked, 0)
+        candidates = list(chosen)
+        if settings.resolve_references and chosen and linked_reference_filter is not None:
+            keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
+            allow = linked_reference_filter(vault, repository, context=context, learning_object_ids=list(lo_ids),
+                                            item=item)
+            references = follow_references(source, chosen, allow=allow, delivered=keys)
+            if not expanded:
+                references.spans = [predecessor_cut(span, SPAN_CHARS) for span in references.spans]
+            candidates += references.spans
+    spans, receipt = apply_budget(candidates, settings.context_token_budget)
+    if not references.empty:
+        receipt["references"] = references.describe()
+    if delivery_receipt is not None and notable(receipt):
+        delivery_receipt.update(receipt, completed=completed)
+    return spans
 
 
 def _context_learning_objects(item: PracticeItem | None, note: Any) -> list[str]:
@@ -1400,88 +1515,160 @@ def _reader_source_spans(
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
     withheld: Any = None,
+    budget_tokens: int = DEFAULT_CONTEXT_TOKEN_BUDGET,
+    resolve_references: bool = True,
+    expanded: bool = True,
 ) -> list[dict[str, Any]]:
-    """Block-level span views for the reader manifest (§7.6): the learner's
-    selection (exact quote first, then every covered block), plus the primary
-    block's immediate neighbours, as citable {extraction_id, span_id, label,
-    text} spans. NOT the P3 annotation layer -- just ``span_view`` geometry. The
-    tutor may cite ONLY these. Degrades to [] when the span cannot be resolved.
+    """The reader manifest's citable spans (:func:`_reader_delivery`)."""
+
+    return _reader_delivery(
+        repository, extraction_id, span_id, selection_span_ids=selection_span_ids,
+        selection_quote_md=selection_quote_md, withheld=withheld, budget_tokens=budget_tokens,
+        resolve_references=resolve_references, expanded=expanded,
+    )[0]
+
+
+def _reader_delivery(
+    repository: Repository,
+    extraction_id: str | None,
+    span_id: str | None,
+    *,
+    selection_span_ids: Sequence[str] = (),
+    selection_quote_md: str | None = None,
+    withheld: Any = None,
+    budget_tokens: int = DEFAULT_CONTEXT_TOKEN_BUDGET,
+    resolve_references: bool = True,
+    expanded: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Block-level spans for the reader manifest (§7.6) and their delivery receipt.
+
+    In priority order, as citable {extraction_id, span_id, label, text}
+    spans (the tutor may cite ONLY these): the learner's exact quote, every
+    block the selection covers (``in_view``), the numbered blocks those cite
+    (``referenced``, ``context_delivery.follow_references``), the nearest
+    content blocks around the selection on both sides (``surrounding``, i-1
+    and i+1 first, then widening to ``NEIGHBOUR_RADIUS``; ``offset`` is the
+    signed distance), then what those neighbours cite. Every passage is its
+    complete canonical block; ``budget_tokens`` bounds the whole list
+    (``context_delivery.apply_budget``). NOT the P3 annotation layer. Degrades
+    to [] when the span cannot be resolved.
+
+    ``expanded`` false (``tutor_qa.expanded_delivery``, the kill switch;
+    Codex review F5) restores the predecessor's window: the span view's three
+    blocks before and after the primary block (furniture and empty blocks
+    included), each a 240-character preview, until the list holds max(4,
+    spans + 2) spans; a referenced block is then a preview too.
 
     ``withheld`` (the held-out material, ``content.sources.exam_material``):
-    a neighbour it covers is never in the manifest (exam protection; a
-    selection in it never reaches here, ``ask_question`` refuses it)."""
+    a neighbour or referenced block it covers is never in the manifest (exam
+    protection; a selection in it never reaches here, ``ask_question``
+    refuses it)."""
 
     if not extraction_id or not span_id:
-        return []
-    from learnloop.reader.span_view import SpanViewError, build_span_view
+        return [], {}
+    source = BlockSource(repository.sqlite_path)
+    text = source.extraction(extraction_id)
+    primary = text.position(span_id) if text is not None else None
+    if text is None or primary is None:
+        return [], {}
+    extraction_id = str(extraction_id)
 
-    try:
-        view = build_span_view(repository, extraction_id, span_id, record=False)
-    except SpanViewError:
-        return []
+    def _refused(owner: str, block: Any) -> str | None:
+        if withheld is not None and withheld.covers(owner, str(block.span_id)):
+            return "held-out material"
+        return None
+
+    def _span(block: Any, relation: str, **extra: Any) -> dict[str, Any]:
+        return {"extraction_id": extraction_id, "span_id": block.span_id,
+                "label": passage_label(block.text), "text": block.text, "relation": relation, **extra}
+
     spans: list[dict[str, Any]] = []
-
-    def _label(text: str | None) -> str:
-        text = " ".join((text or "").split())
-        return text[:59].rstrip() + "…" if len(text) > 60 else text
-
     # The exact selected passage leads: it tells the tutor which PART of the
     # in-view blocks the question is about (a multi-block selection is joined
     # client-side in reading order). Anchored to the primary block, so the
     # citation contract (extraction_id/span_id pairs from this list) holds.
     if selection_quote_md and selection_quote_md.strip():
-        spans.append(
-            {
-                "extraction_id": extraction_id,
-                "span_id": span_id,
-                "label": "learner selection",
-                "text": selection_quote_md,
-                "relation": "selected_text",
-            }
-        )
-    spans.append(
-        {
-            "extraction_id": extraction_id,
-            "span_id": span_id,
-            "label": _label(view.get("text")),
-            "text": view.get("text"),
-            "relation": "in_view",
-        }
-    )
+        spans.append({"extraction_id": extraction_id, "span_id": span_id, "label": "learner selection",
+                      "text": selection_quote_md, "relation": "selected_text"})
+    spans.append(_span(text.blocks[primary], "in_view"))
+    in_view = [primary]
     # Every other block the selection covers is in view too (bounded).
     for extra_id in list(dict.fromkeys(selection_span_ids))[:_MAX_SELECTION_SPANS]:
-        if extra_id == span_id:
+        position = text.position(extra_id)
+        if extra_id == span_id or position is None:
             continue
-        try:
-            extra = build_span_view(repository, extraction_id, extra_id, record=False)
-        except SpanViewError:
+        in_view.append(position)
+        spans.append(_span(text.blocks[position], "in_view"))
+    delivered = {(extraction_id, str(span["span_id"])) for span in spans}
+    cited = References()
+    if resolve_references:
+        cited = follow_references(source, spans, allow=_refused, delivered=delivered)
+        if not expanded:
+            cited.spans = [predecessor_cut(span, PREVIEW_CHARS) for span in cited.spans]
+        delivered |= {(extraction_id, str(span["span_id"])) for span in cited.spans}
+    if not expanded:
+        return _predecessor_reader_delivery(text, primary, spans, cited, _refused, budget_tokens)
+    neighbours: list[dict[str, Any]] = []
+    withheld_neighbours = 0
+    for position, offset in neighbour_order(text, min(in_view), max(in_view)):
+        block = text.blocks[position]
+        if (extraction_id, block.span_id) in delivered:
             continue
-        spans.append(
-            {
-                "extraction_id": extraction_id,
-                "span_id": extra_id,
-                "label": _label(extra.get("text")),
-                "text": extra.get("text"),
-                "relation": "in_view",
-            }
-        )
-    max_spans = max(_MAX_CITATION_SPANS, len(spans) + 2)
-    for neighbour in (view.get("previous_spans") or []) + (view.get("next_spans") or []):
-        nid = neighbour.get("span_id")
-        if nid is None or (withheld is not None and withheld.covers(str(extraction_id), str(nid))):
+        if _refused(extraction_id, block) is not None:
+            withheld_neighbours += 1
             continue
-        spans.append(
-            {
-                "extraction_id": extraction_id,
-                "span_id": nid,
-                "label": _label(neighbour.get("text")),
-                "text": neighbour.get("text"),
-                "relation": "surrounding",
-            }
-        )
-        if len(spans) >= max_spans:
+        neighbours.append(_span(block, "surrounding", offset=offset))
+        delivered.add((extraction_id, block.span_id))
+    further = References()
+    if resolve_references:
+        further = follow_references(source, neighbours, allow=_refused, delivered=delivered,
+                                    max_references=max(0, MAX_REFERENCES - len(cited.resolved)))
+    kept, receipt = apply_budget([*spans, *cited.spans, *neighbours, *further.spans], budget_tokens)
+    receipt["neighbours"] = {"radius": NEIGHBOUR_RADIUS, "delivered": len(neighbours),
+                             "withheld": withheld_neighbours}
+    receipt["references"] = {"resolved": [*cited.resolved, *further.resolved],
+                             "unresolved": [*cited.unresolved, *further.unresolved]}
+    return kept, receipt
+
+
+def _predecessor_reader_delivery(
+    text: Any,
+    primary: int,
+    spans: list[dict[str, Any]],
+    cited: References,
+    refused: BlockFilter,
+    budget_tokens: int,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """The predecessor's Reader window (``tutor_qa.expanded_delivery = false``).
+
+    As ``reader.span_view`` gave it before the tutor delivery fixes: the three
+    ordinal-adjacent blocks before the primary block, then the three after
+    (furniture and empty blocks included), each cut to its 240-character
+    preview, a held-out one skipped, until the list holds max(4, spans + 2)
+    spans (the quote and the blocks in view count; references do not)."""
+
+    extraction_id = text.extraction_id
+    limit = max(_MAX_CITATION_SPANS, len(spans) + 2)
+    referenced = {str(span["span_id"]) for span in cited.spans}
+    neighbours: list[dict[str, Any]] = []
+    withheld_neighbours = 0
+    for position in predecessor_window(text, primary):
+        if len(spans) + len(neighbours) >= limit:
             break
-    return spans
+        block = text.blocks[position]
+        if str(block.span_id) in referenced:
+            continue
+        if refused(extraction_id, block) is not None:
+            withheld_neighbours += 1
+            continue
+        preview = (block.text or "")[:PREVIEW_CHARS]
+        neighbours.append({"extraction_id": extraction_id, "span_id": block.span_id,
+                           "label": passage_label(preview), "text": preview, "relation": "surrounding"})
+    kept, receipt = apply_budget([*spans, *cited.spans, *neighbours], budget_tokens)
+    receipt["neighbours"] = {"window": "predecessor", "radius": PREDECESSOR_RADIUS,
+                             "delivered": len(neighbours), "withheld": withheld_neighbours}
+    receipt["references"] = cited.describe()
+    return kept, receipt
 
 
 def _diagnostic_decision_for(
