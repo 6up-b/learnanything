@@ -39,7 +39,7 @@ It adds no migration and no successor, and it changes no Reader or sidecar code.
      The document title is the root. With an outline, numbering that would climb to or above the last bookmarked heading is a result's label, such as Axler's "1.4 example: …" under a bookmarked subsection. Such a heading nests under that subsection instead of popping it. Numbering below the bookmark is still trusted, so in Blitzstein "1.4.2" is a sibling of "1.4.1" under the bookmarked section 1.4.
    - **(c) Split numbers are joined** (`_collapse_split_number`). "1. 11 definition:" becomes "1.11 definition:".
      - This also applies to "1. 39", "3. 6 `$…$`", "1. 4.11 (Name)" and "2. 4.1. When …", but only where the number is a label. That means it is followed by a lower-case word or a kind, a colon, a parenthesis, maths, the end, or a full stop and a new sentence.
-     - "1. Express …" and "6. 041SC" are unchanged.
+     - An enumerated item ("1. Write …") and a course code ("6. 012XY") are unchanged.
      - It applies to Text and SectionHeader blocks.
    - **(d) Currency dollars are escaped** (`_escape_currency`), in Text, SectionHeader, Caption and Footnote blocks. Each span is judged where remark-math would pair it. A dollar before a number opens maths only when all of these hold:
      - the span it would close holds no prose word;
@@ -193,9 +193,19 @@ The only new blocks are the recovered footnotes, each after its page's last bloc
 - **A running footer needs two pages.** It is recognised by repeating across the pages read, so a one-page import could keep a running footer as a footnote. Page numbers are always recognised.
 - **No card line for scans.** The live report suggested saying on the Library card that a scan's footnotes and equation numbers can't be recovered. This stage records it in health only (`glm_ocr_no_text_layer`), to stay inside the extractor and leave `add_source.py` to the re-read safety stage. See open questions.
 
-## Gate
+## Gate (final tree; code at `347ba844a`; no network, `--offline`)
 
-To be filled in from the final tree; see the stage report.
+| Step | Result |
+|---|---|
+| `uv sync --offline --extra dev --extra mobile`, then `uv pip install --offline pypdfium2` | done (pypdfium2 5.14.0) |
+| `uv run --no-sync lint-imports --no-cache` | **17 kept, 0 broken** |
+| `tests/test_glm_ocr.py` | **103 passed** |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11,001 passed**, 0 failed, 0 skipped (903.9 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **100 passed** (10,901 deselected; 110.4 s) |
+| `db_generate_reference.py` then `db_validate_reference.py` | `errors: []`. The two config notes whose content changed are committed: the estimate in `Config - ingest.md` and a moved line citation in `Config - schema_version.md`. The provenance-only churn on the other notes is left for the landing. |
+| Frontend, `src-tauri`, schema | unchanged: no npm, cargo or migration steps |
+
+`uv run` is given `--no-sync` so the gate keeps the pypdfium2 that `uv pip install` added; a plain `uv run` would sync it away. Re-running the offline re-validation on the committed tree reproduced every recorded number.
 
 ## Open questions
 
