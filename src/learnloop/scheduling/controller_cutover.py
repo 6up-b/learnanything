@@ -108,12 +108,40 @@ def _constraint_or_evsi_veto(result: sp.DecisionResult) -> str | None:
         return None
     if result.stop_reason in _EVSI_VETO_REASONS:
         return f"evsi:{result.stop_reason}"
-    if result.stop_reason == A.STOP_NO_FEASIBLE_ACTIVITY and result.feasibility is not None:
-        for _cand, feas in result.feasibility.excluded:
-            for reason in feas.exclusions:
-                if reason.constraint_key != sp.OWNERSHIP_REFUSAL_KEY:
-                    return f"constraint:{reason.constraint_key}:{reason.reason}"
+    if result.stop_reason == A.STOP_NO_FEASIBLE_ACTIVITY:
+        for _ref, exclusions in _excluded_by_candidate(result):
+            for constraint_key, reason in exclusions:
+                if constraint_key != sp.OWNERSHIP_REFUSAL_KEY:
+                    return f"constraint:{constraint_key}:{reason}"
     return None
+
+
+def _excluded_by_candidate(result: sp.DecisionResult) -> list[tuple[str, list[tuple[str, str]]]]:
+    """The decision's excluded candidates with their (constraint, reason) pairs, in
+    candidate-ref order (each candidate's own reasons in the engine's order).
+
+    A fresh decision carries its in-memory feasibility report. A STANDING decision
+    (a retry on the same receipt key, which ``staged_policy.decide`` reloads from its
+    row) carries only the persisted trace, whose ``exclusions`` map is the same
+    report serialized: the veto is read back from it, so a retried veto stays a veto
+    (router R2a review F1). Both forms are read in candidate-ref order, so the named
+    reason is the same on the first call and on every retry."""
+
+    if result.feasibility is not None:
+        pairs = [
+            (cand.candidate_ref, [(e.constraint_key, e.reason) for e in feas.exclusions])
+            for cand, feas in result.feasibility.excluded
+        ]
+    else:
+        persisted = (result.trace or {}).get("exclusions") or {}
+        pairs = [
+            (str(ref), [
+                (str(e.get("constraint_key")), str(e.get("reason")))
+                for e in (reasons or []) if isinstance(e, Mapping)
+            ])
+            for ref, reasons in persisted.items()
+        ]
+    return sorted(pairs, key=lambda pair: pair[0])
 
 
 def _run_signal_hints(run: Mapping[str, Any], state: GPR.RunState) -> dict[str, Any]:

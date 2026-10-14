@@ -24,7 +24,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import _set_algorithm_version_at, append_config_toml
-from tests.test_router_staged_p2 import _rows, _run
+from tests.test_router_staged_p2 import CLOCK, _rows, _run
 
 
 def _call(ctx, name, params):
@@ -132,3 +132,67 @@ def test_the_response_shape_is_unchanged_for_the_desktop(tmp_path):
     assert set(result["result"]) >= {"runId", "eventId", "fromState", "toState", "alreadyExists"}
     assert set(result["state"]) >= {"runId", "currentState", "nextAction", "history"}
     json.dumps(result)
+
+
+def test_a_retried_constraint_vetoed_advance_stays_deferred(tmp_path):
+    """Codex review F1: a retry of a constraint-vetoed advance (the desktop
+    reuses the idempotency key while the run head is unchanged) reloads the
+    standing staged decision, which carries no in-memory feasibility report.
+    The veto must be read back from the persisted trace, so the retry defers
+    too and neither call advances the run."""
+
+    from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+    from learnloop.curriculum import commitments as C
+
+    repo, receipt, vault = _run(tmp_path)
+    _set_algorithm_version_at(vault.root, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    # The run owns its exemplar item, and the item is inactive: the staged
+    # block's only owned candidate is refused by ``active_status`` (a real
+    # constraint, not ownership), so the decision stops no_feasible_activity.
+    C.add_target(
+        repo, commitment_id=receipt.commitment_id,
+        target={"target_kind": "legacy_practice_item", "target_ref": "pi_svd_define_001", "role": "required"},
+        clock=CLOCK,
+    )
+    ctx = _ctx(vault.root)  # loading the vault re-activates its items, so deactivate after
+    repo.set_practice_item_active("pi_svd_define_001", active=False, clock=CLOCK)
+    state = GPR.project_run(repo, receipt.run_id)
+    events_before = len(repo.golden_path_run_events_for(receipt.run_id))
+
+    first = _advance(ctx, receipt.run_id, state.next_action.to_state, state.next_action.reason, key="same")
+    assert first["result"] is None
+    assert first["bridge"]["deferred"]["vetoReason"] == "constraint:active_status:card_inactive"
+
+    retry = _advance(ctx, receipt.run_id, state.next_action.to_state, state.next_action.reason, key="same")
+    assert retry["result"] is None, "a retried veto must not advance the run"
+    assert retry["bridge"]["authority"] == "staged_veto"
+    assert retry["bridge"]["deferred"]["vetoReason"] == first["bridge"]["deferred"]["vetoReason"]
+    assert retry["bridge"]["stagedDecisionId"] == first["bridge"]["stagedDecisionId"]
+    assert GPR.project_run(repo, receipt.run_id).current_state == state.current_state
+    assert len(repo.golden_path_run_events_for(receipt.run_id)) == events_before
+    assert len(repo.golden_path_artifacts_for(receipt.run_id, kind="staged_veto_deferred")) == 1
+
+
+def test_a_standing_decisions_persisted_trace_names_the_same_veto():
+    """F1, unit: a decision reloaded from its row has no feasibility report;
+    its trace's exclusions decide the veto, and an ownership-only refusal is
+    still not one."""
+
+    from learnloop.scheduling import controller_actions as A
+    from learnloop.scheduling import staged_policy as sp
+
+    def standing(exclusions):
+        return sp.DecisionResult(
+            decision_id="d", already=True, action=A.STOP, subtype=A.STOP_NO_FEASIBLE_ACTIVITY,
+            staged_rule="no_feasible_activity", chosen_candidate_ref=None,
+            stop_reason=A.STOP_NO_FEASIBLE_ACTIVITY, snapshot_hash="h",
+            trace={"exclusions": exclusions},
+        )
+
+    owned_only = {"b": [{"constraint_key": sp.OWNERSHIP_REFUSAL_KEY, "reason": "not_owned_by_staged_controller"}]}
+    assert cut._constraint_or_evsi_veto(standing(owned_only)) is None
+    real = {
+        **owned_only,
+        "a": [{"constraint_key": "assessment_reservation", "reason": "reserved_assessment_surface"}],
+    }
+    assert cut._constraint_or_evsi_veto(standing(real)) == "constraint:assessment_reservation:reserved_assessment_surface"
