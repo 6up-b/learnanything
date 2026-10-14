@@ -29,6 +29,7 @@ from learnloop.content.proposals.method_phrasing import (
     deterministic_fact_draft,
     resolve_judge,
     run_method_phrasing,
+    writer_names,
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.required_method import prompt_requires_method
@@ -545,3 +546,80 @@ def test_f7_the_dry_run_plans_rewrites_and_their_cost(vault_paths, monkeypatch):
     cli = CliRunner().invoke(app, ["grading", "method-phrasing", "--vault", str(vault_paths.root), "--dry-run",
                                    "--judge", "decider", "--json"])
     assert cli.exit_code == 0, cli.output
+
+
+# -- re-review F11: the dry run prices every writer the run may select ------------------------
+
+
+@pytest.mark.parametrize("route", ["unset", "decider"])
+def test_f11_the_dry_run_prices_the_configured_fallback_writer(vault_paths, monkeypatch, route):
+    """A subscription primary writer (Codex) and a metered fallback (Haiku on
+    OpenRouter): when Codex is unavailable the run writes with the fallback,
+    so the dry run plans it too. Without a price it is refused; with one its
+    cost is inside the advertised upper bound."""
+
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault = load_vault(vault_paths.root, load_environment=False)
+    if route == "decider":
+        vault.config.ai.routing.rubric_phrasing_judge = "openrouter_decider"
+    vault.config.ai.fallback_provider = "openrouter_haiku"
+    with monkeypatch.context() as patched:
+        patched.setattr("learnloop.ai.routing.ready_client_for_task",
+                        lambda *a, **k: pytest.fail("a dry run builds no client"))
+        refused = run_method_phrasing(vault, judge="auto", dry_run=True)
+        priced = run_method_phrasing(vault, judge="auto", dry_run=True, price_per_million=1.0)
+    assert refused["status"] == "refused"
+    decider, llm, _heuristic = refused["judge_plan"]
+    _classify, rewrite, fallback = decider["steps"]
+    assert (rewrite["provider"], rewrite["billing"]) == ("codex", "subscription")
+    assert (fallback["step"], fallback["provider"], fallback["billing"], fallback["fallback_for"]) == (
+        "rewrite", "openrouter_haiku", "metered", "codex")
+    assert fallback["estimated_usd"] is None and "unknown price" in fallback["refused"]
+    assert decider["estimated_usd"] is None and refused["estimate"]["estimated_usd_upper_bound"] is None
+    assert [step["provider"] for step in llm["steps"]] == ["codex", "openrouter_haiku"]
+    assert any("openrouter_haiku" in reason for reason in refused["estimate"]["refused"])
+
+    assert priced["status"] == "dry_run"
+    decider, llm, _heuristic = priced["judge_plan"]
+    classify, rewrite, fallback = decider["steps"]
+    assert fallback["requests_at_most"] == rewrite["requests_at_most"] == 3
+    assert fallback["estimated_usd"] == pytest.approx((fallback["input_tokens"] + fallback["output_tokens"]) / 1_000_000)
+    assert decider["estimated_usd"] == pytest.approx(classify["estimated_usd"] + fallback["estimated_usd"])
+    judge, judge_fallback = llm["steps"]
+    assert llm["estimated_usd"] == pytest.approx(max(judge["estimated_usd"], judge_fallback["estimated_usd"]))
+    assert priced["estimate"]["estimated_usd_upper_bound"] == pytest.approx(
+        max(decider["estimated_usd"], llm["estimated_usd"]))
+    assert priced["estimate"]["estimated_usd_upper_bound"] >= fallback["estimated_usd"] > 0
+
+    # The run really does select it: Codex unavailable, the fallback writes.
+    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
+        status="missing", actual_revision=None, message="not installed"))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    executed = resolve_judge(vault)
+    assert executed.kind == "decider" and executed.as_dict()["writer"] == "openrouter_haiku"
+
+
+def test_f11_an_explicit_chat_route_or_an_env_override_has_no_fallback_writer(vault_paths, monkeypatch):
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task",
+                        lambda *a, **k: pytest.fail("a dry run builds no client"))
+    vault = load_vault(vault_paths.root, load_environment=False)
+    vault.config.ai.fallback_provider = "openrouter_haiku"
+    vault.config.ai.routing.rubric_phrasing_judge = "codex_low"
+    named = run_method_phrasing(vault, judge="llm", dry_run=True)
+    assert [step["provider"] for step in named["judge_plan"][0]["steps"]] == ["codex_low"]
+    vault.config.ai.routing.rubric_phrasing_judge = None
+    monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "codex")
+    overridden = run_method_phrasing(vault, judge="llm", dry_run=True)
+    assert [step["provider"] for step in overridden["judge_plan"][0]["steps"]] == ["codex"]
+
+
+def test_f11_an_unset_route_without_a_serving_provider_reaches_no_fallback(vault_paths, monkeypatch):
+    """The task route resolves an empty or manual serving provider to the
+    manual path before any fallback, so the dry run never plans the fallback."""
+
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault = load_vault(vault_paths.root, load_environment=False)
+    vault.config.ai.fallback_provider = "openrouter_haiku"
+    for serving in ("", "manual"):
+        vault.config.ai.active_provider = serving
+        assert "openrouter_haiku" not in writer_names(vault)

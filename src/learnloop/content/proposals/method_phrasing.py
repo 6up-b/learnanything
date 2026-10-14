@@ -286,6 +286,36 @@ def writer_name(vault: LoadedVault) -> str | None:
     return name
 
 
+def writer_names(vault: LoadedVault) -> list[str]:
+    """Every chat profile a run may write with, in the order it tries them
+    (re-review F11): :func:`writer_name`, then ``ai.fallback_provider``
+    exactly where :func:`_ready_writer` falls back to it (an unset route
+    without an environment override and with a serving provider, as the task
+    route resolves; a route naming a decider). A route naming a chat profile,
+    an environment override on an unset route, and an unset route with no
+    serving provider (empty or manual: the manual path) have no fallback
+    writer.
+    """
+
+    from learnloop.ai.routing import MANUAL_PROVIDER, is_generation_profile
+
+    primary = writer_name(vault)
+    names = [primary] if primary else []
+    configured = (getattr(vault.config.ai.routing, ROUTE, None) or "").strip()
+    _decider, chat = _route_names(vault)
+    fallback = (vault.config.ai.fallback_provider or "").strip()
+    if chat is not None or not fallback or fallback in names or fallback == MANUAL_PROVIDER:
+        return names
+    if not is_generation_profile(vault.config, fallback):
+        return names
+    if configured:
+        names.append(fallback)
+    elif not (os.environ.get("LEARNLOOP_AI_PROVIDER") or "").strip() and (
+            vault.config.ai.active_provider or "").strip() not in {"", MANUAL_PROVIDER}:
+        names.append(fallback)
+    return names
+
+
 def can_write(client: Any) -> bool:
     """Can ``client`` serve the writer's call (an isolated structured completion)?"""
 
@@ -852,7 +882,10 @@ def plan_dry_run(
     request it could send: the Decider's classification (one request per item
     with a judged criterion, at its profile's listed input price) and the
     writer's rewrites (at most one per such item: any item may be flagged),
-    or the LLM judge's one call per item. A metered route is priced at
+    or the LLM judge's one call per item. A writer's step is priced on every
+    writer the run may select (:func:`writer_names`: the primary and its
+    configured fallback; re-review F11), and bounded by the dearest of them.
+    A metered route is priced at
     ``price_per_million`` (an owner upper bound); without one its price is
     unknown, the estimate is never rendered as zero and the plan is
     ``refused`` (the run would refuse those requests). A subscription route
@@ -862,7 +895,7 @@ def plan_dry_run(
 
     spend = ReviewSpend(caps, price_per_million=price_per_million, config=vault.config)
     decider_name, _chat = _route_names(vault)
-    writer = writer_name(vault)
+    writers = writer_names(vault)
     judged = [item for item in items if _judged_criteria(item)]
     refused: list[str] = []
 
@@ -870,21 +903,33 @@ def plan_dry_run(
         return method_targets(vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
                               capability=item.capability)
 
-    def llm_step(step: str, count_key: str) -> dict[str, Any]:
-        if writer is None:
-            return {"step": step, "route": ROUTE, "provider": None, count_key: 0,
-                    "note": "no chat profile can write: the Decider's flags get deterministic drafts"}
-        profile = _profile(vault, writer)
-        info = spend.register_profile(
-            ROUTE, provider=writer, model=getattr(profile, "model", None),
-            subscription=is_subscription_transport(profile=profile) if profile is not None else False,
-            max_tokens=getattr(profile, "max_tokens", None),
-        )
+    def llm_steps(step: str, count_key: str) -> list[dict[str, Any]]:
+        """The step priced on every writer the run may select (re-review F11):
+        the primary, then each fallback (``fallback_for``), only one of which
+        runs; an unknown metered price on any of them is refused."""
+
+        if not writers:
+            return [{"step": step, "route": ROUTE, "provider": None, count_key: 0,
+                     "note": "no chat profile can write: the Decider's flags get deterministic drafts"}]
         population = judged if step == "rewrite" else list(items)
         input_tokens = sum(_llm_tokens(judge_prompt(item, item.grading_rubric, targets_of(item)))
                            for item in population)
-        return _priced_step(spend, info, step, count_key, len(population), input_tokens,
-                            LLM_OUTPUT_TOKENS * len(population), price_per_million, refused)
+        steps = []
+        for name in writers:
+            profile = _profile(vault, name)
+            info = spend.register_profile(
+                ROUTE, provider=name, model=getattr(profile, "model", None),
+                subscription=is_subscription_transport(profile=profile) if profile is not None else False,
+                max_tokens=getattr(profile, "max_tokens", None),
+            )
+            priced = _priced_step(spend, info, step, count_key, len(population), input_tokens,
+                                  LLM_OUTPUT_TOKENS * len(population), price_per_million, refused)
+            if steps:
+                priced["fallback_for"] = writers[0]
+                priced["note"] = ((priced.get("note") + "; ") if priced.get("note") else "") + (
+                    f"the fallback writer: used only when {writers[0]} is not ready")
+            steps.append(priced)
+        return steps
 
     scenarios: list[dict[str, Any]] = []
     if judge in ("auto", "decider") and decider_name is not None:
@@ -896,14 +941,20 @@ def plan_dry_run(
         spend.routes[DECIDER_ROUTE] = info
         classify = _priced_step(spend, info, "classify", "requests", len(judged),
                                 sum(_decider_tokens(item) for item in judged), 0, price_per_million, refused)
-        scenarios.append({"judge": "decider", "steps": [classify, llm_step("rewrite", "requests_at_most")]})
+        scenarios.append({"judge": "decider", "steps": [classify, *llm_steps("rewrite", "requests_at_most")]})
     if judge in ("auto", "llm"):
-        scenarios.append({"judge": "llm", "steps": [llm_step("classify_and_rewrite", "requests")]})
+        scenarios.append({"judge": "llm", "steps": llm_steps("classify_and_rewrite", "requests")})
     for scenario in scenarios:
+        # One writer runs per step: a step's bound is its dearest writer.
+        by_step: dict[str, list[dict[str, Any]]] = {}
+        for step in scenario["steps"]:
+            by_step.setdefault(step["step"], []).append(step)
         costs = [step.get("estimated_usd") for step in scenario["steps"] if "estimated_usd" in step]
-        scenario["estimated_usd"] = None if any(cost is None for cost in costs) else sum(costs)
-        calls = sum(step.get("requests", step.get("requests_at_most", 0)) for step in scenario["steps"])
-        tokens = sum(step.get("metered_tokens", 0) for step in scenario["steps"])
+        scenario["estimated_usd"] = None if any(cost is None for cost in costs) else sum(
+            max(float(step.get("estimated_usd") or 0.0) for step in options) for options in by_step.values())
+        calls = sum(max(step.get("requests", step.get("requests_at_most", 0)) for step in options)
+                    for options in by_step.values())
+        tokens = sum(max(step.get("metered_tokens", 0) for step in options) for options in by_step.values())
         if scenario["estimated_usd"] is None:
             scenario["within_caps"] = None  # an unknown price is refused per step, above
             continue
@@ -1125,4 +1176,5 @@ __all__ = [
     "can_write",
     "write_report",
     "writer_name",
+    "writer_names",
 ]
