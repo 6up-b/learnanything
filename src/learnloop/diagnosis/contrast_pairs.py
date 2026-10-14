@@ -102,6 +102,27 @@ def pair_key(item_id: str, counterpart_id: str) -> str:
     return "|".join(sorted((str(item_id), str(counterpart_id))))
 
 
+#: What a pair's member-order draw is seeded on. ``session``: the session and
+#: the pair, so the order varies across sessions (A4's draw everywhere but a
+#: staged plan). ``pair``: the pair alone, so a pair keeps one order in every
+#: session; the draw still varies across pairs, which is where the
+#: order-effect check reads it (one serving order per pair). A staged plan
+#: draws per pair, since its blocks must be the same whatever the session
+#: (owner rule 2026-10-13; plan-determinism Codex review F1).
+SEED_PER_SESSION = "session"
+SEED_PER_PAIR = "pair"
+
+
+def serving_seed(key: str, *, session_id: str | None, scope: str = SEED_PER_SESSION) -> str:
+    """The seed of one pair's member-order draw (recorded on its serving rows)."""
+
+    if scope == SEED_PER_PAIR:
+        return f"pair|{key}"
+    if scope != SEED_PER_SESSION:
+        raise ValueError(f"unknown contrast-pair seed scope {scope!r}")
+    return f"{session_id or 'no_session'}|{key}"
+
+
 # ---------------------------------------------------------------------------
 # Commissioning: identifiability findings -> contrast-pair authoring requests
 # ---------------------------------------------------------------------------
@@ -683,6 +704,7 @@ def plan_contrast_pair_serving(
     ordered_item_ids: Sequence[str],
     *,
     session_id: str | None,
+    seed_scope: str = SEED_PER_SESSION,
 ) -> list[PairServingDecision]:
     """Decide, for every pair in a queue, which member goes first and whether
     the two are separated.
@@ -690,6 +712,9 @@ def plan_contrast_pair_serving(
     Pure: it reads a queue and returns decisions. The scheduler applies them and
     :func:`record_contrast_pair_servings` persists them, so this function is
     testable without a database and without a scheduler.
+
+    ``seed_scope`` is what the draw is seeded on (:func:`serving_seed`): the
+    session and the pair (the default), or the pair alone (a staged plan).
 
     The separation test is positional and honest: members are "separated" when at
     least one other item sits between them in the served order, OR when their
@@ -715,7 +740,7 @@ def plan_contrast_pair_serving(
         if key in seen:
             continue
         seen.add(key)
-        seed = f"{session_id or 'no_session'}|{key}"
+        seed = serving_seed(key, session_id=session_id, scope=seed_scope)
         value = randomization_draw(seed)
         members = sorted((item_id, counterpart_id))
         first, second = (members[0], members[1]) if value < 0.5 else (members[1], members[0])

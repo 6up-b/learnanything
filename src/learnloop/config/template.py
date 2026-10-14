@@ -1132,7 +1132,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # fourteen were recomputed (defaults_fingerprint_for_version) on its
     # branch, and all fifteen again from the composed defaults when it landed
     # after router R2a and RW3a.
-    "mvp-0.9": "72ec9b8bf05e645569c6a34c1a8938ae3fe12bc1c4a809507192659a0bf5e98d",
+    # Plan determinism's Codex review (F2; docs/reviews/
+    # plan-determinism-codex-review.md) adds plan.deterministic_staged_plans
+    # = true (modelled default, left out of the decision-only template), the
+    # kill switch of the stage's serving rule (owner rule 2026-10-13: staged
+    # plans are deterministic): where the router composes Today, the plan's
+    # pool is the scheduler's greedy order and a contrast pair's member order
+    # is the pair's own draw, so the same vault state plans the same blocks in
+    # every session. A live change under the owner's standing ruling (live
+    # changes behind kill switches, not successors, for serving changes replay
+    # never reads), so no successor; off restores the staged plan's pool as
+    # mvp-0.23 landed. Dormant below mvp-0.23 and with the router off. Every
+    # snapshot moves only because the effective config gains the key; all
+    # fifteen were recomputed (defaults_fingerprint_for_version).
+    "mvp-0.9": "9d80f405cce0033b452bfd2003e317d59d80a127fe3301f60789cfe47a57ef00",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1164,7 +1177,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.10": "b15b4d63a9646b8ee2aa802faec809dd03e8d8858773e85f7ab87fea1b5fb217",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.10": "0a0cf2ca327a8bc51ac1730afbc45935d2f90e7aec2631b1e7f49a790866df2f",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1204,7 +1218,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.11": "9ce34e78cf67a0273dbc156e07b7863f563659d5d881bfa328c4fc8406c7f4f6",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.11": "dc01dc41b3bcddfafc95fb92cf1f7bbadecffe6003c8523eb9983e8c540882b3",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1238,7 +1253,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.12": "171d640d52956b029c70239c1faa23af1bf0d71ca7b57deda6fd695dc99d6c4c",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.12": "6c6e3b7eee6d9b7b123353381e37ac31cba5bb13375b9c76dbb7401663c838d4",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1267,7 +1283,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.13": "4606c711599a2750aa510a8e443d93efb54f9035bf061c575e9d7e2c0af3596f",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.13": "15dcb8bf2e634fdb0b9600ab3d39dc187af05c09c650ff2a05e208561927a642",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1295,7 +1312,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.14": "5071a7dce6c4e80eb955c7f0920aef323c8f74dc5b18311528ee5bec48438f7e",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.14": "604595509d29d5015491e78a8146caff4395be7f811352eb29fdd73c714f91e6",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1321,7 +1339,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.15": "6502062148dc9a8a04b5c8a2c6a1c0d3494add90192da04ef62ea7760954141a",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.15": "b2ebb8df1ce40dfa7d871c7e1d69a0a7de1f0facdc378c33444c664a157d6121",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1354,7 +1373,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.16": "ae3a714932dacc04ae3d369dcef2fdab05285705c248103e87532d14364b62ce",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.16": "831417e7d898150a8d6d3d137bef8fe4311692d0ead5b1b715597914baa29543",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1383,7 +1403,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.17": "1face10eb3fed6ebfd169f9714ab84ee212d306c7a6bff494dd1ba771b27a5a9",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.17": "6c24a07601b1b93b6d17bbe926df293e018b55e4bad54bc76e2a25c61b125ae3",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1405,7 +1426,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.18": "5c7a789c4bca4dc11fd7cb52e5c3124935aa25f2e55f7cd0c5dc634f892682dc",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.18": "6c7a863a584c6bf1288e3f2c62c08a4f8f0274dbb2803a13253ebf69685cbd36",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1427,7 +1449,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.19": "05209899fe3ffce0526a2f5c50c82425144be117660377485726f7e2367803ec",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.19": "4490e1612a731b7b5dcfa0ee21ca1bdb8330ad6e9cddd00674120b6da9dcb037",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1445,7 +1468,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.20": "960d82e6f510d2ddf6a7b07e151c9ff7fde37b01b31ad6ce73bfa1f0ea6a600b",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.20": "02ef54eb21cb2ac9509721906c1780ca9e6f554c376b7b159897436f80c4659d",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1472,7 +1496,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.21": "a295846441f95459901b0bb6b7b9dbf131d9d8ac244b95ca2d5924ed1c953096",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.21": "c6e33b384bed054e9545b77897481f00c62d44fc742a0d54aae106830975c7fa",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1491,7 +1516,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.22": "0bcf247dd92d0b0c77159a60bff82fd36df2f0bd5a0c3bb4b3bf409ac246a432",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.22": "271a951b531f2e1f2f83a9c8a12d696fb5021fc947cd4fa89222ef05c2145231",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1505,7 +1531,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decision 2026-10-12).
     # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.23": "9148ded0776f224ef762e8f1ffae31d74d443a9b35e125b245b472833ee750be",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.23": "ac02b876de777e0130e6e428364d5b1493eb4c71072451293fdf12ba4e2f863c",
 }
 
 

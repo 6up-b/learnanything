@@ -73,6 +73,15 @@ class SchedulerSession:
     #: Today (``daily_plan.engine.plan_scheduler_session``): staged plans are
     #: deterministic, and the router's only exploration is the mixture's floor.
     seeded_exploration: bool = True
+    #: What a contrast pair's member-order draw (Meas §3.A4) is seeded on
+    #: (``diagnosis.contrast_pairs.serving_seed``): ``"session"`` (the session
+    #: and the pair; the order varies across sessions) or ``"pair"`` (the pair
+    #: alone; the same order in every session, still drawn across pairs and
+    #: recorded). The daily plan draws per pair wherever its pool is greedy
+    #: (plan-determinism Codex review F1): the plan packs its pool in this
+    #: order, so a per-session order would choose a different member, or order
+    #: a block differently, by session.
+    contrast_order_seed: str = "session"
 
 
 @dataclass(frozen=True)
@@ -2117,7 +2126,10 @@ def _apply_contrast_pair_order(
     * **Deterministic per session.** ``build_due_queue`` is called repeatedly for
       one session and must produce the same slate; the draw is seeded on
       ``(session_id, pair_key)``, so it varies across sessions — where the
-      balance accumulates — and never within one.
+      balance accumulates — and never within one. A staged plan's pool
+      (``session.contrast_order_seed == "pair"``) seeds it on the pair alone:
+      one order per pair in every session, the balance accumulating across
+      pairs (plan-determinism Codex review F1).
     * **Recorded, including the adjacency basis.** §3.A4 also forbids serving the
       two adjacent "unless the surfaces differ enough that the manipulation is
       not salient". Whether that held is a property of the realized queue, so it
@@ -2148,7 +2160,7 @@ def _apply_contrast_pair_order(
         return queue
     ordered_ids = [item.practice_item_id for item in queue]
     decisions = plan_contrast_pair_serving(
-        vault, ordered_ids, session_id=session.session_id
+        vault, ordered_ids, session_id=session.session_id, seed_scope=session.contrast_order_seed
     )
     if not decisions:
         return queue
@@ -2156,8 +2168,8 @@ def _apply_contrast_pair_order(
     by_id = {item.practice_item_id: item for item in queue}
     if not record:
         # A router R1 counterfactual composition: the same order, no audit row
-        # (the pair's draw depends only on the session and the pair, never on
-        # the order it is applied to).
+        # (the pair's draw depends only on its seed, the session's and the
+        # pair's or the pair's alone, never on the order it is applied to).
         return [by_id[item_id] for item_id in reordered_ids]
     try:
         record_contrast_pair_servings(

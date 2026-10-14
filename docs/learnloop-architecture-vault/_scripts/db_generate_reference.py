@@ -1018,6 +1018,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.new_admission_enabled": "Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve).",
     "plan.reading_blocks": "Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane.",
     "plan.reading_from_furthest": "Kill switch for UX Phase 1's reading step (U4), a live change wherever the plan acts (no successor tag; replay never reads the selection): the reading block continues from the furthest section read and skips front matter while a chapter is left; off it is DL1's first unfinished section in book order.",
+    "plan.deterministic_staged_plans": "Kill switch for plan determinism (owner rule 2026-10-13: staged plans are deterministic), a live change wherever the router composes Today (no successor tag; replay never reads a plan): the staged plan's pool is the scheduler's greedy order and a contrast pair's member order is the pair's own draw, so the same vault state plans the same blocks in every session; off restores the staged pool as mvp-0.23 landed (the scheduler's seeded exploration and the per-session pair order).",
     "plan.default_minutes": "Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward.",
     "plan.minutes_presets": "The one-tap minute chips on Start and Today.",
     "plan.repair_max_share": "Largest share of the budget the repair lane takes before new and push (D2).",

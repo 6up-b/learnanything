@@ -20,6 +20,18 @@ run's session id is a fresh ULID).
   seed material (session, UTC date, candidate ids), rate and window, the
   design probabilities and the realized outcome are on the slate each plan
   build writes, and they reproduce the plan's pick.
+
+The Codex review (docs/reviews/plan-determinism-codex-review.md):
+
+* F1: a contrast pair's member order (Meas §3.A4) was a second
+  session-seeded draw in the pool, so a staged plan still chose a different
+  member, or ordered a block differently, by session. A staged plan now draws
+  it per pair (seeded on the pair alone, still recorded for A4's check), and
+  every other queue build keeps the per-session draw.
+* F2: the rule is a live change behind ``plan.deterministic_staged_plans``
+  (the owner's standing ruling for serving changes replay never reads), not a
+  successor tag. Off, the staged plan's pool is built under the predecessor's
+  scheduler session, both draws per session again; replay never reads it.
 """
 
 from __future__ import annotations
@@ -52,6 +64,9 @@ FROZEN = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 #: drawn, change the first block), so the draw has outcomes that matter.
 EXTRA = {"lo_extra": [("pi_extra_1", 1.0), ("pi_extra_2", 1.0)]}
 ROUTER_OFF = "[router]\nenabled = false\n"
+#: The kill switch (Codex review F2): off, the staged plan's pool is
+#: mvp-0.23's as it landed (both session-seeded draws).
+SWITCH_OFF = "[plan]\ndeterministic_staged_plans = false\n"
 SESSIONS = tuple(f"s_{index:02d}" for index in range(30))
 
 
@@ -77,14 +92,15 @@ def _copy(template: Path, destination: Path) -> Path:
     return destination
 
 
-def _open_session(root: Path, session_id: str) -> None:
-    """A session with a fixed id (the scheduler's draw hashes it)."""
+def _open_session(root: Path, session_id: str, minutes: int = 25) -> None:
+    """A session with a fixed id (the scheduler's draw hashes it). Its minutes
+    are the first plan's budget (the last session's minutes)."""
 
     with sqlite3.connect(root / "state.sqlite") as connection:
         connection.execute("UPDATE sessions SET ended_at = ? WHERE ended_at IS NULL", ("2026-10-12T08:59:00Z",))
         connection.execute(
-            "INSERT INTO sessions(id, started_at, available_minutes) VALUES (?, '2026-10-12T09:00:00Z', 25)",
-            (session_id,),
+            "INSERT INTO sessions(id, started_at, available_minutes) VALUES (?, '2026-10-12T09:00:00Z', ?)",
+            (session_id, minutes),
         )
 
 
@@ -113,8 +129,8 @@ def _shape(root: Path, view: dict) -> tuple:
     return blocks, decisions, projected
 
 
-def _plan(root: Path, session_id: str) -> tuple:
-    _open_session(root, session_id)
+def _plan(root: Path, session_id: str, minutes: int = 25) -> tuple:
+    _open_session(root, session_id, minutes)
     view = _call(_context(root), "get_daily_plan", {"sessionId": session_id})
     return _shape(root, view)
 
@@ -208,10 +224,14 @@ def test_the_plans_scheduler_session_is_greedy_only_where_the_router_composes_to
     staged = load_vault(_template(tmp_path, "staged"))
     dl1 = load_vault(_template(tmp_path, "dl1", toml=ROUTER_OFF))
     below = load_vault(create_daily_plan_vault(tmp_path / "below", version="mvp-0.22").root)
-    assert plan_scheduler_session(staged, "s", 25.4).seeded_exploration is False
-    assert plan_scheduler_session(dl1, "s", 25.4).seeded_exploration is True
-    assert plan_scheduler_session(below, "s", 25.4).seeded_exploration is True
-    assert plan_scheduler_session(staged, "s", 25.4).available_minutes == 25
+    switched_off = load_vault(_template(tmp_path, "off", toml=SWITCH_OFF))
+    assert plan_scheduler_session(staged, "s", 25.4) == scheduler_module.SchedulerSession(
+        session_id="s", available_minutes=25, seeded_exploration=False, contrast_order_seed="pair"
+    )
+    # Everywhere else the predecessor's session, field for field.
+    predecessor = scheduler_module.SchedulerSession(session_id="s", available_minutes=25)
+    for vault in (dl1, below, switched_off):
+        assert plan_scheduler_session(vault, "s", 25.4) == predecessor
 
 
 def test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design(tmp_path, frozen, monkeypatch):
@@ -315,3 +335,246 @@ def test_dl1s_draw_is_seeded_from_logged_state_and_its_log_reproduces_the_pick(t
     # The plan's first block leads with the promoted item, and its decision names it.
     assert blocks[0][2][0] == promoted
     assert decisions[0][1] == promoted
+
+
+# -- contrast pairs: a staged plan's member order is the pair's own (Codex review F1) --
+
+PAIR = ("pi_pair_a", "pi_pair_b")
+#: ``(item expected minutes, session minutes, the staged plan's block from
+#: the pair's (first, second))``: both members fit one block (1.5 estimated
+#: minutes each in 25), or only one fits (a five-minute plan, each member 4.5
+#: expected minutes plus the default 0.5 of feedback).
+FITS = {
+    "both_fit": (1.0, 25, lambda first, second: (first, second)),
+    "one_fits": (4.5, 5, lambda first, _second: (first,)),
+}
+
+
+def _pair_template(tmp_path: Path, name: str, item_minutes: float, *, toml: str | None = None) -> Path:
+    """The placement vault plus one LO whose two items are a contrast pair
+    (Meas §3.A4: each names the other in ``contrast_of``)."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths = create_daily_plan_vault(
+        tmp_path / name, version=A, learning_objects={"lo_pair": [(item, item_minutes) for item in PAIR]}
+    )
+    for item_id, counterpart in (PAIR, PAIR[::-1]):
+        path = paths.practice_item_path("linear-algebra", item_id)
+        write_yaml(path, {**read_yaml(path), "contrast_of": counterpart})
+    if toml:
+        append_config_toml(paths.root, toml)
+    return paths.root
+
+
+def _first_served(root: Path) -> dict[str, tuple[str, str]]:
+    """The pair's recorded member order (A4's serving rows): the member
+    served first and the draw's seed, per session."""
+
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        rows = connection.execute(
+            "SELECT session_id, practice_item_id, randomization_seed FROM contrast_pair_servings "
+            "WHERE serve_position = 0 ORDER BY created_at, id"
+        ).fetchall()
+    return {session_id: (item_id, seed) for session_id, item_id, seed in rows}
+
+
+def _pair_draw() -> tuple[str, str, str]:
+    """The pair's own draw (seeded on the pair alone): ``(first, second, seed)``."""
+
+    from learnloop.diagnosis import contrast_pairs
+
+    seed = contrast_pairs.serving_seed(contrast_pairs.pair_key(*PAIR), session_id=None,
+                                       scope=contrast_pairs.SEED_PER_PAIR)
+    low, high = sorted(PAIR)
+    first, second = (low, high) if contrast_pairs.randomization_draw(seed) < 0.5 else (high, low)
+    return first, second, seed
+
+
+@pytest.mark.parametrize("fit", sorted(FITS))
+def test_a_contrast_pair_plans_the_same_staged_block_in_every_session(tmp_path, frozen, fit):
+    """Codex review F1. A contrast pair's member order (Meas §3.A4) was drawn
+    per session, seeded on the session and the pair, and the plan packs its
+    pool in that order. So when both members fit a block, the block's order
+    and its logged choice varied by session; when only one fits, the plan
+    chose either member. Every one was logged deterministic (propensity one).
+
+    In a staged plan the order is the pair's own draw, seeded on the pair
+    alone: thirty sessions on copies of one vault state plan one block with one
+    logged choice, and each session's serving row records that order and its
+    seed for A4's order-effect check. DL1's pair keeps the per-session draws
+    (G8): the same thirty sessions plan both orders there (and, where R1's
+    draw promotes a near-tie, other blocks)."""
+
+    item_minutes, minutes, block = FITS[fit]
+    staged = _pair_template(tmp_path, "staged", item_minutes)
+    dl1 = _pair_template(tmp_path, "dl1", item_minutes, toml=ROUTER_OFF)
+    staged_shapes, recorded = set(), {}
+    for sid in SESSIONS:
+        root = _copy(staged, tmp_path / f"staged_{sid}")
+        staged_shapes.add(_plan(root, sid, minutes))
+        recorded.update(_first_served(root))
+    assert len(staged_shapes) == 1
+    [(blocks, decisions, _projected)] = staged_shapes
+    first, second, seed = _pair_draw()
+    assert blocks == (("new", "staged", block(first, second)),)
+    assert [(row[1], row[2], row[3], row[5]) for row in decisions] == [(first, 1.0, "deterministic", "staged_v1")]
+    assert recorded == {sid: (first, seed) for sid in SESSIONS}
+
+    dl1_blocks = {_plan(_copy(dl1, tmp_path / f"dl1_{sid}"), sid, minutes)[0] for sid in SESSIONS}
+    assert {(("new", "lane_quota", block(*PAIR)),), (("new", "lane_quota", block(*PAIR[::-1])),)} <= dl1_blocks
+
+
+def test_the_per_session_draw_keeps_its_own_path(tmp_path, frozen):
+    """A4's per-session draw is unchanged everywhere but the staged plan's
+    pool: a queue build under the scheduler's default session (Today's full
+    list, ``skip_practice_item``, the CLI and TUI queues, DL1's plan) on the
+    same staged vault orders the pair by session and records that session's
+    seed."""
+
+    from learnloop.diagnosis import contrast_pairs
+
+    root = _pair_template(tmp_path, "staged", 1.0)
+    vault, repository = load_vault(root), Repository(root / "state.sqlite")
+    firsts = set()
+    for sid in SESSIONS:
+        queue = scheduler_module.build_due_queue(
+            vault, repository, session=scheduler_module.SchedulerSession(session_id=sid, available_minutes=25),
+            limit=None, persist_explanations=False,
+        )
+        firsts.add(next(item.practice_item_id for item in queue if item.practice_item_id in PAIR))
+    assert firsts == set(PAIR)
+    key = contrast_pairs.pair_key(*PAIR)
+    assert {sid: seed for sid, (_first, seed) in _first_served(root).items()} == {
+        sid: contrast_pairs.serving_seed(key, session_id=sid) for sid in SESSIONS
+    }
+
+
+# -- the kill switch, not a successor (Codex review F2) -------------------------------
+
+
+def test_the_switch_acts_only_where_the_router_composes_today(tmp_path):
+    """``plan.deterministic_staged_plans`` (default on) acts where the router
+    composes Today. A vault whose config predates the key (every existing
+    ``mvp-0.23`` vault) reads it on; off keeps the version and the staged
+    frame, and so does the router's own switch, which returns DL1's pair."""
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from learnloop.daily_plan.engine import staged_plans_deterministic
+    from learnloop.daily_plan.policy import router_active
+
+    from tests.helpers import set_algorithm_version
+
+    paths = create_daily_plan_vault(tmp_path / "vault", version="mvp-0.14")
+    assert "deterministic_staged_plans" not in (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    for version, flag in {"mvp-0.14": False, "mvp-0.22": False, A: True, LATEST_ALGORITHM_VERSION: True}.items():
+        set_algorithm_version(paths, version)
+        vault = load_vault(paths.root)
+        assert vault.config.plan.deterministic_staged_plans is True
+        assert staged_plans_deterministic(vault) is flag, version
+    off = load_vault(_template(tmp_path, "off", toml=SWITCH_OFF))
+    assert staged_plans_deterministic(off) is False
+    assert off.config.algorithms.algorithm_version == A and router_active(off)
+    assert staged_plans_deterministic(load_vault(_template(tmp_path, "router_off", toml=ROUTER_OFF))) is False
+    assert staged_plans_deterministic(load_vault(_template(tmp_path, "plan_off", toml="[plan]\nenabled = false\n"))) is False
+
+
+def test_with_the_switch_off_the_schedulers_draw_reaches_the_staged_plan_again(tmp_path, frozen, monkeypatch):
+    """Rollback parity, R1's draw: off, the staged plan's pool is built under
+    the predecessor's session (the call ``6dabbc33c`` made, compared field for
+    field above), so a forced draw moves the staged plan's first block as it
+    did before the fix, and the build draws."""
+
+    staged = _template(tmp_path, "staged")
+    off = _template(tmp_path, "off", toml=SWITCH_OFF)
+    greedy = _plan(_copy(staged, tmp_path / "greedy"), "s_forced")
+    assert _plan(_copy(off, tmp_path / "off_greedy"), "s_forced")[0] == greedy[0]  # the roll missed: same plan
+    drawn = _force(monkeypatch, "pi_extra_2")
+    assert _plan(_copy(staged, tmp_path / "on_forced"), "s_forced")[0] == greedy[0]
+    assert drawn == []
+    blocks, _decisions, _projected = _plan(_copy(off, tmp_path / "off_forced"), "s_forced")
+    assert drawn
+    assert blocks[0][:2] == ("new", "staged") and blocks[0][2][0] == "pi_extra_2"
+    assert blocks[0] != greedy[0][0]
+
+
+def test_with_the_switch_off_a_contrast_pair_follows_the_session_again(tmp_path, frozen):
+    """Rollback parity, A4's draw: off, the staged plan orders the pair by
+    session (both orders across thirty sessions) and records each session's
+    seed, as before the fix."""
+
+    from learnloop.diagnosis import contrast_pairs
+
+    item_minutes, minutes, block = FITS["both_fit"]
+    off = _pair_template(tmp_path, "off", item_minutes, toml=SWITCH_OFF)
+    shapes, recorded = set(), {}
+    for sid in SESSIONS:
+        root = _copy(off, tmp_path / f"off_{sid}")
+        shapes.add(_plan(root, sid, minutes)[0])
+        recorded.update(_first_served(root))
+    assert {(("new", "staged", block(*PAIR)),), (("new", "staged", block(*PAIR[::-1])),)} <= shapes
+    key = contrast_pairs.pair_key(*PAIR)
+    assert {sid: seed for sid, (_first, seed) in recorded.items()} == {
+        sid: contrast_pairs.serving_seed(key, session_id=sid) for sid in SESSIONS
+    }
+
+
+def test_every_defaults_snapshot_records_the_switch_on():
+    """Each recorded snapshot moves only because the effective config gains
+    the key (default on); none records it off."""
+
+    import tomllib
+
+    from learnloop.algorithm_versions import SUCCESSOR_CHAIN
+    from learnloop.config.schema import LearnLoopConfig
+    from learnloop.config.template import (
+        DEFAULTS_SNAPSHOT_BY_ALGORITHM,
+        default_config_text,
+        defaults_fingerprint_for_version,
+    )
+
+    for version in SUCCESSOR_CHAIN:
+        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
+        config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
+        assert config.plan.deterministic_staged_plans is True, version
+
+
+def test_replay_never_reads_the_switch(tmp_path):
+    """On the migration-head fixture at the latest tag: a rebuild with the
+    switch on and one with it off leave every DERIVED table the same, and
+    neither writes a plan row (a plan is a workflow row replay never reads)."""
+
+    from datetime import UTC as _UTC
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from learnloop.clock import FrozenClock
+    from learnloop.daily_plan.engine import staged_plans_deterministic
+    from learnloop.db.connection import connect
+    from learnloop.db.table_roles import TableRole, tables_for_role
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    from tests.helpers import _set_algorithm_version_at
+
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_202"
+    clock = FrozenClock(datetime(2026, 10, 14, 12, 0, tzinfo=_UTC))
+    root = tmp_path / "head"
+    copy_tree_with_databases(head, root)
+    _set_algorithm_version_at(root, LATEST_ALGORITHM_VERSION)
+    repository = Repository(root / "state.sqlite")
+    derived = sorted(tables_for_role(TableRole.DERIVED))
+
+    def snapshot():
+        with connect(repository.sqlite_path, read_only=True) as connection:
+            return {table: sorted(tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"'))
+                    for table in derived}
+
+    assert staged_plans_deterministic(load_vault(root))
+    rebuild_all_derived_state(load_vault(root), repository, clock=clock)
+    rebuild_all_derived_state(load_vault(root), repository, clock=clock)
+    switched_on = snapshot()
+    append_config_toml(root, SWITCH_OFF)
+    assert not staged_plans_deterministic(load_vault(root))
+    rebuild_all_derived_state(load_vault(root), repository, clock=clock)
+    assert snapshot() == switched_on
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        assert connection.execute("SELECT COUNT(*) FROM daily_plans").fetchone()[0] == 0
