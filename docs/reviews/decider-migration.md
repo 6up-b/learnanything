@@ -1,5 +1,9 @@
 # Decider migration, Tier 1 (`mvp-0.20`)
 
+**Landed onto main as `mvp-0.22`** (see "Landing onto main" at the end). §1-§6
+describe the branch and keep its placeholder `mvp-0.20`; on main, `mvp-0.20`
+is the route rules in the grader and `mvp-0.21` value-of-information stopping.
+
 Stage `decider/tier1-migration` (worktree `learnanything-decider`, base
 `e8d261405`, the facet-locks landing). Owner-approved 2026-10-13: small
 judgments move from LLM judges to the Decider (R0:
@@ -293,3 +297,239 @@ under `fixtures-local/tmp`:
   run): Settings renders the two new disclosures from the existing
   `judges` list.
 - `git diff --check` clean. No tracked fixture was opened.
+
+## Landing onto main
+
+Branch `merge/decider-onto-main` (worktree `learnanything-merge2`), from main
+`21440c9cf` (value-of-information stopping `mvp-0.21` LATEST, with UX Phase 1,
+the route rules in the grader `mvp-0.20` and the EVSI multi-family study;
+migration head 201, head fixture `fixtures/migration_head_201`). No migration,
+no new table, no new sidecar RPC, no `src-tauri` change. No paid or network
+model call; the tracked fixtures were only read through backup-API copies.
+
+| Commit | What |
+|---|---|
+| `3a6c3fb81` | a real `--no-ff` merge of `decider/tier1-migration` (`b1c7ace3f`, unchanged), with the relabel, two composition fixes, the landing tests, the recomputed snapshots and the regenerated references |
+| (this commit) | this section |
+
+### Relabelled
+
+| On the branch | On main |
+|---|---|
+| `mvp-0.20` (`DECIDER_TIER1_ALGORITHM_VERSION`) | **`mvp-0.22`**, after the route rules' `mvp-0.20` and value-of-information stopping's `mvp-0.21` |
+| `sources_upgrade.upgrade_to_mvp020`, chained from `upgrade_to_mvp019` | `decider_upgrade.upgrade_to_mvp022`, chained from `voi_stopping_upgrade.upgrade_to_mvp021`; `sources_upgrade.py` is main's again (it cannot chain upward without an import cycle) |
+| `tests/test_mvp020_upgrade.py` (add/add with main's route-rules file) | `tests/test_mvp022_upgrade.py`; main's file kept |
+| the upgrade test's `fixtures/migration_head_197` | `fixtures/migration_head_201` |
+| `tests/test_proof_route_check.py` (modify/delete: the branch only moved its version pins) | stays deleted |
+
+- **The successor.** `DECIDER_TIER1_ALGORITHM_VERSION = "mvp-0.22"`, appended
+  to `SUCCESSOR_CHAIN` after `VOI_STOPPING_ALGORITHM_VERSION`; `LATEST` is
+  mvp-0.22 and new vaults start there. The only gate the branch adds is the
+  set `DECIDER_TIER1_VERSIONS` = {mvp-0.22} (read by
+  `decider_judgments.enabled`, `pipeline._tier1` through it, and the
+  recurrence groups' authority for an imported Decider link); no comparison
+  is by equality or ordering. Main's own mvp-0.20 (the route rules) and
+  mvp-0.21 move no judgment, and a Decider link recorded at either has no
+  recurrence authority (`tests/test_decider_landing.py`).
+- **The upgrade.** `upgrade_to_mvp022` accepts mvp-0.21, or mvp-0.9 to
+  mvp-0.20 through `upgrade_to_mvp021`, passes the chained notes through
+  (`chained_notes = list(chained.notes or [])`, a refusal's included, as the
+  branch's did) and an earlier step's refusal unprefixed. T1's guard stays
+  advisory; the refusal test sets `config="[recurrence]\nrequire_guard = true"`,
+  the refusal names the mvp-0.12 step and the vault stays at mvp-0.10; once
+  the guard passes the upgrade walks mvp-0.11 to mvp-0.22. `learnloop
+  upgrade` defaults to mvp-0.22; `--to mvp-0.22` is new and `--to mvp-0.21`
+  still reaches value-of-information stopping.
+- **Every mention.** A line-by-line pass over every line the branch added:
+  the code and comments (`decider_judgments`, `disclosures`, `agreement`,
+  `cli/decider`, `field_classification`, `probability_arms`, the schema,
+  misconceptions, the review runner and links, text gaps, field and
+  contamination), the tests, `docs/decider-tier1-migration.md`, the reference
+  generator's section and field descriptions, `Algorithm Versions and
+  Reproducibility.md` (an mvp-0.22 row and the version sets) and `Version
+  Registry.md` say mvp-0.22, and "as at mvp-0.19" (a switch's predecessor
+  path) says mvp-0.21. Tests that set mvp-0.19 as "below the successor" use
+  mvp-0.21, the immediate predecessor. Main's tests that pinned mvp-0.21 as
+  the latest (`test_mvp011/013/014/015/016/017/018/020/021_upgrade.py`,
+  `test_recurrence_commands.py`, `test_route_rules_in_grader.py`,
+  `test_reading_step_switch.py`) pin mvp-0.22.
+- **Defaults and references.** All fourteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM`
+  entries (mvp-0.9 to mvp-0.22) were recomputed with
+  `defaults_fingerprint_for_version` from the composed defaults, the template
+  `.pyc` cleared before and after and the file touched; each moves only
+  because the effective config gains `[decider_routes]` and
+  `ai.routing.tier1_decider` (dormant below mvp-0.22, the span check
+  excepted). The CLI help snapshot was rewritten (`decider`, `decider
+  agreement`, `upgrade`, the root). The DB/config references were
+  regenerated (`db_generate_reference.py`); `db_validate_reference.py`
+  reports 0 errors once the prose counts read 813 effective leaves in 49
+  sections (main's 804 in 48 plus the branch's nine leaves and one section);
+  `validate_vault.py` passed.
+
+### Composition
+
+1. **The deleted route check.** Nothing reads it: main deleted
+   `attempts/proof_check.py` and `ai.routing.proof_check`; the branch's only
+   references were the `proof_check` output allowance in the spend adapter it
+   moved to `ai/review_spend.py` (dropped there, as main dropped it from
+   `offline_review/spend.py`), `PROOF_ROUTE_CHECK_VERSIONS` pins in tests
+   (main's versions kept) and `tests/test_proof_route_check.py` (deleted).
+   The proof-like item reading the branch left alone is gone on main.
+   `test_nothing_in_tier1_reads_the_deleted_route_check` scans `src/`.
+2. **The facet chokepoint.** Main's facet authority and proposal code are
+   unchanged since `e8d261405` (an empty diff over
+   `content/facet_identity/` and `content/proposals/`), so the branch's
+   `check_meaning_write` and `patches._ask_span_support` merged as reviewed.
+   UX Phase 1's automatic builds apply through main's proposal path:
+   `bootstrap_synthesis` runs `synthesize_study_map(apply=True,
+   apply_gate=auto_apply_allowed)`, which reaches
+   `source_set_synthesis._apply_and_wire_goal` and so
+   `patches.apply_accepted_items`: the span-support staging asks the Decider
+   before `vault_mutation_lock("proposal_accept")`, and no outer vault lock is
+   held there (the job runner takes the lock only to claim a lease, and the
+   `auto_study_map` lock only while it plans and files the source set, before
+   the build is enqueued). Pinned through `_apply_and_wire_goal` itself: the
+   Decider is asked once with no lock holder, `supports` applies, any other
+   option or a tie holds the card. **Fix:** UX's `keep_local` is read by every
+   outbound boundary when its work runs; the span check is a new one, and a
+   pending proposal accepted after its book was kept on this computer would
+   have sent the book's passage to Perplexity. Now a check whose supporting
+   span is from a kept book is not asked: the reword waits for the confirm
+   (ledger verdict `unavailable`, `kept_on_this_computer` in its rationale;
+   the test failed on the merge before the fix).
+3. **Disclosures and consent.** Settings and `learnloop eval judges` disclose
+   `tier1_decider` and `learner_gap_decider` as "OpenRouter, which forwards it
+   to Perplexity". UX's one-time OK said only that passages and answers go to
+   the connected AI. **Fix:** `decider_judgments.connection_note(config)`
+   adds one plain sentence to the OK's `whatLeaves` and, as `deciderNote`,
+   to the connect view's "What leaves this computer": "With an OpenRouter
+   key, LearnLoop also asks Perplexity, through OpenRouter, short questions
+   about your answers and questions (whether a mix-up or a gap is one it
+   already knows) and about the book passages behind a reworded skill." It
+   names only what is on (Tier-1 judgments at mvp-0.22, the learner-text
+   gaps' Decider at any version, the span check wherever the reword confirm
+   holds), follows a direct-Perplexity route ("With a Perplexity key ..."),
+   and is absent when every route is off. No new screen, no separate OK; the
+   jargon deny-list passes with it.
+4. **Spend.** Every Decider request goes through `ReviewSpend.request` (one
+   call, no output allowance, the profile's listed input price) and writes a
+   model-call receipt (owner kind: the task); LLM fallbacks keep their own
+   envelopes and receipts, subscription routes their uncapped treatment
+   (N1 below is the known exception). UX's per-request `MeteredRequestGate`
+   and the source service's daily guard are unchanged code. Inside an
+   automatic build the gate admits the span check's one physical request like
+   any metered request (at the cost-pause price, reserving the build's output
+   ceiling because the Decider declares none) and settles it at the reported
+   cost; a refusal is the check's `refused`, so the reword waits and the
+   build goes on (both pinned with the real `DeciderProviderClient` over a
+   fake transport). Decider receipts count in UX's daily guard (every
+   metered receipt) and not in the source service's (its own owner kinds).
+5. **Output budget.** `learnloop.ai.output_budget` is unchanged on main and
+   already names the Decider exempt; the Decider's receipts carry no output
+   budget, and each fallback route is admitted under the shared policy
+   (`ai.output_tokens`, a route override where set).
+6. **Snapshots, CLI help, references:** above.
+
+### Tests added at the landing
+
+`tests/test_decider_landing.py` (17): no route-check reader; the mvp-0.22
+gate per version (main's mvp-0.20 and mvp-0.21 move nothing) and the
+recurrence authority of links recorded at mvp-0.20 / 0.21 / 0.22; an
+automatic build's apply asking the span check before the vault lock
+(`supports`, `does not support`, a tie); kept books never sent; the metered
+gate admitting and settling, and refusing; the one OK and Settings naming one
+recipient (default route, switches off, below mvp-0.22, a direct Perplexity
+route); the fallbacks' output policy. `tests/test_mvp022_upgrade.py` (the
+branch's upgrade test, relabelled, plus the walk through the route rules).
+Frontend: the connect view's sentence (`ConnectAI.test.tsx`, 2) and the
+deny-list fixture. `tests/test_ux_phase1_connect_ai.py` expects the sentence.
+
+### Gate
+
+At `3a6c3fb81`, `TMPDIR` under `fixtures-local/tmp`, `uv sync --extra dev
+--extra mobile` plus `pypdfium2`:
+
+- `uv run lint-imports --no-cache`: 17 contracts kept, 0 broken.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **10544
+  passed**, 0 failed (15 min 31 s, load average 8 to 14). No timing-sensitive
+  rerun was needed.
+- `uv run pytest -m durability`: 99 passed.
+- `apps/learnloop-tauri`: `npm install` up to date, `npm run typecheck`
+  clean, `npm test` 73 files / 482 tests passed, `npm run frontend:build`
+  built. `src-tauri` is unchanged against main, so no `cargo check`.
+- `git diff --check` clean; `git status fixtures` clean.
+
+### Parity
+
+**Setup.** Backup-API copies (`copy_tree_with_databases`) of this worktree's
+tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`) in
+`fixtures-local/decider-parity`. Each copy was migrated by its own code
+(`migration_coordinator.migrate_vault`): main `21440c9cf` exported with
+`git archive` (its `src` and `migrations`) on `PYTHONPATH`, and the merge's;
+46 migrations to 201 on both (the landing adds none). On each copy
+`learnloop rebuild --shadow --json` and `learnloop doctor --json`, with
+`LEARNLOOP_CONFIG_DIR` an empty directory.
+
+**Shadow rebuilds and doctor match main's exactly** once minted ids,
+timestamps and paths are set aside (0 differences on all four outputs):
+
+| Fixture | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|
+| linear algebra | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, as at the
+value-of-information landing; the live database's hash is unchanged by every
+shadow run and doctor exits 1 on both sides (linear algebra's one error is
+the fixture's missing `rubrics` directory).
+
+**Upgrade mvp-0.21 -> mvp-0.22 (playbook item 7).** A third copy of
+`linear_algebra`, migrated by the merge's code: `mvp-0.8` -> `mvp-0.9` ->
+`mvp-0.21` (`--to mvp-0.21`; the chain's advisory guard notes passed
+through), rebuilt twice to its fixed point; `rebuild --shadow` at mvp-0.21
+showed facets 0, mastery 0, schedule 0; `learnloop upgrade` (the default
+target) took it to mvp-0.22; `rebuild --shadow` then showed facets 0 and
+schedule 0, and mastery 21 rows whose only differing field is
+`algorithm_version` (`mvp-0.21` -> `mvp-0.22`), as at every successor. The
+live database was unchanged by both shadow runs; doctor at mvp-0.22 reports
+56 issues, its one error the same missing `rubrics` directory.
+
+### Known residuals (the verify pass's five Low findings)
+
+The Opus verify of `356784102..b1c7ace3f` was CLEAN with five Low findings;
+none is caused or changed by the landing, and they stay open:
+
+- **N1 (F6 residual).** Contamination with one Tier-1 switch on and the
+  other off: the switched-off task's subscription receipts lose
+  `billing: subscription` / `not_enforced`, `charged` records 0 tokens, and
+  with no ready LLM judge the report mints a run and fails at the first
+  LLM-first request (`provider_failed`) instead of returning `unavailable`
+  up front. Verdicts and checkpoint ids are unaffected.
+- **N2.** The review dry run's Decider estimate (`targets * 2 *
+  history_error_limit`) is not an upper bound: arms `c` and `d` cite more
+  links, so an admissible plan can stop `over_budget` at `--max-calls`.
+- **N3 (pre-existing).** A Decider-first contamination checkpoint keys on the
+  Decider profile's name, not its model: changing the Decider model reuses
+  the old verdicts as `cached`.
+- **N4 (documentation).** The agreement report's module doc and CLI help
+  count "an LLM fallback beside the Decider's failure" as a pair; the code
+  (correctly) counts it as a fallback.
+- **N5.** The Settings DTO's `consumer` union (`dto.ts`) lags the routes
+  (`tier1`, `learner_text_gaps`), and Settings shows key readiness, not
+  whether a route is on (only `eval judges` shows `consumer_status`). The
+  same lag holds for `FacetSpanSupportDto.status`, which lists neither
+  `tied` nor `unchecked` (the card's fallback line covers both).
+
+### Owner decisions (conservative defaults in force)
+
+- **The Decider and the one OK.** Learner text and book passages reach
+  Perplexity through OpenRouter under the connected AI's one OK, now named in
+  its sentence (D6). Default: no separate OK and no new screen.
+- **Kept books and the span check.** A reword citing a book kept on this
+  computer waits for the owner's confirm and its passage is never sent.
+  Default: as such; the card says it "could not be checked just now".
+- **Automatic builds' money.** The span check's Decider request is admitted by
+  the build's per-request gate and counted in the daily guard like any
+  metered request. Default: as such (about $0.0004 a check, reserved at the
+  build's output ceiling until it settles).
+- **N1-N5.** Default: left as known residuals for a later fix pass.
