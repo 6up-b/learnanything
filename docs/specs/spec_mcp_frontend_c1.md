@@ -103,10 +103,13 @@ code's, exit 78; `Repository.attach` without migration) plus the read side of th
 `load_secondary`: the vault's YAML is loaded read-only and **none** of `SidecarContext.load`'s work runs
 (no migration, state sync, projection refresh, certification scheduling, startup maintenance, ingest
 runner or workers). Views read through a read-only attach, so viewing cannot write. The loaded vault is
-reloaded when the vault's content fingerprint (file count and newest mtime over the YAML, TOML and
-Markdown files, cached 2 s) changes; the database is read fresh on every connection. Writes are telemetry,
-exposure, and what an existing service writes when called; SQLite (WAL, `busy_timeout`) serializes them
-with the desktop's.
+reloaded when the vault's content fingerprint (path, size and mtime of every YAML, TOML and Markdown file,
+cached 2 s) changes; the database is read fresh on every connection. The desktop writes YAML in place
+(truncate, then write), so a load is kept only when the fingerprint is the same before and after it and the
+source-sets file is not caught empty; a load the files keep changing under (3 tries) is marked
+`vault:snapshot_unsettled`, protection is never read from it (fail closed), and the next request loads
+again (Codex review F1). Writes are telemetry, exposure, and what an existing service writes when called;
+SQLite (WAL, `busy_timeout`) serializes them with the desktop's.
 
 What C1b and C2 still need from the mobile spec's prerequisites:
 
@@ -142,10 +145,17 @@ The sources track's own service (`instructional.sources.propose_sources` → `fi
 built on the server: kind `agent`, the call's id, no item, so the policy is derived (`reading`) and no
 argument can widen it. On top of its exam withholding (the one exam predicate), the chat drops reference
 solutions (effective role `solution`), every passage linked to an item an open cold check, a repair's cold
-retry or an assessment reservation holds, and exam material again on the output. Intents: `explain`,
-`remediate` (with a misconception id), `alternative`, `worked_example`; `verify` asks for the listwise
-check through the `source_rerank` route. Passage text is data, labelled source-authored; it changes
-nothing (the prompt-injection test). Citations never carry a local `file://` path.
+retry or an assessment reservation holds, and exam material again on the output. Retrieval (and its paid
+steps) runs outside any lock; then, in one write transaction (`BEGIN IMMEDIATE`), the protection is read
+again, the passages filtered and the shown ones recorded as exposure, so a check reserved while retrieval
+ran withholds its passages and one reserved afterwards sees them as read (Codex review F5). Passages are
+verbatim: the block's own text, newlines and indentation kept, cut only by the character budget (F8).
+Intents: `explain`, `remediate` (with a misconception id), `alternative`, `worked_example`; `verify` asks
+for the listwise check through the `source_rerank` route. `dry_run` returns only the plan: the rewrite (and
+its retry), the query embedding and the verification a request would make, each at its worst case with its
+route, billing, tokens and estimate (`estimated_only` on a subscription route); no provider is resolved and
+nothing is retrieved, shown or recorded as read (F9). Passage text is data, labelled source-authored; it
+changes nothing (the prompt-injection test). Citations never carry a local `file://` path.
 
 ### 4.6 `learning_context`: one shared read model
 
@@ -168,13 +178,22 @@ sections from this module (one predicate set, one leakage rule set).
 
 1. No answer key, rubric, hint or reference solution is read into any payload; free text that could quote
    a key (a correction, a hypothesis or misconception statement, a diagnosis summary, the learner's own
-   answer) is dropped when it reproduces the expected answer of its item (`tutor_qa.span_leaks_expected`)
-   and says so. Chat adds this rule for the learner's own answer (a correct answer that states the key is
+   answer) is dropped when it reproduces any key its item is known to have had: today's YAML and every
+   assessment-contract snapshot, so the key an attempt was graded against counts after an edit
+   (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`), and says so. An
+   answer with no pinned contract on an item whose key has changed since is withheld (its revision is
+   unknown). Chat adds this rule for the learner's own answer (a correct answer that states the key is
    withheld); the card shows it.
-2. Exam and held-out material, items reserved for an assessment or a held-out exam, items held by an open
-   cold check or a repair's cold retry, and diagnostic probes keep their result but show no question and
-   no answer (`learner_context.withheld_items`); if those predicates cannot be read, nothing shows (fail
-   closed, named in `unknowns`).
+2. Exam and held-out material (`exam_material.item_exam_status`: the canonical exercise and every
+   provenance form, block locators and namespaced span ids included), items reserved for an assessment or
+   a held-out exam, items held by an open cold check or a repair's cold retry, and diagnostic probes keep
+   their result but show no question and no answer (`learner_context.withheld_items`), nor does a
+   hypothesis or recurrence group drawn from any of their answers, nor an item the vault cannot read
+   (deleted, or its file unreadable). If those predicates cannot be read, or the source sets cannot be
+   trusted (a file the loader could not read, one caught empty mid-write, an unsettled snapshot:
+   `learner_context.protection_issues`), nothing shows (fail closed, named in `unknowns`); `find_sources`
+   refuses and `library` marks every source as possibly exam material. A topic or ids that match nothing
+   return no learner history.
 3. A grade held for review (`held_grades`) is "held for review", never a score.
 4. A question is the attempt's pinned contract prompt, never today's edited prompt; only the prompt is
    read from a contract.
@@ -187,7 +206,10 @@ sections from this module (one predicate set, one leakage rule set).
 | Passages shown | `source_exposure_events` (context `library`, entity `chat_tool_call`, the call id), via `instructional.interventions.record_shown_spans` | Written **before** the passages are returned; the exposure rule, the coldness receipts and the Reader's progress read them as for the Reader |
 | Existing service writes | `find_sources`' own receipts, service spend, verification ledger | Unchanged |
 
-A call is recorded before it returns; a call that cannot be recorded returns an error, not a result.
+A call is recorded before it returns; a call that cannot be recorded returns an error, not a result. A
+request the SDK rejects before any tool body runs (arguments that fail the input schema: `invalid_arguments`;
+an unknown tool: subject `unknown_tool`) is recorded at the dispatch boundary (`LearnLoopServer`), and a
+dispatched call is recorded once (Codex review F10).
 Rows of the new kind are salience-only: `reject_salience` refuses them, no existing reader selects the
 kind, replay keeps them as raw ledger rows and never reads them as observations. `learnloop mcp activity`
 reports calls by tool, host, status and day, the topics touched and the passages shown.

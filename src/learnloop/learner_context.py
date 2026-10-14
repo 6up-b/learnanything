@@ -21,14 +21,22 @@ function R2a reads).
 * no answer key, reference solution, rubric or hint is ever read into the
   output; free text that could quote a key (a diagnosis summary, a
   hypothesis or misconception statement, a correction, the learner's own
-  answer) is dropped when it reproduces the expected answer of the item it
-  belongs to (``tutor_qa.span_leaks_expected``, the tutor's own filter), and
-  says so;
-* exam and held-out material, items reserved for an assessment or a held-out
-  exam, items held by an open cold check or a repair's cold retry, and
-  diagnostic probes (:func:`withheld_items`) keep their result but never show
-  a question or an answer; when those predicates cannot be read, no question
-  or answer shows at all (fail closed);
+  answer) is dropped when it reproduces any key its item is known to have had
+  (today's YAML and every assessment-contract snapshot, so the key an attempt
+  was graded against counts after the item is edited: :class:`KeyBook`;
+  ``tutor_qa.span_leaks_expected``, the tutor's own filter), and says so; an
+  answer whose question has changed since, with no pinned contract to say
+  which revision it answered, is withheld too;
+* exam and held-out material (``exam_material.item_exam_status``, every
+  provenance form), items reserved for an assessment or a held-out exam,
+  items held by an open cold check or a repair's cold retry, and diagnostic
+  probes (:func:`withheld_items`) keep their result but never show a question
+  or an answer, and neither does a hypothesis or a recurrence group drawn
+  from one of their answers; nor does an item the vault cannot read (deleted,
+  or its file unreadable). When the predicates cannot be read, including a
+  source-sets file the loader could not read or a vault snapshot that changed
+  while it loaded (:func:`protection_issues`), no question or answer shows at
+  all (fail closed);
 * a grade held for review (THE predicate, ``held_grades``) is "held for
   review", never a score;
 * a question is the prompt of the attempt's pinned assessment contract (the
@@ -46,6 +54,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from learnloop.clock import parse_utc, utc_now_iso
@@ -65,7 +74,15 @@ WITHHELD_RESERVED = "reserved for an assessment"
 WITHHELD_COLD = "a check waiting in the app"
 WITHHELD_PROBE = "a diagnostic check"
 WITHHELD_UNREADABLE = "the protection rules could not be read"
+WITHHELD_UNKNOWN_ITEM = "its question could not be checked (not readable in the vault)"
 KEY_WITHHELD = "withheld: it states the answer key"
+KEYS_UNREADABLE = "withheld: the answer keys could not be read"
+REVISION_UNKNOWN = "withheld: the question was edited since and the revision this answer was graded against is not recorded"
+#: A loader issue the remote runtime adds when the vault's files changed while
+#: it read them, or a protection-bearing file was caught mid-write (empty):
+#: nothing read from that snapshot can say what is protected.
+SNAPSHOT_UNSETTLED = "vault:snapshot_unsettled"
+PROTECTION_UNKNOWN = "which material is protected could not be read: no question or answer is shown"
 
 _EXAM_ATTEMPT_TYPES = frozenset({"exam_attempt", "exam_evidence"})
 _PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe"})
@@ -88,16 +105,23 @@ class Withheld:
     """Items whose question and answers never leave LearnLoop, and why.
 
     ``available`` False means the predicates could not be read: callers then
-    show no question and no answer at all (fail closed)."""
+    show no question and no answer at all (fail closed). ``known_items`` are
+    the items the vault holds: an item outside them (deleted, or its file
+    unreadable) cannot be checked, so it is withheld too."""
 
     reasons: Mapping[str, str] = field(default_factory=dict)
     available: bool = True
     unknowns: tuple[str, ...] = ()
+    known_items: frozenset[str] | None = None
 
     def reason(self, item_id: str | None) -> str | None:
         if not self.available:
             return WITHHELD_UNREADABLE
-        return self.reasons.get(str(item_id or ""))
+        key = str(item_id or "")
+        found = self.reasons.get(key)
+        if found is None and key and self.known_items is not None and key not in self.known_items:
+            return WITHHELD_UNKNOWN_ITEM
+        return found
 
     @property
     def item_ids(self) -> frozenset[str]:
@@ -146,34 +170,67 @@ def _result(correctness: Any, held: bool) -> str:
 # -- the protection predicates ---------------------------------------------------
 
 
+def protection_issues(vault: Any) -> list[str]:
+    """Why the vault's protection metadata cannot be trusted, or ``[]``.
+
+    The source sets name the exam and held-out material. The loader turns a
+    source-sets file it cannot read into an issue and no source sets, and a
+    file a write has just truncated reads as no source sets at all: either
+    way "no exam material", so it makes protection unreadable. So does a
+    snapshot the remote runtime saw change while it loaded
+    (:data:`SNAPSHOT_UNSETTLED`). A practice item that failed to load is
+    handled per item (``Withheld.known_items``)."""
+
+    from learnloop.vault.paths import VaultPaths
+
+    found: list[str] = []
+    try:
+        source_sets = VaultPaths(Path(vault.root), vault.config).source_sets_path.resolve()
+    except Exception:  # noqa: BLE001 - fail closed
+        return ["the vault's source sets could not be located"]
+    for issue in getattr(vault, "issues", None) or ():
+        if issue.code == SNAPSHOT_UNSETTLED:
+            found.append(str(issue.message))
+        elif issue.path is not None and Path(issue.path).resolve() == source_sets:
+            found.append(f"the source sets could not be read ({issue.code})")
+    try:
+        if source_sets.is_file() and not source_sets.read_bytes().strip():
+            found.append("the source sets file is empty (a write in progress)")
+    except OSError:
+        found.append("the source sets file could not be read")
+    return found
+
+
 def withheld_items(vault: Any, repository: Any) -> Withheld:
     """Every item whose question and answers a remote frontend never shows.
 
     Exam and held-out material by the one predicate
     (``content.sources.exam_material``: exam members and units, held-out
-    units, items whose provenance cites them, the unreleased exam pools),
-    live assessment reservations, items an open cold check or a repair's
-    cold retry holds, and diagnostic probes. Any predicate that fails makes
-    the whole set unavailable (fail closed)."""
+    units, the unreleased exam pools, and items whose own source is any of
+    them, by ``item_exam_status``: the canonical exercise and every
+    provenance form, block locators and namespaced span ids included), live
+    assessment reservations, items an open cold check or a repair's cold
+    retry holds, and diagnostic probes. Any predicate that fails, or
+    protection metadata that cannot be trusted (:func:`protection_issues`),
+    makes the whole set unavailable (fail closed)."""
 
     reasons: dict[str, str] = {}
+    problems = protection_issues(vault)
+    if problems:
+        _LOG.warning("learner context: protection metadata not trusted: %s", "; ".join(problems))
+        return Withheld(available=False, unknowns=(PROTECTION_UNKNOWN,))
     try:
-        from learnloop.content.sources.exam_material import exam_material, held_out_items
+        from learnloop.content.sources.exam_material import exam_material, held_out_items, item_exam_status
 
-        for item_id in repository.reserved_exam_pool_item_ids():
-            reasons.setdefault(str(item_id), WITHHELD_EXAM)
+        reserved = frozenset(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
+        for item_id in reserved:
+            reasons.setdefault(item_id, WITHHELD_EXAM)
         for item_id in held_out_items(vault, repository):
             reasons.setdefault(str(item_id), WITHHELD_EXAM)
         exam = exam_material(vault, repository)
         for item in vault.practice_items.values():
-            for ref in getattr(getattr(item, "provenance", None), "source_refs", None) or ():
-                extraction = getattr(ref, "extraction_id", None)
-                if not extraction:
-                    continue
-                spans = list(getattr(ref, "span_ids", None) or ())
-                if exam.covers(extraction) or any(exam.covers(extraction, span) for span in spans):
-                    reasons.setdefault(item.id, WITHHELD_EXAM)
-                    break
+            if item_exam_status(item, material=exam, reserved=reserved) is not None:
+                reasons.setdefault(item.id, WITHHELD_EXAM)
         for row in repository.reserved_assessment_surfaces():
             legacy = row.get("legacy_practice_item_id")
             if legacy:
@@ -199,15 +256,80 @@ def withheld_items(vault: Any, repository: Any) -> Withheld:
                 reasons.setdefault(item.id, WITHHELD_PROBE)
     except Exception:  # noqa: BLE001 - fail closed: nothing shows
         _LOG.warning("learner context: protection predicates not read", exc_info=True)
-        return Withheld(available=False, unknowns=(
-            "which material is protected could not be read: no question or answer is shown",
-        ))
-    return Withheld(reasons=reasons)
+        return Withheld(available=False, unknowns=(PROTECTION_UNKNOWN,))
+    return Withheld(reasons=reasons, known_items=frozenset(str(item_id) for item_id in vault.practice_items))
 
 
-def _expected(vault: Any, item_id: str | None) -> Any:
-    item = vault.practice_items.get(str(item_id or "")) if item_id else None
-    return getattr(item, "expected_answer", None) if item is not None else None
+# -- answer keys (read to filter text, never output) -----------------------------
+
+
+def _key_identity(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+
+
+@dataclass
+class KeyBook:
+    """Every answer key each item is known to have had: today's YAML and every
+    assessment-contract snapshot (an attempt's pinned contract is the key it
+    was graded against). Read only to filter free text; never serialized.
+
+    ``changed`` are the items whose known keys differ (edited since a
+    snapshot); ``unreadable`` means the snapshots could not be read, so free
+    text that could quote a key is withheld."""
+
+    by_item: dict[str, list[Any]] = field(default_factory=dict)
+    by_lo: dict[str, list[Any]] = field(default_factory=dict)
+    changed: frozenset[str] = frozenset()
+    unreadable: bool = False
+
+    def item(self, item_id: str | None) -> list[Any]:
+        return list(self.by_item.get(str(item_id or ""), ()))
+
+    def lo(self, lo_id: str | None) -> list[Any]:
+        return list(self.by_lo.get(str(lo_id or ""), ()))
+
+    def los(self, lo_ids: Iterable[str]) -> list[Any]:
+        return [key for lo_id in dict.fromkeys(lo_ids) for key in self.lo(lo_id)]
+
+
+def key_book(connection: Any, vault: Any, unknowns: list[str]) -> KeyBook:
+    """The :class:`KeyBook` of the vault's items and contract snapshots."""
+
+    by_item: dict[str, dict[str, Any]] = {}
+    by_lo: dict[str, dict[str, Any]] = {}
+
+    def add(item_id: Any, lo_id: Any, key: Any) -> None:
+        if key in (None, "", {}, []):
+            return
+        identity = _key_identity(key)
+        by_item.setdefault(str(item_id), {})[identity] = key
+        if lo_id:
+            by_lo.setdefault(str(lo_id), {})[identity] = key
+
+    for item in vault.practice_items.values():
+        add(item.id, item.learning_object_id, item.expected_answer)
+    unreadable = False
+    try:
+        if _table(connection, "assessment_contract_versions"):
+            for item_id, lo_id, value, kind in connection.execute(
+                "SELECT practice_item_id, json_extract(contract_json, '$.learning_object_id'), "
+                "json_extract(contract_json, '$.expected_answer'), json_type(contract_json, '$.expected_answer') "
+                "FROM assessment_contract_versions"
+            ):
+                if kind in ("object", "array") and isinstance(value, str):
+                    value = json.loads(value)
+                item = vault.practice_items.get(str(item_id))
+                add(item_id, lo_id or (item.learning_object_id if item is not None else None), value)
+    except Exception:  # noqa: BLE001 - fail closed: text that could quote a key is withheld
+        _LOG.warning("learner context: contract answer keys not read", exc_info=True)
+        unknowns.append("past answer keys could not be read: answers and statements that could quote one are withheld")
+        unreadable = True
+    return KeyBook(
+        by_item={item_id: list(keys.values()) for item_id, keys in by_item.items()},
+        by_lo={lo_id: list(keys.values()) for lo_id, keys in by_lo.items()},
+        changed=frozenset(item_id for item_id, keys in by_item.items() if len(keys) > 1),
+        unreadable=unreadable,
+    )
 
 
 def leaks_key(text: str, expected_answers: Iterable[Any]) -> bool:
@@ -226,19 +348,47 @@ def leaks_key(text: str, expected_answers: Iterable[Any]) -> bool:
     return False
 
 
-def _keys_for_lo(vault: Any, lo_id: str | None) -> list[Any]:
-    return [item.expected_answer for item in vault.practice_items.values()
-            if item.learning_object_id == lo_id]
-
-
-def _guarded(text: Any, keys: Iterable[Any], limit: int) -> tuple[str | None, str | None]:
+def _guarded(text: Any, keys: Iterable[Any], limit: int, *, book: KeyBook | None = None) -> tuple[str | None, str | None]:
     """``(excerpt, note)``: the text, or None with why it is withheld."""
 
     if not text or not str(text).strip():
         return None, None
+    if book is not None and book.unreadable:
+        return None, KEYS_UNREADABLE
     if leaks_key(str(text), keys):
         return None, KEY_WITHHELD
     return excerpt(text, limit), None
+
+
+def _attempt_items(connection: Any, attempt_ids: Iterable[Any]) -> dict[str, str | None]:
+    """``{attempt id: its practice item}``; an attempt not on record maps to None."""
+
+    ids = sorted({str(attempt_id) for attempt_id in attempt_ids if attempt_id})
+    found: dict[str, str | None] = dict.fromkeys(ids)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for attempt_id, item_id in connection.execute(
+            f"SELECT id, practice_item_id FROM practice_attempts WHERE id IN ({_marks(chunk)})", chunk,
+        ):
+            found[str(attempt_id)] = None if item_id is None else str(item_id)
+    return found
+
+
+def _withheld_for_attempts(withheld: Withheld, items: Mapping[str, str | None],
+                           attempt_ids: Iterable[Any]) -> str | None:
+    """Why text drawn from these answers is withheld: the first protected (or
+    unrecorded) answer's reason, or None when every answer may be shown."""
+
+    for attempt_id in sorted({str(value) for value in attempt_ids if value}):
+        if attempt_id not in items:
+            continue
+        item_id = items[attempt_id]
+        reason = withheld.reason(item_id) if item_id else WITHHELD_UNKNOWN_ITEM
+        if reason:
+            return reason
+    if not withheld.available:
+        return WITHHELD_UNREADABLE
+    return None
 
 
 # -- scope -------------------------------------------------------------------------
@@ -293,7 +443,8 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
 
 
 def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-                    limits: ContextLimits, unknowns: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+                    limits: ContextLimits, book: KeyBook,
+                    unknowns: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     registry: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
     if not los:
@@ -312,11 +463,11 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
             ):
                 if str(row["id"]) in demoted:
                     continue
-                keys = _keys_for_lo(vault, row["learning_object_id"])
-                statement, note = _guarded(row["statement"], keys, STATEMENT_LIMIT)
+                keys = book.lo(row["learning_object_id"])
+                statement, note = _guarded(row["statement"], keys, STATEMENT_LIMIT, book=book)
                 correction, correction_note = _guarded(
                     row["correction_statement"] if "correction_statement" in row.keys() else None,
-                    keys, STATEMENT_LIMIT)
+                    keys, STATEMENT_LIMIT, book=book)
                 sightings = _loads(row["source_error_event_ids_json"], [])
                 registry.append({
                     "misconception_id": row["id"], "learning_object_id": row["learning_object_id"],
@@ -333,8 +484,8 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
                 f"AND learning_object_id IN ({_marks(scope)}) ORDER BY occurrence_count DESC, updated_at DESC, id",
                 scope,
             ):
-                statement, note = _guarded(row["statement"], _keys_for_lo(vault, row["learning_object_id"]),
-                                           STATEMENT_LIMIT)
+                statement, note = _guarded(row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT,
+                                           book=book)
                 candidates.append({
                     "candidate_id": row["id"], "learning_object_id": row["learning_object_id"],
                     "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
@@ -350,10 +501,21 @@ def _misconceptions(connection: Any, vault: Any, los: set[str], titles: Mapping[
 
 
 def _hypotheses(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-                limits: ContextLimits, withheld: Withheld, unknowns: list[str]) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
+                limits: ContextLimits, withheld: Withheld, book: KeyBook,
+                unknowns: list[str]) -> list[dict[str, Any]]:
+    """Open hypotheses: the diagnosed causes, then the unresolved causes (each
+    read on its own, so an LO with unresolved causes and no named hypothesis
+    still shows them)."""
+
     if not los:
-        return entries
+        return []
+    return _diagnosed_causes(connection, los, titles, limits, withheld, book, unknowns) + \
+        _unresolved_causes(connection, los, titles, limits, unknowns)
+
+
+def _diagnosed_causes(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+                      withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
     try:
         if not _table(connection, "causal_hypotheses"):
             return entries
@@ -373,6 +535,7 @@ def _hypotheses(connection: Any, vault: Any, los: set[str], titles: Mapping[str,
         ):
             versions.setdefault(str(row["episode_key"]), []).append(dict(row))
         attempt_ids = sorted({str(v["attempt_id"]) for rows_ in versions.values() for v in rows_ if v["attempt_id"]})
+        attempt_items = _attempt_items(connection, [*attempt_ids, *(row["attempt_id"] for row in rows)])
         feedback: dict[str, list[str]] = {}
         if attempt_ids and _table(connection, "diagnosis_feedback"):
             for row in connection.execute(
@@ -412,15 +575,14 @@ def _hypotheses(connection: Any, vault: Any, los: set[str], titles: Mapping[str,
             tried = (repairs.get(str(row["id"]), []) + repairs.get(episode, [])
                      + repairs.get(str(row.get("promoted_misconception_id") or ""), []))
             outcomes = verifications.get(str(row["id"]), [])
-            attempt_item = None
-            if row.get("attempt_id"):
-                found = connection.execute("SELECT practice_item_id FROM practice_attempts WHERE id = ?",
-                                           (row["attempt_id"],)).fetchone()
-                attempt_item = found[0] if found is not None else None
-            keys = _keys_for_lo(vault, row["learning_object_id"])
-            statement, note = _guarded(row["statement"], keys, STATEMENT_LIMIT)
-            if attempt_item is not None and withheld.reason(attempt_item):
-                statement, note = None, f"withheld: {withheld.reason(attempt_item)}"
+            # The statement is drawn from every answer of its episode: one
+            # protected (or unreadable) answer withholds it.
+            reason = _withheld_for_attempts(withheld, attempt_items, [*episode_attempts, row.get("attempt_id")])
+            if reason:
+                statement, note = None, f"withheld: {reason}"
+            else:
+                statement, note = _guarded(row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT,
+                                           book=book)
             entries.append({
                 "kind": "diagnosed_cause", "learning_object_id": row["learning_object_id"],
                 "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
@@ -442,30 +604,50 @@ def _hypotheses(connection: Any, vault: Any, los: set[str], titles: Mapping[str,
                 },
                 "repairs_tried": tried,
             })
-        if _table(connection, "unresolved_cause_factors"):
-            scope = sorted(los)
-            for row in connection.execute(
-                f"""SELECT a.learning_object_id, COUNT(*) AS n, MIN(f.created_at) AS since
-                      FROM unresolved_cause_factors f JOIN practice_attempts a ON a.id = f.attempt_id
-                     WHERE f.status = 'open' AND a.learning_object_id IN ({_marks(scope)})
-                     GROUP BY a.learning_object_id ORDER BY a.learning_object_id""",
-                scope,
-            ):
-                entries.append({
-                    "kind": "unresolved_cause", "learning_object_id": row["learning_object_id"],
-                    "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
-                    "status": "open", "since": row["since"],
-                    "statement": f"{row['n']} answer(s) whose cause is not settled",
-                })
     except Exception:  # noqa: BLE001 - named as unknown
         _LOG.warning("learner context: open hypotheses not read", exc_info=True)
         unknowns.append("open hypotheses could not be read")
     return entries[: limits.hypotheses]
 
 
-def _recurrence_groups(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-                       limits: ContextLimits, unknowns: list[str]) -> list[dict[str, Any]]:
+def _unresolved_causes(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+                       unknowns: list[str]) -> list[dict[str, Any]]:
+    """Answers whose cause is not settled, per LO (a count; no answer text)."""
+
+    entries: list[dict[str, Any]] = []
+    try:
+        if not _table(connection, "unresolved_cause_factors"):
+            return entries
+        scope = sorted(los)
+        for row in connection.execute(
+            f"""SELECT a.learning_object_id, COUNT(*) AS n, MIN(f.created_at) AS since
+                  FROM unresolved_cause_factors f JOIN practice_attempts a ON a.id = f.attempt_id
+                 WHERE f.status = 'open' AND a.learning_object_id IN ({_marks(scope)})
+                 GROUP BY a.learning_object_id ORDER BY a.learning_object_id""",
+            scope,
+        ):
+            entries.append({
+                "kind": "unresolved_cause", "learning_object_id": row["learning_object_id"],
+                "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
+                "status": "open", "since": row["since"],
+                "statement": f"{row['n']} answer(s) whose cause is not settled",
+            })
+    except Exception:  # noqa: BLE001 - named as unknown
+        _LOG.warning("learner context: unresolved causes not read", exc_info=True)
+        unknowns.append("unresolved causes could not be read")
+    return entries[: limits.hypotheses]
+
+
+def _recurrence_groups(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+                       withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
+    """Groups touching the scope's LOs. An empty scope has none (a topic or
+    ids that matched nothing is not a whole-learner request: that scope is
+    every active LO). A group's statement is its root's; it is withheld when
+    any answer behind any member is protected or unreadable."""
+
     groups: list[dict[str, Any]] = []
+    if not los:
+        return groups
     try:
         if not (_table(connection, "hypothesis_recurrence_groups") and _table(connection, "causal_hypotheses")):
             return groups
@@ -479,13 +661,27 @@ def _recurrence_groups(connection: Any, vault: Any, los: set[str], titles: Mappi
                 ORDER BY g.group_key, g.episode_key"""
         ):
             members.setdefault(str(row["group_key"]), []).append(dict(row))
-        for group_key, rows in members.items():
+        selected = {key: rows for key, rows in members.items()
+                    if {str(row["learning_object_id"]) for row in rows} & los}
+        episodes = sorted({str(row["episode_key"]) for rows in selected.values() for row in rows})
+        attempts: dict[str, set[str]] = {}
+        for start in range(0, len(episodes), 500):
+            chunk = episodes[start:start + 500]
+            for episode, attempt_id in connection.execute(
+                f"SELECT episode_key, attempt_id FROM causal_hypotheses WHERE episode_key IN ({_marks(chunk)})", chunk,
+            ):
+                if attempt_id:
+                    attempts.setdefault(str(episode), set()).add(str(attempt_id))
+        attempt_items = _attempt_items(connection, [a for values in attempts.values() for a in values])
+        for group_key, rows in selected.items():
             lo_ids = sorted({str(row["learning_object_id"]) for row in rows})
-            if los and not set(lo_ids) & los:
-                continue
             root = next((row for row in rows if row["episode_key"] == row["root_episode_key"]), rows[0])
-            keys = [key for lo in lo_ids for key in _keys_for_lo(vault, lo)]
-            statement, note = _guarded(root["statement"], keys, STATEMENT_LIMIT)
+            behind = [attempt for row in rows for attempt in attempts.get(str(row["episode_key"]), ())]
+            reason = _withheld_for_attempts(withheld, attempt_items, behind)
+            if reason:
+                statement, note = None, f"withheld: {reason}"
+            else:
+                statement, note = _guarded(root["statement"], book.los(lo_ids), STATEMENT_LIMIT, book=book)
             groups.append({
                 "group_key": group_key, "statement": statement, "statement_note": note,
                 "episodes": len(rows), "class_count": max(int(row["class_count"]) for row in rows),
@@ -500,10 +696,13 @@ def _recurrence_groups(connection: Any, vault: Any, los: set[str], titles: Mappi
     return groups[: limits.groups]
 
 
-def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknowns: list[str]) -> dict[str, str]:
+def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknowns: list[str]) -> dict[str, str | None]:
     """The question each attempt answered: its pinned assessment contract's
-    prompt (only the prompt is read, never the key or rubric). An attempt with
-    no contract, or several, gets no stem (router R2a review F6)."""
+    prompt (only the prompt is read here, never the key or rubric). An attempt
+    with no contract, or several, is not pinned (router R2a review F6). The
+    keys of every contract are in the :class:`KeyBook`, for filtering only.
+
+    ``{attempt id: prompt or None}`` for the pinned attempts."""
 
     items = {str(row["id"]): row.get("practice_item_id") for row in attempts}
     if not items:
@@ -534,16 +733,16 @@ def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknow
         _LOG.warning("learner context: pinned questions not read", exc_info=True)
         unknowns.append("the questions past work answered could not be read: none is shown")
         return {}
-    stems: dict[str, str] = {}
+    stems: dict[str, str | None] = {}
     for attempt_id, version_id in single.items():
         item_id, prompt = prompts.get(str(version_id), (None, None))
-        if item_id is not None and item_id == items.get(attempt_id) and isinstance(prompt, str) and prompt.strip():
-            stems[attempt_id] = prompt
+        if item_id is not None and item_id == items.get(attempt_id):
+            stems[attempt_id] = prompt if isinstance(prompt, str) and prompt.strip() else None
     return stems
 
 
-def _traces(connection: Any, repository: Any, vault: Any, los: set[str], titles: Mapping[str, str],
-            limits: ContextLimits, withheld: Withheld, unknowns: list[str], now_iso: str) -> list[dict[str, Any]]:
+def _traces(connection: Any, repository: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+            withheld: Withheld, book: KeyBook, unknowns: list[str], now_iso: str) -> list[dict[str, Any]]:
     from learnloop.held_grades import held_for_review_attempts
 
     if not los:
@@ -604,13 +803,20 @@ def _traces(connection: Any, repository: Any, vault: Any, los: set[str], titles:
             reason = WITHHELD_EXAM
         if reason is None and (row.get("attempt_type") == "diagnostic_probe" or row.get("probe_presentation_id")):
             reason = WITHHELD_PROBE
-        keys = [_expected(vault, item_id)]
+        # Every key the item is known to have had, the pinned one among them.
+        # Without a pin, an item whose key has changed leaves the key this
+        # answer was graded against unknown: its text is withheld (fail closed).
+        keys = book.item(item_id)
+        revision_known = attempt_id in pinned or str(item_id or "") not in book.changed
         answer = answer_note = None
         if reason is None:
-            answer, answer_note = _guarded(row.get("learner_answer_md"), keys, EXCERPT_LIMIT)
+            if revision_known:
+                answer, answer_note = _guarded(row.get("learner_answer_md"), keys, EXCERPT_LIMIT, book=book)
+            elif str(row.get("learner_answer_md") or "").strip():
+                answer_note = REVISION_UNKNOWN
         stem = None if reason else pinned.get(attempt_id)
-        diagnosis = _diagnosis(repository, vault, attempt_id, keys, hidden=reason is not None,
-                               statements=hypotheses.get(attempt_id, []))
+        diagnosis = _diagnosis(repository, attempt_id, keys, book, hidden=reason is not None,
+                               revision_known=revision_known, statements=hypotheses.get(attempt_id, []))
         status = row.get("reference_status")
         traces.append({
             "attempt_id": attempt_id, "at": row["created_at"], "learning_object_id": row["learning_object_id"],
@@ -633,8 +839,8 @@ def _traces(connection: Any, repository: Any, vault: Any, los: set[str], titles:
     return traces
 
 
-def _diagnosis(repository: Any, vault: Any, attempt_id: str, keys: Sequence[Any], *, hidden: bool,
-               statements: Sequence[str]) -> dict[str, Any]:
+def _diagnosis(repository: Any, attempt_id: str, keys: Sequence[Any], book: KeyBook, *, hidden: bool,
+               revision_known: bool, statements: Sequence[str]) -> dict[str, Any]:
     from learnloop.diagnosis.split.card import plain_summary
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
 
@@ -650,19 +856,28 @@ def _diagnosis(repository: Any, vault: Any, attempt_id: str, keys: Sequence[Any]
         diagnosis = repository.attempt_diagnosis(str(status["diagnosis_id"])) or {}
         analysis = str((diagnosis.get("proposal") or {}).get("analysis_md") or "")
         if analysis:
-            summary, note = _guarded(plain_summary(repository, analysis), keys, STATEMENT_LIMIT)
+            if revision_known:
+                summary, note = _guarded(plain_summary(repository, analysis), keys, STATEMENT_LIMIT, book=book)
+            else:
+                note = REVISION_UNKNOWN
             if note:
                 entry["summary_note"] = note
     entry["summary"] = summary
-    guarded = [_guarded(text, keys, STATEMENT_LIMIT) for text in statements]
+    if not revision_known:
+        entry["hypotheses"] = []
+        if statements:
+            entry["hypotheses_note"] = REVISION_UNKNOWN
+        return entry
+    guarded = [_guarded(text, keys, STATEMENT_LIMIT, book=book) for text in statements]
     entry["hypotheses"] = [text for text, _note in guarded if text]
-    if any(note for _text, note in guarded):
-        entry["hypotheses_note"] = KEY_WITHHELD
+    notes = [note for _text, note in guarded if note]
+    if notes:
+        entry["hypotheses_note"] = notes[0]
     return entry
 
 
-def _gap_target(connection: Any, vault: Any, kind: str | None, target_id: str | None,
-                titles: Mapping[str, str]) -> str | None:
+def _gap_target(connection: Any, kind: str | None, target_id: str | None, titles: Mapping[str, str],
+                book: KeyBook) -> str | None:
     """What a gap was matched to, in words: a topic, a recorded misconception or a candidate."""
 
     if not kind or not target_id:
@@ -675,12 +890,12 @@ def _gap_target(connection: Any, vault: Any, kind: str | None, target_id: str | 
     row = connection.execute(f"SELECT learning_object_id, statement FROM {table} WHERE id = ?", (target_id,)).fetchone()
     if row is None:
         return None
-    statement, _note = _guarded(row["statement"], _keys_for_lo(vault, row["learning_object_id"]), STATEMENT_LIMIT)
+    statement, _note = _guarded(row["statement"], book.lo(row["learning_object_id"]), STATEMENT_LIMIT, book=book)
     return statement
 
 
-def _gaps(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
-          withheld: Withheld, unknowns: list[str]) -> list[dict[str, Any]]:
+def _gaps(connection: Any, los: set[str], titles: Mapping[str, str], limits: ContextLimits,
+          withheld: Withheld, book: KeyBook, unknowns: list[str]) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
     if not los:
         return gaps
@@ -708,8 +923,8 @@ def _gaps(connection: Any, vault: Any, los: set[str], titles: Mapping[str, str],
             reason = withheld.reason(row["practice_item_id"]) if row["practice_item_id"] else (
                 None if withheld.available else WITHHELD_UNREADABLE)
             text, note = (None, f"withheld: {reason}") if reason else _guarded(
-                row["learner_text"], [_expected(vault, row["practice_item_id"])], STATEMENT_LIMIT)
-            target = _gap_target(connection, vault, row["target_kind"], row["target_id"], titles)
+                row["learner_text"], book.item(row["practice_item_id"]), STATEMENT_LIMIT, book=book)
+            target = _gap_target(connection, row["target_kind"], row["target_id"], titles, book)
             gaps.append({
                 "gap_id": row["id"], "kind": row["kind"], "action": row["action"],
                 "learning_object_id": lo, "topic": titles.get(lo, lo), "target": target,
@@ -803,19 +1018,22 @@ def learning_context(
     withheld = withheld if withheld is not None else withheld_items(vault, repository)
     unknowns.extend(withheld.unknowns)
     with repository.connection() as connection:
-        misconceptions, candidates = _misconceptions(connection, vault, los, titles, limits, unknowns)
-        hypotheses = _hypotheses(connection, vault, los, titles, limits, withheld, unknowns)
-        groups = _recurrence_groups(connection, vault, los, titles, limits, unknowns)
+        book = key_book(connection, vault, unknowns)
+        misconceptions, candidates = _misconceptions(connection, vault, los, titles, limits, book, unknowns)
+        hypotheses = _hypotheses(connection, vault, los, titles, limits, withheld, book, unknowns)
+        groups = _recurrence_groups(connection, los, titles, limits, withheld, book, unknowns)
         try:
-            traces = _traces(connection, repository, vault, los, titles, limits, withheld, unknowns, now_iso)
+            traces = _traces(connection, repository, los, titles, limits, withheld, book, unknowns, now_iso)
         except Exception:  # noqa: BLE001 - named as unknown
             _LOG.warning("learner context: answer traces not read", exc_info=True)
             unknowns.append("recent answer traces could not be read")
             traces = []
-        gaps = _gaps(connection, vault, los, titles, limits, withheld, unknowns)
+        gaps = _gaps(connection, los, titles, limits, withheld, book, unknowns)
     risks = retention_risks(vault, repository, los, now=moment, limit=limits.risks, unknowns=unknowns)
     if scope["matched_by"] == "topic" and not los:
         unknowns.append("no topic in the vault matched; LearnLoop has no record about it")
+    if scope["matched_by"] == "ids" and not los:
+        unknowns.append("none of the named learning objects is in this vault; LearnLoop has no record about them")
     return {
         "context_version": CONTEXT_VERSION,
         "as_of": now_iso,
@@ -841,11 +1059,18 @@ __all__ = [
     "CONTEXT_VERSION",
     "ContextLimits",
     "KEY_WITHHELD",
+    "KeyBook",
+    "PROTECTION_UNKNOWN",
     "RETENTION_TARGET",
+    "SNAPSHOT_UNSETTLED",
+    "WITHHELD_UNKNOWN_ITEM",
+    "WITHHELD_UNREADABLE",
     "Withheld",
     "excerpt",
+    "key_book",
     "leaks_key",
     "learning_context",
+    "protection_issues",
     "resolve_scope",
     "retention_risks",
     "withheld_items",

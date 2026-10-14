@@ -175,8 +175,10 @@ def test_learning_context_is_the_apps_latent_state(world, server):
     # The hypothesis on the cold check's own answer keeps no statement.
     cold = next(h for h in hypotheses if h["attempt_id"] == "att_cold")
     assert cold["statement"] is None and "check waiting in the app" in cold["statement_note"]
-    (group,) = context["recurrence_groups"]
-    assert group["statement"] == HYPOTHESIS and group["episodes"] == 2
+    groups = {group["group_key"]: group for group in context["recurrence_groups"]}
+    assert groups["grp_swap"]["statement"] == HYPOTHESIS and groups["grp_swap"]["episodes"] == 2
+    # The group the cold check's hypothesis roots keeps no statement (Codex review F2).
+    assert groups["grp_cold"]["statement"] is None
     traces = {trace["attempt_id"]: trace for trace in context["recent_answer_traces"]}
     own = traces["att_own"]
     assert own["stem"] == PINNED_STEM and own["answer"] == OWN_ANSWER and own["result"] == "incorrect"

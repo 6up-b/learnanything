@@ -293,14 +293,17 @@ def library(runtime: Any, *, query: str | None = None, limit: int = 30) -> dict[
 
     from learnloop.content.pipeline.add_source import learner_title, source_kind_noun, source_status_line
     from learnloop.content.sources.exam_material import exam_material
+    from learnloop.learner_context import protection_issues
 
     vault = runtime.vault()
     repository = runtime.read_repository()
     subject_by_source = {member.source_id: source_set.subject_id
                          for source_set in vault.source_sets for member in source_set.members}
+    # Fail closed: with the source sets unreadable (or the snapshot unsettled)
+    # every source reads as possibly exam material.
     try:
-        exam = exam_material(vault, repository)
-    except Exception:  # noqa: BLE001 - fail closed: every source reads as possibly exam material
+        exam = None if protection_issues(vault) else exam_material(vault, repository)
+    except Exception:  # noqa: BLE001 - fail closed, as above
         exam = None
     words = [word for word in (query or "").lower().split() if word]
     cards: list[dict[str, Any]] = []
