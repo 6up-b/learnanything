@@ -143,6 +143,15 @@ def test_each_mixture_decision_stores_its_card_both_requests_and_both_raw_answer
         assert row["cost_usd"] > 0 and row["latency_ms"] is not None
 
 
+def test_the_router_llm_is_asked_in_an_isolated_turn(tmp_path):
+    # The card carries learner text: no tools, files, memories or MCP servers
+    # beside the prompt, as for the blind grader.
+    llm = FakeLLM()
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=llm))
+    run(env)
+    assert llm.requests and all(request.isolated for request in llm.requests)
+
+
 def test_router_log_shows_one_decisions_receipt_in_full(tmp_path):
     import json
 

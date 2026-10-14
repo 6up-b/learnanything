@@ -77,6 +77,8 @@ def test_a_graded_teach_back_is_summarized_into_the_next_card(tmp_path):
     assert summary["missing_or_wrong"] == ["why independence makes the coordinates unique"]
     (request,) = calls
     assert "no vector is redundant" in request.prompt and "partly correct" in request.prompt
+    # The learner's dialogue goes to an isolated turn, as the blind grader's does.
+    assert request.isolated is True
     # Idempotent: a stored summary is never paid for twice.
     assert tb.summarize(env.vault, env.repository, attempt_id, runtime=runtime) is None and len(calls) == 1
     with env.repository.connection() as connection:

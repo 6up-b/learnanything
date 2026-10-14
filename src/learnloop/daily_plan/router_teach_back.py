@@ -122,7 +122,7 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     except Exception:  # noqa: BLE001 - not set up: no summary
         return None
     from learnloop.ai.spend import is_subscription_transport
-    from learnloop.daily_plan.router_runtime import _price_per_million
+    from learnloop.daily_plan.router_runtime import _price_per_million, _supports_isolation
 
     subscription = bool(is_subscription_transport(client=client))
     usd = 0.0 if subscription else (len(prompt) / 4 + 4096) * _price_per_million(
@@ -135,9 +135,11 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     started = time.monotonic()
     try:
         with record_model_calls(repository, owner_kind=SUMMARY_RECEIPT_OWNER, owner_id=attempt_id):
+            # An isolated turn, as the blind grader reads the same dialogue:
+            # no tools, files, memories or MCP servers beside the prompt.
             answer = execute_structured_operation(
                 client, purpose=PURPOSE, prompt=prompt, result_model=TeachBackSummary,  # type: ignore[arg-type]
-                timeout_seconds=TIMEOUT_SECONDS,
+                timeout_seconds=TIMEOUT_SECONDS, isolated=_supports_isolation(client),
             )
     except Exception:  # noqa: BLE001 - a summary is context; its failure is logged, never raised
         LOG.warning("router R2c: the teach-back summary of %s failed", attempt_id, exc_info=True)
