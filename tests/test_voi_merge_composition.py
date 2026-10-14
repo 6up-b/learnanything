@@ -522,7 +522,7 @@ def _report_site(vault, site):
     from learnloop.evsi_calibration import live_report as LR
 
     report = LR.calibration_report(vault)
-    assert report["report_version"] == "voi_calibration_report_v5"
+    assert report["report_version"] == "voi_calibration_report_v6"
     return report["sites"][site]
 
 

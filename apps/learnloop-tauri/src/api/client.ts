@@ -495,6 +495,8 @@ export const api = {
     schedulerCandidateId?: string | null;
     /** mvp-0.13: the draft is being written after "I'm stuck". */
     declaredStuck?: boolean;
+    /** Router R2a (review F5): kept with the draft so a resumed draft binds. */
+    planPresentationId?: string | null;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   recoverPracticeSubmission: (input: {
     sessionId: string;
@@ -517,6 +519,8 @@ export const api = {
     assessmentContractVersionId?: string | null;
     submissionId?: string | null;
     schedulerCandidateId?: string | null;
+    /** Router R2a: the daily-plan presentation this answer is to. */
+    planPresentationId?: string | null;
   }) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_dont_know", { input })),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),

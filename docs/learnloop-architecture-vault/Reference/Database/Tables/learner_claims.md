@@ -3,13 +3,13 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
   - "table learner_claims"
-schema_head: 201
+schema_head: 202
 table_name: "learner_claims"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/priors.py"
   - "src/learnloop/learner/learner_profile.py"
@@ -91,6 +92,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/priors.py`
 

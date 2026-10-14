@@ -710,6 +710,9 @@ export interface SessionCheckpoint {
   /** mvp-0.13: the draft was being written after "I'm stuck" (absent from an
    *  older sidecar, which never stored one). */
   declaredStuck?: boolean;
+  /** Router R2a (review F5): the daily-plan presentation the draft answers
+   *  (absent from an older sidecar). */
+  planPresentationId?: string | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -1137,6 +1140,9 @@ export interface SubmitAttemptInput {
   /** Stable identity reused when a network submission is retried. */
   submissionId?: string | null;
   schedulerCandidateId?: string | null;
+  /** Router R2a: the daily-plan presentation this answer is to (the plan
+   *  step's `presentationId`). A wrong or used one never fails the submit. */
+  planPresentationId?: string | null;
   /** mvp-0.13: written after "I'm stuck" ("Write what you can, or what's
    *  confusing you"). May be empty. Still an ordinary attempt of
    *  `attemptType`: graded when it has text, scored 0 at once when empty. */
@@ -6019,8 +6025,18 @@ export interface RunStateDto {
 }
 export interface RunAdvanceResultDto {
   version: number;
-  result: { toState: string; [k: string]: unknown };
+  /** Null when the staged rule deferred the step (router R2a, `bridge.deferred`). */
+  result: { toState: string; [k: string]: unknown } | null;
   state: RunStateDto;
+  /** Router R2a (D13): present when the step went through the staged bridge. */
+  bridge?: {
+    authority: string;
+    toState: string | null;
+    reason: string;
+    vetoReason: string | null;
+    deferred?: { vetoReason: string | null; message: string };
+    [k: string]: unknown;
+  };
 }
 
 /** capability × facet boundary cell (§5.3) — never blends two axes (§1). */
@@ -7354,6 +7370,8 @@ export interface PlanBlockDto {
   chosenBy: string;
   why: string;
   whyKind: string | null;
+  /** Router R2a: the receipts behind the why ("details"), or null. */
+  whyDetails?: string | null;
   fallback: boolean;
   estMinutes: number;
   status: "done" | "current" | "upcoming";
@@ -7388,6 +7406,8 @@ export interface PlanItemStepDto {
   estMinutes?: number;
   origin: string;
   schedulerCandidateId: string | null;
+  /** Router R2a: the receipt an answer binds to; null until the item is served. */
+  presentationId?: string | null;
   /** The first item of a block not started yet: show the block line first. */
   boundary: boolean;
 }

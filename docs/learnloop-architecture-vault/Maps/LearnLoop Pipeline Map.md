@@ -5,8 +5,8 @@ aliases:
   - LearnLoop Pipeline MOC
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.22
-last_reviewed: 2026-10-13
+implementation_version: mvp-0.23
+last_reviewed: 2026-10-14
 source_commit: fc697aab4b9f6b5680e2cff7b0aecad45c693297
 source_commit_timestamp: "2026-10-13T20:34:01-04:00"
 source_paths:
@@ -23,7 +23,11 @@ source_paths:
   - src/learnloop/reader/reader_inquiry.py
   - src/learnloop/reader/reader_quick_check.py
   - src/learnloop/daily_plan/engine.py
+  - src/learnloop/daily_plan/staged_frame.py
+  - src/learnloop/daily_plan/router_card.py
   - src/learnloop/router/decisions.py
+  - src/learnloop/router/card.py
+  - src/learnloop/db/stores/plan_presentations.py
   - src/learnloop/attempts/blind_grading.py
   - src/learnloop/attempts/grading_support.py
   - src/learnloop/held_grades.py
@@ -44,6 +48,7 @@ source_paths:
   - apps/learnloop-tauri/src/api/client.ts
   - src/learnloop_mobile/host.py
   - docs/specs/spec_action_router_v1.md
+  - docs/specs/plan_router_r2_v1.md
   - docs/reviews/facet-reword-confirm.md
 tags:
   - learnloop/architecture
@@ -58,7 +63,7 @@ Start with the loop, then open the stage you need. Arrows show data or control f
 
 Note-name nodes are clickable through `class NodeId internal-link;`, with the node text exactly matching the note name, as documented in [Obsidian's diagram-link convention](https://obsidian.md/help/advanced-syntax#Linking%20files%20in%20a%20diagram). Prose WikiLinks provide navigation and backlinks too. Existing notes remain the conceptual authorities; their recorded review dates may precede this map. In particular, older Reader defaults, scheduler propensity descriptions, and table counts should not be read as a new audit of this commit.
 
-**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.22` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
+**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.23` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`, router R2a's staged frame on Today at `mvp-0.23`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
 
 ## End-to-end loop
 
@@ -70,7 +75,7 @@ flowchart TB
         BUILD --> MAP["Study map<br/>LOs, facets, items, rubrics<br/>practice families and exercise imports"]
         MAP --> READ["Reader<br/>Guide, RW1a Ask, quick checks<br/>progress and chapter-ahead builds"]
         READ --> PLAN["DL1 daily plan<br/>Today / begin, finite lanes<br/>load and VOI admission"]
-        PLAN --> ROUTER["R1 router decision logging<br/>current scheduler and plan choices"]
+        PLAN --> ROUTER["Router: R2a staged frame on Today<br/>R1 decision log, plan presentations<br/>stored state card"]
         ROUTER --> SERVE["Serve practice, probes / episodes<br/>follow-ups, teach-backs, exams<br/>held-out reservation"]
         SERVE --> ATT["Attempt"] --> GRADE["Blind grading<br/>own-route rules / held grades"]
         GRADE --> DIAG["History-aware diagnosis<br/>causal hypotheses, recurrence<br/>misconceptions, learner-text gaps"]
@@ -79,7 +84,7 @@ flowchart TB
         VOI --> PLAN
         VOI --> ROUTER
         READ -->|build ahead| BUILD
-        ROUTER -.-> R2["R2 staged frame / state card<br/>being built; planned here<br/>R2b / R2c not shipped"]
+        ROUTER -.-> R2["R2b / R2c model routing<br/>planned"]
     end
     subgraph SIDE[Cross-cutting layers]
         AI["AI Architecture"] --> AID["Routing: Codex, ChatGPT plan<br/>OpenRouter, Decider tier-1<br/>output budgets, spend and receipts"]
@@ -151,22 +156,24 @@ flowchart LR
     S["Scheduling and Selection"] --> E["Eligibility and placement<br/>held-out exclusion"]
     E --> L["Repair / maintain / new / push<br/>reading blocks"]
     L --> A["Load admission + VOI<br/>finite minute budget"]
-    A --> P["Today / begin<br/>DL1 block chooser"]
-    P --> R["R1 decision ledger"]
+    A --> F["R2a staged frame<br/>P4 constraint vetoes"]
+    F --> P["Today / begin<br/>DL1 lanes, lane_quota_v1"]
+    P --> R["Decision ledger<br/>R1 log, R2a state card"]
     R --> V["Practice / probes / follow-ups<br/>teach-back / exam session"]
-    V --> O["Attempt and outcome joins"]
+    V --> PR["Plan presentation<br/>exact receipt"]
+    PR --> O["Attempt and outcome joins<br/>outcomes v2, EVSI v6"]
     O --> P
-    P -.-> R2["R2 frame and state card<br/>planned on this commit"]
-    R2 -.-> FUT["R2b / R2c model routing<br/>planned"]
+    R -.-> FUT["R2b / R2c model routing<br/>planned"]
     class S internal-link;
     classDef planned stroke-dasharray: 5 5;
-    class R2,FUT planned;
+    class FUT planned;
 ```
 
 - `src/learnloop/daily_plan/engine.py` ([source](../../../src/learnloop/daily_plan/engine.py)) implements DL1 (`daily_plan_v1`, `mvp-0.14+` with `plan.enabled`): finite remembered minutes, feasible blocks, re-entry and learner picks. `src/learnloop/daily_plan/lanes.py` ([source](../../../src/learnloop/daily_plan/lanes.py)) assigns repair, maintain, new and push; `src/learnloop/daily_plan/admission.py` ([source](../../../src/learnloop/daily_plan/admission.py)) controls new-material review load. See the [DL1 review](../../reviews/daily-loop-dl1.md).
 - VOI admission is distinct from new-material load admission: `src/learnloop/diagnosis/voi_stopping.py` ([source](../../../src/learnloop/diagnosis/voi_stopping.py)) values due project probes for the plan and teach-backs for offers, alongside probe continuation and follow-ups. The finite plan still owns available minutes. Key workflow tables: [[daily_plans]], [[attention_blocks]]; block receipts: [[attention_block_events]].
 - `src/learnloop/router/decisions.py` ([source](../../../src/learnloop/router/decisions.py)) and `src/learnloop/router/plan_log.py` ([source](../../../src/learnloop/router/plan_log.py)) record R1 choices, candidates, selection design and available propensities in [[router_decisions]]; [[router_outcomes]] is a derived join. R1 can record an exact focused-head probability under seeded exploration; it does not make every learner pick or full composed slate a randomized action. See [R1 review](../../reviews/router-r1.md) and [[Collection and Dataset Contract]].
-- **R2 is planned here.** The [action-router spec](../../specs/spec_action_router_v1.md) and [R2 handoff](../../specs/implementation_handoffs.md#router-r2-the-decider-router-live-for-the-daily-plan) describe the learner-state card, staged daily-plan frame and model choice. This commit's router package contains logging/outcome modules, not that live chooser. R2b/R2c are future work labels; their detailed split is not established by the checked-in handoff. R1's staged P2 logging bridge also lacks the desktop production caller described in the review.
+- **R2a is live at `mvp-0.23`** (kill switch `router.enabled`; no model is called). At every plan boundary `src/learnloop/daily_plan/staged_frame.py` ([source](../../../src/learnloop/daily_plan/staged_frame.py)) runs the P4 constraint engine over the pool VOI already admitted, against one bounded controller snapshot, and drops what a named hard constraint refuses (a seen or unknown-freshness quick check, a surface reserved for an assessment, an inactive or unrenderable item); `staged_v1` is DL1's `lane_quota_v1` over the rest, so the order is DL1's wherever nothing is refused. The frame has no exam rule of its own: exam reservations and held-out items never reach it (the scheduler's routine exclusions). Each served plan item writes an append-only [[plan_presentations]] row that an answer binds to (`practice_attempts.plan_presentation_id`), so [[router_outcomes]] v2 and the EVSI report v6 join by exact receipt, R1's session rule a labelled fallback. Each routed block stores a learner-state card (`src/learnloop/daily_plan/router_card.py` ([source](../../../src/learnloop/daily_plan/router_card.py)) gathers it, `src/learnloop/router/card.py` ([source](../../../src/learnloop/router/card.py)) builds it) in [[router_decision_payloads]], never sent; it withholds questions and answers on exam or reserved material by the one exam predicate. `golden_path.advance` goes through the P2 bridge (`controller_cutover.advance_live`). See the [R2a review](../../reviews/router-r2a.md) and the [R2 plan](../../specs/plan_router_r2_v1.md).
+- **R2b and R2c are planned.** R2b adds the model's choice over the card (a mixture with an ε floor over the reversible candidates); R2c adds the router's restraint on mid-plan follow-ups (the `plan_interrupt` decision kind is already admitted by the ledger). The [action-router spec](../../specs/spec_action_router_v1.md) and the [R2 plan](../../specs/plan_router_r2_v1.md) describe them.
 - [[Scheduling and Selection]] owns eligibility and ranking; [[Diagnosis and Remediation]] owns probes/episodes and follow-ups. Serving authorities include `src/learnloop/diagnosis/probe_episodes.py` ([source](../../../src/learnloop/diagnosis/probe_episodes.py)), `src/learnloop/diagnosis/followups.py` ([source](../../../src/learnloop/diagnosis/followups.py)) and `src/learnloop/tutor/teach_back.py` ([source](../../../src/learnloop/tutor/teach_back.py)). Teach-back grades only asked-and-answered criteria.
 - Exams reserve held-out surfaces through `src/learnloop/goals/exam_pool.py` ([source](../../../src/learnloop/goals/exam_pool.py)) and `src/learnloop/goals/exam_session.py` ([source](../../../src/learnloop/goals/exam_session.py)); they do not make reserved items ordinary practice. See [[Goals and Certification]] and [[Goals Exams and Certification Workflow]].
 
@@ -292,5 +299,5 @@ These links supply the recent details that the older concept notes do not yet co
 - **Own-route grading and held evidence:** [route rules](../../reviews/route-check-in-grader.md), [held-grade predicate](../../reviews/held-grade-evidence.md).
 - **Sources track and exam protection:** [sources](../../reviews/sources-spec.md), [source practice/probe spec](../../specs/spec_source_practice_and_probes_v1.md), [exam protection](../../reviews/exam-protection.md) (one predicate, landed after this map was first written).
 - **UX Phase 1 and RW1a:** [UX completion](../../reviews/ux-phase1-finish.md), [inquiry](../../reviews/rw1a-inquiry.md).
-- **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2 spec](../../specs/spec_action_router_v1.md). R2's live frame/card and later R2b/R2c are not verified as shipped; the checked-in plan does not define that finer phase split.
+- **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2a](../../reviews/router-r2a.md) (the staged frame, exact receipts and the stored card, landed at `mvp-0.23`), [R2 plan](../../specs/plan_router_r2_v1.md), [R2 spec](../../specs/spec_action_router_v1.md). R2b and R2c are planned, not shipped.
 - **Learner-text gaps and mobile/MCP:** [gaps](../../reviews/learner-text-gaps.md), [mobile M1](../../reviews/mobile-m1.md), [deferred Reader learning service](../../specs/spec_reader_workbench_v1.md).

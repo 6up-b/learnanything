@@ -81,6 +81,18 @@ def _item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]:
     }
 
 
+def _why_details(block: PlannedBlock) -> str | None:
+    router = block.chosen.get("router") if isinstance(block.chosen, dict) else None
+    if not router:
+        return None
+    from learnloop.router.why import DETAILS_STAGED
+
+    lines = [DETAILS_STAGED]
+    if block.decision_ref:
+        lines.append(f"Receipt: learnloop router card --decision {block.decision_ref}")
+    return " ".join(lines)
+
+
 def _block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id: str | None) -> dict[str, Any]:
     status = "done" if block.finished else ("current" if block.id == current_id else "upcoming")
     reading = dict(block.reading) if block.reading else None
@@ -95,6 +107,9 @@ def _block_row(env: PlanEnv, record: PlanRecord, block: PlannedBlock, current_id
         "chosen_by": block.chosen_by,
         "why": str(block.chosen.get("why") or ""),
         "why_kind": block.chosen.get("why_kind"),
+        # Router R2a: the receipts behind the why (plan §7 "details"), only on
+        # a block the router chose; DL1's blocks have none.
+        "why_details": _why_details(block),
         "fallback": bool(block.chosen.get("fallback")),
         "est_minutes": round(block.est_minutes(), 4),
         "status": status,

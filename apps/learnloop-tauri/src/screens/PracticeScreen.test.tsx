@@ -471,3 +471,20 @@ it("serves a plan-off pick with its proposal so the open records the delivery", 
   await screen.findByRole("textbox", { name: "answer" });
   expect(api.getPracticeItem).toHaveBeenCalledWith("old-item", "old-session", origin);
 });
+
+// Router R2a (review F5): the plan presentation is saved and mirrored with the
+// draft, so a draft resumed after a navigation or restart still binds to it.
+it("saves and mirrors the plan presentation with the draft", async () => {
+  const callbacks = props();
+  const view = render(<PracticeScreen {...callbacks} planPresentationId="pres_1" />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.change(answer, { target: { value: "half an answer" } });
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({
+    answerMd: "half an answer", planPresentationId: "pres_1"
+  })));
+  view.unmount();
+  expect(callbacks.onDraftSaved).toHaveBeenLastCalledWith(expect.objectContaining({
+    practiceItemId: "old-item", answerMd: "half an answer", planPresentationId: "pres_1"
+  }));
+});

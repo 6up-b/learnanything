@@ -1179,6 +1179,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
+    # Router R2a (mvp-0.23): the learner-state card's size budget (D8) and how
+    # long its stored text is kept. Neither decides what is served (the staged
+    # frame's choice never reads the card in R2a) nor reaches evidence.
+    _ConfigRule(_exact("router.card_token_budget", "router.payload_retention_days"), "structural", "operational",
+                "router learner-state card budget (D8: older successes, then excerpts, then attempts drop; "
+                "typed fields never) and the stored payload's retention; sizes a receipt, no measurement "
+                "or serving authority."),
     # mvp-0.21 value-of-information stopping: the multi-family EVSI study's
     # switches (docs/reviews/evsi-multisim.md §6.1, ranks 2 and 3; rank 1 is a
     # boolean). Heuristic until live voi_forecasts calibrate them.

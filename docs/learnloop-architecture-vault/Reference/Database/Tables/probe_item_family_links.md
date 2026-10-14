@@ -3,13 +3,13 @@ title: "probe_item_family_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_family_links"
   - "table probe_item_family_links"
-schema_head: 201
+schema_head: 202
 table_name: "probe_item_family_links"
 table_role: "raw_ledger"
 functionality_status: "active"

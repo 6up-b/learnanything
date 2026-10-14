@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 201
+schema_head: 202
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
+  - "src/learnloop/daily_plan/staged_frame.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -132,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/depth_rungs.py`
+- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
@@ -147,7 +149,6 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/valuation.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/scheduling/scheduler.py`
-- `src/learnloop/scheduling/state_signals.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

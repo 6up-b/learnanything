@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 201
+schema_head: 202
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/034_assessment_contract_snapshots.sql"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
-  - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_health.py"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/recurrence/report.py`

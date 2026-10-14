@@ -3,13 +3,13 @@ title: "golden_path_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite golden_path_artifacts"
   - "table golden_path_artifacts"
-schema_head: 201
+schema_head: 202
 table_name: "golden_path_artifacts"
 table_role: "receipt"
 functionality_status: "active"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `tests/test_controller_cutover.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_p2_acceptance.py`
+- `tests/test_router_p2_bridge.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

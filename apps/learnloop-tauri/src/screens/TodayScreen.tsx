@@ -153,7 +153,12 @@ export function TodayScreen({
   gradingReady?: boolean;
   gradingProvider?: string;
   algorithmVersion: string;
-  onOpenPractice: (practiceItemId: string, schedulerCandidateId?: string | null) => void;
+  onOpenPractice: (
+    practiceItemId: string,
+    schedulerCandidateId?: string | null,
+    proposalOrigin?: null,
+    planPresentationId?: string | null
+  ) => void;
   onOpenPrimedPractice: (practiceItemId: string) => void;
   onAsk: (target: AskTarget) => void;
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
@@ -542,7 +547,9 @@ export function TodayScreen({
           const step = result.step;
           onOpenPractice(
             practiceItemId,
-            step && step.kind === "item" ? step.schedulerCandidateId ?? schedulerCandidateId ?? null : schedulerCandidateId ?? null
+            step && step.kind === "item" ? step.schedulerCandidateId ?? schedulerCandidateId ?? null : schedulerCandidateId ?? null,
+            null,
+            step && step.kind === "item" ? step.presentationId ?? null : null
           );
         })
         .catch((error) => onError((error as Error).message));
@@ -657,7 +664,8 @@ export function TodayScreen({
     }
     const result = await runPlan(() => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));
     const action = planStepAction(result?.step, { viaBlockLine: false });
-    if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId);
+    if (action.type === "practice")
+      onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
     else if (action.type === "reader") onOpenPlanReading?.(action.reading);
   }
 

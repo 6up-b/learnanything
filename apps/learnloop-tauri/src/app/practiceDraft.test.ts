@@ -25,7 +25,7 @@ const mirror = (overrides: Partial<PracticeDraftMirror> = {}): PracticeDraftMirr
 
 it("restores the stuck marker from the in-memory mirror after navigation", () => {
   expect(restoredPracticeDraft("item-1", mirror(), checkpoint())).toEqual({
-    answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null
+    answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null, planPresentationId: null
   });
   expect(restoredPracticeDraft("item-1", mirror({ declaredStuck: false }), null).stuck).toBe(false);
 });
@@ -39,6 +39,16 @@ it("restores the stuck marker from the session checkpoint after a restart", () =
 
 it("never carries a stuck marker to another item", () => {
   expect(restoredPracticeDraft("item-2", mirror(), checkpoint({ declaredStuck: true }))).toEqual({
-    answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null
+    answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null
   });
+});
+
+// Router R2a (review F5): the draft's plan presentation is restored with it,
+// from the in-memory mirror or (after a restart) the session checkpoint.
+it("restores the draft's plan presentation with the draft", () => {
+  expect(restoredPracticeDraft("item-1", mirror({ planPresentationId: "pres_m" }), null).planPresentationId).toBe("pres_m");
+  expect(restoredPracticeDraft("item-1", null, checkpoint({ planPresentationId: "pres_c" })).planPresentationId).toBe("pres_c");
+  // An older sidecar never sent the field; another item never inherits it.
+  expect(restoredPracticeDraft("item-1", null, checkpoint()).planPresentationId).toBeNull();
+  expect(restoredPracticeDraft("item-2", null, checkpoint({ planPresentationId: "pres_c" })).planPresentationId).toBeNull();
 });

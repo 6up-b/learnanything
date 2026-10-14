@@ -25,6 +25,7 @@ class is omitted rather than shown as 0. Read-only: nothing here is evidence.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -40,13 +41,19 @@ HEADLINE_CLASSES = ("demonstrated", "assumed", "learning", "untested")
 EXPECTED_RECALL_TOOLTIP = "a model estimate, not a test"
 
 
-def classify_learning_objects(vault: Any, repository: Any, *, now: datetime | None = None) -> dict[str, str]:
+def classify_learning_objects(
+    vault: Any, repository: Any, *, now: datetime | None = None, learning_object_ids: Iterable[str] | None = None,
+) -> dict[str, str]:
     """Each active LO in exactly one headline class.
 
     ``now`` is the headline's time. Placement state is read at it, never the
     wall clock, because whether a pending diagnosis still holds a check miss
-    depends on the time (the wait is bounded).
+    depends on the time (the wait is bounded). ``learning_object_ids`` limits
+    the answer to those LOs (router R2a's card, review F7: the same predicate
+    over the card's topics only); the classes do not depend on it.
     """
+
+    wanted = None if learning_object_ids is None else frozenset(learning_object_ids)
 
     assumed_ids: set[str] = set()
     placement_on = placement_active(vault)
@@ -62,7 +69,7 @@ def classify_learning_objects(vault: Any, repository: Any, *, now: datetime | No
     mastery = repository.mastery_states()
     classes: dict[str, str] = {}
     for learning_object in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
-        if learning_object.status != "active":
+        if learning_object.status != "active" or (wanted is not None and learning_object.id not in wanted):
             continue
         lo_id = learning_object.id
         if lo_id in assumed_ids:

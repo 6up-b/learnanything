@@ -256,6 +256,26 @@ VOI_STOPPING_ALGORITHM_VERSION = "mvp-0.21"
 # value-of-information stopping (mvp-0.21).
 DECIDER_TIER1_ALGORITHM_VERSION = "mvp-0.22"
 
+# mvp-0.23 (router R2a, "router live for the daily plan", sub-stage A;
+# docs/specs/plan_router_r2_v1.md §9, owner-directed 2026-10-13), on top of
+# mvp-0.22 (the chain stays linear: mvp-0.23 means everything mvp-0.22 means
+# PLUS this). Today's plan is composed by the staged frame: DL1's lanes and
+# lane_quota_v1 over the set the P4 constraint engine admits (owner Q1), so a
+# block loses only the items a named hard constraint refuses (a quick check on
+# a surface the learner has already seen, a surface reserved for an
+# assessment, an inactive or unrenderable item) and the block order is
+# unchanged; and ``golden_path.advance`` goes through the P2 bridge (D13: a
+# requested state other than the canonical successor is the learner's own
+# choice). It changes what is SERVED, not the projection, so it is another
+# successor tag on the mvp-0.8 namespace. No model is called (R2b). The
+# receipts R2a adds (plan presentations, the stored state card, outcomes v2)
+# are logging and act at every version. The branch built it as mvp-0.23 (a
+# placeholder, migration 205) and it kept its label at its landing after exam
+# protection and reading hardening, which took no successor (migration 202).
+# Kill switch: ``router.enabled`` (off: Today and the P2 RPC serve exactly as
+# mvp-0.22).
+ROUTER_STAGED_FRAME_ALGORITHM_VERSION = "mvp-0.23"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -278,6 +298,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTE_RULES_ALGORITHM_VERSION,
     VOI_STOPPING_ALGORITHM_VERSION,
     DECIDER_TIER1_ALGORITHM_VERSION,
+    ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
 )
 
 
@@ -366,6 +387,11 @@ VOI_STOPPING_VERSIONS: frozenset[str] = successors_from(VOI_STOPPING_ALGORITHM_V
 # Versions whose small judgments the Decider decides (Tier 1, behind one
 # ``decider_routes`` switch per judgment).
 DECIDER_TIER1_VERSIONS: frozenset[str] = successors_from(DECIDER_TIER1_ALGORITHM_VERSION)
+
+# Versions whose Today plan the staged frame composes and whose P2 RPC goes
+# through the bridge (router R2a, behind ``router.enabled``). Every later
+# successor keeps them; gates must use this set, never equality.
+ROUTER_STAGED_FRAME_VERSIONS: frozenset[str] = successors_from(ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

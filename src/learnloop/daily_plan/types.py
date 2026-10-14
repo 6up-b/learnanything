@@ -130,9 +130,14 @@ class BlockCandidate:
     item_minutes: tuple[float, ...] = ()
     #: the reading section's full estimate when ``reading.partial`` (display).
     reading_full_minutes: float | None = None
+    #: Router R2a: the staged frame's annotations (the P4 ladder rungs its
+    #: learning objects are eligible for, whether serving it is reversible,
+    #: the plain reason code). Empty from DL1's source, and then absent from
+    #: the logged row, so DL1's receipts are unchanged.
+    annotations: Mapping[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
     def log_row(self) -> dict[str, Any]:
-        return {
+        row = {
             "candidate_id": self.candidate_id,
             "lane": self.lane,
             "item_ids": list(self.item_ids),
@@ -141,6 +146,9 @@ class BlockCandidate:
             "est_minutes": round(self.est_minutes, 4),
             "planner_value": round(self.planner_value, 6),
         }
+        if self.annotations:
+            row["annotations"] = dict(self.annotations)
+        return row
 
 
 class BlockSource(Protocol):
@@ -160,6 +168,12 @@ class BlockChoice:
     why_kind: WhyKind
     #: router_decisions.id from R2
     decision_ref: str | None = None
+    #: Router R2a: what the router's chooser recorded for this decision (its
+    #: mode and policy, the learner-state card it built and the card's hash,
+    #: the "why" code, a staged controller decision it persisted). The
+    #: container copies it to the ``plan_block`` logger, which writes it with
+    #: the block, in the block's transaction; the chooser never writes rows.
+    router_record: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
 
 
 class BlockChooser(Protocol):

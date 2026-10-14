@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 201
+schema_head: 202
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
@@ -182,7 +183,7 @@ Indexes and uniqueness:
 - `tests/test_pfc_unverified_unassessed.py`
 - `tests/test_probability_prep.py`
 - `tests/test_projection_evidence_polarity.py`
-- `tests/test_show.py`
+- `tests/test_router_card.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

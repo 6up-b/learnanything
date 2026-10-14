@@ -3,8 +3,8 @@ title: "Config - goals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml goals"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/goals/goal_projection.py"
   - "tests/test_exam_protection_review.py"
+  - "tests/test_router_r2a_landing.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/goals"
@@ -51,6 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_exam_protection_review.py`
+- `tests/test_router_r2a_landing.py`
 
 ## Extension and modification guidance
 

@@ -47,7 +47,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_202"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
@@ -57,8 +57,9 @@ def test_the_reading_step_is_not_a_successor_tag():
     # stopping (mvp-0.21) and Tier 1's Decider judgments (mvp-0.22, the
     # latest) follow it.
     assert not [name for name in dir(algorithm_versions) if "READING_FROM_FURTHEST" in name]
-    assert SUCCESSOR_CHAIN[-3] == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
+    # Router R2a's staged frame (mvp-0.23) is now the latest.
+    assert SUCCESSOR_CHAIN[-4] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.23"
     assert len(SUCCESSOR_CHAIN) == len(set(SUCCESSOR_CHAIN))
 
 
