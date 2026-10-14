@@ -273,7 +273,9 @@ def plan_scheduler_session(vault: Any, session_id: str | None, minutes: float) -
     the pair's own draw (``contrast_order_seed = "pair"``: seeded on the pair
     alone, still drawn across pairs and recorded on its serving rows for A4's
     order-effect check), and the same vault state plans the same blocks
-    whatever the session. That order's tie-break is stable: selection reward,
+    whatever the session, or with none (Start builds the plan before a
+    session opens: the pair's draw applies there too, unrecorded; Codex
+    re-review F1). That order's tie-break is stable: selection reward,
     then priority (both descending), then the practice item id; then
     placement's new-material order and the build's composition. A4's
     per-session draw keeps its own path: every other queue build (Today's

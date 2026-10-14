@@ -27,7 +27,9 @@ The Codex review (docs/reviews/plan-determinism-codex-review.md):
   session-seeded draw in the pool, so a staged plan still chose a different
   member, or ordered a block differently, by session. A staged plan now draws
   it per pair (seeded on the pair alone, still recorded for A4's check), and
-  every other queue build keeps the per-session draw.
+  every other queue build keeps the per-session draw. The re-review's F1:
+  Start's build has no session, and it skipped the pair's draw; it now takes
+  it (and writes no serving row), so Start plans what every session plans.
 * F2: the rule is a live change behind ``plan.deterministic_staged_plans``
   (the owner's standing ruling for serving changes replay never reads), not a
   successor tag. Off, the staged plan's pool is built under the predecessor's
@@ -135,6 +137,22 @@ def _plan(root: Path, session_id: str, minutes: int = 25) -> tuple:
     return _shape(root, view)
 
 
+def _plan_at_start(root: Path, minutes: int = 25) -> tuple:
+    """Start's build (``StartScreen``'s ``useDailyPlan(null)``): the plan is
+    built and persisted with no session. The last session (ended) carries the
+    minutes Start remembers."""
+
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        connection.execute("UPDATE sessions SET ended_at = ? WHERE ended_at IS NULL", ("2026-10-12T08:00:00Z",))
+        connection.execute(
+            "INSERT INTO sessions(id, started_at, ended_at, available_minutes) "
+            "VALUES ('s_earlier', '2026-10-12T07:30:00Z', '2026-10-12T08:00:00Z', ?)",
+            (minutes,),
+        )
+    view = _call(_context(root), "get_daily_plan", {"sessionId": None})
+    return _shape(root, view)
+
+
 def _slates(root: Path, session_id: str) -> list[dict]:
     with sqlite3.connect(root / "state.sqlite") as connection:
         connection.row_factory = sqlite3.Row
@@ -185,6 +203,8 @@ def test_the_same_vault_state_plans_the_same_staged_blocks_in_every_session(tmp_
     staged = _template(tmp_path, "staged")
     dl1 = _template(tmp_path, "dl1", toml=ROUTER_OFF)
     staged_shapes = {_plan(_copy(staged, tmp_path / f"staged_{sid}"), sid) for sid in SESSIONS}
+    # Start builds the plan with no session (re-review F1): the same plan.
+    staged_shapes.add(_plan_at_start(_copy(staged, tmp_path / "staged_start")))
     dl1_shapes = {_plan(_copy(dl1, tmp_path / f"dl1_{sid}"), sid) for sid in SESSIONS}
     assert len(staged_shapes) == 1
     [(blocks, decisions, _projected)] = staged_shapes
@@ -404,7 +424,15 @@ def test_a_contrast_pair_plans_the_same_staged_block_in_every_session(tmp_path, 
     logged choice, and each session's serving row records that order and its
     seed for A4's order-effect check. DL1's pair keeps the per-session draws
     (G8): the same thirty sessions plan both orders there (and, where R1's
-    draw promotes a near-tie, other blocks)."""
+    draw promotes a near-tie, other blocks).
+
+    Re-review F1: Start builds and persists the plan with no session
+    (``useDailyPlan(null)``), and the scheduler left a sessionless queue in
+    its greedy order, so Start planned ``[pi_pair_a, pi_pair_b]`` (or chose
+    ``pi_pair_a`` alone) where every named session planned the pair's own
+    draw. The pair's draw needs no session, so Start plans the same block; it
+    writes no serving row (there is no session to key one on), and the session
+    Begin opens records the order Start planned."""
 
     item_minutes, minutes, block = FITS[fit]
     staged = _pair_template(tmp_path, "staged", item_minutes)
@@ -414,12 +442,20 @@ def test_a_contrast_pair_plans_the_same_staged_block_in_every_session(tmp_path, 
         root = _copy(staged, tmp_path / f"staged_{sid}")
         staged_shapes.add(_plan(root, sid, minutes))
         recorded.update(_first_served(root))
+    start = _copy(staged, tmp_path / "staged_start")
+    at_start = _plan_at_start(start, minutes)
+    staged_shapes.add(at_start)
+    assert _first_served(start) == {}
     assert len(staged_shapes) == 1
     [(blocks, decisions, _projected)] = staged_shapes
     first, second, seed = _pair_draw()
     assert blocks == (("new", "staged", block(first, second)),)
     assert [(row[1], row[2], row[3], row[5]) for row in decisions] == [(first, 1.0, "deterministic", "staged_v1")]
     assert recorded == {sid: (first, seed) for sid in SESSIONS}
+    # Begin on Start's plan: the session keeps the block Start planned, and
+    # its serving row records that order and the pair's seed.
+    assert _plan(start, "s_begin", minutes)[0] == at_start[0]
+    assert _first_served(start) == {"s_begin": (first, seed)}
 
     dl1_blocks = {_plan(_copy(dl1, tmp_path / f"dl1_{sid}"), sid, minutes)[0] for sid in SESSIONS}
     assert {(("new", "lane_quota", block(*PAIR)),), (("new", "lane_quota", block(*PAIR[::-1])),)} <= dl1_blocks
@@ -501,7 +537,8 @@ def test_with_the_switch_off_the_schedulers_draw_reaches_the_staged_plan_again(t
 def test_with_the_switch_off_a_contrast_pair_follows_the_session_again(tmp_path, frozen):
     """Rollback parity, A4's draw: off, the staged plan orders the pair by
     session (both orders across thirty sessions) and records each session's
-    seed, as before the fix."""
+    seed, as before the fix. Start's sessionless build leaves the pair in the
+    greedy order, unrecorded, as before the re-review's fix."""
 
     from learnloop.diagnosis import contrast_pairs
 
@@ -517,6 +554,9 @@ def test_with_the_switch_off_a_contrast_pair_follows_the_session_again(tmp_path,
     assert {sid: seed for sid, (_first, seed) in recorded.items()} == {
         sid: contrast_pairs.serving_seed(key, session_id=sid) for sid in SESSIONS
     }
+    start = _copy(off, tmp_path / "off_start")
+    assert _plan_at_start(start, minutes)[0] == (("new", "staged", block(*sorted(PAIR))),)
+    assert _first_served(start) == {}
 
 
 def test_every_defaults_snapshot_records_the_switch_on():

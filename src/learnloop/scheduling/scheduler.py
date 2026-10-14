@@ -2135,10 +2135,14 @@ def _apply_contrast_pair_order(
       not salient". Whether that held is a property of the realized queue, so it
       is observed and stored rather than assumed.
 
-    A session with no session id (an ad-hoc queue build) is left untouched and
-    unrecorded: there is nothing to key an idempotent serving record on, and a
-    serving record that duplicated on every call would poison the balance audit
-    the metric depends on.
+    A build with no session id is never recorded: there is nothing to key an
+    idempotent serving record on, and a serving record that duplicated on every
+    call would poison the balance audit the metric depends on. Its order: a
+    per-session draw has no seed without a session, so the queue is left
+    untouched (an ad-hoc build); the pair's own draw (``"pair"``) needs none
+    and is applied, so a staged plan built with no session (Start's build,
+    ``get_daily_plan`` with no session) orders a pair as every named session
+    does (plan-determinism Codex re-review F1).
 
     PLACEMENT. This runs before the ``limit`` truncation and before the probe
     presentation pin, both deliberately. Ahead of the pin, because a committed
@@ -2151,12 +2155,15 @@ def _apply_contrast_pair_order(
     """
 
     from learnloop.diagnosis.contrast_pairs import (
+        SEED_PER_PAIR,
         apply_serving_decisions,
         plan_contrast_pair_serving,
         record_contrast_pair_servings,
     )
 
-    if session.session_id is None or not queue:
+    if not queue:
+        return queue
+    if session.session_id is None and session.contrast_order_seed != SEED_PER_PAIR:
         return queue
     ordered_ids = [item.practice_item_id for item in queue]
     decisions = plan_contrast_pair_serving(
@@ -2166,10 +2173,11 @@ def _apply_contrast_pair_order(
         return queue
     reordered_ids = apply_serving_decisions(ordered_ids, decisions)
     by_id = {item.practice_item_id: item for item in queue}
-    if not record:
-        # A router R1 counterfactual composition: the same order, no audit row
-        # (the pair's draw depends only on its seed, the session's and the
-        # pair's or the pair's alone, never on the order it is applied to).
+    if not record or session.session_id is None:
+        # A router R1 counterfactual composition, or a staged plan built with
+        # no session: the same order, no audit row (the pair's draw depends
+        # only on its seed, the session's and the pair's or the pair's alone,
+        # never on the order it is applied to).
         return [by_id[item_id] for item_id in reordered_ids]
     try:
         record_contrast_pair_servings(
