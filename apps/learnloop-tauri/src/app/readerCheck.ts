@@ -30,10 +30,11 @@ export function keepReaderReturn(readerReturn: ReaderReturn | null, openingItemI
 
 /**
  * The practice offer for a Reader check the daily plan answered: with the plan
- * serving, the pick's own block step (its scheduler candidate) and no
- * proposal origin, because the pick recorded the delivery itself; with the
- * plan off, the open serves the item and carries the proposal so that serve
- * records its delivery.
+ * serving, the pick's own block step (its scheduler candidate and, since
+ * router R2a, its presentation, so the answer binds to the pick's own logged
+ * decision exactly) and no proposal origin, because the pick recorded the
+ * delivery itself; with the plan off, the open serves the item and carries
+ * the proposal so that serve records its delivery.
  */
 export function readerCheckOffer(
   result: Pick<DailyPlanDto, "enabled" | "step">,
@@ -41,10 +42,11 @@ export function readerCheckOffer(
   proposalId: string | null,
 ): PracticeOffer {
   const step = result.step;
-  const candidateId = step && step.kind === "item" ? step.schedulerCandidateId ?? null : null;
+  const item = step && step.kind === "item" ? step : null;
   return {
     itemId: practiceItemId,
-    candidateId,
+    candidateId: item?.schedulerCandidateId ?? null,
     proposalOrigin: result.enabled || !proposalId ? null : { proposalId, importId: null },
+    presentationId: result.enabled ? item?.presentationId ?? null : null,
   };
 }
