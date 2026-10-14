@@ -19,6 +19,7 @@ from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
 from learnloop.content.sources.exam_material import held_out_among, held_out_material
+from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
 
@@ -455,8 +456,6 @@ def _passages_by_section(
     A span cited by several items keeps its highest-scoring passage. Also
     returns one goal candidate per grounded item for the plan's goal context.
     """
-
-    from learnloop.content.sources.span_aliases import SpanTranslator
 
     translator = SpanTranslator(repository, extraction_id)
     passages_by_section: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)

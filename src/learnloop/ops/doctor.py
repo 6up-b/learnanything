@@ -24,6 +24,8 @@ from learnloop.content.facet_identity.actions import (
     interrupted_registry_saves,
     recover_interrupted_actions,
 )
+from learnloop.content.pipeline.reread import restore_readable_revision, unread_current_revisions
+from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys, reading_source
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
     WAL_RESET_ADVISORY_URL,
@@ -404,9 +406,6 @@ def _check_reread_state(
     * a warning for links (and YAML source refs) pinned to a reading that is
       no longer current and that do not resolve to the same text on it.
     Both warnings read through the one alias authority (``span_aliases``)."""
-
-    from learnloop.content.pipeline.reread import restore_readable_revision, unread_current_revisions
-    from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys, reading_source
 
     for state in unread_current_revisions(repository):
         if fix_state:

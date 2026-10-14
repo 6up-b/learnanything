@@ -47,6 +47,8 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources import span_aliases
 from learnloop.ingest.hashing import asset_hash
+from learnloop.reader.annotations import AnnotationError, reanchor_annotation
+from learnloop.reader.reader_guidance import extraction_sections
 
 logger = logging.getLogger(__name__)
 
@@ -269,8 +271,6 @@ def carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: s
     is the share of the spans of every old section landing in it (read or
     not) that were seen."""
 
-    from learnloop.reader.reader_guidance import extraction_sections
-
     rows = repository.reader_section_progress_for(old_extraction_id)
     if not rows:
         return {"sections": 0, "carried": 0, "completed": 0}
@@ -366,8 +366,6 @@ def carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: 
 def carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *,
                       clock: Clock | None = None) -> dict[str, int]:
     """Re-anchor every annotation of the book not yet on the new reading."""
-
-    from learnloop.reader.annotations import AnnotationError, reanchor_annotation
 
     statuses: Counter[str] = Counter()
     cache: dict[str, Any] = {}

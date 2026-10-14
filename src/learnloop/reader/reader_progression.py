@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.reader.reader_guidance import _span_for_ref, extraction_sections
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
@@ -92,7 +93,6 @@ def learning_objects_for_section(
     section_spans = set(section["span_ids"])
     blocks = [block_by_span[span_id] for span_id in section["span_ids"] if span_id in block_by_span]
 
-    from learnloop.content.sources.span_aliases import SpanTranslator
     from learnloop.reader.reader_guidance import _canonical_note_ids
 
     artifact = repository.get_source_artifact(source_id) or {}
@@ -233,7 +233,6 @@ def source_refs_for_section(
     blocks = [block_by_span[span_id] for span_id in ordered_spans]
     index_by_span = {span_id: index for index, span_id in enumerate(ordered_spans)}
 
-    from learnloop.content.sources.span_aliases import SpanTranslator
     from learnloop.reader.reader_guidance import _canonical_note_ids
 
     artifact = repository.get_source_artifact(source_id) or {}
