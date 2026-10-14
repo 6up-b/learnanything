@@ -139,3 +139,100 @@ Run on `e0fdfef36`, with TMPDIR set to the worktree's `fixtures-local/tmp`:
 - **Q7:** should the desktop's reservation admission (`exposed_items` read, then the reservation write)
   run in one `BEGIN IMMEDIATE` transaction, closing F5's residual race for every surface? This is outside C1a.
 - Q1–Q5 from the stage record are unchanged.
+
+## Re-review
+
+**Reviewed:** `26dc3da33..745318191` (the fix commit `e0fdfef36` and its record; Codex, job
+`20261014-103130-kyaOce`, verdict "reopened"; Codex edited nothing, ran lint-imports (21 kept) but not the
+full suite or the durability lane). **Fixed in:** `8c42bfecf`. **Spec:** §4.5, §4.6 and §4.7 rule 1 updated.
+
+F1, F2 and F3 were confirmed fixed. F4 was reopened, and two new findings were raised. Each of the three was
+reproduced first by a failing test in `tests/test_mcp_c1a_review.py`, then fixed; none was rejected. No
+migration, config, CLI or frontend change.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | Malformed protection metadata fails open | confirmed fixed by the re-review | `e0fdfef36` | unchanged |
+| F2 | High | Recurrence groups disclose text withheld elsewhere | confirmed fixed by the re-review | `e0fdfef36` | unchanged |
+| F3 | High | Exam detection omits supported provenance forms | confirmed fixed by the re-review | `e0fdfef36` | unchanged |
+| F4 | High | Historical answer keys (reopened: an unpinned answer counted as the current revision when no key change was recorded) | fixed | `8c42bfecf` | `test_an_unpinned_answer_shows_no_text_even_when_no_key_change_is_recorded` |
+| F11 | Medium | Dry-run verification understates its advertised worst case | fixed | `8c42bfecf` | `test_the_dry_run_bounds_the_live_verification`; `test_no_character_encodes_wider_than_the_dry_runs_filler` |
+| F12 | Low | Combined hypotheses exceed their configured limit | fixed | `8c42bfecf` | `test_open_hypotheses_share_one_limit_and_keep_unresolved_only_causes` |
+
+**Reproduced before the fix:** F4: an older answer on an item whose key was later edited, with no contract,
+snapshot or YAML left recording the old key, came back verbatim (`"I wrote: LEGACY KEY 8841 ..."`), and so did
+its diagnosis summary, its hypothesis and the recurrence group it roots. F11: with 16 mostly CJK candidates,
+a remediation naming a misconception and a synthetic $10 per million metered route, the dry run planned
+38,722 tokens for the first call while the live prompt estimated 63,025 (no provider called; the live
+request was captured at `judge_listwise`). F12: with a limit of 1 the section returned 2 entries.
+
+### What changed, per finding
+
+- **F4.** Answer and diagnosis text now needs affirmative evidence of the revision it was graded against:
+  exactly one live pinned contract on the attempt's own item (`learner_context._pins`, which replaces
+  `_pinned_stems` and also supplies the pinned question). Without it the trace shows no answer, no
+  diagnosis summary and no trace hypothesis (note: "the question revision this answer was graded against
+  is not recorded"; a text that states a known key still says "it states the answer key"). A hypothesis or
+  recurrence-group statement is withheld too when any answer behind it is unpinned. `KeyBook.changed`
+  (the "no recorded change" shortcut) is gone; the book also reads `practice_item_snapshots` keys, for
+  filtering only. Two tests that expected an unpinned answer to show now pin it, as the desktop does when it
+  grades (`test_an_unreadable_practice_item_withholds_its_own_answers_only`,
+  `test_a_second_process_serves_the_vault_beside_the_desktop_sidecar`). Cost on real data: over all 70
+  attempts of the linear_algebra copy, 1 answer is newly withheld (an attempt regraded with no contract on
+  its live evidence); 28 still show, 8 are withheld as key-restating, 30 as exam material, 2 for a cold
+  check and 1 as a probe. Both probability answers still show.
+- **F11.** `source_retrieval.find_sources` now exposes the verification's prompt construction
+  (`verification_question`, `verification_context`, `verification_candidates`, `verification_prompt`),
+  which `_verify` and `find_sources` use unchanged in behaviour. The dry run renders that same prompt with the
+  request's own question and context (the misconception a remediation names, resolved as
+  `propose_sources` does; the chat names no facet, excluded span or learner work) over `widest_candidates()`:
+  a full pool of 16, every field at its clip limit, every character `"\x01"`, which the prompt's JSON
+  encodes in 6 bytes, the most any character costs (checked over every code point of the BMP and the astral
+  edges). The retry is the truncation retry at twice the output budget. For a metered route the worst-case
+  dollars are also bounded by the verification's own caps, which refuse any attempt past them
+  (`worst_case_bounded_by_caps`). In the F11 test the plan is now 136,558 tokens for the first call (live:
+  63,025) and $1.69 worst case, bounded by the 169,152-token cap (live worst case: $1.42). On the copies
+  (Codex, the owner's subscription), the verification is planned at 136,396 tokens, `estimated_only`,
+  marginal $0. Residual: `plan_library_search` (the sources track's planner, shared with the desktop
+  library) plans the query embedding of a not-yet-written rewrite as 2,000 ASCII characters; a non-ASCII
+  rewrite could cost up to 4 bytes per character, about 6,000 tokens more at the embedding price (under
+  $0.001 at qwen3-embedding's price). Left for the sources track (Q8).
+- **F12.** `_share_limit` puts diagnosed and unresolved causes under the one `hypotheses` limit. When they
+  overflow it, the unresolved causes keep up to half of it (at least one entry), LOs with no diagnosed cause
+  shown first, and the diagnosed causes fill the rest, so F7's case (an LO with only unsettled causes) stays
+  visible. `_unresolved_causes` no longer cuts on its own.
+
+### Manual run (backup-API copies, no model, no network)
+
+The same `fixtures-local/c1a-manual` copies, every model client refused; tools called in-process through the
+SDK client:
+
+| Vault | learning_context (30 traces) | find_sources dry run (alternative) | answers withheld for revision (all attempts) |
+|---|---|---|---|
+| linear_algebra | 508 ms; 12 of 30 answers shown, no unknowns | 131 ms: 3 calls, 154,471 tokens (verification 136,396), `estimated_only`, marginal $0 | 1 of 70 |
+| probability | 83 ms; 2 of 2 shown | 104 ms: same plan | 0 of 2 |
+
+No paid route was asked for. **Paid calls: 0; cost: $0.**
+
+### Gate (re-review)
+
+Run on `8c42bfecf`, with TMPDIR set to the worktree's `fixtures-local/tmp`:
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **21 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,692 passed**, 0 failed (9 min 53 s); 10,688 before plus the 4 new re-review tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,592 deselected |
+| The C1a tests alone (`test_mcp_c1a_review`, `test_mcp_tools`, `test_mcp_runtime`, `test_mcp_http`, `test_mcp_cli`) | 53 passed |
+| The source retrieval and service tests touching the shared verification prompt (16 files, `test_find_sources_intents`, `test_exam_protection`, `test_source_service_spend_envelopes` among them) | 303 passed |
+| DB reference generate/validate, CLI help snapshot, config references | not applicable: no schema, CLI or config change |
+| npm / cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+| Paid calls | none ($0) |
+
+### Open questions for the owner (re-review)
+
+- **Q8:** `plan_library_search` plans the query embedding of a not-yet-written rewrite as 2,000 ASCII
+  characters, so a non-ASCII rewrite can cost up to about 6,000 tokens more than planned (under $0.001 at
+  the embedding price). Bound it at 4 bytes per character in the sources track's planner? This is outside C1a.
+- Q1-Q7 are unchanged.
