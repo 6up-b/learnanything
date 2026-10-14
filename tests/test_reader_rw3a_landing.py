@@ -51,15 +51,17 @@ def _call(ctx, name, params):
 CASES = {"new_pick_block": 3, "planned": 25, "open_list": 1}
 
 
-def _world(tmp_path, monkeypatch):
+def _world(tmp_path, monkeypatch, *, version: str = A):
     """An mvp-0.23 daily-plan vault with the router on, whose Guide carries a
     margin cue (an active error on lo_svd_definition, whose item cites ext1),
     a second item on that LO for "check me" to propose, and two one-minute
-    items elsewhere that fill a small plan."""
+    items elsewhere that fill a small plan. ``version`` sets a later successor
+    (router R2b + R2c's landing runs the same check under the mixture)."""
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     paths = create_daily_plan_vault(
-        tmp_path / "vault", version=A, learning_objects={"lo_extra": [("pi_extra_1", 1.0), ("pi_extra_2", 1.0)]},
+        tmp_path / "vault", version=version,
+        learning_objects={"lo_extra": [("pi_extra_1", 1.0), ("pi_extra_2", 1.0)]},
     )
     repository = Repository(paths.sqlite_path)
     _register_revision(repository, source_id="src1", revision_id="rev1")

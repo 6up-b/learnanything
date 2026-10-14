@@ -13,7 +13,8 @@ from learnloop.config import LearnLoopConfig
 
 #: (route task, judge, consumer) for the judgment routes. The Decider's
 #: Tier-1 route and the learner-text gaps' Decider route send learner text in
-#: the ordinary course at mvp-0.22 (owner decision 2026-10-13, D6; review F5).
+#: the ordinary course at mvp-0.22 (owner decision 2026-10-13, D6; review F5);
+#: the router's two routes do at mvp-0.24 (router R2b, D6 recorded 2026-10-13).
 JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("llm_probability_decider", "decider", "llm_probability"),
     ("llm_probability_llm", "llm", "llm_probability"),
@@ -31,9 +32,13 @@ _WHEN = {
         "their grades, diagnosis hypotheses and your tutor questions."
     ),
     "router": (
-        "Nothing is sent yet: the router has no live consumer until router R2 is built and "
-        "enabled. Then each block choice sends the learner state card (your recent answers, "
-        "grades, hypotheses and questions)."
+        "From mvp-0.24, while router.enabled is on and router.mode is mixture: each time Today chooses "
+        "your next block (and each time a follow-up question could interrupt a block), the learner state "
+        "card is sent: your recent answers and the questions they answered, their grades, open problems "
+        "the diagnoser found, your self-ratings and teach-back summaries, the blocks on offer and, on about "
+        "half of the choices, similar earlier choices with what followed. Never a reference answer, an "
+        "answer key, a rubric or exam material. The router's model also summarizes each graded teach-back "
+        "dialogue (router.teach_back_summary). Below mvp-0.24, or with router.mode = staged, nothing is sent."
     ),
     "tier1": (
         "At mvp-0.22, for each [decider_routes] switch that is on: a misconception statement "

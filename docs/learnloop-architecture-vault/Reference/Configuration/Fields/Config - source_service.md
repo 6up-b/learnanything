@@ -3,8 +3,8 @@ title: "Config - source_service"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_service"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/instructional/exposure.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_model_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_action_loss.py"
@@ -38,7 +39,6 @@ source_paths:
   - "tests/test_capability_residual.py"
   - "tests/test_causal_orchestrator.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -88,6 +88,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_model_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_action_loss.py`
@@ -97,7 +98,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_capability_residual.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/content/synthesis/graph_nomination.py"
+  - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/db/stores/embedding_vectors.py"
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/recurrence/backlog.py"
   - "src/learnloop/diagnosis/recurrence/judging.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
-  - "src/learnloop/diagnosis/split/retrieval.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -95,6 +95,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/embedding_vectors.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/matching/shortlist.py`
@@ -127,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_router_r2c_retrieval.py`
 - `tests/test_source_retrieval_search.py`
 - `tests/test_source_retrieval_suites.py`
 - `tests/test_source_vector_backfill.py`

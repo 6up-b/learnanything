@@ -76,7 +76,7 @@ class ModelCallStoreMixin:
         innermost one), optionally since an ISO time and for some owners."""
 
         query = (
-            "SELECT provider, input_tokens, output_tokens, cost, usage_json, output_budget_tokens, "
+            "SELECT provider, input_tokens, output_tokens, cost, usage_json, output_budget_tokens, budget_json, "
             "parent_call_id, status, started_at, owner_kind, owner_id FROM model_call_receipts WHERE 1=1"
         )
         params: list[Any] = []

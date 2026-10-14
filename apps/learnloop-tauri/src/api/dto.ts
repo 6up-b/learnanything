@@ -7598,6 +7598,8 @@ export interface DailyPlanBodyDto {
   };
   blocks: PlanBlockDto[];
   currentBlockId: string | null;
+  /** Router R2b: the next block is still being chosen (its models are out); Begin decides it at once. */
+  deciding?: boolean;
   projected: PlanProjectedBlockDto[];
   /** "Block 2 of about N": chosen plus projected. */
   blockCountEstimate: number;
@@ -7619,8 +7621,8 @@ export interface DailyPlanDto {
   plan: DailyPlanBodyDto | null;
   day?: PlanTotalsDto & { plans: number; kinds: string[]; complete: boolean };
   streak?: StreakSummary | null;
-  /** next_plan_item / plan_learner_pick / plan_reading_ended: the typed step. */
-  step?: PlanStepDto;
+  /** next_plan_item / plan_learner_pick / plan_reading_ended: the typed step (null while the next block is being chosen). */
+  step?: PlanStepDto | null;
   /** plan_more_new: the trade-off shown before anything is added. */
   preview?: {
     items: number;

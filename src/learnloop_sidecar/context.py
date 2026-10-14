@@ -610,16 +610,30 @@ def _settings_ready(vault: LoadedVault) -> bool:
     config = vault.config
     routing = config.ai.routing
     probability_on = bool(config.field.enabled and config.field.llm_probability_enabled)
+    # Router R2b: the router's routes count once the model mixture serves
+    # Today (mvp-0.24, router.mode = "mixture"); before, they have no consumer.
+    from learnloop.daily_plan.policy import mixture_active
+    from learnloop.daily_plan.router_runtime import models_disabled
+
+    router_on = mixture_active(vault) and not models_disabled()
     routes = {
         (task, name)
         for task in type(routing).model_fields
         if (task != "embedding" or config.embedding.enabled)
-        # The router routes have no consumer until router R2, and the
-        # llm_probability routes serve only the opt-in offline harness.
-        and task not in {"router_decider", "router_llm"}
+        # The llm_probability routes serve only the opt-in offline harness.
+        and (task not in {"router_decider", "router_llm"} or router_on)
         and (task not in {"llm_probability_decider", "llm_probability_llm"} or probability_on)
         for name in route_names(getattr(routing, task))
     }
+    if router_on:
+        # An unset router route resolves (the Decider to its code-default
+        # profile, the LLM to the active provider); check what it resolves to.
+        from learnloop.ai.routing import provider_for_task
+
+        for task in ("router_decider", "router_llm"):
+            name = provider_for_task(config, task).provider_name  # type: ignore[arg-type]
+            if name:
+                routes.add((task, name))
     if not any(task != "embedding" for task, _name in routes):
         routes.add(("grading", config.ai.active_provider))
     return all(

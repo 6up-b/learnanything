@@ -276,6 +276,27 @@ DECIDER_TIER1_ALGORITHM_VERSION = "mvp-0.22"
 # mvp-0.22).
 ROUTER_STAGED_FRAME_ALGORITHM_VERSION = "mvp-0.23"
 
+# mvp-0.24 (router R2b + R2c under ONE successor, "both models live, the
+# mixture" and "restraint, sensors, retrieval"; docs/specs/plan_router_r2_v1.md
+# §9, owner decisions 2026-10-13), on top of mvp-0.23 (the chain stays linear:
+# mvp-0.24 means everything mvp-0.23 means PLUS this). Today's block choice is
+# a logged draw from the model mixture: the staged rule's pick, the Decider's
+# and the router LLM's distributions over the top-k reversible candidates,
+# with an exact propensity and a floor for every candidate
+# (``router.mode = "mixture"``); a mid-block follow-up is a logged
+# ``plan_interrupt`` decision (join the current block now, or wait for the
+# next one; ``router.restraint``), with the P4 constraint engine run on it.
+# The models' sensors, similar past decisions and teach-back summaries are
+# context and receipts. It changes what is SERVED, not the projection, so it
+# is another successor tag on the mvp-0.8 namespace; replay never asks a
+# model (the decisions are raw ledger rows). The branch built it as mvp-0.24
+# (a placeholder, no migration) and it kept its label at its landing after
+# RW3a, the tutor delivery fixes and GLM-OCR, which took no successor. Kill
+# switches: ``router.mode = "staged"`` (mvp-0.23's staged
+# rule exactly), ``router.restraint = false`` (follow-ups join the current
+# block), ``router.enabled = false`` (mvp-0.22's plan).
+ROUTER_MIXTURE_ALGORITHM_VERSION = "mvp-0.24"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -299,6 +320,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     VOI_STOPPING_ALGORITHM_VERSION,
     DECIDER_TIER1_ALGORITHM_VERSION,
     ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
+    ROUTER_MIXTURE_ALGORITHM_VERSION,
 )
 
 
@@ -392,6 +414,12 @@ DECIDER_TIER1_VERSIONS: frozenset[str] = successors_from(DECIDER_TIER1_ALGORITHM
 # through the bridge (router R2a, behind ``router.enabled``). Every later
 # successor keeps them; gates must use this set, never equality.
 ROUTER_STAGED_FRAME_VERSIONS: frozenset[str] = successors_from(ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+
+# Versions whose Today blocks the model mixture chooses (behind
+# ``router.mode = "mixture"``) and whose mid-block follow-ups are restraint
+# decisions (behind ``router.restraint``), router R2b + R2c. Every later
+# successor keeps them; gates must use this set, never equality.
+ROUTER_MIXTURE_VERSIONS: frozenset[str] = successors_from(ROUTER_MIXTURE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -111,3 +111,10 @@ def test_every_why_the_staged_chooser_writes_on_a_plan_is_plain(tmp_path):
     assert whys
     for text in whys:
         assert text and why.jargon_in(text) == [], text
+
+
+def test_a_title_ending_in_its_own_mark_takes_no_extra_period():
+    from learnloop.router.why import sentence
+
+    assert sentence("new_material", topic="What Makes a Vector Space?") == "Next: What Makes a Vector Space?"
+    assert sentence("reading", section="Sums of Subspaces") == "Next: reading Sums of Subspaces."

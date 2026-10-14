@@ -85,8 +85,12 @@ def _why_details(block: PlannedBlock) -> str | None:
     router = block.chosen.get("router") if isinstance(block.chosen, dict) else None
     if not router:
         return None
-    from learnloop.router.why import DETAILS_STAGED
+    from learnloop.router.why import DETAILS_STAGED, mixture_details
 
+    if router.get("decided_by"):
+        # Router R2b: the mixture's receipts in plain words (who drew, the
+        # chance, a model that did not answer, the answers it cited).
+        return mixture_details(router, propensity=block.chosen.get("propensity"), decision_ref=block.decision_ref)
     lines = [DETAILS_STAGED]
     if block.decision_ref:
         lines.append(f"Receipt: learnloop router card --decision {block.decision_ref}")
@@ -253,6 +257,9 @@ def plan_view(
         },
         "blocks": plan_blocks,
         "current_block_id": current_id,
+        # Router R2b: the next block is being chosen (its models are still out
+        # on a read); a serving step decides it, waiting a few seconds at most.
+        "deciding": bool(record.is_open and current is None),
         "projected": projected,
         "block_count_estimate": len(record.blocks) + len(projected),
         "first_block": first_row,

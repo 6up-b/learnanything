@@ -79,7 +79,7 @@ def upgrade(
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21 or mvp-0.22); default: the latest."
+                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23 or mvp-0.24); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -141,12 +141,16 @@ def upgrade(
     matching, pattern links, question classification, contamination
     verdicts), the LLM as fallback, over an mvp-0.21 vault (or an mvp-0.9 to
     mvp-0.20 vault through the chain; one kill switch per judgment under
-    ``[decider_routes]``). ``--to mvp-0.23`` (default, the latest successor)
-    composes Today with the router's staged frame (a block loses the items a
-    named hard constraint refuses; the order is unchanged) and sends P2 run
-    steps through the staged bridge, over an mvp-0.22 vault (or an mvp-0.9 to
-    mvp-0.21 vault through the chain; kill switch: ``router.enabled =
-    false``)."""
+    ``[decider_routes]``). ``--to mvp-0.23`` composes Today with the router's
+    staged frame (a block loses the items a named hard constraint refuses;
+    the order is unchanged) and sends P2 run steps through the staged bridge,
+    over an mvp-0.22 vault (or an mvp-0.9 to mvp-0.21 vault through the
+    chain; kill switch: ``router.enabled = false``). ``--to mvp-0.24``
+    (default, the latest successor) draws Today's next block from the logged
+    model mixture (the staged rule, the Decider and the router LLM, with exact
+    chances) and lets a mid-block follow-up wait for the next block, over an
+    mvp-0.23 vault (or an mvp-0.9 to mvp-0.22 vault through the chain; kill
+    switches: ``router.mode = "staged"``, ``router.restraint = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -214,11 +218,16 @@ def upgrade(
         from learnloop.router_staged_upgrade import upgrade_to_mvp023
 
         result = upgrade_to_mvp023(_root(vault))
+    elif to == "mvp-0.24":
+        from learnloop.router_mixture_upgrade import upgrade_to_mvp024
+
+        result = upgrade_to_mvp024(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22 or mvp-0.23."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23 "
+            "or mvp-0.24."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

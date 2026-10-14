@@ -182,6 +182,16 @@ class BlockChooser(Protocol):
     def choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice: ...
 
 
+class DecisionPending(Exception):
+    """Router R2b: a chooser that may not wait (a read, a prefetch) found the
+    decision's models still out. Nothing is decided or written; the boundary
+    stays open, and the next call (or a serving step, which waits) decides it."""
+
+    def __init__(self, key: str = "") -> None:
+        super().__init__(f"the decision {key[:12]} is waiting for its models")
+        self.key = key
+
+
 __all__ = [
     "AFTER_REENTRY_LANE_PRIORITY",
     "BLOCK_MAX_MINUTES",
@@ -192,6 +202,7 @@ __all__ = [
     "BlockSource",
     "CONTINUE_CURRENT",
     "ChosenBy",
+    "DecisionPending",
     "FLOW_ORDER",
     "IntentView",
     "LANES",

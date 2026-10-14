@@ -3,8 +3,8 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
+  - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/split/reports.py"
   - "src/learnloop/held_grades.py"
-  - "src/learnloop/placement/state.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/attempts/stuck.py`
+- `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/diagnosis/split/reports.py`
@@ -117,6 +118,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_mvp017_route_check_replay.py`
+- `tests/test_router_r2c_teach_back.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

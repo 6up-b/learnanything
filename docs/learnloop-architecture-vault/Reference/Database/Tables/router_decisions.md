@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/181_router_decisions.sql"
+  - "src/learnloop/cli/decider.py"
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/db/stores/plan_presentations.py"
   - "src/learnloop/db/stores/router.py"
-  - "src/learnloop/diagnosis/voi_stopping.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -130,9 +131,11 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/router.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/router/agreement.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 
@@ -149,6 +152,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/router_mixture_helpers.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
@@ -157,6 +161,7 @@ None found by exact static reference scan.
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_mvp023_upgrade.py`
+- `tests/test_mvp024_upgrade.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_router_card.py`
 - `tests/test_router_g1_feasibility.py`
@@ -167,8 +172,6 @@ None found by exact static reference scan.
 - `tests/test_router_r1_composition.py`
 - `tests/test_router_r2a_landing.py`
 - `tests/test_router_r2a_serving.py`
-- `tests/test_router_staged_p2.py`
-- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

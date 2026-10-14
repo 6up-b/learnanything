@@ -653,7 +653,8 @@ def test_settings_and_eval_judges_disclose_the_tier1_routes(tmp_path):
         assert words in tier1["disclosure"], words
     for words in ("stuck answers", "tutor questions", "Perplexity"):
         assert words in gaps["disclosure"], words
-    assert "Nothing is sent yet" in entries["router_decider"]["disclosure"]
+    # Router R2b: the router routes send the learner state card from mvp-0.24.
+    assert "From mvp-0.24" in entries["router_decider"]["disclosure"]
 
 
 def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger(tmp_path,

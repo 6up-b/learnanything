@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/settings.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_model_fakes.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_generate_practice.py"
   - "tests/test_cli_ingest.py"
-  - "tests/test_codex_output_schema.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -79,6 +79,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_model_fakes.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
@@ -88,7 +89,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_generate_practice.py`
 - `tests/test_cli_ingest.py`
-- `tests/test_codex_output_schema.py`
 
 ## Extension and modification guidance
 

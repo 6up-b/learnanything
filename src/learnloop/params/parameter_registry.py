@@ -1195,6 +1195,22 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "router learner-state card budget (D8: older successes, then excerpts, then attempts drop; "
                 "typed fields never) and the stored payload's retention; sizes a receipt, no measurement "
                 "or serving authority."),
+    # Router R2b + R2c (mvp-0.24): the model mixture's weights, support size
+    # and floor decide which block is served (never evidence); D1/D3 owner
+    # defaults, versioned with the successor; R3's switching rule moves them.
+    _ConfigRule(_exact(
+        "router.weights.staged", "router.weights.decider", "router.weights.llm", "router.k", "router.epsilon_min",
+        "router.similar_include_rate",
+    ), "decision", "shaping_weight",
+        "router model mixture: component weights (D1), top-k options (D3), the exploration floor and the "
+        "similar-decision inclusion rate (a logged coin); a serving draw with exact propensities, never "
+        "evidence; R3's switching rule (spec §10.4) moves the weights."),
+    _ConfigRule(_exact(
+        "router.timeout_seconds", "router.prefetch_timeout_seconds", "router.max_daily_cost_usd", "router.similar_k",
+    ), "structural", "operational",
+        "router model budgets (time a serving step waits, time the models have from prefetch), the metered "
+        "daily guard and the similar-decision shortlist size; a fallback moves weight to the staged rule, "
+        "no measurement authority."),
     # mvp-0.21 value-of-information stopping: the multi-family EVSI study's
     # switches (docs/reviews/evsi-multisim.md §6.1, ranks 2 and 3; rank 1 is a
     # boolean). Heuristic until live voi_forecasts calibrate them.

@@ -5,7 +5,7 @@ aliases:
   - LearnLoop Pipeline MOC
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.23
+implementation_version: mvp-0.24
 last_reviewed: 2026-10-14
 source_commit: fc697aab4b9f6b5680e2cff7b0aecad45c693297
 source_commit_timestamp: "2026-10-13T20:34:01-04:00"
@@ -27,6 +27,12 @@ source_paths:
   - src/learnloop/daily_plan/engine.py
   - src/learnloop/daily_plan/staged_frame.py
   - src/learnloop/daily_plan/router_card.py
+  - src/learnloop/daily_plan/router_chooser.py
+  - src/learnloop/daily_plan/router_runtime.py
+  - src/learnloop/daily_plan/router_teach_back.py
+  - src/learnloop/daily_plan/router_retrieval.py
+  - src/learnloop/router/mixture.py
+  - src/learnloop/router/requests.py
   - src/learnloop/router/decisions.py
   - src/learnloop/router/card.py
   - src/learnloop/db/stores/plan_presentations.py
@@ -65,7 +71,7 @@ Start with the loop, then open the stage you need. Arrows show data or control f
 
 Note-name nodes are clickable through `class NodeId internal-link;`, with the node text exactly matching the note name, as documented in [Obsidian's diagram-link convention](https://obsidian.md/help/advanced-syntax#Linking%20files%20in%20a%20diagram). Prose WikiLinks provide navigation and backlinks too. Existing notes remain the conceptual authorities; their recorded review dates may precede this map. In particular, older Reader defaults, scheduler propensity descriptions, and table counts should not be read as a new audit of this commit.
 
-**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.23` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`, router R2a's staged frame on Today at `mvp-0.23`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
+**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.24` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`, router R2a's staged frame on Today at `mvp-0.23`, router R2b + R2c's model mixture and restraint at `mvp-0.24`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
 
 ## End-to-end loop
 
@@ -77,7 +83,7 @@ flowchart TB
         BUILD --> MAP["Study map<br/>LOs, facets, items, rubrics<br/>practice families and exercise imports"]
         MAP --> READ["Reader<br/>Guide, RW1a Ask, quick checks<br/>progress and chapter-ahead builds"]
         READ --> PLAN["DL1 daily plan<br/>Today / begin, finite lanes<br/>load and VOI admission"]
-        PLAN --> ROUTER["Router: R2a staged frame on Today<br/>R1 decision log, plan presentations<br/>stored state card"]
+        PLAN --> ROUTER["Router: R2a staged frame, R2b model mixture<br/>R2c follow-up restraint, sensors, retrieval<br/>decision log, presentations, state card"]
         ROUTER --> SERVE["Serve practice, probes / episodes<br/>follow-ups, teach-backs, exams<br/>held-out reservation"]
         SERVE --> ATT["Attempt"] --> GRADE["Blind grading<br/>own-route rules / held grades"]
         GRADE --> DIAG["History-aware diagnosis<br/>causal hypotheses, recurrence<br/>misconceptions, learner-text gaps"]
@@ -86,7 +92,6 @@ flowchart TB
         VOI --> PLAN
         VOI --> ROUTER
         READ -->|build ahead| BUILD
-        ROUTER -.-> R2["R2b / R2c model routing<br/>planned"]
     end
     subgraph SIDE[Cross-cutting layers]
         AI["AI Architecture"] --> AID["Routing: Codex, ChatGPT plan<br/>OpenRouter, Decider tier-1<br/>output budgets, spend and receipts"]
@@ -101,7 +106,7 @@ flowchart TB
     GUARD -->|gate text and evidence| GRADE
     class AI,PERSIST,ADAPT internal-link;
     classDef planned stroke-dasharray: 5 5;
-    class R2,MCP planned;
+    class MCP planned;
 ```
 
 Grading measures the current answer; diagnosis interprets it across time. State updates do not wait for every diagnosis, and Reader text can enter the gap pipeline without becoming an attempt. The Decider handles bounded judgments, not blind grading or the whole learning policy. See [[Learning System]], [[Architecture Map]] and [[Data and State Map]].
@@ -162,23 +167,24 @@ flowchart LR
     E --> L["Repair / maintain / new / push<br/>reading blocks"]
     L --> A["Load admission + VOI<br/>finite minute budget"]
     A --> F["R2a staged frame<br/>P4 constraint vetoes"]
-    F --> P["Today / begin<br/>DL1 lanes, lane_quota_v1"]
-    P --> R["Decision ledger<br/>R1 log, R2a state card"]
+    F --> M["R2b model mixture<br/>staged rule, Decider, router LLM<br/>exact propensity, floor"]
+    C["R2c context<br/>teach-back summaries<br/>similar past decisions"] --> M
+    M --> P["Today / begin<br/>DL1 lanes, lane_quota_v1"]
+    P --> R["Decision ledger<br/>R1 log, state card<br/>requests, raw answers, sensors"]
     R --> V["Practice / probes / follow-ups<br/>teach-back / exam session"]
     V --> PR["Plan presentation<br/>exact receipt"]
     PR --> O["Attempt and outcome joins<br/>outcomes v2, EVSI v6"]
     O --> P
-    R -.-> FUT["R2b / R2c model routing<br/>planned"]
+    V --> I["R2c restraint<br/>plan_interrupt: join now or wait"]
+    I --> P
     class S internal-link;
-    classDef planned stroke-dasharray: 5 5;
-    class FUT planned;
 ```
 
 - `src/learnloop/daily_plan/engine.py` ([source](../../../src/learnloop/daily_plan/engine.py)) implements DL1 (`daily_plan_v1`, `mvp-0.14+` with `plan.enabled`): finite remembered minutes, feasible blocks, re-entry and learner picks. `src/learnloop/daily_plan/lanes.py` ([source](../../../src/learnloop/daily_plan/lanes.py)) assigns repair, maintain, new and push; `src/learnloop/daily_plan/admission.py` ([source](../../../src/learnloop/daily_plan/admission.py)) controls new-material review load. See the [DL1 review](../../reviews/daily-loop-dl1.md).
 - VOI admission is distinct from new-material load admission: `src/learnloop/diagnosis/voi_stopping.py` ([source](../../../src/learnloop/diagnosis/voi_stopping.py)) values due project probes for the plan and teach-backs for offers, alongside probe continuation and follow-ups. The finite plan still owns available minutes. Key workflow tables: [[daily_plans]], [[attention_blocks]]; block receipts: [[attention_block_events]].
 - `src/learnloop/router/decisions.py` ([source](../../../src/learnloop/router/decisions.py)) and `src/learnloop/router/plan_log.py` ([source](../../../src/learnloop/router/plan_log.py)) record R1 choices, candidates, selection design and available propensities in [[router_decisions]]; [[router_outcomes]] is a derived join. R1 can record an exact focused-head probability under seeded exploration; it does not make every learner pick or full composed slate a randomized action. See [R1 review](../../reviews/router-r1.md) and [[Collection and Dataset Contract]].
-- **R2a is live at `mvp-0.23`** (kill switch `router.enabled`; no model is called). At every plan boundary `src/learnloop/daily_plan/staged_frame.py` ([source](../../../src/learnloop/daily_plan/staged_frame.py)) runs the P4 constraint engine over the pool VOI already admitted, against one bounded controller snapshot, and drops what a named hard constraint refuses (a seen or unknown-freshness quick check, a surface reserved for an assessment, an inactive or unrenderable item); `staged_v1` is DL1's `lane_quota_v1` over the rest, so the order is DL1's wherever nothing is refused. The frame has no exam rule of its own: exam reservations and held-out items never reach it (the scheduler's routine exclusions). Each served plan item writes an append-only [[plan_presentations]] row that an answer binds to (`practice_attempts.plan_presentation_id`), so [[router_outcomes]] v2 and the EVSI report v6 join by exact receipt, R1's session rule a labelled fallback. Each routed block stores a learner-state card (`src/learnloop/daily_plan/router_card.py` ([source](../../../src/learnloop/daily_plan/router_card.py)) gathers it, `src/learnloop/router/card.py` ([source](../../../src/learnloop/router/card.py)) builds it) in [[router_decision_payloads]], never sent; it withholds questions and answers on exam or reserved material by the one exam predicate. `golden_path.advance` goes through the P2 bridge (`controller_cutover.advance_live`). See the [R2a review](../../reviews/router-r2a.md) and the [R2 plan](../../specs/plan_router_r2_v1.md).
-- **R2b and R2c are planned.** R2b adds the model's choice over the card (a mixture with an ε floor over the reversible candidates); R2c adds the router's restraint on mid-plan follow-ups (the `plan_interrupt` decision kind is already admitted by the ledger). The [action-router spec](../../specs/spec_action_router_v1.md) and the [R2 plan](../../specs/plan_router_r2_v1.md) describe them.
+- **R2a is live from `mvp-0.23`** (kill switch `router.enabled`; R2a itself calls no model). At every plan boundary `src/learnloop/daily_plan/staged_frame.py` ([source](../../../src/learnloop/daily_plan/staged_frame.py)) runs the P4 constraint engine over the pool VOI already admitted, against one bounded controller snapshot, and drops what a named hard constraint refuses (a seen or unknown-freshness quick check, a surface reserved for an assessment, an inactive or unrenderable item); `staged_v1` is DL1's `lane_quota_v1` over the rest, so the order is DL1's wherever nothing is refused. The frame has no exam rule of its own: exam reservations and held-out items never reach it (the scheduler's routine exclusions). Each served plan item writes an append-only [[plan_presentations]] row that an answer binds to (`practice_attempts.plan_presentation_id`), so [[router_outcomes]] v2 and the EVSI report v6 join by exact receipt, R1's session rule a labelled fallback. Each routed block stores a learner-state card (`src/learnloop/daily_plan/router_card.py` ([source](../../../src/learnloop/daily_plan/router_card.py)) gathers it, `src/learnloop/router/card.py` ([source](../../../src/learnloop/router/card.py)) builds it) in [[router_decision_payloads]], never sent; it withholds questions and answers on exam or reserved material by the one exam predicate. `golden_path.advance` goes through the P2 bridge (`controller_cutover.advance_live`). See the [R2a review](../../reviews/router-r2a.md) and the [R2 plan](../../specs/plan_router_r2_v1.md).
+- **R2b and R2c are live at `mvp-0.24`** (kill switches `router.mode = "staged"`, `router.restraint = false`). At each plan boundary `src/learnloop/daily_plan/router_chooser.py` ([source](../../../src/learnloop/daily_plan/router_chooser.py)) draws the next block from the logged model mixture (`router_mixture_v1`, `src/learnloop/router/mixture.py` ([source](../../../src/learnloop/router/mixture.py))): the staged rule's pick, the Decider's and the router LLM's distributions over the top-k reversible candidates (`src/learnloop/router/requests.py` ([source](../../../src/learnloop/router/requests.py)) builds and strictly parses both requests), with an exact propensity and a floor for each; a model that times out, fails, answers outside its contract or is refused for spend gives its weight to the rule (`fallback`). `src/learnloop/daily_plan/router_runtime.py` ([source](../../../src/learnloop/daily_plan/router_runtime.py)) asks the models off the hot path (a read never waits; a serving step waits at most `router.timeout_seconds`; Today prefetches its first block) and admits every metered request, the query embedding and the summaries included, against the `$5/day` guard `router.max_daily_cost_usd` in its own start receipt. A placeable mid-block follow-up is a `plan_interrupt` decision (join now or wait for the next block) after the P4 constraint engine has checked it. The models' `teach_first` / `will_pass_next` sensors are logged only; `src/learnloop/daily_plan/router_teach_back.py` ([source](../../../src/learnloop/daily_plan/router_teach_back.py)) summarizes graded teach-back dialogues into the card's typed evidence; `src/learnloop/daily_plan/router_retrieval.py` ([source](../../../src/learnloop/daily_plan/router_retrieval.py)) retrieves similar matured past decisions (`decision/context` embeddings) and shows them on a logged random half. Both models' requests and raw answers are stored beside the card in [[router_decision_payloads]]; replay never asks a model. See the [R2b + R2c review](../../reviews/router-r2bc.md), the [action-router spec](../../specs/spec_action_router_v1.md) and the [R2 plan](../../specs/plan_router_r2_v1.md).
 - [[Scheduling and Selection]] owns eligibility and ranking; [[Diagnosis and Remediation]] owns probes/episodes and follow-ups. Serving authorities include `src/learnloop/diagnosis/probe_episodes.py` ([source](../../../src/learnloop/diagnosis/probe_episodes.py)), `src/learnloop/diagnosis/followups.py` ([source](../../../src/learnloop/diagnosis/followups.py)) and `src/learnloop/tutor/teach_back.py` ([source](../../../src/learnloop/tutor/teach_back.py)). Teach-back grades only asked-and-answered criteria.
 - Exams reserve held-out surfaces through `src/learnloop/goals/exam_pool.py` ([source](../../../src/learnloop/goals/exam_pool.py)) and `src/learnloop/goals/exam_session.py` ([source](../../../src/learnloop/goals/exam_session.py)); they do not make reserved items ordinary practice. See [[Goals and Certification]] and [[Goals Exams and Certification Workflow]].
 
@@ -254,7 +260,7 @@ flowchart LR
 ```
 
 - [[AI Architecture#Resolution path]] and [[AI Architecture#Output trust boundary]] explain routing and validation. `src/learnloop/ai/routing.py` ([source](../../../src/learnloop/ai/routing.py)) resolves task/profile clients; feature contracts determine what a provider may see and what returned output means.
-- Provider implementations are `src/learnloop/ai/providers/codex.py` ([source](../../../src/learnloop/ai/providers/codex.py)), `src/learnloop/ai/providers/chatgpt_plan.py` ([source](../../../src/learnloop/ai/providers/chatgpt_plan.py)), `src/learnloop/ai/providers/openrouter.py` ([source](../../../src/learnloop/ai/providers/openrouter.py)) and `src/learnloop/ai/providers/decider.py` ([source](../../../src/learnloop/ai/providers/decider.py)). Decider typed choice requests are distinct from chat generation; tier-1 fallback does not imply that R2 model routing is already live. See the [ChatGPT plan review](../../reviews/chatgpt-plan-provider.md).
+- Provider implementations are `src/learnloop/ai/providers/codex.py` ([source](../../../src/learnloop/ai/providers/codex.py)), `src/learnloop/ai/providers/chatgpt_plan.py` ([source](../../../src/learnloop/ai/providers/chatgpt_plan.py)), `src/learnloop/ai/providers/openrouter.py` ([source](../../../src/learnloop/ai/providers/openrouter.py)) and `src/learnloop/ai/providers/decider.py` ([source](../../../src/learnloop/ai/providers/decider.py)). Decider typed choice requests are distinct from chat generation. The router's two models (R2b + R2c, `mvp-0.24`) use the `router_decider` and `router_llm` routes under the router's own daily guard; the Decider never falls back to a chat model, and the router LLM resolves to the active provider when its route is unset. See the [ChatGPT plan review](../../reviews/chatgpt-plan-provider.md).
 - `src/learnloop/ai/output_budget.py` ([source](../../../src/learnloop/ai/output_budget.py)) supplies the shared LLM output policy, route overrides, profile ceilings and bounded truncation retry. Typed Decider answers and owner-set synthesis budgets are explicit exceptions. `src/learnloop/ai/spend.py` ([source](../../../src/learnloop/ai/spend.py)) admits each physical paid request, including retries; metered routes enforce finite cost bounds while subscription routes retain call/retry controls with estimated usage. See [source spend accounting](../../reviews/sources-spend-accounting.md).
 - [[model_call_receipts]] records calls; [[judgment_ledger]] is a **raw ledger**, despite its audit-like name. Typed verdicts and model outputs are captured inputs for later interpretation, never a license to bypass domain validation or rebuild them by asking a model again.
 - [[Desktop Architecture]] and [[Adapter Architecture]] cover Tauri/React → JSON-RPC → Python domain adapters: `apps/learnloop-tauri/src/api/client.ts` ([source](../../../apps/learnloop-tauri/src/api/client.ts)), `src/learnloop_sidecar/server.py` ([source](../../../src/learnloop_sidecar/server.py)), `src/learnloop/cli/app.py` ([source](../../../src/learnloop/cli/app.py)) and `src/learnloop/tui/app.py` ([source](../../../src/learnloop/tui/app.py)). The desktop Today entry is `apps/learnloop-tauri/src/screens/TodayScreen.tsx` ([source](../../../apps/learnloop-tauri/src/screens/TodayScreen.tsx)).
@@ -304,5 +310,5 @@ These links supply the recent details that the older concept notes do not yet co
 - **Own-route grading and held evidence:** [route rules](../../reviews/route-check-in-grader.md), [held-grade predicate](../../reviews/held-grade-evidence.md).
 - **Sources track and exam protection:** [sources](../../reviews/sources-spec.md), [source practice/probe spec](../../specs/spec_source_practice_and_probes_v1.md), [exam protection](../../reviews/exam-protection.md) (one predicate, landed after this map was first written).
 - **UX Phase 1 and RW1a:** [UX completion](../../reviews/ux-phase1-finish.md), [inquiry](../../reviews/rw1a-inquiry.md).
-- **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2a](../../reviews/router-r2a.md) (the staged frame, exact receipts and the stored card, landed at `mvp-0.23`), [R2 plan](../../specs/plan_router_r2_v1.md), [R2 spec](../../specs/spec_action_router_v1.md). R2b and R2c are planned, not shipped.
+- **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2a](../../reviews/router-r2a.md) (the staged frame, exact receipts and the stored card, landed at `mvp-0.23`), [R2b + R2c](../../reviews/router-r2bc.md) (the model mixture, the restraint, sensors, teach-back summaries and retrieval, landed at `mvp-0.24`), [R2 plan](../../specs/plan_router_r2_v1.md), [R2 spec](../../specs/spec_action_router_v1.md).
 - **Learner-text gaps and mobile/MCP:** [gaps](../../reviews/learner-text-gaps.md), [mobile M1](../../reviews/mobile-m1.md), [deferred Reader learning service](../../specs/spec_reader_workbench_v1.md).

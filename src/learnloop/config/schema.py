@@ -2459,6 +2459,24 @@ class PlanConfig(BaseModel):
         return self
 
 
+class RouterWeights(BaseModel):
+    """The model mixture's component weights (D1: one third each). Normalized
+    before use; a model that fails or is not set up gives its weight to
+    ``staged`` for that decision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    staged: float = Field(default=1.0 / 3.0, ge=0.0)
+    decider: float = Field(default=1.0 / 3.0, ge=0.0)
+    llm: float = Field(default=1.0 / 3.0, ge=0.0)
+
+    @model_validator(mode="after")
+    def validate_total(self) -> "RouterWeights":
+        if self.staged + self.decider + self.llm <= 0:
+            raise ValueError("router.weights must not all be zero")
+        return self
+
+
 class RouterConfig(BaseModel):
     """Action router (spec_action_router_v1). R1: decision logging on today's paths.
 
@@ -2475,19 +2493,65 @@ class RouterConfig(BaseModel):
     by the staged frame (DL1's lanes and ``lane_quota_v1`` over the set the P4
     constraint engine admits) and ``golden_path.advance`` goes through the P2
     bridge; off (or below ``mvp-0.23``) both serve exactly as ``mvp-0.22``.
-    ``mode`` names who chooses each block: ``staged`` (the rule; the only mode
-    until R2b adds the logged model mixture). ``card_token_budget`` bounds the
-    learner-state card each boundary stores (D8); the card is built and kept,
-    never sent, in R2a. ``payload_retention_days`` prunes the stored card text
-    (``router_decision_payloads``); the card's hash stays on the decision row.
+    ``card_token_budget`` bounds the learner-state card each boundary stores
+    (D8). ``payload_retention_days`` prunes the stored payloads (the card, and
+    from R2b the models' requests and raw answers, ``router_decision_payloads``);
+    the hashes stay on the decision row.
+
+    Router R2b + R2c (the successor after ``mvp-0.23``,
+    ``ROUTER_MIXTURE_VERSIONS``; plan_router_r2_v1 §3.3-§3.7, owner decisions
+    2026-10-13). ``mode`` names who chooses each block: ``mixture`` (the
+    default: a logged draw from the staged rule, the Decider and the router
+    LLM, weighted by ``weights``, over the top ``k`` reversible candidates
+    with a floor of ``epsilon_min`` each; exact propensities) or ``staged``
+    (the rule alone, deterministic, no model asked: R2a exactly). Below the
+    successor the mixture is dormant and ``mixture`` serves as ``staged``.
+    ``ties_only`` applies the mixture only among the rule's pick and the
+    candidates of its lane. ``prefetch_timeout_seconds`` is how long the
+    models have, from the moment a decision is prefetched (Today's open, the
+    feedback after a block's last answer); ``timeout_seconds`` is how long a
+    blocking step (Begin, Continue) waits for them before the rule's share
+    takes theirs (G7). ``max_daily_cost_usd`` guards metered model spend per
+    UTC day (subscription routes uncapped; the provider key's own limit is the
+    backstop). ``sensors`` adds the logged-only ``teach_first`` and
+    ``will_pass_next`` questions (``router_qs_v2``), ``sensor_source`` the
+    model whose ``intervene_now`` is the restraint's sensor of record.
+    ``restraint`` makes a mid-block follow-up a logged decision
+    (``plan_interrupt``: join the current block now, or wait for the next
+    one); off, a follow-up always joins the current block (R2b).
+    ``similar_decisions`` shows the models up to ``similar_k`` matured similar
+    past decisions on a logged random ``similar_include_rate`` of decisions
+    (needs ``embedding.enabled``; a logged no-op otherwise).
+    ``teach_back_summary`` summarizes each graded teach-back dialogue (after
+    grading, off the hot path) into the card's typed evidence.
     """
 
     log_decisions: bool = True
     probe_tie_admission: bool = True
     enabled: bool = True
-    mode: Literal["staged"] = "staged"
+    mode: Literal["staged", "mixture"] = "mixture"
     card_token_budget: int = Field(default=16_000, ge=1_000)
     payload_retention_days: int = Field(default=365, ge=1)
+    weights: RouterWeights = Field(default_factory=lambda: RouterWeights())
+    k: int = Field(default=6, ge=2, le=64)
+    epsilon_min: float = Field(default=0.02, ge=0.0, lt=0.5)
+    ties_only: bool = False
+    timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
+    prefetch_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
+    max_daily_cost_usd: float = Field(default=5.0, ge=0.0)
+    sensors: bool = True
+    sensor_source: Literal["decider", "llm"] = "decider"
+    restraint: bool = True
+    similar_decisions: bool = True
+    similar_k: int = Field(default=6, ge=1, le=32)
+    similar_include_rate: float = Field(default=0.5, ge=0.0, le=1.0)
+    teach_back_summary: bool = True
+
+    @model_validator(mode="after")
+    def validate_floor(self) -> "RouterConfig":
+        if self.k * self.epsilon_min >= 1.0:
+            raise ValueError("router.k * router.epsilon_min must stay below 1 (the floor would take every draw)")
+        return self
 
 
 class VoiStoppingConfig(BaseModel):

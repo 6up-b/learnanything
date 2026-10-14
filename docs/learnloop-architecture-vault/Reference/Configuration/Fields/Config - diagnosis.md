@@ -3,8 +3,8 @@ title: "Config - diagnosis"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fcf7dc95d383cc97b89741893bc312737dbde569"
-source_commit_timestamp: "2026-10-14T10:48:23-04:00"
+source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
+source_commit_timestamp: "2026-10-14T11:49:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml diagnosis"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/split/pfc_report.py"
   - "tests/diagnosis_fakes.py"
+  - "tests/router_model_fakes.py"
   - "tests/test_action_loss.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_ai_config.py"
@@ -39,7 +40,6 @@ source_paths:
   - "tests/test_cli_generate_practice.py"
   - "tests/test_codex_output_schema.py"
   - "tests/test_coldness_receipt.py"
-  - "tests/test_concept_animation_validator.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -72,7 +72,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `diagnosis.next_item_wait_seconds` | `10.0` | number | modeled default or validator seed | Sets the next item wait duration in seconds for Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1703`; `src/learnloop_sidecar/handlers/queue.py:217` |
 | `diagnosis.max_attempts` | `5` | integer | modeled default or validator seed | Caps attempts allowed by Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1704`; `src/learnloop/diagnosis/split/jobs.py:902` |
 | `diagnosis.timeout_seconds` | `300` | integer | modeled default or validator seed | Sets the timeout duration in seconds for Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1708`; `src/learnloop/diagnosis/split/jobs.py:271` |
-| `diagnosis.max_calls_per_day` | `500` | integer | modeled default or validator seed | Caps calls per day allowed by Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1710`; `src/learnloop/cli/app.py:3583`; `src/learnloop/diagnosis/split/jobs.py:682` |
+| `diagnosis.max_calls_per_day` | `500` | integer | modeled default or validator seed | Caps calls per day allowed by Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1710`; `src/learnloop/cli/app.py:3592`; `src/learnloop/diagnosis/split/jobs.py:682` |
 | `diagnosis.card_enabled` | `true` | boolean | modeled default or validator seed | Turns card behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1713`; `src/learnloop/diagnosis/split/card.py:232` |
 | `diagnosis.forward_card_taps` | `true` | boolean | modeled default or validator seed | Turns forward card taps behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1714`; `src/learnloop/diagnosis/split/card.py:346` |
 | `diagnosis.grading_support` | `true` | boolean | modeled default or validator seed | Turns grading support behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1718`; `src/learnloop/attempts/attempts.py:1540`; `src/learnloop/diagnosis/split/pfc_report.py:390` |
@@ -90,6 +90,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/diagnosis_fakes.py`
+- `tests/router_model_fakes.py`
 - `tests/test_action_loss.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_ai_config.py`
@@ -100,7 +101,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_cli_generate_practice.py`
 - `tests/test_codex_output_schema.py`
 - `tests/test_coldness_receipt.py`
-- `tests/test_concept_animation_validator.py`
 
 ## Extension and modification guidance
 

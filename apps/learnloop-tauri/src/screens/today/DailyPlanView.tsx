@@ -310,7 +310,16 @@ export function DailyPlanView({
             </div>
           </div>
         ) : (
-          <div style={{ fontSize: 13, color: COLOR.textDim }}>Choosing the next block…</div>
+          <div data-testid="plan-choosing" style={{ fontSize: 13, color: COLOR.textDim }}>
+            Choosing the next block…
+            {plan.deciding ? (
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button type="button" style={actionButton(true)} onClick={onContinue} disabled={busy}>
+                  {busy ? "opening…" : "begin ↵"}
+                </button>
+              </div>
+            ) : null}
+          </div>
         )}
 
         {!done && upcoming ? (
