@@ -78,8 +78,12 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/source_block_fts.py",
         # Daily-loop DL1: the finite plan's workflow rows and block receipts.
         "src/learnloop/db/stores/daily_plans.py",
-        # Router R1: append-only decision rows and the DERIVED outcome cache.
+        # Router R1: append-only decision rows and the DERIVED outcome cache;
+        # R2a: the decision payloads (the stored learner-state card).
         "src/learnloop/db/stores/router.py",
+        # Router R2a: the append-only plan presentations (the exact
+        # decision -> presentation -> attempt receipt).
+        "src/learnloop/db/stores/plan_presentations.py",
         # Learner-text gaps: the gap ledger, reversals, queue and receipts.
         "src/learnloop/db/stores/learner_gaps.py",
         # EVSI calibration Part B: the append-only voi_forecasts receipts.

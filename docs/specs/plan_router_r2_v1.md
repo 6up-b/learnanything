@@ -1,6 +1,6 @@
 # Router R2: router live for the daily plan — implementation plan
 
-**Status:** read-only planning pass, 2026-10-13. No repository file was edited.
+**Status:** planning pass 2026-10-13 (read-only). **R2a built** on `router/r2a` (2026-10-13; base main `f2bfa2928`): the staged frame on Today, the exact decision → presentation → attempt receipt, outcomes v2 and the EVSI staged join, the stored `LearnerStateCardV1`, the plain computed "why", and the D13 bridge, as successor `mvp-0.23` and migration 205 (both placeholders, relabelled and renumbered at its merge), kill switch `router.enabled`. Owner decisions built to (2026-10-13): Q1, Q2, Q3, Q10, Q13; D6 recorded (R2a sends nothing). Deviations from this plan, the re-verified citations, gates and manual runs: `docs/reviews/router-r2a.md`. R2b and R2c not started.
 **Spec:** `docs/specs/spec_action_router_v1.md` (§3–§12, §15). The daily-loop seam is `docs/specs/spec_daily_loop_v1.md` §6.8.
 **Citations:**
 - Unprefixed `path:line` is main at `e238fa07`.
