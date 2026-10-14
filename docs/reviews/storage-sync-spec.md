@@ -7,14 +7,16 @@
 
 This is a documentation stage. No code, migration, config, test, fixture, git-LFS object, remote setting or history changed.
 
+**Revised the same day** after the Codex review and the owner's decision to keep the repository public ("I want to keep the repo public so that people can use it, contribute to it, and in the future possibly contribute their data for a larger n>1 learned model ecosystem"). The review's findings, their fixes and the gate are in `docs/reviews/storage-sync-spec-codex-review.md`; "What the spec contains" and the open questions below describe the revised spec; the method, gate and contradiction list are the first draft's.
+
 ## What the spec contains
 
 - **Inventory (§2):** every data class with its location, authority and citations; measurements of the owner's three working vaults on backup-API copies; schema facts at head 202; the ten tracked fixture databases and the tests that read them; the code that assumes a git working tree or a file at `canonical_uri`.
-- **Problems (§3):** LFS pointers and E1; binary SQLite in git (81 database blobs, 1,051 MB, in history); the public exposure, verified without downloading content; why multi-device use stops at one machine today.
-- **Requirements R1–R12 (§4)** and **options (§5):** (a) single-writer hub with offline variants a0–a2; (b) event-log replication, costed against the schema; (c) Litestream, LiteFS, libSQL/Turso, cr-sqlite, rqlite, PowerSync, Electric and `sqlite3_rsync` from their own docs; (d) file sync; (e) the originals store; (f) authored-content text history.
-- **Recommendation (§6):** a hub (default `carson`) that holds each vault; a headless primary (`learnloop hub serve`) holding a `primary.lock` flock so background work runs while the desktop app is closed; a private data root; store-only source bytes and content identity for local files (completing E1); a port plan (Serve 443 private, Funnel 8443 for MCP); offline behaviour per surface; hourly backup-API snapshots plus nightly restic off-site, restore and a monthly drill; invariants (no algorithm successor for S0–S7); the changes to the mobile spec (PR-8) and to C1a/C1b/C2; phases S0–S8.
-- **Migration (§7):** moving vaults and textbooks out of the repository (copy, verify, then switch pins; never delete); test fixtures rebuilt from text (builders, an opt-in `owner_vaults` lane, SQL text dumps for historical fixtures); removing git-LFS; the public-history question as owner decision H1–H3.
-- **Gates G1–G12 (§8), risks (§9), owner decisions D1–D16 with defaults (§10), deferrals with triggers (§11), dated references (§12).**
+- **Problems (§3):** LFS pointers and E1; binary SQLite in git (81 database blobs, 1,051 MB, in history); the public exposure, verified without downloading content; why multi-device use stops at one machine today, including a primary that never notices work other processes queue; a licence audit of every tracked third-party file from primary sources (§3.5).
+- **Requirements R1–R14 (§4)** and **options (§5):** (a) single-writer hub with offline variants a0–a2; (b) event-log replication, costed against the schema; (c) Litestream, LiteFS, libSQL/Turso, cr-sqlite, rqlite, PowerSync, Electric, SQLite Sync and `sqlite3_rsync` from their own docs; (d) file sync; (e) the originals store; (f) authored-content text history.
+- **Recommendation (§6):** a hub (default `carson`) that holds each vault; a headless primary (`learnloop hub serve`) holding a `primary.lock` flock so background work runs while the desktop app is closed; a private data root; store-only source bytes and content identity for local files (completing E1); a port plan (Serve 443 private, Funnel 8443 for MCP); offline behaviour per surface; complete hourly backup-API snapshots each copied off the hub's disk by restic the same hour, with the age of the newest copy in each place shown, restore and a monthly drill; invariants (no algorithm successor for S0–S7 or S9); the changes to the mobile spec (PR-8: the primary lock, a submit-only desktop secondary, queue discovery, one code version per vault) and to C1a/C1b/C2; opt-in data contribution as requirements and constraints with a deferred phase (§6.12); phases S0–S9, with S0 cleaning the public tip within days.
+- **Migration (§7):** moving vaults and textbooks out of the repository (resolve the configured database, copy, verify, then switch pins and project hooks; never delete); what untracking does to other checkouts and the owner-run landing; test fixtures rebuilt from text (builders, an opt-in `owner_vaults` lane, SQL text dumps for historical fixtures); removing git-LFS; the public history as owner decision H1–H3 for a repository that stays public.
+- **Gates G1–G14 (§8), risks (§9), owner decisions D1–D19 with defaults (§10; D1 decided: public), deferrals with triggers (§11), dated references (§12).**
 
 ## Method
 
@@ -65,7 +67,7 @@ This is a documentation stage. No code, migration, config, test, fixture, git-LF
    - The databases also hold extracted book text: 1,074, 579 and 4,717 blocks.
    - A public fork has existed since 2026-07-21.
 2. **The mobile host and the chat frontend cannot both use port 443.** The as-built mobile doctor requires Serve-only on 443 (`src/learnloop_mobile/doctor.py:86-117`), and the C1a runbook points Funnel's 443 at MCP. The spec puts MCP on Funnel 8443 (D7), which also answers C1a's Q3.
-3. **As specified, phone answers wait for the desktop app to be diagnosed.** The post-attempt worker is bound only by `SidecarContext.load`, and secondary attach runs none of it. The hub service fixes this.
+3. **As specified, phone answers wait for the desktop app to be diagnosed.** The post-attempt worker is bound only by `SidecarContext.load`, and secondary attach runs none of it. The hub service fixes this, with queue discovery: even a running primary that started on an empty queue never notices a job another process queues (reproduced in the review).
 4. **E1 has two remaining causes after `fix/reread-safety`:**
    - extraction repair still re-acquires from `original_uri`/`canonical_uri` (`src/learnloop/content/pipeline/jobs.py:2460-2465`);
    - local-file identity is the absolute path, so a moved book becomes a second artifact.
@@ -76,9 +78,9 @@ This is a documentation stage. No code, migration, config, test, fixture, git-LF
 
 ## Open questions for the owner
 
-1. **D1 and D2:** make the repository private now (recommended, reversible), and choose H1 (a new clean public repository later; recommended), H2 (rewrite in place; destructive) or H3 (leave history). No agent can act on these.
+1. **D1 is decided: the repository stays public** (owner, 2026-10-14). Still open: **D2**, the public history: H1 (a clean public repository under the same name, from a rewritten mirror; recommended), H2 (rewrite in place, which depends on GitHub Support) or H3 (clean the tip only). Forks and clones keep their copies under every option. No agent can act on these. **S0, D17 and D19:** land S0 (clean the tip) once copies of the affected vaults and textbooks exist outside every checkout; confirm the code licence (Apache-2.0 recommended); keep the docs' screenshots (recommended) with book pages attributed or replaced.
 2. **D3 and D4:** is `carson` the hub, and may it stay awake (no automatic suspend, or Wake-on-LAN at night)?
-3. **D5 and D8:** the data-root paths, and the off-site backup target for restic (B2, S3, or SFTP to `mimas` or `minty`).
+3. **D5 and D8:** the data-root paths, and the hourly off-host target for restic (by default SFTP to `mimas` or `minty`; B2 or S3 for a copy outside the house).
 4. **D6:** review the historical fixtures' content (`migration_head_202`, `linear_algebra_legacy`; `mvp017_route_check_replay` is synthetic) and the three text fixtures before they become text dumps in a public repository.
 5. **D7:** re-point Funnel to 8443 and update the connector URLs in Claude and ChatGPT when S5 lands.
 6. **The vault inventory (§7.1 step 1):** which vaults are in use today, including any under `fixtures-local/` or `~/LearnLoop`.
