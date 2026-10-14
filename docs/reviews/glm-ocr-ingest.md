@@ -267,3 +267,142 @@ The suites ran with `TMPDIR=fixtures-local/tmp` under `flock /tmp/learnloop-full
 2. **Repairs of file-added books fail before they start.** Their `original_uri` is `file://…`, which `resolve_source` refuses. The verifier noted this and it predates this branch; the F10 tests point the revision at a plain path, as a link's URL would be. Fix it separately?
 3. **The repair dialog offers a local repair for an image.** That repair is now refused, saying to turn on "external VLM". Should the dialog say so before the learner starts?
 4. **Scan detection reads the local reader's error text.** A plain import is told to give the z.ai OK when pypdf's error says "no extractable text" or "likely scanned" (`jobs._found_no_text`). `test_r3_f2…[scan]` fails if that wording changes, but a typed "no text layer" error from the extractors would be sturdier. Worth it?
+
+## Landing onto main
+
+**Branch:** `merge/glmocr-onto-main` (worktree `learnanything-merge2`), from main `6dabbc33c` (`mvp-0.23`, LATEST; reading hardening, RW3a, router R2a and the tutor delivery fixes landed). Not pushed. Owner-directed, 2026-10-14, single phase: merge `fcf7dc95d`, references `55709da33`, a prose fix `49de4a79b` (below), this record. `ingest/glm-ocr` (`3556a4977`) and its worktree `learnanything-glmocr` were not modified.
+
+**Main since this branch's base `e5f880778`** (exam protection, one predicate in `content/sources/exam_material.py`, was already in the base):
+- reading hardening (`db30696ba`..`4cf54a295`): the level-triggered reading sweep (30 s), one check-offer rule in `checkOffer.ts`, the scanned-PDF lines without their kept-local variants, and **the retired per-book keep-local**;
+- the contextual-embeddings experiment spec (docs only);
+- RW3a (Reader hooks, margin cues, `[cues]`) and router R2a (`mvp-0.23`, migration 202, fifteen defaults snapshots), landed together;
+- the tutor delivery fixes (`275fd5f7e`..`6dabbc33c`): complete source blocks for the tutor, and `queue_source_vectors(ctx, extraction_id)` after every completed extraction in `handle_import` and `handle_extraction_repair`.
+
+**Paid calls:** none ($0.00); no network, no key read. **Migration:** none (head 202 is main's). **Algorithm version:** unchanged, no successor (document extraction only; replay reads none of it). **Config:** `[ingest.pdf.glm_ocr]` (8 leaves) beside main's keys: 837 effective leaves in 50 sections. **RPC:** `set_text_recognition_api_key`, desktop only. **Frontend / `src-tauri`:** changed (the Settings key field and its Tauri passthrough), so both gates ran.
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `src/learnloop/config/template.py` (14 hunks) | Main's R2a, RW3a and tutor-delivery notes kept, and the branch's added: its full note after the tutor-delivery note in `mvp-0.9` (now "all fourteen ... on its branch ..., and all fifteen again from the composed defaults when it landed after router R2a, RW3a and the tutor delivery fixes"), its "moves it too" line in `mvp-0.10`..`mvp-0.22`, and the same line added to `mvp-0.23`, which the branch never saw. All fifteen hashes recomputed (template `.pyc` deleted, `config/template.py` touched; `test_config_refactor.py` then passes in a fresh process). |
+| `src/learnloop/content/pipeline/jobs.py` (5 hunks) | The keep-local composition (next section); `_actual_model_versions` placed beside main's `queue_source_vectors`, `handle_source_embedding_backfill` and `_source_vectors_failure`, all kept. |
+| `src/learnloop/content/pipeline/add_source.py` (8 hunks) | The keep-local composition: `keep_on_this_computer` and `share_with_ai` stay deleted (main); the branch's `_import_waiting_for_upload_ok`, `GLM_OCR_UPLOAD_CONSENT`, `pending_upload_flow`, the GLM card lines and `text_recognition_available(config=)` kept without their `keep_local` parameters. |
+| `src/learnloop_sidecar/handlers/first_run.py`, `handlers/ingest.py` | `text_recognition_available(config=vault.config)`, one value per library (no per-book variant). |
+| `tests/test_mobile_allowlist.py` | `ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS`: `set_text_recognition_api_key` pinned desktop only, and `update_ingest_settings`, `start_ingest`, `start_import_batch` (the `glm_ocr` engine) too. |
+| 372 notes under `Reference/` | Taken from main, then regenerated (below). |
+
+### The keep-local composition
+
+**Main's rule (owner, 2026-10-13; reading hardening part 3):** it is fine to send books to an AI, and there is no per-book opt-out. `add_source.keepLocal`, the `keep_local` / `share_with_ai` actions and `AddSourceOptions.keep_local` / `keep_on_this_computer` / `share_with_ai` are gone; `source_artifacts.keep_local` stays as a column that nothing consults, and doctor warns `source:retired_keep_local`. This branch was cut before that and built several fixes on keep-local. Each was composed to main's model:
+
+| Branch piece | What it did on the branch | After the landing |
+|---|---|---|
+| `jobs._kept_local`, `ctx.job["_keep_local"]` (set by `handle_import` from `repo.source_kept_local` and by the repair), `_apply_requested_keep_local` | the book's stored choice (or the Add's request) | **Removed.** `handle_import` sets neither `_keep_local` nor `_source_id`; nothing reads `source_artifacts.keep_local` (main's `test_nothing_in_src_consults_the_retired_keep_local` and `test_keep_local_retired.py` pass unchanged). |
+| `_local_only(ctx)` = kept local **or** a local repair | narrowed `_pdf_payload_config` (native → auto, hosted Marker → pypdf) and selection | **`_local_repair(ctx)`**: a local repair only. |
+| `selected_backend(..., keep_local=)`, `pdf_extractor_for(..., keep_local=)` | `auto` passed over z.ai and a non-loopback server | Renamed **`local_only=`**, passed only for a local repair. |
+| `_guard_file_upload`'s kept-local refusal and `_KEPT_LOCAL_FLOW_MESSAGES` (`glm_ocr_upload`, `glm_ocr_server`, `glm_ocr_image`) | refused with `kept_local` | **Removed** (main had already removed the guard's refusal and its messages). The z.ai OK logic is kept: z.ai's upload always asks for its own OK (`whole_files_zai`), and a plain import's words say where it is given. |
+| `_document_extractor`: the kept-local image refusal (second review F9) and the explicit-engine refusal of a server elsewhere (F1) | refused with `kept_local` | **Removed.** F1's guard now serves a local repair: an explicit `glm_ocr` with a server on another computer is read by local Marker, else pypdf. |
+| `_extraction_interrupt`'s keep-local half, `_kept_local_now`, `GlmOcrKeptLocal` and the `glm_ocr_kept_local_<engine>_fallback` flag (F4's second half, third review F11) | stopped the windows not yet sent when a book was kept here part-way | **Removed.** The interrupt checks cancellation only (F4 kept). `extract_with_fallback` flags only `<chosen>_failed_<engine>_fallback`, and `_actual_model_versions` matches only that. |
+| Third review F12: `keep_on_this_computer` resuming or cancelling an import waiting for the OK; the kept-local "hasn't been read yet" line; the waiting-OK line skipped for kept-local books | | **Removed** with `keep_on_this_computer` (main). `_import_waiting_for_upload_ok` stays: every book's card shows a re-read waiting for its OK (second review F2). |
+| F9's kept-local scan lines (`_SCAN_DETAILS_KEPT_LOCAL`, `_scan_unreadable(keep_local)`), `_import_failure_line(keep_local=)`, `_health_line` reading `source_kept_local`, `text_recognition_available(keep_local=)` | "never sent to an AI" variants with no action | **Removed.** A scan's line offers "Read it with text recognition" when GLM-OCR or Marker can run, else "Set it up" with the key how-to. |
+| The text-recognition re-read (`enqueue_add_source`): `selected_backend(keep_local=chosen.keep_local)`; the shelf's per-keep-local availability; `source_action`'s read of `artifact["keep_local"]` | | `selected_backend(glm_settings)`; one availability per library. |
+
+**Kept:** the one-time whole-file OK naming z.ai (`ai.consent.whole_files_zai`, its own record, F3), the card's OK recording the flow its line named (`pending_upload_flow`), and the consent at AI connection.
+
+**Repair consent.** Main still offers an explicit local repair: OutlineAndPlan's repair dialog without "external VLM" sends `provider: "local", external: false` ("I consent to re-running local extraction for repair"), and `learnloop repair-extraction` without `--use-llm` does the same. So the third review's F10 stays for that choice: `_repair_is_local(consent)` sets `ctx.job["_local_repair"]`, and such a repair never uploads whatever the engine (native → auto, hosted Marker → pypdf, `auto` passes over z.ai and a non-loopback server, an explicit `glm_ocr` is read by local Marker, else pypdf, and an image is refused with `local_repair`, pointing to "external VLM"). An external repair is treated like any other reading: under `auto` with the z.ai OK it goes to z.ai (now tested; on the branch the kept-local book had masked that case), and without the OK it reads locally.
+
+**Kept unchanged (they never depended on keep-local):** model versions after a double fallback (F7), the scan → `needs_upload_ok` card flow and an import naming its book (F2), cancellation (F4), window checkpoints and their replacement (F5, F13), cut-off answers and unrenderable pages (F6), `data_info.pages` first (F8), plain card details (F14), hash-stable request config, pixel boxes and the self-hosted multi-image response.
+
+**Docs composed too:** the ingestion spec's privacy paragraph (no per-book opt-out; a local repair is the one local-only reading); the reference generator's `backend` and `local_url` notes ("a repair OK'd as local" instead of the kept-local book); comments in `glm_ocr.py`, `extractors/base.py` and `extractors/__init__.py`.
+
+**Tests (`tests/test_glm_ocr.py`, 67 collected before and after):**
+
+| Test | Change | Why |
+|---|---|---|
+| `test_r2_f9_a_kept_local_image_is_refused_as_kept_here_not_as_unset` | removed | The `kept_local` refusal is retired. An image without GLM-OCR is covered by `test_an_image_import_needs_glm_and_reads_with_it`, a local repair of an image by `test_r3_f10_..._of_an_image_...`. |
+| `test_r3_f11_keeping_a_book_here_mid_read_reads_the_rest_here` | removed | There is no per-book choice to make part-way; `GlmOcrKeptLocal` is gone. |
+| `test_r3_f12_a_book_kept_here_never_asks_for_the_z_ai_ok` | removed | `source_action`'s `keep_local` is a validation error on main (`test_keep_local_retired.py`). |
+| `test_a_kept_local_book_never_goes_to_z_ai` | replaced by `test_a_book_carrying_the_retired_keep_local_choice_is_read_like_any_other` | A book whose `source_artifacts.keep_local` is set asks for the z.ai OK on its card like any other and is read by GLM-OCR after it; a stale `keep_local` on the job or payload changes nothing under an explicit engine. |
+| `test_local_runs_only_when_chosen_and_answering_and_a_kept_local_book_never_uploads` | adapted → `..._a_local_only_reading_never_uploads` | `local_only=`. |
+| `test_read_again_with_text_recognition_uses_glm_when_it_can` | adapted | The kept-local variant dropped; without a key the re-read names Marker. |
+| `test_r2_f1_a_kept_local_book_never_goes_to_a_glm_server_on_another_computer` | adapted → `test_r2_f1_a_local_repair_never_goes_to_a_glm_server_on_another_computer` | The same guard, for a local repair: read by pypdf, nothing sent; any other reading may use the owner's server; a loopback server still serves a local repair. |
+| `test_r2_f9_a_kept_local_scan_never_asks_for_a_key_that_cannot_help` | adapted → `test_r2_f9_a_scan_offers_text_recognition_or_where_to_set_it_up` | The kept-local lines are gone; the scan's two lines remain. |
+| `test_r2_f4_cancelling_or_keeping_it_here_stops_the_windows_not_yet_sent` | adapted → `test_r2_f4_cancelling_stops_the_windows_not_yet_sent` | The keep-here half is retired. |
+| `test_r3_f10_a_local_repair_never_leaves_this_computer` (both engines) | adapted | One book instead of a kept-local and a shared one: a local repair is read by pypdf with nothing sent; an external repair, the OK given, goes to z.ai (one request). |
+| `test_r3_f14_the_cards_details_are_plain_words` | adapted | The fake repository no longer needs `source_kept_local`. |
+| `test_every_glm_ocr_reading_queues_the_source_block_backfill` (3 cases) | added | The tutor-delivery composition, below. |
+
+`tests/test_keep_local_retired.py` (8) and `tests/test_reading_hardening_landing.py` (4) pass unchanged.
+
+### Other compositions
+
+- **Tutor delivery fixes.** Both branches edited `handle_import` and `handle_extraction_repair`. `queue_source_vectors` stays where main put it, after the extraction completes (fresh or reused) in both. Every GLM-OCR reading of an import ends in `handle_import`'s one persistence block: a hosted read in windows, a stand-in reading after a GLM-OCR failure (Marker, pypdf, or both), and a scan read after its OK (the resumed import). So each queues its source's block-vector backfill when both embedding switches are on. `test_every_glm_ocr_reading_queues_the_source_block_backfill[hosted_windows|fallback|scan_after_the_ok]` checks this with a hashing embedder: one `source_embedding_backfill` job for the import's extraction, completed. The branch's `_actual_model_versions` changes only the stored model versions and request hash, not where the run completes. GLM-OCR's blocks pass `classify_block_role` like the other extractors' blocks, so the delivery's numbered labels and references ("Theorem 3.2", "by 1.32") read them the same way.
+- **Reading hardening, besides keep-local.** The 30 s reading sweep acts on reading requests, which need a book with a reading. A re-read waiting for the z.ai OK is queued with `auto_build` off (the book already has a reading), and an Add waiting for the OK leaves its planner blocked, not active, so neither holds a request as "unfinished work". The scanned-PDF lines: since the base, main changed them only to drop the kept-local variants (and `text_recognition_available`'s `keep_local`). The merged lines are the branch's without a kept-local variant: the how-to names the z.ai key, and the card's one action is "Read it with text recognition" where GLM-OCR or Marker can run, else "Set it up". `checkOffer.ts` is untouched.
+- **Exam protection** (in the base). GLM-OCR writes ordinary IR (units, blocks, spans), so `exam_material`'s predicate, the corpus exclusions and held-out selection apply to its readings unchanged.
+- **R2a, RW3a, the contextual-embeddings spec.** No shared code: GLM-OCR adds no plan, router or Reader-cue path. The fifteen defaults snapshots and the template notes are composed (Conflicts).
+- **Optional extras.** The `glm-ocr` extra holds only pypdfium2. `glmocr[selfhosted]` (transformers ≥ 5, Pillow ≥ 12) conflicts with `marker-pdf`, so the SDK stays in its own environment; `uv lock --check --offline` agrees with `pyproject.toml`.
+- **Pipeline Map.** The ingest diagram and the extraction line name GLM-OCR as the primary reader (z.ai or a self-hosted glmocr server, after the OK naming z.ai), with local Marker and then pypdf as fallbacks, and link this record.
+
+### References
+
+- `db_generate_reference.py` (`55709da33`): schema head 202, 321 table notes, 837 configuration leaves in 50 sections (829 on main plus `[ingest.pdf.glm_ocr]`'s 8).
+- Prose counts: `Configuration.md`'s catalog line and `Database.md`'s validator line, 829 became 837.
+- `db_validate_reference.py`: errors `[]`. `validate_vault.py`: passed, 1105 notes.
+
+### Gate
+
+Run in this worktree with `TMPDIR=<worktree>/fixtures-local/tmp`; the suites at `49de4a79b` under `flock /tmp/learnloop-fullsuite.lock`, on a machine shared with other worktrees' suites.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install puts 5.14.0 back); `uv lock --check --offline` agrees with `pyproject.toml` |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** (the branch's three `ingest -> ai.spend/ai.execution` exemptions beside main's) |
+| `uv run pytest -n auto` | **10,965 passed, 0 failed**, 49 warnings (14 min 31 s) |
+| `uv run pytest -m durability` | **100 passed**, 10,865 deselected, 1 warning (1 min 51 s) |
+| Frontend (`apps/learnloop-tauri`) | `npm install` ok; `npm run typecheck` clean; `npm test` **575 passed** (81 files); `npm run frontend:build` built (the usual chunk-size note) |
+| `cargo check` (`src-tauri`) | clean |
+| Defaults | all 15 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries recomputed (each moved); `test_config_refactor.py` 34 passed in a fresh process |
+| CLI help | `python tests/test_cli_help_snapshot.py --write`: `ingest` and `ingest-exam` (the `glm_ocr` engine in `--pdf-engine`) |
+| References | above; `git diff --check 6dabbc33c HEAD` clean |
+
+**Targeted runs before the gate** (on the composed tree): `test_glm_ocr.py`, `test_keep_local_retired.py`, `test_pdf_extractor_selection.py`, `test_mobile_allowlist.py`, `test_cli_help_snapshot.py`, `test_config_refactor.py`, `test_desktop_rpc_contract.py` and `test_ingest_runner.py`: 300 passed once the snapshots were recomputed (the first run read a stale template `.pyc`: the recompute rewrites hashes of the same length within the same second, which is why the procedure deletes the `.pyc` and touches the file). Then `test_reading_hardening_landing.py`'s source scan caught the composed `_local_repair` docstring naming `source_artifacts.keep_local` (`jobs.py` is not on its prose allow-list); `49de4a79b` rewords it (same line count, so the references' citations hold), and that file and `test_keep_local_retired.py` pass (12).
+
+**The known flake did not show:** `test_reader_rw3a_landing.py::test_check_me_goes_through_the_plan_path_and_is_logged_once[planned]` passed in the full run.
+
+**One warning is new to the landing runs (48 before, 49 here), and it is main's.** A `PytestUnhandledThreadExceptionWarning`: a `learnloop-reading-sweep` thread ran its pass while `test_success_head.py::test_deterministic_rebuild_and_no_store_or_network` had `sqlite3.connect` patched to fail ("store access"). The thread came from an earlier test on the same xdist worker: `SidecarContext.load` binds the ingest host in the background, which starts the sweep; a test that then rebinds it foreground leaves the thread alive until its host is collected, and its first pass comes one 30 s pace later. That is reading hardening's sweep and two of main's tests, and it depends on timing. GLM-OCR starts no sweep, though its sidecar tests add a few more such loads. It is a warning, not a failure, and is left to reading hardening's owner (question 8 below).
+
+### Parity
+
+**Copies.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`), in `fixtures-local/glm-parity`.
+
+**Migration, each copy by its own code** (`migration_coordinator.migrate_vault`), 47 migrations each, to head 202:
+- main `6dabbc33c`: `src`, `migrations` and `pyproject.toml`, exported with `git archive` and run on `PYTHONPATH` (the run printed the archive's `learnloop/__init__.py`);
+- the merge: this worktree's own code (at `55709da33`; `49de4a79b` changes one docstring only).
+
+**Runs.** On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory (no key found, nothing sent).
+
+**Result: 0 replay differences, and doctor identical.** Once ULIDs, timestamps, ids, hashes and the copy's path are set aside, the shadow rebuilds and the doctor reports match exactly on both fixtures.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same figures as the tutor-delivery landing. Neither fixture carries the retired keep-local, so doctor raises no `source:retired_keep_local`. `live_database.unchanged` is true on every run, each copy's `state.sqlite` hash is the same before and after its runs, and doctor exits 1 on both sides, as on main. The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched. The tracked fixtures were opened only by the backup API, to copy them.
+- Nothing was pushed, rebased or stashed. `ingest/glm-ocr` and `learnanything-glmocr` were not modified.
+
+### Open questions for the owner (defaults applied)
+
+1. **The z.ai key (needed before any hosted reading).** The app reads keys only from `~/.config/learnloop/settings.env`, the shell environment or the vault's `.env`, never the repository-root `settings.env`. Add `ZAI_API_KEY=…` to `~/.config/learnloop/settings.env`, or paste the key in **Settings → Ingestion → "text recognition key"**. Then the live check above ("Rerun with the key") can run, about **$0.002**; its scratch vault and the two documents are in `learnanything-glmocr/fixtures-local`, and the code it needs is on main now. **Default:** no key, so `auto` reads with local Marker, else pypdf, recording why in health.
+2. **The glmocr SDK stays in its own environment.** The `glm-ocr` extra holds only pypdfium2; `glmocr[selfhosted]` would move every environment to Pillow 12 and transformers 5, which `marker-pdf` refuses. **Default:** kept separate (see "Run GLM-OCR locally").
+3. **6,000 tokens per page** (`ESTIMATED_TOKENS_PER_PAGE`) stays the preview estimate until a keyed run reports real usage. **Default:** 6,000; adjust after the first keyed import.
+4. **Hosted reads ask the one-time OK once.** Every import that would send a file to z.ai waits for the OK naming z.ai, once per library (`whole_files_zai`); an import that cannot show the card reads a PDF locally meanwhile. **Default:** as built.
+5. **Bounding-box units are confirmed by the first keyed run.** The hosted `bbox_2d` is read as pixels of z.ai's page render (the SDK's reading), scaled by `data_info.pages`. **Default:** as built; health records the shape seen (`glm_ocr_response_*`), and a differing live shape becomes a fixture in `tests/test_glm_ocr.py`.
+6. **A waiting re-read has no "Not now"** (third review, question 1). With keep-local retired, giving the OK is now the only way a book's "Read it with text recognition" request stops asking. **Default:** unchanged; a "Not now" needs a new action kind and a cancel for a failed batch.
+7. The second and third reviews' other questions stand as written (OK buttons for explicit-engine imports, checkpoint pruning, repairs of file-added books, the repair dialog for an image, typed scan detection).
+8. **The reading sweep's leftover thread (not this branch's).** See Gate: a sweep started by `SidecarContext.load` outlives a test that rebinds its host foreground. **Recommended** for reading hardening's owner: a rebind to the foreground stops the sweep it started, or `test_success_head` patches only its own connections.
