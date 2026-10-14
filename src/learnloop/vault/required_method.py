@@ -190,9 +190,19 @@ def name_tokens(text: Any) -> frozenset[str]:
 
 
 def names_match(left: Any, right: Any) -> bool:
-    """Do two method names share a content token (case, plurals and generic words aside)?"""
+    """Does one method name contain the other's content tokens (case, plurals
+    and generic words aside)?
 
-    return bool(name_tokens(left) & name_tokens(right))
+    Strict on purpose: "cofactor expansion along the first row" names
+    "Cofactor expansion", but "coordinatewise subtraction of the vector" does
+    not name "negative of a coordinate vector" merely because both say
+    "vector". A required method must BE the target, not resemble it.
+    """
+
+    left_tokens, right_tokens = name_tokens(left), name_tokens(right)
+    if not left_tokens or not right_tokens:
+        return False
+    return left_tokens <= right_tokens or right_tokens <= left_tokens
 
 
 # -- method targets ----------------------------------------------------------------
@@ -220,7 +230,12 @@ class MethodTarget:
         return (self.name, *self.aliases)
 
     def matches(self, name: Any) -> bool:
-        return any(names_match(name, candidate) for candidate in self.names())
+        return self.matching_name(name) is not None
+
+    def matching_name(self, name: Any) -> str | None:
+        """The target's own name or alias that ``name`` names, if any."""
+
+        return next((candidate for candidate in self.names() if names_match(name, candidate)), None)
 
     def as_context(self) -> dict[str, Any]:
         """What a generation prompt is shown (name, basis, the linked id)."""
@@ -305,12 +320,14 @@ def learning_object_method_targets(vault: Any, learning_object_id: str, facet_id
 
 
 def best_target(name: Any, targets: Sequence[MethodTarget]) -> MethodTarget | None:
-    """The target a proposed method name names (most shared tokens), or None."""
+    """The target a proposed method name names (:func:`names_match`; the
+    one sharing most tokens first), or None."""
 
     scored = []
     for index, target in enumerate(targets):
-        overlap = max((len(name_tokens(name) & name_tokens(candidate)) for candidate in target.names()), default=0)
-        if overlap:
+        matched = [candidate for candidate in target.names() if names_match(name, candidate)]
+        if matched:
+            overlap = max(len(name_tokens(name) & name_tokens(candidate)) for candidate in matched)
             scored.append((-overlap, index, target))
     return min(scored)[2] if scored else None
 

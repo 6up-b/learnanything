@@ -149,11 +149,12 @@ def test_the_heuristic_flags_explicit_method_phrasing_and_drafts_repairs(vault_p
     assert det["action"] == "rephrase_by_fact" and det["rewrite"] == "deterministic_draft"
     assert det["to"] == "Computes det(A) (any valid method)."
     [cofactor] = repairs["pi_cofactor"]["actions"]
-    assert cofactor["action"] == "add_required_method" and cofactor["method"] == "cofactor expansion"
+    # The required method takes the target's own name (its concept's title).
+    assert cofactor["action"] == "add_required_method" and cofactor["method"] == "Cofactor Expansion"
     payload = repairs["pi_cofactor"]["payload"]
-    assert payload["required_method"] == {"name": "cofactor expansion", "criterion_ids": ["method"],
+    assert payload["required_method"] == {"name": "Cofactor Expansion", "criterion_ids": ["method"],
                                           "learning_object_id": "lo_cofactor", "concept_id": "cofactor_expansion"}
-    assert payload["prompt"].endswith("Use cofactor expansion in your answer.")
+    assert payload["prompt"].endswith("Use Cofactor Expansion in your answer.")
     assert _ledger(vault_paths) == []  # the heuristic is deterministic: nothing to record
     assert "proposal_id" not in report
 
@@ -191,6 +192,24 @@ def test_the_decider_flags_and_the_llm_route_writes_the_fact_phrasings(vault_pat
            next(plan for plan in report["repairs"] if plan["item_id"] == "pi_det")["actions"]}
     assert det["minors"]["rewrite"] == "llm"
     assert {row["judge"] for row in _ledger(vault_paths)} == {"decider"}
+    # The writer agreed on every flag here; a writer that reads a flagged
+    # criterion as a fact is recorded as a disagreement on its draft.
+    assert not any(action.get("judges_disagree") for action in det.values())
+
+    class FactWriter(LLMJudge):
+        def complete(self, request):
+            result = super().complete(request)
+            return result.model_copy(update={"criteria": [
+                row.model_copy(update={"phrased_by": "fact", "fact_phrasing": None, "method": None})
+                if row.criterion_id == "minors" else row for row in result.criteria]})
+
+    split = run_method_phrasing(vault, clients={"decider": Decider(), "llm": FactWriter()}, price_per_million=1.0,
+                                clock=CLOCK)
+    det = {action["criterion_id"]: action for action in
+           next(plan for plan in split["repairs"] if plan["item_id"] == "pi_det")["actions"]}
+    assert det["minors"]["judges_disagree"] is True and det["minors"]["rewrite"] == "deterministic_draft"
+    flagged_minors = next(row for row in split["flagged"] if row["criterion_id"] == "minors")
+    assert flagged_minors["writer_reading"] == "fact"
     # Without an LLM ready the Decider's flags get deterministic drafts.
     alone = run_method_phrasing(vault, clients={"decider": Decider(), "llm": None}, clock=CLOCK)
     det = {action["criterion_id"]: action for action in
@@ -258,6 +277,32 @@ def test_the_cli_with_the_heuristic_proposes(vault_paths):
     dry = CliRunner().invoke(app, ["grading", "method-phrasing", "--vault", str(vault_paths.root), "--dry-run"])
     assert dry.exit_code == 0, dry.output
     assert any(entry.startswith("pi_det#method") for entry in json.loads(dry.output)["flagged"])
+
+
+def test_a_repair_never_rewrites_a_source_statement_or_gives_a_teach_back_a_method(vault_paths):
+    """A textbook exercise keeps its verbatim stem: it gains a required method
+    only when the stem already names it; a teach-back item never gains one;
+    and a method that merely resembles the target (a shared word) is no match."""
+
+    from learnloop.content.proposals.method_phrasing import CriterionReading, repair_plan
+
+    vault = load_vault(vault_paths.root, load_environment=False)
+    item = vault.practice_items["pi_cofactor"]
+
+    def reading(method):
+        return CriterionReading("pi_cofactor", "method", COFACTOR, "method", "llm", method=method,
+                                fact_phrasing="Establishes the value of det(A).", rewrite="llm")
+
+    source = item.model_copy(update={"provenance": item.provenance.model_copy(update={"origin": "canonical_extract"})})
+    [action] = repair_plan(vault, source, [reading("cofactor expansion")])["actions"]
+    assert action["action"] == "rephrase_by_fact"
+    stated = source.model_copy(update={"prompt": "Compute det(A) by cofactor expansion."})
+    plan = repair_plan(vault, stated, [reading("cofactor expansion")])
+    assert plan["actions"][0]["action"] == "add_required_method" and "prompt" not in plan["payload"]
+    teach_back = item.model_copy(update={"practice_mode": "teach_back"})
+    assert repair_plan(vault, teach_back, [reading("cofactor expansion")])["actions"][0]["action"] == "rephrase_by_fact"
+    resembling = repair_plan(vault, item, [reading("expansion of the product along a row")])
+    assert resembling["actions"][0]["action"] == "rephrase_by_fact"
 
 
 @pytest.mark.parametrize("description, draft", [

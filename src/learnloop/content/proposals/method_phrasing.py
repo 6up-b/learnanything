@@ -48,6 +48,7 @@ attempts already graded keep the contract they were graded against.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import re
@@ -79,6 +80,7 @@ from learnloop.vault.required_method import (
     method_phrase,
     method_targets,
     names_match,
+    prompt_states_method,
 )
 
 REPORT_VERSION = "method-phrasing-report-v1"
@@ -284,6 +286,12 @@ class CriterionReading:
     rewrite: str | None = None  # llm | deterministic_draft
     probability: float | None = None
     judgment_id: str | None = None
+    #: When the Decider flagged it, the LLM writer's own reading (``fact``
+    #: means the two judges disagree; its repair is then only a draft).
+    writer_reading: str | None = None
+    #: The item's capability, for the owner's context (a method-selection
+    #: item measures the choice, so its criteria deserve a careful look).
+    capability: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
@@ -476,20 +484,46 @@ def decider_readings(item: PracticeItem, client: Any, budget: _Budget) -> tuple[
 # -- repairs ------------------------------------------------------------------------
 
 
+def _source_statement(item: PracticeItem) -> bool:
+    """A textbook exercise's verbatim stem: never rewritten."""
+
+    return getattr(item, "canonical_exercise", None) is not None or item.provenance.origin == "canonical_extract"
+
+
+def _teach_back(item: PracticeItem) -> bool:
+    return item.teach_back_source is not None or item.practice_mode == "teach_back"
+
+
 def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[CriterionReading]) -> dict[str, Any] | None:
     """One item's repair: the updated rubric (and prompt and required method).
 
     Each method-phrased criterion becomes the item's required method's
-    criterion when the item's target really is that method (by metadata and
-    name), else is rephrased by fact. At most one required method per item;
-    an item that already has one only gains criteria naming that method.
+    criterion when the item's target really is that method (by metadata, and
+    the criterion's method names the target: ``names_match``), else is
+    rephrased by fact. At most one required method per item; an item that
+    already has one only gains criteria naming that method. The required
+    method takes the target's own name (or alias). A teach-back item never
+    gains one (it explains, it does not execute), and a textbook exercise
+    only when its verbatim statement already names the method (the
+    statement is never rewritten).
     """
 
     flagged = [reading for reading in readings if reading.phrased_by == "method"]
     if not flagged:
         return None
-    targets = method_targets(vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
-                             capability=item.capability)
+    targets = [] if _teach_back(item) else method_targets(
+        vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
+        capability=item.capability,
+    )
+    if _source_statement(item):
+        # Only names the verbatim statement already states, so the repair
+        # never appends an instruction to the book's text.
+        stated_targets = []
+        for target in targets:
+            stated = [name for name in target.names() if prompt_states_method(item.prompt, name)]
+            if stated:
+                stated_targets.append(dataclasses.replace(target, name=stated[0], aliases=tuple(stated[1:])))
+        targets = stated_targets
     existing = item.required_method
     method_name: str | None = existing.name if existing is not None else None
     method_target: MethodTarget | None = best_target(method_name, targets) if method_name else None
@@ -501,7 +535,8 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
         target = best_target(named, targets) if named else None
         if target is not None and (method_name is None or names_match(named, method_name)):
             if method_name is None:
-                method_name, method_target = named, target
+                # The target's own name (or alias), never a model's long paraphrase.
+                method_name, method_target = target.matching_name(named) or target.name, target
             if reading.criterion_id not in method_criteria:
                 method_criteria.append(reading.criterion_id)
             actions.append({"criterion_id": reading.criterion_id, "action": "add_required_method",
@@ -514,8 +549,13 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
         for criterion in rubric["criteria"]:
             if criterion["id"] == reading.criterion_id:
                 criterion["description"] = new
-        actions.append({"criterion_id": reading.criterion_id, "action": "rephrase_by_fact",
-                        "from": reading.description, "to": new, "rewrite": rewrite})
+        action = {"criterion_id": reading.criterion_id, "action": "rephrase_by_fact",
+                  "from": reading.description, "to": new, "rewrite": rewrite}
+        if reading.writer_reading == "fact":
+            # The Decider flagged it; the LLM writer read it as a fact: a draft
+            # the owner should look at before accepting (or reject).
+            action["judges_disagree"] = True
+        actions.append(action)
     payload: dict[str, Any] = {"id": item.id, "learning_object_id": item.learning_object_id, "grading_rubric": rubric}
     if method_name is not None and method_criteria and method_target is not None and (
         existing is None or method_criteria != list(existing.criterion_ids)
@@ -653,6 +693,7 @@ def run_method_phrasing(
                     for reading in item_readings:
                         row = by_id.get(reading.criterion_id)
                         if reading.phrased_by == "method" and row is not None:
+                            reading.writer_reading = row.phrased_by
                             reading.method = row.method or reading.method
                             reading.fact_phrasing = row.fact_phrasing
                             reading.rewrite = "llm" if row.fact_phrasing else None
@@ -663,6 +704,9 @@ def run_method_phrasing(
             report.setdefault("failed_items", []).append({"item_id": item.id, "error": type(exc).__name__})
             continue
         readings.extend(item_readings)
+    capabilities = {item.id: item.capability for item in items}
+    for reading in readings:
+        reading.capability = capabilities.get(reading.item_id)
     flagged = [reading for reading in readings if reading.phrased_by == "method"]
     attempted = _attempted_items(repository, sorted({reading.item_id for reading in flagged}))
     plans = []
