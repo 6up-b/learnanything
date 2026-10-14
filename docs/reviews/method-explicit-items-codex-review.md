@@ -486,3 +486,284 @@ Run on the tree at `5294d2674` (the later commit is this record only), with
 | `validate_vault.py` | passed (1,099 notes) |
 | CLI help snapshot | unchanged (no CLI change) |
 | Frontend and cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+
+## Redesign (2026-10-14)
+
+The final Codex verify (job `20261013-235413-bgDA2U`, read-only,
+`164c77990..c9c5e6e4c`, no paid calls) confirmed F1 and F11 fixed, reopened
+F2 (High), F9 and F10, and raised F12 and F13 (Medium). Every remaining
+defect came from one design choice: READING FREE TEXT to decide whether a
+method is required. Each round of the statement reader found new phrasings.
+The owner directed a redesign, not another patch. The same lesson as the
+held-grade and exam predicates applies: one structured authority.
+
+### The verify's findings
+
+| ID | Severity | Verify's reproduction | Now |
+|---|---|---|---|
+| F2 | High (reopened) | "In the worked example, using cofactor expansion gives 13. Compute det(B)." and "Compute det(A) without having to use cofactor expansion." read as requirements: kept at import, enforced at grading | Grading never reads the text. At import the one-time judgment decides (live: `allows` 0.88, `prohibits` 0.99); with no judgment nothing is required |
+| F9 | Medium (reopened) | `Compute det(A) using \(\text{cofactor expansion}\).` and a reference-style Markdown link read as mentions: requirement deleted at import, policy `None` | Grading reads the field. At import the judgment decides (live: `requires` 0.99 for both) |
+| F10 | Medium (reopened) | A cofactor-required parent's variant "Compute det(B), but do not use the method of cofactor expansion." got "Use cofactor expansion in your answer." appended and passed `PracticeItem.model_validate` | The one-time publication judgment (live: `contradicts` 0.9996) refuses it; `build_item_payload` refuses any required-method variant without a recorded verdict |
+| F12 | Medium | "Determine which matrix is singular using cofactor expansion." read as a mention | As F9 (live: `requires` 0.98) |
+| F13 | Medium | A frozen regrade bound the CURRENT (edited, unverified) content and lowered a verified attempt's `reference_status` | The regrade binds the content it graded: the attempt's recorded status stands unless the frozen content is the current content |
+
+### The design
+
+1. **One authority.** `PracticeItem.required_method`, frozen in the
+   assessment contract the learner answered (F1's fix, kept), is the only
+   thing grading, regrading and replay read. `required_method_policy` and
+   `reference_policy` no longer take the presented prompt; the policy is the
+   frozen field and nothing else. A test pins that neither has a statement
+   parameter left.
+2. **The text agrees with the field, without being read.** A writer that
+   sets the field on a generated prompt appends the one canonical sentence
+   generated from it, `Use {name} in your answer.`, unless it is already
+   there verbatim (`ensure_method_instruction`). Validation
+   (`required_method_problems`: doctor and the gold-set loader) checks for
+   exactly that sentence, normalized only for whitespace
+   (`has_method_instruction`; case, punctuation and wording count). "Compute
+   det(A) by cofactor expansion." is therefore `required_method:not_stated`
+   until the sentence is there.
+3. **Source statements are judged once.** `RequiredMethod.statement` is
+   `instruction` (the default, omitted from YAML and hashes) or `source` (a
+   textbook stem that is never rewritten). When an exercise's author
+   proposes a required method on a method target, the import asks one
+   question of the new `content/proposals/method_statement_judge.py`: does
+   this statement require the learner to use the method (`requires` /
+   `allows` / `prohibits`)?
+   - **Judge.** The Decider through `ai.routing.rubric_phrasing_judge` (or
+     the code-default `openrouter_decider`), else the existing LLM judge on
+     that route; no heuristic fallback.
+   - **Decision.** The argmax of the Decider's probabilities, with no
+     hand-set threshold; a tie goes to the conservative option.
+   - **Ledger.** `judgment_ledger`, task `required_method_statement`, with
+     the probabilities in the rationale and the argmax's probability as the
+     score. A second ask with the same statement and method reuses the row,
+     with no call.
+   - **Result.** Only `requires` keeps the field: `statement: source`,
+     `decided_by: judgment`, `judgment_id`. No judge ready, a refusal or a
+     failure leaves no requirement (`required_method:dropped_source_statement_unjudged`,
+     with a warning).
+   - **Spend.** Each request is admitted before it is sent, under the
+     judge's own cap ($0.25 and 50 judgments per import): the Decider at its
+     listed input price, a metered LLM judge at
+     `source_service.llm_price_per_million` (refused without one). The
+     receipts are owned by the import, so the service's daily guard counts
+     them. `plan_import_cost` lists the judgment.
+4. **PF variants are judged once (F10).** After selection, each selected
+   variant of a parent with a required method gets the same kind of
+   judgment: does its stem prohibit or contradict the method
+   (`consistent` / `contradicts`)? It is recorded in the ledger whether or
+   not the candidate is published that day.
+   - **Publication.** It reads the verdict under the vault lock, never the
+     stem. `contradicts` is refused and rejected
+     (`required_method_contradicted`). No verdict leaves the candidate
+     selected (`unjudged_candidates`). Only a `consistent` stem gains the
+     sentence.
+   - **Binding.** A verdict binds the stem it judged, so an edited stem has
+     none.
+   - **Backlog.** `learnloop pf publish` still makes no model call.
+   - **Spend.** The judgments are admitted under the PF run's own caps (its
+     metered or subscription budget, `dcd993ad8`), and the PF dry run plans
+     them as metered calls.
+5. **The owner overrides through the proposal/confirm path.**
+   - **Command.** `learnloop grading required-method ITEM --method NAME
+     --criterion ID [--criterion ID ...]` (or `--clear`) persists one
+     pending update proposal (purpose `required_method_override`, never
+     auto-applied) carrying the item's content hash. `learnloop accept`
+     applies it.
+   - **Text.** A generated prompt gains or loses the canonical sentence with
+     the field. A source statement is untouched and records
+     `decided_by: owner`.
+   - **Generated proposals.** These never change a source item's field: the
+     key is dropped and the item keeps its field.
+6. **The statement reader is demoted to flags.** `advisory_statement_flag`
+   keeps only the negation and option regexes the earlier tests pinned (plus
+   "having", "method" and "technique" as filler words). It now feeds:
+   - doctor's `required_method:statement_may_disagree` warning
+     (`judge = heuristic`);
+   - a `statement_may_disagree` label on a repair action;
+   - a study-map review diagnostic.
+
+   It never decides grading, a writer's field or a publication. The
+   instruction-detection half (imperatives, subjects, participles,
+   subordinate clauses, about 230 lines) is deleted.
+7. **Repairs.** `learnloop grading method-phrasing` never adds a required
+   method to a source statement; the criterion is rephrased by fact,
+   labelled `source_statement`. On a generated item, it adds the method with
+   the canonical sentence.
+8. **F13.** `regrade_attempt` binds `bind_replacement_grade` to the item
+   only when the regrade read the item as it is now, or when the frozen
+   contract's content (`item_content_hash`, `rubric_content_hash`) IS the
+   current content (`GradedContract.matches_current_content`). Otherwise the
+   status the attempt recorded for the content it was graded on stands. A
+   frozen content whose own key is later disputed is still lowered.
+9. **Kept as they were.** F1 (the frozen contract), F11, the successor
+   placeholder `mvp-0.22-placeholder` and the kill switch
+   `required_method.enabled`.
+   - **No schema, migration, configuration key or prompt version change.**
+     The authoring prompts already ask for the sentence; the new task route
+     reuses `rubric_phrasing_judge`.
+   - **PF publication policy.** `pf-publish-v2` is kept: the new gate
+     applies only to parents with a required method (a field new on this
+     branch), so every other publication is unchanged.
+   - **Gold set v3.** The two hand-written cell-5 statements now record
+     `statement: source, decided_by: owner`. The grader's input and the case
+     keys are unchanged (the key hashes only the method's name and
+     criteria), so the recorded live grades stand.
+
+**Where each writer stands.**
+
+| Writer | Statement | How the text agrees with the field |
+|---|---|---|
+| Authoring proposals, practice generation, diagnostic authoring, tutor promotion and gap seeds, rung variants, canonical ingest and exam imports (creates) | generated | canonical sentence appended (`_hold_required_method_to_rule`) |
+| Study-map synthesis | generated | canonical sentence appended; advisory review diagnostic |
+| Exercise imports (Reader, source import, harvest, needs) | source | one-time import judgment |
+| PF variants | generated | canonical sentence, only after a `consistent` publication judgment |
+| Method-phrasing repairs | generated only | canonical sentence; never on a source statement |
+| Owner override | either | canonical sentence on generated; `decided_by: owner` on source |
+| A generated update proposal on a source item | source | field unchanged |
+
+### Commits
+
+| Commit | What |
+|---|---|
+| `b8ba7c7d1` | the redesign, F13 and their tests; CLI help snapshot (`grading`, new `grading required-method`) |
+| `dcd993ad8` | a PF run's judgments are admitted under the run's own caps |
+| `ac97a428c` | regenerated architecture references (citations, stamps, the two route and switch notes) |
+| (this commit) | this record and the stage record's pointer |
+
+Counts (`git diff --numstat c9c5e6e4c dcd993ad8`): `src/` +1,452 / −506,
+`tests/` +981 / −211. New: `tests/test_required_method_authority.py` (57
+cases). No migration, no new table, no configuration key, nothing under
+`apps/learnloop-tauri`.
+
+### Fail-first
+
+`c9c5e6e4c`'s `src` and gold set were exported to
+`fixtures-local/tmp/base_c9c5e6e4c`, with `migrations` linked in. No tracked
+vault was linked. The tests ran against the export
+(`pytest -o pythonpath=<export>/src`).
+
+**`tests/test_required_method_authority.py`: 46 failed, 11 passed.**
+
+| Kind | Failing |
+|---|---|
+| Behavioural: the base ran and gave the wrong answer | 18 |
+| New API: module, function, parameter, CLI command or report key missing | 28 |
+
+The 18 behavioural failures:
+
+| What the base did | Failing |
+|---|---|
+| The grading policy dropped a frozen method because of the wording (LaTeX, reference link, "which" clause, the contradictory variant) | 4 |
+| A live grade and its regrade ignored the frozen method on a LaTeX-wrapped statement | 1 |
+| A generated "worked example" or "without having to use" prompt gained no sentence | 2 |
+| Validation passed those two without the sentence | 2 |
+| Validation treated the contradictory variant as an error rather than flagging it | 1 |
+| A source statement was validated by its wording | 1 |
+| An import with no judgment kept a requirement read into "worked example" and "without having to use" | 2 |
+| An import dropped the other three requirements, but under the old note "does not state it" | 3 |
+| A generated update proposal changed a source item's field | 1 |
+| F13: the frozen regrade lowered a verified attempt to `unverified` | 1 |
+
+The 11 that pass on the base were expected to:
+
+- the policy for "worked example" and "without having to use" with the
+  field set;
+- the sentence appended to four generated prompts;
+- three validation cases;
+- two F13 controls: binding when the frozen content is the current content,
+  and binding without a frozen method.
+
+**F10 probe on the export.** `build_item_payload` on the verify's stem
+returned `'Compute det(B), but do not use the method of cofactor
+expansion.\n\nUse cofactor expansion in your answer.'`.
+
+**The four changed test files on the export: 3 failed, 70 passed, 2
+collection errors.**
+
+- The frozen-field plan test failed, as did the gold-set loader's
+  `not_stated` and `undecided` refusals.
+- `test_required_method_items.py` and `test_method_phrasing_report.py`
+  failed to collect: they import `advisory_statement_flag` and
+  `has_method_instruction`, which the base lacks.
+
+Every test passes on the redesigned tree.
+
+### Live check (owner-authorized paid calls)
+
+**Setup.** A backup-API copy
+(`learnloop.db.copies.copy_tree_with_databases`) of the earlier phrasing
+copy: `fixtures-local/method-explicit-review/la_phrasing3` →
+`fixtures-local/method-explicit-redesign/la_judge`.
+
+- **Route.** `ai.routing.rubric_phrasing_judge = "openrouter_decider"`.
+- **Keys.** The app loaded its own key; no key or env file was read.
+- **Tracked vaults.** None was opened.
+
+**Dry run.** 10 requests (8 source questions, 2 variant questions), an
+upper bound of 17,238 tokens at the Decider's listed $0.02 per million:
+**$0.00034**, within the $0.05 cap.
+
+**Live run.** Each question was asked once, with method "cofactor expansion"
+(`perplexity/pplx-decider-v1.1-27b`). Every argmax matched the intended
+reading:
+
+| Question | Statement | Verdict | Probability |
+|---|---|---|---|
+| source | worked example (F2) | `allows` | 0.884 |
+| source | "without having to use" (F2) | `prohibits` | 0.989 |
+| source | LaTeX-wrapped (F9) | `requires` | 0.992 |
+| source | reference-style link (F9) | `requires` | 0.993 |
+| source | "which" clause (F12) | `requires` | 0.977 |
+| source | the canonical sentence | `requires` | 0.993 |
+| source | "Using cofactor expansion along the first row, compute ..." | `requires` | 0.986 |
+| source | "you may use cofactor expansion or any other method" | `allows` | 0.995 |
+| variant | the contradictory stem (F10) | `contradicts` | 0.9996 |
+| variant | a plain stem | `consistent` | 0.997 |
+
+**Cost (provider-reported, `model_call_receipts`).** 10 requests, 2,287
+input and 10 output tokens: **$0.0000457**. The admission reserved 7,295
+tokens ($0.000146), an upper bound. No other paid call was made in this
+step.
+
+### Gate (redesign)
+
+Run on the tree at `ac97a428c` (the later commit is this record only), with
+`TMPDIR` set to the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,523 passed**, 0 failed (7 min 36 s) |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10,424 deselected |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: schema head 199, 318 table notes, 796 configuration leaves in 48 sections (citations, stamps, the two new modules in the table notes, the route and switch notes) |
+| `validate_vault.py` | passed (1,099 notes) |
+| CLI help snapshot | regenerated (`grading`, new `grading required-method`) |
+| Defaults snapshots | unchanged (no configuration key added) |
+| Frontend and cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+
+An earlier full-suite run was stopped before it finished, because a code
+change (`dcd993ad8`) landed while it ran. The gate above ran on the final
+tree.
+
+### Not changed, and open questions
+
+1. **An exercise whose author proposes no required method is not judged.**
+   The question needs the method's name. A textbook stem that requires its
+   target method but whose author missed it keeps no requirement and is
+   graded leniently. The owner can add one with `learnloop grading
+   required-method`.
+2. **An unjudged selected variant waits.** No judge was ready, or it refused
+   or failed, during its run. The model-free backlog never publishes it, and
+   no later run revisits it. Say if `learnloop pf publish` should judge such
+   a variant (that would be a model call).
+3. **A judgment row may outlive its item.** A row written for an import that
+   is then rejected (leakage, validation, an unverified key) stays in the
+   append-only ledger.
+4. **The advisory heuristic is still a regex.** It only flags, so its misses
+   and false flags change nothing that is graded.
+5. **The stage record's §1 and §2** describe the earlier reader-based writer
+   check; a note there points here.

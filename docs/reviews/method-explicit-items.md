@@ -4,6 +4,14 @@ Stage `method-explicit-items`, branch `grading/method-explicit-items`,
 worktree `learnanything-merge`, base `1def803a1` (main at mvp-0.20, migrations
 to 199, head fixture `migration_head_199`).
 
+> **Redesign (2026-10-14).** §1 and §2 describe the first writer check,
+> which read the prompt to decide whether it stated a method. That reader is
+> gone. The `required_method` field, frozen with the assessment contract, is
+> the one thing grading reads. Writers append the canonical sentence, and a
+> textbook statement or a PF variant's stem is judged once (Decider, else
+> the LLM judge, ledgered). See "Redesign" in
+> `docs/reviews/method-explicit-items-codex-review.md`.
+
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor
 expansion"). Method-phrased criteria are an artifact of generation forcing an
