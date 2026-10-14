@@ -16,11 +16,15 @@ from pydantic import Field
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.content.authoring.pf_sandbox import EQUIVALENCE_PROTOCOL, GENERATOR_PROTOCOL
+from learnloop.vault.required_method import REQUIRED_METHOD_VARIANT_GUIDANCE
 
 SKELETON_PROMPT = "pf-skeleton-v1"
-GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v6"
-PROPOSER_PROMPT = "pf-ensemble-propose-v2"
-SINGLE_SHOT_PROMPT = "pf-single-shot-v2"
+#: The generator program, proposer, single-shot and source-anchored prompts
+#: moved for method-explicit items (owner rule 2026-10-13): a parent with a
+#: ``required_method`` passes it to every new stem; publication enforces it.
+GENERATOR_PROGRAM_PROMPT = "pf-generator-program-v7"
+PROPOSER_PROMPT = "pf-ensemble-propose-v3"
+SINGLE_SHOT_PROMPT = "pf-single-shot-v3"
 PANEL_SOLVE_PROMPT = "pf-panel-solve-v1"
 EQUIVALENCE_PROMPT = "pf-answer-equivalence-v2"
 STRUCTURE_PROMPT = "pf-structure-check-v1"
@@ -28,7 +32,7 @@ FRESHNESS_PROMPT = "pf-freshness-isomorph-v1"
 SELECTION_PROMPT = "pf-selection-v1"
 PAIRWISE_PROMPT = "pf-blind-pairwise-v1"
 VALID_ALTERNATIVE_PROMPT = "pf-valid-alternative-v1"
-SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v2"
+SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v3"
 CLOSED_BOOK_PROMPT = "pf-closed-book-v1"
 SPAN_SUPPORT_PROMPT = "pf-span-support-v1"
 
@@ -233,7 +237,8 @@ def generator_program_prompt(*, parent: Mapping[str, Any], family: Mapping[str, 
         "declared `checkpoints` field), change only parameters and surface, and keep the "
         "parent's rubric applicable verbatim. Use only the "
         "standard library and sympy; no file, network or process access (it runs in a "
-        "sandbox without them). If previous_failure is set, fix exactly that.",
+        "sandbox without them). If previous_failure is set, fix exactly that. "
+        + REQUIRED_METHOD_VARIANT_GUIDANCE,
         {"parent": parent, "family": family, "parent_skeleton": skeleton,
          "program_template": _PROGRAM_TEMPLATE, "previous_failure": previous_failure,
          "attempt": attempt},
@@ -254,7 +259,8 @@ def proposer_prompt(*, parent: Mapping[str, Any], family: Mapping[str, Any],
         "final answer (sympy-parseable when numeric or symbolic), its answer_kind, one line "
         "on what changes, one line on what is preserved, and the technique and checkpoint "
         "sequences. The parent's rubric must apply verbatim. Problems must be well posed "
-        "with a single checkable answer, and must not be multiple choice or true/false."
+        "with a single checkable answer, and must not be multiple choice or true/false. "
+        + REQUIRED_METHOD_VARIANT_GUIDANCE
         + _SEED_INSTRUCTION,
         {"parent": parent, "family": family, "parent_skeleton": skeleton, "count": count,
          "generation_seed": generation_seed},
@@ -372,7 +378,8 @@ def source_anchored_prompt(*, passages: list[Mapping[str, Any]], parent: Mapping
         "from plausible but unstated rationale. Novelty items key on the source's own "
         "contribution statements. A 'method does not apply' item must give its counterexample. "
         "Mark source_specific when the item tests what this source says rather than general "
-        "knowledge. Do not write multiple choice or true/false items." + _SEED_INSTRUCTION,
+        "knowledge. Do not write multiple choice or true/false items. "
+        + REQUIRED_METHOD_VARIANT_GUIDANCE + _SEED_INSTRUCTION,
         {"passages": list(passages), "parent": parent, "family": family, "count": count,
          "generation_seed": generation_seed},
     )

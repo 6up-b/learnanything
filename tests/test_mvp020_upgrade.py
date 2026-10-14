@@ -75,11 +75,14 @@ HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_199"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
-def test_the_route_rules_successor_is_the_latest_and_keeps_every_predecessor():
+def test_the_route_rules_successor_keeps_every_predecessor():
     assert ROUTE_RULES_ALGORITHM_VERSION == "mvp-0.20"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-2] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
-    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20"})
+    # Method-explicit items (mvp-0.22-placeholder, the latest successor,
+    # tests/test_method_explicit_upgrade.py) followed it and keep the rules.
+    assert SUCCESSOR_CHAIN[-2] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22-placeholder"
+    assert SUCCESSOR_CHAIN[-3] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
+    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.22-placeholder"})
     # The chain is linear: mvp-0.20 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the answer-key gate PLUS source-first needs
@@ -221,21 +224,23 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.19 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    # The latest is now the method-explicit successor, through mvp-0.20.
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22-placeholder"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.20"])
     assert result.exit_code == 0, result.output
     assert load_vault(explicit.root).config.algorithms.algorithm_version == "mvp-0.20"
 
 
-def test_new_vaults_start_at_the_route_rules_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
+def test_new_vaults_keep_the_route_rules(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION,
+    now the method-explicit successor, which keeps the route rules."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.20"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22-placeholder"
     assert route_rules_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 

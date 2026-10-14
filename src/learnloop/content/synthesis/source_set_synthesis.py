@@ -104,6 +104,7 @@ from learnloop.content.synthesis.vault_epigraphs import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.required_method import method_targets, normalize_required_method
 
 SYNTHESIS_AGENT_PURPOSE = "source_set_synthesis"
 BOOTSTRAP_PROPOSAL_PURPOSE = "sourceset_bootstrap"
@@ -1470,6 +1471,30 @@ def _normalize(
             "evidence_fingerprint": {k: v for k, v in fp.items() if v},
             "provenance": {"origin": "codex_proposal", "source_refs": yaml_refs},
         }
+        required = pi.get("required_method")
+        if isinstance(required, dict) and str(required.get("name") or "").strip():
+            # Method-explicit items (owner rule 2026-10-13): kept only on a
+            # method target (this batch's concepts and facets plus the
+            # registry), linked to it, with the explicit instruction.
+            payload["required_method"] = dict(required)
+            notes = normalize_required_method(
+                payload,
+                method_targets(
+                    _method_target_view(vault, rows), learning_object_id=lo_id, facet_ids=evidence_facets,
+                ),
+            )
+            if any(note.startswith("required_method:dropped") for note in notes):
+                dropped_diagnostics.append(
+                    {
+                        "gate": "required_method",
+                        "severity": "review",
+                        "entity_refs": [pid],
+                        "message": f"item {pid}: {', '.join(notes)}",
+                        "suggested_action": (
+                            "criteria name facts; a method is required only when the item's target is that method"
+                        ),
+                    }
+                )
         deps = ([lo_client] if lo_client in lo_client_to_id else [])
         for fc in pi.get("evidence_facet_client_ids") or []:
             fdep = facet_dep_client.get(fc)
@@ -1825,6 +1850,37 @@ def _keep_sibling_criterion_dependencies(
                 "re-author the dependency if a step really gates this one"
             ),
         }
+    )
+
+
+def _method_target_view(vault: LoadedVault, rows: list[dict[str, Any]]) -> Any:
+    """The registry plus this batch's concepts, facets and learning objects, as
+    :func:`learnloop.vault.required_method.method_targets` reads them."""
+
+    from types import SimpleNamespace
+
+    concepts: dict[str, Any] = dict(vault.concepts)
+    facets: dict[str, Any] = dict(vault.evidence_facets)
+    learning_objects: dict[str, Any] = dict(vault.learning_objects)
+    for row in rows:
+        payload = row.get("payload") or {}
+        entity_id = str(payload.get("id") or row.get("target_entity_id") or "")
+        if not entity_id:
+            continue
+        if row.get("item_type") == "concept":
+            concepts[entity_id] = SimpleNamespace(
+                type=payload.get("type"), title=payload.get("title") or entity_id,
+                aliases=list(payload.get("aliases") or []),
+            )
+        elif row.get("item_type") == "facet":
+            facets[entity_id] = SimpleNamespace(
+                kind=payload.get("kind"), title=payload.get("title"), aliases=list(payload.get("aliases") or []),
+            )
+        elif row.get("item_type") == "learning_object":
+            learning_objects[entity_id] = SimpleNamespace(id=entity_id, concept=payload.get("concept_id") or "")
+    return SimpleNamespace(
+        concepts=concepts, evidence_facets=facets, learning_objects=learning_objects,
+        canonical_facet_id=vault.canonical_facet_id,
     )
 
 

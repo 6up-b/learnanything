@@ -385,4 +385,5 @@ def test_the_documented_two_route_run_fits_the_default_caps_at_the_policy_budget
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["status"] == "dry_run"
-    assert payload["estimate"]["metered"]["calls"] == 2 * 16
+    # Gold set v3 (method-explicit items): 20 cases.
+    assert payload["estimate"]["metered"]["calls"] == 2 * 20

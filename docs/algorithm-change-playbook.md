@@ -54,6 +54,19 @@ placeholder, and relabelled mvp-0.20 at its merge after the sources track;
 mvp-0.18 and mvp-0.19 vaults also grade new answers without the check).
 See `docs/reviews/route-check-in-grader.md`.
 
+Recorded owner rule, 2026-10-13 (method-explicit items): rubric criteria name
+the fact a step establishes, not the method; an item whose target IS a method
+states it ("Use {method} in your answer.") and records it as
+`PracticeItem.required_method`. The grading side changes grading for new
+answers on required-method items (a criterion tied to the required method is
+graded on use of that method, `own-route-v2`), so it mints a successor, built
+as `mvp-0.22-placeholder` and relabelled at its merge, with the kill switch
+`required_method.enabled` grading exactly as mvp-0.20. The generation side
+(criteria phrased by fact on every writer, the required method written only on
+a method target) is a content change, and existing method-phrased criteria are
+flagged (`criterion:method_phrased`) and repaired only through proposals the
+owner confirms, never rewritten. See `docs/reviews/method-explicit-items.md`.
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.

@@ -219,6 +219,30 @@ SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.19"
 # when it merged after the sources track (mvp-0.18, mvp-0.19).
 ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.20"
 
+# mvp-0.22-placeholder (method-explicit items, owner rule 2026-10-13), on top of
+# mvp-0.20 (the chain stays linear: the split PLUS placement PLUS recurrence
+# groups PLUS the stuck prompt PLUS the plan PLUS probe ties PLUS learner-text
+# gaps PLUS the route check PLUS the answer-key gate PLUS source-first needs
+# PLUS the route rules PLUS this). Rubric criteria name the fact a step
+# establishes; an item whose target IS a method states it ("Use {method} in
+# your answer.") and records it as ``PracticeItem.required_method``. The
+# grader's own-route rules gain the required method (``own-route-v2``): a
+# criterion tied to the item's required method is graded on use of that
+# method, so another route fails it without a quoted wrong step (the route is
+# the evidence; the grader still reports ``divergent_route``), and neither
+# PF-c's gate nor the unlocated-mark-down rule unassesses it; every other
+# criterion keeps mvp-0.20's rules (any valid method; a mark-down needs a
+# verbatim quote). Persisted meaning changes for NEW grades on required-method
+# items only (the policy's ``required_method``, the record's method criteria,
+# the ``+own-route-v2`` prompt and calibration identity); the projection
+# namespace is unchanged and replay reads every record as written. Kill
+# switch: ``required_method.enabled`` (off: new answers grade exactly as
+# mvp-0.20). The tag is a PLACEHOLDER: it is relabelled at its merge (main is
+# at mvp-0.20; VOI v2 lands as mvp-0.21 and the Decider migration after it).
+# The generation side (criteria phrased by fact, the required method written
+# only on a method target) is a content change behind no tag.
+METHOD_EXPLICIT_ALGORITHM_VERSION = "mvp-0.22-placeholder"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -239,6 +263,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     ROUTE_RULES_ALGORITHM_VERSION,
+    METHOD_EXPLICIT_ALGORITHM_VERSION,
 )
 
 
@@ -316,6 +341,12 @@ SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS
 # ROUTE_RULES_ALGORITHM_VERSION. (mvp-0.17's separate check has no gate any
 # more: no version runs it.)
 ROUTE_RULES_VERSIONS: frozenset[str] = successors_from(ROUTE_RULES_ALGORITHM_VERSION)
+
+# Versions whose own-route rules grade a required method's criteria on use of
+# the method (``own-route-v2``, behind ``required_method.enabled`` and the
+# route rules' own switch). Every later successor keeps them; gates must use
+# this set, never equality against METHOD_EXPLICIT_ALGORITHM_VERSION.
+METHOD_EXPLICIT_VERSIONS: frozenset[str] = successors_from(METHOD_EXPLICIT_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

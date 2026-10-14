@@ -78,8 +78,8 @@ def upgrade(
             "--to",
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
-                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or "
-                "mvp-0.20); default: the latest."
+                "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
+                "mvp-0.20 or mvp-0.22-placeholder); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -126,11 +126,16 @@ def upgrade(
     intervention needs from the learner's sources before generating over an
     mvp-0.18 vault (or an mvp-0.9 to mvp-0.17 vault through the chain; kill
     switch: ``source_service.source_first_needs = false``). ``--to mvp-0.20``
-    (default, the latest successor) grades every criterion on the learner's
-    own route, in the grader's one call, and leaves a mark-down on a
-    divergent route that quotes nothing unassessed, over an mvp-0.19 vault
-    (or an mvp-0.9 to mvp-0.18 vault through the chain; kill switch:
-    ``proof_check.enabled = false``)."""
+    grades every criterion on the learner's own route, in the grader's one
+    call, and leaves a mark-down on a divergent route that quotes nothing
+    unassessed, over an mvp-0.19 vault (or an mvp-0.9 to mvp-0.18 vault
+    through the chain; kill switch: ``proof_check.enabled = false``).
+    ``--to mvp-0.22-placeholder`` (default, the latest successor; a
+    placeholder tag relabelled at its merge) grades a criterion tied to an
+    item's required method on use of that method (another route fails it
+    with no quoted step), over an mvp-0.20 vault (or an mvp-0.9 to mvp-0.19
+    vault through the chain; kill switch: ``required_method.enabled =
+    false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -186,11 +191,15 @@ def upgrade(
         from learnloop.route_rules_upgrade import upgrade_to_mvp020
 
         result = upgrade_to_mvp020(_root(vault))
+    elif to == "mvp-0.22-placeholder":
+        from learnloop.method_explicit_upgrade import upgrade_to_method_explicit
+
+        result = upgrade_to_method_explicit(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19 or mvp-0.20."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20 or mvp-0.22-placeholder."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

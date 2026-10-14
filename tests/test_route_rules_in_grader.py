@@ -136,12 +136,15 @@ def _projection(repository):
 # -- the version and the switch ---------------------------------------------------------
 
 
-def test_the_route_rules_are_the_latest_successor_after_the_route_check():
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == VERSION == "mvp-0.20"
+def test_the_route_rules_follow_the_route_check():
+    assert VERSION == "mvp-0.20"
+    # Method-explicit items (mvp-0.22-placeholder, tests/test_required_method_grading.py)
+    # followed the rules and keep them (own-route-v2).
+    assert SUCCESSOR_CHAIN[-2] == VERSION and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22-placeholder"
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
-    assert SUCCESSOR_CHAIN[-2] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
-    assert SUCCESSOR_CHAIN[-4] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert ROUTE_RULES_VERSIONS == frozenset({VERSION})
+    assert SUCCESSOR_CHAIN[-3] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
+    assert SUCCESSOR_CHAIN[-5] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
+    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, LATEST_ALGORITHM_VERSION})
 
 
 def test_active_only_at_the_successor_with_the_switch_on(tmp_path):

@@ -78,11 +78,13 @@ def test_learner_text_gap_successor_keeps_every_predecessor():
     # The proofs-and-explanations route check (mvp-0.17,
     # tests/test_mvp017_upgrade.py), canonical sources' answer-key gate
     # (mvp-0.18) and source-first needs (mvp-0.19, tests/test_mvp018_upgrade.py)
-    # and the route rules in the grader (mvp-0.20, the latest successor,
-    # tests/test_mvp020_upgrade.py) followed it and keep the sooner check.
-    assert SUCCESSOR_CHAIN[-5] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.20"
-    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20"})
+    # and the route rules in the grader (mvp-0.20, tests/test_mvp020_upgrade.py)
+    # and method-explicit items (mvp-0.22-placeholder, the latest successor,
+    # tests/test_method_explicit_upgrade.py) followed it and keep the sooner check.
+    assert SUCCESSOR_CHAIN[-6] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22-placeholder"
+    assert LEARNER_TEXT_GAP_VERSIONS == frozenset({"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20",
+                                                   "mvp-0.22-placeholder"})
     # The chain is linear: mvp-0.16 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check.

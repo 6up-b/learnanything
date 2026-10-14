@@ -55,6 +55,11 @@ from learnloop.curriculum.depth_rungs import TASK_FEATURE_SCHEMA_SLUG
 from learnloop.content.sources.math_text import contains_unicode_math, unicode_math_to_latex
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
+from learnloop.vault.required_method import (
+    learning_object_method_targets,
+    method_targets,
+    normalize_required_method,
+)
 from learnloop.vault.writer import upsert_practice_item
 
 # Bounded context: surrounding blocks carry shared preambles ("In the following
@@ -185,12 +190,18 @@ def _catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]:
                 continue
             seen.add(canonical)
             facets.append({"id": canonical, "title": vault.evidence_facets[canonical].title})
-        return {
+        out = {
             "id": lo.id,
             "title": lo.title,
             "summary": (lo.summary or "")[:280],
             "facets": facets,
         }
+        # Method-explicit items (owner rule 2026-10-13): absent unless the
+        # object's target is a method, so other entries are unchanged.
+        targets = learning_object_method_targets(vault, lo.id, [facet["id"] for facet in facets])
+        if targets:
+            out["required_method_targets"] = targets
+        return out
 
     active = [lo for lo in vault.learning_objects.values() if lo.status == "active"]
     active.sort(key=lambda lo: (lo.id != hint, lo.id))
@@ -597,6 +608,17 @@ def author_exercises(
                 payload[field_name] = value
         if capability is not None:
             payload["capability"] = capability
+        if entry.required_method is not None:
+            # The book's statement is never rewritten: a required method it
+            # does not state, or on a target that is not that method, is dropped.
+            payload["required_method"] = entry.required_method.model_dump(mode="json")
+            for note in normalize_required_method(
+                payload,
+                method_targets(vault, learning_object_id=lo_id, facet_ids=facets, capability=capability),
+                source_statement=True,
+            ):
+                if note != "required_method:instruction_added":
+                    warnings.append(f"{label}: {note}")
         if features is not None:
             payload["task_features"] = features
             payload["task_feature_schema"] = TASK_FEATURE_SCHEMA_SLUG

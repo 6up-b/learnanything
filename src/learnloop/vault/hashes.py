@@ -44,21 +44,25 @@ def learning_object_hash(learning_object: LearningObject) -> str:
 
 
 def practice_item_hash(practice_item: PracticeItem) -> str:
-    return content_hash(
-        {
-            "learning_object_id": practice_item.learning_object_id,
-            "practice_mode": practice_item.practice_mode,
-            "attempt_types_allowed": practice_item.attempt_types_allowed,
-            "evidence_facets": practice_item.evidence_facets,
-            "evidence_weights": practice_item.evidence_weights,
-            "prompt": practice_item.prompt,
-            "expected_answer": practice_item.expected_answer,
-            "difficulty": practice_item.difficulty,
-            "hints": practice_item.hints,
-            "hint_policy": practice_item.hint_policy,
-            "grading_rubric": practice_item.grading_rubric,
-        }
-    )
+    fields: dict[str, Any] = {
+        "learning_object_id": practice_item.learning_object_id,
+        "practice_mode": practice_item.practice_mode,
+        "attempt_types_allowed": practice_item.attempt_types_allowed,
+        "evidence_facets": practice_item.evidence_facets,
+        "evidence_weights": practice_item.evidence_weights,
+        "prompt": practice_item.prompt,
+        "expected_answer": practice_item.expected_answer,
+        "difficulty": practice_item.difficulty,
+        "hints": practice_item.hints,
+        "hint_policy": practice_item.hint_policy,
+        "grading_rubric": practice_item.grading_rubric,
+    }
+    # A required method changes what the item measures (its method criteria
+    # are graded on use of the method), so it is item content. Hashed only
+    # when present: every item without one keeps its hash.
+    if practice_item.required_method is not None:
+        fields["required_method"] = practice_item.required_method
+    return content_hash(fields)
 
 
 def reference_content_hash(practice_item: PracticeItem) -> str:

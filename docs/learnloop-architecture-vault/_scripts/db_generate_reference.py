@@ -871,6 +871,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
+    "required_method": "method-explicit items (mvp-0.22-placeholder, relabelled at its merge): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
 }
 
 
@@ -1086,6 +1087,13 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
         "setting it in learnloop.toml has no effect."
     ),
+    "ai.routing.rubric_phrasing_judge": (
+        "Names the judge of `learnloop grading method-phrasing` (method-explicit items, owner rule "
+        "2026-10-13): a decider profile (one typed fact/method choice per criterion) or a chat profile "
+        "(one structured reading per item, with fact rewrites). Empty uses the code-default "
+        "openrouter_decider profile when it is ready, else ai.active_provider; with neither ready the "
+        "report falls back to the conservative heuristic and says so. No serving use."
+    ),
     "ai.routing.project": (
         "Names the provider profile for project-understanding probe authoring and the closed-book "
         "check. Empty follows ai.routing.grading, then the active provider; probe grading itself "
@@ -1161,6 +1169,17 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is "
         "mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; "
         "replay reads the blind record and evidence rows, never this switch."
+    ),
+    "required_method.enabled": (
+        "Kill switch for the method-explicit successor's required-method grading (owner rule "
+        "2026-10-13; mvp-0.22-placeholder, relabelled at its merge). On, the own-route rules are "
+        "own-route-v2: an item's required_method (the method its prompt requires) reaches the "
+        "grader's policy, and a criterion tied to it is graded on use of that method, so a divergent "
+        "route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule "
+        "unassesses it); every other criterion keeps the own-route rules. Off, new answers grade "
+        "exactly as mvp-0.20. Dormant below the successor and when proof_check.enabled is off; "
+        "replay reads the blind record, never this switch. Generation phrasing criteria by fact and "
+        "doctor's criterion:method_phrased are content paths, not gated here."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

@@ -1,0 +1,406 @@
+"""Required methods in the grader (method-explicit successor ``mvp-0.22-placeholder``).
+
+Owner rule 2026-10-13: rubric criteria name the fact a step establishes, not
+the method; an item whose target IS a method states it ("Use {method} in your
+answer.") and records it as ``PracticeItem.required_method``. The own-route
+rules gain the required method (``own-route-v2``):
+
+* a criterion tied to the item's required method is graded on USE of that
+  method: on a route the grader reads as divergent, its mark-down needs no
+  quoted wrong step (the route is the evidence) and is never unassessed by
+  PF-c's gate or the unlocated-mark-down rule (the grader's own "cannot
+  verify" still unassesses it);
+* every other criterion keeps mvp-0.20's rules (any valid method; a
+  mark-down needs a verbatim quote).
+
+Kill switch ``required_method.enabled``: off, new answers grade exactly as
+mvp-0.20. Replay reads every record as written. Fakes only; no network.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+import yaml
+
+from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
+    METHOD_EXPLICIT_ALGORITHM_VERSION,
+    METHOD_EXPLICIT_VERSIONS,
+    ROUTE_RULES_ALGORITHM_VERSION,
+)
+from learnloop.attempts.ai_contracts import CriterionEvidence
+from learnloop.attempts.blind_grading import BlindErrorAttribution, BlindGradingProposal, blind_grading_prompt
+from learnloop.attempts.grading_support import (
+    METHOD_ROUTE_RULES_SUFFIX,
+    REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
+    REQUIRED_METHOD_RULES,
+    ROUTE_RULES,
+    ROUTE_RULES_SUFFIX,
+    ROUTE_RULES_V2,
+    apply_route_rule,
+    apply_valid_alternative_gate,
+    method_rules_active,
+    route_rules_active,
+)
+from learnloop.attempts.regrade import regrade_attempt
+from learnloop.clock import FrozenClock
+from learnloop.db.connection import connect
+from learnloop.diagnosis.split.jobs import diagnosis_status
+from learnloop.substrate.canonical_projection import project_canonical_facet_state, unassessed_evidence_row
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+from learnloop.vault.loader import load_vault
+from learnloop.vault.models import Rubric
+
+from tests.split_live_helpers import ReadyRuntime, split_vault, submit
+from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentGrader, FullCreditGrader
+
+VERSION = METHOD_EXPLICIT_ALGORITHM_VERSION
+ITEM = "pi_svd_compute_001"  # setup (2) + result (2); its LO's concept (SVD) is a procedure
+METHOD = "singular value decomposition"
+CLOCK = FrozenClock(datetime(2026, 11, 1, 12, 0, tzinfo=UTC))
+KILL_SWITCH = "[required_method]\nenabled = false"
+
+
+def _require_method(paths, item_id: str = ITEM, criterion_ids=("setup",)) -> None:
+    """Make ``item_id`` a method item: the required method, stated in its prompt."""
+
+    path = paths.practice_item_path("linear-algebra", item_id)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["prompt"] = data["prompt"] + f" Use {METHOD} in your answer."
+    data["required_method"] = {"name": METHOD, "criterion_ids": list(criterion_ids),
+                               "learning_object_id": data["learning_object_id"]}
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+def _method_vault(tmp_path, *, version=VERSION, config="", seed=True):
+    paths, _vault, repository = split_vault(tmp_path, version=version, config=config, seed=seed)
+    _require_method(paths)
+    return paths, load_vault(paths.root), repository
+
+
+def _support(repository, attempt_id):
+    return repository.latest_blind_grade_record(attempt_id)["record"]["grading_support"]
+
+
+# -- the version and the switch ---------------------------------------------------------
+
+
+def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
+    assert VERSION == "mvp-0.22-placeholder" == LATEST_ALGORITHM_VERSION
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({VERSION})
+
+
+def test_active_only_at_the_successor_with_both_switches_on(tmp_path):
+    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
+    assert method_rules_active(vault) and route_rules_active(vault)
+    _paths, older, _repository = split_vault(tmp_path / "older", version=ROUTE_RULES_ALGORITHM_VERSION, seed=False)
+    assert route_rules_active(older) and not method_rules_active(older)
+    _paths, off, _repository = split_vault(tmp_path / "off", version=VERSION, config=KILL_SWITCH, seed=False)
+    assert route_rules_active(off) and not method_rules_active(off)
+    # The required-method rules extend the own-route rules: off with them.
+    _paths, rules_off, _repository = split_vault(
+        tmp_path / "rules_off", version=VERSION, config="[proof_check]\nenabled = false", seed=False,
+    )
+    assert not route_rules_active(rules_off) and not method_rules_active(rules_off)
+
+
+# -- the deterministic rules (pure) ------------------------------------------------------
+
+RUBRIC = Rubric.model_validate({
+    "id": "r", "max_points": 4,
+    "criteria": [{"id": "method", "description": "Uses cofactor expansion", "points": 2},
+                 {"id": "result", "description": "Establishes det(A) = 13", "points": 2}],
+})
+ANSWER = "Row reduce: R3 <- R3 - 2 R1, then the triangular product is 13. det(A) = 13"
+
+
+def _proposal(points, attributions=()):
+    return BlindGradingProposal(
+        local_analysis_md="a", attempt_id="a1", practice_item_id="i",
+        criterion_evidence=[CriterionEvidence(criterion_id=cid, points_awarded=p, evidence=f"grader on {cid}")
+                            for cid, p in points.items()],
+        rubric_score=int(sum(points.values())), error_attributions=list(attributions), grader_confidence=0.9,
+    )
+
+
+def _rule(proposal, *, final="undecidable", divergent=True, before=(), method=("method",), declared=()):
+    return apply_route_rule(
+        proposal, rubric=RUBRIC, learner_answer_md=ANSWER, final_answer_status=final,
+        divergent_route=divergent, unverified_before=before, declared_unverified=declared,
+        method_criterion_ids=method,
+    )
+
+
+def test_a_required_method_criterion_fails_on_another_route_without_a_quote():
+    """The route is the evidence: an unquoted mark-down of the method
+    criterion on a divergent route stays assessed; any other unquoted
+    mark-down is still unassessed (P1)."""
+
+    rule = _rule(_proposal({"method": 0.0, "result": 2.0}))
+    assert not rule.applied and rule.unverified == () and rule.method_route == ("method",)
+    assert rule.assessed_shortfall is True and rule.held_for_review is False
+    both = _rule(_proposal({"method": 0.0, "result": 0.0}))
+    assert both.applied and both.unlocated == ("result",) and both.method_route == ("method",)
+    # Something assessed (the method criterion): no hold, a real shortfall.
+    assert both.held_for_review is False and both.assessed_shortfall is True
+    rows = {row.criterion_id: row for row in both.proposal.criterion_evidence}
+    assert rows["result"].notes.startswith("Not assessed") and rows["method"].notes is None
+    # Without the required method (mvp-0.20's rules) the same mark-down is unassessed.
+    plain = _rule(_proposal({"method": 0.0, "result": 2.0}), method=())
+    assert plain.applied and plain.unlocated == ("method",) and plain.method_route == ()
+
+
+def test_the_graders_declared_uncertainty_still_unassesses_a_method_criterion():
+    rule = _rule(_proposal({"method": 0.0, "result": 2.0}), declared=("method",))
+    assert rule.applied and rule.declared == ("method",) and rule.method_route == ()
+    assert rule.unverified == ("method",)
+
+
+def test_a_route_read_as_the_references_leaves_the_method_criterion_to_the_ordinary_rules():
+    rule = _rule(_proposal({"method": 0.0, "result": 2.0}), divergent=False)
+    assert not rule.applied and rule.method_route == () and rule.assessed_shortfall is True
+
+
+def test_pfc_gate_never_unassesses_a_method_criterion_on_a_divergent_route():
+    """On a verified final answer PF-c unassesses unlocated mark-downs; a
+    required method's criterion (passed only on a divergent route) is exempt,
+    unless the grader itself declared it unverifiable."""
+
+    policy = {"final_answer_check": {"status": "matches_reference"}}
+    proposal = _proposal({"method": 0.0, "result": 0.0})
+    exempt = apply_valid_alternative_gate(proposal, rubric=RUBRIC, learner_answer_md=ANSWER, policy=policy,
+                                          method_criterion_ids=("method",))
+    assert exempt.unverified_criterion_ids == ("result",) and exempt.assessed_shortfall is True
+    plain = apply_valid_alternative_gate(proposal, rubric=RUBRIC, learner_answer_md=ANSWER, policy=policy)
+    assert plain.unverified_criterion_ids == ("method", "result") and plain.assessed_shortfall is False
+    declared = apply_valid_alternative_gate(proposal, rubric=RUBRIC, learner_answer_md=ANSWER, policy=policy,
+                                            method_criterion_ids=("method",), declared_unverified=("method",))
+    assert declared.unverified_criterion_ids == ("method", "result")
+
+
+def test_a_quoted_wrong_step_in_the_method_still_counts():
+    attribution = BlindErrorAttribution(
+        error_type="conceptual_slip", evidence="e", target_criterion_ids=["method"],
+        first_divergence={"anchor_kind": "span", "criterion_id": "method", "quote": "R3 <- R3 - 2 R1"},
+        validity_scope="valid_measurement",
+    )
+    rule = _rule(_proposal({"method": 0.0, "result": 2.0}, [attribution]))
+    # Located: an ordinary assessed mark-down, not a route-only one.
+    assert rule.method_route == () and not rule.applied
+
+
+# -- the prompt and its identity -----------------------------------------------------------
+
+
+def _blind_plan(vault, answer=ALTERNATIVE, *, stuck=False, item_id=ITEM):
+    from learnloop.attempts.attempts import _blind_grading_plan
+    from learnloop.attempts.grading import build_grading_context, resolved_rubric
+
+    item = vault.practice_items[item_id]
+    context = build_grading_context(
+        vault, item, attempt_id="planned", learner_answer_md=answer, rubric=resolved_rubric(vault, item),
+    )
+    return _blind_grading_plan(vault, item, context, stuck=stuck)
+
+
+def test_the_prompt_carries_the_required_method_and_names_v2(tmp_path):
+    _paths, vault, _repository = _method_vault(tmp_path / "on", seed=False)
+    plan = _blind_plan(vault)
+    policy = plan.context.reference_policy
+    assert policy["route_rules"] == "own-route-v2"
+    assert policy["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
+    prompt = blind_grading_prompt(plan.context)
+    assert ROUTE_RULES_V2 in prompt and REQUIRED_METHOD_RULES in prompt and ROUTE_RULES in prompt
+    assert plan.prompt_version == f"mvp-2.1-blind-reference-policy{METHOD_ROUTE_RULES_SUFFIX}"
+    assert plan.calibration_prompt_version == f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{METHOD_ROUTE_RULES_SUFFIX}"
+    stuck = _blind_plan(vault, stuck=True)
+    assert stuck.prompt_version == f"mvp-2.1-blind-reference-policy{METHOD_ROUTE_RULES_SUFFIX}+stuck-v1"
+    # An item without a required method: the v2 rules, no required method shown.
+    other = _blind_plan(vault, item_id="pi_svd_compute_002")
+    assert other.context.reference_policy["route_rules"] == "own-route-v2"
+    assert "required_method" not in other.context.reference_policy
+    assert other.prompt_version.endswith(METHOD_ROUTE_RULES_SUFFIX)
+
+
+def test_an_answer_to_a_statement_that_did_not_require_the_method_is_never_failed_for_it(tmp_path):
+    """A required method added after the item was presented: the attempt's
+    assessment contract holds the prompt the learner answered, which does not
+    state the method, so the grader is not shown it (own-route-v2 still)."""
+
+    from learnloop.attempts.attempts import _blind_grading_plan
+    from learnloop.attempts.grading import build_grading_context, resolved_rubric
+
+    _paths, vault, _repository = _method_vault(tmp_path, seed=False)
+    item = vault.practice_items[ITEM]
+    context = build_grading_context(
+        vault, item, attempt_id="planned", learner_answer_md=ALTERNATIVE, rubric=resolved_rubric(vault, item),
+        assessment_contract={"prompt": "Write the SVD of A.", "expected_answer": item.expected_answer},
+    )
+    plan = _blind_grading_plan(vault, item, context)
+    assert plan.context.reference_policy["route_rules"] == "own-route-v2"
+    assert "required_method" not in plan.context.reference_policy
+
+
+@pytest.mark.parametrize("setup", ["kill_switch", "predecessor"])
+def test_off_and_at_mvp020_the_prompt_is_mvp020s_byte_for_byte(tmp_path, setup):
+    """The kill switch (and mvp-0.20 itself) shows the own-route-v1 rules and
+    no required method, even on a method item: the same prompt, context hash
+    and identity as an mvp-0.20 vault."""
+
+    if setup == "kill_switch":
+        _paths, vault, _repository = _method_vault(tmp_path / "a", config=KILL_SWITCH, seed=False)
+    else:
+        _paths, vault, _repository = _method_vault(tmp_path / "a", version=ROUTE_RULES_ALGORITHM_VERSION, seed=False)
+    _paths, baseline, _repository = _method_vault(tmp_path / "b", version=ROUTE_RULES_ALGORITHM_VERSION, seed=False)
+    plan, reference = _blind_plan(vault), _blind_plan(baseline)
+    assert plan.context.reference_policy["route_rules"] == "own-route-v1"
+    assert "required_method" not in plan.context.reference_policy
+    assert blind_grading_prompt(plan.context) == blind_grading_prompt(reference.context)
+    assert REQUIRED_METHOD_RULES not in blind_grading_prompt(plan.context)
+    assert (plan.prompt_version, plan.context_hash, plan.calibration_prompt_version) == (
+        reference.prompt_version, reference.context_hash, reference.calibration_prompt_version)
+    assert plan.prompt_version.endswith(ROUTE_RULES_SUFFIX)
+
+
+# -- live grades -----------------------------------------------------------------------------
+
+
+def test_live_another_route_fails_the_method_criterion_with_no_quote(tmp_path):
+    """Gold-set case (a) through the real door: the method criterion
+    (``setup``) is marked down on a divergent route with nothing quoted; at the
+    successor it stays assessed (failed), recorded on the blind record and in
+    the route verdict, and the attempt is a measured shortfall."""
+
+    _paths, vault, repository = _method_vault(tmp_path)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    support = _support(repository, result.attempt_id)
+    rule = support["proof_route_check"]
+    assert rule["rules"] == "own-route-v2" and rule["divergent_route"] is True
+    assert rule["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
+    assert rule["method_route_criterion_ids"] == ["setup"]
+    assert rule["applied"] is False and rule["unlocated_criterion_ids"] == []
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert not unassessed_evidence_row(rows["setup"].attribution_json)
+    assert not unassessed_evidence_row(rows["result"].attribution_json)
+    assert (attempt["rubric_score"], attempt["correctness"]) == (0, 0.0)
+    assert support["unverified_criterion_ids"] == []
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        [verdict] = [json.loads(row[0]) for row in connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task = 'own_route_rule' AND left_id = ?",
+            (result.attempt_id,))]
+    assert verdict["method_route_criterion_ids"] == ["setup"] and verdict["rules"] == "own-route-v2"
+    assert diagnosis_status(repository, result.attempt_id)["status"] != "not_needed"
+
+
+def test_live_the_same_mathematics_without_a_required_method_keeps_mvp020s_rule(tmp_path):
+    """Gold-set case (b): the same item and answer without a required method:
+    the unquoted mark-down is unassessed (any valid method passes)."""
+
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert rule["rules"] == "own-route-v2" and "required_method" not in rule
+    assert rule["unlocated_criterion_ids"] == ["setup"]
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert unassessed_evidence_row(rows["setup"].attribution_json)
+
+
+@pytest.mark.parametrize("setup", ["kill_switch", "predecessor"])
+def test_the_kill_switch_grades_exactly_as_mvp020(tmp_path, setup):
+    """Off (and at mvp-0.20) the method item grades as mvp-0.20 does: the same
+    columns, evidence rows, record, prompt and identity."""
+
+    if setup == "kill_switch":
+        _paths, vault, repository = _method_vault(tmp_path / "a", config=KILL_SWITCH)
+    else:
+        _paths, vault, repository = _method_vault(tmp_path / "a", version=ROUTE_RULES_ALGORITHM_VERSION)
+    _paths, baseline, baseline_repository = _method_vault(tmp_path / "b", version=ROUTE_RULES_ALGORITHM_VERSION)
+    grader, reference_grader = DivergentGrader(), DivergentGrader()
+    result = submit(vault, repository, grader, answer=ALTERNATIVE, when=CLOCK.now())
+    reference = submit(baseline, baseline_repository, reference_grader, answer=ALTERNATIVE, when=CLOCK.now())
+    assert grader.calls == reference_grader.calls == ["blind_grading"]
+    # The same prompt, attempt ids aside.
+    assert grader.prompts[0].replace(result.attempt_id, "ATTEMPT") == reference_grader.prompts[0].replace(
+        reference.attempt_id, "ATTEMPT")
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    expected = baseline_repository.fetch_practice_attempt(reference.attempt_id)
+    for column in ("rubric_score", "correctness", "manual_review_reason", "error_type"):
+        assert attempt[column] == expected[column], column
+    rows = [(r.criterion_id, r.points_awarded, r.attribution_json) for r in repository.fetch_grading_evidence(result.attempt_id)]
+    ref = [(r.criterion_id, r.points_awarded, r.attribution_json)
+           for r in baseline_repository.fetch_grading_evidence(reference.attempt_id)]
+    assert rows == ref
+    record = repository.latest_blind_grade_record(result.attempt_id)["record"]
+    ref_record = baseline_repository.latest_blind_grade_record(reference.attempt_id)["record"]
+    assert record["grading_support"] == ref_record["grading_support"]
+    assert record["calibration_prompt_version"] == ref_record["calibration_prompt_version"] == (
+        f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}")
+    # The mvp-0.20 outcome: the method criterion's unquoted mark-down is unassessed.
+    assert record["grading_support"]["proof_route_check"]["unlocated_criterion_ids"] == ["setup"]
+
+
+def test_a_regrade_at_the_successor_keeps_the_method_rule_and_a_full_credit_regrade_clears_it(tmp_path):
+    _paths, vault, repository = _method_vault(tmp_path)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=DivergentGrader(), grading_source="ai", clock=CLOCK)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert rule["method_route_criterion_ids"] == ["setup"]
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai", clock=CLOCK)
+    assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 4
+    assert _support(repository, result.attempt_id)["proof_route_check"]["method_route_criterion_ids"] == []
+
+
+def _projection(repository):
+    return sorted(
+        (cell.facet_id, cell.capability, round(cell.direct_positive_mass, 12),
+         round(cell.direct_negative_mass, 12), round(cell.certification_credit, 12))
+        for cell in repository.facet_capability_evidence_all()
+    )
+
+
+def test_replay_reproduces_method_grades_without_a_model(tmp_path, monkeypatch):
+    _paths, vault, repository = _method_vault(tmp_path)
+    submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE + " (full)")
+    project_canonical_facet_state(vault, repository)
+    before = _projection(repository)
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task",
+                        lambda *a, **k: pytest.fail("replay must not build a client"))
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    first = _projection(repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert first == _projection(repository) == before
+
+
+def test_grades_recorded_at_mvp020_replay_unchanged_after_the_upgrade(tmp_path):
+    """Existing grades keep their meaning: an mvp-0.20 grade of a method item
+    (the method criterion unassessed) replays identically after the vault is
+    upgraded to the successor; nothing is regraded or rewritten."""
+
+    from learnloop.method_explicit_upgrade import upgrade_to_method_explicit
+
+    paths, vault, repository = _method_vault(tmp_path, version=ROUTE_RULES_ALGORITHM_VERSION)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    project_canonical_facet_state(vault, repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    before = _projection(repository)
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        tables = {table: connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
+                  for table in ("practice_attempts", "grading_evidence", "blind_grade_records", "judgment_ledger")}
+    upgraded = upgrade_to_method_explicit(paths.root, clock=CLOCK)
+    assert upgraded.upgraded, upgraded.problems
+    vault = load_vault(paths.root)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _projection(repository) == before
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        for table, rows in tables.items():
+            assert connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall() == rows, table
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert unassessed_evidence_row(rows["setup"].attribution_json)

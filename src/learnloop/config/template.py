@@ -1053,7 +1053,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # moves only because the effective config loses the route; all twelve
     # were recomputed from the composed defaults, UX Phase 1's keys included
     # (defaults_fingerprint_for_version).
-    "mvp-0.9": "14f06b9c5ba397fdb1b1d13fb879cc0de343078ad5e9c62e4053df14be3d3c53",
+    # Method-explicit items (owner rule 2026-10-13; successor
+    # mvp-0.22-placeholder, relabelled at its merge) add [required_method]
+    # enabled = true (modelled default, left out of the decision-only
+    # template), the kill switch of the successor's required-method grading,
+    # dormant below it, and the unset ai.routing.rubric_phrasing_judge route
+    # (the owner-run `learnloop rubrics method-phrasing` report's judge; no
+    # serving use). Every snapshot moves only because the effective config
+    # gains the section and the route; all thirteen were recomputed
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "54b385d54c3a5710cf5330a14cc8b35a7ee4abcac655c25f3e0228385df8eda6",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1079,7 +1088,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.10": "485484f6921445d002fb4a2649783db9ce2360e0e1bd633b0a13bc8e14937b22",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.10": "47ef50545e2f7a8819bf0362b1ba9d7102ebbd03806183817ff2549f314f7a61",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1113,7 +1123,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.11": "1284007007d9480542032dfbc5a76229831395f93befdd943ec1ace2ac0ff700",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.11": "266a5fdcc0fb2b31aab9562a4f1db834df8234dc63fbe1db95d46c69116707de",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1141,7 +1152,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.12": "5f39daf29a9161b66e531b525f2584068ce45df35d78918ebb9f9c14b2205842",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.12": "f07e5bee89684868c28a3a402cedc184e665c91581578e0b0e780af8bbf42e68",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1164,7 +1176,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.13": "121a33dd788ad7102048d68884166e76c0de1f84c3b453fe5f1a7be1255e6c1f",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.13": "86f8926a2838440a38aa38f5719ee84cf085d01e279500a557f6dabcfca542e6",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1186,7 +1199,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.14": "29505eb752008dc7ad9759576930ff36972ac932a64807ea8ca16860eac8d79c",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.14": "ff4178f0dc3284aaae3e8912466088b9738fab637828349260206bccc36a8db9",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1206,7 +1220,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.15": "d59b23c3853e018820a2e49aabf788f45c76006a9d56be53b96677a0eb42da8b",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.15": "bef6f615bbf3435ccd1734d64a44992204ab452f0ed4357af6c99210dfcba67a",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1233,7 +1248,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The reword confirm's facet_identity.reword_confirm moves it too (see mvp-0.9).
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9).
-    "mvp-0.16": "4c05869a2983ef128300bee267de3d9a5022afc093de7e8fe996a24954ec821c",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.16": "96769c7915658256d47753fc986332183169d6d2af23d4c2175515d1b4a2dad8",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1256,7 +1272,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # check from serving: an mvp-0.17 vault grades new answers as its kill
     # switch defined (as mvp-0.16), and the retired route moves it too (see
     # mvp-0.9).
-    "mvp-0.17": "52ff49144c88d63db69ae4e22297be1c9faa584c74f5b74839b63bd2683231f3",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.17": "75e0ba46dae964e62b8d9509b2981ee22c48a4751b03fe5bb7f69e61511e05a9",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1272,7 +1289,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9; the
     # separate check no longer runs here either).
-    "mvp-0.18": "3f58d2eaefb82ebd67960307b58d0d4d9cad71cf13abc0337a11471a0ae48a2f",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.18": "7499cbd1d8b74feea07cf2f32d3883875647de2cce0ef1bc224ca55ae3864228",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1288,7 +1306,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 1's [ingest] keys, [ai] consent and reading step move it too (see mvp-0.9).
     # route-check-in-grader's retired route moves it too (see mvp-0.9; the
     # separate check no longer runs here either).
-    "mvp-0.19": "7841482e1a953b46322bb25f20a75d1d76e28c9e118d52a709f2a5fabd95aeda",
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.19": "e6dfe836d5cad430bb55a823aa2b5c00265683604856f8e3ceb129fe2a06ac39",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1298,9 +1317,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # switch proof_check.enabled (default on). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.19, or from mvp-0.9 to
     # mvp-0.18 through the chain (under mvp-0.12's advisory guard). New
-    # vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
-    # decision 2026-10-12).
-    "mvp-0.20": "c1d73f956bb1685a0592817d295e3778e894e4f0a3645bee7a96ada98149ceb3",
+    # vaults started here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12) until the method-explicit successor merged.
+    # The method-explicit [required_method] and route move it too (see mvp-0.9).
+    "mvp-0.20": "6880ae8d465ecb9ca6d5056c9fdee03758e9060d691e4eeca482ec1ff23b892a",
+    # mvp-0.22-placeholder (method-explicit items, owner rule 2026-10-13; a
+    # placeholder tag relabelled at its merge after VOI v2's mvp-0.21 and the
+    # Decider migration): mvp-0.20 plus required-method grading (own-route-v2:
+    # a criterion tied to an item's required method is graded on use of that
+    # method, so another route fails it with no quoted wrong step; every other
+    # criterion keeps the own-route rules). Kill switch required_method.enabled
+    # (default on; off grades new answers exactly as mvp-0.20). Existing
+    # vaults reach it by `learnloop upgrade` (default target) from mvp-0.20,
+    # or from mvp-0.9 to mvp-0.19 through the chain (under mvp-0.12's advisory
+    # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12).
+    "mvp-0.22-placeholder": "476ec93aa072c9cab0232ff2d97370673a77ceca0046fcc90be471d31f41ebb3",
 }
 
 

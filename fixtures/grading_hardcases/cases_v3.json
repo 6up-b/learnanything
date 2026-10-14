@@ -1,0 +1,632 @@
+{
+ "version": "grading-hardcases-v3",
+ "description": "Hard grading cases in the owner's subjects (linear algebra, probability): valid alternatives (checkable answers and proofs), correct answers with flawed reasoning, and wrong proofs that look right. Each case is an item (prompt, reference solution, rubric) and one answer, labelled by the criteria a correct grader must mark down. Written for this stage and checked by hand; not learner data. v2 adds P2's cell 1 (a valid alternative whose final answer the deterministic check verifies) and records each case's provenance: every case is synthetic_hand_checked, so the set is synthetic smoke coverage until real traces fill cells 3-4. v3 (method-explicit items, owner rule 2026-10-13) adds cell 5, required_method_bypassed: two items whose statements require a method (item.required_method), each answered correctly by another valid method (a correct grader fails only the method criteria and credits every fact criterion), each paired with the same mathematics without a required method and with fact-phrased criteria (a valid alternative that any valid method passes).",
+ "cases": [
+  {
+   "id": "la-rank-ata-nullspace",
+   "subject": "linear_algebra",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "Prove that for every real m x n matrix A, rank(A^T A) = rank(A).",
+    "expected_answer": "Write the SVD A = U Sigma V^T. Then A^T A = V Sigma^T Sigma V^T, and Sigma^T Sigma is diagonal with entries sigma_i^2. The number of nonzero sigma_i^2 equals the number of nonzero sigma_i, so rank(A^T A) = rank(A).",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "invariant",
+      "description": "Establishes a property shared by A and A^T A that determines the rank (for example equal null spaces or equal nonzero singular-value counts).",
+      "points": 2
+     },
+     {
+      "id": "conclusion",
+      "description": "Concludes rank(A^T A) = rank(A) with a valid justification.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "If Ax = 0 then A^T A x = A^T 0 = 0, so N(A) is contained in N(A^T A). Conversely, if A^T A x = 0 then x^T A^T A x = 0, i.e. ||Ax||^2 = 0, so Ax = 0. Hence N(A^T A) = N(A). Both matrices have n columns, so by rank-nullity rank(A^T A) = n - dim N(A^T A) = n - dim N(A) = rank(A).",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Null-space route instead of the reference's SVD. Every step is standard and valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-symmetric-real-eigenvalues-quotient",
+   "subject": "linear_algebra",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "Show that every eigenvalue of a real symmetric matrix is real.",
+    "expected_answer": "Let Av = lambda v with v a nonzero complex vector and <x, y> = y^H x. Then lambda <v, v> = <Av, v> = <v, A^H v> = <v, Av> = conj(lambda) <v, v>. Since <v, v> > 0, lambda = conj(lambda), so lambda is real.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "setup",
+      "description": "Sets up an eigenpair with a possibly complex nonzero eigenvector.",
+      "points": 1
+     },
+     {
+      "id": "key_step",
+      "description": "Shows a quantity tied to lambda is real (or equals its conjugate) using symmetry and realness of A.",
+      "points": 2
+     },
+     {
+      "id": "conclusion",
+      "description": "Concludes that lambda is real.",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "Let Av = lambda v with v in C^n, v != 0, and write v-bar for the conjugate vector. Multiply on the left by v-bar^T: v-bar^T A v = lambda v-bar^T v. The scalar s = v-bar^T A v equals its own transpose v^T A^T v-bar = v^T A v-bar (A is symmetric), and that is the complex conjugate of v-bar^T A v because A is real. So s is real. Also v-bar^T v = sum |v_i|^2 > 0 is real. Therefore lambda = s / (v-bar^T v) is a quotient of real numbers, hence real.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Rayleigh-quotient route instead of the reference's inner-product conjugation. Valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-orthogonal-preserves-norm-columns",
+   "subject": "linear_algebra",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "Let Q be an n x n real matrix with Q^T Q = I. Prove that ||Qx|| = ||x|| for every x in R^n.",
+    "expected_answer": "||Qx||^2 = (Qx)^T (Qx) = x^T Q^T Q x = x^T x = ||x||^2, and norms are nonnegative, so ||Qx|| = ||x||.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "use_hypothesis",
+      "description": "Uses Q^T Q = I correctly.",
+      "points": 2
+     },
+     {
+      "id": "conclusion",
+      "description": "Derives ||Qx|| = ||x|| validly.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "Entry (i, j) of Q^T Q is q_i . q_j where q_i are the columns of Q, so Q^T Q = I says the columns are orthonormal. Write Qx = x_1 q_1 + ... + x_n q_n. Expanding ||Qx||^2 = (sum_i x_i q_i) . (sum_j x_j q_j) = sum_i sum_j x_i x_j q_i . q_j = sum_i x_i^2, since the cross terms vanish and q_i . q_i = 1. So ||Qx||^2 = ||x||^2 and, taking nonnegative square roots, ||Qx|| = ||x||.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Orthonormal-columns route instead of the reference's one-line transpose identity. Valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-geometric-mean-tail-sum",
+   "subject": "probability",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "Let X be geometric with success probability p in (0, 1], taking values 1, 2, 3, ... (the trial of the first success). Derive E[X] = 1/p.",
+    "expected_answer": "E[X] = sum_{k>=1} k p q^(k-1) with q = 1 - p. Differentiating sum_{k>=0} q^k = 1/(1-q) gives sum_{k>=1} k q^(k-1) = 1/(1-q)^2, so E[X] = p / p^2 = 1/p.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "expression",
+      "description": "Writes a valid expression for E[X] (definition, tail-sum formula or first-step analysis).",
+      "points": 2
+     },
+     {
+      "id": "evaluation",
+      "description": "Evaluates it correctly to 1/p with justified steps.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "For a random variable on the positive integers, E[X] = sum_{k>=1} P(X >= k). Here X >= k exactly when the first k-1 trials fail, so P(X >= k) = q^(k-1) with q = 1 - p. Then E[X] = sum_{k>=1} q^(k-1) = 1/(1 - q) = 1/p.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Tail-sum route instead of the reference's differentiated series. Valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-union-bound-disjoint-split",
+   "subject": "probability",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "Prove that P(A or B) <= P(A) + P(B) for any events A and B.",
+    "expected_answer": "By inclusion-exclusion, P(A u B) = P(A) + P(B) - P(A n B), and P(A n B) >= 0, so P(A u B) <= P(A) + P(B).",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "decomposition",
+      "description": "Expresses P(A or B) through a valid identity or decomposition.",
+      "points": 2
+     },
+     {
+      "id": "inequality",
+      "description": "Derives the inequality with a valid justification.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "Write A u B as the disjoint union of A and B \\ A. By additivity, P(A u B) = P(A) + P(B \\ A). Since B \\ A is a subset of B, monotonicity gives P(B \\ A) <= P(B). Hence P(A u B) <= P(A) + P(B).",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Disjoint-decomposition route instead of inclusion-exclusion. Valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-at-least-one-six-complement",
+   "subject": "probability",
+   "category": "valid_alternative",
+   "item": {
+    "prompt": "A fair die is rolled four times. Derive the probability of at least one six, and justify each step.",
+    "expected_answer": "Let E_i be 'roll i is a six'. By inclusion-exclusion, P(union) = 4(1/6) - 6(1/36) + 4(1/216) - 1/1296 = 671/1296, about 0.518.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "method",
+      "description": "Chooses a valid method and applies it to the four rolls with justification (independence where used).",
+      "points": 2
+     },
+     {
+      "id": "value",
+      "description": "Reaches 671/1296 (about 0.518).",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "The complement of 'at least one six' is 'no six in any of the four rolls'. The rolls are independent and each misses six with probability 5/6, so P(no six) = (5/6)^4 = 625/1296. Therefore P(at least one six) = 1 - 625/1296 = 671/1296, about 0.518.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Complement route instead of the reference's inclusion-exclusion. Valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-det-row-reduction-checkable",
+   "subject": "linear_algebra",
+   "category": "valid_alternative",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "Compute det(A) for A = [[1, 2, 0], [0, 1, 3], [2, 0, 1]]. Show your working and justify each step.",
+    "expected_answer": "Expand along the first row: det(A) = 1 * (1 * 1 - 3 * 0) - 2 * (0 * 1 - 3 * 2) + 0 * (0 * 0 - 1 * 2) = 1 - 2 * (-6) = 13.\n\n13",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "method",
+      "description": "Uses a valid method to evaluate the determinant (for example cofactor expansion along the first row) and justifies each step.",
+      "points": 2
+     },
+     {
+      "id": "minors",
+      "description": "Computes each 2x2 minor and its cofactor sign correctly.",
+      "points": 1
+     },
+     {
+      "id": "result",
+      "description": "States det(A) = 13.",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "Row operations of the form R_i <- R_i + c R_j leave the determinant unchanged. R3 <- R3 - 2 R1 turns (2, 0, 1) into (0, -4, 1), so the rows are (1, 2, 0), (0, 1, 3), (0, -4, 1). Then R3 <- R3 + 4 R2 turns (0, -4, 1) into (0, 0, 13). The matrix is now upper triangular, and the determinant of a triangular matrix is the product of its diagonal entries, 1 * 1 * 13.\n\ndet(A) = 13",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Cell 1 (checkable valid alternative): row reduction instead of the reference's cofactor expansion. Each row replacement keeps the determinant; the triangular product is 13, which the final-answer check verifies. The 'minors' criterion is phrased in terms of the reference's method; it is established by the row reduction's arithmetic."
+  },
+  {
+   "id": "pr-two-dice-sum-complement-checkable",
+   "subject": "probability",
+   "category": "valid_alternative",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "Two fair six-sided dice are rolled. Find the probability that the sum is at least 4, and justify your answer.",
+    "expected_answer": "The 36 ordered outcomes are equally likely. Counting sums 4 to 12 directly: 3 + 4 + 5 + 6 + 5 + 4 + 3 + 2 + 1 = 33 outcomes, so the probability is 33/36 = 11/12.\n\n11/12",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "sample_space",
+      "description": "Identifies the 36 equally likely ordered outcomes.",
+      "points": 1
+     },
+     {
+      "id": "count",
+      "description": "Counts the outcomes with sum at least 4 (33) correctly.",
+      "points": 2
+     },
+     {
+      "id": "result",
+      "description": "Concludes the probability is 33/36 = 11/12.",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "The 36 ordered outcomes (a, b) are equally likely. The complement of 'sum at least 4' is 'sum at most 3', which happens only for (1, 1), (1, 2) and (2, 1): 3 outcomes. So P(sum <= 3) = 3/36 = 1/12.\n\nSo the probability that the sum is at least 4 is 1 - 1/12 = 11/12.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Cell 1 (checkable valid alternative): the complement instead of the reference's direct count. 36 - 3 = 33 favourable outcomes is implied by the complement; the final answer 11/12 is verified by the final-answer check."
+  },
+  {
+   "id": "la-product-inverse-commute-claim",
+   "subject": "linear_algebra",
+   "category": "correct_flawed",
+   "item": {
+    "prompt": "Let A and B be invertible n x n matrices. Prove that AB is invertible and that (AB)^(-1) = B^(-1) A^(-1).",
+    "expected_answer": "(AB)(B^(-1) A^(-1)) = A (B B^(-1)) A^(-1) = A A^(-1) = I, and similarly (B^(-1) A^(-1))(AB) = I. So AB is invertible with inverse B^(-1) A^(-1).",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "invertible",
+      "description": "Shows AB is invertible with a valid argument (an explicit inverse or det(AB) = det(A) det(B) != 0).",
+      "points": 2
+     },
+     {
+      "id": "formula",
+      "description": "Justifies the formula (AB)^(-1) = B^(-1) A^(-1) validly, for example by checking both products give I.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "det(AB) = det(A) det(B), and both determinants are nonzero because A and B are invertible, so AB is invertible. For the formula: invertible matrices commute, so AB = BA, and therefore (AB)^(-1) = (BA)^(-1). Inverting each factor of BA in turn gives (AB)^(-1) = B^(-1) A^(-1).",
+   "label": {
+    "failing_criteria": [
+     "formula"
+    ]
+   },
+   "notes": "The final formula is right, but 'invertible matrices commute' is false and 'inverting each factor in turn' is unjustified. The determinant argument for invertibility is valid.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-zero-eigenvalue-sum-claim",
+   "subject": "linear_algebra",
+   "category": "correct_flawed",
+   "item": {
+    "prompt": "Explain why a square matrix that has 0 as an eigenvalue is not invertible.",
+    "expected_answer": "If 0 is an eigenvalue, there is v != 0 with Av = 0v = 0. Then A is not injective (A v = A 0 with v != 0), so it has no inverse. Equivalently det(A) is the product of the eigenvalues, which is 0.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "link",
+      "description": "Links the zero eigenvalue to a nonzero vector in the null space, or to det(A) = 0, with a correct reason.",
+      "points": 2
+     },
+     {
+      "id": "conclusion",
+      "description": "Concludes non-invertibility from that link.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "The determinant of a matrix is the sum of its eigenvalues, so having 0 as an eigenvalue forces det(A) = 0. A matrix with zero determinant is not invertible, so A is not invertible.",
+   "label": {
+    "failing_criteria": [
+     "link"
+    ]
+   },
+   "notes": "Right conclusion; the stated reason is false (the determinant is the product, not the sum, of the eigenvalues, and a zero term does not make a sum zero).",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-expectation-product-no-independence",
+   "subject": "probability",
+   "category": "correct_flawed",
+   "item": {
+    "prompt": "X and Y are independent random variables with E[X] = 2 and E[Y] = 3. Find E[XY] and justify your answer.",
+    "expected_answer": "Because X and Y are independent, E[XY] = E[X] E[Y] = 6.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "justification",
+      "description": "Justifies E[XY] = E[X]E[Y] by the independence of X and Y.",
+      "points": 2
+     },
+     {
+      "id": "value",
+      "description": "Gets E[XY] = 6.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "Expectation is multiplicative for any two random variables, just as it is additive, so E[XY] = E[X] E[Y] = 2 * 3 = 6.",
+   "label": {
+    "failing_criteria": [
+     "justification"
+    ]
+   },
+   "notes": "Right value; the justification is a false general rule (it needs independence, which the answer never uses).",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-variance-difference-linearity-claim",
+   "subject": "probability",
+   "category": "correct_flawed",
+   "item": {
+    "prompt": "X and Y are independent with Var(X) = 4 and Var(Y) = 9. Find the standard deviation of X - Y and justify each step.",
+    "expected_answer": "By independence Cov(X, Y) = 0, so Var(X - Y) = Var(X) + Var(-Y) = Var(X) + Var(Y) = 13 (Var(-Y) = (-1)^2 Var(Y)). The standard deviation is sqrt(13), about 3.61.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "variance_rule",
+      "description": "Justifies Var(X - Y) = Var(X) + Var(Y) using independence (zero covariance) and Var(-Y) = Var(Y).",
+      "points": 2
+     },
+     {
+      "id": "value",
+      "description": "Gets sqrt(13), about 3.61.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "Variance is linear, so Var(X - Y) = Var(X) + Var(Y) = 4 + 9 = 13, and the standard deviation is sqrt(13), about 3.61.",
+   "label": {
+    "failing_criteria": [
+     "variance_rule"
+    ]
+   },
+   "notes": "Right value; 'variance is linear' is false (linearity would give Var(X) - Var(Y) = -5), and independence is never used.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-ab-zero-false-proof",
+   "subject": "linear_algebra",
+   "category": "wrong_looks_right",
+   "item": {
+    "prompt": "Prove or disprove: if A and B are n x n matrices with AB = 0, then A = 0 or B = 0.",
+    "expected_answer": "False. Take A = B = [[0, 1], [0, 0]]: then AB = 0 but neither matrix is zero.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "decision",
+      "description": "Decides correctly whether the statement holds.",
+      "points": 2
+     },
+     {
+      "id": "support",
+      "description": "Supports the decision with a valid proof or counterexample.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "True. Suppose B != 0. Then some column b of B is nonzero, and the corresponding column of AB is Ab, so Ab = 0. Since A sends the nonzero vector b to zero and a matrix that sends a nonzero vector to zero is the zero matrix, A = 0. Hence A = 0 or B = 0.",
+   "label": {
+    "failing_criteria": [
+     "decision",
+     "support"
+    ]
+   },
+   "notes": "Fluent but false: a matrix can send a nonzero vector to zero without being zero (any singular matrix).",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-singular-matrices-subspace",
+   "subject": "linear_algebra",
+   "category": "wrong_looks_right",
+   "item": {
+    "prompt": "Is the set of singular n x n real matrices (n >= 2) a subspace of the space of all n x n matrices? Prove your answer.",
+    "expected_answer": "No. It is not closed under addition: diag(1, 0, ..., 0) and diag(0, 1, ..., 1) are singular but their sum is the identity, which is invertible.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "zero_and_scaling",
+      "description": "Handles the zero matrix and scalar multiples correctly.",
+      "points": 1
+     },
+     {
+      "id": "addition",
+      "description": "Settles closure under addition correctly with a valid argument or counterexample.",
+      "points": 2
+     },
+     {
+      "id": "conclusion",
+      "description": "Reaches the correct conclusion.",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "Yes. The zero matrix has determinant 0, so it is singular. If A and B are singular then det(A) = det(B) = 0, so det(A + B) = det(A) + det(B) = 0 and A + B is singular. For a scalar c, det(cA) = c^n det(A) = 0, so cA is singular. The set contains zero and is closed under addition and scaling, so it is a subspace.",
+   "label": {
+    "failing_criteria": [
+     "addition",
+     "conclusion"
+    ]
+   },
+   "notes": "The zero-matrix and scaling steps are right; det(A + B) = det(A) + det(B) is false, so the conclusion is wrong.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-bayes-symmetry-false-step",
+   "subject": "probability",
+   "category": "wrong_looks_right",
+   "item": {
+    "prompt": "Let A and B be events with P(A) > 0 and P(B) > 0. Prove that if P(A | B) > P(A), then P(B | A) > P(B).",
+    "expected_answer": "P(A | B) > P(A) means P(A n B) / P(B) > P(A), i.e. P(A n B) > P(A) P(B). Dividing by P(A) > 0 gives P(A n B) / P(A) > P(B), i.e. P(B | A) > P(B).",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "rewrite",
+      "description": "Rewrites the hypothesis correctly (for example as P(A n B) > P(A) P(B)).",
+      "points": 2
+     },
+     {
+      "id": "derivation",
+      "description": "Derives the conclusion validly.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "By Bayes' rule conditioning is symmetric, so P(B | A) = P(A | B). Since P(A | B) > P(A), we get P(B | A) > P(A), and because the events play symmetric roles this is the same as P(B | A) > P(B).",
+   "label": {
+    "failing_criteria": [
+     "rewrite",
+     "derivation"
+    ]
+   },
+   "notes": "The statement is true, but this proof is not: P(B | A) = P(A | B) is false in general, and swapping P(A) for P(B) at the end is unjustified.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "pr-max-expectation-false-proof",
+   "subject": "probability",
+   "category": "wrong_looks_right",
+   "item": {
+    "prompt": "Prove or disprove: for any random variables X and Y with finite means, E[max(X, Y)] = max(E[X], E[Y]).",
+    "expected_answer": "False. Let X be +1 or -1 with probability 1/2 each and Y = -X. Then max(X, Y) = 1 always, so E[max(X, Y)] = 1, but max(E[X], E[Y]) = max(0, 0) = 0. (In general E[max(X, Y)] >= max(E[X], E[Y]).)",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "decision",
+      "description": "Decides correctly whether the statement holds.",
+      "points": 2
+     },
+     {
+      "id": "support",
+      "description": "Supports the decision with a valid proof or counterexample.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "True. The maximum is taken outcome by outcome and expectation is linear, so the expectation passes through the maximum: E[max(X, Y)] = max(E[X], E[Y]).",
+   "label": {
+    "failing_criteria": [
+     "decision",
+     "support"
+    ]
+   },
+   "notes": "Fluent but false: max is not linear, so linearity of expectation does not pass through it.",
+   "provenance": "synthetic_hand_checked"
+  },
+  {
+   "id": "la-det-required-cofactor-by-row-reduction",
+   "subject": "linear_algebra",
+   "category": "required_method_bypassed",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "Compute det(A) for A = [[1, 2, 0], [0, 1, 3], [2, 0, 1]]. Show your working and justify each step. Use cofactor expansion along the first row in your answer.",
+    "expected_answer": "Expand along the first row: det(A) = 1 * (1 * 1 - 3 * 0) - 2 * (0 * 1 - 3 * 2) + 0 * (0 * 0 - 1 * 2) = 1 - 2 * (-6) = 13.\n\n13",
+    "practice_mode": "constructed_response",
+    "required_method": {
+     "name": "cofactor expansion",
+     "criterion_ids": [
+      "method"
+     ]
+    },
+    "criteria": [
+     {
+      "id": "method",
+      "description": "Uses cofactor expansion along the first row (the method the item requires): each first-row entry times its signed 2x2 minor, summed.",
+      "points": 2
+     },
+     {
+      "id": "steps",
+      "description": "Every step that changes the matrix or the expression keeps the determinant's value (or tracks how it changes) and names the fact that justifies it.",
+      "points": 1
+     },
+     {
+      "id": "result",
+      "description": "Establishes det(A) = 13.",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "Row operations of the form R_i <- R_i + c R_j leave the determinant unchanged. R3 <- R3 - 2 R1 turns (2, 0, 1) into (0, -4, 1), so the rows are (1, 2, 0), (0, 1, 3), (0, -4, 1). Then R3 <- R3 + 4 R2 turns (0, -4, 1) into (0, 0, 13). The matrix is now upper triangular, and the determinant of a triangular matrix is the product of its diagonal entries, 1 * 1 * 13.\n\ndet(A) = 13",
+   "label": {
+    "failing_criteria": [
+     "method"
+    ]
+   },
+   "notes": "Cell 5 (required method bypassed): the statement requires cofactor expansion; the answer evaluates the determinant by row reduction instead. Every step is valid and the final answer (13) verifies, so 'steps' and 'result' earn full credit on the facts, while 'method' fails: the route itself is the evidence, no wrong step to quote. Paired with la-det-no-required-method-row-reduction."
+  },
+  {
+   "id": "la-det-no-required-method-row-reduction",
+   "subject": "linear_algebra",
+   "category": "valid_alternative",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "Compute det(A) for A = [[1, 2, 0], [0, 1, 3], [2, 0, 1]]. Show your working and justify each step.",
+    "expected_answer": "Expand along the first row: det(A) = 1 * (1 * 1 - 3 * 0) - 2 * (0 * 1 - 3 * 2) + 0 * (0 * 0 - 1 * 2) = 1 - 2 * (-6) = 13.\n\n13",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "steps",
+      "description": "Every step that changes the matrix or the expression keeps the determinant's value (or tracks how it changes) and names the fact that justifies it.",
+      "points": 2
+     },
+     {
+      "id": "result",
+      "description": "Establishes det(A) = 13.",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "Row operations of the form R_i <- R_i + c R_j leave the determinant unchanged. R3 <- R3 - 2 R1 turns (2, 0, 1) into (0, -4, 1), so the rows are (1, 2, 0), (0, 1, 3), (0, -4, 1). Then R3 <- R3 + 4 R2 turns (0, -4, 1) into (0, 0, 13). The matrix is now upper triangular, and the determinant of a triangular matrix is the product of its diagonal entries, 1 * 1 * 13.\n\ndet(A) = 13",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "Cell 1 (checkable valid alternative): the same mathematics as la-det-required-cofactor-by-row-reduction without a required method, and criteria phrased by the fact each step establishes. Row reduction is valid and the final answer verifies: any valid method passes."
+  },
+  {
+   "id": "pr-at-least-one-six-required-inclusion-exclusion-by-complement",
+   "subject": "probability",
+   "category": "required_method_bypassed",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "A fair die is rolled four times. Derive the probability of at least one six, and justify each step. Use inclusion-exclusion over the events E_i = 'roll i is a six' in your answer.",
+    "expected_answer": "Let E_i be 'roll i is a six'. By inclusion-exclusion, P(union) = 4(1/6) - 6(1/36) + 4(1/216) - 1/1296 = 671/1296, about 0.518.",
+    "practice_mode": "constructed_response",
+    "required_method": {
+     "name": "inclusion-exclusion",
+     "criterion_ids": [
+      "method"
+     ]
+    },
+    "criteria": [
+     {
+      "id": "method",
+      "description": "Uses inclusion-exclusion over the events E_i (the method the item requires): the alternating sum of the probabilities of their intersections.",
+      "points": 2
+     },
+     {
+      "id": "independence",
+      "description": "Justifies each probability it multiplies by the independence of the rolls.",
+      "points": 1
+     },
+     {
+      "id": "value",
+      "description": "Reaches 671/1296 (about 0.518).",
+      "points": 1
+     }
+    ]
+   },
+   "answer": "The complement of 'at least one six' is 'no six in any of the four rolls'. The rolls are independent and each misses six with probability 5/6, so P(no six) = (5/6)^4 = 625/1296. Therefore P(at least one six) = 1 - 625/1296 = 671/1296, about 0.518.",
+   "label": {
+    "failing_criteria": [
+     "method"
+    ]
+   },
+   "notes": "Cell 5 (required method bypassed): the statement requires inclusion-exclusion; the answer uses the complement (1 - (5/6)^4), a valid route that reaches 671/1296. 'independence' (it multiplies by independence) and 'value' earn full credit; 'method' fails on the route alone. Paired with pr-at-least-one-six-no-required-method-complement."
+  },
+  {
+   "id": "pr-at-least-one-six-no-required-method-complement",
+   "subject": "probability",
+   "category": "valid_alternative",
+   "provenance": "synthetic_hand_checked",
+   "item": {
+    "prompt": "A fair die is rolled four times. Derive the probability of at least one six, and justify each step.",
+    "expected_answer": "Let E_i be 'roll i is a six'. By inclusion-exclusion, P(union) = 4(1/6) - 6(1/36) + 4(1/216) - 1/1296 = 671/1296, about 0.518.",
+    "practice_mode": "constructed_response",
+    "criteria": [
+     {
+      "id": "derivation",
+      "description": "Expresses P(at least one six) through probabilities it evaluates correctly, justifying each probability it multiplies by the independence of the rolls.",
+      "points": 2
+     },
+     {
+      "id": "value",
+      "description": "Reaches 671/1296 (about 0.518).",
+      "points": 2
+     }
+    ]
+   },
+   "answer": "The complement of 'at least one six' is 'no six in any of the four rolls'. The rolls are independent and each misses six with probability 5/6, so P(no six) = (5/6)^4 = 625/1296. Therefore P(at least one six) = 1 - 625/1296 = 671/1296, about 0.518.",
+   "label": {
+    "failing_criteria": []
+   },
+   "notes": "The same mathematics as pr-at-least-one-six-required-inclusion-exclusion-by-complement without a required method, criteria phrased by fact: the complement route is valid, so any valid method passes."
+  }
+ ]
+}

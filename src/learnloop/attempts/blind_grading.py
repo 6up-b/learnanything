@@ -424,7 +424,8 @@ _BLIND_TASK = (
 
 def blind_prompt_version(context: BlindGradingContext) -> str:
     """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one, plus
-    ``+own-route-v1`` when the policy carries the own-route rules (mvp-0.20);
+    ``+own-route-v1`` when the policy carries the own-route rules (mvp-0.20)
+    or ``+own-route-v2`` when it carries the method-explicit successor's;
     any of them with the ``+stuck-v1`` suffix when the answer came from "I'm
     stuck"."""
 
@@ -433,12 +434,13 @@ def blind_prompt_version(context: BlindGradingContext) -> str:
     else:
         from learnloop.attempts.grading_support import (
             REFERENCE_POLICY_PROMPT_VERSION,
-            ROUTE_RULES_SUFFIX,
+            route_rules_suffix,
         )
 
         version = REFERENCE_POLICY_PROMPT_VERSION
-        if context.reference_policy.get("route_rules"):
-            version = f"{version}{ROUTE_RULES_SUFFIX}"
+        rules = context.reference_policy.get("route_rules")
+        if rules:
+            version = f"{version}{route_rules_suffix(str(rules))}"
     if context.answer_prompt is not None:
         version = f"{version}{STUCK_PROMPT_VERSION_SUFFIX}"
     return version
@@ -451,11 +453,12 @@ def blind_grading_prompt(context: BlindGradingContext) -> str:
 
     task = _BLIND_TASK
     if context.reference_policy is not None:
-        from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES, ROUTE_RULES
+        from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES, route_rules_text
 
         task = f"{task} {REFERENCE_POLICY_RULES}"
-        if context.reference_policy.get("route_rules"):
-            task = f"{task} {ROUTE_RULES}"
+        rules = context.reference_policy.get("route_rules")
+        if rules:
+            task = f"{task} {route_rules_text(str(rules))}"
     if context.answer_prompt is not None:
         task = f"{task} {STUCK_PROMPT_RULES}"
     return render_structured_prompt(

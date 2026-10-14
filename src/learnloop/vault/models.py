@@ -658,6 +658,29 @@ class ActivityFamily(VaultModel):
     updated_at: str
 
 
+class RequiredMethod(VaultModel):
+    """The method an item's own statement requires (owner rule, 2026-10-13).
+
+    Rubric criteria name the FACT a step establishes, not the METHOD used to
+    establish it. The one exception is an item whose point IS a method: its
+    target learning object, facet or concept is that method or technique. Such
+    an item states the method in its prompt ("Use {name} in your answer.";
+    ``learnloop.vault.required_method``), and only the criteria listed in
+    ``criterion_ids`` may grade use of it. From the method-explicit successor
+    on, the grader grades those criteria on use of the method; every other
+    criterion stays graded by the fact it establishes, on any valid route.
+
+    ``learning_object_id``, ``concept_id`` and ``facet_id`` link the method to
+    the target it serves when that is known.
+    """
+
+    name: str = Field(min_length=1)
+    criterion_ids: list[str] = Field(default_factory=list)
+    learning_object_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    concept_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    facet_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
 class CanonicalExercise(VaultModel):
     """The textbook exercise a practice item presents (canonical sources S1, §7.4).
 
@@ -748,6 +771,12 @@ class PracticeItem(VaultModel):
     laddered_stem: LadderedStemContract | None = None
     repair_targets: list[str] = Field(default_factory=list)
     grading_rubric: Rubric | None = None
+    # Owner rule 2026-10-13 (method-explicit items): the method this item's
+    # statement requires, when its target IS that method. Omitted when null,
+    # so items without one serialize (and hash) exactly as before.
+    required_method: RequiredMethod | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     # Learner-owned lifecycle (Andy: readers control the prompts they collect).
     # `retired` items keep every attempt/evidence row but are never served again;
     # state_sync deactivates their scheduler state on the next sync.

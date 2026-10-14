@@ -14,6 +14,18 @@ P2's four cells:
    full credit on every labelled failing criterion of cells 3-4 **wrongly
    accepts**.
 
+Harness v4 (method-explicit items, owner rule 2026-10-13) adds a fifth cell:
+
+5. ``required_method_bypassed`` - an item whose statement requires a method
+   (``item.required_method``: its name and the criteria that grade use of
+   it) answered correctly by ANOTHER valid method. A correct judge fails the
+   method criteria (labelled ``failing_criteria``) and gives every other
+   criterion full credit on the facts. Full credit on a method criterion is a
+   **wrong acceptance** (the requirement was not enforced); a mark-down of any
+   other criterion is a **wrong rejection** (a valid route marked down). Each
+   such case is paired with the same mathematics WITHOUT a required method, a
+   cell 1-2 valid alternative that any valid method passes.
+
 A case's cell follows from its category and the deterministic final-answer
 check. Each case names its provenance: ``synthetic_hand_checked`` (written
 for the harness and checked by hand) or ``real_trace`` (a learner's own text,
@@ -27,7 +39,8 @@ so a harder gold set can show whether a second model is ever worth adding
 back):
 
 * ``grader`` - the learner-blind grader with the production prompt (mvp-2.1's
-  reference policy plus mvp-0.20's own-route rules) on its raw output, under
+  reference policy plus the own-route rules at their latest version,
+  ``own-route-v2``, with the item's required method) on its raw output, under
   each requested **arm** (R2's crossed factors, review F8): the reference
   shown or withheld (``solve_first``, C2), crossed with the final-answer check
   shown to the grader or withheld from it (the deterministic rules still apply
@@ -36,7 +49,8 @@ back):
 * ``gate`` - the same grade along the production decision path (review F6):
   PF-c's gate, then the own-route rule with the deterministic final-answer
   status and the grader's own divergent-route reading (a mark-down on a
-  divergent route that quotes nothing is unassessed).
+  divergent route that quotes nothing is unassessed, except a required
+  method's criterion, whose evidence is the route).
 
 ``--repeats N`` runs every call N times as separately identified fresh
 repetitions (each its own checkpoint, so a rerun resumes rather than reusing
@@ -80,9 +94,11 @@ from learnloop.attempts.blind_grading import (
 )
 from learnloop.attempts.grading import build_grading_context
 from learnloop.attempts.grading_support import (
+    METHOD_ROUTE_RULES_VERSION,
     apply_route_rule,
     apply_valid_alternative_gate,
     blind_result_model,
+    policy_method_criteria,
     reference_policy,
 )
 from learnloop.db.repositories import Repository
@@ -97,11 +113,21 @@ from learnloop.vault.paths import VaultPaths
 
 #: v3 (route-check-in-grader): the grader alone, with the own-route rules; the
 #: checker and item-kind roles and the (grader, checker) pairs are gone.
-HARNESS_VERSION = "grading-hardcases-v3"
-CATEGORIES = ("valid_alternative", "correct_flawed", "wrong_looks_right")
-#: P2's four cells, in order.
-CELLS = ("valid_alternative_checkable", "valid_alternative_proof", "correct_flawed", "wrong_looks_right")
+#: v4 (method-explicit items): the production rules are ``own-route-v2`` with
+#: the item's required method, and the ``required_method_bypassed`` cell.
+HARNESS_VERSION = "grading-hardcases-v4"
+#: The own-route rules the production path runs (the latest successor's).
+PRODUCTION_ROUTE_RULES = METHOD_ROUTE_RULES_VERSION
+CATEGORIES = ("valid_alternative", "correct_flawed", "wrong_looks_right", "required_method_bypassed")
+#: P2's four cells, in order, then the method-explicit cell.
+CELLS = (
+    "valid_alternative_checkable", "valid_alternative_proof", "correct_flawed", "wrong_looks_right",
+    "required_method_bypassed",
+)
 VALID_CELLS = frozenset(CELLS[:2])
+#: Cells whose labelled criteria a correct judge marks down (wrong acceptance).
+FAILING_CELLS = frozenset(CELLS[2:4])
+METHOD_CELL = "required_method_bypassed"
 PROVENANCES = ("synthetic_hand_checked", "real_trace")
 #: P2: "cells 3 and 4 come from real traces".
 REAL_TRACE_CELLS = ("correct_flawed", "wrong_looks_right")
@@ -125,7 +151,7 @@ HARDCASE_ROUTES = {"grader": "grading"}
 LEDGER_TASKS = {role: f"grading_hardcase_{role}" for role in ROLES}
 CASE_KIND = "grading_hardcase"
 #: Where the tracked gold set lives (the repository's fixtures directory).
-DEFAULT_CASES = Path(__file__).resolve().parents[3] / "fixtures" / "grading_hardcases" / "cases_v2.json"
+DEFAULT_CASES = Path(__file__).resolve().parents[3] / "fixtures" / "grading_hardcases" / "cases_v3.json"
 EEDI_MAP_NOTE = (
     "Eedi and Vanderbilt's Kaggle set 'MAP - Charting Student Math Misunderstandings' (2025) "
     "labels each student explanation of a multiple-choice answer True/False x Correct/"
@@ -162,6 +188,9 @@ class HardCase:
             "rubric": self.rubric.model_dump(mode="json"), "answer": self.answer,
             "failing": list(self.failing), "category": self.category,
         }
+        if self.item.required_method is not None:
+            # Only a case that has one names it, so every earlier case keeps its key.
+            payload["required_method"] = self.item.required_method.model_dump(mode="json")
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
         return f"{self.id}@{digest[:16]}"
 
@@ -172,8 +201,22 @@ def _cell(category: str, final_status: str) -> str:
     return category
 
 
+def method_criteria(case: "HardCase") -> tuple[str, ...]:
+    """The criteria a case's required method grades on use of the method."""
+
+    method = case.item.required_method
+    return tuple(method.criterion_ids) if method is not None else ()
+
+
 def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
-    """The gold set, validated: labels name real criteria, valid cases none."""
+    """The gold set, validated: labels name real criteria, valid cases none.
+
+    A ``required_method_bypassed`` case carries ``item.required_method``; its
+    prompt states the method, its labelled criteria are exactly the method's
+    criteria, and its answer's final answer matches the reference (another
+    VALID method). Any other case may carry a required method only as a valid
+    alternative that uses it.
+    """
 
     source = Path(path) if path is not None else DEFAULT_CASES
     payload = json.loads(source.read_text(encoding="utf-8"))
@@ -201,6 +244,7 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             "prompt": item_raw["prompt"],
             "expected_answer": item_raw["expected_answer"],
             "grading_rubric": rubric.model_dump(mode="json"),
+            **({"required_method": item_raw["required_method"]} if item_raw.get("required_method") else {}),
             "created_at": "2026-10-13T00:00:00Z",
             "updated_at": "2026-10-13T00:00:00Z",
         })
@@ -210,10 +254,23 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             raise ValueError(f"{case_id}: failing criteria {sorted(set(failing) - criterion_ids)} not in its rubric")
         if (category == "valid_alternative") != (not failing):
             raise ValueError(f"{case_id}: a valid alternative fails no criterion; every other case fails one")
+        method = item.required_method
+        if method is not None:
+            from learnloop.vault.required_method import prompt_states_method
+
+            if not prompt_states_method(item.prompt, method.name):
+                raise ValueError(f"{case_id}: its prompt does not state its required method {method.name!r}")
+            if set(method.criterion_ids) - criterion_ids:
+                raise ValueError(f"{case_id}: required method criteria not in its rubric")
+        if category == "required_method_bypassed":
+            if method is None or not method.criterion_ids:
+                raise ValueError(f"{case_id}: a required_method_bypassed case names its required method's criteria")
+            if set(failing) != set(method.criterion_ids):
+                raise ValueError(f"{case_id}: a required_method_bypassed case fails exactly its method criteria")
         answer = str(raw["answer"])
         status = str(final_answer_check(answer, item.expected_answer).get("status"))
-        if category == "valid_alternative" and status == "differs_from_reference":
-            raise ValueError(f"{case_id}: a valid alternative's final answer differs from the reference")
+        if category in ("valid_alternative", "required_method_bypassed") and status == "differs_from_reference":
+            raise ValueError(f"{case_id}: a valid route's final answer differs from the reference")
         cases.append(HardCase(
             case_id, str(raw.get("subject", "")), category, item, rubric, answer, failing,
             final_answer_status=status, cell=_cell(category, status), provenance=provenance,
@@ -248,11 +305,13 @@ def gold_set_coverage(cases: Sequence[HardCase]) -> dict[str, Any]:
 
 
 def case_context(vault: LoadedVault, case: HardCase, arm: str = PRODUCTION_ARM) -> BlindGradingContext:
-    """The blind grading context as the live door builds it at mvp-0.20
-    (``attempts._blind_grading_plan``): C2 verifier observations and PF-c's
-    reference policy with the own-route rules (live grading drops the policy
-    only when ``diagnosis.grading_support`` is off, and the rules when
-    ``proof_check.enabled`` is), varied by ``arm``:
+    """The blind grading context as the live door builds it at the latest
+    successor (``attempts._blind_grading_plan``): C2 verifier observations and
+    PF-c's reference policy with the own-route rules (``own-route-v2``, with
+    the item's required method; live grading drops the policy only when
+    ``diagnosis.grading_support`` is off, the rules when
+    ``proof_check.enabled`` is, and their required-method part when
+    ``required_method.enabled`` is), varied by ``arm``:
 
     * ``solve_first`` - the reference solution is withheld (the policy says
       ``absent``, so the grader writes its own expected answer first);
@@ -265,7 +324,7 @@ def case_context(vault: LoadedVault, case: HardCase, arm: str = PRODUCTION_ARM) 
     joint = build_grading_context(
         vault, case.item, attempt_id=f"hardcase:{case.id}", learner_answer_md=case.answer, rubric=case.rubric,
     )
-    policy = reference_policy(case.item, case.answer, route_rules=True)
+    policy = _production_policy(case)
     observations = diagnostic_verifier_observations(case.answer, joint.expected_answer)
     if reference == "solve_first":
         policy = {**policy, "reference_status": "absent"}
@@ -278,6 +337,15 @@ def case_context(vault: LoadedVault, case: HardCase, arm: str = PRODUCTION_ARM) 
     if reference == "solve_first":
         context = replace(context, expected_answer="", error_hunt_solution=None)
     return context
+
+
+def _production_policy(case: HardCase) -> dict[str, Any]:
+    """PF-c's policy with the production own-route rules and the item's required method."""
+
+    return reference_policy(
+        case.item, case.answer, route_rules=PRODUCTION_ROUTE_RULES,
+        rubric_criterion_ids=[criterion.id for criterion in case.rubric.criteria],
+    )
 
 
 def _split_arm(arm: str) -> tuple[str, str]:
@@ -399,8 +467,23 @@ def judge_outcome(case: HardCase, states: Mapping[str, str]) -> str:
     ``unassessed`` (none marked down, some unassessed) or ``correct``. The
     others: ``wrong_acceptance`` (every labelled failing criterion at full
     credit), ``unassessed`` (none caught, some unassessed) or ``caught``.
+
+    A required method bypassed: ``wrong_acceptance`` (a method criterion at
+    full credit: the requirement was not enforced), else ``wrong_rejection``
+    (a criterion other than the method's marked down: a valid route's fact
+    rejected), else ``unassessed`` (a method criterion unassessed), else
+    ``caught`` (every method criterion failed, every fact credited).
     """
 
+    if case.category == "required_method_bypassed":
+        method = set(case.failing)
+        if any(states.get(cid, "short") == "full" for cid in method):
+            return "wrong_acceptance"
+        if any(state == "short" for cid, state in states.items() if cid not in method):
+            return "wrong_rejection"
+        if any(states.get(cid, "short") == "unassessed" for cid in method):
+            return "unassessed"
+        return "caught"
     if case.category == "valid_alternative":
         if any(state == "short" for state in states.values()):
             return "wrong_rejection"
@@ -412,14 +495,27 @@ def judge_outcome(case: HardCase, states: Mapping[str, str]) -> str:
 
 
 def _summary(cases: Sequence[HardCase], outcomes: Mapping[str, str | None]) -> dict[str, Any]:
+    """The headline rates (cells 1-2 and 3-4, as before) and the method cell's own.
+
+    The required-method cell is reported apart (``required_method``): its
+    wrong acceptance is an unenforced requirement and its wrong rejection a
+    valid route's fact marked down, so it never moves the P2 rates.
+    """
+
     valid = [c for c in cases if c.cell in VALID_CELLS and outcomes.get(c.id) is not None]
-    bad = [c for c in cases if c.cell not in VALID_CELLS and outcomes.get(c.id) is not None]
+    bad = [c for c in cases if c.cell in FAILING_CELLS and outcomes.get(c.id) is not None]
+    method = [c for c in cases if c.cell == METHOD_CELL and outcomes.get(c.id) is not None]
     by_cell: dict[str, dict[str, int]] = defaultdict(Counter)
     for case in cases:
         by_cell[case.cell][outcomes.get(case.id) or "failed"] += 1
     return {
         "wrong_rejection": _rate(sum(outcomes[c.id] == "wrong_rejection" for c in valid), len(valid)),
         "wrong_acceptance": _rate(sum(outcomes[c.id] == "wrong_acceptance" for c in bad), len(bad)),
+        "required_method": {
+            "enforced": _rate(sum(outcomes[c.id] == "caught" for c in method), len(method)),
+            "not_enforced": _rate(sum(outcomes[c.id] == "wrong_acceptance" for c in method), len(method)),
+            "fact_rejected": _rate(sum(outcomes[c.id] == "wrong_rejection" for c in method), len(method)),
+        },
         "unassessed": sum(outcomes.get(c.id) == "unassessed" for c in cases),
         "failed_cases": sum(outcomes.get(c.id) is None for c in cases),
         "by_cell": {cell: dict(sorted(by_cell[cell].items())) for cell in CELLS if cell in by_cell},
@@ -456,19 +552,23 @@ def gate_states(
     shown), then the own-route rule
     (``attempts.grading_support.apply_route_rule``) with the grader's own
     divergent-route reading, as ``request_blind_grading_run`` applies them
-    (review F6). The status is ``held`` (nothing assessed, nothing
+    (review F6), the item's required-method criteria exempt from both on a
+    divergent route. The status is ``held`` (nothing assessed, nothing
     validated), ``unlocated`` (a mark-down left unassessed) or ``unchanged``.
     """
 
-    policy = reference_policy(case.item, case.answer, route_rules=True)
+    policy = _production_policy(case)
+    method_ids = policy_method_criteria(policy)
     pfc = apply_valid_alternative_gate(
         grader_raw, rubric=case.rubric, learner_answer_md=case.answer, policy=policy,
         declared_unverified=declared_unverified,
+        method_criterion_ids=method_ids if divergent_route else (),
     )
     rule = apply_route_rule(
         pfc.proposal, rubric=case.rubric, learner_answer_md=case.answer,
         final_answer_status=case.final_answer_status, divergent_route=divergent_route,
         unverified_before=pfc.unverified_criterion_ids, declared_unverified=declared_unverified,
+        method_criterion_ids=method_ids,
     )
     points = {row.criterion_id: float(row.points_awarded) for row in rule.proposal.criterion_evidence}
     status = "held" if rule.held_for_review else ("unlocated" if rule.applied else "unchanged")
@@ -759,7 +859,8 @@ def write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]:
                   f"{billed.get('metered', {}).get('requests')} requests; subscription requests "
                   f"{billed.get('subscription', {}).get('requests')} (estimated only).", ""]
     lines += ["| Judge | Route | Model | Wrong rejection (cells 1-2) | Wrong acceptance (cells 3-4) | "
-              "Unassessed | Failed | Changed across repeats |", "|---|---|---|---|---|---|---|---|"]
+              "Required method enforced (cell 5) | Unassessed | Failed | Changed across repeats |",
+              "|---|---|---|---|---|---|---|---|---|"]
 
     def cell(rate: Mapping[str, Any] | None) -> str:
         if not rate or not rate.get("n"):
@@ -772,14 +873,16 @@ def write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]:
             if role == "model":
                 continue
             noise = (summary.get("noise_floor") or {}).get("changed")
+            method = (summary.get("required_method") or {}).get("enforced")
             lines.append(f"| {role} | {route} | {values.get('model')} | {cell(summary['wrong_rejection'])} | "
-                         f"{cell(summary['wrong_acceptance'])} | {summary['unassessed']} | "
+                         f"{cell(summary['wrong_acceptance'])} | {cell(method)} | {summary['unassessed']} | "
                          f"{summary['failed_cases']} | {cell(noise)} |")
     for label, summary in (report.get("gate") or {}).items():
         noise = (summary.get("noise_floor") or {}).get("changed")
+        method = (summary.get("required_method") or {}).get("enforced")
         lines.append(f"| gate | {label} | rule={summary.get('rule')} | "
                      f"{cell(summary['wrong_rejection'])} | {cell(summary['wrong_acceptance'])} | "
-                     f"{summary['unassessed']} | {summary['failed_cases']} | {cell(noise)} |")
+                     f"{cell(method)} | {summary['unassessed']} | {summary['failed_cases']} | {cell(noise)} |")
     lines += ["", "Eedi MAP: " + str(report.get("eedi_map_note")), ""]
     markdown_path.write_text("\n".join(lines), encoding="utf-8")
     return {"json": str(json_path), "markdown": str(markdown_path)}
@@ -794,13 +897,16 @@ __all__ = [
     "HARNESS_VERSION",
     "HardCase",
     "LEDGER_TASKS",
+    "METHOD_CELL",
     "PRODUCTION_ARM",
+    "PRODUCTION_ROUTE_RULES",
     "PROVENANCES",
     "case_context",
     "gate_states",
     "gold_set_coverage",
     "judge_outcome",
     "load_cases",
+    "method_criteria",
     "run_hardcases",
     "write_report",
 ]

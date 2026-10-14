@@ -201,9 +201,14 @@ def _item_context(item: PracticeItem, vault: LoadedVault | None = None) -> dict[
     """Item-side material only; the resolved rubric (item or practice-mode default)."""
     resolved = vault.rubric_for_item(item) if vault is not None else item.grading_rubric
     rubric = resolved.model_dump(mode="json") if resolved is not None else None
-    return {"id": item.id, "prompt": item.prompt, "expected_answer": item.expected_answer,
-            "practice_mode": item.practice_mode, "rubric": rubric,
-            "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract else None}
+    context = {"id": item.id, "prompt": item.prompt, "expected_answer": item.expected_answer,
+               "practice_mode": item.practice_mode, "rubric": rubric,
+               "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract else None}
+    if item.required_method is not None:
+        # Method-explicit items: shown only when set, so every other parent's
+        # context (and its checkpoint keys) is unchanged.
+        context["required_method"] = item.required_method.model_dump(mode="json")
+    return context
 
 
 def _family_context(family: ActivityFamily) -> dict[str, Any]:

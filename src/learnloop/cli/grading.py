@@ -135,7 +135,7 @@ def grading_receipt(
 def grading_hardcases(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts and checkpoints are written there).")],
     route: Annotated[list[str], typer.Option("--route", help="A configured [ai.providers.*] profile to score as the grader; repeatable. Each is also scored along the production path (PF-c's gate and the own-route rule).")],
-    cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v2.json).")] = None,
+    cases: Annotated[Path | None, typer.Option("--cases", help="Gold-set JSON (default: fixtures/grading_hardcases/cases_v3.json).")] = None,
     ablations: Annotated[bool, typer.Option("--ablations", help="Grade under all four R2 arms: the reference shown or solve-first, crossed with the final-answer check shown to the grader or withheld (the gate still applies it). Default: the production arm only.")] = False,
     repeats: Annotated[int, typer.Option("--repeats", min=1, help="Fresh, separately identified repetitions of every call; 2 or more report a repeat-run noise floor.")] = 1,
     output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Report destination.")] = Path("fixtures-local/reports/grading-hardcases"),
@@ -153,8 +153,10 @@ def grading_hardcases(
 
     The gold set fills P2's four cells: valid alternatives with a checkable
     answer, valid alternative proofs, correct answers with flawed reasoning
-    and wrong proofs that look right (linear algebra, probability); reports
-    label it synthetic smoke coverage until real traces fill cells 3-4. Each
+    and wrong proofs that look right (linear algebra, probability), plus a
+    fifth: items requiring a method answered by another valid method (the
+    method criteria fail, the facts pass), reported apart; reports label it
+    synthetic smoke coverage until real traces fill cells 3-4. Each
     --route is scored as the blind grader alone, with the production prompt
     (the own-route rules in the grader's one call), on its raw output and
     along the production path (PF-c's gate and the own-route rule). Every
@@ -203,5 +205,75 @@ def grading_hardcases(
         typer.echo(_dump(summary))
     if report["status"] not in {"complete", "dry_run"}:
         raise typer.Exit(code=1)
+
+@grading_app.command("method-phrasing")
+def grading_method_phrasing(
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    judge: Annotated[str, typer.Option("--judge", help="auto (the Decider, else the LLM judge, else the heuristic: the first that is ready), decider, llm or heuristic.")] = "auto",
+    item: Annotated[list[str] | None, typer.Option("--item", help="Read only this practice item; repeatable. Default: every active item with its own rubric.")] = None,
+    propose: Annotated[bool, typer.Option("--propose", help="Persist the repairs as one pending proposal (never auto-applied; review with `learnloop proposals`).")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan the judge's requests and show the heuristic's flags; build no client and send nothing.")] = False,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend.")] = 0.50,
+    max_calls: Annotated[int | None, typer.Option("--max-calls", min=0, help="Cap on requests (default: two per item).")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for a metered LLM judge (an upper bound); the Decider's listed price is known.")] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir", help="Also write the JSON report here.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Rubric criteria phrased by method, and their repair proposals.
+
+    Owner rule 2026-10-13: a criterion names the fact a step establishes, not
+    the method used; a method is required only when the item's target is that
+    method, and the item's statement then says "Use {method} in your
+    answer.". The judge is the Decider (ai.routing.rubric_phrasing_judge, or
+    the code-default openrouter_decider), else the LLM judge, else the
+    conservative heuristic; the report says which. --propose drafts one
+    update per item through the normal proposal/confirm path: rephrase the
+    criterion by fact, or add the required method and its instruction when
+    the item's target really is that method. Nothing is applied until you
+    accept it. --dry-run first; spend is admitted before every request.
+    """
+
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.cli.embeddings import _cancellation
+    from learnloop.content.proposals.method_phrasing import candidate_items, default_caps, run_method_phrasing, write_report
+    from learnloop.vault.loader import load_vault
+
+    root = _root(vault)
+    try:
+        loaded = load_vault(root, load_environment=not dry_run)
+        items = candidate_items(loaded, item or None)
+        base = default_caps(len(items))
+        caps = SpendCaps(
+            max_candidates=0, max_pairs=0, max_retries=base.max_retries,
+            max_calls=base.max_calls if max_calls is None else max_calls,
+            max_total_tokens=base.max_total_tokens, max_estimated_usd=max_cost_usd,
+        )
+        with _cancellation() as stop:
+            report = run_method_phrasing(
+                loaded, judge=judge, item_ids=item or None, propose=propose, dry_run=dry_run, caps=caps,
+                price_per_million=price_per_million, cancelled=stop.is_set,
+            )
+        if output_dir is not None:
+            report["reports"] = write_report(report, output_dir)
+    except ValueError as exc:
+        typer.echo(_dump({"status": "invalid", "reason": str(exc)}))
+        raise typer.Exit(code=1) from exc
+    except RuntimeError as exc:  # a forced judge that is not ready
+        typer.echo(_dump({"status": "unavailable", "reason": str(exc), "error_type": type(exc).__name__}))
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(_dump(report))
+        return
+    summary = {
+        key: report.get(key)
+        for key in ("status", "judge", "judge_plan", "items", "criteria", "flagged_items", "proposal_id", "failures")
+        if key in report
+    }
+    summary["flagged"] = [
+        f"{row['item_id']}#{row['criterion_id']}: {row.get('method') or 'method'}"
+        for row in report.get("flagged") or report.get("heuristic_flags") or []
+    ]
+    typer.echo(_dump(summary))
+
 
 __all__ = [name for name in globals() if not name.startswith("__")]

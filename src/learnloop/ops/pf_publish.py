@@ -38,6 +38,7 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.item_fingerprints import render_expected_answer
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
+from learnloop.vault.required_method import inherit_required_method
 from learnloop.vault.models import ActivityFamily, LoadedVault, PracticeItem
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault_lock import vault_mutation_lock
@@ -106,7 +107,7 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     if parent.evidence_fingerprint.solution_recipe_family and relation in {"same_target", "isomorph"}:
         fingerprint["solution_recipe_family"] = parent.evidence_fingerprint.solution_recipe_family
     keep_trace = relation in {"same_target", "isomorph"}
-    return {
+    item = {
         "schema_version": parent.schema_version,
         "id": item_id,
         "learning_object_id": parent.learning_object_id,
@@ -145,6 +146,11 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
         **({"canonical_exercise": {**parent.canonical_exercise.model_dump(mode="json"), "relation": "variant_of"}}
            if getattr(parent, "canonical_exercise", None) is not None else {}),
     }
+    # Method-explicit items (owner rule 2026-10-13): the variant keeps the
+    # parent's rubric verbatim, so it keeps its required method too, and its
+    # stem states it ("Use {method} in your answer." when the stem does not).
+    inherit_required_method(item, parent)
+    return item
 
 
 def _contract_view(vault: LoadedVault, parent: PracticeItem) -> dict[str, Any]:
@@ -155,6 +161,8 @@ def _contract_view(vault: LoadedVault, parent: PracticeItem) -> dict[str, Any]:
         **{field: dumped.get(field) for field in _CONTRACT_FIELDS},
         "effective_rubric": rubric.model_dump(mode="json") if rubric is not None else None,
         "source_family": surface_group_id(parent),
+        # Only when set, so every other parent's contract view is unchanged.
+        **({"required_method": dumped["required_method"]} if dumped.get("required_method") else {}),
     }
 
 

@@ -1513,7 +1513,9 @@ def _blind_grading_plan(
     calibration identity (the scoring rules are the same). At mvp-0.20 the
     policy carries the own-route rules (kill switch ``proof_check.enabled``),
     which change the scoring rules, so they also name the calibration
-    identity (``+own-route-v1``).
+    identity (``+own-route-v1``). At the method-explicit successor they are
+    ``own-route-v2`` (kill switch ``required_method.enabled``) and the policy
+    also carries the item's ``required_method`` when it has one.
     """
 
     from learnloop.attempts.blind_grading import (
@@ -1523,23 +1525,33 @@ def _blind_grading_plan(
     )
     from learnloop.attempts.grading_support import (
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
-        ROUTE_RULES_SUFFIX,
         reference_policy,
-        route_rules_active,
+        route_rules_suffix,
+        route_rules_version,
     )
     from learnloop.diagnosis.diagnostic_augmentation import (
         diagnostic_verifier_observations,
     )
 
     support = bool(getattr(getattr(vault.config, "diagnosis", None), "grading_support", True))
-    route_rules = support and route_rules_active(vault)
+    rules = route_rules_version(vault) if support else None
+    rubric_ids = [
+        str(criterion.get("id"))
+        for criterion in (context.rubric or {}).get("criteria") or ()
+        if isinstance(criterion, dict) and criterion.get("id")
+    ]
     blind_context = blind_context_from_grading_context(
         context,
         verifier_observations=diagnostic_verifier_observations(
             context.learner_answer_md, context.expected_answer
         ),
         reference_policy=(
-            reference_policy(item, context.learner_answer_md, route_rules=route_rules) if support else None
+            reference_policy(
+                item, context.learner_answer_md, route_rules=rules or False, rubric_criterion_ids=rubric_ids,
+                # The prompt the learner answered (the assessment contract's).
+                presented_prompt=context.prompt,
+            )
+            if support else None
         ),
         answer_prompt=stuck_answer_prompt() if stuck else None,
     )
@@ -1548,7 +1560,7 @@ def _blind_grading_plan(
         context=blind_context,
         prompt_version=blind_prompt_version(blind_context),
         context_hash=blind_grading_context_hash(blind_context),
-        calibration_prompt_version=f"{calibration}{ROUTE_RULES_SUFFIX}" if route_rules else calibration,
+        calibration_prompt_version=f"{calibration}{route_rules_suffix(rules)}" if rules else calibration,
     )
 
 

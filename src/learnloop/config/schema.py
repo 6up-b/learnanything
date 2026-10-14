@@ -1215,6 +1215,13 @@ class AIRoutingConfig(BaseModel):
     router_llm: str | None = None
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
+    # Method-explicit items (owner rule 2026-10-13): the judge of `learnloop
+    # rubrics method-phrasing`, which reads whether a rubric criterion is
+    # phrased by method. A decider profile (typed choice questions) or a chat
+    # profile. Empty = the code-default openrouter_decider profile when it is
+    # ready, else ai.active_provider; with neither ready the report falls back
+    # to the conservative heuristic and says so.
+    rubric_phrasing_judge: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1874,6 +1881,25 @@ class ProofCheckConfig(BaseModel):
     enabled: bool = True
 
 
+class RequiredMethodConfig(BaseModel):
+    """Method-explicit items (owner rule 2026-10-13): the grading side.
+
+    ``enabled`` is the kill switch of the method-explicit successor
+    (``mvp-0.22-placeholder``, relabelled at its merge): the own-route rules
+    grade a criterion tied to an item's ``required_method`` on use of that
+    method (``own-route-v2``), so another route fails it without a quoted
+    wrong step. Dormant below the successor and whenever the own-route rules
+    themselves are off (``proof_check.enabled``). Off, new answers grade
+    exactly as ``mvp-0.20``. Grades already recorded keep their meaning (the
+    blind record carries the rules and the method criteria; replay never reads
+    this switch). The generation side (criteria phrased by fact) and the
+    ``criterion:method_phrased`` doctor check are content paths, not gated
+    here.
+    """
+
+    enabled: bool = True
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -2392,6 +2418,7 @@ class LearnLoopConfig(BaseModel):
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
+    required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
 
     @model_validator(mode="before")
     @classmethod

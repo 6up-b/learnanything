@@ -180,7 +180,7 @@ LEARNER_GAP_RULES_VERSION = "learner-gap-v1"
 #: merge, it is a new prompt and carries its own version.
 TUTOR_QA_TOOLS_PROMPT_VERSION = "mvp-0.10-tutor-qa-learner-gap-source-tool-requests"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
-TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.1-source-item-quest-transfer"
+TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.2-source-item-quest-transfer-criteria-by-fact"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
 TUTOR_PROMOTION_PROMPT_VERSION = "mvp-0.2-constructed-response-and-keyed-misconceptions"
 
@@ -418,7 +418,14 @@ _TEACH_BACK_AUTHORING_TASK = (
     "Write expected_answer_md as an explanation standard, not merely the final "
     "answer. Preserve context.source_trace_contract when it is reliable; otherwise "
     "compile a small checkpoint trace from the expected reasoning, or return null "
-    "when no reliable decomposition exists."
+    "when no reliable decomposition exists. "
+    "CRITERIA BY FACT (owner rule): phrase every criterion by the fact or reason the "
+    "explanation must establish (for example 'explains why a zero determinant means "
+    "the columns are dependent'), never by a particular method the learner must use "
+    "('uses cofactor expansion'): an explanation that establishes the same facts by "
+    "another valid route must be able to earn every criterion. Only when the source "
+    "item's own prompt requires a method ('Use {method} in your answer.') may a "
+    "criterion ask the learner to explain how that method establishes the result."
 )
 
 _TUTOR_QA_DIAGNOSTIC_DECISION_TASK = (
